@@ -89,11 +89,28 @@ class CMTLMetadata final : public IAssetMetadata
                 static_assert(sizeof(SMaterialParameters) == 128ull, "Something went wrong");
 
 
-                using IRenderpassIndependentPipelineMetadata::IRenderpassIndependentPipelineMetadata;
+                CRenderpassIndependentPipeline() : IRenderpassIndependentPipelineMetadata(), m_descriptorSet3(), m_materialParams(), m_name(), m_hash(0xdeadbeefu) {}
+                CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& other)
+                {
+                    operator=(std::move(other));
+                }
+                CRenderpassIndependentPipeline(
+                    core::SRange<const ShaderInputSemantic>&& _inputSemantics,
+                    core::smart_refctd_ptr<ICPUDescriptorSet>&& _descriptorSet3,
+                    const SMaterialParameters& _materialParams,
+                    std::string&& _name, const uint32_t _hash) :
+                    IRenderpassIndependentPipelineMetadata(std::move(_inputSemantics)),
+                    m_descriptorSet3(std::move(_descriptorSet3)), m_materialParams(_materialParams),
+                    m_name(std::move(_name)), m_hash(_hash)
+                {
+                }
 
                 inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
                 {
                     IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
+                    std::swap(m_descriptorSet3,other.m_descriptorSet3);
+                    std::swap(m_materialParams,other.m_materialParams);
+                    std::swap(m_name,other.m_name);
                     std::swap(m_hash,other.m_hash);
                     return *this;
                 }
@@ -108,7 +125,8 @@ class CMTLMetadata final : public IAssetMetadata
                 uint32_t m_hash;
         };
 
-        CMTLMetadata(uint32_t pplnCount) : IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(pplnCount))
+        CMTLMetadata(uint32_t pplnCount, core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage) :
+            IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(pplnCount)), m_semanticStorage(std::move(_semanticStorage))
         {
         }
 
@@ -124,22 +142,21 @@ class CMTLMetadata final : public IAssetMetadata
 
     private:
         meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
+        core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_semanticStorage;
 
         friend class CGraphicsPipelineLoaderMTL;
-        template<typename... Args>
         inline void placeMeta(
             uint32_t offset, const ICPURenderpassIndependentPipeline* ppln,
             core::smart_refctd_ptr<ICPUDescriptorSet>&& _descriptorSet3,
             const CRenderpassIndependentPipeline::SMaterialParameters& _materialParams,
-            std::string&& _name, uint32_t _hash,
-            Args&&... args)
+            std::string&& _name, uint32_t _hash)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CRenderpassIndependentPipeline(std::forward<Args>(args)...);
-            meta.m_descriptorSet3 = std::move(_descriptorSet3);
-            meta.m_materialParams = _materialParams;
-            meta.m_name = std::move(_name);
-            meta.m_hash = _hash;
+            meta = CRenderpassIndependentPipeline(
+                core::SRange<const IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(m_semanticStorage->begin(),m_semanticStorage->end()),
+                std::move(_descriptorSet3),_materialParams,
+                std::move(_name),_hash
+            );
 
             IAssetMetadata::insertAssetSpecificMetadata(ppln, &meta);
         }

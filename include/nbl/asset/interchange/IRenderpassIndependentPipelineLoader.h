@@ -22,7 +22,7 @@ class IRenderpassIndependentPipelineLoader : public IAssetLoader
 
 	protected:
 		IAssetManager* m_assetMgr;
-		core::smart_refctd_ptr<IRenderpassIndependentPipelineMetadata::semantics_container_t> m_basicViewParamsSemantics;
+		core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_basicViewParamsSemantics;
 
 		inline IRenderpassIndependentPipelineLoader(IAssetManager* _am) : m_assetMgr(_am) {}
 		virtual ~IRenderpassIndependentPipelineLoader() = 0;

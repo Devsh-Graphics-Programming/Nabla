@@ -20,30 +20,17 @@ class IMeshMetadata : public core::Interface
 		{
 			core::matrix3x4SIMD worldTform;
 		};
-		using instances_container_t = core::refctd_dynamic_array<SInstance>;
-
-		//!
-		inline IMeshMetadata() : m_instances(nullptr) {}
-		inline IMeshMetadata(core::smart_refctd_ptr<instances_container_t>&& _instances) : m_instances(std::move(_instances)) {}
-
-		//!
-		inline core::SRange<const SInstance> getInstances() const
-		{
-			if (m_instances)
-				return {m_instances->begin(),m_instances->end()};
-			return {nullptr,nullptr};
-		}
+		core::SRange<const SInstance> m_instances;
 
 	protected:
+		IMeshMetadata() = default;
 		virtual ~IMeshMetadata() = default;
 
 		inline IMeshMetadata& operator=(IMeshMetadata&& other)
 		{
-			std::swap(m_instances,other.m_instances);
+			m_instances = other.m_instances;
 			return *this;
 		}
-
-		core::smart_refctd_ptr<instances_container_t> m_instances;
 };
 
 }

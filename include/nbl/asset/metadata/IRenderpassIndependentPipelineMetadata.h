@@ -159,32 +159,19 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 			E_COMMON_SHADER_INPUT type;
 			ShaderInput descriptorSection;
 		};
-		using semantics_container_t = core::refctd_dynamic_array<ShaderInputSemantic>;
-
-		//!
-		IRenderpassIndependentPipelineMetadata() : m_inputSemantics(nullptr) {}
-		IRenderpassIndependentPipelineMetadata(core::smart_refctd_ptr<semantics_container_t>&& _inputSemantics) : m_inputSemantics(std::move(_inputSemantics)) {}
-
-		//!
-		inline core::SRange<const ShaderInputSemantic> getRequiredShaderInputs() const
-		{
-			if (m_inputSemantics)
-				return {m_inputSemantics->begin(),m_inputSemantics->end()};
-			return {nullptr,nullptr};
-		}
+		core::SRange<const ShaderInputSemantic> m_inputSemantics;
 
 	protected:
+		IRenderpassIndependentPipelineMetadata() : m_inputSemantics(nullptr,nullptr) {}
+		IRenderpassIndependentPipelineMetadata(core::SRange<const ShaderInputSemantic>&& _inputSemantics) : m_inputSemantics(std::move(_inputSemantics)) {}
 		virtual ~IRenderpassIndependentPipelineMetadata() = default;
 
 		//!
 		inline IRenderpassIndependentPipelineMetadata& operator=(IRenderpassIndependentPipelineMetadata&& other)
 		{
-			std::swap(m_inputSemantics,other.m_inputSemantics);
+			m_inputSemantics = std::move(other.m_inputSemantics);
 			return *this;
 		}
-
-		// members
-		core::smart_refctd_ptr<semantics_container_t> m_inputSemantics;
 };
 
 
