@@ -24,7 +24,7 @@ float nbl_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float lambda_V, in floa
     return nbl_glsl_microfacet_to_light_measure_transform((transmitted ? (1.0-reflectance):reflectance)*ndf/onePlusLambda_V,absNdotV,transmitted,VdotH,LdotH,VdotHLdotH,orientedEta);
 }
 
-
+// for when you know the NDF and the uncorrelated smith masking function
 float nbl_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float G1_over_2NdotV)
 {
     return ndf*0.5*G1_over_2NdotV;

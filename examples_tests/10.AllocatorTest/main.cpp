@@ -106,6 +106,7 @@ public:
 				alctr = AlctrType(reservedSpace, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
 			}
 
+			// variable shadowing and other problems @Przemog
 			testsCnt = rng.getRndAllocCnt();
 			for (size_t i = 0; i < testsCnt; i++)
 				executeForFrame(alctr, randAllocParams);

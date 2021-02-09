@@ -274,7 +274,7 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 	return false;
 }
 
-bool CElementShape::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementShape::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
 {
 	if (type == Type::INVALID)
 	{

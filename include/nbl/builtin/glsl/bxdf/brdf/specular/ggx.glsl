@@ -8,6 +8,7 @@
 #include <nbl/builtin/glsl/bxdf/common_samples.glsl>
 #include <nbl/builtin/glsl/bxdf/fresnel.glsl>
 #include <nbl/builtin/glsl/bxdf/ndf/ggx.glsl>
+#include <nbl/builtin/glsl/bxdf/geom/smith/common.glsl>
 #include <nbl/builtin/glsl/bxdf/geom/smith/ggx.glsl>
 
 //depr

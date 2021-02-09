@@ -63,12 +63,12 @@ namespace MitsubaLoader
 
         asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
         auto viewBundle = m_loaderContext->override_->findCachedAsset(viewKey, types, m_loaderContext->inner, 0u);
-        if (!viewBundle.isEmpty())
+        if (!viewBundle.getContents().empty())
         {
             auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
             types[0] = asset::IAsset::ET_SAMPLER;
             auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
-            assert(!samplerBundle.isEmpty());
+            assert(!samplerBundle.getContents().empty());
             auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 
             return {view, sampler, _scale};

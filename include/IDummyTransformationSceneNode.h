@@ -10,7 +10,6 @@
 #include "ISceneNodeAnimator.h"
 #include <algorithm>
 #include "matrix4x3.h"
-#include "ESceneNodeTypes.h"
 
 namespace nbl
 {
@@ -402,25 +401,6 @@ class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 			Animators.clear();
 		}
 
-        //! Returns type of the scene node
-        virtual ESCENE_NODE_TYPE getType() const { return ESNT_DUMMY_TRANSFORMATION; }
-
-        //! Creates a clone of this scene node and its children.
-        virtual IDummyTransformationSceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0)
-        {
-            if (!newParent)
-                newParent = Parent;
-
-            IDummyTransformationSceneNode* nb = new IDummyTransformationSceneNode(newParent);
-
-            nb->cloneMembers(this, newManager);
-            nb->setRelativeTransformationMatrix(RelativeTransformation);
-
-            if ( newParent )
-                nb->drop();
-            return nb;
-        }
-
 	protected:
 		//! Pointer to the parent
 		IDummyTransformationSceneNode* Parent;
@@ -445,36 +425,6 @@ class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 
 		//! Relative scale of the scene node.
 		core::vector3df RelativeScale;
-
-		//! A clone function for the IDummy... members.
-		/** This method can be used by clone() implementations of
-		derived classes
-		\param toCopyFrom The node from which the values are copied */
-		virtual void cloneMembers(IDummyTransformationSceneNode* toCopyFrom, ISceneManager* newManager)
-		{
-			AbsoluteTransformation = toCopyFrom->AbsoluteTransformation;
-			RelativeTranslation = toCopyFrom->RelativeTranslation;
-			RelativeTranslation = toCopyFrom->RelativeTranslation;
-			RelativeRotation = toCopyFrom->RelativeRotation;
-			RelativeScale = toCopyFrom->RelativeScale;
-
-			// clone children
-			IDummyTransformationSceneNodeArray::iterator it = toCopyFrom->Children.begin();
-			for (; it != toCopyFrom->Children.end(); ++it)
-				(*it)->clone(this, newManager);
-
-			// clone animators
-			ISceneNodeAnimatorArray::iterator ait = toCopyFrom->Animators.begin();
-			for (; ait != toCopyFrom->Animators.end(); ++ait)
-			{
-				ISceneNodeAnimator* anim = (*ait)->createClone(this, newManager);
-				if (anim)
-				{
-					addAnimator(anim);
-					anim->drop();
-				}
-			}
-		}
 };
 
 } // end namespace scene

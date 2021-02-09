@@ -23,6 +23,8 @@ namespace asset
 class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
 	public:
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u;
+
 		using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override

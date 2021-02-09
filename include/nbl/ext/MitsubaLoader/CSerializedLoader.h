@@ -13,31 +13,17 @@ namespace ext
 {
 namespace MitsubaLoader
 {
-	
-class CSerializedMetadata : public asset::IAssetMetadata
-{
-	public:
-		CSerializedMetadata(std::string&& _name, uint32_t _id) : name(_name), id(_id) {}
-
-		_NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "Mistuba Serialized";
-		const char* getLoaderName() const override {return LoaderName;}
-
-		const std::string name;
-		const uint32_t id;
-};
 
 //! Meshloader capable of loading obj meshes.
-class CSerializedLoader final : public asset::IAssetLoader
+class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoader
 {
 	protected:
-		asset::IAssetManager* manager;
-
 		//! Destructor
 		inline ~CSerializedLoader() {}
 
 	public:
 		//! Constructor
-		CSerializedLoader(asset::IAssetManager* _manager) : manager(_manager) {}
+		CSerializedLoader(asset::IAssetManager* _manager) : IRenderpassIndependentPipelineLoader(_manager) {}
 
 		inline bool isALoadableFileFormat(io::IReadFile* _file) const override
 		{
@@ -78,7 +64,7 @@ class CSerializedLoader final : public asset::IAssetLoader
 		
 		struct SContext
 		{
-			io::IReadFile* file = nullptr;
+			IAssetLoader::SAssetLoadContext inner;
 			uint32_t meshCount;
 			core::smart_refctd_dynamic_array<uint64_t> meshOffsets;
 		};

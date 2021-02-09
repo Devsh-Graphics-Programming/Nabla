@@ -196,7 +196,7 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 	return !error;
 }
 
-bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* meta)
 {
 	if (type == Type::INVALID)
 	{
@@ -208,7 +208,7 @@ bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overri
 	// TODO: some validation
 
 	// add to global metadata
-	globalMetadata->sensors.push_back(*this);
+	meta->m_global.m_sensors.push_back(*this);
 
 	return true;
 }

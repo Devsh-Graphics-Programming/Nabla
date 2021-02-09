@@ -5,7 +5,7 @@
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 
 #include <functional>
 
@@ -404,7 +404,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 	return !error;
 }
 
-bool CElementIntegrator::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementIntegrator::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
 {
 	if (type == Type::INVALID)
 	{
@@ -417,13 +417,13 @@ bool CElementIntegrator::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _ov
 	{
 	}
 
-	if (globalMetadata->integrator.type!=Type::INVALID)
+	if (metadata->m_global.m_integrator.type!=Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": already specified an integrator");
 		_NBL_DEBUG_BREAK_IF(true);
 		return true;
 	}
-	globalMetadata->integrator = *this;
+	metadata->m_global.m_integrator = *this;
 
 	return true;
 }
