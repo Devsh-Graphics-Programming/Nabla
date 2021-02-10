@@ -49,7 +49,7 @@ nbl_glsl_quaternion_t nbl_glsl_quaternion_t_flerp(in nbl_glsl_quaternion_t start
 
     const float interpolantPrecalcTerm = fraction-0.5f;
     const float interpolantPrecalcTerm3 = fraction*interpolantPrecalcTerm*(fraction-1.f);
-    const float adjFrac = nbl_glsl_quaternion_t_flerp_adjustedinterpolant(abs(pseudoAngle),fraction,interpolantPrecalcTerm*interpolantPrecalcTerm,interpolantPrecalcTerm3);
+    const float adjFrac = nbl_glsl_quaternion_t_flerp_impl_adj_interpolant(abs(pseudoAngle),fraction,interpolantPrecalcTerm*interpolantPrecalcTerm,interpolantPrecalcTerm3);
     nbl_glsl_quaternion_t quat = nbl_glsl_quaternion_t_lerp(start,end,adjFrac,pseudoAngle);
     quat.data = normalize(quat.data);
     return quat;

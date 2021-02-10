@@ -177,6 +177,7 @@ class IAsset : virtual public core::IReferenceCounted
 				return false;
 
 			restoreFromDummy_impl(_other, _levelsBelow);
+			isDummyObjectForCacheAliasing = false;
 			return true;
 		}
 
