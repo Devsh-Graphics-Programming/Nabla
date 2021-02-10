@@ -185,6 +185,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
+
+    for (auto& loader : m_loaders.vector)
+        loader->initialize();
 }
 
 

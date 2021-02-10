@@ -311,9 +311,9 @@ protected:
 
 		assert(bundle.getContents().size() == reloadedBundle.getContents().size());
 
-		const uint32_t count = bundle.getContents().size();
-		auto* dummies = bundle.getContents().begin();
-		auto* reloaded = reloadedBundle.getContents().begin();
+		const uint32_t count = bundle.getMutableContents().size();
+		auto* dummies = bundle.getMutableContents().begin();
+		auto* reloaded = reloadedBundle.getMutableContents().begin();
 		for (uint32_t i = 0u; i < count; ++i)
 			if (dummies[i]->isADummyObjectForCache() && !dummies[i]->canBeRestoredFrom(reloaded[i].get()))
 				return {}; // return empty bundle

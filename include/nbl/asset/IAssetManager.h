@@ -574,7 +574,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         //! @returns 0xdeadbeefu on failure or 0-based index on success.
         uint32_t addAssetLoader(core::smart_refctd_ptr<IAssetLoader>&& _loader)
         {
-            _loader->initialize();
             // there's no way it ever fails, so no 0xdeadbeef return
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;
