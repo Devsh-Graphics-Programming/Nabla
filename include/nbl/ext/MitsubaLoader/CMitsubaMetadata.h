@@ -28,35 +28,49 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		class CID
 		{
 			public:
-				const std::string id;
+				std::string m_id;
 		};
 		class CRenderpassIndependentPipeline : public asset::IRenderpassIndependentPipelineMetadata
 		{
 			public:
-				using IRenderpassIndependentPipelineMetadata::IRenderpassIndependentPipelineMetadata;
-
+				CRenderpassIndependentPipeline() : IRenderpassIndependentPipelineMetadata(), m_ds0() {}
 				template<typename... Args>
-				CRenderpassIndependentPipeline(uint32_t _hash, Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...), m_hash(_hash)
+				CRenderpassIndependentPipeline(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...), m_ds0(std::move(_ds0))
 				{
 				}
 
 				inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
 				{
 					IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
-					std::swap(m_hash, other.m_hash);
+					std::swap(m_ds0, other.m_ds0);
 					return *this;
 				}
 
-				uint32_t m_hash;
+				core::smart_refctd_ptr<asset::ICPUDescriptorSet> m_ds0;
 		};
 		class CMesh : public asset::IMeshMetadata, public CID
 		{
 			public:
-				struct InstanceAuxilaryData
+				CMesh() : IMeshMetadata(), CID(), m_instanceAuxData(nullptr,nullptr), type(CElementShape::Type::INVALID) {}
+				~CMesh() {}
+
+				struct SInstanceAuxilaryData
 				{
-					CElementEmitter emitter; // type is invalid if not used
-					SContext::bsdf_type bsdf;
+					SInstanceAuxilaryData& operator=(SInstanceAuxilaryData&& other)
+					{
+						frontEmitter = std::move(other.frontEmitter);
+						backEmitter = std::move(other.backEmitter);
+						bsdf = std::move(other.bsdf);
+						return *this;
+					}
+
+					CElementEmitter frontEmitter; // type is invalid if not used
+					CElementEmitter backEmitter; // type is invalid if not used
+					CMitsubaMaterialCompilerFrontend::front_and_back_t bsdf;
 				};
+
+				core::SRange<const SInstanceAuxilaryData> m_instanceAuxData;
+
 				CElementShape::Type type;
 		};
 		struct SGlobal
@@ -77,16 +91,87 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 				std::string m_materialCompilerGLSL_source;
 		} m_global;
 
-		//! No idea how to make it work yet
-		//CMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata> _mitsubaMetadata) : mitsubaMetadata(std::move(_mitsubaMetadata)) {}
-		CMitsubaMetadata() {} // TODO
+		CMitsubaMetadata() :
+			IAssetMetadata(), m_metaPplnStorage(), m_semanticStorage(), m_metaPplnStorageIt(nullptr),
+			m_metaMeshStorage(), m_metaMeshInstanceStorage(), m_metaMeshInstanceAuxStorage(),
+			m_meshStorageIt(nullptr), m_instanceStorageIt(nullptr), m_instanceAuxStorageIt(nullptr)
+		{
+		}
 
-		_NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "ext::MitsubaLoader::CMitsubaLoader";
-		const char* getLoaderName() const override { return loaderName; }
+		_NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "ext::MitsubaLoader::CMitsubaLoader";
+		const char* getLoaderName() const override { return LoaderName; }
+
+        //!
+        inline const CRenderpassIndependentPipeline* getAssetSpecificMetadata(const asset::ICPURenderpassIndependentPipeline* asset) const
+        {
+            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
+            return static_cast<const CRenderpassIndependentPipeline*>(found);
+        }
+        inline const CMesh* getAssetSpecificMetadata(const asset::ICPUMesh* asset) const
+        {
+            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
+            return static_cast<const CMesh*>(found);
+        }
 
 	private:
+		friend class CMitsubaLoader;
+
 		meta_container_t<CRenderpassIndependentPipeline> m_metaPplnStorage;
+		core::smart_refctd_dynamic_array<asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_semanticStorage;
+		CRenderpassIndependentPipeline* m_metaPplnStorageIt;
+
 		meta_container_t<CMesh> m_metaMeshStorage;
+		core::smart_refctd_dynamic_array<CMesh::SInstance> m_metaMeshInstanceStorage;
+		core::smart_refctd_dynamic_array<CMesh::SInstanceAuxilaryData> m_metaMeshInstanceAuxStorage;
+		CMesh* m_meshStorageIt;
+		CMesh::SInstance* m_instanceStorageIt;
+		CMesh::SInstanceAuxilaryData* m_instanceAuxStorageIt;
+
+		inline void reservePplnStorage(uint32_t pplnCount, core::smart_refctd_dynamic_array<asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage)
+		{
+			m_metaPplnStorage = IAssetMetadata::createContainer<CRenderpassIndependentPipeline>(pplnCount);
+			m_semanticStorage = std::move(_semanticStorage);
+			m_metaPplnStorageIt = m_metaPplnStorage->begin();
+		}
+		inline void reserveMeshStorage(uint32_t meshCount, uint32_t instanceCount)
+		{
+			m_metaMeshStorage = IAssetMetadata::createContainer<CMesh>(meshCount);
+			m_metaMeshInstanceStorage = IAssetMetadata::createContainer<CMesh::SInstance>(instanceCount);
+			m_metaMeshInstanceAuxStorage = IAssetMetadata::createContainer<CMesh::SInstanceAuxilaryData>(instanceCount);
+			m_meshStorageIt = m_metaMeshStorage->begin();
+			m_instanceStorageIt = m_metaMeshInstanceStorage->begin();
+			m_instanceAuxStorageIt = m_metaMeshInstanceAuxStorage->begin();
+		}
+		inline void addPplnMeta(const asset::ICPURenderpassIndependentPipeline* ppln, core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0)
+		{
+			*m_metaPplnStorageIt = CMitsubaMetadata::CRenderpassIndependentPipeline(std::move(_ds0),core::SRange<const asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(m_semanticStorage->begin(),m_semanticStorage->end()));
+			IAssetMetadata::insertAssetSpecificMetadata(ppln,m_metaPplnStorageIt);
+			m_metaPplnStorageIt++;
+		}
+		template<typename InstanceIterator>
+		inline uint32_t addMeshMeta(const asset::ICPUMesh* mesh, std::string&& id, const CElementShape::Type type, InstanceIterator instancesBegin, InstanceIterator instancesEnd)
+		{
+			auto instanceStorageBegin = m_instanceStorageIt;
+			auto instanceAuxStorageBegin = m_instanceAuxStorageIt;
+
+			auto* meta = m_meshStorageIt++;
+			meta->m_id = std::move(id);
+			{
+				// copy instance data
+				for (auto it=instancesBegin; it!=instancesEnd; ++it)
+				{
+					auto& inst = it->second;
+					(m_instanceStorageIt++)->worldTform = inst.tform;
+					*(m_instanceAuxStorageIt++) = {inst.emitter.front,inst.emitter.back,inst.bsdf};
+				}
+				meta->m_instances = { instanceStorageBegin,m_instanceStorageIt };
+				meta->m_instanceAuxData = { instanceAuxStorageBegin,m_instanceAuxStorageIt };
+			}
+			meta->type = type;
+			IAssetMetadata::insertAssetSpecificMetadata(mesh,meta);
+
+			return meta->m_instances.size();
+		}
 };
 
 }

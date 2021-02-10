@@ -98,7 +98,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	if (maxSize==0u)
 		return {};
 
-	auto meta = core::make_smart_refctd_ptr<CMitsubaSerializedMetadata>();
+	auto meta = core::make_smart_refctd_ptr<CMitsubaSerializedMetadata>(ctx.meshCount,core::smart_refctd_ptr(IRenderpassIndependentPipelineLoader::m_basicViewParamsSemantics));
 	core::vector<core::smart_refctd_ptr<ICPUMesh>> meshes; meshes.reserve(ctx.meshCount);
 
 	uint8_t* data = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(maxSize,alignof(double)));
@@ -370,11 +370,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 
 		auto mesh = core::make_smart_refctd_ptr<asset::ICPUMesh>();
 
-		meta->placeMeta(
-			meshes.size(),
-			mbPipeline.get(),{core::smart_refctd_ptr(IRenderpassIndependentPipelineLoader::m_basicViewParamsSemantics)},
-			mesh.get(),{std::string(stringPtr,stringLen),i}
-		);
+		meta->placeMeta(meshes.size(),mbPipeline.get(),mesh.get(),{std::string(stringPtr,stringLen),i});
 
 		meshBuffer->setPipeline(std::move(mbPipeline));
 

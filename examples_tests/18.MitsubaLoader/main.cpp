@@ -420,15 +420,12 @@ int main()
 			return 0.5f*core::length(differentialElementCrossProdcut).x;
 		};
 
-		const auto* mesh_meta = static_cast<const ext::MitsubaLoader::CMitsubaMetadata::CMesh*>(globalMeta->getAssetSpecificMetadata(cpumesh.get()));
-		const auto instances = mesh_meta->getInstances();
-		for (size_t i=0u; i<instances.size(); i++)
+		const auto* mesh_meta = globalMeta->getAssetSpecificMetadata(cpumesh.get());
+		auto auxInstanceDataIt = mesh_meta->m_instanceAuxData.begin();
+		for (const auto& inst : mesh_meta->m_instances)
 		{
-			const auto& inst = instances.begin()[i];
-			for (const auto& inst : instances)
-				sceneBound.addInternalBox(core::transformBoxEx(cpumesh->getBoundingBox(),inst.worldTform));
-			const auto& aux = mesh_meta->m_instanceAuxData->operator[](i);
-			if (aux.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
+			sceneBound.addInternalBox(core::transformBoxEx(cpumesh->getBoundingBox(),inst.worldTform));
+			if (auxInstanceDataIt->frontEmitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
 			{
 				core::vectorSIMDf pos;
 				assert(cpumesh->getMeshBuffers().size()==1u);
@@ -437,11 +434,12 @@ int main()
 				inst.worldTform.pseudoMulWith4x1(pos);
 
 				SLight l;
-				l.intensity = aux.emitter.area.radiance*area*2.f*core::PI<float>();
+				l.intensity = auxInstanceDataIt->frontEmitter.area.radiance*area*2.f*core::PI<float>();
 				l.position = pos;
 
 				lights.push_back(l);
 			}
+			auxInstanceDataIt++;
 		}
 	}
 

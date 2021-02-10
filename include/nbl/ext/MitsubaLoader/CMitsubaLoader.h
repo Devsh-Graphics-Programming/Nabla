@@ -26,7 +26,7 @@ namespace MitsubaLoader
 class CElementBSDF;
 class CMitsubaMaterialCompilerFrontend;
 
-class CMitsubaLoader : public asset::IAssetLoader
+class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 {
 		friend class CMitsubaMaterialCompilerFrontend;
 	public:
@@ -36,7 +36,6 @@ class CMitsubaLoader : public asset::IAssetLoader
 		void initialize() override;
 
 	protected:
-		asset::IAssetManager* m_manager;
 		io::IFileSystem* m_filesystem;
 
 		//! Destructor
