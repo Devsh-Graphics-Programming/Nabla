@@ -408,8 +408,12 @@ void IAssetManager::insertBuiltinAssets()
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
-        auto paths = {"nbl/builtin/material/lambertian/no_texture/pipeline_layout",
-                      "nbl/builtin/pipeline_layout/loader/PLY"};
+        auto paths =
+        {               
+            "nbl/builtin/material/lambertian/no_texture/pipeline_layout",
+            "nbl/builtin/pipeline_layout/loader/PLY",
+            "nbl/builtin/pipeline_layout/loader/STL" 
+        };
 
         for(auto &path : paths)
             addBuiltInToCaches(pipelineLayout, path);

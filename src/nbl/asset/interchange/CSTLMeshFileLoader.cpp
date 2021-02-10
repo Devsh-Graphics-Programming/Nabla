@@ -167,34 +167,36 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	}
 
 	// TODO: @Anastazluk PRECOMPUTE THE ENTIRE PIPELINE (since metadata is now free to change for every time the same handle gets returned)
-	const std::string shaderDefaultAssetPath = hasColor ? "nbl/builtin/material/debug/vertex_color_debug_shader/specialized_shader" : "nbl/builtin/material/debug/normal_debug_shader/specialized_shader"; // TODO: `normal_debug` is a rather bad name
+	auto getShaderDefaultPaths = [&]() -> std::pair<std::string_view, std::string_view>
+	{
+		if (hasColor)
+			return std::make_pair("nbl/builtin/material/debug/vertex_color/specialized_shader.vert", "nbl/builtin/material/debug/vertex_color/specialized_shader.frag");
+		else
+			return std::make_pair("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert", "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag");
+	};
 	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
-		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-		auto bundle = m_assetMgr->findAssets(shaderDefaultAssetPath.c_str(), types);
+		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+		const auto shaderPaths = getShaderDefaultPaths();
 
-		auto refCountedBundle =
-		{
-			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]),
-			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin()+1)->getContents().begin()[0])
-		};
+		auto vertexShaderBundle = m_assetMgr->findAssets(shaderPaths.first.data(), types);
+		auto fragmentShaderBundle = m_assetMgr->findAssets(shaderPaths.second.data(), types);
 
-		for (auto& shader : refCountedBundle)
-		{
-			if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
-				mbVertexShader = std::move(shader);
-			else if (shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
-				mbFragmentShader = std::move(shader);
-		}
+		mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vertexShaderBundle->begin()->getContents().begin()[0]);
+		mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
 	}
 
-	auto mbPipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/material/lambertian/no_texture/pipeline_layout", /*TODO: @Anastazluk where the F is the loading SContext???*/, _hierarchyLevel+ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
+	const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
+	auto mbBundlePipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/STL", fakeContext, _hierarchyLevel+ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
+	auto mbPipelineLayout = mbBundlePipelineLayout.first;
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
 	{
 		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u); // this metadata should probably go into pipeline layout's asset bundle (@Crisspl TODO: review)
+
+		// TODO: I will move all below to IAssetManager and put it into Pipeline Layout's metadata
 
 		constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] =
 		{
