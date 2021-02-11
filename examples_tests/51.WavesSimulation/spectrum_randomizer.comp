@@ -1,23 +1,49 @@
 #version 450
+#include <nbl/builtin/glsl/math/complex.glsl>
 
+#define PI 3.1415926538
+#define G 9.8
 layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (set = 0, binding = 0, rgba8) uniform image2D img;
 
 layout(push_constant) uniform pushConstants {
     uvec2 IMG_SIZE;
-}u_pc;
+    vec2  LENGTH_UNIT;
+    vec2  WIND_DIR;
+    float WIND_SPEED;
+    float A;
+} u_pc;
 
 //probably should implement a gaussian distribution RNG
 vec2 rand(vec2 co){
     return vec2(fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453),
-    fract(cos(dot(co.yx ,vec2(7.2246,29.009))) * 134.9976));
+    1 - fract(cos(dot(co.yx ,vec2(7.2246,29.009))) * 134.9976));
 }
 
+float Ph(vec2 k)
+{
+    float L = u_pc.WIND_SPEED * u_pc.WIND_SPEED / G;
+    float cosine_factor_sqrt = dot(normalize(k), u_pc.WIND_DIR);
+    float cosine_factor = cosine_factor_sqrt  * cosine_factor_sqrt;
+    float k2 = dot(k, k);
+    float k4 = k2 * k2;
+
+    return u_pc.A * exp(-1 / (k2 * L * L)) / k4 * cosine_factor; 
+}
+
+vec2 h0(vec2 k)
+{
+    vec2 rand_val = rand(vec2(gl_GlobalInvocationID.xy));
+    return nbl_glsl_complex_mul(rand_val, vec2((1 / sqrt(2)) * Ph(k), 0));
+}
 void main()
 {
     if (all(lessThan(gl_GlobalInvocationID.xy, u_pc.IMG_SIZE)))
     {
-        imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(rand(vec2(gl_GlobalInvocationID.xy)), 0, 0));
+        float n = float(int(gl_GlobalInvocationID.x) - int(u_pc.IMG_SIZE.x) / 2) / u_pc.IMG_SIZE.x; 
+        float m = float(int(gl_GlobalInvocationID.y) - int(u_pc.IMG_SIZE.y) / 2) / u_pc.IMG_SIZE.y; 
+        vec2 k = vec2(2 * PI * n / u_pc.LENGTH_UNIT.x, 2 * PI * m / u_pc.LENGTH_UNIT.y);
+        imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(h0(k), 0, 1));
     }
 }

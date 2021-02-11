@@ -153,7 +153,7 @@ bool WaveSimApp::CreateComputePipelines()
 				case EPipeline::SPECTRUM_RANDOMIZE:
 				{
 					asset::SPushConstantRange range;
-					range.size = sizeof(uint32_t) * 2u;
+					range.size = sizeof(WaveSimParams);
 					range.offset = 0u;
 					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 					layout = m_driver->createGPUPipelineLayout(&range,
@@ -265,12 +265,13 @@ void WaveSimApp::RandomizeWaveSpectrum(const textureView& tex)
 		write.info = &info;
 		m_driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 	}
+	//while(m_device->run())
 	{
 		m_driver->beginScene(true);
 		auto ds = m_randomizer_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_spectrum_randomizing_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_spectrum_randomizing_pipeline.get());
-		m_driver->pushConstants(m_spectrum_randomizing_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(m_params.size), &m_params.size);
+		m_driver->pushConstants(m_spectrum_randomizing_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(m_params), &m_params);
 		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.height + 15u) / 16u, 1u);
 		m_driver->endScene();
 	}
@@ -279,6 +280,14 @@ void WaveSimApp::RandomizeWaveSpectrum(const textureView& tex)
 WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 {
 	assert(isPoT(params.width) && isPoT(params.height));
+	// For some reason cannot call nbl::core::normalize
+	auto normalize = [](vector2df vec)
+	{
+		float length = sqrt(vec.X * vec.X + vec.Y * vec.Y);
+		return vec / length;
+	};
+	m_params.m_wind_dir = normalize(m_params.m_wind_dir);
+
 	bool initialized = Init();
 	initialized &= CreatePresentingPipeline();
 	initialized &= CreateComputePipelines();
@@ -287,7 +296,7 @@ WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 
 void WaveSimApp::Run()
 {
-	auto tex_view = CreateTexture(m_params.size, EF_R8G8_UNORM);
+	auto tex_view = CreateTexture(m_params.size, EF_R32G32B32A32_SFLOAT);
 	RandomizeWaveSpectrum(tex_view);
 	PresentWaves(tex_view);
 }
