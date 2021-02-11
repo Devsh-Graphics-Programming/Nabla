@@ -37,7 +37,7 @@ int main()
 
 	//
 	asset::SAssetBundle meshes;
-	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
+	core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata> globalMeta;
 	{
 		io::IFileSystem* fs = device->getFileSystem();
 		asset::IAssetManager* am = device->getAssetManager();
@@ -106,15 +106,9 @@ int main()
 		if (!contents.size())
 			return 2;
 
-		auto firstmesh = *contents.begin();
-		if (!firstmesh)
+		globalMeta = core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata>(meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>());
+		if (!globalMeta)
 			return 3;
-
-		auto meta = firstmesh->getMetadata();
-		if (!meta)
-			return 4;
-		assert(core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
-		globalMeta = static_cast<ext::MitsubaLoader::IMeshMetadata*>(meta)->globalMetadata;
 	}
 
 
@@ -126,9 +120,9 @@ int main()
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
-	if (globalMeta->sensors.size() && isOkSensorType(globalMeta->sensors.front()))
+	if (globalMeta->m_global.m_sensors.size() && isOkSensorType(globalMeta->m_global.m_sensors.front()))
 	{
-		const auto& sensor = globalMeta->sensors.front();
+		const auto& sensor = globalMeta->m_global.m_sensors.front();
 		const auto& film = sensor.film;
 
 		// need to extract individual components

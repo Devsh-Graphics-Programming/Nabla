@@ -84,11 +84,11 @@ void Manager::makeShape(core::unordered_map<const asset::ICPUMeshBuffer*,::Radeo
 	const auto indexCount = mb->getIndexCount();
 	assert(indexCount>=3);
 
-	const int32_t vertexCount = mb->calcVertexCount();
+	const int32_t vertexUpperBound = asset::IMeshManipulator::upperBoundVertexID(mb);
 
 	constexpr int32_t IndicesPerTriangle = 3;
 	const auto posAttrID = mb->getPositionAttributeIx();
-	found->second = rr->CreateMesh(	reinterpret_cast<const float*>(	mb->getAttribPointer(posAttrID)),vertexCount,
+	found->second = rr->CreateMesh(	reinterpret_cast<const float*>(	mb->getAttribPointer(posAttrID)),vertexUpperBound,
 																	mb->getAttribStride(posAttrID),
 																	indices,sizeof(int32_t)*IndicesPerTriangle, // radeon rays understands index stride differently to me
 																	nullptr,indexCount/IndicesPerTriangle);
@@ -103,17 +103,18 @@ void Manager::makeInstance(	NblInstanceRRInstanceCache& instanceCache, MockScene
 
 	const auto& objectData = mock_smgr->getObjectData(objectID);
 	const auto& mesh = objectData.mesh;
-	const auto mbCount = mesh->getMeshBufferCount();
-	assert(mbCount==objectData.instanceGUIDPerMeshBuffer.size());
-	assert(mbCount>0u);
+	const auto meshBuffers = mesh->getMeshBuffers();
+	assert(meshBuffers.size()==objectData.instanceGUIDPerMeshBuffer.size());
+	assert(meshBuffers.size()>0u);
 
 	auto& gpuCache = shapeCache.m_gpuAssociative;
 	bool notRefreshedAlready = true;
 
-	auto output = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<::RadeonRays::Shape*>>(mbCount);
-	for (auto i=0; i<mbCount; i++)
+	auto instanceGUIDIt = objectData.instanceGUIDPerMeshBuffer.begin();
+	auto output = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<::RadeonRays::Shape*>>(meshBuffers.size());
+	auto outputIt = output->begin();
+	for (const auto& mb : meshBuffers)
 	{
-		const auto* mb = mesh->getMeshBuffer(i);
 		auto found = gpuCache.find(mb);
 		// refresh cpu cache from cpu cache if not found
 		if (notRefreshedAlready && found==gpuCache.end())
@@ -130,12 +131,14 @@ void Manager::makeInstance(	NblInstanceRRInstanceCache& instanceCache, MockScene
 
 			found = gpuCache.find(mb);
 		}
-		if (found==gpuCache.end())
-			continue;
-
-		auto* instance = rr->CreateInstance(found->second);
-		instance->SetId(objectData.instanceGUIDPerMeshBuffer[i]);
-		output->operator[](i) = instance;
+		if (found!=gpuCache.end())
+		{
+			auto* instance = rr->CreateInstance(found->second);
+			instance->SetId(*instanceGUIDIt);
+			*outputIt = instance;
+		}
+		instanceGUIDIt++;
+		outputIt++;
 	}
 	instanceCache.insert({objectID,output});
 }
