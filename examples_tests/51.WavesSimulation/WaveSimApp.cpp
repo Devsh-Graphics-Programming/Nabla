@@ -93,6 +93,102 @@ bool WaveSimApp::CreatePresentingPipeline()
 	return true;
 }
 
+bool WaveSimApp::CreateComputePipelines()
+{
+	enum class EPipeline
+	{
+		SPECTRUM_RANDOMIZE
+	};
+	auto getShaderPath = [](EPipeline type)
+	{
+		switch (type)
+		{
+		case EPipeline::SPECTRUM_RANDOMIZE:
+			return "../spectrum_randomizer.comp";
+		default:
+			os::Printer::log("Unsupporded pipeline");
+			return "";
+		}
+	};
+	{
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ds_layout;
+		IGPUDescriptorSetLayout::SBinding texture_bindings[1];
+		texture_bindings[0].binding = 0;
+		texture_bindings[0].type = EDT_STORAGE_IMAGE;
+		texture_bindings[0].count = 1u;
+		texture_bindings[0].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
+		texture_bindings[0].samplers = nullptr;
+
+		ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 1);
+		m_randomizer_descriptor_set = m_driver->createGPUDescriptorSet(ds_layout);
+	}
+
+	auto createComputePipeline = [&](EPipeline pipeline_type)
+	{
+		std::string filepath = getShaderPath(pipeline_type);
+
+		core::smart_refctd_ptr<video::IGPUComputePipeline> comp_pipeline;
+		{
+			core::smart_refctd_ptr<video::IGPUPipelineLayout> layout;
+			{
+
+				smart_refctd_ptr<IGPUDescriptorSetLayout> ds_layout;
+				switch (pipeline_type)
+				{
+				case EPipeline::SPECTRUM_RANDOMIZE:
+				{
+					IGPUDescriptorSetLayout::SBinding texture_bindings[1];
+					texture_bindings[0].binding = 0;
+					texture_bindings[0].type = EDT_STORAGE_IMAGE;
+					texture_bindings[0].count = 1u;
+					texture_bindings[0].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
+					texture_bindings[0].samplers = nullptr;
+
+					ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 1);
+				}
+				break;
+				}
+				switch (pipeline_type)
+				{
+				case EPipeline::SPECTRUM_RANDOMIZE:
+				{
+					asset::SPushConstantRange range;
+					range.size = sizeof(uint32_t) * 2u;
+					range.offset = 0u;
+					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+					layout = m_driver->createGPUPipelineLayout(&range,
+						&range + 1,
+						std::move(ds_layout),
+						nullptr,
+						nullptr,
+						nullptr);
+				}
+				break;
+				}
+
+			}
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> shader;
+			{
+				auto f = core::smart_refctd_ptr<io::IReadFile>(m_filesystem->createAndOpenFile(filepath.c_str()));
+
+				asset::IAssetLoader::SAssetLoadParams lp;
+				auto cs_bundle = m_asset_manager->getAsset(filepath.c_str(), lp);
+				auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+
+				auto cs_rawptr = cs.get();
+				shader = m_driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+			}
+
+			comp_pipeline = m_driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(shader));
+		}
+
+		return comp_pipeline;
+	};
+	m_spectrum_randomizing_pipeline = createComputePipeline(EPipeline::SPECTRUM_RANDOMIZE);
+
+	return m_spectrum_randomizing_pipeline.get() != nullptr;
+}
+
 WaveSimApp::textureView WaveSimApp::CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format) const
 {
 	nbl::video::IGPUImage::SCreationParams gpu_image_params;
@@ -115,10 +211,8 @@ WaveSimApp::textureView WaveSimApp::CreateTexture(nbl::core::dimension2du size, 
 	return image_view;
 }
 
-void WaveSimApp::PresentWaves(textureView tex)
+void WaveSimApp::PresentWaves(const textureView& tex)
 {
-	os::Printer::log("Presenting waves simulation");
-
 	auto sampler_descriptor_set = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_gpu_descriptor_set_layout));
 
 	IGPUDescriptorSet::SDescriptorInfo info;
@@ -153,15 +247,47 @@ void WaveSimApp::PresentWaves(textureView tex)
 	}
 }
 
+void WaveSimApp::RandomizeWaveSpectrum(const textureView& tex)
+{
+	os::Printer::log("Randomizing waves spectrum");
+	{
+		video::IGPUDescriptorSet::SWriteDescriptorSet write;
+		video::IGPUDescriptorSet::SDescriptorInfo info;
+		write.dstSet = m_randomizer_descriptor_set.get();
+		write.binding = 0u;
+		write.count = 1;
+		write.arrayElement = 0u;
+		write.descriptorType = asset::EDT_STORAGE_IMAGE;
+		{
+			info.desc = tex;
+			info.image = { nullptr, EIL_UNDEFINED };
+		}
+		write.info = &info;
+		m_driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+	}
+	{
+		m_driver->beginScene(true);
+		auto ds = m_randomizer_descriptor_set.get();
+		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_spectrum_randomizing_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
+		m_driver->bindComputePipeline(m_spectrum_randomizing_pipeline.get());
+		m_driver->pushConstants(m_spectrum_randomizing_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(m_params.size), &m_params.size);
+		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.height + 15u) / 16u, 1u);
+		m_driver->endScene();
+	}
+}
+
 WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 {
-	[[maybe_unused]] bool initialized = Init();
+	assert(isPoT(params.width) && isPoT(params.height));
+	bool initialized = Init();
 	initialized &= CreatePresentingPipeline();
+	initialized &= CreateComputePipelines();
 	assert(initialized);
 }
 
 void WaveSimApp::Run()
 {
 	auto tex_view = CreateTexture(m_params.size, EF_R8G8_UNORM);
+	RandomizeWaveSpectrum(tex_view);
 	PresentWaves(tex_view);
 }

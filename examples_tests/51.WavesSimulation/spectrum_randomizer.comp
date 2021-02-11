@@ -1,0 +1,23 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 0, binding = 0, rgba8) uniform image2D img;
+
+layout(push_constant) uniform pushConstants {
+    uvec2 IMG_SIZE;
+}u_pc;
+
+//probably should implement a gaussian distribution RNG
+vec2 rand(vec2 co){
+    return vec2(fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453),
+    fract(cos(dot(co.yx ,vec2(7.2246,29.009))) * 134.9976));
+}
+
+void main()
+{
+    if (all(lessThan(gl_GlobalInvocationID.xy, u_pc.IMG_SIZE)))
+    {
+        imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(rand(vec2(gl_GlobalInvocationID.xy)), 0, 0));
+    }
+}
