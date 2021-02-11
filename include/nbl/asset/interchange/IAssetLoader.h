@@ -303,7 +303,7 @@ protected:
 					return true;
 		};
 
-		auto bundle = interm_getAssetInHierarchy_find(std::forward<Args>(args)...);
+		auto bundle = interm_getAssetInHierarchy_find(_restoreLevels, std::forward<Args>(args)...);
 
 		if (bundle.getContents().empty() || !any_dummy(bundle))
 			return bundle;
@@ -339,30 +339,40 @@ protected:
 	}
 
 private:
-	static IAssetLoader::SAssetLoadParams getFindParams(IAssetLoader::SAssetLoadParams _params)
+	static IAssetLoader::SAssetLoadParams getFindParams(IAssetLoader::SAssetLoadParams _params, uint32_t _restoreLevels, uint32_t _hierLevel)
 	{
-		_params.cacheFlags = static_cast<E_CACHING_FLAGS>(_params.cacheFlags & ECF_DONT_CACHE_REFERENCES);
+		using flags_t = std::underlying_type_t<E_CACHING_FLAGS>;
+		flags_t mask = static_cast<flags_t>(0);
+		mask = core::bitfieldInsert<flags_t>(mask, ECF_DONT_CACHE_REFERENCES, 2u*_hierLevel, 2u*_restoreLevels);
+		_params.cacheFlags = static_cast<E_CACHING_FLAGS>(_params.cacheFlags & mask);
 		return _params;
 	}
-	SAssetBundle interm_getAssetInHierarchy_find(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 	{
-		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getFindParams(_params), _hierarchyLevel);
+		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
 	}
-	SAssetBundle interm_getAssetInHierarchy_find(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 	{
-		return interm_getAssetInHierarchy(_mgr, _filename, getFindParams(_params), _hierarchyLevel, _override);
+		return interm_getAssetInHierarchy(_mgr, _filename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel, _override);
 	}
-	SAssetBundle interm_getAssetInHierarchy_find(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
 	{
-		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getFindParams(_params), _hierarchyLevel);
+		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
 	}
-	SAssetBundle interm_getAssetInHierarchy_find(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
 	{
-		return interm_getAssetInHierarchy(_mgr, _filename, getFindParams(_params), _hierarchyLevel);
+		return interm_getAssetInHierarchy(_mgr, _filename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
 	}
 	static IAssetLoader::SAssetLoadParams getReloadParams(IAssetLoader::SAssetLoadParams _params, uint32_t _restoreLevels, uint32_t _hierLevel)
 	{
-		_params.cacheFlags = ECF_DUPLICATE_UNTIL_LEVEL(_restoreLevels + _hierLevel);
+		using flags_t = std::underlying_type_t<E_CACHING_FLAGS>;
+		constexpr uint32_t bitdepth = sizeof(flags_t)*8u;
+		const flags_t zeroOutMask = (~static_cast<flags_t>(0)) >> (bitdepth - 2u*(_restoreLevels+_hierLevel));
+		flags_t reloadFlags = _params.cacheFlags;
+		reloadFlags &= zeroOutMask; // make sure we never pointlessy reload levels above (_restoreLevels+_hierLevel) in reload pass
+		// set flags for levels [_hierLevel,_hierLevel+_restoreLevels) to dont look into cache and dont put into cache
+		reloadFlags = core::bitfieldInsert<flags_t>(reloadFlags, ECF_DUPLICATE_REFERENCES, _hierLevel*2, _restoreLevels*2);
+		_params.cacheFlags = static_cast<E_CACHING_FLAGS>(reloadFlags);
 		return _params;
 	}
 	SAssetBundle interm_getAssetInHierarchy_reload(uint32_t _restoreLevels, IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
