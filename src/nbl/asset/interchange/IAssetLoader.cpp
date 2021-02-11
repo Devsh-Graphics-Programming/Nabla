@@ -35,6 +35,24 @@ void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asse
         m_manager->insertAssetIntoCache(asset, ASSET_MUTABILITY_ON_CACHE_INSERT);
 }
 
+bool IAssetLoader::IAssetLoaderOverride::handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels)
+{
+    if (_bundle.getContents().size() != _reloadedBundle.getContents().size())
+        return false;
+
+    auto dummies = _bundle.getMutableContents();
+    auto found_it = std::find(dummies.begin(), dummies.end(), _chosenAsset);
+    if (found_it == dummies.end())
+        return false;
+    const uint32_t ix = found_it - dummies.begin();
+
+    auto reloaded = _reloadedBundle.getMutableContents();
+    if (dummies.begin()[ix]->isADummyObjectForCache() && !dummies.begin()[ix]->canBeRestoredFrom(reloaded.begin()[ix].get()))
+        return false;
+
+    return dummies.begin()[ix]->restoreFromDummy(reloaded.begin()[ix].get(), _restoreLevels);
+}
+
 SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 {
     return _mgr->getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, _override);

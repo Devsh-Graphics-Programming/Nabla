@@ -109,6 +109,9 @@ public:
         const char* relativeDir;
         E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
+		uint32_t restoreLevels = 0u;
+		// user should not ever write to this flag
+		bool reload = false;
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
@@ -261,6 +264,8 @@ public:
 		//! After a successful load of an asset or sub-asset
 		//TODO change name
 		virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
+
+		virtual bool handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels);
 	};
 
 public:
@@ -289,41 +294,6 @@ protected:
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
-	//! ECF_DUPLICATE_* flags are ignored (since there's no point in **restoring** if we're not even looking into the cache) -- only ECF_DONT_CACHE_* are honored
-	//! `Args` ought to be same parameter types as interm_getAssetInHierarchy(...) overloads offer
-	template <typename ...Args>
-	SAssetBundle interm_getRestoredAssetInHierarchy(uint32_t _restoreLevels, Args&&... args)
-	{
-		if (_restoreLevels == 0u)
-			return interm_getAssetInHierarchy(std::forward<Args>(args)...);
-
-		auto any_dummy = [](const SAssetBundle& b) {
-			for (const auto& a : b.getContents())
-				if (a->isADummyObjectForCache())
-					return true;
-		};
-
-		auto bundle = interm_getAssetInHierarchy_find(_restoreLevels, std::forward<Args>(args)...);
-
-		if (bundle.getContents().empty() || !any_dummy(bundle))
-			return bundle;
-		auto reloadedBundle = interm_getAssetInHierarchy_reload(_restoreLevels, std::forward<Args>(args)...);
-
-		assert(bundle.getContents().size() == reloadedBundle.getContents().size());
-
-		const uint32_t count = bundle.getMutableContents().size();
-		auto* dummies = bundle.getMutableContents().begin();
-		auto* reloaded = reloadedBundle.getMutableContents().begin();
-		for (uint32_t i = 0u; i < count; ++i)
-			if (dummies[i]->isADummyObjectForCache() && !dummies[i]->canBeRestoredFrom(reloaded[i].get()))
-				return {}; // return empty bundle
-
-		for (uint32_t i = 0u; i < count; ++i)
-			if (dummies[i]->isADummyObjectForCache())
-				dummies[i]->restoreFromDummy(reloaded[i].get(), _restoreLevels);
-
-		return bundle;
-	}
 
     void interm_setAssetMutability(const IAssetManager* _mgr, IAsset* _asset, IAsset::E_MUTABILITY _val);
 	//void interm_restoreDummyAsset(IAssetManager* _mgr, SAssetBundle& _bundle);
@@ -336,60 +306,6 @@ protected:
 	inline void setAssetInBundle(SAssetBundle& bundle, const uint32_t offset, core::smart_refctd_ptr<IAsset>&& _asset)
 	{
 		bundle.setAsset(offset,std::move(_asset));
-	}
-
-private:
-	static IAssetLoader::SAssetLoadParams getFindParams(IAssetLoader::SAssetLoadParams _params, uint32_t _restoreLevels, uint32_t _hierLevel)
-	{
-		using flags_t = std::underlying_type_t<E_CACHING_FLAGS>;
-		flags_t mask = static_cast<flags_t>(0);
-		mask = core::bitfieldInsert<flags_t>(mask, ECF_DONT_CACHE_REFERENCES, 2u*_hierLevel, 2u*_restoreLevels);
-		_params.cacheFlags = static_cast<E_CACHING_FLAGS>(_params.cacheFlags & mask);
-		return _params;
-	}
-	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
-	{
-		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
-	}
-	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
-	{
-		return interm_getAssetInHierarchy(_mgr, _filename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel, _override);
-	}
-	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
-	{
-		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
-	}
-	SAssetBundle interm_getAssetInHierarchy_find(uint32_t _restoreLevels, IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
-	{
-		return interm_getAssetInHierarchy(_mgr, _filename, getFindParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
-	}
-	static IAssetLoader::SAssetLoadParams getReloadParams(IAssetLoader::SAssetLoadParams _params, uint32_t _restoreLevels, uint32_t _hierLevel)
-	{
-		using flags_t = std::underlying_type_t<E_CACHING_FLAGS>;
-		constexpr uint32_t bitdepth = sizeof(flags_t)*8u;
-		const flags_t zeroOutMask = (~static_cast<flags_t>(0)) >> (bitdepth - 2u*(_restoreLevels+_hierLevel));
-		flags_t reloadFlags = _params.cacheFlags;
-		reloadFlags &= zeroOutMask; // make sure we never pointlessy reload levels above (_restoreLevels+_hierLevel) in reload pass
-		// set flags for levels [_hierLevel,_hierLevel+_restoreLevels) to dont look into cache and dont put into cache
-		reloadFlags = core::bitfieldInsert<flags_t>(reloadFlags, ECF_DUPLICATE_REFERENCES, _hierLevel*2, _restoreLevels*2);
-		_params.cacheFlags = static_cast<E_CACHING_FLAGS>(reloadFlags);
-		return _params;
-	}
-	SAssetBundle interm_getAssetInHierarchy_reload(uint32_t _restoreLevels, IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
-	{
-		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getReloadParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
-	}
-	SAssetBundle interm_getAssetInHierarchy_reload(uint32_t _restoreLevels, IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
-	{
-		return interm_getAssetInHierarchy(_mgr, _filename, getReloadParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
-	}
-	SAssetBundle interm_getAssetInHierarchy_reload(uint32_t _restoreLevels, IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
-	{
-		return interm_getAssetInHierarchy(_mgr, _file, _supposedFilename, getReloadParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
-	}
-	SAssetBundle interm_getAssetInHierarchy_reload(uint32_t _restoreLevels, IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
-	{
-		return interm_getAssetInHierarchy(_mgr, _filename, getReloadParams(_params, _restoreLevels, _hierarchyLevel), _hierarchyLevel);
 	}
 };
 

@@ -942,8 +942,10 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 						auto& image = view->getCreationParameters().image;
 						if (_restore && image->isADummyObjectForCache())
 						{
+							auto loadParams = ctx.inner.params;
+							loadParams.restoreLevels = hierarchyLevel + 2u;
 							// this will restore the image being kept by found `view`
-							auto bundle = interm_getRestoredAssetInHierarchy(2u, m_assetMgr, tex->bitmap.filename.svalue, ctx.inner.params, hierarchyLevel, ctx.override_);
+							auto bundle = interm_getAssetInHierarchy(m_assetMgr, tex->bitmap.filename.svalue, loadParams, hierarchyLevel, ctx.override_);
 							if (bundle.getContents().empty() || image->isADummyObjectForCache())
 							{
 								// if for some reason restore failed, force recreating whole view
@@ -959,7 +961,9 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 				if (!view)
 				{
 					const uint32_t restoreLevels = _restore ? 2u : 0u;
-					asset::SAssetBundle imgBundle = interm_getRestoredAssetInHierarchy(restoreLevels,m_assetMgr,tex->bitmap.filename.svalue,ctx.inner.params,hierarchyLevel,ctx.override_);
+					auto loadParams = ctx.inner.params;
+					loadParams.restoreLevels = hierarchyLevel + restoreLevels;
+					asset::SAssetBundle imgBundle = interm_getAssetInHierarchy(m_assetMgr,tex->bitmap.filename.svalue,loadParams,hierarchyLevel,ctx.override_);
 					auto contentRange = imgBundle.getContents();
 					if (contentRange.begin() < contentRange.end())
 					{

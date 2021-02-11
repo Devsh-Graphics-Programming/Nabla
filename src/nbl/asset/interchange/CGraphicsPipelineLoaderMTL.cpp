@@ -519,17 +519,19 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
     for (uint32_t i = 0u; i < images.size(); ++i)
     {
-        SAssetLoadParams lp;
+        SAssetLoadParams lp = _ctx.inner.params;
         if (_mtl.maps[i].size() )
         {
+            const uint32_t hierarchyLevel = _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW; // this is weird actually, we're not sure if we're loading image or image view
             SAssetBundle bundle;
             if (i != CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
-                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             else
             {
                 // we need bumpmap restored to create derivative map from it
                 const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
-                bundle = interm_getRestoredAssetInHierarchy(restoreLevels, m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
+                lp.restoreLevels = hierarchyLevel + restoreLevels; // TODO what if `lp.restoreLevels` already had some non-zero value? ehhh this is complex, and this logic must be in some common function
+                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
             if (asset)

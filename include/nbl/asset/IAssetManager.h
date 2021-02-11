@@ -203,28 +203,37 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 		*/
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
+            const uint32_t restoreLevels = (_hierarchyLevel >= _params.restoreLevels) ? 0u : (_params.restoreLevels - _hierarchyLevel);
+
             IAssetLoader::SAssetLoadParams params(_params);
             if (params.meshManipulatorOverride == nullptr)
             {
                 params.meshManipulatorOverride = m_meshManipulator.get();
             }
+            if (restoreLevels)
+            {
+                using flags_t = std::underlying_type_t<IAssetLoader::E_CACHING_FLAGS>;
+                flags_t mask = ~static_cast<flags_t>(0);
+                mask = core::bitfieldInsert<flags_t>(mask, IAssetLoader::ECF_DONT_CACHE_REFERENCES, 2u*_hierarchyLevel, 2u*restoreLevels);
+                params.cacheFlags = static_cast<IAssetLoader::E_CACHING_FLAGS>(params.cacheFlags & mask);
+            }
 
             IAssetLoader::SAssetLoadContext ctx{params, _file};
 
             std::string filename = _file ? _file->getFileName().c_str() : _supposedFilename;
-            io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel);
+            io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel); // WARNING: mem-leak possibility: _override should return smart_ptr<IReadFile> (TODO, inspect this)
             filename = file ? file->getFileName().c_str() : _supposedFilename;
 
             const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
-            SAssetBundle asset;
+            SAssetBundle bundle;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
                 auto found = findAssets(filename);
                 if (found->size())
                     return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
-                else if (!(asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel)).getContents().empty())
-                    return asset;
+                else if (!(bundle = _override->handleSearchFail(filename, ctx, _hierarchyLevel)).getContents().empty())
+                    return bundle;
             }
 
             // if at this point, and after looking for an asset in cache, file is still nullptr, then return nullptr
@@ -235,30 +244,61 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             // loaders associated with the file's extension tryout
             for (auto& loader : capableLoadersRng)
             {
-                if (loader.second->isALoadableFileFormat(file) && !(asset = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
+                if (loader.second->isALoadableFileFormat(file) && !(bundle = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
                     break;
             }
-            for (auto loaderItr = std::begin(m_loaders.vector); asset.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+            for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
             {
-                if ((*loaderItr)->isALoadableFileFormat(file) && !(asset = (*loaderItr)->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
+                if ((*loaderItr)->isALoadableFileFormat(file) && !(bundle = (*loaderItr)->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
                     break;
             }
 
-            if (!asset.getContents().empty() && 
+            if (!bundle.getContents().empty() && 
                 ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
                 ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
             {
-                _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
+                _override->insertAssetIntoCache(bundle, filename, ctx, _hierarchyLevel);
             }
-            else if (asset.getContents().empty())
+            else if (bundle.getContents().empty())
             {
                 bool addToCache;
-                asset = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
-                if (!asset.getContents().empty() && addToCache)
-                    _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
+                bundle = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
+                if (!bundle.getContents().empty() && addToCache)
+                    _override->insertAssetIntoCache(bundle, filename, ctx, _hierarchyLevel);
+            }
+
+            if (bundle.getContents().empty() /*|| none of req levels is dummy*/)
+                return bundle;
+
+            if (restoreLevels)
+            {
+                auto reloadParams = _params;
+                {
+                    using flags_t = std::underlying_type_t<IAssetLoader::E_CACHING_FLAGS>;
+                    constexpr uint32_t bitdepth = sizeof(flags_t)*8u;
+                    const flags_t zeroOutMask = (~static_cast<flags_t>(0)) >> (bitdepth - 2u*(restoreLevels + _hierarchyLevel));
+                    flags_t reloadFlags = reloadParams.cacheFlags;
+                    reloadFlags &= zeroOutMask; // make sure we never pointlessy reload levels above (_restoreLevels+_hierLevel) in reload pass
+                    // set flags for levels [_hierLevel,_hierLevel+_restoreLevels) to dont look into cache and dont put into cache
+                    reloadFlags = core::bitfieldInsert<flags_t>(reloadFlags, IAssetLoader::ECF_DUPLICATE_REFERENCES, _hierarchyLevel*2u, restoreLevels*2u);
+                    reloadParams.cacheFlags = static_cast<IAssetLoader::E_CACHING_FLAGS>(reloadFlags);
+
+                    reloadParams.restoreLevels = 0u; // make sure it wont turn into infinite recursion
+                    reloadParams.reload = true; // TODO (consider): alternative to this flag: another method in override just to let user choose asset for restore
+                }
+                IAssetLoader::SAssetLoadContext ctx(params, file);
+                auto asset = _override->chooseDefaultAsset(bundle, ctx);
+                if (!asset->isAnyDependencyDummy(restoreLevels - 1u))
+                    return bundle;
+
+                auto reloadBundle = getAssetInHierarchy(_file, _supposedFilename, reloadParams, _hierarchyLevel, _override);
+
+                bool restoreSucceeded = _override->handleRestore(std::move(asset), bundle, reloadBundle, restoreLevels);
+                if (!restoreSucceeded) // hm? return empty bundle if restore was requested, but did not succeeded? or just return the bundle? (TODO consider)
+                    return {};
             }
             
-            return asset;
+            return bundle;
         }
         //TODO change name
         SAssetBundle getAssetInHierarchy(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)

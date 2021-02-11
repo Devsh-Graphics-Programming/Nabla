@@ -204,6 +204,15 @@ class IAsset : virtual public core::IReferenceCounted
 
 		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
+		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
+		bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
+		{
+			if (isADummyObjectForCache())
+				return true;
+
+			return _levelsBelow ? isAnyDependencyDummy_impl(_levelsBelow) : false;
+		}
+
     protected:
 		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
 		{
@@ -211,6 +220,9 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 
 		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
+
+		// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
+		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }
 
         inline void clone_common(IAsset* _clone) const
         {
