@@ -109,10 +109,6 @@ class SAssetBundle
 			m_contents->operator[](offset) = std::move(_asset);
 			assert(allSameTypeAndNotNull());
 		}
-		inline core::SRange<core::smart_refctd_ptr<IAsset>> getMutableContents()
-		{
-			return core::SRange<core::smart_refctd_ptr<IAsset>>(m_contents->begin(), m_contents->end());
-		}
 
 
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;

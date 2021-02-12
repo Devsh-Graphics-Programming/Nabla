@@ -530,7 +530,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             {
                 // we need bumpmap restored to create derivative map from it
                 const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
-                lp.restoreLevels = hierarchyLevel + restoreLevels; // TODO what if `lp.restoreLevels` already had some non-zero value? ehhh this is complex, and this logic must be in some common function
+                lp.restoreLevels = std::max(lp.restoreLevels, hierarchyLevel + restoreLevels);
                 bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);

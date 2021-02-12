@@ -962,7 +962,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 				{
 					const uint32_t restoreLevels = _restore ? 2u : 0u;
 					auto loadParams = ctx.inner.params;
-					loadParams.restoreLevels = hierarchyLevel + restoreLevels;
+					loadParams.restoreLevels = std::max(loadParams.restoreLevels, hierarchyLevel + restoreLevels);
 					asset::SAssetBundle imgBundle = interm_getAssetInHierarchy(m_assetMgr,tex->bitmap.filename.svalue,loadParams,hierarchyLevel,ctx.override_);
 					auto contentRange = imgBundle.getContents();
 					if (contentRange.begin() < contentRange.end())
