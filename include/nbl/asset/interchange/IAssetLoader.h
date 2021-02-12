@@ -296,6 +296,11 @@ protected:
 	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, SAssetBundle& _asset, const std::string _path);
 	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path);
 	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>&& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path);
+
+	inline void setAssetInBundle(SAssetBundle& bundle, const uint32_t offset, core::smart_refctd_ptr<IAsset>&& _asset)
+	{
+		bundle.setAsset(offset,std::move(_asset));
+	}
 };
 
 }

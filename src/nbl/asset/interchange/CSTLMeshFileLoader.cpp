@@ -192,6 +192,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	auto mbPipelineLayout = mbBundlePipelineLayout.first;
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+
+	// TODO: @Anastazluk use `m_basicViewParamsSemantics` from IRenderpassIndependentPipelineLoader
 	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
 	{
 		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u); // this metadata should probably go into pipeline layout's asset bundle (@Crisspl TODO: review)

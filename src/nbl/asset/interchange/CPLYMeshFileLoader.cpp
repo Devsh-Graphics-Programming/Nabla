@@ -22,7 +22,7 @@ namespace nbl
 namespace asset
 {
 
-CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am) : m_assetMgr{ _am } {}
+CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am) : IRenderpassIndependentPipelineLoader(_am) {}
 
 CPLYMeshFileLoader::~CPLYMeshFileLoader() {}
 
@@ -297,7 +297,8 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		}
 	}
 	
-	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(ctx.metas4pplns));
+	constexpr uint32_t WHAT_IS_THE_HASH_SUPPOSED_TO_BE = 69u; // TODO: @Crisspl / @Anastazluk figure it out!
+	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(ctx.hashes4pplns),core::smart_refctd_ptr(m_basicViewParamsSemantics));
 	{
 		uint32_t offset = 0u;
 		for (auto meshbuffer : mesh->getMeshBuffers())
@@ -632,42 +633,6 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 		mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
 	}
 	auto mbPipelineLayout = context.loaderOverride->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/PLY", context.inner, context.topHierarchyLevel+ICPUMesh::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW).first;
-
-	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
-	{
-		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u); // this metadata should probably go into pipeline layout's asset bundle (@Crisspl TODO: review)
-
-		constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] =
-		{
-			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
-			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
-			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
-		};
-		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] =
-		{
-			sizeof(SBasicViewParameters::MVP),
-			sizeof(SBasicViewParameters::MV),
-			sizeof(SBasicViewParameters::NormalMat)
-		};
-		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
-		{
-			offsetof(SBasicViewParameters,MVP),
-			offsetof(SBasicViewParameters,MV),
-			offsetof(SBasicViewParameters,NormalMat)
-		};
-		for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
-		{
-			auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
-			semantic.type = types[i];
-			semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-			semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
-			semantic.descriptorSection.uniformBufferObject.set = 1u;
-			semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
-			semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-			semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
-		}
-	}
 	
 	const std::array<SVertexInputAttribParams, 4> vertexAttribParamsAllOptions =
 	{
@@ -719,7 +684,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 	}
 
 	constexpr uint32_t hash = 1u; // TODO: @Crisspl why is it always 1?
-	context.metas4pplns.emplace_back(hash,std::move(shaderInputsMetadata));
+	context.hashes4pplns.emplace_back(hash);
 	
 	_mbuf->setPipeline(std::move(mbPipeline));
 

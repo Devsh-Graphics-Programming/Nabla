@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 #define __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 
-#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
 
 namespace nbl
@@ -13,7 +13,7 @@ namespace nbl
 namespace asset
 {	
 
-class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
+class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPipelineLoader
 {
         struct SMtl
         {
@@ -39,7 +39,7 @@ class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
 	public:
         CGraphicsPipelineLoaderMTL(IAssetManager* _am);
 
-        void initialize();
+        void initialize() override;
 
 		bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
@@ -62,9 +62,6 @@ class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
         using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
         image_views_set_t loadImages(const std::string& relDir, const SMtl& _mtl, SContext& _ctx);
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout, SContext& _ctx);
-
-        IAssetManager* m_assetMgr;
-        core::smart_refctd_ptr<IRenderpassIndependentPipelineMetadata::semantics_container_t> m_inputSemantics;
 };
 
 }

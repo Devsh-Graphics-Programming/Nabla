@@ -103,6 +103,13 @@ class SAssetBundle
 		inline void setNewCacheKey(std::string&& newKey) { m_cacheKey = std::move(newKey); }
 		inline void setCached(bool val) { m_isCached = val; }
 
+		friend class IAssetLoader;
+		inline void setAsset(const uint32_t offset, core::smart_refctd_ptr<IAsset>&& _asset)
+		{
+			m_contents->operator[](offset) = std::move(_asset);
+			assert(allSameTypeAndNotNull());
+		}
+
 
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 		contents_container_t m_contents;

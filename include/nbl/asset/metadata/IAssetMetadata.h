@@ -65,7 +65,7 @@ class IAssetMetadata : public core::IReferenceCounted
 		using meta_container_t = core::smart_refctd_dynamic_array<Meta>;
 
 		template<class Meta>
-		static inline meta_container_t<Meta> createContainer(uint32_t length)
+		static inline meta_container_t<Meta> createContainer(const uint32_t length)
 		{
 			return core::make_refctd_dynamic_array<meta_container_t<Meta>>(length);
 		}

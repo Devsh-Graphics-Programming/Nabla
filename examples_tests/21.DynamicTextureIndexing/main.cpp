@@ -57,7 +57,7 @@ int main()
 
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("sponza.obj", lp);
-    assert(!meshes_bundle.isEmpty());
+    assert(!meshes_bundle.getContents().empty());
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 

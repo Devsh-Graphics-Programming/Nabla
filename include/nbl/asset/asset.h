@@ -65,7 +65,10 @@
 #include "nbl/asset/IAssetManager.h"
 // importexport
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IImageLoader.h"
+#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
+#include "nbl/asset/interchange/IImageWriter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
 #include "nbl/asset/metadata/COBJMetadata.h"

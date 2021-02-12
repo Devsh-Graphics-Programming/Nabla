@@ -163,21 +163,13 @@ Renderer::~Renderer()
 Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& meshes)
 {
 	InitializationData retval;
-	
-	auto getInstances = [&retval](const auto& cpumesh) -> core::vector<ext::MitsubaLoader::IMeshMetadata::Instance>
+	retval.globalMeta = meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>();
+	assert(retval.globalMeta);
 	{
-		auto* meta = cpumesh->getMetadata();
-		assert(meta && core::strcmpi(meta->getLoaderName(), ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
-		const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
-		retval.globalMeta = meshmeta->globalMetadata.get();
-		assert(retval.globalMeta);
-
-		// WARNING !!!
-		// all this instance-related things is a rework candidate since mitsuba loader supports instances
-		// (all this metadata should be global, but meshbuffers has instanceCount correctly set
-		// and globalDS with per-instance data (transform, normal matrix, instructions offsets, etc)
-		return meshmeta->getInstances();
-	};
+		auto* glslMaterialBackendGlobalDS = retval.globalMeta->m_global.m_ds0.get();
+		m_globalBackendDataDS = m_driver->getGPUObjectsFromAssets(&glslMaterialBackendGlobalDS,&glslMaterialBackendGlobalDS+1)->front();
+	}
+	
 	core::vector<CullData_t> cullData;
 	core::vector<std::pair<core::smart_refctd_ptr<IGPUMeshBuffer>,uint32_t>> gpuMeshBuffers;
 	{
@@ -208,38 +200,39 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			};
 			core::unordered_map<VisibilityBufferPipelineKey, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>, VisibilityBufferPipelineKeyHash> visibilityBufferFillPipelines;
 
-			meshesToProcess.reserve(contents.size());
-			for (auto* it=contents.begin(); it!=contents.end(); it++)
 			{
-				auto cpumesh = static_cast<asset::ICPUMesh*>(it->get());
-				meshesToProcess.push_back(cpumesh);
+				meshesToProcess.reserve(contents.size());
 
-				const auto& instances = getInstances(cpumesh);
-
-				auto meshBufferCount = cpumesh->getMeshBufferCount();
-				assert(meshBufferCount);
-
-				const auto cullDataOffset = cullData.size();
-				cullData.resize(cullDataOffset+instances.size()*meshBufferCount);
-				for (auto i=0u; i<meshBufferCount; i++)
+				uint32_t drawableCount = 0u;
+				for (const auto& asset : contents)
 				{
-					// TODO: get rid of `getMeshBuffer` and `getMeshBufferCount`, just return a range as `getMeshBuffers`
-					auto cpumb = cpumesh->getMeshBuffer(i);
-					assert(cpumb->getInstanceCount()==instances.size());
+					auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
+					auto meshBuffers = cpumesh->getMeshBuffers();
+					assert(!meshBuffers.empty());
+
+					meshesToProcess.push_back(cpumesh);
+
+					drawableCount += meshBuffers.size()*retval.globalMeta->getAssetSpecificMetadata(cpumesh)->m_instances.size();
+				}
+				cullData.resize(drawableCount);
+			}
+			auto cullDataIt = cullData.begin();
+			for (const auto& asset : contents)
+			{
+				auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
+				const auto* meta = retval.globalMeta->getAssetSpecificMetadata(cpumesh);
+				const auto& instanceData = meta->m_instances;
+				const auto& instanceAuxData = meta->m_instanceAuxData;
+
+				auto cullDataBaseBegin = cullDataIt;
+				auto meshBuffers = cpumesh->getMeshBuffers();
+				for (auto cpumb : meshBuffers)
+				{
+					assert(cpumb->getInstanceCount()==instanceData.size());
 
 					// set up Visibility Buffer pipelines
 					{
 						auto oldPipeline = cpumb->getPipeline();
-
-						// if global SSBO with instruction streams not captured yet
-						if (!m_globalBackendDataDS)
-						{
-							// a bit roundabout but oh well what can we do (global metadata needs to be more useful)
-							auto* pipelinemeta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(oldPipeline->getMetadata());
-							auto* glslMaterialBackendGlobalDS = pipelinemeta->getDescriptorSet();
-							m_globalBackendDataDS = m_driver->getGPUObjectsFromAssets(&glslMaterialBackendGlobalDS,&glslMaterialBackendGlobalDS+1)->front();
-						}
-
 						auto vertexInputParams = oldPipeline->getVertexInputParams();
 						const bool frontFaceIsCCW = oldPipeline->getRasterizationParams().frontFaceIsCCW;
 						auto found = visibilityBufferFillPipelines.find(VisibilityBufferPipelineKey{ vertexInputParams,frontFaceIsCCW });
@@ -264,7 +257,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						cpumb->setPipeline(std::move(newPipeline));
 					}
 
-					CullData_t& baseCullData = cullData[cullDataOffset+i];
+					CullData_t& baseCullData = *(cullDataIt++);
 					{
 						const auto aabbOriginal = cpumb->getBoundingBox();
 						baseCullData.aabbMinEdge.x = aabbOriginal.MinEdge.X;
@@ -279,23 +272,22 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 					meshBuffersToProcess.push_back(cpumb);
 				}
-				auto cullDataBaseBegin = cullData.begin()+cullDataOffset;
-				auto cullDataBaseEnd = cullDataBaseBegin+meshBufferCount;
-
 
 				// set up scene bounds and lights
 				const auto aabbOriginal = cpumesh->getBoundingBox();
-				for (auto j=0u; j<instances.size(); j++)
+				for (auto j=0u; j<instanceData.size(); j++)
 				{
-					const auto& instance = instances[j];
+					const auto& worldTform = instanceData.begin()[j].worldTform;
+					const auto& aux = instanceAuxData.begin()[j];
+
 					ext::RadeonRays::MockSceneManager::ObjectData objectData;
 					{
-						objectData.tform = instance.tform;
+						objectData.tform = worldTform;
 						objectData.mesh = nullptr;
-						objectData.instanceGUIDPerMeshBuffer.reserve(meshBufferCount);
-						for (auto src=cullDataBaseBegin; src!=cullDataBaseEnd; src++)
+						objectData.instanceGUIDPerMeshBuffer.reserve(meshBuffers.size());
+						for (auto src=cullDataBaseBegin; src!=cullDataIt; src++)
 						{
-							auto dst = src+j*meshBufferCount;
+							auto dst = src+j*meshBuffers.size();
 							*dst = *src;
 							dst->globalObjectID += j;
 							objectData.instanceGUIDPerMeshBuffer.push_back(dst->globalObjectID);
@@ -303,16 +295,16 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					}
 					m_mock_smgr.m_objectData.push_back(std::move(objectData));
 
-					m_sceneBound.addInternalBox(core::transformBoxEx(aabbOriginal,instance.tform));
+					m_sceneBound.addInternalBox(core::transformBoxEx(aabbOriginal,worldTform));
 
-					auto emitter = instance.emitter.front;
+					auto emitter = aux.frontEmitter;
 					if (emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
 					{
 						assert(emitter.type == ext::MitsubaLoader::CElementEmitter::Type::AREA);
 
-						SLight newLight(cpumesh->getBoundingBox(), instance.tform);
+						SLight newLight(aabbOriginal,worldTform); // TODO: should be an OBB
 
-						const float weight = newLight.computeFluxBound(emitter.area.radiance) * emitter.area.samplingWeight;
+						const float weight = newLight.computeFluxBound(emitter.area.radiance)*emitter.area.samplingWeight;
 						if (weight <= FLT_MIN)
 							continue;
 
@@ -335,7 +327,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			auto objectDataIt = m_mock_smgr.m_objectData.begin();
 			for (auto i=0u; i<gpuMeshes->size(); i++)
 			{
-				const auto instanceCount = getInstances(meshesToProcess[i]).size();
+				const auto instanceCount = retval.globalMeta->getAssetSpecificMetadata(meshesToProcess[i])->m_instances.size();
 				for (size_t j=0u; j<instanceCount; j++)
 					(objectDataIt++)->mesh = gpuMeshes->operator[](i);
 			}
@@ -370,7 +362,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			{
 				std::copy(gpumb->getVertexBufferBindings(),gpumb->getVertexBufferBindings()+IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,call.vertexBindings);
 				call.indexBuffer = core::smart_refctd_ptr(gpumb->getIndexBufferBinding().buffer);
-				call.pipeline = core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>(const_cast<IGPURenderpassIndependentPipeline*>(gpumb->getPipeline()));
+				call.pipeline = core::smart_refctd_ptr<const IGPURenderpassIndependentPipeline>(gpumb->getPipeline());
 			};
 			initNewMDI(std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(gpuMeshBuffers.front()));
 			call.mdiOffset = 0u;
@@ -475,7 +467,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
 	core::vectorSIMDf _envmapBaseColor;
 	_envmapBaseColor.set(0.f,0.f,0.f,1.f);
-	for (const auto& emitter : initData.globalMeta->emitters)
+	for (const auto& emitter : initData.globalMeta->m_global.m_emitters)
 	{
 		float weight = 0.f;
 		switch (emitter.type)
@@ -610,7 +602,7 @@ void Renderer::init(const SAssetBundle& meshes,
 		// figure out the renderable size
 		{
 			m_staticViewData.imageDimensions = {m_driver->getScreenSize().Width,m_driver->getScreenSize().Height};
-			const auto& sensors = initData.globalMeta->sensors;
+			const auto& sensors = initData.globalMeta->m_global.m_sensors;
 			if (sensors.size())
 			{
 				// just grab the first sensor
@@ -690,7 +682,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					core::smart_refctd_ptr(m_raygenDSLayout),
 					nullptr
 				);
-				(std::ofstream("material_declarations.glsl") << "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->getVTStorageViewCount() << "\n" << initData.globalMeta->materialCompilerGLSL_declarations).close();
+				(std::ofstream("material_declarations.glsl") << "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->m_global.getVTStorageViewCount() << "\n" << initData.globalMeta->m_global.m_materialCompilerGLSL_declarations).close();
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
