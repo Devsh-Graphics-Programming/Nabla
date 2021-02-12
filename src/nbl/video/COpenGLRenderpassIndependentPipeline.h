@@ -104,51 +104,17 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
 	        core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
 	        std::atomic_uint32_t stageUpdateStamps[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT] = { 0u };
 
-	        inline std::atomic_uint32_t& getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage)
-	        {
-                return const_cast<std::atomic_uint32_t&>(
-                    const_cast<const PushConstantsState*>(this)->getStamp(_stage)
-                );
-	        }
-            inline const std::atomic_uint32_t& getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage) const
+            inline uint32_t getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage) const
             {
-                // this creates warnings
-                //return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getStamp(_stage);
-		        switch (_stage)
-		        {
-		            case IGPUSpecializedShader::ESS_VERTEX:
-			            return *(stageUpdateStamps+0u);
-			            break;
-		            case IGPUSpecializedShader::ESS_TESSELATION_CONTROL:
-			            return *(stageUpdateStamps+1u);
-			            break;
-		            case IGPUSpecializedShader::ESS_TESSELATION_EVALUATION:
-			            return *(stageUpdateStamps+2u);
-			            break;
-		            case IGPUSpecializedShader::ESS_GEOMETRY:
-			            return *(stageUpdateStamps+3u);
-			            break;
-		            case IGPUSpecializedShader::ESS_FRAGMENT:
-			            return *(stageUpdateStamps+4u);
-			            break;
-		            default:
-			            break;
-		        }
-		        assert(false);
-		        return *(stageUpdateStamps+IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+                const uint32_t ix = core::findLSB<std::underlying_type_t<IGPUSpecializedShader::E_SHADER_STAGE>>(_stage);
+                assert(ix < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+                return stageUpdateStamps[ix];
             }
 	        inline void incrementStamps(uint32_t _stages)
 	        {
-		        if (_stages & IGPUSpecializedShader::ESS_VERTEX)
-			        getStamp(IGPUSpecializedShader::ESS_VERTEX)++;
-		        if (_stages & IGPUSpecializedShader::ESS_TESSELATION_CONTROL)
-			        getStamp(IGPUSpecializedShader::ESS_TESSELATION_CONTROL)++;
-		        if (_stages & IGPUSpecializedShader::ESS_TESSELATION_EVALUATION)
-			        getStamp(IGPUSpecializedShader::ESS_TESSELATION_EVALUATION)++;
-		        if (_stages & IGPUSpecializedShader::ESS_GEOMETRY)
-			        getStamp(IGPUSpecializedShader::ESS_GEOMETRY)++;
-		        if (_stages & IGPUSpecializedShader::ESS_FRAGMENT)
-			        getStamp(IGPUSpecializedShader::ESS_FRAGMENT)++;
+                for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+                    if ((_stages >> i) & 1u)
+                        ++stageUpdateStamps[i];
 	        }
         };
         inline void setUniformsImitatingPushConstants(uint32_t _ctxID, const PushConstantsState& _pcState) const
