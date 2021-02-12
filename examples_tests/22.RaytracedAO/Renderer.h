@@ -83,7 +83,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				nbl::core::vector<float> lightPDF;
 				nbl::core::vector<uint32_t> lightCDF;
 			};
-			const nbl::ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
+			const nbl::ext::MitsubaLoader::CMitsubaMetadata* globalMeta = nullptr;
 		};
 		InitializationData initSceneObjects(const nbl::asset::SAssetBundle& meshes);
 		void initSceneNonAreaLights(InitializationData& initData);
@@ -134,9 +134,9 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indirectDrawBuffers[2];
 		struct MDICall
 		{
-			nbl::asset::SBufferBinding<nbl::video::IGPUBuffer> vertexBindings[nbl::video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-			nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> indexBuffer;
-			nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> pipeline;
+			nbl::asset::SBufferBinding<const nbl::video::IGPUBuffer> vertexBindings[nbl::video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+			nbl::core::smart_refctd_ptr<const nbl::video::IGPUBuffer> indexBuffer;
+			nbl::core::smart_refctd_ptr<const nbl::video::IGPURenderpassIndependentPipeline> pipeline;
 			uint32_t mdiOffset, mdiCount;
 		};
 		nbl::core::vector<MDICall> m_mdiDrawCalls;

@@ -83,7 +83,7 @@ class Manager final : public core::IReferenceCounted
 				assert(format==asset::EF_R32G32B32A32_SFLOAT||format==asset::EF_R32G32B32_SFLOAT);
 
 				assert(mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType==EPT_TRIANGLE_LIST);
-				assert(mb->getIndexBufferBinding()->buffer);
+				assert(mb->getIndexBufferBinding().buffer);
 			}
 
 			for (auto it=_begin; it!=_end; it++)
