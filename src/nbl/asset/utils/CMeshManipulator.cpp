@@ -1404,7 +1404,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case EF_R8G8B8A8_SNORM:
 			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((CQuantNormalCache::value_type<EF_R8G8B8_SNORM>*)buf)[0] = _cache.quantize<EF_R8G8B8_SNORM>(_in);
+				((CQuantNormalCache::value_type_t<EF_R8G8B8_SNORM>*)buf)[0] = _cache.quantize<EF_R8G8B8_SNORM>(_in);
 
 				core::vectorSIMDf retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_R8G8B8A8_SNORM);
@@ -1416,7 +1416,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 		case EF_A2B10G10R10_SNORM_PACK32: // bgra
 			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((CQuantNormalCache::value_type<EF_A2B10G10R10_SNORM_PACK32>*)buf)[0] = _cache.quantize<EF_A2B10G10R10_SNORM_PACK32>(_in);
+				((CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>*)buf)[0] = _cache.quantize<EF_A2B10G10R10_SNORM_PACK32>(_in);
 
 				core::vectorSIMDf retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_A2R10G10B10_SNORM_PACK32);
@@ -1430,7 +1430,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case EF_R16G16B16A16_SNORM:
 			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((CQuantNormalCache::value_type<EF_R16G16B16_SNORM>*)buf)[0] = _cache.quantize<EF_R16G16B16_SNORM>(_in);
+				((CQuantNormalCache::value_type_t<EF_R16G16B16_SNORM>*)buf)[0] = _cache.quantize<EF_R16G16B16_SNORM>(_in);
 
 				core::vectorSIMDf retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SNORM);

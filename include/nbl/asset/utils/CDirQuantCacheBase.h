@@ -238,37 +238,6 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		template<E_FORMAT CacheFormat>
 		using cache_type_t = typename cache_type<CacheFormat>::type;
 
-	protected:
-		template<uint32_t dimensions, E_FORMAT CacheFormat>
-		value_type_t<CacheFormat> quantize(const core::vectorSIMDf& value)
-		{
-			const auto negativeMask = value < core::vectorSIMDf(0.0f);
-
-			const core::vectorSIMDf absValue = abs(value);
-			const auto key = Key(absValue);
-
-			constexpr auto quantizationBits = quantization_bits_v<CacheFormat>;
-			value_type_t<CacheFormat> quantized;
-			{
-				auto& particularCache = std::get<cache_type_t<CacheFormat>>(cache);
-				auto found = particularCache.find(uvMappedNormal);
-				if (found != particularCache.end() && (found->first == key))
-					quantized = found->second;
-				else
-				{
-					core::vectorSIMDf fit = findBestFit<dimensions,quantizationBits>(absValue);
-
-					quantized = core::vectorSIMDu32(core::abs(fit));
-					insertIntoCache(key,absIntFit);
-				}
-			}
-
-			const core::vectorSIMDu32 xorflag((0x1u<<(quantizationBits+1u))-1u);
-			auto restoredAsVec = absVal.getValue()^core::mix(core::vectorSIMDu32(0u),xorflag,negativeMask);
-			restoredAsVec += core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(1u),negativeMask);
-			return value_type_t<CacheFormat>(restoredAsVec&xorflag);
-		}
-
 		template<E_FORMAT CacheFormat>
 		inline void insertIntoCache(const Key& key, const value_type_t<CacheFormat>& value)
 		{
@@ -277,7 +246,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool loadCacheFromBuffer(const SBufferBinding<ICPUBuffer>& buffer, bool replaceCurrentContents = true)
+		inline bool loadCacheFromBuffer(const SBufferRange<const ICPUBuffer>& buffer, bool replaceCurrentContents = true)
 		{
 			//additional validation would be nice imo..
 			if (!validateSerializedCache<CacheFormat>(buffer))
@@ -288,7 +257,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			if (!replaceCurrentContents)
 				backup.swap(std::move(particularCache));
 			
-			CReadBufferWrap buffWrap(buffer);
+			CBufferPhmapInputArchive buffWrap(buffer);
 			bool loadingSuccess = particularCache.load(buffWrap);
 
 			if (!replaceCurrentContents || !loadingSuccess)
@@ -304,14 +273,14 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			if (!file)
 				return false;
 
-			asset::SBufferRange<asset::ICPUBuffer> bufferRange;
+			auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
+			file->read(buffer->getPointer(),file->getSize()); // TODO: make it a better way
+
+			asset::SBufferRange<const asset::ICPUBuffer> bufferRange;
 			bufferRange.offset = 0;
 			bufferRange.size = file->getSize();
-			bufferRange.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
-
-			file->read(bufferRange.buffer->getPointer(), bufferRange.size); // TODO: make it a better way
-
-			return loadNormalQuantCacheFromBuffer<CacheFormat>(bufferRange,replaceCurrentContents);
+			bufferRange.buffer = std::move(buffer);
+			return loadCacheFromBuffer<CacheFormat>(bufferRange,replaceCurrentContents);
 		}
 
 		//!
@@ -319,20 +288,20 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		inline bool loadCacheFromFile(io::IFileSystem* fs, const std::string& path, bool replaceCurrentContents = false)
 		{
 			auto file = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile(path.c_str()),core::dont_grab);
-			return loadNormalQuantCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
+			return loadCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
 		}
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool saveCacheToBuffer(SBufferBinding<ICPUBuffer>& buffer)
+		inline bool saveCacheToBuffer(SBufferRange<ICPUBuffer>& buffer)
 		{
 			const uint64_t bufferSize = buffer.buffer.get()->getSize();
 			const uint64_t offset = buffer.offset;
 
-			if (bufferSize+offset>getSerializedCacheSizeInBytes<CacheFormat>(type))
+			if (bufferSize+offset>getSerializedCacheSizeInBytes<CacheFormat>())
 				return false;
 
-			CWriteBufferWrap buffWrap(buffer);
+			CBufferPhmapOutputArchive buffWrap(buffer);
 			return std::get<cache_type_t<CacheFormat>>(cache).dump(buffWrap);
 		}
 
@@ -343,12 +312,13 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			if (!file)
 				return false;
 
-			asset::SBufferBinding<asset::ICPUBuffer> bufferBinding;
-			bufferBinding.offset = 0;
-			bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(getSerializedCacheSizeInBytes<CacheFormat>());
+			asset::SBufferRange<asset::ICPUBuffer> bufferRange;
+			bufferRange.offset = 0;
+			bufferRange.size = getSerializedCacheSizeInBytes<CacheFormat>();
+			bufferRange.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferRange.size);
 		
-			saveCacheToBuffer<CacheFormat>(bufferBinding);
-			file->write(bufferBinding.buffer->getPointer(), bufferBinding.buffer->getSize());
+			saveCacheToBuffer<CacheFormat>(bufferRange);
+			file->write(bufferRange.buffer->getPointer(), bufferRange.buffer->getSize());
 			return true;
 		}
 		//!
@@ -361,25 +331,55 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 		//!
 		template<E_FORMAT CacheFormat>
-		static inline size_t getSerializedCacheSizeInBytes()
+		inline size_t getSerializedCacheSizeInBytes()
 		{
-			return 1u+sizeof(size_t)*2u+phmap::container_internal::Group::kWidth+(sizeof(typename cache_type_t<CacheFormat>::slot_type)+1u)*std::get<cache_type_t<CacheFormat>>(cache).capacity();
+			return getSerializedCacheSizeInBytes_impl<CacheFormat>(std::get<cache_type_t<CacheFormat>>(cache).capacity());
 		}
 
 	protected:
 		std::tuple<cache_type_t<Formats>...> cache;
+		
+		template<uint32_t dimensions, E_FORMAT CacheFormat>
+		value_type_t<CacheFormat> quantize(const core::vectorSIMDf& value)
+		{
+			const auto negativeMask = value < core::vectorSIMDf(0.0f);
+
+			const core::vectorSIMDf absValue = abs(value);
+			const auto key = Key(absValue);
+
+			constexpr auto quantizationBits = quantization_bits_v<CacheFormat>;
+			value_type_t<CacheFormat> quantized;
+			{
+				auto& particularCache = std::get<cache_type_t<CacheFormat>>(cache);
+				auto found = particularCache.find(key);
+				if (found != particularCache.end() && (found->first == key))
+					quantized = found->second;
+				else
+				{
+					const core::vectorSIMDf fit = findBestFit<dimensions,quantizationBits>(absValue);
+
+					quantized = core::vectorSIMDu32(core::abs(fit));
+					insertIntoCache<CacheFormat>(key,quantized);
+				}
+			}
+
+			const core::vectorSIMDu32 xorflag((0x1u<<(quantizationBits+1u))-1u);
+			auto restoredAsVec = quantized.getValue()^core::mix(core::vectorSIMDu32(0u),xorflag,negativeMask);
+			restoredAsVec += core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(1u),negativeMask);
+			return value_type_t<CacheFormat>(restoredAsVec&xorflag);
+		}
 
 		template<uint32_t dimensions, uint32_t quantizationBits>
 		static inline core::vectorSIMDf findBestFit(const core::vectorSIMDf& value)
 		{
-			static_assert(dimensions<2,"No point");
-			static_assert(dimensions>4,"High Dimensions are Hard!");
+			static_assert(dimensions>1u,"No point");
+			static_assert(dimensions<=4u,"High Dimensions are Hard!");
 			// precise normalize
 			const auto vectorForDots = value.preciseDivision(length(value));
 
 			//
 			core::vectorSIMDf fittingVector;
-			core::vectorSIMDf floorOffset();
+			core::vectorSIMDf floorOffset;
 			constexpr uint32_t cornerCount = (0x1u<<(dimensions-1u))-1u;
 			core::vectorSIMDf corners[cornerCount] = {};
 			{
@@ -395,7 +395,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 					_NBL_DEBUG_BREAK_IF(true);
 					return core::vectorSIMDf(0.f);
 				}
-				fittingVector = value.preciseDivision(core::vectorSIMDf(maxNormalComp));
+				fittingVector = value.preciseDivision(core::vectorSIMDf(maxDirectionComp));
 				floorOffset[maxDirCompIndex] = 0.499f;
 				const uint32_t localCorner[7][3] = {
 					{1,0,0},
@@ -408,14 +408,14 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				};
 				for (auto corn=0u; corn<cornerCount; corn++)
 				{
-					const auto* coordId = localCorner[corn];
+					const auto* coordIt = localCorner[corn];
 					for (auto i=0; i<dimensions; i++)
 					if (i!=maxDirCompIndex)
 						corners[corn][i] = *(coordIt++);
 				}
 			}
 
-			core::vectorSIMDf bestFit();
+			core::vectorSIMDf bestFit;
 			float closestTo1 = -1.f;
 			auto evaluateFit = [&](const core::vectorSIMDf& newFit) -> void
 			{
@@ -439,7 +439,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 					evaluateFit(bottomFit);
 				for (auto i=0u; i<cornerCount; i++)
 				{
-					core::vectorSIMDf bottomFitTmp = bottomFit+corners[i];
+					auto bottomFitTmp = bottomFit+corners[i];
 					if ((bottomFitTmp<=cubeHalfSizeND).all())
 						evaluateFit(bottomFitTmp);
 				}
@@ -447,35 +447,28 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 			return bestFit;
 		}
-
+		
 		template<E_FORMAT CacheFormat>
-		static inline bool validateSerializedCache(const SBufferRange<ICPUBuffer>& buffer)
+		static inline size_t getSerializedCacheSizeInBytes_impl(size_t capacity)
 		{
-			if (buffer.buffer.get()->getSize() == 0 || buffer.size == 0)
-				return true;
-
-			const size_t buffSize = buffer.buffer.get()->getSize();
-			const uint8_t* buffPtr = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
-			const size_t size = *reinterpret_cast<const size_t*>(buffPtr + buffer.offset);
-			const size_t capacity = *reinterpret_cast<const size_t*>(buffPtr + buffer.offset + sizeof(size_t));
-			const uint8_t* const bufferRangeEnd = buffPtr + buffer.offset + buffer.size;
-
-			if (bufferRangeEnd > buffPtr + buffSize)
-			{
-				os::Printer::log("cannot read from this buffer - invalid range", ELL_ERROR);
+			return 1u+sizeof(size_t)*2u+phmap::container_internal::Group::kWidth+(sizeof(typename cache_type_t<CacheFormat>::slot_type)+1u)*capacity;
+		}
+		template<E_FORMAT CacheFormat>
+		static inline bool validateSerializedCache(const SBufferRange<const ICPUBuffer>& buffer)
+		{
+			if (buffer.offset+buffer.size>buffer.buffer.get()->getSize() || buffer.size<=sizeof(size_t)*2ull)
 				return false;
-			}
+			
+			const uint8_t* buffPtr = static_cast<const uint8_t*>(buffer.buffer.get()->getPointer())+buffer.offset;
 
+			const size_t size = reinterpret_cast<const size_t*>(buffPtr)[0];
+			const size_t capacity = reinterpret_cast<const size_t*>(buffPtr)[1];
 			if (size == 0)
 				return true;
 
-			size_t expectedCacheSize = sizeof(size_t) * 2 + 17;
-			expectedCacheSize += (type == E_CACHE_TYPE::ECT_16_16_16) ? 17 * capacity : 13 * capacity;
+			if (buffer.size-sizeof(size_t)*2ull<getSerializedCacheSizeInBytes_impl<CacheFormat>(capacity))
+				return false;
 
-			if ((buffer.offset + buffer.size) == expectedCacheSize)
-				return true;
-
-			os::Printer::log("cannot read from this buffer - invalid data", ELL_ERROR);
 			return false;
 		}
 };

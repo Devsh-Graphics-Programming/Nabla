@@ -528,7 +528,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 	ConeVertex* baseVertices = vertices;
 	ConeVertex* apexVertices = vertices + tesselation;
 
-    std::fill(vertices, vertices + vtxCnt, ConeVertex(core::vectorSIMDf(0.f), 0u, colorBottom));
+    std::fill(vertices,vertices+vtxCnt, ConeVertex(core::vectorSIMDf(0.f),core::vectorSIMDu32(0u),colorBottom));
 	CQuantNormalCache* const quantNormalCache = (meshManipulatorOverride == nullptr) ? defaultMeshManipulator->getQuantNormalCache() : meshManipulatorOverride->getQuantNormalCache();
 
     const float step = (2.f*core::PI<float>()) / tesselation;
