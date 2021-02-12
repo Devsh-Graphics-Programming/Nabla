@@ -68,8 +68,8 @@ class SAABoxCollider// : public AllocationOverrideDefault EBO inheritance proble
             vectorSIMDf t_Min = MinEdgeSSE&xmm0.getAsRegister();
             vectorSIMDf t_Max = MaxEdgeSSE&xmm0.getAsRegister();
             xmm0 = ~xmm0;
-            t_Min = t_Min|(reinterpret_cast<const vectorSIMDu32&>(MaxEdgeSSE) & static_cast<vectorSIMDf>(xmm0.getAsRegister()));
-            t_Max = t_Max|(reinterpret_cast<const vectorSIMDu32&>(MinEdgeSSE) & static_cast<vectorSIMDf>(xmm0.getAsRegister()));
+            t_Min = t_Min|(reinterpret_cast<const vectorSIMDu32&>(MaxEdgeSSE) & static_cast<vectorSIMDu32>(xmm0.getAsRegister()));
+            t_Max = t_Max|(reinterpret_cast<const vectorSIMDu32&>(MinEdgeSSE) & static_cast<vectorSIMDu32>(xmm0.getAsRegister()));
 
             if (t_Min.pointer[1]>t_Min.pointer[0])
                 t_Min.pointer[0] = t_Min.pointer[1];

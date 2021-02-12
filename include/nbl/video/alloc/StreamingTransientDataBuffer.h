@@ -4,7 +4,14 @@
 
 #ifndef __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
 #define __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
-
+#define NBL_NEW_OPERATOR_PASSTHTHROUGH  static inline void* operator new(size_t size)                noexcept {return (Base::operator new(size));}\
+        static inline void* operator new[](size_t size)              noexcept {return Base::operator new[](size);}\
+        static inline void* operator new(size_t size, void* where)   noexcept {return (Base::operator new(size,where));}\
+        static inline void* operator new[](size_t size, void* where) noexcept {return Base::operator new[](size,where);}\
+        static inline void operator delete(void* ptr)                noexcept {Base::operator delete(ptr);}\
+        static inline void operator delete[](void* ptr)              noexcept {Base::operator delete[](ptr);}\
+        static inline void operator delete(void* ptr, size_t size)   noexcept {Base::operator delete(ptr,size);}\
+        static inline void operator delete[](void* ptr, size_t size) noexcept {Base::operator delete[](ptr,size);}
 #include <cstring>
 
 #include "nbl/core/IReferenceCounted.h"
@@ -20,7 +27,7 @@ namespace video
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void >
-class StreamingTransientDataBufferST : public SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator>,CustomDeferredFreeFunctor>,
+class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator>,CustomDeferredFreeFunctor>,
                                                                 public virtual core::IReferenceCounted
 {
         typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
@@ -93,11 +100,12 @@ class StreamingTransientDataBufferST : public SubAllocatedDataBuffer<core::Heter
         {
             Base::multi_free(std::forward<Args>(args)...);
         }
+       NBL_NEW_OPERATOR_PASSTHTHROUGH
 };
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
-class StreamingTransientDataBufferMT : public StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor>, public virtual core::IReferenceCounted
+class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor>, public virtual core::IReferenceCounted
 {
         typedef StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor> Base;
     protected:
@@ -180,6 +188,7 @@ class StreamingTransientDataBufferMT : public StreamingTransientDataBufferST<_si
         {
             return lock;
         }
+        NBL_NEW_OPERATOR_PASSTHTHROUGH
 };
 
 
