@@ -390,7 +390,7 @@ int main()
         {
             //lp.loaderFlags = asset::IAssetLoader::ELPF_DONT_COMPILE_GLSL;
             meshes_bundle = am->getAsset(file.result()[0], lp);
-            if (meshes_bundle.isEmpty())
+            if (meshes_bundle.getContents().empty())
             {
                 pfd::message("Choose file to open", "Chosen file could not be loaded. Choose another OBJ file to open or press cancel to open a default scene.", pfd::choice::ok);
                 continue;
@@ -402,7 +402,7 @@ int main()
 
             fs->addFileArchive("../../media/sponza.zip");
             meshes_bundle = am->getAsset("sponza.obj", lp);
-            if (meshes_bundle.isEmpty())
+            if (meshes_bundle.getContents().empty())
             { 
                 std::cout << "Could not open Sponza.zip. Quitting program";
                 return 1;
@@ -423,21 +423,21 @@ int main()
     if (!asset::IMeshManipulator::getPolyCount(triangleCount, mesh_raw))
         assert(false);
   
-    const asset::CMTLPipelineMetadata* pipelineMetadata = nullptr;
+    const auto meta = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
+    const asset::CMTLMetadata::CRenderpassIndependentPipeline* pipelineMetadata = nullptr;
     core::map<const asset::ICPURenderpassIndependentPipeline*,core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>> modifiedPipelines;
-    for (uint32_t i=0u; i<mesh_raw->getMeshBufferCount(); i++)
+    for (auto mb : mesh_raw->getMeshBuffers())
     {
-        auto mb = mesh_raw->getMeshBuffer(i);
         auto* pipeline = mb->getPipeline();
         auto found = modifiedPipelines.find(pipeline);
         if (found==modifiedPipelines.end())
         {
+            pipelineMetadata = static_cast<const asset::CMTLMetadata::CRenderpassIndependentPipeline*>(meta->getAssetSpecificMetadata(pipeline));
+
             // new pipeline to modify, copy the pipeline
             auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(1u));
 
             // insert a geometry shader into the pipeline
-            assert(pipelineMetadata->getLoaderName() == "CGraphicsPipelineLoaderMTL");
-            pipelineMetadata = static_cast<const asset::CMTLPipelineMetadata*>(pipeline->getMetadata());
             pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX,(pipelineMetadata->usesShaderWithUVs() ? geomShaderUV:geomShaderNOUV).get());
 
             // add descriptor set layout with one that has an SSBO and UBO
@@ -454,7 +454,7 @@ int main()
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
-    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
         if (bnd.type==asset::EDT_UNIFORM_BUFFER)
@@ -465,8 +465,8 @@ int main()
 
     size_t neededDS1UBOsz = 0ull;
     {
-        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
-            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+        for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
                 neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
     }
 
@@ -545,25 +545,25 @@ int main()
 
 
         core::vector<uint8_t> uboData(gpuubo->getSize());
-        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
+        for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {
-            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
             {
                 switch (shdrIn.type)
                 {
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
                 {
                     core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
                     memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW:
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
                 {
                     core::matrix3x4SIMD MV = camera->getViewMatrix();
                     memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
                 {
                     core::matrix3x4SIMD MV = camera->getViewMatrix();
                     memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
@@ -575,9 +575,8 @@ int main()
         driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
         // draw the meshbuffers and compute lines
-        for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+        for (auto gpumb : gpumesh->getMeshBuffers())
         {
-            video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
             const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();  
             const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
 

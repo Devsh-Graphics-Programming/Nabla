@@ -5,7 +5,6 @@
 
 #include "BuildConfigOptions.h"
 #include "CSceneManager.h"
-#include "IVideoDriver.h"
 #include "IFileSystem.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
@@ -13,18 +12,8 @@
 
 #include "os.h"
 
-// We need this include for the case of skinned mesh support without
-// any such loader
-#include "CSkinnedMeshSceneNode.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
-
 #include "CCameraSceneNode.h"
 
-#include "CSceneNodeAnimatorRotation.h"
-#include "CSceneNodeAnimatorFlyCircle.h"
-#include "CSceneNodeAnimatorFlyStraight.h"
-#include "CSceneNodeAnimatorDelete.h"
-#include "CSceneNodeAnimatorFollowSpline.h"
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
 #include "CSceneNodeAnimatorCameraModifiedMaya.h"
@@ -37,148 +26,18 @@ namespace scene
 //! constructor
 CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, nbl::ITimer* timer, io::IFileSystem* fs,
 		gui::ICursorControl* cursorControl)
-: ISceneNode(0, 0), Driver(driver), Timer(timer), FileSystem(fs), Device(device),
-	CursorControl(cursorControl),
-	ActiveCamera(0), CurrentRendertime(ESNRP_NONE),
-	NBL_XML_FORMAT_SCENE(L"irr_scene"), NBL_XML_FORMAT_NODE(L"node"), NBL_XML_FORMAT_NODE_ATTR_TYPE(L"type")
+: ISceneNode(0, 0), Driver(driver), Timer(timer), Device(device),
+	CursorControl(cursorControl), ActiveCamera(0)
 {
 	#ifdef _NBL_DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
 	ISceneNode::setDebugName("CSceneManager ISceneNode");
 	#endif
 
-	// root node's scene manager
-	SceneManager = this;
-
 	if (Driver)
 		Driver->grab();
-
-	if (FileSystem)
-		FileSystem->grab();
-
 	if (CursorControl)
 		CursorControl->grab();
-
-	{
-        size_t redundantMeshDataBufSize = sizeof(char)*24*3+ //data for the skybox positions
-                                        0;
-        void* tmpMem = _NBL_ALIGNED_MALLOC(redundantMeshDataBufSize,_NBL_SIMD_ALIGNMENT);
-        {
-            char* skyBoxesVxPositions = (char*)tmpMem;
-            skyBoxesVxPositions[0*3+0] = -1;
-            skyBoxesVxPositions[0*3+1] = -1;
-            skyBoxesVxPositions[0*3+2] = -1;
-
-            skyBoxesVxPositions[1*3+0] = 1;
-            skyBoxesVxPositions[1*3+1] =-1;
-            skyBoxesVxPositions[1*3+2] =-1;
-
-            skyBoxesVxPositions[2*3+0] = 1;
-            skyBoxesVxPositions[2*3+1] = 1;
-            skyBoxesVxPositions[2*3+2] =-1;
-
-            skyBoxesVxPositions[3*3+0] =-1;
-            skyBoxesVxPositions[3*3+1] = 1;
-            skyBoxesVxPositions[3*3+2] =-1;
-
-            // create left side
-            skyBoxesVxPositions[4*3+0] = 1;
-            skyBoxesVxPositions[4*3+1] =-1;
-            skyBoxesVxPositions[4*3+2] =-1;
-
-            skyBoxesVxPositions[5*3+0] = 1;
-            skyBoxesVxPositions[5*3+1] =-1;
-            skyBoxesVxPositions[5*3+2] = 1;
-
-            skyBoxesVxPositions[6*3+0] = 1;
-            skyBoxesVxPositions[6*3+1] = 1;
-            skyBoxesVxPositions[6*3+2] = 1;
-
-            skyBoxesVxPositions[7*3+0] = 1;
-            skyBoxesVxPositions[7*3+1] = 1;
-            skyBoxesVxPositions[7*3+2] =-1;
-
-            // create back side
-            skyBoxesVxPositions[8*3+0] = 1;
-            skyBoxesVxPositions[8*3+1] =-1;
-            skyBoxesVxPositions[8*3+2] = 1;
-
-            skyBoxesVxPositions[9*3+0] =-1;
-            skyBoxesVxPositions[9*3+1] =-1;
-            skyBoxesVxPositions[9*3+2] = 1;
-
-            skyBoxesVxPositions[10*3+0] =-1;
-            skyBoxesVxPositions[10*3+1] = 1;
-            skyBoxesVxPositions[10*3+2] = 1;
-
-            skyBoxesVxPositions[11*3+0] = 1;
-            skyBoxesVxPositions[11*3+1] = 1;
-            skyBoxesVxPositions[11*3+2] = 1;
-
-            // create right side
-            skyBoxesVxPositions[12*3+0] =-1;
-            skyBoxesVxPositions[12*3+1] =-1;
-            skyBoxesVxPositions[12*3+2] = 1;
-
-            skyBoxesVxPositions[13*3+0] =-1;
-            skyBoxesVxPositions[13*3+1] =-1;
-            skyBoxesVxPositions[13*3+2] =-1;
-
-            skyBoxesVxPositions[14*3+0] =-1;
-            skyBoxesVxPositions[14*3+1] = 1;
-            skyBoxesVxPositions[14*3+2] =-1;
-
-            skyBoxesVxPositions[15*3+0] =-1;
-            skyBoxesVxPositions[15*3+1] = 1;
-            skyBoxesVxPositions[15*3+2] = 1;
-
-            // create top side
-            skyBoxesVxPositions[16*3+0] = 1;
-            skyBoxesVxPositions[16*3+1] = 1;
-            skyBoxesVxPositions[16*3+2] =-1;
-
-            skyBoxesVxPositions[17*3+0] = 1;
-            skyBoxesVxPositions[17*3+1] = 1;
-            skyBoxesVxPositions[17*3+2] = 1;
-
-            skyBoxesVxPositions[18*3+0] =-1;
-            skyBoxesVxPositions[18*3+1] = 1;
-            skyBoxesVxPositions[18*3+2] = 1;
-
-            skyBoxesVxPositions[19*3+0] =-1;
-            skyBoxesVxPositions[19*3+1] = 1;
-            skyBoxesVxPositions[19*3+2] =-1;
-
-            // create bottom side
-            skyBoxesVxPositions[20*3+0] = 1;
-            skyBoxesVxPositions[20*3+1] =-1;
-            skyBoxesVxPositions[20*3+2] = 1;
-
-            skyBoxesVxPositions[21*3+0] = 1;
-            skyBoxesVxPositions[21*3+1] =-1;
-            skyBoxesVxPositions[21*3+2] =-1;
-
-            skyBoxesVxPositions[22*3+0] =-1;
-            skyBoxesVxPositions[22*3+1] =-1;
-            skyBoxesVxPositions[22*3+2] =-1;
-
-            skyBoxesVxPositions[23*3+0] =-1;
-            skyBoxesVxPositions[23*3+1] =-1;
-            skyBoxesVxPositions[23*3+2] = 1;
-        }
-        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-        reqs.vulkanReqs.size = redundantMeshDataBufSize;
-        reqs.vulkanReqs.alignment = 4;
-        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-        reqs.prefersDedicatedAllocation = true;
-        reqs.requiresDedicatedAllocation = true;
-        redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-        if (redundantMeshDataBuf)
-            redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
-        _NBL_ALIGNED_FREE(tmpMem);
-	}
 }
 
 
@@ -186,12 +45,6 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 CSceneManager::~CSceneManager()
 {
 	clearDeletionList();
-
-	//! force to remove hardwareTextures from the driver
-	//! because Scenes may hold internally data bounded to sceneNodes
-	//! which may be destroyed twice
-	if (FileSystem)
-		FileSystem->drop();
 
 	if (CursorControl)
 		CursorControl->drop();
@@ -210,42 +63,6 @@ CSceneManager::~CSceneManager()
 		Driver->drop();
 }
 
-
-//! returns the video driver
-video::IVideoDriver* CSceneManager::getVideoDriver()
-{
-	return Driver;
-}
-
-//! Get the active FileSystem
-/** \return Pointer to the FileSystem
-This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-io::IFileSystem* CSceneManager::getFileSystem()
-{
-	return FileSystem;
-}
-
-IrrlichtDevice * CSceneManager::getDevice()
-{
-    return Device;
-}
-
-//! adds a scene node for rendering an animated mesh model
-ISkinnedMeshSceneNode* CSceneManager::addSkinnedMeshSceneNode(
-    core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode,
-    IDummyTransformationSceneNode* parent, int32_t id,
-    const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
-{
-	if (!mesh)
-		return 0;
-
-	if (!parent)
-		parent = this;
-
-	auto node = new CSkinnedMeshSceneNode(std::move(mesh), boneControlMode, parent, this, id, position, rotation, scale);
-	node->drop();
-	return node;
-}
 
 //! Adds a camera scene node to the tree and sets it as active camera.
 //! \param position: Position of the space relative to its parent where the camera will be placed.
@@ -336,45 +153,6 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 	return node;
 }
 
-
-
-//! Adds a skybox scene node. A skybox is a big cube with 6 textures on it and
-//! is drawn around the camera position.
-IMeshSceneNode* CSceneManager::addSkyBoxSceneNode(core::smart_refctd_ptr<video::IGPUImageView>&& cubemap, IDummyTransformationSceneNode* parent, int32_t id)
-{
-	if (!parent)
-		parent = this;
-#ifndef OLD_SHADERS
-	return nullptr;
-#else
-	ISceneNode* node = new CSkyBoxSceneNode(std::move(top), std::move(bottom), std::move(left), std::move(right),
-											std::move(front), std::move(back), core::smart_refctd_ptr(redundantMeshDataBuf), 0, parent, this, id);
-
-	node->drop();
-	return node;
-#endif
-}
-
-
-//! Adds a skydome scene node. A skydome is a large (half-) sphere with a
-//! panoramic texture on it and is drawn around the camera position.
-IMeshSceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IGPUImageView>&& texture, uint32_t horiRes,
-													uint32_t vertRes, float texturePercentage, float spherePercentage, float radius,
-													IDummyTransformationSceneNode* parent, int32_t id)
-{
-	if (!parent)
-		parent = this;
-#ifndef OLD_SHADERS
-	return nullptr;
-#else
-	ISceneNode* node = new CSkyDomeSceneNode(std::move(texture), horiRes, vertRes,
-		texturePercentage, spherePercentage, radius, parent, this, id);
-
-	node->drop();
-	return node;
-#endif
-}
-
 //! Adds a dummy transformation scene node to the scene tree.
 IDummyTransformationSceneNode* CSceneManager::addDummyTransformationSceneNode(
 	IDummyTransformationSceneNode* parent, int32_t id)
@@ -436,39 +214,6 @@ const core::aabbox3d<float>& CSceneManager::getBoundingBox()
 	return *((core::aabbox3d<float>*)0);
 }
 
-
-//! returns if node is culled
-bool CSceneManager::isCulled(ISceneNode* node) const
-{
-	const ICameraSceneNode* cam = getActiveCamera();
-	if (!cam)
-	{
-		return false;
-	}
-
-    core::aabbox3d<float> tbox = node->getBoundingBox();
-    if (tbox.MinEdge==tbox.MaxEdge)
-        return true;
-
-    if (node->getAutomaticCulling())
-    {
-		node->getAbsoluteTransformation().transformBoxEx(tbox);
-        // can be seen by cam pyramid planes ?
-        if (cam->getViewFrustum()->intersectsAABB(tbox))
-            return true;
-	}
-
-	return false;
-}
-
-
-//! registers a node for rendering it at a specific time.
-uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_RENDER_PASS pass)
-{
-	assert(false);
-	return 0;
-}
-
 //!
 void CSceneManager::OnAnimate(uint32_t timeMs)
 {
@@ -487,155 +232,6 @@ void CSceneManager::OnAnimate(uint32_t timeMs)
             i++;
     }
 }
-
-//! This method is called just before the rendering process of the whole scene.
-//! draws all scene nodes
-void CSceneManager::drawAll()
-{
-	if (!Driver)
-		return;
-
-	uint32_t i; // new ISO for scoping problem in some compilers
-
-#ifdef OLD_SHADERS
-	// reset all transforms
-	Driver->setMaterial(video::SGPUMaterial());
-	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
-	Driver->setTransform(video::E4X3TS_VIEW,core::matrix3x4SIMD());
-	Driver->setTransform(video::E4X3TS_WORLD,core::matrix3x4SIMD());
-#endif
-	// do animations and other stuff.
-	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
-
-	/*!
-		First Scene Node for prerendering should be the active camera
-		consistent Camera is needed for culling
-	*/
-	if (ActiveCamera)
-	{
-		ActiveCamera->render();
-	}
-
-	// let all nodes register themselves
-	OnRegisterSceneNode();
-
-	//render camera scenes
-	{
-		CurrentRendertime = ESNRP_CAMERA;
-
-		for (i=0; i<CameraList.size(); ++i)
-			CameraList[i]->render();
-
-		CameraList.clear();
-	}
-
-	// render skyboxes
-	{
-		CurrentRendertime = ESNRP_SKY_BOX;
-
-        for (i=0; i<SkyBoxList.size(); ++i)
-            SkyBoxList[i]->render();
-
-		SkyBoxList.clear();
-	}
-
-
-	// render default objects
-	{
-		CurrentRendertime = ESNRP_SOLID;
-
-		std::stable_sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
-
-        for (i=0; i<SolidNodeList.size(); ++i)
-            SolidNodeList[i].Node->render();
-
-		SolidNodeList.clear();
-	}
-
-	// render transparent objects.
-	{
-		CurrentRendertime = ESNRP_TRANSPARENT;
-
-		std::stable_sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
-        for (i=0; i<TransparentNodeList.size(); ++i)
-            TransparentNodeList[i].Node->render();
-
-		TransparentNodeList.clear();
-	}
-
-	// render transparent effect objects.
-	{
-		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
-
-		std::stable_sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
-        for (i=0; i<TransparentEffectNodeList.size(); ++i)
-            TransparentEffectNodeList[i].Node->render();
-
-		TransparentEffectNodeList.clear();
-	}
-
-	LightList.clear();
-	clearDeletionList();
-
-	CurrentRendertime = ESNRP_NONE;
-}
-
-//! creates a rotation animator, which rotates the attached scene node around itself.
-ISceneNodeAnimator* CSceneManager::createRotationAnimator(const core::vector3df& rotationPerSecond)
-{
-	ISceneNodeAnimator* anim = new CSceneNodeAnimatorRotation(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(),
-		rotationPerSecond);
-
-	return anim;
-}
-
-
-//! creates a fly circle animator, which lets the attached scene node fly around a center.
-ISceneNodeAnimator* CSceneManager::createFlyCircleAnimator(
-		const core::vector3df& center, float radius, float speed,
-		const core::vectorSIMDf& direction,
-		float startPosition,
-		float radiusEllipsoid)
-{
-	const float orbitDurationMs = core::radians(360.f) / speed;
-	const uint32_t effectiveTime = std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + (uint32_t)(orbitDurationMs * startPosition);
-
-	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyCircle(
-			effectiveTime, center,
-			radius, speed, direction,radiusEllipsoid);
-	return anim;
-}
-
-
-//! Creates a fly straight animator, which lets the attached scene node
-//! fly or move along a line between two points.
-ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vectorSIMDf& startPoint,
-					const core::vectorSIMDf& endPoint, uint32_t timeForWay, bool loop,bool pingpong)
-{
-	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyStraight(startPoint,
-		endPoint, timeForWay, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(), pingpong);
-
-	return anim;
-}
-
-//! Creates a scene node animator, which deletes the scene node after
-//! some time automaticly.
-ISceneNodeAnimator* CSceneManager::createDeleteAnimator(uint32_t when)
-{
-	return new CSceneNodeAnimatorDelete(this, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + when);
-}
-
-
-//! Creates a follow spline animator.
-ISceneNodeAnimator* CSceneManager::createFollowSplineAnimator(int32_t startTime,
-	const core::vector< core::vector3df >& points,
-	float speed, float tightness, bool loop, bool pingpong)
-{
-	ISceneNodeAnimator* a = new CSceneNodeAnimatorFollowSpline(startTime, points,
-		speed, tightness, loop, pingpong);
-	return a;
-}
-
 
 //! Adds a scene node to the deletion queue.
 void CSceneManager::addToDeletionQueue(IDummyTransformationSceneNode* node)
@@ -663,98 +259,6 @@ void CSceneManager::clearDeletionList()
 	DeletionList.clear();
 }
 
-/*
-//! Returns the first scene node with the specified name.
-ISceneNode* CSceneManager::getSceneNodeFromName(const char* name, IDummyTransformationSceneNode* start)
-{
-	if (start == 0)
-		start = getRootSceneNode();
-
-	if (!strcmp(start->getName(),name))
-		return start;
-
-	IDummyTransformationSceneNode* node = 0;
-
-	const IDummyTransformationSceneNodeArray& list = start->getChildren();
-	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
-	for (; it!=list.end(); ++it)
-	{
-		node = getSceneNodeFromName(name, *it);
-		if (node)
-			return node;
-	}
-
-	return 0;
-}
-
-
-//! Returns the first scene node with the specified id.
-ISceneNode* CSceneManager::getSceneNodeFromId(int32_t id, IDummyTransformationSceneNode* start)
-{
-	if (start == 0)
-		start = getRootSceneNode();
-
-	if (start->getID() == id)
-		return start;
-
-	ISceneNode* node = 0;
-
-	const IDummyTransformationSceneNodeArray& list = start->getChildren();
-	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
-	for (; it!=list.end(); ++it)
-	{
-		node = getSceneNodeFromId(id, *it);
-		if (node)
-			return node;
-	}
-
-	return 0;
-}
-
-
-//! Returns the first scene node with the specified type.
-ISceneNode* CSceneManager::getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* start)
-{
-	if (start == 0)
-		start = getRootSceneNode();
-
-	if (start->getType() == type || ESNT_ANY == type)
-		return start;
-
-	ISceneNode* node = 0;
-
-	const IDummyTransformationSceneNodeArray& list = start->getChildren();
-	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
-	for (; it!=list.end(); ++it)
-	{
-		node = getSceneNodeFromType(type, *it);
-		if (node)
-			return node;
-	}
-
-	return 0;
-}
-
-
-//! returns scene nodes by type.
-void CSceneManager::getSceneNodesFromType(ESCENE_NODE_TYPE type, core::vector<scene::ISceneNode*>& outNodes, IDummyTransformationSceneNode* start)
-{
-	if (start == 0)
-		start = getRootSceneNode();
-
-	if (start->getType() == type || ESNT_ANY == type)
-		outNodes.push_back(start);
-
-	const IDummyTransformationSceneNodeArray& list = start->getChildren();
-	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
-
-	for (; it!=list.end(); ++it)
-	{
-		getSceneNodesFromType(type, outNodes, *it);
-	}
-}
-*/
-
 //! Posts an input event to the environment. Usually you do not have to
 //! use this method, it is used by the internal engine.
 bool CSceneManager::receiveIfEventReceiverDidNotAbsorb(const SEvent& event)
@@ -773,11 +277,6 @@ void CSceneManager::removeAll()
 {
 	ISceneNode::removeAll();
 	setActiveCamera(0);
-	// Make sure the driver is reset, might need a more complex method at some point
-#ifdef OLD_SHADERS
-	if (Driver)
-		Driver->setMaterial(video::SGPUMaterial());
-#endif
 }
 
 
@@ -785,24 +284,6 @@ void CSceneManager::removeAll()
 void CSceneManager::clear()
 {
 	removeAll();
-}
-
-
-//! Returns current render pass.
-E_SCENE_NODE_RENDER_PASS CSceneManager::getSceneNodeRenderPass() const
-{
-	return CurrentRendertime;
-}
-
-//! Creates a new scene manager.
-ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
-{
-    CSceneManager* manager = new CSceneManager(Device, Driver, Timer, FileSystem, CursorControl);
-
-    if (cloneContent)
-        manager->cloneMembers(this, manager);
-
-    return manager;
 }
 
 

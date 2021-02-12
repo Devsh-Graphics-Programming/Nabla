@@ -12,7 +12,7 @@
 #include "path.h"
 
 #include "nbl/asset/ICPUMesh.h"
-#include "nbl/asset/IAssetLoader.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
 
 namespace nbl
 {

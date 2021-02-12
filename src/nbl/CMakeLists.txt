@@ -137,42 +137,39 @@ set(NBL_ASSET_SOURCES
 # Assets
 	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/IAssetWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/IAssetLoader.cpp
-	
-# Builtin include loaders (TO REMOVE)
-	${NBL_ROOT_PATH}/src/nbl/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
 	
 # Shaders
-	${NBL_ROOT_PATH}/src/nbl/asset/ISPIRVOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/IGLSLCompiler.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CShaderIntrospector.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CGLSLLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CSPVLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/IGLSLCompiler.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CShaderIntrospector.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSPVLoader.cpp
 	
 # Pipeline loaders
-	${NBL_ROOT_PATH}/src/nbl/asset/CGraphicsPipelineLoaderMTL.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGraphicsPipelineLoaderMTL.cpp
 
 # Meshes
-	${NBL_ROOT_PATH}/src/nbl/asset/CForsythVertexCacheOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CSmoothNormalGenerator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CQuantNormalCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CGeometryCreator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CMeshManipulator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/COverdrawMeshOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CSmoothNormalGenerator.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CForsythVertexCacheOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGeometryCreator.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CMeshManipulator.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawMeshOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 
 # Mesh loaders
-	${NBL_ROOT_PATH}/src/nbl/asset/CBAWMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/COBJMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CPLYMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CSTLMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CBufferLoaderBIN.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
 
 # Mesh writers
-	${NBL_ROOT_PATH}/src/nbl/asset/CBAWMeshWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CPLYMeshWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 
 # BaW Format
 	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -182,24 +179,24 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp
 
 # Images
-	${NBL_ROOT_PATH}/src/nbl/asset/IImageAssetHandlerBase.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/filters/CBasicImageFilterCommon.cpp
 
 # Image loaders
-	${NBL_ROOT_PATH}/src/nbl/asset/IImageLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageLoaderJPG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageLoaderPNG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageLoaderTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageLoaderOpenEXR.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CGLILoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderJPG.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderPNG.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderTGA.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLILoader.cpp
 
 # Image writers
-	${NBL_ROOT_PATH}/src/nbl/asset/IImageWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageWriterJPG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageWriterPNG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageWriterTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CImageWriterOpenEXR.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/CGLIWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterJPG.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterPNG.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterTGA.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLIWriter.cpp
 	
 # Material compiler
 	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
@@ -224,7 +221,6 @@ ${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
-${NBL_ROOT_PATH}/source/Nabla/CSkinnedMeshSceneNode.cpp
 ${NBL_ROOT_PATH}/source/Nabla/CCameraSceneNode.cpp
 ${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
 

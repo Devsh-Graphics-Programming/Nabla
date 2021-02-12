@@ -6,9 +6,10 @@
 #define __C_MITSUBA_LOADER_CONTEXT_H_INCLUDED__
 
 
-#include <nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h>
-#include <nbl/asset/ICPUMesh.h>
-#include <nbl/asset/IGeometryCreator.h>
+#include "nbl/asset/ICPUMesh.h"
+#include "nbl/asset/utils/IGeometryCreator.h"
+#include "nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h"
+
 #include "../../ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "../../ext/MitsubaLoader/CElementShape.h"
 
@@ -26,14 +27,14 @@ namespace MitsubaLoader
 			const asset::IMeshManipulator* _manipulator,
 			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
-			CGlobalMitsubaMetadata* _metadata
+			CMitsubaMetadata* _metadata
 		);
 
 		const asset::IGeometryCreator* creator;
 		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
-		CGlobalMitsubaMetadata* globalMeta;
+		CMitsubaMetadata* meta;
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_SZ_LOG2 = 7u;//128
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2 = 4u;//16
@@ -138,12 +139,12 @@ namespace MitsubaLoader
 
 		struct SInstanceData
 		{
-			SInstanceData(core::matrix3x4SIMD _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitter) : 
+			SInstanceData(core::matrix3x4SIMD _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitterFront, const CElementEmitter& _emitterBack) :
 				tform(_tform), bsdf(_bsdf),
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 				bsdf_id(_id),
 #endif
-				emitter(_emitter)
+				emitter{_emitterFront, _emitterBack}
 			{}
 
 			core::matrix3x4SIMD tform;
@@ -151,7 +152,11 @@ namespace MitsubaLoader
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 			std::string bsdf_id;
 #endif
-			CElementEmitter emitter; // type is invalid if not used
+			struct {
+				// type is invalid if not used
+				CElementEmitter front;
+				CElementEmitter back;
+			} emitter;
 		};
 		core::unordered_multimap<const shape_ass_type::pointee*, SInstanceData> mapMesh2instanceData;
 

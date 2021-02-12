@@ -46,27 +46,33 @@ int main(int argc, char * argv[])
 	constexpr std::string_view defaultImagePath = "../../media/noises/spp_benchmark_4k_512.exr";
 	const auto filePath = std::string(isItDefaultImage ? defaultImagePath.data() : argv[1]);
 	auto image_bundle = am->getAsset(filePath, lp);
-	assert(!image_bundle.isEmpty());
+	auto contents = image_bundle.getContents();
+	assert(!contents.empty());
+	auto meta = image_bundle.getMetadata()->selfCast<const COpenEXRMetadata>();
+	assert(meta);
 
-	for (auto i = 0ul; i < image_bundle.getSize(); ++i)
+	uint32_t i=0u;
+	for (auto asset : contents)
 	{
+		auto image = IAsset::castDown<ICPUImage>(asset);
+		const auto* metadata = static_cast<const COpenEXRMetadata::CImage*>(meta->getAssetSpecificMetadata(image.get()));
+
 		ICPUImageView::SCreationParams imgViewParams;
 		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-		imgViewParams.image = IAsset::castDown<ICPUImage>(image_bundle.getContents().begin()[i]);
+		imgViewParams.image = std::move(image);
 		imgViewParams.format = imgViewParams.image->getCreationParameters().format;
 		imgViewParams.viewType = ICPUImageView::ET_2D;
 		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
 		auto imageView = ICPUImageView::create(std::move(imgViewParams));
 
-		const auto* metadata = static_cast<const COpenEXRImageMetadata*>(imageView->getCreationParameters().image->getMetadata());
-		auto channelsName = metadata->getName();
+		auto channelsName = metadata->m_name;
 
 		io::path fileName, extension, finalFileNameWithExtension;
 		core::splitFilename(filePath.c_str(), nullptr, &fileName, &extension);
 		finalFileNameWithExtension = fileName + ".";
 		finalFileNameWithExtension += extension;
 
-		const std::string finalOutputPath = channelsName.empty() ? (std::string(fileName.c_str()) + "_" + std::to_string(i) + "." + std::string(extension.c_str())) : (std::string(fileName.c_str()) + "_" + channelsName + "." + std::string(extension.c_str()));
+		const std::string finalOutputPath = channelsName.empty() ? (std::string(fileName.c_str()) + "_" + std::to_string(i++) + "." + std::string(extension.c_str())) : (std::string(fileName.c_str()) + "_" + channelsName + "." + std::string(extension.c_str()));
 
 		const auto params = IAssetWriter::SAssetWriteParams(imageView.get(), EWF_BINARY);
 		am->writeAsset(finalOutputPath, params);
