@@ -358,6 +358,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 
 		double ay = 0;//AngleY / 2;
 
+		using quant_normal_t = CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>;
 		uint8_t* tmpMemPtr = tmpMem;
 		for (uint32_t y = 0; y < polyCountY; ++y)
 		{
@@ -377,7 +378,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 				// for spheres the normal is the position
 				core::vectorSIMDf normal(&pos.X);
 				normal.makeSafe3D();
-				uint32_t quantizedNormal = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(normal);
+				quant_normal_t quantizedNormal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normal);
 				pos *= radius;
 
 				// calculate texture coordinates via sphere mapping
@@ -398,7 +399,8 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 				((float*)tmpMemPtr)[2] = pos.Z;
 				((float*)tmpMemPtr)[4] = tu;
 				((float*)tmpMemPtr)[5] = static_cast<float>(ay * core::RECIPROCAL_PI<double>());
-				((uint32_t*)tmpMemPtr)[6] = quantizedNormal;
+				((quant_normal_t*)tmpMemPtr)[6] = quantizedNormal;
+				static_assert(sizeof(quant_normal_t)==4u);
 
 				tmpMemPtr += vertexSize;
 				axz += AngleX;
@@ -420,7 +422,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 		((float*)tmpMemPtr)[2] = 0.f;
 		((float*)tmpMemPtr)[4] = 0.5f;
 		((float*)tmpMemPtr)[5] = 0.f;
-		((uint32_t*)tmpMemPtr)[6] = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(core::vectorSIMDf(0.f, 1.f, 0.f));
+		((quant_normal_t*)tmpMemPtr)[6] = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::vectorSIMDf(0.f, 1.f, 0.f));
 
 		// the vertex at the bottom of the sphere
 		tmpMemPtr += vertexSize;
@@ -429,7 +431,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 		((float*)tmpMemPtr)[2] = 0.f;
 		((float*)tmpMemPtr)[4] = 0.5f;
 		((float*)tmpMemPtr)[5] = 1.f;
-		((uint32_t*)tmpMemPtr)[6] = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(core::vectorSIMDf(0.f, -1.f, 0.f));
+		((quant_normal_t*)tmpMemPtr)[6] = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::vectorSIMDf(0.f, -1.f, 0.f));
 
 		// recalculate bounding box
 		core::aabbox3df BoundingBox;
@@ -476,7 +478,7 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
     {
         core::vectorSIMDf p(std::cos(i*step), std::sin(i*step), 0.f);
         p *= radius;
-        const uint32_t n = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(core::normalize(p));
+        const auto n = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::normalize(p));
 
         memcpy(vertices[i].pos, p.pointer, 12u);
         vertices[i].normal = n;
@@ -560,8 +562,8 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 		angleWeight = std::acos(core::dot(core::normalize(apexVertexCoords), core::normalize(u2)).x);
 		u2 = core::normalize(core::cross(u2, v0ToApex)) * angleWeight;
 
-		baseVertices[i].normal = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(core::normalize(u1 + u2));
-		apexVertices[i].normal = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(core::normalize(u1));
+		baseVertices[i].normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::normalize(u1 + u2));
+		apexVertices[i].normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::normalize(u1));
 	}
 
 	auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(3u * tesselation * sizeof(uint16_t));

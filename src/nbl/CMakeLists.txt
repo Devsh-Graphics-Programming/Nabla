@@ -154,7 +154,6 @@ set(NBL_ASSET_SOURCES
 # Meshes
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CForsythVertexCacheOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CQuantNormalCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGeometryCreator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CMeshManipulator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawMeshOptimizer.cpp

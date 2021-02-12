@@ -55,7 +55,7 @@ public:
     }
     float pos[3];
     float uv[2];
-    uint32_t normal32bit;
+    CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32> normal32bit;
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
