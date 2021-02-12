@@ -24,6 +24,8 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
             //-clamp
             uint32_t clamp;
             static_assert(sizeof(clamp) * 8ull >= CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT, "SMtl::clamp is too small!");
+
+            inline bool isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE m) const { return (clamp >> m) & 1u; }
         };
 
         struct SContext

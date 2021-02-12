@@ -128,6 +128,16 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			}
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			--_levelsBelow;
+			auto mbs = getMeshBuffers();
+			for (auto mb : mbs)
+				if (mb->isAnyDependencyDummy(_levelsBelow))
+					return true;
+			return false;
+		}
+
 		core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> m_meshBuffers;
 };
 

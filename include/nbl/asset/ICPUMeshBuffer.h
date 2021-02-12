@@ -616,6 +616,21 @@ protected:
                 restoreFromDummy_impl_call(m_indexBufferBinding.buffer.get(), other->m_indexBufferBinding.buffer.get(), _levelsBelow);
         }
     }
+
+    bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+    {
+        --_levelsBelow;
+        if (m_pipeline && m_pipeline->isAnyDependencyDummy(_levelsBelow))
+            return true;
+        if (m_descriptorSet && m_descriptorSet->isAnyDependencyDummy(_levelsBelow))
+            return true;
+
+        for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            if (m_vertexBufferBindings[i].buffer && m_vertexBufferBindings[i].buffer->isAnyDependencyDummy(_levelsBelow))
+                return true;
+
+        return (m_indexBufferBinding.buffer && m_indexBufferBinding.buffer->isAnyDependencyDummy(_levelsBelow));
+    }
 };
 
 }}

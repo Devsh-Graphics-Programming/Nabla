@@ -303,11 +303,9 @@ namespace core
 
 			inline I_REFERENCE_COUNTED* const& get() const { return ptr; }
 
-			inline I_REFERENCE_COUNTED* operator->() { return ptr; }
-			inline const I_REFERENCE_COUNTED* operator->() const { return ptr; }
+			inline I_REFERENCE_COUNTED* operator->() const { return ptr; }
 
-			inline I_REFERENCE_COUNTED& operator*() { return *ptr; }
-			inline const I_REFERENCE_COUNTED& operator*() const { return *ptr; }
+			inline I_REFERENCE_COUNTED& operator*() const { return *ptr; }
 
 			inline I_REFERENCE_COUNTED& operator[](size_t idx) { return ptr[idx]; }
 			inline const I_REFERENCE_COUNTED& operator[](size_t idx) const { return ptr[idx]; }
