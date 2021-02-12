@@ -1,19 +1,22 @@
-#ifndef __NBL_C_OPENGL_LOGICAL_DEVICE_H_INCLUDED__
-#define __NBL_C_OPENGL_LOGICAL_DEVICE_H_INCLUDED__
+#ifndef __NBL_C_OPENGL__LOGICAL_DEVICE_H_INCLUDED__
+#define __NBL_C_OPENGL__LOGICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/video/ILogicalDevice.h"
-#include "nbl/video/CEGL.h"
-#include "nbl/video/COpenGLQueue.h"
+#include "nbl/video/IOpenGL_LogicalDevice.h"
 
 namespace nbl {
 namespace video
 {
 
-class COpenGLLogicalDevice final : public ILogicalDevice
+template <typename QueueType_>
+class COpenGL_LogicalDevice final : public IOpenGL_LogicalDevice
 {
 public:
-    COpenGLLogicalDevice(const egl::CEGL* _egl, COpenGLFeatureMap* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
-        ILogicalDevice(params)
+    using QueueType = QueueType_;
+    using FunctionTableType = typename QueueType::FunctionTableType;
+    using FeaturesType = typename QueueType::FeaturesType;
+
+    COpenGL_LogicalDevice(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
+        IOpenGL_LogicalDevice(_egl, config, major, minor)
     {
         EGLint ctx_attributes[] = {
             EGL_CONTEXT_MAJOR_VERSION, major,
@@ -22,6 +25,8 @@ public:
 
             EGL_NONE
         };
+        // master context for queues
+        // TODO: take the one from device thread handler
         m_ctx = _egl->call.peglCreateContext(_egl->display, config, EGL_NO_CONTEXT, ctx_attributes);
 
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
@@ -36,7 +41,7 @@ public:
                 const float priority = qci.priorities[j];
 
                 const uint32_t ix = offset + j;
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<COpenGLQueue>(_egl, _features, m_ctx, config, famIx, flags, priority);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(_egl, _features, m_ctx, config, famIx, flags, priority);
             }
         }
     }

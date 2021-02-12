@@ -1,7 +1,7 @@
 #ifndef __NBL_C_OPENGLES_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_C_OPENGLES_FUNCTION_TABLE_H_INCLUDED__
 
-#include "nbl/video/COpenGL_FunctionTableBase.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLESFeatureMap.h"
 #define GL_GLEXT_PROTOTYPES
 #include "GLES3/gl2ext.h"
@@ -26,9 +26,11 @@ Extensions being loaded:
 * GL_OES_texture_view
 * GL_EXT_texture_view
 */
-class COpenGLESFunctionTable final : public COpenGL_FunctionTableBase
+class COpenGLESFunctionTable final : public IOpenGL_FunctionTable
 {
 public:
+	using features_t = COpenGLESFeatureMap;
+
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESgeneral, OpenGLFunctionLoader
 		, glEnableiOES
 		, glDisableiOES
@@ -72,7 +74,7 @@ public:
 	GLESfragment glesFragment;
 
 	COpenGLESFunctionTable(const egl::CEGL* _egl, const COpenGLESFeatureMap* _features) : 
-		COpenGL_FunctionTableBase(_egl),
+		IOpenGL_FunctionTable(_egl),
 		features(_features),
 		glesGeneral(_egl),
 		glesBuffer(_egl),
@@ -175,7 +177,7 @@ public:
 	void extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlTextureStorage3DMultisample(texture, target, samples, internalformat, width, height, depth, fixedsamplelocations);
+			IOpenGL_FunctionTable::extGlTextureStorage3DMultisample(texture, target, samples, internalformat, width, height, depth, fixedsamplelocations);
 	}
 
 	void extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels) override
@@ -291,7 +293,7 @@ public:
 	void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textarget) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlNamedFramebufferTexture(framebuffer, attachment, texture, level, textarget);
+			IOpenGL_FunctionTable::extGlNamedFramebufferTexture(framebuffer, attachment, texture, level, textarget);
 		else
 		{
 			GLuint bound;
@@ -376,56 +378,56 @@ public:
 	void extGlEnablei(GLenum target, GLuint index) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlEnablei(target, index);
+			IOpenGL_FunctionTable::extGlEnablei(target, index);
 		else if (glesGeneral.pglEnableiOES)
 			glesGeneral.pglEnableiOES(target, index);
 	}
 	void extGlDisablei(GLenum target, GLuint index) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlDisablei(target, index);
+			IOpenGL_FunctionTable::extGlDisablei(target, index);
 		else if (glesGeneral.pglDisableiOES)
 			glesGeneral.pglDisableiOES(target, index);
 	}
 	void extGlBlendEquationi(GLuint buf, GLenum mode) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlBlendEquationi(buf, mode);
+			IOpenGL_FunctionTable::extGlBlendEquationi(buf, mode);
 		else if (glesGeneral.pglBlendEquationiOES)
 			glesGeneral.pglBlendEquationiOES(buf, mode);
 	}
 	void extGlBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlBlendEquationSeparatei(buf, modeRGB, modeAlpha);
+			IOpenGL_FunctionTable::extGlBlendEquationSeparatei(buf, modeRGB, modeAlpha);
 		else if (glesGeneral.pglBlendEquationSeparateiOES)
 			glesGeneral.pglBlendEquationSeparateiOES(buf, modeRGB, modeAlpha);
 	}
 	void extGlBlendFunci(GLuint buf, GLenum src, GLenum dst) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlBlendFunci(buf, src, dst);
+			IOpenGL_FunctionTable::extGlBlendFunci(buf, src, dst);
 		else if (glesGeneral.pglBlendFunciOES)
 			glesGeneral.pglBlendFunciOES(buf, src, dst);
 	}
 	void extGlBlendFuncSeparatei(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlBlendFuncSeparatei(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+			IOpenGL_FunctionTable::extGlBlendFuncSeparatei(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
 		else if (glesGeneral.pglBlendFuncSeparateiOES)
 			glesGeneral.pglBlendFuncSeparateiOES(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
 	}
 	void extGlColorMaski(GLuint buf, GLboolean r, GLboolean g, GLboolean b, GLboolean a) override
 	{
 		if (features->Version >= 320)
-			COpenGL_FunctionTableBase::extGlColorMaski(buf, r, g, b, a);
+			IOpenGL_FunctionTable::extGlColorMaski(buf, r, g, b, a);
 		else if (glesGeneral.pglColorMaskiOES)
 			glesGeneral.pglColorMaskiOES(buf, r, g, b, a);
 	}
 	GLboolean extGlIsEnabledi(GLenum target, GLuint index) override
 	{
 		if (features->Version >= 320)
-			return COpenGL_FunctionTableBase::extGlIsEnabledi(target, index);
+			return IOpenGL_FunctionTable::extGlIsEnabledi(target, index);
 		else if (glesGeneral.pglIsEnablediOES)
 			return glesGeneral.pglIsEnablediOES(target, index);
 		return GL_FALSE;

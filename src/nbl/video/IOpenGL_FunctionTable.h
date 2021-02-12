@@ -1,5 +1,5 @@
-#ifndef __NBL_C_OPEN_GL_FUNCTION_TABLE_BASE_H_INCLUDED__
-#define __NBL_C_OPEN_GL_FUNCTION_TABLE_BASE_H_INCLUDED__
+#ifndef __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
+#define __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
 #include "os.h" // Printer::log
 
@@ -13,7 +13,7 @@ namespace nbl {
 
 		// This class contains pointers to functions common in GL 4.6 and GLES 3.2
 		// And implements (at least a common part) extGl* methods which can be implemented with those pointers
-		class COpenGL_FunctionTableBase
+		class IOpenGL_FunctionTable
 		{
 		public:
 
@@ -358,7 +358,7 @@ namespace nbl {
 			virtual inline void extGlSwapInterval(int interval);
 
 			// constructor
-			COpenGL_FunctionTableBase(const egl::CEGL* _egl) :
+			IOpenGL_FunctionTable(const egl::CEGL* _egl) :
 				glSync(_egl),
 				glFramebuffer(_egl),
 				glBuffer(_egl),
@@ -376,14 +376,14 @@ namespace nbl {
 			{
 
 			}
-		};	// end of class COpenGL_FunctionTableBase
+		};	// end of class IOpenGL_FunctionTable
 
-		void COpenGL_FunctionTableBase::extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures)
+		void IOpenGL_FunctionTable::extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures)
 		{
 			glGenTextures(n, textures);
 		}
 
-		inline void COpenGL_FunctionTableBase::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
+		inline void IOpenGL_FunctionTable::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
 		{
 			// TODO impl in GL
 			GLint bound;
@@ -406,7 +406,7 @@ namespace nbl {
 			glTexture.pglTexStorage3D(target, levels, internalformat, width, height, depth);
 			glTexture.pglBindTexture(target, bound);
 		}
-		inline void COpenGL_FunctionTableBase::extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
+		inline void IOpenGL_FunctionTable::extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
 		{
 			// TODO impl in GL
 			GLint bound;
@@ -421,7 +421,7 @@ namespace nbl {
 			glTexture.pglTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, internalformat, width, height, fixedsamplelocations);
 			glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE, bound);
 		}
-		inline void COpenGL_FunctionTableBase::extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
+		inline void IOpenGL_FunctionTable::extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
 		{
 			GLint bound;
 			if (target != GL_TEXTURE_2D_MULTISAMPLE_ARRAY)
@@ -435,7 +435,7 @@ namespace nbl {
 			glTexture.pglTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, samples, internalformat, width, height, depth, fixedsamplelocations);
 			glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, bound);
 		}
-		inline void COpenGL_FunctionTableBase::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
+		inline void IOpenGL_FunctionTable::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
 		{
 			// TODO impl in GL
 			GLint bound;
@@ -465,7 +465,7 @@ namespace nbl {
 			glTexture.pglBindTexture(target, bound);
 		}
 
-		inline void COpenGL_FunctionTableBase::extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void* data)
+		inline void IOpenGL_FunctionTable::extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void* data)
 		{
 			GLint bound;
 			switch (target)
@@ -491,14 +491,14 @@ namespace nbl {
 			glTexture.pglBindTexture(target, bound);
 		}
 
-		inline void COpenGL_FunctionTableBase::extGlCreateSamplers(GLsizei n, GLuint* samplers)
+		inline void IOpenGL_FunctionTable::extGlCreateSamplers(GLsizei n, GLuint* samplers)
 		{
 			// TODO impl in GL
 			if (glTexture.pglGenSamplers)
 				glTexture.pglGenSamplers(n, samplers);
 			else memset(samplers, 0, 4 * n);
 		}
-		inline void COpenGL_FunctionTableBase::extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers)
+		inline void IOpenGL_FunctionTable::extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers)
 		{
 			// TODO impl in GL
 			for (GLsizei i = 0; i < count; i++)
@@ -516,7 +516,7 @@ namespace nbl {
 				}
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats)
+		inline void IOpenGL_FunctionTable::extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats)
 		{
 			// TODO impl in GL
 			for (GLsizei i = 0; i < count; i++)
@@ -527,12 +527,12 @@ namespace nbl {
 					glTexture.pglBindImageTexture(first + i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, formats[i]);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlCreateFramebuffers(GLsizei n, GLuint* framebuffers)
+		inline void IOpenGL_FunctionTable::extGlCreateFramebuffers(GLsizei n, GLuint* framebuffers)
 		{
 			// TODO impl in GL
 			glFramebuffer.pglGenFramebuffers(n, framebuffers);
 		}
-		inline GLenum COpenGL_FunctionTableBase::extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target)
+		inline GLenum IOpenGL_FunctionTable::extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target)
 		{
 			// TODO impl in GL
 			GLenum retval;
@@ -547,7 +547,7 @@ namespace nbl {
 
 			return retval;
 		}
-		inline void COpenGL_FunctionTableBase::extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textureType)
+		inline void IOpenGL_FunctionTable::extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textureType)
 		{
 			GLuint bound;
 			glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
@@ -558,7 +558,7 @@ namespace nbl {
 			if (bound != framebuffer)
 				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound);
 		}
-		inline void COpenGL_FunctionTableBase::extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
+		inline void IOpenGL_FunctionTable::extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
 		{
 			// TODO impl in GL
 
@@ -579,7 +579,7 @@ namespace nbl {
 			if (static_cast<GLint>(drawFramebuffer) != boundDrawFBO)
 				glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundDrawFBO);
 		}
-		inline void COpenGL_FunctionTableBase::extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode)
+		inline void IOpenGL_FunctionTable::extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode)
 		{
 			// TODO impl in GL
 
@@ -592,7 +592,7 @@ namespace nbl {
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
 				glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, boundFBO);
 		}
-		inline void COpenGL_FunctionTableBase::extGlNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum* bufs)
+		inline void IOpenGL_FunctionTable::extGlNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum* bufs)
 		{
 			// TODO impl in GL
 
@@ -605,7 +605,7 @@ namespace nbl {
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
 				glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundFBO);
 		}
-		inline void COpenGL_FunctionTableBase::extGlClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value)
+		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value)
 		{
 			// TODO impl in GL
 
@@ -620,7 +620,7 @@ namespace nbl {
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
 				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
 		}
-		inline void COpenGL_FunctionTableBase::extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value)
+		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value)
 		{
 			// TODO impl in GL
 
@@ -635,7 +635,7 @@ namespace nbl {
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
 				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
 		}
-		inline void COpenGL_FunctionTableBase::extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value)
+		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value)
 		{
 			// TODO impl in GL
 
@@ -650,7 +650,7 @@ namespace nbl {
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
 				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
 		}
-		inline void COpenGL_FunctionTableBase::extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil)
+		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil)
 		{
 			// TODO impl in GL
 
@@ -662,7 +662,7 @@ namespace nbl {
 			glFramebuffer.pglClearBufferfi(buffer, drawbuffer, depth, stencil);
 			glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
 		}
-		inline void COpenGL_FunctionTableBase::extGlCreateBuffers(GLsizei n, GLuint* buffers)
+		inline void IOpenGL_FunctionTable::extGlCreateBuffers(GLsizei n, GLuint* buffers)
 		{
 			// TODO impl in GL
 
@@ -671,7 +671,7 @@ namespace nbl {
 			else if (buffers)
 				memset(buffers, 0, n * sizeof(GLuint));
 		}
-		inline void COpenGL_FunctionTableBase::extGlBindBuffersBase(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers)
+		inline void IOpenGL_FunctionTable::extGlBindBuffersBase(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers)
 		{
 			// TODO impl in GL
 			for (GLsizei i = 0; i < count; i++)
@@ -680,7 +680,7 @@ namespace nbl {
 					glBuffer.pglBindBufferBase(target, first + i, buffers ? buffers[i] : 0);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlBindBuffersRange(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes)
+		inline void IOpenGL_FunctionTable::extGlBindBuffersRange(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes)
 		{
 			// TODO impl in GL
 			for (GLsizei i = 0; i < count; i++)
@@ -697,7 +697,7 @@ namespace nbl {
 				}
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, const void* data)
+		inline void IOpenGL_FunctionTable::extGlNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, const void* data)
 		{
 			// TODO impl in GL
 			GLint bound;
@@ -706,7 +706,7 @@ namespace nbl {
 			glBuffer.pglBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
 			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 		}
-		inline void* COpenGL_FunctionTableBase::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
+		inline void* IOpenGL_FunctionTable::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 		{
 			// TODO impl in GL
 			if (glBuffer.pglMapBufferRange && glBuffer.pglBindBuffer)
@@ -721,7 +721,7 @@ namespace nbl {
 			}
 			return NULL;
 		}
-		inline void COpenGL_FunctionTableBase::extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length)
+		inline void IOpenGL_FunctionTable::extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length)
 		{
 			// TODO impl in GL
 			if (glBuffer.pglFlushMappedBufferRange && glBuffer.pglBindBuffer)
@@ -733,7 +733,7 @@ namespace nbl {
 				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 			}
 		}
-		inline GLboolean COpenGL_FunctionTableBase::extGlUnmapNamedBuffer(GLuint buffer)
+		inline GLboolean IOpenGL_FunctionTable::extGlUnmapNamedBuffer(GLuint buffer)
 		{
 			// TODO impl in GL
 			if (glBuffer.pglUnmapBuffer && glBuffer.pglBindBuffer)
@@ -749,7 +749,7 @@ namespace nbl {
 			return false;
 		}
 
-		inline void COpenGL_FunctionTableBase::extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size)
+		inline void IOpenGL_FunctionTable::extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size)
 		{
 			// TODO impl in GL
 			if (glBuffer.pglCopyBufferSubData && glBuffer.pglBindBuffer)
@@ -764,13 +764,13 @@ namespace nbl {
 				glBuffer.pglBindBuffer(GL_COPY_WRITE_BUFFER, boundWrite);
 			}
 		}
-		inline GLboolean COpenGL_FunctionTableBase::extGlIsBuffer(GLuint buffer)
+		inline GLboolean IOpenGL_FunctionTable::extGlIsBuffer(GLuint buffer)
 		{
 			if (glBuffer.pglIsBuffer)
 				return glBuffer.pglIsBuffer(buffer);
 			return false;
 		}
-		inline void COpenGL_FunctionTableBase::extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data)
+		inline void IOpenGL_FunctionTable::extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data)
 		{
 			// TODO impl in GL
 			if (glBuffer.pglGetBufferParameteriv && glBuffer.pglBindBuffer)
@@ -782,7 +782,7 @@ namespace nbl {
 				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data)
+		inline void IOpenGL_FunctionTable::extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data)
 		{
 			// TODO impl in GL
 			if (glBuffer.pglGetBufferParameteri64v && glBuffer.pglBindBuffer)
@@ -794,7 +794,7 @@ namespace nbl {
 				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlCreateVertexArrays(GLsizei n, GLuint* arrays)
+		inline void IOpenGL_FunctionTable::extGlCreateVertexArrays(GLsizei n, GLuint* arrays)
 		{
 			// TODO impl in GL
 			if (glVertex.pglGenVertexArrays)
@@ -802,7 +802,7 @@ namespace nbl {
 			else
 				memset(arrays, 0, sizeof(GLuint) * n);
 		}
-		inline void COpenGL_FunctionTableBase::extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
+		inline void IOpenGL_FunctionTable::extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
 		{
 			// TODO impl in GL
 			if (glBuffer.pglBindBuffer && glVertex.pglBindVertexArray)
@@ -815,7 +815,7 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride)
+		inline void IOpenGL_FunctionTable::extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride)
 		{
 			// TODO impl in GL
 			if (glVertex.pglBindVertexBuffer && glVertex.pglBindVertexArray)
@@ -828,7 +828,7 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex)
+		inline void IOpenGL_FunctionTable::extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex)
 		{
 			// TODO impl in GL
 			if (glVertex.pglVertexAttribBinding && glVertex.pglBindVertexArray)
@@ -841,7 +841,7 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index)
+		inline void IOpenGL_FunctionTable::extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index)
 		{
 			// TODO impl in GL
 			if (glVertex.pglEnableVertexAttribArray && glVertex.pglBindVertexArray)
@@ -854,7 +854,7 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)
+		inline void IOpenGL_FunctionTable::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)
 		{
 			// TODO impl in GL
 			if (glVertex.pglDisableVertexAttribArray && glVertex.pglBindVertexArray)
@@ -867,7 +867,7 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
+		inline void IOpenGL_FunctionTable::extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
 		{
 			// TODO impl in GL
 			if (glVertex.pglVertexAttribFormat && glVertex.pglBindVertexArray)
@@ -880,7 +880,7 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
+		inline void IOpenGL_FunctionTable::extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 		{
 			// TODO impl in GL
 			if (glVertex.pglVertexAttribIFormat && glVertex.pglBindVertexArray)
@@ -893,7 +893,7 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor)
+		inline void IOpenGL_FunctionTable::extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor)
 		{
 			// TODO impl in GL
 			if (glVertex.pglVertexBindingDivisor && glVertex.pglBindVertexArray)
@@ -906,18 +906,18 @@ namespace nbl {
 				glVertex.pglBindVertexArray(restoreVertexArray);
 			}
 		}
-		inline void COpenGL_FunctionTableBase::extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids)
+		inline void IOpenGL_FunctionTable::extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids)
 		{
 			// TODO impl in GL
 			if (glQuery.pglGenQueries)
 				glQuery.pglGenQueries(n, ids);
 		}
-		inline void COpenGL_FunctionTableBase::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
+		inline void IOpenGL_FunctionTable::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 		{
 			if (glGeneral.pglGetInternalformativ)
 				glGeneral.pglGetInternalformativ(target, internalformat, pname, bufSize, params);
 		}
-		inline void COpenGL_FunctionTableBase::extGlSwapInterval(int interval)
+		inline void IOpenGL_FunctionTable::extGlSwapInterval(int interval)
 		{
 			m_egl->call.peglSwapInterval(interval);
 		}

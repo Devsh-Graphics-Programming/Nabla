@@ -13,11 +13,13 @@ namespace nbl {
 namespace video
 {
 
-class COpenGLFunctiontable : public COpenGL_FunctionTableBase
+class COpenGLFunctionTable : public COpenGL_FunctionTableBase
 {
 	using base_t = COpenGL_FunctionTableBase;
 
 public:
+	using features_t = COpenGLFeatureMap;
+
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4sync, OpenGLFunctionLoader
 		, glTextureBarrier
 		, glTextureBarrierNV
@@ -233,6 +235,12 @@ public:
 		, glTextureBarrier
 		, glTextureBarrierNV
 	);
+	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4debug, OpenGLFunctionLoader
+		, glDebugMessageControl
+		, glDebugMessageControlARB
+		, glDebugMessageCallback
+		, glDebugMessageCallbackARB
+	);
 
 	GL4frameBuffer gl4Framebuffer;
 	GL4buffer gl4Buffer;
@@ -244,8 +252,9 @@ public:
 	GL4query gl4Query;
 	GL4general gl4General;
 	GL4sync gl4Sync;
+	GL4debug gl4Debug;
 
-    COpenGLFunctiontable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
+    COpenGLFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
         COpenGL_FunctionTableBase(_egl),
 		gl4Framebuffer(_egl),
 		gl4Buffer(_egl),
@@ -257,10 +266,26 @@ public:
 		gl4Query(_egl),
 		gl4General(_egl),
 		gl4Sync(_egl),
+		gl4Debug(_egl),
         features(_features)
     {
 
     }
+
+	void extGlDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) override
+	{
+		if (gl4Debug.pglDebugMessageCallback)
+			gl4Debug.pglDebugMessageCallback(source, type, severity, count, ids, enabled);
+		else if (gl4Debug.pglDebugMessageCallbackARB)
+			gl4Debug.pglDebugMessageCallbackARB(source, type, severity, count, ids, enabled);
+	}
+	void extGlDebugMessageCallback(GLDebugCallbackType callback, const void* userParam) override
+	{
+		if (gl4Debug.pglDebugMessageCallback)
+			gl4Debug.pglDebugMessageCallback(callback, userParam);
+		else if (gl4Debug.pglDebugMessageCallbackARB)
+			gl4Debug.pglDebugMessageCallbackARB(callback, userParam);
+	}
 
 	void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets) override
 	{

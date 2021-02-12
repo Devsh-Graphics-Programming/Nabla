@@ -3,6 +3,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/EApiType.h"
 
 namespace nbl {
 namespace video
@@ -11,17 +12,10 @@ namespace video
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
-    enum E_TYPE
-    {
-        ET_OPENGL,
-        ET_OPENGL_ES,
-        ET_VULKAN
-    };
-
     // TODO implement in some source file in src/nbl/...
-    static core::smart_refctd_ptr<IAPIConnection> create(E_TYPE apiType, uint32_t appVer, const char* appName);
+    static core::smart_refctd_ptr<IAPIConnection> create(E_API_TYPE apiType, uint32_t appVer, const char* appName);
 
-    virtual E_TYPE getAPIType() const = 0;
+    virtual E_API_TYPE getAPIType() const = 0;
 
     virtual core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const = 0;
 
