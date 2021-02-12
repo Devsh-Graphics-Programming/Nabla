@@ -121,7 +121,7 @@ class CDirQuantCacheBase
 				{
 					constexpr auto storageBits = quantizationBits+1u;
 					const core::vectorSIMDu32 mask((0x1u<<storageBits)-1u);
-					return core::vectorSIMDu32(storageBits,storageBits>>storageBits,storageBits>>(storageBits*2u))&mask;
+					return core::vectorSIMDu32(storage,storage>>storageBits,storage>>(storageBits*2u))&mask;
 				}
 				
 			private:
