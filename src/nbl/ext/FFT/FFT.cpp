@@ -252,7 +252,7 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createKernelNormalizat
 	const char* sourceFmt =
 R"===(#version 430 core
 
-layout(local_size_x=%u, local_size_y=1, local_size_z=1) in;
+layout(local_size_x=256, local_size_y=1, local_size_z=1) in;
  
 struct nbl_glsl_ext_FFT_output_t
 {
@@ -277,12 +277,11 @@ void main()
 }
 )===";
 
-	const size_t extraSize = 32;
+	const size_t extraSize = 0;
 
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
-		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
-		DEFAULT_WORK_GROUP_X_DIM
+		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
