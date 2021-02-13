@@ -382,10 +382,6 @@ int main()
         ds1UboBinding = bnd.binding;
         break;
     }
-<<<<<<< HEAD
-
-=======
->>>>>>> 75009e87e87f56642a522ec643c4d394bf3e21d8
 
 	//scene bound
 	core::aabbox3df sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
