@@ -66,11 +66,19 @@ vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel);
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value);
 #endif
 
+#ifndef _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DECLARED_
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DECLARED_
+vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel);
+#endif
+
 #ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
 #error "You need to define `nbl_glsl_ext_FFT_getData` and mark `_NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_`!"
 #endif
 #ifndef _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 #error "You need to define `nbl_glsl_ext_FFT_setData` and mark `_NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_`!"
+#endif
+#ifndef _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+#error "You need to define `nbl_glsl_ext_FFT_getPaddedData` and mark `_NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_`!"
 #endif
 
 // Count Leading Zeroes (naive?)
@@ -125,61 +133,6 @@ uvec3 nbl_glsl_ext_FFT_getBitReversedCoordinates(in uvec3 coords, in uint leadin
 uint nbl_glsl_ext_FFT_getDimLength(uvec3 dimension)
 {
     return dimension[pc.direction];
-}
-
-vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
-    uint min_x = 0u;
-    uint max_x = pc.dimension.x + min_x - 1u;
-
-    uint min_y = 0u;
-    uint max_y = pc.dimension.y + min_y - 1u;
-
-    uint min_z = 0u;
-    uint max_z = pc.dimension.z + min_z - 1u;
-
-
-    uvec3 actual_coord = uvec3(0u, 0u, 0u);
-
-    if(_NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ == pc.padding_type) {
-        if (coordinate.x < min_x) {
-            actual_coord.x = 0u;
-        } else if(coordinate.x > max_x) {
-            actual_coord.x = pc.dimension.x - 1u;
-        } else {
-            actual_coord.x = coordinate.x - min_x;
-        }
-        
-        if (coordinate.y < min_y) {
-            actual_coord.y = 0u;
-        } else if (coordinate.y > max_y) {
-            actual_coord.y = pc.dimension.y - 1u;
-        } else {
-            actual_coord.y = coordinate.y - min_y;
-        }
-        
-        if (coordinate.z < min_z) {
-            actual_coord.z = 0u;
-        } else if (coordinate.z > max_z) {
-            actual_coord.z = pc.dimension.z - 1u;
-        } else {
-            actual_coord.z = coordinate.z - min_z;
-        }
-        
-    } else if (_NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ == pc.padding_type) {
-
-        if ( coordinate.x < min_x || coordinate.x > max_x ||
-             coordinate.y < min_y || coordinate.y > max_y ||
-             coordinate.z < min_z || coordinate.z > max_z ) {
-            return vec2(0, 0);
-        }
-        
-        actual_coord.x = coordinate.x - min_x;
-        actual_coord.y = coordinate.y - min_y;
-        actual_coord.z = coordinate.z - min_z;
-
-    }
-    
-    return nbl_glsl_ext_FFT_getData(actual_coord, channel);
 }
 
 void nbl_glsl_ext_FFT()

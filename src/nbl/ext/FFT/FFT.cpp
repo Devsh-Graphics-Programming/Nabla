@@ -98,9 +98,9 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 	return {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxPaddedDimensionSize)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize)
 {
-	assert(core::isPoT(maxPaddedDimensionSize));
+	uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
 	const char* sourceFmt =
 R"===(#version 430 core
@@ -130,6 +130,7 @@ layout(local_size_x=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_, local_size_y=_NBL_G
  
 #define _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
 #include "nbl/builtin/glsl/ext/FFT/fft.glsl"
 
 // Input Descriptor
@@ -187,7 +188,7 @@ layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTP
 
 // Get/Set Data Function
 
-vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
+nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
 	vec2 retValue = vec2(0, 0);
 #if USE_SSBO_FOR_INPUT > 0
@@ -201,11 +202,25 @@ vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 	return retValue;
 }
 
-void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
 	uvec3 dimension = pc.padded_dimension;
 	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
 	outData[index].complex_value = complex_value;
+}
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
+
+	uvec3 max_coord = pc.dimension - uvec3(1u);
+	uvec3 clamped_coord = min(coordinate, max_coord);
+	
+	bool is_out_of_range = any(bvec3(coordinate!=clamped_coord));
+
+	if (_NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ == pc.padding_type && is_out_of_range) {
+		return nbl_glsl_complex(0, 0);
+	}
+	
+	return nbl_glsl_ext_FFT_getData(clamped_coord, channel);
 }
 
 void main()
@@ -271,9 +286,9 @@ layout(set=0, binding=1) restrict buffer OutBuffer
 
 void main()
 {
-    float power = length(in_data[0].complex_value);
-    vec2 normalized_data = in_data[gl_GlobalInvocationID.x].complex_value / power;
-    out_data[gl_GlobalInvocationID.x].complex_value = normalized_data;
+	float power = length(in_data[0].complex_value);
+	vec2 normalized_data = in_data[gl_GlobalInvocationID.x].complex_value / power;
+	out_data[gl_GlobalInvocationID.x].complex_value = normalized_data;
 }
 )===";
 
