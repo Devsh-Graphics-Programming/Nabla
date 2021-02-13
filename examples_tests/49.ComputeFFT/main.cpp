@@ -160,7 +160,7 @@ static inline void dispatchHelper_Convolution(
 	COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 static inline DispatchInfo_t getDispatchInfo_Convolution(
-	asset::VkExtent3D const & inputDimensions,
+	asset::VkExtent3D const & paddedDimension,
 	uint32_t numChannels)
 {
 	DispatchInfo_t ret = {};
@@ -169,7 +169,7 @@ static inline DispatchInfo_t getDispatchInfo_Convolution(
 	ret.workGroupDims[1] = 1;
 	ret.workGroupDims[2] = 1;
 
-	ret.workGroupCount[0] = core::ceil(float(inputDimensions.width * inputDimensions.height * inputDimensions.depth * numChannels) / ret.workGroupDims[0]);
+	ret.workGroupCount[0] = core::ceil(float(paddedDimension.width * paddedDimension.height * paddedDimension.depth * numChannels) / ret.workGroupDims[0]);
 	ret.workGroupCount[1] = 1;
 	ret.workGroupCount[2] = 1;
 

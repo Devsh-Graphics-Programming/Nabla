@@ -99,13 +99,13 @@ uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration,
     return (threadId & suffixMask) << shiftSuffix;
 }
 
-vec2 nbl_glsl_ext_FFT_twiddle(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+nbl_glsl_complex nbl_glsl_ext_FFT_twiddle(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
 {
     uint k = nbl_glsl_ext_FFT_calculateTwiddlePower(threadId, iteration, logTwoN);
     return nbl_glsl_expImaginary(-1 * 2 * nbl_glsl_PI * k / N);
 }
 
-vec2 nbl_gnbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+nbl_glsl_complex nbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
 {
     return nbl_glsl_complex_conjugate(nbl_glsl_ext_FFT_twiddle(threadId, iteration, logTwoN, N));
 }
@@ -148,8 +148,8 @@ void nbl_glsl_ext_FFT()
 	uint leadingZeroes = nbl_glsl_ext_FFT_clz(dataLength) + 1u;
 	uint logTwo = 32u - leadingZeroes;
 	
-    vec2 current_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
-    vec2 shuffled_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
+    nbl_glsl_complex current_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
+    nbl_glsl_complex shuffled_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
 
     // Load Initial Values into Local Mem (bit reversed indices)
     for(uint t = 0u; t < num_virtual_threads; t++)
@@ -200,18 +200,18 @@ void nbl_glsl_ext_FFT()
         for(uint t = 0u; t < num_virtual_threads; t++)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
-            vec2 shuffled_value = shuffled_values[t];
+            nbl_glsl_complex shuffled_value = shuffled_values[t];
 
-            vec2 nbl_glsl_ext_FFT_twiddle = (0u == pc.is_inverse) 
+            nbl_glsl_complex twiddle = (0u == pc.is_inverse) 
              ? nbl_glsl_ext_FFT_twiddle(tid, i, logTwo, dataLength)
-             : nbl_gnbl_glsl_ext_FFT_twiddleInverse(tid, i, logTwo, dataLength);
+             : nbl_glsl_ext_FFT_twiddleInverse(tid, i, logTwo, dataLength);
 
-            vec2 this_value = current_values[t];
+            nbl_glsl_complex this_value = current_values[t];
 
             if(0u < uint(tid & mask)) {
-                current_values[t] = shuffled_value + nbl_glsl_complex_mul(nbl_glsl_ext_FFT_twiddle, this_value); 
+                current_values[t] = shuffled_value + nbl_glsl_complex_mul(twiddle, this_value); 
             } else {
-                current_values[t] = this_value + nbl_glsl_complex_mul(nbl_glsl_ext_FFT_twiddle, shuffled_value); 
+                current_values[t] = this_value + nbl_glsl_complex_mul(twiddle, shuffled_value); 
             }
         }
     }
@@ -220,7 +220,7 @@ void nbl_glsl_ext_FFT()
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
 	    uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
-        vec2 complex_value = (0u == pc.is_inverse) 
+        nbl_glsl_complex complex_value = (0u == pc.is_inverse) 
          ? current_values[t]
          : current_values[t] / dataLength;
 
