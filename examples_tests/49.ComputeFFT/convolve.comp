@@ -8,24 +8,21 @@
 
 layout(local_size_x=256, local_size_y=1, local_size_z=1) in;
  
-struct nbl_glsl_ext_FFT_output_t
-{
-	vec2 complex_value;
-};
+ #define complex_value vec2
 
 layout(set=0, binding=0) restrict readonly buffer SrcBuffer
 {
-	nbl_glsl_ext_FFT_output_t src_data[];
+	complex_value src_data[];
 };
 
 layout(set=0, binding=1) restrict readonly buffer KernelBuffer
 {
-	nbl_glsl_ext_FFT_output_t ker_data[];
+	complex_value ker_data[];
 };
 
 layout(set=0, binding=2) restrict buffer OutputBuffer
 {
-	nbl_glsl_ext_FFT_output_t out_data[];
+	complex_value out_data[];
 };
 
 layout(push_constant) uniform PushConstants
@@ -38,7 +35,7 @@ void main()
 {
     // if not already normalized -> divide by power
     // float power = length(ker_data[0].complex_value);
-    vec2 kerData = ker_data[gl_GlobalInvocationID.x].complex_value;
-    out_data[gl_GlobalInvocationID.x].complex_value =
-        nbl_glsl_complex_mul(src_data[gl_GlobalInvocationID.x].complex_value, kerData);
+    vec2 kerData = ker_data[gl_GlobalInvocationID.x];
+    out_data[gl_GlobalInvocationID.x] =
+        nbl_glsl_complex_mul(src_data[gl_GlobalInvocationID.x], kerData);
 }
