@@ -217,9 +217,9 @@ inline matrix3x4SIMD& matrix3x4SIMD::setScale(const core::vectorSIMDf& _scale)
 	vectorSIMDu32& rowAlias0 = reinterpret_cast<vectorSIMDu32&>(rows[0]);
 	vectorSIMDu32& rowAlias1 = reinterpret_cast<vectorSIMDu32&>(rows[1]);
 	vectorSIMDu32& rowAlias2 = reinterpret_cast<vectorSIMDu32&>(rows[2]);
-	rowAlias0 = (scaleAlias & vectorSIMDf(vectorSIMDu32(BUILD_MASKF(1, 0, 0, 0)))) | (rowAlias0 & vectorSIMDf(mask0001));
-	rowAlias1 = (scaleAlias & vectorSIMDf(vectorSIMDu32(BUILD_MASKF(0, 1, 0, 0)))) | (rowAlias1 & vectorSIMDf(mask0001));
-	rowAlias2 = (scaleAlias & vectorSIMDf(vectorSIMDu32(BUILD_MASKF(0, 0, 1, 0)))) | (rowAlias2 & vectorSIMDf(mask0001));
+	rowAlias0 = (scaleAlias & reinterpret_cast<vectorSIMDf>(vectorSIMDu32(BUILD_MASKF(1, 0, 0, 0)))) | (rowAlias0 & reinterpret_cast<vectorSIMDf>(mask0001));
+	rowAlias1 = (scaleAlias & reinterpret_cast<vectorSIMDf>(vectorSIMDu32(BUILD_MASKF(0, 1, 0, 0)))) | (rowAlias1 & reinterpret_cast<vectorSIMDf>(mask0001));
+	rowAlias2 = (scaleAlias & reinterpret_cast<vectorSIMDf>(vectorSIMDu32(BUILD_MASKF(0, 0, 1, 0)))) | (rowAlias2 & reinterpret_cast<vectorSIMDf>(mask0001));
 
 	return *this;
 }
