@@ -84,14 +84,16 @@ uint nbl_glsl_ext_FFT_reverseBits(in uint x)
     return bitfieldReverse(x);
 }
 
-uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration, in uint logTwoN) 
 {
-    return (threadId & ((N / (1u << (logTwoN - iteration))) * 2 - 1)) * ((1u << (logTwoN - iteration)) / 2);;
+    const uint shiftSuffix = logTwoN - 1u - iteration; // can we assert that iteration<logTwoN always?? yes
+    const uint suffixMask = (2u << iteration) - 1u;
+    return (threadId & suffixMask) << shiftSuffix;
 }
 
 vec2 nbl_glsl_ext_FFT_twiddle(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
 {
-    uint k = nbl_glsl_ext_FFT_calculateTwiddlePower(threadId, iteration, logTwoN, N);
+    uint k = nbl_glsl_ext_FFT_calculateTwiddlePower(threadId, iteration, logTwoN);
     return nbl_glsl_expImaginary(-1 * 2 * nbl_glsl_PI * k / N);
 }
 
