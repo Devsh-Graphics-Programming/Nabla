@@ -106,6 +106,16 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 restoreFromDummy_impl_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get(), _levelsBelow);
         }
 
+        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+        {
+            --_levelsBelow;
+            if (m_samplers)
+                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
+                    if ((*m_samplers)[i]->isAnyDependencyDummy(_levelsBelow))
+                        return true;
+            return false;
+        }
+
 		virtual ~ICPUDescriptorSetLayout() = default;
 };
 

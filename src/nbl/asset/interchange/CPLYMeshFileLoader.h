@@ -134,7 +134,7 @@ private:
 		uint32_t topHierarchyLevel;
 		IAssetLoader::IAssetLoaderOverride* loaderOverride;
 		
-		core::vector<CPLYMetadata::CRenderpassIndependentPipeline> metas4pplns;
+		core::vector<uint32_t> hashes4pplns;
 
         core::vector<std::unique_ptr<SPLYElement>> ElementList;
 	

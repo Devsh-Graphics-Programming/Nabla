@@ -166,10 +166,9 @@ vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_intera
     {
         interaction.N = normalize(interaction.N);
 
-        float h = nbl_sample_bump(UV, dUV).x;
+        vec2 dh = nbl_sample_bump(UV, dUV).xy;
 
-        vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
-        interaction.N = nbl_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
+        interaction.N = nbl_glsl_perturbNormal_derivativeMap(interaction.N, dh, interaction.V.dPosdScreen, dUV);
     }
 #endif
     const vec3 L = -ViewPos;

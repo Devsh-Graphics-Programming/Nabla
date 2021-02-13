@@ -291,8 +291,8 @@ namespace nbl
 				else
 					os::Printer::log("LOAD GLI: Invalid (non-KTX) file!", ELL_ERROR);
 			}
-			else
-				return false;
+			
+			return false;
 		}
 
 		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)
@@ -550,7 +550,9 @@ namespace nbl
 				case gl::INTERNAL_RGB16_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
 				case gl::INTERNAL_RGBA16_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
 				case gl::INTERNAL_RGBA16_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
-				default: assert(0);
+				default: 
+					assert(0);
+					return std::make_pair(EF_UNKNOWN, ICPUImageView::SComponentMapping{});
 			}
 		}
 

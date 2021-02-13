@@ -12,6 +12,7 @@
 #include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
+#include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include "nbl/builtin/MTLdefaults.h"
 
@@ -129,7 +130,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
     const auto pipelineCount = materials.size()*PIPELINE_PERMUTATION_COUNT;
 
     auto retval = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(pipelineCount);
-    auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount);
+    auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount,core::smart_refctd_ptr(m_basicViewParamsSemantics));
     uint32_t offset = 0u;
     for (const auto& material : materials)
     {
@@ -153,7 +154,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
                     }
                 }
             }
-            meta->placeMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash,core::smart_refctd_ptr(m_basicViewParamsSemantics));
+            meta->placeMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash);
             retval->operator[](offset) = std::move(ppln);
             offset++;
         };
@@ -518,10 +519,20 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
     for (uint32_t i = 0u; i < images.size(); ++i)
     {
-        SAssetLoadParams lp;
+        SAssetLoadParams lp = _ctx.inner.params;
         if (_mtl.maps[i].size() )
         {
-            auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
+            const uint32_t hierarchyLevel = _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW; // this is weird actually, we're not sure if we're loading image or image view
+            SAssetBundle bundle;
+            if (i != CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
+                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+            else
+            {
+                // we need bumpmap restored to create derivative map from it
+                const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
+                lp.restoreLevels = std::max(lp.restoreLevels, hierarchyLevel + restoreLevels);
+                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+            }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
             if (asset)
             switch (bundle.getAssetType())
@@ -617,7 +628,10 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
     for (uint32_t i = 0u; i < views.size(); ++i)
     {
-        if (!images[i])
+        core::smart_refctd_ptr<ICPUImage> image = images[i];
+        if (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP && views[i])
+            image = views[i]->getCreationParameters().image;
+        if (!image)
             continue;
 
         const std::string viewCacheKey = _mtl.maps[i] + "?view";
@@ -631,6 +645,12 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             }
         }
 
+        if (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
+        {
+            const ISampler::E_TEXTURE_CLAMP wrap = _mtl.isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP) ? ISampler::ETC_CLAMP_TO_BORDER : ISampler::ETC_REPEAT;
+            image = CDerivativeMapCreator::createDerivativeMapFromHeightMap(image.get(), wrap, wrap, ISampler::ETBC_FLOAT_OPAQUE_BLACK);
+        }
+
         constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
         constexpr uint32_t layerCount[2]{ 1u, 6u };
 
@@ -638,13 +658,13 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
         ICPUImageView::SCreationParams viewParams;
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-        viewParams.format = images[i]->getCreationParameters().format;
+        viewParams.format = image->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];
         viewParams.subresourceRange.baseArrayLayer = 0u;
         viewParams.subresourceRange.layerCount = layerCount[isCubemap];
         viewParams.subresourceRange.baseMipLevel = 0u;
         viewParams.subresourceRange.levelCount = 1u;
-        viewParams.image = std::move(images[i]);
+        viewParams.image = std::move(image);
 
         views[i] = ICPUImageView::create(std::move(viewParams));
         _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ views[i] }), viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);

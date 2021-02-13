@@ -180,6 +180,17 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			}
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			--_levelsBelow;
+			if (m_layout->isAnyDependencyDummy(_levelsBelow))
+				return true;
+			for (auto& shader : m_shaders)
+				if (shader && shader->isAnyDependencyDummy(_levelsBelow))
+					return true;
+			return false;
+		}
+
 		virtual ~ICPURenderpassIndependentPipeline() = default;
 };
 

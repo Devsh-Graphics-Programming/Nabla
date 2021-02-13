@@ -106,17 +106,18 @@ void main()
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
 	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
-	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
+	precomp = nbl_glsl_MC_precomputeData(front);
+	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
-	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(precomp), dUV, precomp);
 #endif
 
 
-	nbl_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = nbl_computeLighting(inter, dUV, precomp);
+	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -212,8 +213,6 @@ int main()
 
 		auto serializedLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am);
 		auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs);
-		serializedLoader->initialize();
-		mitsubaLoader->initialize();
 		am->addAssetLoader(std::move(serializedLoader));
 		am->addAssetLoader(std::move(mitsubaLoader));
 
@@ -263,11 +262,11 @@ int main()
 		}
 
 		//! read cache results -- speeds up mesh generation
-		//qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+		qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+		qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 		
 		auto contents = meshes.getContents();
 		if (contents.begin()>=contents.end())
@@ -323,6 +322,7 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 	asset::IAssetManager* am = device->getAssetManager();
+	io::IFileSystem* fs = device->getFileSystem();
 
 	// look out for this!!!
 	// when added, CMitsubaLoader inserts its own include loader into GLSLCompiler
@@ -382,17 +382,17 @@ int main()
         ds1UboBinding = bnd.binding;
         break;
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 75009e87e87f56642a522ec643c4d394bf3e21d8
 
+	//scene bound
+	core::aabbox3df sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
 	//point lights
 	core::vector<SLight> lights;
-	core::vector<const ext::MitsubaLoader::IMeshMetadata*> meshmetas;
-	meshmetas.reserve(cpumeshes.size());
 	for (const auto& cpumesh : cpumeshes)
 	{
-		meshmetas.push_back(static_cast<const ext::MitsubaLoader::IMeshMetadata*>(cpumesh->getMetadata()));
-		const auto& instances = meshmetas.back()->getInstances();
-
 		auto computeAreaAndAvgPos = [](const asset::ICPUMeshBuffer* mb, const core::matrix3x4SIMD& tform, core::vectorSIMDf& _outAvgPos) {
 			uint32_t triCount = 0u;
 			asset::IMeshManipulator::getPolyCount(triCount, mb);
@@ -422,22 +422,27 @@ int main()
 
 			return 0.5f*core::length(differentialElementCrossProdcut).x;
 		};
-		for (const auto& inst : instances)
+
+		const auto* mesh_meta = globalMeta->getAssetSpecificMetadata(cpumesh.get());
+		auto auxInstanceDataIt = mesh_meta->m_instanceAuxData.begin();
+		for (const auto& inst : mesh_meta->m_instances)
 		{
-			if (inst.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
+			sceneBound.addInternalBox(core::transformBoxEx(cpumesh->getBoundingBox(),inst.worldTform));
+			if (auxInstanceDataIt->frontEmitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
 			{
 				core::vectorSIMDf pos;
 				assert(cpumesh->getMeshBuffers().size()==1u);
-				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffers().begin()[0], inst.tform, pos);
+				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffers().begin()[0], inst.worldTform, pos);
 				assert(area>0.f);
-				inst.tform.pseudoMulWith4x1(pos);
+				inst.worldTform.pseudoMulWith4x1(pos);
 
 				SLight l;
-				l.intensity = inst.emitter.area.radiance*area*2.f*core::PI<float>();
+				l.intensity = auxInstanceDataIt->frontEmitter.area.radiance*area*2.f*core::PI<float>();
 				l.position = pos;
 
 				lights.push_back(l);
 			}
+			auxInstanceDataIt++;
 		}
 	}
 
@@ -482,26 +487,10 @@ int main()
 	}
 	modifiedShaders.clear();
 
-	core::aabbox3df sceneBound;
-	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
-	{
-		auto metait = meshmetas.begin();
-		for (auto gpuit = gpumeshes->begin(); gpuit != gpumeshes->end(); gpuit++, metait++)
-		{
-			auto* meta = *metait;
-			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
-			const auto& instances = meshmeta->getInstances();
 
-			auto bb = (*gpuit)->getBoundingBox();
-			for (const auto& inst : instances)
-			{
-				sceneBound.addInternalBox(core::transformBoxEx(bb, inst.tform));
-			}
-		}
-	}
+	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
 
 	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
-
     auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
 
     auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(asset::SBasicViewParameters));

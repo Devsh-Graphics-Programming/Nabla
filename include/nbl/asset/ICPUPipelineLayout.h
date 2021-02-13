@@ -119,6 +119,15 @@ protected:
             }
         }
 
+        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+        {
+            --_levelsBelow;
+            for (auto& dsl : m_descSetLayouts)
+                if (dsl && dsl->isAnyDependencyDummy(_levelsBelow))
+                    return true;
+            return false;
+        }
+
 		virtual ~ICPUPipelineLayout() = default;
 };
 

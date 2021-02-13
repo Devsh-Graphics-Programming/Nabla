@@ -109,6 +109,9 @@ public:
         const char* relativeDir;
         E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
+		uint32_t restoreLevels = 0u;
+		// user should not ever write to this flag
+		bool reload = false;
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
@@ -189,7 +192,7 @@ public:
 			return { chooseDefaultAsset(bundle,ctx),bundle.getMetadata() };
 		}
 
-		//!
+		//! When choosing asset to be restored, ctx.params.reload flag is true
 		inline virtual core::smart_refctd_ptr<IAsset> chooseDefaultAsset(const SAssetBundle& bundle, const SAssetLoadContext& ctx)
 		{
 			auto contents = bundle.getContents();
@@ -261,6 +264,13 @@ public:
 		//! After a successful load of an asset or sub-asset
 		//TODO change name
 		virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
+
+		//! Restores only the chosen asset 
+		//! The asset is chosen via chooseDefaultAsset()
+		virtual void handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels);
+
+		//! Restores all of assets in _bundle
+		virtual void handleRestore(SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels);
 	};
 
 public:
@@ -289,6 +299,12 @@ protected:
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+
+	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+
     void interm_setAssetMutability(const IAssetManager* _mgr, IAsset* _asset, IAsset::E_MUTABILITY _val);
 	//void interm_restoreDummyAsset(IAssetManager* _mgr, SAssetBundle& _bundle);
 	//void interm_restoreDummyAsset(IAssetManager* _mgr, IAsset* _asset, const std::string _path);

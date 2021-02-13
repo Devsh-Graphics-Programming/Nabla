@@ -18,16 +18,10 @@ class CPLYMetadata final : public IAssetMetadata
         class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
         {
             public:
-                CRenderpassIndependentPipeline() = default;
-                CRenderpassIndependentPipeline(const CRenderpassIndependentPipeline&) = delete;
+                CRenderpassIndependentPipeline() : IRenderpassIndependentPipelineMetadata(), m_hash(0xdeadbeefu) {}
                 CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& other)
                 {
                     operator=(std::move(other));
-                }
-
-                template<typename... Args>
-                CRenderpassIndependentPipeline(uint32_t _hash, Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...), m_hash(_hash)
-                {
                 }
 
                 CRenderpassIndependentPipeline& operator=(const CRenderpassIndependentPipeline&) = delete;
@@ -42,21 +36,33 @@ class CPLYMetadata final : public IAssetMetadata
         };
             
         template<class InContainer>
-        CPLYMetadata(InContainer&& inContainer) : IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(inContainer.size()))
+        CPLYMetadata(InContainer&& hashContainer, core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage) : 
+            IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(hashContainer.size())), m_semanticStorage(std::move(_semanticStorage))
         {
-            std::move(inContainer.begin(),inContainer.end(),m_metaStorage->begin());
+            auto metaIt = m_metaStorage->begin();
+            for (auto hash : hashContainer)
+                (metaIt++)->m_hash = hash;
         }
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CPLYMeshFileLoader";
         const char* getLoaderName() const override { return LoaderName; }
 
+        //!
+		inline const CRenderpassIndependentPipeline* getAssetSpecificMetadata(const ICPURenderpassIndependentPipeline* asset) const
+		{
+            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
+			return static_cast<const CRenderpassIndependentPipeline*>(found);
+		}
+
     private:
         meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
+        core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_semanticStorage;
 
         friend class CPLYMeshFileLoader;
         inline void placeMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln)
         {
             auto& meta = m_metaStorage->operator[](offset);
+            meta.m_inputSemantics = {m_semanticStorage->begin(),m_semanticStorage->end()};
             IAssetMetadata::insertAssetSpecificMetadata(ppln,&meta);
         }
 };

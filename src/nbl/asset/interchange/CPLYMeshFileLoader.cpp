@@ -299,7 +299,8 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		}
 	}
 	
-	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(ctx.metas4pplns));
+	constexpr uint32_t WHAT_IS_THE_HASH_SUPPOSED_TO_BE = 69u; // TODO: @Crisspl / @Anastazluk figure it out!
+	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(ctx.hashes4pplns),core::smart_refctd_ptr(m_basicViewParamsSemantics));
 	{
 		uint32_t offset = 0u;
 		for (auto meshbuffer : mesh->getMeshBuffers())
@@ -693,7 +694,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 	}
 
 	constexpr uint32_t hash = 1u; // TODO: @Crisspl why is it always 1?
-	context.metas4pplns.emplace_back(hash,core::smart_refctd_ptr(IRenderpassIndependentPipelineLoader::m_basicViewParamsSemantics));
+	context.hashes4pplns.emplace_back(hash);
 	
 	_mbuf->setPipeline(std::move(mbPipeline));
 

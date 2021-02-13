@@ -97,6 +97,12 @@ class ICPUSkeleton : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSerializab
 					//restoreFromDummy_impl_call(getMeshBuffer(i), other->getMeshBuffer(i), _levelsBelow);
 			}
 		}
+
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			// TODO
+			return false;
+		}
 };
 
 }

@@ -199,6 +199,12 @@ class ICPUImage final : public IImage, public IAsset
 				restoreFromDummy_impl_call(buffer.get(), other->buffer.get(), _levelsBelow - 1u);
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			--_levelsBelow;
+			return buffer->isAnyDependencyDummy(_levelsBelow);
+		}
+
 		ICPUImage(SCreationParams&& _params) : IImage(std::move(_params))
 		{
 		}

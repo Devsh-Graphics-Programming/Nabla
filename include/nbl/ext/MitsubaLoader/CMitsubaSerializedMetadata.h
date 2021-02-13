@@ -22,7 +22,18 @@ class CMitsubaSerializedMetadata final : public asset::IAssetMetadata
         class CRenderpassIndependentPipeline : public asset::IRenderpassIndependentPipelineMetadata
         {
             public:
-                using IRenderpassIndependentPipelineMetadata::IRenderpassIndependentPipelineMetadata;
+                CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& _other) : CRenderpassIndependentPipeline()
+                {
+                    CRenderpassIndependentPipeline::operator=(std::move(_other));
+                }
+                template<typename... Args>
+                CRenderpassIndependentPipeline(Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...) {}
+
+                inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
+                {
+                    IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
+                    return *this;
+                }
         };
         class CMesh : public asset::IMeshMetadata
         {
@@ -35,22 +46,35 @@ class CMitsubaSerializedMetadata final : public asset::IAssetMetadata
                 uint32_t m_id;
         };
 
-        CMitsubaSerializedMetadata(const uint32_t meshBound) :
-            m_pipelineStorage(IAssetMetadata::createContainer<CRenderpassIndependentPipeline>(meshBound)), m_meshStorage(IAssetMetadata::createContainer<CMesh>(meshBound))
+        CMitsubaSerializedMetadata(const uint32_t meshBound, core::smart_refctd_dynamic_array<asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage) :
+            m_pipelineStorage(asset::IAssetMetadata::createContainer<CRenderpassIndependentPipeline>(meshBound)), m_meshStorage(asset::IAssetMetadata::createContainer<CMesh>(meshBound)), m_semanticStorage(std::move(_semanticStorage))
         {
         }
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "ext::MitsubaLoader::CSerializedLoader";
         const char* getLoaderName() const override { return LoaderName; }
 
+        //!
+        inline const CRenderpassIndependentPipeline* getAssetSpecificMetadata(const asset::ICPURenderpassIndependentPipeline* asset) const
+        {
+            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
+            return static_cast<const CRenderpassIndependentPipeline*>(found);
+        }
+        inline const CMesh* getAssetSpecificMetadata(const asset::ICPUMesh* asset) const
+        {
+            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
+            return static_cast<const CMesh*>(found);
+        }
+
     private:
         meta_container_t<CRenderpassIndependentPipeline> m_pipelineStorage;
         meta_container_t<CMesh> m_meshStorage;
+        core::smart_refctd_dynamic_array<asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_semanticStorage;
 
         friend class CSerializedLoader;
-        inline void placeMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, CRenderpassIndependentPipeline&& pplnMeta, const ICPUMesh* mesh, CMesh&& meshMeta)
+        inline void placeMeta(uint32_t offset, const asset::ICPURenderpassIndependentPipeline* ppln, const asset::ICPUMesh* mesh, CMesh&& meshMeta)
         {
-            auto& pplnMetaRef = m_pipelineStorage->operator[](offset) = std::move(pplnMeta);
+            auto& pplnMetaRef = m_pipelineStorage->operator[](offset) = CRenderpassIndependentPipeline(core::SRange<const asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(m_semanticStorage->begin(),m_semanticStorage->end()));
             auto& meshMetaRef = m_meshStorage->operator[](offset) = std::move(meshMeta);
             IAssetMetadata::insertAssetSpecificMetadata(ppln,&pplnMetaRef);
             IAssetMetadata::insertAssetSpecificMetadata(mesh,&meshMetaRef);

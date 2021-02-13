@@ -154,7 +154,6 @@ set(NBL_ASSET_SOURCES
 # Meshes
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CForsythVertexCacheOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CQuantNormalCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGeometryCreator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CMeshManipulator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawMeshOptimizer.cpp
@@ -182,6 +181,7 @@ set(NBL_ASSET_SOURCES
 # Images
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/filters/CBasicImageFilterCommon.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CDerivativeMapCreator.cpp
 
 # Image loaders
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageLoader.cpp

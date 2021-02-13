@@ -50,19 +50,19 @@ int main()
     //
     auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
     //loading cache from file
-    qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+    qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 
     // register the zip
     device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("sponza.obj", lp);
-    assert(!meshes_bundle.isEmpty());
+    assert(!meshes_bundle.getContents().empty());
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
     //saving cache to file
-    qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+    qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 
     const auto meta = meshes_bundle.getMetadata()->selfCast<const COBJMetadata>();
     

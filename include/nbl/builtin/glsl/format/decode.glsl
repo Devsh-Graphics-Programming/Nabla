@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_GLSL_FORMAT_DECODE_INCLUDED_
 
 #include <nbl/builtin/glsl/format/constants.glsl>
+#include <nbl/builtin/glsl/math/quaternions.glsl>
 
 vec3 nbl_glsl_decodeRGB19E7(in uvec2 x)
 {
@@ -32,7 +33,7 @@ vec4 nbl_glsl_decodeRGB10A2(in uint x)
 nbl_glsl_quaternion_t nbl_glsl_decode8888Quaternion(in uint x)
 {
 	nbl_glsl_quaternion_t quat;
-	quat.data = normalize(unpackSnorm4x8(compressedQuatUint));
+	quat.data = normalize(unpackSnorm4x8(x));
 	return quat;
 }
 

@@ -59,7 +59,7 @@ class CGeometryCreator : public IGeometryCreator
 
 		struct ConeVertex
 		{
-			inline ConeVertex(const core::vectorSIMDf& _pos, uint32_t _nml, const video::SColor& _color) : normal{_nml}
+			inline ConeVertex(const core::vectorSIMDf& _pos, const CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>& _nml, const video::SColor& _color) : normal{_nml}
 			{
 				memcpy(pos, _pos.pointer, 12);
 				_color.toOpenGLColor(color);
@@ -67,7 +67,7 @@ class CGeometryCreator : public IGeometryCreator
 
 			float pos[3];
 			uint8_t color[4];
-			uint32_t normal;
+			CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32> normal;
 		} PACK_STRUCT;
 
 		struct CylinderVertex
@@ -77,7 +77,7 @@ class CGeometryCreator : public IGeometryCreator
 			float pos[3];
 			uint8_t color[4];
 			float uv[2];
-			uint32_t normal;
+			CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32> normal;
 		} PACK_STRUCT;
 
 		struct IcosphereVertex
