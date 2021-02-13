@@ -211,7 +211,7 @@ class FFT : public core::TotalInterface
 
 		// Kernel Normalization
 				
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createKernelNormalizationShader(video::IVideoDriver* driver);
+		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createKernelNormalizationShader(video::IVideoDriver* driver, asset::IAssetManager* am);
 		
 		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_KernelNormalization(video::IVideoDriver* driver);
 		

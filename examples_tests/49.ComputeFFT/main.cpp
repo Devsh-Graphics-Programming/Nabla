@@ -98,13 +98,13 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 }
 static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_Convolution(
 	video::IVideoDriver* driver,
-	nbl::asset::IGLSLCompiler * glslc,
-	nbl::io::IFileSystem * fs) {
-	io::IReadFile* file = fs->createAndOpenFile("../convolve.comp");
-	auto cpucs = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, "../convolve.comp");
-	auto cs = driver->createGPUShader(std::move(cpucs));
-	file->drop();
-	asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "../convolve.comp");
+	IAssetManager* am) {
+	IAssetLoader::SAssetLoadParams lp;
+	auto file_path = "../convolve.comp";
+	auto shaderAsset = am->getAsset(file_path, lp);
+	auto cpucs = IAsset::castDown<ICPUSpecializedShader>(shaderAsset.getContents().begin()[0]);
+	auto cs = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>((cpucs->getUnspecialized())));
+	asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, file_path);
 	auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
 	return cs_spec;
 }
@@ -225,13 +225,14 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 }
 static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_RemovePadding(
 	video::IVideoDriver* driver,
-	nbl::asset::IGLSLCompiler * glslc,
-	nbl::io::IFileSystem * fs) {
-	io::IReadFile* file = fs->createAndOpenFile("../remove_padding.comp");
-	auto cpucs = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
-	auto cs = driver->createGPUShader(std::move(cpucs));
-	file->drop();
-	asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
+	IAssetManager* am) {
+
+	IAssetLoader::SAssetLoadParams lp;
+	auto file_path = "../remove_padding.comp";
+	auto shaderAsset = am->getAsset(file_path, lp);
+	auto cpucs = IAsset::castDown<ICPUSpecializedShader>(shaderAsset.getContents().begin()[0]);
+	auto cs = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>((cpucs->getUnspecialized())));
+	asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, file_path);
 	auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
 	return cs_spec;
 }
@@ -316,9 +317,6 @@ int main()
 	
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
-	auto* fs = am->getFileSystem();
-	auto* glslc = am->getGLSLCompiler();
-	
 	// Loading SrcImage and Kernel Image from File
 
 	IAssetLoader::SAssetLoadParams lp;
@@ -399,7 +397,7 @@ int main()
 
 	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
 	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
-	auto fftGPUSpecializedShader_KernelNormalization = FFTClass::createKernelNormalizationShader(driver);
+	auto fftGPUSpecializedShader_KernelNormalization = FFTClass::createKernelNormalizationShader(driver, am);
 	
 	auto fftPipelineLayout_SSBOInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
 	auto fftPipelineLayout_ImageInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::TEXTURE2D);
@@ -412,7 +410,7 @@ int main()
 	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(paddedDim, FFTClass::Direction::X, srcNumChannels);
 	auto fftDispatchInfo_Vertical = FFTClass::buildParameters(paddedDim, FFTClass::Direction::Y, srcNumChannels);
 
-	auto convolveShader = createShader_Convolution(driver, glslc, fs);
+	auto convolveShader = createShader_Convolution(driver, am);
 	auto convolvePipelineLayout = getPipelineLayout_Convolution(driver);
 	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), std::move(convolveShader));
 	auto convolveDispatchInfo = getDispatchInfo_Convolution(paddedDim, srcNumChannels);
@@ -482,7 +480,7 @@ int main()
 	auto fftDescriptorSet_IFFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
 	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_Y.get(), fftOutputBuffer_1, fftOutputBuffer_0);
 	
-	auto removePaddingShader = createShader_RemovePadding(driver, glslc, fs);
+	auto removePaddingShader = createShader_RemovePadding(driver, am);
 	auto removePaddingPipelineLayout = getPipelineLayout_RemovePadding(driver);
 	auto removePaddingPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(removePaddingPipelineLayout), std::move(removePaddingShader));
 	auto removePaddingDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(removePaddingPipelineLayout->getDescriptorSetLayout(0u)));
