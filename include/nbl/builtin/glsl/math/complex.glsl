@@ -8,27 +8,31 @@
 #include <nbl/builtin/glsl/math/constants.glsl>
 #include <nbl/builtin/glsl/math/functions.glsl>
 
-vec2 nbl_glsl_eITheta(in float _theta)
+#define nbl_glsl_complex vec2
+#define nbl_glsl_cvec2 mat2
+#define nbl_glsl_cvec3 mat3x2
+#define nbl_glsl_cvec4 mat4x2
+
+nbl_glsl_complex nbl_glsl_expImaginary(in float _theta)
 {
-    // Use sincos from math/functions.glsl?
     float r = cos(_theta);
     float i = sin(_theta);
     return vec2(r, i);
 }
 
-vec2 nbl_glsl_complex_mul(in vec2 rhs, in vec2 lhs)
+nbl_glsl_complex nbl_glsl_complex_mul(in nbl_glsl_complex rhs, in nbl_glsl_complex lhs)
 {
     float r = rhs.x * lhs.x - rhs.y * lhs.y;
     float i = rhs.x * lhs.y + rhs.y * lhs.x;
     return vec2(r, i);
 }
 
-vec2 nbl_glsl_complex_add(in vec2 rhs, in vec2 lhs)
+nbl_glsl_complex nbl_glsl_complex_add(in nbl_glsl_complex rhs, in nbl_glsl_complex lhs)
 {
     return rhs + lhs;
 }
 
-vec2 nbl_glsl_complex_conjugate(in vec2 complex) {
+nbl_glsl_complex nbl_glsl_complex_conjugate(in nbl_glsl_complex complex) {
     return complex * vec2(1, -1);
 }
 

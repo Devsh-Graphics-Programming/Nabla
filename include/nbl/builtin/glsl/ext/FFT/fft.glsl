@@ -76,7 +76,7 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 comp
 // Count Leading Zeroes (naive?)
 uint nbl_glsl_ext_FFT_clz(in uint x) 
 {
-    return 31 - findMSB(x);
+    return 31u - findMSB(x);
 }
 
 uint nbl_glsl_ext_FFT_reverseBits(in uint x)
@@ -92,7 +92,7 @@ uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration,
 vec2 nbl_glsl_ext_FFT_twiddle(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
 {
     uint k = nbl_glsl_ext_FFT_calculateTwiddlePower(threadId, iteration, logTwoN, N);
-    return nbl_glsl_eITheta(-1 * 2 * nbl_glsl_PI * k / N);
+    return nbl_glsl_expImaginary(-1 * 2 * nbl_glsl_PI * k / N);
 }
 
 vec2 nbl_gnbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
@@ -122,53 +122,43 @@ uvec3 nbl_glsl_ext_FFT_getBitReversedCoordinates(in uvec3 coords, in uint leadin
 
 uint nbl_glsl_ext_FFT_getDimLength(uvec3 dimension)
 {
-    uint dataLength = 0;
-
-    if(pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_X_) {
-        return dimension.x;
-    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Y_) {
-        return dimension.y;
-    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Z_) {
-        return dimension.z;
-    }
-
-    return dataLength;
+    return dimension[pc.direction];
 }
 
 vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
-    uint min_x = 0;
-    uint max_x = pc.dimension.x + min_x - 1;
+    uint min_x = 0u;
+    uint max_x = pc.dimension.x + min_x - 1u;
 
-    uint min_y = 0;
-    uint max_y = pc.dimension.y + min_y - 1;
+    uint min_y = 0u;
+    uint max_y = pc.dimension.y + min_y - 1u;
 
-    uint min_z = 0;
-    uint max_z = pc.dimension.z + min_z - 1;
+    uint min_z = 0u;
+    uint max_z = pc.dimension.z + min_z - 1u;
 
 
-    uvec3 actual_coord = uvec3(0, 0, 0);
+    uvec3 actual_coord = uvec3(0u, 0u, 0u);
 
     if(_NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ == pc.padding_type) {
         if (coordinate.x < min_x) {
-            actual_coord.x = 0;
+            actual_coord.x = 0u;
         } else if(coordinate.x > max_x) {
-            actual_coord.x = pc.dimension.x - 1;
+            actual_coord.x = pc.dimension.x - 1u;
         } else {
             actual_coord.x = coordinate.x - min_x;
         }
         
         if (coordinate.y < min_y) {
-            actual_coord.y = 0;
+            actual_coord.y = 0u;
         } else if (coordinate.y > max_y) {
-            actual_coord.y = pc.dimension.y - 1;
+            actual_coord.y = pc.dimension.y - 1u;
         } else {
             actual_coord.y = coordinate.y - min_y;
         }
         
         if (coordinate.z < min_z) {
-            actual_coord.z = 0;
+            actual_coord.z = 0u;
         } else if (coordinate.z > max_z) {
-            actual_coord.z = pc.dimension.z - 1;
+            actual_coord.z = pc.dimension.z - 1u;
         } else {
             actual_coord.z = coordinate.z - min_z;
         }
@@ -194,20 +184,20 @@ void nbl_glsl_ext_FFT()
 {
     // Virtual Threads Calculation
     uint dataLength = nbl_glsl_ext_FFT_getDimLength(pc.padded_dimension);
-    uint num_virtual_threads = uint(ceil(float(dataLength) / float(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)));
+    uint num_virtual_threads = (dataLength-1u)/(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)+1u;
     uint thread_offset = gl_LocalInvocationIndex;
 
 	uint channel = nbl_glsl_ext_FFT_getChannel();
     
 	// Pass 0: Bit Reversal
-	uint leadingZeroes = nbl_glsl_ext_FFT_clz(dataLength) + 1;
-	uint logTwo = 32 - leadingZeroes;
+	uint leadingZeroes = nbl_glsl_ext_FFT_clz(dataLength) + 1u;
+	uint logTwo = 32u - leadingZeroes;
 	
     vec2 current_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
     vec2 shuffled_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
 
     // Load Initial Values into Local Mem (bit reversed indices)
-    for(uint t = 0; t < num_virtual_threads; t++)
+    for(uint t = 0u; t < num_virtual_threads; t++)
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
         uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
@@ -217,53 +207,53 @@ void nbl_glsl_ext_FFT()
     }
 
     // For loop for each stage of the FFT (each virtual thread computes 1 buttefly wing)
-	for(uint i = 0; i < logTwo; ++i) 
+	for(uint i = 0u; i < logTwo; ++i) 
     {
-		uint mask = 1 << i;
+		uint mask = 1u << i;
 
         // Data Exchange for virtual threads :
         // X and Y are seperate to use less shared memory for complex numbers
         // Get Shuffled Values X for virtual threads
-        for(uint t = 0; t < num_virtual_threads; t++)
+        for(uint t = 0u; t < num_virtual_threads; t++)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             _NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid] = floatBitsToUint(current_values[t].x);
         }
         barrier();
         memoryBarrierShared();
-        for(uint t = 0; t < num_virtual_threads; t++)
+        for(uint t = 0u; t < num_virtual_threads; t++)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             shuffled_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid ^ mask]);
         }
 
         // Get Shuffled Values Y for virtual threads
-        for(uint t = 0; t < num_virtual_threads; t++)
+        for(uint t = 0u; t < num_virtual_threads; t++)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             _NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid] = floatBitsToUint(current_values[t].y);
         }
         barrier();
         memoryBarrierShared();
-        for(uint t = 0; t < num_virtual_threads; t++)
+        for(uint t = 0u; t < num_virtual_threads; t++)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             shuffled_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid ^ mask]);
         }
 
         // Computation of each virtual thread
-        for(uint t = 0; t < num_virtual_threads; t++)
+        for(uint t = 0u; t < num_virtual_threads; t++)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             vec2 shuffled_value = shuffled_values[t];
 
-            vec2 nbl_glsl_ext_FFT_twiddle = (0 == pc.is_inverse) 
+            vec2 nbl_glsl_ext_FFT_twiddle = (0u == pc.is_inverse) 
              ? nbl_glsl_ext_FFT_twiddle(tid, i, logTwo, dataLength)
              : nbl_gnbl_glsl_ext_FFT_twiddleInverse(tid, i, logTwo, dataLength);
 
             vec2 this_value = current_values[t];
 
-            if(0 < uint(tid & mask)) {
+            if(0u < uint(tid & mask)) {
                 current_values[t] = shuffled_value + nbl_glsl_complex_mul(nbl_glsl_ext_FFT_twiddle, this_value); 
             } else {
                 current_values[t] = this_value + nbl_glsl_complex_mul(nbl_glsl_ext_FFT_twiddle, shuffled_value); 
@@ -271,11 +261,11 @@ void nbl_glsl_ext_FFT()
         }
     }
 
-    for(uint t = 0; t < num_virtual_threads; t++)
+    for(uint t = 0u; t < num_virtual_threads; t++)
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
 	    uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
-        vec2 complex_value = (0 == pc.is_inverse) 
+        vec2 complex_value = (0u == pc.is_inverse) 
          ? current_values[t]
          : current_values[t] / dataLength;
 
