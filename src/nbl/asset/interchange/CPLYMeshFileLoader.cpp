@@ -298,6 +298,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	}
 	
 	constexpr uint32_t WHAT_IS_THE_HASH_SUPPOSED_TO_BE = 69u; // TODO: @Crisspl / @Anastazluk figure it out!
+	
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(ctx.hashes4pplns),core::smart_refctd_ptr(m_basicViewParamsSemantics));
 	{
 		uint32_t offset = 0u;

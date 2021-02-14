@@ -118,7 +118,7 @@ int main()
 		{
 			size_t neededDS1UboSize = 0ull;
 			{
-				for (const auto& shaderInputs : pipelineMetadata->getRequiredShaderInputs())
+				for (const auto& shaderInputs : pipelineMetadata->m_inputSemantics)
 					if (shaderInputs.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shaderInputs.descriptorSection.uniformBufferObject.set == 1u && shaderInputs.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
 						neededDS1UboSize = std::max<size_t>(neededDS1UboSize, shaderInputs.descriptorSection.uniformBufferObject.relByteoffset + shaderInputs.descriptorSection.uniformBufferObject.bytesize);
 			}
@@ -189,7 +189,7 @@ int main()
 			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);
 
 			core::vector<uint8_t> uboData(gpuubo->getSize());
-			for (const auto& shaderInputs : pipelineMetadata->getRequiredShaderInputs())
+			for (const auto& shaderInputs : pipelineMetadata->m_inputSemantics)
 			{
 				if (shaderInputs.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shaderInputs.descriptorSection.uniformBufferObject.set == 1u && shaderInputs.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
 				{
