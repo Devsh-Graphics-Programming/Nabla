@@ -10,6 +10,7 @@
 // Shared Memory
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
 #include <nbl/builtin/glsl/math/functions.glsl>
+#include <nbl/builtin/glsl/ext/FFT/parameters.glsl>
 
 
 #ifndef _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
@@ -56,6 +57,11 @@ layout(push_constant) uniform PushConstants
 } pc;
 #endif
 
+#ifndef _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DECLARED_
+#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DECLARED_
+nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters();
+#endif
+
 #ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
 #define _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
 vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel);
@@ -71,6 +77,9 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 comp
 vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel);
 #endif
 
+#ifndef _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
+#error "You need to define `nbl_glsl_ext_FFT_getParameters` and mark `_NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_`!"
+#endif
 #ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
 #error "You need to define `nbl_glsl_ext_FFT_getData` and mark `_NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_`!"
 #endif
