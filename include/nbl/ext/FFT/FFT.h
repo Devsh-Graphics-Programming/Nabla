@@ -20,13 +20,13 @@ class FFT : public core::TotalInterface
 {
 	public:
 
-		enum class Direction : uint32_t {
+		enum class Direction : uint8_t {
 			X = 0,
 			Y = 1,
 			Z = 2,
 		};
 		
-		enum class PaddingType : uint32_t {
+		enum class PaddingType : uint8_t {
 			CLAMP_TO_EDGE = 0,
 			FILL_WITH_ZERO = 1,
 		};
@@ -201,12 +201,16 @@ class FFT : public core::TotalInterface
 			bool isInverse, 
 			PaddingType paddingType = PaddingType::CLAMP_TO_EDGE)
 		{
-			uint32_t is_inverse_u = isInverse;
+
+			uint8_t isInverse_u8 = isInverse;
+			uint8_t direction_u8 = static_cast<uint8_t>(direction);
+			uint8_t paddingType_u8 = static_cast<uint8_t>(paddingType);
+			
+			uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
+
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &inputDimension);
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &paddedInputDimension);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &direction);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 9, sizeof(uint32_t), &is_inverse_u);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 10, sizeof(uint32_t), &paddingType);
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &packed);
 		}
 
 		// Kernel Normalization

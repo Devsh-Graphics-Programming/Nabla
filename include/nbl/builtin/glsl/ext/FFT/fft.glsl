@@ -45,15 +45,14 @@
 #define _NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ 0
 #define _NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ 1
 
+//TODO: investigate why putting this uint between the 2 other uvec3's don't work
 #ifndef _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 #define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 layout(push_constant) uniform PushConstants
 {
     layout (offset = 0) uvec3 dimension;
     layout (offset = 16) uvec3 padded_dimension;
-	layout (offset = 32) uint direction;
-    layout (offset = 36) uint is_inverse;
-    layout (offset = 40) uint padding_type; // clamp_to_edge or fill_with_zero
+	layout (offset = 32) uint direction_isInverse_paddingType; // packed into a uint
 } pc;
 #endif
 
@@ -100,29 +99,43 @@ nbl_glsl_complex nbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint itera
     return nbl_glsl_complex_conjugate(nbl_glsl_ext_FFT_twiddle(threadId, iteration, logTwoN));
 }
 
+uint nbl_glsl_ext_FFT_getDirection() {
+    return (pc.direction_isInverse_paddingType >> 16) & 0x000000ff;
+}
+bool nbl_glsl_ext_FFT_getIsInverse() {
+    return bool((pc.direction_isInverse_paddingType >> 8) & 0x000000ff);
+}
+uint nbl_glsl_ext_FFT_getPaddingType() {
+    return (pc.direction_isInverse_paddingType) & 0x000000ff;
+}
+
 uint nbl_glsl_ext_FFT_getChannel()
 {
-    return gl_WorkGroupID[pc.direction];
+    uint direction = nbl_glsl_ext_FFT_getDirection();
+    return gl_WorkGroupID[direction];
 }
 
 uvec3 nbl_glsl_ext_FFT_getCoordinates(in uint tidx)
 {
+    uint direction = nbl_glsl_ext_FFT_getDirection();
     uvec3 tmp = gl_WorkGroupID;
-    tmp[pc.direction] = tidx;
+    tmp[direction] = tidx;
     return tmp;
 }
 
 uvec3 nbl_glsl_ext_FFT_getBitReversedCoordinates(in uvec3 coords, in uint leadingZeroes)
 {
-    uint bitReversedIndex = bitfieldReverse(coords[pc.direction]) >> leadingZeroes;
+    uint direction = nbl_glsl_ext_FFT_getDirection();
+    uint bitReversedIndex = bitfieldReverse(coords[direction]) >> leadingZeroes;
     uvec3 tmp = coords;
-    tmp[pc.direction] = bitReversedIndex;
+    tmp[direction] = bitReversedIndex;
     return tmp;
 }
 
 uint nbl_glsl_ext_FFT_getDimLength(uvec3 dimension)
 {
-    return dimension[pc.direction];
+    uint direction = nbl_glsl_ext_FFT_getDirection();
+    return dimension[direction];
 }
 
 void nbl_glsl_ext_FFT()
@@ -134,6 +147,8 @@ void nbl_glsl_ext_FFT()
 
 	uint channel = nbl_glsl_ext_FFT_getChannel();
     
+    bool is_inverse = nbl_glsl_ext_FFT_getIsInverse();
+
 	// Pass 0: Bit Reversal
 	uint leadingZeroes = nbl_glsl_clz(dataLength) + 1u;
 	uint logTwo = 32u - leadingZeroes;
@@ -192,7 +207,7 @@ void nbl_glsl_ext_FFT()
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             nbl_glsl_complex shuffled_value = shuffled_values[t];
 
-            nbl_glsl_complex twiddle = (0u == pc.is_inverse) 
+            nbl_glsl_complex twiddle = (is_inverse) 
              ? nbl_glsl_ext_FFT_twiddle(tid, i, logTwo)
              : nbl_glsl_ext_FFT_twiddleInverse(tid, i, logTwo);
 
@@ -210,7 +225,7 @@ void nbl_glsl_ext_FFT()
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
 	    uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
-        nbl_glsl_complex complex_value = (0u == pc.is_inverse) 
+        nbl_glsl_complex complex_value = (is_inverse) 
          ? current_values[t]
          : current_values[t] / dataLength;
 

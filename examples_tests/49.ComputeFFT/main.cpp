@@ -471,15 +471,15 @@ int main()
 	// Convolution
 	auto convolveDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipelineLayout->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_1, fftOutputBuffer_KernelNormalized, fftOutputBuffer_0);
-
-	// IFFT X
-	auto fftDescriptorSet_IFFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_X.get(), fftOutputBuffer_0, fftOutputBuffer_1);
-
+	
 	// IFFT Y
 	auto fftDescriptorSet_IFFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_Y.get(), fftOutputBuffer_1, fftOutputBuffer_0);
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
 	
+	// IFFT X
+	auto fftDescriptorSet_IFFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_X.get(), fftOutputBuffer_1, fftOutputBuffer_0);
+
 	auto removePaddingShader = createShader_RemovePadding(driver, am);
 	auto removePaddingPipelineLayout = getPipelineLayout_RemovePadding(driver);
 	auto removePaddingPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(removePaddingPipelineLayout), std::move(removePaddingShader));
@@ -519,18 +519,18 @@ int main()
 		driver->pushConstants(convolvePipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t), &srcNumChannels); // numSrcChannels
 		dispatchHelper_Convolution(driver, convolveDispatchInfo);
 		
-		// Convolved IFFT X
-		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_IFFT_X.get(), nullptr);
-		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::X, true);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
-		
 		// Convolved IFFT Y
 		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_IFFT_Y.get(), nullptr);
 		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::Y, true);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
 
+		// Convolved IFFT X
+		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_IFFT_X.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::X, true);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
+		
 		// Remove Padding and Copy to GPU Image
 		driver->bindComputePipeline(removePaddingPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, removePaddingPipelineLayout.get(), 0u, 1u, &removePaddingDescriptorSet.get(), nullptr);
