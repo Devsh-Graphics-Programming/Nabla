@@ -9,6 +9,7 @@
 
 // Shared Memory
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
+#include <nbl/builtin/glsl/math/functions.glsl>
 
 
 #ifndef _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
@@ -81,17 +82,6 @@ vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel);
 #error "You need to define `nbl_glsl_ext_FFT_getPaddedData` and mark `_NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_`!"
 #endif
 
-// Count Leading Zeroes (naive?)
-uint nbl_glsl_ext_FFT_clz(in uint x) 
-{
-    return 31u - findMSB(x);
-}
-
-uint nbl_glsl_ext_FFT_reverseBits(in uint x)
-{
-    return bitfieldReverse(x);
-}
-
 uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration, in uint logTwoN) 
 {
     const uint shiftSuffix = logTwoN - 1u - iteration; // can we assert that iteration<logTwoN always?? yes
@@ -99,15 +89,15 @@ uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration,
     return (threadId & suffixMask) << shiftSuffix;
 }
 
-nbl_glsl_complex nbl_glsl_ext_FFT_twiddle(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+nbl_glsl_complex nbl_glsl_ext_FFT_twiddle(in uint threadId, in uint iteration, in uint logTwoN) 
 {
     uint k = nbl_glsl_ext_FFT_calculateTwiddlePower(threadId, iteration, logTwoN);
-    return nbl_glsl_expImaginary(-1 * 2 * nbl_glsl_PI * k / N);
+    return nbl_glsl_expImaginary(-1.0f * 2.0f * nbl_glsl_PI * float(k) / (1 << logTwoN));
 }
 
-nbl_glsl_complex nbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+nbl_glsl_complex nbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint iteration, in uint logTwoN) 
 {
-    return nbl_glsl_complex_conjugate(nbl_glsl_ext_FFT_twiddle(threadId, iteration, logTwoN, N));
+    return nbl_glsl_complex_conjugate(nbl_glsl_ext_FFT_twiddle(threadId, iteration, logTwoN));
 }
 
 uint nbl_glsl_ext_FFT_getChannel()
@@ -124,7 +114,7 @@ uvec3 nbl_glsl_ext_FFT_getCoordinates(in uint tidx)
 
 uvec3 nbl_glsl_ext_FFT_getBitReversedCoordinates(in uvec3 coords, in uint leadingZeroes)
 {
-    uint bitReversedIndex = nbl_glsl_ext_FFT_reverseBits(coords[pc.direction]) >> leadingZeroes;
+    uint bitReversedIndex = bitfieldReverse(coords[pc.direction]) >> leadingZeroes;
     uvec3 tmp = coords;
     tmp[pc.direction] = bitReversedIndex;
     return tmp;
@@ -145,7 +135,7 @@ void nbl_glsl_ext_FFT()
 	uint channel = nbl_glsl_ext_FFT_getChannel();
     
 	// Pass 0: Bit Reversal
-	uint leadingZeroes = nbl_glsl_ext_FFT_clz(dataLength) + 1u;
+	uint leadingZeroes = nbl_glsl_clz(dataLength) + 1u;
 	uint logTwo = 32u - leadingZeroes;
 	
     nbl_glsl_complex current_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
@@ -203,8 +193,8 @@ void nbl_glsl_ext_FFT()
             nbl_glsl_complex shuffled_value = shuffled_values[t];
 
             nbl_glsl_complex twiddle = (0u == pc.is_inverse) 
-             ? nbl_glsl_ext_FFT_twiddle(tid, i, logTwo, dataLength)
-             : nbl_glsl_ext_FFT_twiddleInverse(tid, i, logTwo, dataLength);
+             ? nbl_glsl_ext_FFT_twiddle(tid, i, logTwo)
+             : nbl_glsl_ext_FFT_twiddleInverse(tid, i, logTwo);
 
             nbl_glsl_complex this_value = current_values[t];
 
