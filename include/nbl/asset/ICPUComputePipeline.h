@@ -96,6 +96,12 @@ protected:
         }
     }
 
+    bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+    {
+        --_levelsBelow;
+        return m_shader->isAnyDependencyDummy(_levelsBelow) || m_layout->isAnyDependencyDummy(_levelsBelow);
+    }
+
     virtual ~ICPUComputePipeline() = default;
 };
 

@@ -106,17 +106,18 @@ void main()
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
 	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
-	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
+	precomp = nbl_glsl_MC_precomputeData(front);
+	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
-	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(precomp), dUV, precomp);
 #endif
 
 
-	nbl_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = nbl_computeLighting(inter, dUV, precomp);
+	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -212,8 +213,6 @@ int main()
 
 		auto serializedLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am);
 		auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs);
-		serializedLoader->initialize();
-		mitsubaLoader->initialize();
 		am->addAssetLoader(std::move(serializedLoader));
 		am->addAssetLoader(std::move(mitsubaLoader));
 
@@ -263,11 +262,11 @@ int main()
 		}
 
 		//! read cache results -- speeds up mesh generation
-		//qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+		qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+		qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 		
 		auto contents = meshes.getContents();
 		if (contents.begin()>=contents.end())
@@ -323,6 +322,7 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 	asset::IAssetManager* am = device->getAssetManager();
+	io::IFileSystem* fs = device->getFileSystem();
 
 	// look out for this!!!
 	// when added, CMitsubaLoader inserts its own include loader into GLSLCompiler

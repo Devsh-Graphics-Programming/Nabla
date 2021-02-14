@@ -90,6 +90,11 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			}
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			return m_buffer->isAnyDependencyDummy(_levelsBelow-1u);
+		}
+
 		virtual ~ICPUBufferView() = default;
 };
 

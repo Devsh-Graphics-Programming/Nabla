@@ -257,7 +257,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
 		if (i % 3 == 0)
-			normal = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(normals[i / 3]);
+			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
 		uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i * vtxSize;
 		memcpy(ptr, positions[i].pointer, 3 * 4);
 		((uint32_t*)(ptr + 12))[0] = normal;

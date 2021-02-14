@@ -317,11 +317,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 					core::vectorSIMDf simdNormal;
 					simdNormal.set(normalsBuffer[Idx[2]].data);
                     simdNormal.makeSafe3D();
-					v.normal32bit = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(simdNormal);
+					v.normal32bit = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(simdNormal);
                 }
 				else
 				{
-					v.normal32bit = 0;
+					v.normal32bit = core::vectorSIMDu32(0u);
                     recalcNormals.back() = true;
 				}
 
