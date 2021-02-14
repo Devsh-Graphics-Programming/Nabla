@@ -116,13 +116,13 @@ R"===(#version 430 core
 
 	const size_t extraSize = 32 + 32 + 32 + 32;
 
-	const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_X_DIM) + 1u;
+	const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE) + 1u;
 	const uint32_t useSSBO = (DataType::SSBO == inputType) ? 1 : 0;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		useSSBO,
-		DEFAULT_WORK_GROUP_X_DIM,
+		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize,
 		maxItemsPerThread
 	);
@@ -271,7 +271,7 @@ void FFT::updateDescriptorSet_KernelNormalization(
 }
 
 void FFT::dispatchKernelNormalization(video::IVideoDriver* driver, asset::VkExtent3D const & paddedDimension, uint32_t numChannels) {
-		const uint32_t dispatchSizeX = core::ceil(float(paddedDimension.width * paddedDimension.height * paddedDimension.depth * numChannels) / DEFAULT_WORK_GROUP_X_DIM);
+		const uint32_t dispatchSizeX = core::ceil(float(paddedDimension.width * paddedDimension.height * paddedDimension.depth * numChannels) / DEFAULT_WORK_GROUP_SIZE);
 		driver->dispatch(dispatchSizeX, 1, 1);
 		defaultBarrier();
 }

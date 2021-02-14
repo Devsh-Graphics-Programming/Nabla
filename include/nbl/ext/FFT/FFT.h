@@ -57,7 +57,7 @@ class FFT : public core::TotalInterface
 			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
 			DispatchInfo_t ret = {};
 
-			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_X_DIM;
+			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_SIZE;
 			ret.workGroupDims[1] = 1;
 			ret.workGroupDims[2] = 1;
 
@@ -227,7 +227,7 @@ class FFT : public core::TotalInterface
 		FFT() = delete;
 		//~FFT() = delete;
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_X_DIM = 256u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 
 		static void defaultBarrier();
 };
