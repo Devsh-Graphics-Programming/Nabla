@@ -154,16 +154,6 @@ void CCameraSceneNode::recomputeProjectionMatrix()
 }
 
 
-//! prerender
-void CCameraSceneNode::OnRegisterSceneNode()
-{
-	if ( SceneManager->getActiveCamera () == this )
-		SceneManager->registerNodeForRendering(this, ESNRP_CAMERA);
-
-	ISceneNode::OnRegisterSceneNode();
-}
-
-
 //! render
 void CCameraSceneNode::render()
 {

@@ -22,6 +22,9 @@ namespace asset
 class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
 {
 	public:
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW = 1u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUDescriptorSetLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
+
 		using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
 
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
@@ -34,7 +37,14 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         void setDescriptorSetLayout(uint32_t _set, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _dslayout) 
         { 
             assert(!isImmutable_debug());
-            m_descSetLayouts[_set] = std::move(_dslayout); 
+            assert(_set < DESCRIPTOR_SET_COUNT);
+            m_descSetLayouts[_set] = std::move(_dslayout);
+        }
+
+        void setPushConstantRanges(core::smart_refctd_dynamic_array<SPushConstantRange>&& _ranges)
+        {
+            assert(!isImmutable_debug());
+            m_pushConstantRanges = std::move(_ranges);
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
@@ -107,6 +117,15 @@ protected:
                 for (uint32_t i = 0u; i < m_descSetLayouts.size(); ++i)
                     restoreFromDummy_impl_call(m_descSetLayouts[i].get(), other->m_descSetLayouts[i].get(), _levelsBelow);
             }
+        }
+
+        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+        {
+            --_levelsBelow;
+            for (auto& dsl : m_descSetLayouts)
+                if (dsl && dsl->isAnyDependencyDummy(_levelsBelow))
+                    return true;
+            return false;
         }
 
 		virtual ~ICPUPipelineLayout() = default;

@@ -10,6 +10,7 @@ namespace nbl
 namespace asset
 {
 
+#ifdef OLD_SHADERS
 class ICPUSkinnedMeshBuffer;
 
 #include "nbl/nblpack.h"
@@ -39,7 +40,6 @@ struct NBL_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3
 //TODO bring it back
 //static_assert(sizeof(SkinnedMeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 
-#ifdef OLD_SHADERS
 static_assert(
     sizeof(SkinnedMeshBufferBlobV3) ==
     sizeof(SkinnedMeshBufferBlobV3::mat) + sizeof(SkinnedMeshBufferBlobV3::box) + sizeof(SkinnedMeshBufferBlobV3::descPtr) + sizeof(SkinnedMeshBufferBlobV3::indexType) + sizeof(SkinnedMeshBufferBlobV3::baseVertex)
@@ -47,11 +47,11 @@ static_assert(
     + sizeof(SkinnedMeshBufferBlobV3::primitiveType) + sizeof(SkinnedMeshBufferBlobV3::posAttrId) + sizeof(SkinnedMeshBufferBlobV3::normalAttrId) + sizeof(SkinnedMeshBufferBlobV3::indexValMin) + sizeof(SkinnedMeshBufferBlobV3::indexValMax) + sizeof(SkinnedMeshBufferBlobV3::maxVertexBoneInfluences),
     "SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
 );
-#endif
 #include "nbl/nblunpack.h"
 
 template<>
 struct CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBufferBlobV3 type; };
+#endif
 
 
 }

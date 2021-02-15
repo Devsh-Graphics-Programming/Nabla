@@ -8,7 +8,6 @@
 #include "nbl/asset/IComputePipeline.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
-#include "nbl/asset/IPipelineMetadata.h"
 
 namespace nbl
 {
@@ -95,6 +94,12 @@ protected:
             restoreFromDummy_impl_call(m_shader.get(), other->m_shader.get(), _levelsBelow);
             restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
         }
+    }
+
+    bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+    {
+        --_levelsBelow;
+        return m_shader->isAnyDependencyDummy(_levelsBelow) || m_layout->isAnyDependencyDummy(_levelsBelow);
     }
 
     virtual ~ICPUComputePipeline() = default;

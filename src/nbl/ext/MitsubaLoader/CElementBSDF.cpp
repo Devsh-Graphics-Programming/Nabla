@@ -5,7 +5,7 @@
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 
 #include <functional>
 
@@ -801,7 +801,7 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 	return true;
 }
 
-bool CElementBSDF::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementBSDF::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
 {
 	if (type == Type::INVALID)
 	{

@@ -17,20 +17,19 @@ function(nbl_add_builtin_resources)
 endfunction()
 
 set(nbl_resources_to_embed
-  "nbl/builtin/shaders/loaders/mtl/vertex_impl.glsl"
-  "nbl/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
-  "nbl/builtin/shaders/loaders/mtl/vertex_uv.vert"
-  "nbl/builtin/shaders/loaders/mtl/fragment_impl.glsl"
-  "nbl/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
-  "nbl/builtin/shaders/loaders/mtl/fragment_uv.frag"
-  "nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl"
-  "nbl/builtin/specializedshaders/fullscreentriangle.vert"
-  "nbl/builtin/materials/lambertian/singletexture/specializedshader.vert"
-  "nbl/builtin/materials/lambertian/singletexture/specializedshader.frag"
-  "nbl/builtin/materials/debug/vertex_color/specializedshader.vert"
-  "nbl/builtin/materials/debug/vertex_normal/specializedshader.vert"
-  "nbl/builtin/materials/debug/vertex_normal/specializedshader.frag"
-  "nbl/builtin/materials/debug/vertex_uv/specializedshader.frag"
+  "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
+  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
+  "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
+  "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
+  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
+  "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
+  "nbl/builtin/specialized_shader/fullscreentriangle.vert"
+  "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"
+  "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
+  "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
+  "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"
+  "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag"
+  "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
@@ -67,9 +66,10 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
   # VK_FORMAT support
   "nbl/builtin/glsl/format/decode.glsl"
+  "nbl/builtin/glsl/format/encode.glsl"
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
-  "nbl/builtin/glsl/loaders/mtl/common.glsl"
+  "nbl/builtin/glsl/loader/mtl/common.glsl"
   # math and limits
   "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/constants.glsl"
@@ -77,19 +77,24 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/math/typeless_arithmetic.glsl"
   "nbl/builtin/glsl/limits/numeric.glsl"
   # material_compiler
-  "nbl/builtin/material_compiler/glsl/common.glsl"
-  "nbl/builtin/material_compiler/glsl/common_declarations.glsl"
-  "nbl/builtin/material_compiler/glsl/rasterization/impl.glsl"
+  "nbl/builtin/glsl/material_compiler/common.glsl"
+  "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
+  "nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl"
+  "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"
   # sampling
   "nbl/builtin/glsl/sampling/bilinear.glsl"
+  "nbl/builtin/glsl/sampling/box_muller_transform.glsl"
   "nbl/builtin/glsl/sampling/concentric_mapping.glsl"
   "nbl/builtin/glsl/sampling/cos_weighted.glsl"
   "nbl/builtin/glsl/sampling/linear.glsl"
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
+  # scene
+  "nbl/builtin/glsl/scene/keyframe.glsl"
+  "nbl/builtin/glsl/scene/node.glsl"
   # shapes
   #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
@@ -97,6 +102,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/basic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
+  "nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
   # utilities
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
@@ -129,5 +135,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/intersection.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/ray.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
 PARENT_SCOPE)
 

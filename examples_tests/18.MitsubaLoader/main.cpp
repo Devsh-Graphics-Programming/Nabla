@@ -31,6 +31,10 @@ struct SLight
 	vec3 intensity;
 };
 
+layout (push_constant) uniform Block {
+    float camTformDeterminant;
+} PC;
+
 layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 {
 	SLight lights[];
@@ -54,17 +58,17 @@ vec2 SampleSphericalMap(in vec3 v)
     return uv;
 }
 
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
-	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	vec3 emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 
 	vec3 color = vec3(0.0);
 
 #ifdef USE_ENVMAP
-	instr_stream_t gcs = getGenChoiceStream(precomp);
-	instr_stream_t rnps = getRemAndPdfStream(precomp);
+	nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
+	nbl_glsl_MC_instr_stream_t rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -72,7 +76,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
 		nbl_glsl_LightSample s;
-		vec3 rem = runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+		vec3 rem = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
@@ -83,13 +87,39 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	for (int i = 0; i < LIGHT_COUNT; ++i)
 	{
 		SLight l = lights[i];
-		vec3 L = l.position-WorldPos;
-		//params.L = L;
+		const vec3 L = l.position-WorldPos;
+		const float d2 = dot(L,L); 
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
-		color += nbl_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		nbl_glsl_LightSample _sample;
+		_sample.L = L*inversesqrt(d2);
+		color += nbl_bsdf_cos_eval(_sample,out_interaction, dUV)*l.intensity*intensityScale/d2;
 	}
 
 	return color+emissive;
+}
+)";
+constexpr const char* GLSL_FRAG_MAIN = R"(
+#define _NBL_FRAG_MAIN_DEFINED_
+void main()
+{
+	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+
+	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
+	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
+	precomp = nbl_glsl_MC_precomputeData(front);
+	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
+#ifdef TEX_PREFETCH_STREAM
+	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
+#endif
+#ifdef NORM_PRECOMP_STREAM
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(precomp), dUV, precomp);
+#endif
+
+
+	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV);
+
+	OutColor = vec4(color, 1.0);
 }
 )";
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs, uint32_t viewport_w, uint32_t viewport_h, uint32_t lightCnt, uint32_t smplCnt, float intensityScale)
@@ -108,6 +138,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 		GLSL_COMPUTE_LIGHTING;
 
     glsl.insert(glsl.find("#ifndef _NBL_COMPUTE_LIGHTING_DEFINED_"), extra);
+	glsl.insert(glsl.find("#ifndef _NBL_FRAG_MAIN_DEFINED_"), GLSL_FRAG_MAIN);
 
     //auto* f = fopen("fs.glsl","w");
     //fwrite(glsl.c_str(), 1, glsl.size(), f);
@@ -171,7 +202,7 @@ int main()
 
 	//
 	asset::SAssetBundle meshes;
-	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
+	core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata> globalMeta;
 	{
 		auto device = createDeviceEx(params);
 
@@ -180,8 +211,10 @@ int main()
 		asset::IAssetManager* am = device->getAssetManager();
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
+		auto serializedLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am);
+		auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs);
+		am->addAssetLoader(std::move(serializedLoader));
+		am->addAssetLoader(std::move(mitsubaLoader));
 
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
@@ -229,11 +262,11 @@ int main()
 		}
 
 		//! read cache results -- speeds up mesh generation
-		//qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+		qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+		qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 		
 		auto contents = meshes.getContents();
 		if (contents.begin()>=contents.end())
@@ -243,23 +276,38 @@ int main()
 		if (!firstmesh)
 			return 3;
 
-		auto meta = firstmesh->getMetadata();
-		if (!meta)
+		globalMeta = core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata>(meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>());
+		if (!globalMeta)
 			return 4;
-		assert(core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
-		globalMeta = static_cast<ext::MitsubaLoader::IMeshMetadata*>(meta)->globalMetadata;
 	}
 
 
 	// recreate wth resolution
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	// set resolution
-	if (globalMeta->sensors.size())
+	if (globalMeta->m_global.m_sensors.size())
 	{
-		const auto& film = globalMeta->sensors.front().film;
+		const auto& film = globalMeta->m_global.m_sensors.front().film;
 		params.WindowSize.Width = film.width;
 		params.WindowSize.Height = film.height;
 	}
+	else return 1; // no cameras
+
+	const auto& sensor = globalMeta->m_global.m_sensors.front(); //always choose frist one
+	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
+		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
+	};
+
+	if (!isOkSensorType(sensor))
+		return 1;
+
+	bool leftHandedCamera = false;
+	auto cameraTransform = sensor.transform.matrix.extractSub3x4();
+	{
+		if (cameraTransform.getPseudoDeterminant().x < 0.f)
+			leftHandedCamera = true;
+	}
+
 	params.DriverType = video::EDT_OPENGL;
 	auto device = createDeviceEx(params);
 
@@ -274,6 +322,12 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 	asset::IAssetManager* am = device->getAssetManager();
+	io::IFileSystem* fs = device->getFileSystem();
+
+	// look out for this!!!
+	// when added, CMitsubaLoader inserts its own include loader into GLSLCompiler
+	// thats why i have to add it again here (after device recreation) to be able to compile shaders
+	am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, device->getFileSystem()));
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
 	{
@@ -310,42 +364,31 @@ int main()
 		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd + 4);
 	}
 
+	auto contents = meshes.getContents();
 	//gather all meshes into core::vector and modify their pipelines
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
-	cpumeshes.reserve(meshes.getSize());
-	for (auto it = meshes.getContents().begin(); it != meshes.getContents().end(); ++it)
-	{
+	cpumeshes.reserve(contents.size());
+	uint32_t cc = cpumeshes.capacity();
+	for (auto it=contents.begin(); it!=contents.end(); ++it)
 		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
-	}
 
-	core::smart_refctd_ptr<asset::ICPUDescriptorSet> cpuds0;
-	{
-		auto* meta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(cpumeshes[0]->getMeshBuffer(0)->getPipeline()->getMetadata());
-		cpuds0 = core::smart_refctd_ptr<asset::ICPUDescriptorSet>(meta->getDescriptorSet());
-	}
+	auto cpuds0 = globalMeta->m_global.m_ds0;
 
-	//all pipelines have the same metadata
-	auto* pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getMetadata());
-
-    asset::ICPUDescriptorSetLayout* ds1layout = cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    asset::ICPUDescriptorSetLayout* ds1layout = cpumeshes.front()->getMeshBuffers().begin()[0u]->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
-        if (bnd.type==asset::EDT_UNIFORM_BUFFER)
-        {
-            ds1UboBinding = bnd.binding;
-            break;
-        }
+    if (bnd.type==asset::EDT_UNIFORM_BUFFER)
+    {
+        ds1UboBinding = bnd.binding;
+        break;
+    }
 
-
+	//scene bound
+	core::aabbox3df sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
 	//point lights
 	core::vector<SLight> lights;
-	core::vector<const ext::MitsubaLoader::IMeshMetadata*> meshmetas;
-	meshmetas.reserve(cpumeshes.size());
 	for (const auto& cpumesh : cpumeshes)
 	{
-		meshmetas.push_back(static_cast<const ext::MitsubaLoader::IMeshMetadata*>(cpumesh->getMetadata()));
-		const auto& instances = meshmetas.back()->getInstances();
-
 		auto computeAreaAndAvgPos = [](const asset::ICPUMeshBuffer* mb, const core::matrix3x4SIMD& tform, core::vectorSIMDf& _outAvgPos) {
 			uint32_t triCount = 0u;
 			asset::IMeshManipulator::getPolyCount(triCount, mb);
@@ -375,26 +418,31 @@ int main()
 
 			return 0.5f*core::length(differentialElementCrossProdcut).x;
 		};
-		for (const auto& inst : instances)
+
+		const auto* mesh_meta = globalMeta->getAssetSpecificMetadata(cpumesh.get());
+		auto auxInstanceDataIt = mesh_meta->m_instanceAuxData.begin();
+		for (const auto& inst : mesh_meta->m_instances)
 		{
-			if (inst.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
+			sceneBound.addInternalBox(core::transformBoxEx(cpumesh->getBoundingBox(),inst.worldTform));
+			if (auxInstanceDataIt->frontEmitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
 			{
 				core::vectorSIMDf pos;
-				assert(cpumesh->getMeshBufferCount()==1u);
-				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffer(0), inst.tform, pos);
+				assert(cpumesh->getMeshBuffers().size()==1u);
+				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffers().begin()[0], inst.worldTform, pos);
 				assert(area>0.f);
-				inst.tform.pseudoMulWith4x1(pos);
+				inst.worldTform.pseudoMulWith4x1(pos);
 
 				SLight l;
-				l.intensity = inst.emitter.area.radiance*area*2.f*core::PI<float>();
+				l.intensity = auxInstanceDataIt->frontEmitter.area.radiance*area*2.f*core::PI<float>();
 				l.position = pos;
 
 				lights.push_back(l);
 			}
+			auxInstanceDataIt++;
 		}
 	}
 
-	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 16u;
+	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 64u;
 	constexpr float LIGHT_INTENSITY_SCALE = 0.01f;
 
 	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;
@@ -402,9 +450,14 @@ int main()
 	for (auto& mesh : cpumeshes)
 	{
 		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)
-		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		for (auto meshbuffer : mesh->getMeshBuffers())
 		{
-			auto* pipeline = mesh->getMeshBuffer(i)->getPipeline();
+			auto* pipeline = meshbuffer->getPipeline();
+
+			asset::SPushConstantRange pcr;
+			pcr.offset = 0u;
+			pcr.size = sizeof(float);
+			pcr.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
 			if (modifiedPipelines.find(pipeline) == modifiedPipelines.end())
 			{
 				//if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
@@ -418,33 +471,22 @@ int main()
 					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs });
 					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
 				}
+
+				auto pc = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::SPushConstantRange>>(1u);
+				(*pc)[0] = pcr;
+				pipeline->getLayout()->setPushConstantRanges(std::move(pc));
 				modifiedPipelines.insert(pipeline);
 			}
+
+			reinterpret_cast<float*>(meshbuffer->getPushConstantsDataPtr() + pcr.offset)[0] = cameraTransform.getPseudoDeterminant().x;
 		}
 	}
 	modifiedShaders.clear();
 
-	core::aabbox3df sceneBound;
+
 	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
-	{
-		auto metait = meshmetas.begin();
-		for (auto gpuit = gpumeshes->begin(); gpuit != gpumeshes->end(); gpuit++, metait++)
-		{
-			auto* meta = *metait;
-			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
-			const auto& instances = meshmeta->getInstances();
 
-			auto bb = (*gpuit)->getBoundingBox();
-			for (const auto& inst : instances)
-			{
-				sceneBound.addInternalBox(core::transformBoxEx(bb, inst.tform));
-			}
-		}
-	}
-
-	//auto gpuVT = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, globalMeta->VT.get());
 	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
-
     auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
 
     auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(asset::SBasicViewParameters));
@@ -572,28 +614,21 @@ int main()
 	scene::ICameraSceneNode* camera = nullptr;
 	core::recti viewport(core::position2di(0,0), core::position2di(params.WindowSize.Width,params.WindowSize.Height));
 
-	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
-		return sensor.type==ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type==ext::MitsubaLoader::CElementSensor::Type::THINLENS;
-	};
 //#define TESTING
 #ifdef TESTING
 	if (0)
 #else
-	if (globalMeta->sensors.size() && isOkSensorType(globalMeta->sensors.front()))
+	if (globalMeta->m_global.m_sensors.size() && isOkSensorType(globalMeta->m_global.m_sensors.front()))
 #endif
 	{
-		const auto& sensor = globalMeta->sensors.front();
 		const auto& film = sensor.film;
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
 		auto extent = sceneBound.getExtent();
 		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0001f);
 		// need to extract individual components
-		bool leftHandedCamera = false;
 		{
 			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
-			if (relativeTransform.getPseudoDeterminant().x < 0.f)
-				leftHandedCamera = true;
 
 			auto pos = relativeTransform.getTranslation();
 			camera->setPosition(pos.getAsVector3df());
@@ -697,19 +732,17 @@ int main()
 		uboData.NormalMat[11] = camera->getPosition().Z;
 		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0u, sizeof(uboData), &uboData);
 
-		for (uint32_t j = 1u; j < gpumeshes->size(); ++j)
+		for (uint32_t j = 0u; j < gpumeshes->size(); ++j)
 		{
 			auto& mesh = (*gpumeshes)[j];
 
-			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+			for (auto mb : mesh->getMeshBuffers())
 			{
-				auto* mb = mesh->getMeshBuffer(i);
-
 				auto* pipeline = mb->getPipeline();
 				const video::IGPUDescriptorSet* ds[3]{ gpuds0.get(), gpuds1.get(), gpuds2.get() };
 				driver->bindGraphicsPipeline(pipeline);
 				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 3u, ds, nullptr);
-				driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX|video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(uint32_t), mb->getPushConstantsDataPtr());
+				driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX|video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(float), mb->getPushConstantsDataPtr());
 
 				driver->drawMeshBuffer(mb);
 			}

@@ -3,12 +3,17 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "COpenGLDriver.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
-
 #include "vectorSIMD.h"
 
+#include "os.h"
+
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/spvUtils.h"
+
 #ifdef _NBL_COMPILE_WITH_OPENGL_
+
+#include "COpenGLDriver.h"
 
 #include "nbl/video/COpenGLImageView.h"
 #include "nbl/video/COpenGLBufferView.h"
@@ -16,15 +21,11 @@
 #include "nbl/video/COpenGLPipelineCache.h"
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
-#include "nbl/asset/IGLSLCompiler.h"
-#include "nbl/asset/CShaderIntrospector.h"
 
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLQuery.h" 
 #include "COpenGLTimestampQuery.h"
-#include "os.h"
-#include "nbl/asset/spvUtils.h"
 
 #ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
@@ -45,132 +46,6 @@
 #endif
 #endif
 
-namespace
-{
-class AMDbugfixCompiler : public spirv_cross::Compiler
-{
-public:
-    using spirv_cross::Compiler::Compiler;
-
-    _NBL_STATIC_INLINE_CONSTEXPR bool ACCOUNT_SSBO = true;
-
-    // {numer of possible row counts} * {number of possible col counts} * {number of possible basetypes (float/double)}
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKAROUND_FUNCTION_COUNT = 3u*3u*2u;
-    struct SFunction
-    {
-        uint32_t restype;
-        uint32_t id;
-    };
-    struct SLoad
-    {
-        uint32_t restype;
-        uint32_t id;
-        uint32_t offset;
-        uint32_t len;
-
-        bool operator<(const SLoad& rhs) const { return offset<rhs.offset; }
-    };
-    using workaround_functions_t = std::array<SFunction, WORKAROUND_FUNCTION_COUNT>;
-
-    std::pair<nbl::core::vector<SLoad>, workaround_functions_t> getFixCandidates()
-    {
-        nbl::core::vector<uint32_t> vars;//IDs of UBO or SSBO vars (instances)
-        nbl::core::vector<SLoad> loads;//OpLoad's that are potentially going to need the fix
-        
-        workaround_functions_t fixFuncs;
-        memset(fixFuncs.data(), 0xff, fixFuncs.size()*sizeof(SFunction));
-
-        ir.for_each_typed_id<spirv_cross::SPIRVariable>(//gather all instances of SSBO and UBO blocks
-            [&](uint32_t, const spirv_cross::SPIRVariable& var) {
-                auto& type = this->get<spirv_cross::SPIRType>(var.basetype);
-                bool valid = type.storage == spv::StorageClassUniform;
-                if constexpr (ACCOUNT_SSBO) {
-                    valid = valid || (type.storage == spv::StorageClassStorageBuffer);
-                }
-                if (valid)
-                {
-                    vars.push_back(var.self);
-                }
-        });
-        ir.for_each_typed_id<spirv_cross::SPIRFunction>(
-            [&](uint32_t, const spirv_cross::SPIRFunction& func) {
-                    uint32_t fid = func.self;
-                    const std::string& nm = get_name(fid);
-                    const char expected[] = "nbl_builtin_glsl_workaround_AMD_broken_row_major_qualifier";
-                    if (strncmp(nm.c_str(), expected, sizeof(expected)-1u) == 0)
-                    {
-                        auto& param_type = get_type(func.arguments[0].type);
-
-                        const uint32_t ix = (param_type.basetype==spirv_cross::SPIRType::BaseType::Double ? 1u:0u)*(3u*3u) + (3u*(param_type.vecsize-2u)) + param_type.columns-2u;
-
-                        assert(ix < fixFuncs.size());
-                        fixFuncs[ix].restype = get_type(func.return_type).self;
-                        fixFuncs[ix].id = fid;
-                    }
-            }
-        );
-
-        bool getThisOpLoad = false;
-        nbl::core::stack<std::reference_wrapper<const spirv_cross::SPIRFunction>> callstack;
-        callstack.push(std::cref(get<spirv_cross::SPIRFunction>(ir.default_entry_point)));
-        while (!callstack.empty())
-        {
-            const auto& f = callstack.top().get();
-            callstack.pop();
-            for (uint32_t b : f.blocks)
-            {
-                const spirv_cross::SPIRBlock& block = get<spirv_cross::SPIRBlock>(b);
-                for (auto& i : block.ops)
-                {
-                    auto ops = stream(i);
-                    spv::Op op = static_cast<spv::Op>(i.op);
-
-                    switch (op)
-                    {
-                    case spv::OpLoad:
-                    {
-                        SLoad ld = {ops[0], ops[1], i.offset, i.length};
-
-                        if (getThisOpLoad)
-                        {
-                            auto& t = get_type(ops[0]);
-                            if (t.columns>1u && t.basetype!=spirv_cross::SPIRType::BaseType::Struct)//consider only loads of matrices
-                            {
-                                auto it = std::lower_bound(loads.begin(), loads.end(), ld);
-                                if (it==loads.end() || it->offset!=ld.offset)
-                                    loads.insert(it, ld);
-                            }
-                            getThisOpLoad = false;
-                        }
-                    }
-                        break;
-                    case spv::OpAccessChain:
-                    {
-                        uint32_t baseptr = ops[2];
-                        auto found = std::find(vars.begin(), vars.end(), baseptr);
-                        if (found != vars.end())
-                            getThisOpLoad = true;
-                    }
-                        break;
-                    case spv::OpFunctionCall:
-                    {
-                        auto& callee = get<spirv_cross::SPIRFunction>(ops[2]);
-                        callstack.push(std::cref(callee));
-                    }
-                        break;
-                    default: 
-                        // OpLoad should be directly after OpAccessChain, so reset flag if access chained concerned some other op
-                        getThisOpLoad = false; 
-                        break;
-                    }
-                }
-            }
-        }
-        return {std::move(loads), fixFuncs};
-    }
-};
-}
-
 namespace nbl
 {
 namespace video
@@ -181,7 +56,7 @@ namespace video
 // -----------------------------------------------------------------------
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
-COpenGLDriver::COpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
+COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
@@ -1252,41 +1127,49 @@ core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_re
 	    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone));
 }
 
-core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
+core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt)
 {
     const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
 
     const std::string& EP = _specInfo.entryPoint;
     const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
 
-    core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
+    core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
     if (glUnspec->containsGLSL())
     {
         auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         auto end = begin+glUnspec->getSPVorGLSL()->getSize();
         std::string glsl(begin,end);
-        asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
+        COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
-        //{
-        //    auto fl = fopen("shader.glsl", "w");
-        //    fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
-        //    fclose(fl);
-        //}
-        core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
+        {
+            auto fl = fopen("shader.glsl", "w");
+            fwrite(glsl.c_str(), 1, glsl.size(), fl);
+            fclose(fl);
+        }
+        spirv = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
                _specInfo.m_filePathHint.c_str()
             );
 
-        if (!spvCode)
+        if (!spirv)
             return nullptr;
-
-        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }
     else
-        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
+    {
+        spirv = glUnspec->m_code;
+    }
 
+    if (_spvopt)
+        spirv = _spvopt->optimize(spirv.get());
+
+    if (!spirv)
+        return nullptr;
+
+    core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv));
+    
     asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint};
     asset::CShaderIntrospector introspector(GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
@@ -1820,6 +1703,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         return;
 
     found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), found->nextState.vertexInputParams.indirectDrawBuf.get(), found->nextState.vertexInputParams.parameterBuf.get());
+    auto* pipeline = found->nextState.pipeline.graphics.pipeline.get();
 
 	CNullDriver::drawMeshBuffer(mb);
 
@@ -1843,6 +1727,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         }
     }
 
+    const GLint baseInstance = static_cast<GLint>(mb->getBaseInstance());
+    // if GL_ARB_shader_draw_parameters is present, gl_BaseInstanceARB is used for workaround instead
+    if (!FeatureAvailable[NBL_ARB_shader_draw_parameters])
+        pipeline->setBaseInstanceUniform(found->ID, baseInstance);
 
     found->flushStateGraphics(GSB_ALL);
 
@@ -1853,15 +1741,15 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (indexSize) {
         static_assert(sizeof(mb->getIndexBufferBinding().offset) == sizeof(void*), "Might break without this requirement");
         const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding().offset);
-        extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), mb->getBaseInstance());
+        extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), baseInstance);
     }
     else
-		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
+		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), baseInstance);
 }
 
 
 //! Indirect Draw
-void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
@@ -1946,7 +1834,7 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	return false;
 }
 
-void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
@@ -1989,13 +1877,14 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
         extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,maxCount,stride);
 }
 
-void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout)
+void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout)
 {
+    const COpenGLPipelineLayout* prevLayout = effectivelyBoundDescriptors.layout.get();
     //bind new descriptor sets
     int32_t compatibilityLimit = 0u;
-    if (_prevLayout && _currentLayout)
-        compatibilityLimit = _prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout)+1u;
-	if (!_prevLayout && !_currentLayout)
+    if (prevLayout && _currentLayout)
+        compatibilityLimit = prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout)+1u;
+	if (!prevLayout && !_currentLayout)
         compatibilityLimit = static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
 
     int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
@@ -2030,7 +1919,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             continue;
         }
 
-        const auto& multibind_params = nextState.descriptorsParams[_pbp].descSets[i].set ?
+        const auto multibind_params = nextState.descriptorsParams[_pbp].descSets[i].set ?
             nextState.descriptorsParams[_pbp].descSets[i].set->getMultibindParams() :
             COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
@@ -2049,7 +1938,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 			extGlBindSamplers(first_count.textures.first, localTextureCount, multibind_params.textures.samplers);
 		}
 
-		bool nonNullSet = !!nextState.descriptorsParams[_pbp].descSets[i].set;
+		const bool nonNullSet = !!nextState.descriptorsParams[_pbp].descSets[i].set;
 		const bool useDynamicOffsets = !!nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets;
 		//not entirely sure those MAXes are right
 		constexpr size_t MAX_UBO_COUNT = 96ull;
@@ -2098,10 +1987,10 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
     }
 
     //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
-    if (_prevLayout)//if previous pipeline was nullptr, then no descriptors were bound
+    if (prevLayout)//if previous pipeline was nullptr, then no descriptors were bound
     {
         int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
-        const auto& first_count = _prevLayout->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u);
+        const auto& first_count = prevLayout->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u);
 
         prevUboCount = first_count.ubos.first + first_count.ubos.count;
         prevSsboCount = first_count.ssbos.first + first_count.ssbos.count;
@@ -2122,6 +2011,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
     }
 
     //update state in state tracker
+    effectivelyBoundDescriptors.layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(_currentLayout);
     for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
         currentState.descriptorsParams[_pbp].descSets[i] = nextState.descriptorsParams[_pbp].descSets[i];
@@ -2131,10 +2021,6 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 
 void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 {
-	const COpenGLPipelineLayout* prevLayout = nullptr;
-	if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline.graphics.pipeline)
-		prevLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
-    
 	if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
@@ -2334,7 +2220,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
         const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
-        flushState_descriptors(EPBP_GRAPHICS, currLayout, prevLayout);
+        flushState_descriptors(EPBP_GRAPHICS, currLayout);
     }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
@@ -2534,10 +2420,6 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 
 void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 {
-	const COpenGLPipelineLayout* prevLayout = nullptr;
-	if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline.compute.pipeline)
-		prevLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
-
     if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.compute.usedShader != currentState.pipeline.compute.usedShader)
@@ -2568,7 +2450,7 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
         const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
-        flushState_descriptors(EPBP_COMPUTE, currLayout, prevLayout);
+        flushState_descriptors(EPBP_COMPUTE, currLayout);
     }
 }
 
@@ -2733,13 +2615,13 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     }
 }
 
-void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT], const IGPUBuffer* _indexBuffer, const IGPUBuffer* _indirectDrawBuffer, const IGPUBuffer* _paramBuffer)
+void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT], const IGPUBuffer* _indexBuffer, const IGPUBuffer* _indirectDrawBuffer, const IGPUBuffer* _paramBuffer)
 {
     for (size_t i = 0ull; i < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++i)
     {
-        const asset::SBufferBinding<IGPUBuffer>& bnd = _vtxBindings[i];
+        const asset::SBufferBinding<const IGPUBuffer>& bnd = _vtxBindings[i];
         if (bnd.buffer) {
-            const COpenGLBuffer* buf = static_cast<COpenGLBuffer*>(bnd.buffer.get());
+            const COpenGLBuffer* buf = static_cast<const COpenGLBuffer*>(bnd.buffer.get());
             nextState.vertexInputParams.vao.vtxBindings[i] = {bnd.offset,core::smart_refctd_ptr<const COpenGLBuffer>(buf)};
         }
     }
@@ -3208,6 +3090,7 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 {
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
+
 	if (!ogl->initDriver(device))
 	{
 		ogl->drop();
@@ -3226,7 +3109,7 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
-#ifdef _NBL_COMPILE_WITH_OPENGL_
+#ifdef _IRR_COMPILE_WITH_OPENGL_
 		, COpenGLDriver::SAuxContext* auxCtxts
 #endif // _NBL_COMPILE_WITH_OPENGL_
         )
@@ -3240,7 +3123,7 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 	}
 	return ogl;
 #else
-	return 0;
+	return nullptr;
 #endif //  _NBL_COMPILE_WITH_OPENGL_
 }
 #endif // _NBL_COMPILE_WITH_X11_DEVICE_

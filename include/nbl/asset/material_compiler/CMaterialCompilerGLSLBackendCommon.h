@@ -5,10 +5,12 @@
 #ifndef __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 #define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 
-#include <nbl/asset/material_compiler/IR.h>
-#include <nbl/asset/ICPUVirtualTexture.h>
 
 #include <ostream>
+
+#include <nbl/asset/utils/ICPUVirtualTexture.h>
+#include <nbl/asset/material_compiler/IR.h>
+
 
 namespace nbl
 {
@@ -41,7 +43,7 @@ public:
 			OP_THINDIELECTRIC,
 			OP_DELTRATRANS,
 			OP_MAX_BSDF = OP_DELTRATRANS,
-			//blend
+			//combiners
 			OP_COATING,
 			OP_BLEND,
 			//specials
@@ -629,6 +631,7 @@ public:
 
 	struct result_t
 	{
+		// TODO: should probably use <nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl> here, actually material compiler should just make `nbl_glsl_MC_oriented_material_t`
 		struct instr_streams_t
 		{
 			struct stream_t

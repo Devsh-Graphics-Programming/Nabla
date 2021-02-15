@@ -7,7 +7,6 @@
 
 #include "nbl/ext/MitsubaLoader/IElement.h"
 #include "nbl/ext/MitsubaLoader/CElementTransform.h"
-//#include "nbl/ext/MitsubaLoader/CElementAnimation.h"
 #include "nbl/ext/MitsubaLoader/CElementFilm.h"
 #include "nbl/ext/MitsubaLoader/CElementSampler.h"
 
@@ -19,7 +18,6 @@ namespace ext
 namespace MitsubaLoader
 {
 
-class CGlobalMitsubaMetadata;
 
 class CElementSensor : public IElement
 {
@@ -149,7 +147,7 @@ class CElementSensor : public IElement
 		}
 
 		bool addProperty(SNamedPropertyElement&& _property) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::SENSOR; }
 		std::string getLogName() const override { return "sensor"; }
 

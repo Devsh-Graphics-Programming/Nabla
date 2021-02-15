@@ -8,14 +8,13 @@
 #include "matrix4SIMD.h"
 #include "nbl/asset/asset.h"
 #include "IFileSystem.h"
-#include "nbl/asset/ICPUVirtualTexture.h"
+#include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
-#include "nbl/ext/MitsubaLoader/CElementShape.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
+
 
 namespace nbl
 {
@@ -27,48 +26,17 @@ namespace MitsubaLoader
 class CElementBSDF;
 class CMitsubaMaterialCompilerFrontend;
 
-class CMitsubaLoader : public asset::IAssetLoader
+class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 {
 		friend class CMitsubaMaterialCompilerFrontend;
 	public:
 		//! Constructor
-		CMitsubaLoader(asset::IAssetManager* _manager);
+		CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs);
+
+		void initialize() override;
 
 	protected:
-		asset::IAssetManager* m_manager;
-
-#include "nbl/nblpack.h"
-		//compatible with std430 and std140
-		struct SInstanceData
-		{
-			core::matrix3x4SIMD tform;//mat4x3
-			//element (0,3) is offset for frontface instruction streams, element (1,3) is length of frontface rem_and_pdf stream
-			union SNormalMatrix {
-				SNormalMatrix() : normalMatrix() {}
-				~SNormalMatrix() {}
-				SNormalMatrix(const SNormalMatrix& other) : normalMatrix(other.normalMatrix) {}
-
-				core::matrix3x4SIMD normalMatrix;
-				struct {
-					uint32_t _pad0[3];
-					uint32_t front_instr_offset;
-					uint32_t _pad1[3];
-					uint32_t front_rem_pdf_count;
-				};
-			} normalMat;
-			uint64_t emissive;//uvec2, rgb19e7
-			uint32_t front_prefetch_count;
-			uint32_t front_nprecomp_count;
-			uint32_t front_genchoice_count;
-			uint32_t front_prefetch_offset;
-			uint32_t back_instr_offset;
-			uint32_t back_rem_pdf_count;
-			uint32_t back_prefetch_count;
-			uint32_t back_nprecomp_count;
-			uint32_t back_genchoice_count;
-			uint32_t back_prefetch_offset;
-		} PACK_STRUCT;
-#include "nbl/nblunpack.h"
+		io::IFileSystem* m_filesystem;
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
@@ -80,15 +48,13 @@ class CMitsubaLoader : public asset::IAssetLoader
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
 		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
 		
-		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, bool _restore = false);
 
 		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
-
-		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 
 	public:
 		//! Check if the file might be loaded by this class

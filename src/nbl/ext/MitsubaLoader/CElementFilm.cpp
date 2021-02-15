@@ -264,7 +264,7 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 	return !error;
 }
 
-bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
 {
 	cropOffsetX = std::max(cropOffsetX,0);
 	cropOffsetY = std::max(cropOffsetY,0);
@@ -305,7 +305,6 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case PNG:
 					[[fallthrough]];
 				case JPEG:
-					[[fallthrough]];
 					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");

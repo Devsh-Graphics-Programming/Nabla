@@ -59,6 +59,16 @@ struct SVertexInputAttribParams
     uint32_t binding : 4;
     uint32_t format : 8;//asset::E_FORMAT
     uint32_t relativeOffset : 13;//assuming max=2048
+
+    constexpr static size_t serializedSize() { return sizeof(uint32_t); }
+
+    void serialize(void* mem) const
+    {
+        auto* dst = reinterpret_cast<uint32_t*>(mem);
+        *dst = core::bitfieldInsert(*dst, binding, 0, 4);
+        *dst = core::bitfieldInsert(*dst, format, 4, 8);
+        *dst = core::bitfieldInsert(*dst, relativeOffset, 12, 13);
+    }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
 struct SVertexInputBindingParams
@@ -71,6 +81,13 @@ struct SVertexInputBindingParams
 
     uint32_t stride = 0u; // could have packed the stride and input rate together since there are limits on those
     E_VERTEX_INPUT_RATE inputRate = EVIR_PER_VERTEX;
+
+    constexpr static size_t serializedSize() { return sizeof(SVertexInputBindingParams); }
+
+    void serialize(void* mem) const
+    {
+        memcpy(mem, this, serializedSize());
+    }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
 struct SVertexInputParams
@@ -96,6 +113,21 @@ struct SVertexInputParams
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
     static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
+
+    constexpr static size_t serializedSize() { return 2u*sizeof(uint16_t) + MAX_VERTEX_ATTRIB_COUNT*SVertexInputAttribParams::serializedSize() + MAX_ATTR_BUF_BINDING_COUNT*SVertexInputBindingParams::serializedSize(); }
+
+    void serialize(void* mem) const
+    {
+        auto* flags = reinterpret_cast<uint16_t*>(mem);
+        flags[0] = enabledAttribFlags;
+        flags[1] = enabledBindingFlags;
+        auto* dst = reinterpret_cast<uint8_t*>(flags + 2);
+        for (uint32_t i = 0u; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            attributes[i].serialize(dst + i*attributes[i].serializedSize());
+        dst += MAX_VERTEX_ATTRIB_COUNT * SVertexInputAttribParams::serializedSize();
+        for (uint32_t i = 0u; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            bindings[i].serialize(dst + i*bindings[i].serializedSize());
+    }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputParams) == (2u * 2u + SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT * sizeof(SVertexInputAttribParams) + SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT * sizeof(SVertexInputBindingParams)), "Unexpected size!");
 
@@ -104,6 +136,13 @@ struct SPrimitiveAssemblyParams
     E_PRIMITIVE_TOPOLOGY primitiveType = EPT_TRIANGLE_LIST;
     uint8_t primitiveRestartEnable = false;
     uint16_t tessPatchVertCount = 3u;
+
+    constexpr static size_t serializedSize() { return sizeof(SPrimitiveAssemblyParams); }
+
+    void serialize(void* mem) const
+    {
+        memcpy(mem, this, sizeof(*this));
+    }
 } PACK_STRUCT;
 static_assert(sizeof(SPrimitiveAssemblyParams)==4u, "Unexpected size!");
 
@@ -198,6 +237,29 @@ struct SRasterizationParams
         uint16_t depthBoundsTestEnable : 1;
         uint16_t stencilTestEnable : 1;
     } PACK_STRUCT;
+
+    constexpr static size_t serializedSize() { return offsetof(SRasterizationParams, backStencilOps) + sizeof(SStencilOpParams) + sizeof(uint16_t); }
+
+    void serialize(void* _mem) const
+    {
+        memcpy(_mem, this, sizeof(*this));
+        auto* bf_dst = reinterpret_cast<uint8_t*>(_mem);
+        bf_dst += offsetof(SRasterizationParams, backStencilOps) + sizeof(SStencilOpParams);
+        uint16_t bf = 0;
+        bf = core::bitfieldInsert(bf, depthClampEnable, 0, 1);
+        bf = core::bitfieldInsert(bf, rasterizerDiscard, 1, 1);
+        bf = core::bitfieldInsert(bf, frontFaceIsCCW, 2, 1);
+        bf = core::bitfieldInsert(bf, depthBiasEnable, 3, 1);
+        bf = core::bitfieldInsert(bf, sampleShadingEnable, 4, 1);
+        bf = core::bitfieldInsert(bf, alphaToCoverageEnable, 5, 1);
+        bf = core::bitfieldInsert(bf, alphaToOneEnable, 6, 1);
+        bf = core::bitfieldInsert(bf, depthTestEnable, 7, 1);
+        bf = core::bitfieldInsert(bf, depthWriteEnable, 8, 1);
+        bf = core::bitfieldInsert(bf, depthBoundsTestEnable, 9, 1);
+        bf = core::bitfieldInsert(bf, stencilTestEnable, 10, 1);
+
+        reinterpret_cast<uint16_t*>(bf_dst)[0] = bf;
+    }
 } PACK_STRUCT;
 static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
 
@@ -299,8 +361,6 @@ enum E_BLEND_OP : uint8_t
     EBO_BLUE_EXT
 };
 
-#include "nbl/nblunpack.h"
-
 struct SColorAttachmentBlendParams
 {
 	SColorAttachmentBlendParams() : 
@@ -330,7 +390,26 @@ struct SColorAttachmentBlendParams
     uint8_t alphaBlendOp : 2;
     //RGBA, LSB is R, MSB is A
     uint8_t colorWriteMask : 4;
-};
+
+    constexpr static size_t serializedSize() { return 5ull; }
+
+    void serialize(void* _mem) const
+    {
+        auto* bf_dst = reinterpret_cast<uint8_t*>(_mem);
+        uint64_t bf = 0;
+        bf = core::bitfieldInsert<uint64_t>(bf, attachmentEnabled, 0, 1);
+        bf = core::bitfieldInsert<uint64_t>(bf, blendEnable, 1, 1);
+        bf = core::bitfieldInsert<uint64_t>(bf, srcColorFactor, 2, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, dstColorFactor, 7, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, colorBlendOp, 12, 6);
+        bf = core::bitfieldInsert<uint64_t>(bf, srcAlphaFactor, 18, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, dstAlphaFactor, 23, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, alphaBlendOp, 28, 2);
+        bf = core::bitfieldInsert<uint64_t>(bf, colorWriteMask, 30, 4);
+
+        memcpy(bf_dst, &bf, serializedSize());
+    }
+} PACK_STRUCT;
 static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColorAttachmentBlendParams (should be 6)");
 
 struct SBlendParams
@@ -341,9 +420,22 @@ struct SBlendParams
     uint8_t logicOpEnable : 1;
     uint8_t logicOp : 4;
     SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];
-};
+
+    constexpr static size_t serializedSize() { return 1u + MAX_COLOR_ATTACHMENT_COUNT * SColorAttachmentBlendParams::serializedSize(); }
+
+    void serialize(void* _mem) const
+    {
+        auto* bf_dst = reinterpret_cast<uint8_t*>(_mem);
+        *bf_dst = core::bitfieldInsert(*bf_dst, logicOpEnable, 0, 1);
+        *bf_dst = core::bitfieldInsert(*bf_dst, logicOp, 1, 4);
+        ++bf_dst;
+        for (uint32_t i = 0u; i < MAX_COLOR_ATTACHMENT_COUNT; ++i)
+            blendParams[i].serialize(bf_dst + i*SColorAttachmentBlendParams::serializedSize());
+    }
+} PACK_STRUCT;
 static_assert(sizeof(SBlendParams)==(1u + sizeof(SColorAttachmentBlendParams)*SBlendParams::MAX_COLOR_ATTACHMENT_COUNT), "Unexpected size!");
 
+#include "nbl/nblunpack.h"
 
 //TODO put into legacy namespace later
 /*

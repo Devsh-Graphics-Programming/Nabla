@@ -453,7 +453,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 				default:
 				{
 					GLint res = GL_FALSE;
-					extGlGetInternalformativ(GL_TEXTURE_2D, getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
+					extGlGetInternalformativ(GL_TEXTURE_2D, getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, 1, &res);
 					return res==GL_TRUE;
 				}
             }
@@ -654,7 +654,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) override;
 
         core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) override;
-        core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) override;
+        core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) override;
 
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override;
 
@@ -737,12 +737,12 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
-		virtual void drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		virtual void drawArraysIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
                                         const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) override;
-		virtual void drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		virtual void drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
@@ -856,14 +856,17 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                 VAOMap.reserve(maxVAOCacheSize);
             }
 
-            void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
+            void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout);
             void flushStateGraphics(uint32_t stateBits);
             void flushStateCompute(uint32_t stateBits);
 
             SOpenGLState currentState;
             SOpenGLState nextState;
+			// represents descriptors currently flushed into GL state,
+			// layout is needed to disambiguate descriptor sets due to translation into OpenGL descriptor indices
             struct {
                 SOpenGLState::SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+				core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
             } effectivelyBoundDescriptors;
 
             //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)
@@ -915,7 +918,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
             //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass
             void updateNextState_vertexInput(
-                const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                 const IGPUBuffer* _indexBuffer,
                 const IGPUBuffer* _indirectDrawBuffer,
                 const IGPUBuffer* _paramBuffer

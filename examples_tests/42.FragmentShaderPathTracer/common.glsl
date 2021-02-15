@@ -23,13 +23,7 @@ layout(location = 0) out vec4 pixelColor;
 #include <nbl/builtin/glsl/math/constants.glsl>
 #include <nbl/builtin/glsl/utils/common.glsl>
 
-//! @Crisspl move this to `nbl/builtin/glsl/sampling.glsl` (along with the circle transform)
-vec2 nbl_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
-{
-    float sinPhi, cosPhi;
-    nbl_glsl_sincos(2.0 * nbl_glsl_PI * xi.y - nbl_glsl_PI, sinPhi, cosPhi);
-    return vec2(cosPhi, sinPhi) * sqrt(-2.0 * log(xi.x)) * stddev;
-}
+#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
 
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
@@ -582,26 +576,12 @@ void main()
 
 Now:
 - Always MIS (path correlated reuse)
-- Proper Universal&Robust Materials
 - Test MIS alpha (roughness) scheme
-
-Quality:
--* Reweighting Noise Removal
--* Covariance Rendering
--* Geometry Specular AA (Curvature adjusted roughness)
-
-When proper scheduling is available:
-- Russian Roulette
-- Divergence Optimization
-- Adaptive Sampling
-
-When finally texturing:
-- Covariance Rendering
-- CLEAR/LEAN/Toksvig for simult roughness + bumpmap filtering
 
 Many Lights:
 - Path Guiding
 - Light Importance Lists/Classification
+- Spatio-Temporal Reservoir Sampling
 
 Indirect Light:
 - Bidirectional Path Tracing

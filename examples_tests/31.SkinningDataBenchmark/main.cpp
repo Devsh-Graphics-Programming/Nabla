@@ -32,7 +32,7 @@ struct Vertex
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
-#include <nbl/asset/CCPUMeshPacker.h>
+#include "nbl/asset/utils/CCPUMeshPacker.h"
 #include "common.glsl"
 
 template<typename T>
@@ -165,15 +165,17 @@ int main()
         newInputParams.attributes[4].format = EF_R32_UINT;
         newInputParams.attributes[4].relativeOffset = 0u;
 
+        const auto vertexUpperBound = asset::IMeshManipulator::upperBoundVertexID(meshBuffer.get());
+
         SBufferBinding<ICPUBuffer> boneIDBuffer;
         boneIDBuffer.offset = 0u;
-        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(meshBuffer->calcVertexCount() * sizeof(uint32_t));
+        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexUpperBound*sizeof(uint32_t));
 
         uint32_t* buffPtr = static_cast<uint32_t*>(boneIDBuffer.buffer->getPointer());
-        for (int i = 0; i < meshBuffer->calcVertexCount(); i++)
+        for (auto i=0u; i<vertexUpperBound; i++)
             buffPtr[i] = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
         // don't want total random access to bones, sort roughly 
-        std::sort(buffPtr,buffPtr+meshBuffer->calcVertexCount());
+        std::sort(buffPtr,buffPtr+vertexUpperBound);
 
         meshBuffer->setVertexBufferBinding(std::move(boneIDBuffer), 1);
 
@@ -237,9 +239,10 @@ int main()
         disk.inputParams = SVertexInputParams();
         for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
         {
-            auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), tesselation[i] + 2u, EIT_16BIT);
+            size_t indexCount = tesselation[i]+2u;
+            auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), indexCount, EIT_16BIT, EIT_16BIT);
             disk.indexBuffer = { 0ull, newIdxBuffer };
-            disk.indexCount = newIdxBuffer->getSize() / sizeof(uint16_t);
+            disk.indexCount = indexCount;
             disk.indexType = EIT_16BIT;
             disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
             createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);

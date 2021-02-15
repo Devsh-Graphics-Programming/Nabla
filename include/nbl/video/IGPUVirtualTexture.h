@@ -5,7 +5,7 @@
 #ifndef __NBL_VIDEO_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include <nbl/asset/ICPUVirtualTexture.h>
+#include <nbl/asset/utils/ICPUVirtualTexture.h>
 #include <nbl/video/IGPUImageView.h>
 #include "IVideoDriver.h"
 #include <nbl/asset/IAssetManager.h>

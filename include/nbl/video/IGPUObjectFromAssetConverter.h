@@ -11,8 +11,7 @@
 
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
-#include "nbl/video/CGPUMesh.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
+#include "nbl/video/IGPUMesh.h"
 #include "CLogger.h"
 #include "nbl/video/asset_traits.h"
 #include "nbl/core/alloc/LinearAddressAllocator.h"
@@ -221,26 +220,26 @@ class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
 
 // need to specialize outside because of GCC
 template<>
-struct IGPUObjectFromAssetConverter::Hash<asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
 {
-    inline std::size_t operator()(asset::ICPURenderpassIndependentPipeline* _ppln) const
+    inline std::size_t operator()(const asset::ICPURenderpassIndependentPipeline* _ppln) const
     {
         constexpr size_t bytesToHash = 
-            sizeof(asset::SVertexInputParams)+
-            sizeof(asset::SBlendParams)+
-            sizeof(asset::SRasterizationParams)+
-            sizeof(asset::SPrimitiveAssemblyParams)+
+            asset::SVertexInputParams::serializedSize()+
+            asset::SBlendParams::serializedSize()+
+            asset::SRasterizationParams::serializedSize()+
+            asset::SPrimitiveAssemblyParams::serializedSize()+
             sizeof(void*)*asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT+//shaders
             sizeof(void*);//layout
         uint8_t mem[bytesToHash]{};
         uint32_t offset = 0u;
-        memcpy(mem+offset,&_ppln->getVertexInputParams(),sizeof(asset::SVertexInputParams));
-        offset += sizeof(asset::SVertexInputParams);
-        memcpy(mem+offset,&_ppln->getBlendParams(),sizeof(asset::SBlendParams));
-        offset += sizeof(asset::SBlendParams);
-        memcpy(mem+offset,&_ppln->getRasterizationParams(),sizeof(asset::SRasterizationParams));
+        _ppln->getVertexInputParams().serialize(mem+offset);
+        offset += asset::SVertexInputParams::serializedSize();
+        _ppln->getBlendParams().serialize(mem+offset);
+        offset += asset::SBlendParams::serializedSize();
+        _ppln->getRasterizationParams().serialize(mem+offset);
         offset += sizeof(asset::SRasterizationParams);
-        memcpy(mem+offset,&_ppln->getPrimitiveAssemblyParams(),sizeof(asset::SPrimitiveAssemblyParams));
+        _ppln->getPrimitiveAssemblyParams().serialize(mem+offset);
         offset += sizeof(asset::SPrimitiveAssemblyParams);
         const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
         for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
@@ -254,9 +253,9 @@ struct IGPUObjectFromAssetConverter::Hash<asset::ICPURenderpassIndependentPipeli
     }
 };
 template<>
-struct IGPUObjectFromAssetConverter::Hash<asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 {
-    inline std::size_t operator()(asset::ICPUComputePipeline* _ppln) const
+    inline std::size_t operator()(const asset::ICPUComputePipeline* _ppln) const
     {
         constexpr size_t bytesToHash = 
             sizeof(void*)+//shader
@@ -273,16 +272,16 @@ struct IGPUObjectFromAssetConverter::Hash<asset::ICPUComputePipeline>
 };
 
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
 {
     //equality depends on hash only
-    bool operator()(asset::ICPURenderpassIndependentPipeline* lhs, asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
+    bool operator()(const asset::ICPURenderpassIndependentPipeline* lhs, const asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
 };
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 {
     //equality depends on hash only
-    bool operator()(asset::ICPUComputePipeline* lhs, asset::ICPUComputePipeline* rhs) const { return true; }
+    bool operator()(const asset::ICPUComputePipeline* lhs, const asset::ICPUComputePipeline* rhs) const { return true; }
 };
 
 
@@ -351,10 +350,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 
         for (size_t b = 0ull; b < asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
-            if (asset::ICPUBuffer* buf = cpumb->getVertexBufferBindings()[b].buffer.get())
+            if (const asset::ICPUBuffer* buf = cpumb->getVertexBufferBindings()[b].buffer.get())
                 cpuBuffers.push_back(buf);
         }
-        if (const asset::ICPUBuffer* buf = cpumb->getIndexBufferBinding()->buffer.get())
+        if (const asset::ICPUBuffer* buf = cpumb->getIndexBufferBinding().buffer.get())
             cpuBuffers.push_back(buf);
     }
 
@@ -393,9 +392,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         }
 
 		asset::SBufferBinding<IGPUBuffer> idxBinding;
-        if (cpumb->getIndexBufferBinding()->buffer)
+        if (cpumb->getIndexBufferBinding().buffer)
         {
-            idxBinding.offset = cpumb->getIndexBufferBinding()->offset;
+            idxBinding.offset = cpumb->getIndexBufferBinding().offset;
             auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
             idxBinding.offset += gpubuf->getOffset();
             idxBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
@@ -429,20 +428,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
 	for (auto i=0u; i<assetCount; i++)
 	{
 		auto* _asset = _begin[i];
-        for (uint32_t i = 0u; i <_asset->getMeshBufferCount(); ++i)
-            cpuDeps.push_back(_asset->getMeshBuffer(i));
-
-		auto& output = res->operator[](i);
-		switch (_asset->getMeshType())
-		{
-			case asset::EMT_ANIMATED_SKINNED:
-				output = core::make_smart_refctd_ptr<video::CGPUSkinnedMesh>(core::smart_refctd_ptr<asset::CFinalBoneHierarchy>(static_cast<const asset::ICPUSkinnedMesh*>(_asset)->getBoneReferenceHierarchy()));
-				break;
-			default:
-				output = core::make_smart_refctd_ptr<video::CGPUMesh>();
-				break;
-        }
-        output->setBoundingBox(_asset->getBoundingBox());
+        for (auto mesh : _asset->getMeshBuffers())
+            cpuDeps.emplace_back(mesh);
     }
 
     core::vector<size_t> redir = eliminateDuplicatesAndGenRedirs(cpuDeps);
@@ -450,26 +437,18 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
     for (size_t i=0u, j=0u; i<assetCount; ++i)
     {
 		auto* _asset = _begin[i];
+        auto cpuMeshBuffers = _asset->getMeshBuffers();
 
 		auto& output = res->operator[](i);
-        switch (output->getMeshType())
-        {
-			case asset::EMT_ANIMATED_SKINNED:
-				for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
-				{
-                    assert(false); // TODO: when we remake the skinning API
-					//static_cast<video::CGPUSkinnedMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr_static_cast<video::CGPUSkinnedMeshBuffer>(gpuDeps->operator[](redir[j])), static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
-					++j;
-				}
-				break;
-			default:
-				for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
-				{
-					static_cast<video::CGPUMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr(gpuDeps->operator[](redir[j])));
-					++j;
-				}
-				break;
-        }
+        output = core::make_smart_refctd_ptr<video::IGPUMesh>(cpuMeshBuffers.size());
+        output->setBoundingBox(_asset->getBoundingBox());
+
+        auto gpuMeshBuffersIt = output->getMeshBufferIterator();
+        for (auto mesh : cpuMeshBuffers)
+		{
+			*(gpuMeshBuffersIt++) = core::smart_refctd_ptr(gpuDeps->operator[](redir[j]));
+			++j;
+		}
     }
 
     return res;
