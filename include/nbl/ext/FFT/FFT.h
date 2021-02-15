@@ -161,12 +161,37 @@ class FFT : public core::TotalInterface
 			video::IVideoDriver * driver,
 			video::IGPUDescriptorSet * set,
 			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor)
+			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
+			asset::ISampler::E_TEXTURE_CLAMP textureWrap)
 		{
+			using nbl::asset::ISampler;
+
+			static core::smart_refctd_ptr<video::IGPUSampler> samplers[ISampler::E_TEXTURE_CLAMP::ETC_COUNT];
+			auto & sampler = samplers[(uint32_t)textureWrap];
+			if (!sampler)
+			{
+				video::IGPUSampler::SParams params =
+				{
+					{
+						textureWrap,
+						textureWrap,
+						textureWrap,
+						ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+						ISampler::ETF_NEAREST,
+						ISampler::ETF_NEAREST,
+						ISampler::ESMM_NEAREST,
+						0u,
+						0u,
+						ISampler::ECO_ALWAYS
+					}
+				};
+				sampler = driver->createGPUSampler(params);
+			}
+
 			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
 			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
 
-			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
+			for (auto i = 0; i < MAX_DESCRIPTOR_COUNT; i++)
 			{
 				pWrites[i].dstSet = set;
 				pWrites[i].arrayElement = 0u;
@@ -179,7 +204,7 @@ class FFT : public core::TotalInterface
 			pWrites[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
 			pWrites[0].count = 1;
 			pInfos[0].desc = inputImageDescriptor;
-			pInfos[0].image.sampler = nullptr;
+			pInfos[0].image.sampler = sampler;
 			pInfos[0].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
 
 			// Output Buffer 

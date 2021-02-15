@@ -79,11 +79,13 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
 	nbl_glsl_complex retValue = nbl_glsl_complex(0, 0);
 #if USE_SSBO_FOR_INPUT > 0
-	uvec3 dimension = nbl_glsl_ext_FFT_getDimensions();
+	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
 	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
 	retValue = inData[index];
 #else
-	vec4 texelValue= texelFetch(inputImage, ivec2(coordinate.xy), 0);
+	ivec2 inputImageSize = textureSize(inputImage, 0);
+	vec2 normalizedCoords = (vec2(coordinate.xy) + vec2(0.5f)) / vec2(inputImageSize);
+	vec4 texelValue= textureLod(inputImage, normalizedCoords, 0);
 	retValue = nbl_glsl_complex(texelValue[channel], 0.0f);
 #endif
 	return retValue;
@@ -91,30 +93,34 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-	uvec3 dimension = nbl_glsl_ext_FFT_getPaddedDimensions();
+	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions();
 	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
 	outData[index] = complex_value;
 }
 
-nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
-
-	uvec3 max_coord = nbl_glsl_ext_FFT_getDimensions() - uvec3(1u);
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) 
+{
+#if USE_SSBO_FOR_INPUT > 0
+	uvec3 max_coord = nbl_glsl_ext_FFT_Parameters_t_getDimensions() - uvec3(1u);
 	uvec3 clamped_coord = min(coordinate, max_coord);
 	
 	bool is_out_of_range = any(bvec3(coordinate!=clamped_coord));
 
-	uint paddingType = nbl_glsl_ext_FFT_getPaddingType();
+	uint paddingType = nbl_glsl_ext_FFT_Parameters_t_getPaddingType();
 
 	if (_NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ == paddingType && is_out_of_range) {
 		return nbl_glsl_complex(0, 0);
 	}
 	
 	return nbl_glsl_ext_FFT_getData(clamped_coord, channel);
+#else
+	return nbl_glsl_ext_FFT_getData(coordinate, channel);
+#endif
 }
 
 void main()
 {
-	nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_getIsInverse());
+	nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse());
 }
 
 #endif

@@ -53,7 +53,7 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 		bnd[0].type = EDT_COMBINED_IMAGE_SAMPLER;
 	}
 
-	bnd[0].samplers = &sampler;
+	bnd[0].samplers = nullptr;
 	
 	if (!sampler)
 	{

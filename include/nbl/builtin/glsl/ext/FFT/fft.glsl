@@ -82,6 +82,27 @@ vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel);
 #error "You need to define `nbl_glsl_ext_FFT_getPaddedData` and mark `_NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_`!"
 #endif
 
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.padded_dimension);
+}
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.dimension.xyz);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.dimension.w >> 16) & 0x000000ff;
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return bool((params.dimension.w >> 8) & 0x000000ff);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.dimension.w) & 0x000000ff;
+}
+
 uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration, in uint logTwoN) 
 {
     const uint shiftSuffix = logTwoN - 1u - iteration; // can we assert that iteration<logTwoN always?? yes
@@ -100,36 +121,15 @@ nbl_glsl_complex nbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint itera
     return nbl_glsl_complex_conjugate(nbl_glsl_ext_FFT_twiddle(threadId, iteration, logTwoN));
 }
 
-uvec3 nbl_glsl_ext_FFT_getPaddedDimensions() {
-    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return (params.padded_dimension.xyz);
-}
-uvec3 nbl_glsl_ext_FFT_getDimensions() {
-    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return (params.dimension.xyz);
-}
-uint nbl_glsl_ext_FFT_getDirection() {
-    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return (params.dimension.w >> 16) & 0x000000ff;
-}
-bool nbl_glsl_ext_FFT_getIsInverse() {
-    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return bool((params.dimension.w >> 8) & 0x000000ff);
-}
-uint nbl_glsl_ext_FFT_getPaddingType() {
-    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return (params.dimension.w) & 0x000000ff;
-}
-
 uint nbl_glsl_ext_FFT_getChannel()
 {
-    uint direction = nbl_glsl_ext_FFT_getDirection();
+    uint direction = nbl_glsl_ext_FFT_Parameters_t_getDirection();
     return gl_WorkGroupID[direction];
 }
 
 uvec3 nbl_glsl_ext_FFT_getCoordinates(in uint tidx)
 {
-    uint direction = nbl_glsl_ext_FFT_getDirection();
+    uint direction = nbl_glsl_ext_FFT_Parameters_t_getDirection();
     uvec3 tmp = gl_WorkGroupID;
     tmp[direction] = tidx;
     return tmp;
@@ -137,7 +137,7 @@ uvec3 nbl_glsl_ext_FFT_getCoordinates(in uint tidx)
 
 uvec3 nbl_glsl_ext_FFT_getBitReversedCoordinates(in uvec3 coords, in uint leadingZeroes)
 {
-    uint direction = nbl_glsl_ext_FFT_getDirection();
+    uint direction = nbl_glsl_ext_FFT_Parameters_t_getDirection();
     uint bitReversedIndex = bitfieldReverse(coords[direction]) >> leadingZeroes;
     uvec3 tmp = coords;
     tmp[direction] = bitReversedIndex;
@@ -146,7 +146,7 @@ uvec3 nbl_glsl_ext_FFT_getBitReversedCoordinates(in uvec3 coords, in uint leadin
 
 uint nbl_glsl_ext_FFT_getDimLength(uvec3 dimension)
 {
-    uint direction = nbl_glsl_ext_FFT_getDirection();
+    uint direction = nbl_glsl_ext_FFT_Parameters_t_getDirection();
     return dimension[direction];
 }
 
@@ -154,7 +154,7 @@ void nbl_glsl_ext_FFT(bool is_inverse)
 {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     // Virtual Threads Calculation
-    uint dataLength = nbl_glsl_ext_FFT_getDimLength(nbl_glsl_ext_FFT_getPaddedDimensions());
+    uint dataLength = nbl_glsl_ext_FFT_getDimLength(nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions());
     uint num_virtual_threads = (dataLength-1u)/(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_)+1u;
     uint thread_offset = gl_LocalInvocationIndex;
 
