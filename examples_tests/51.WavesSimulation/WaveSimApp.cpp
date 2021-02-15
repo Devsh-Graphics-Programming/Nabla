@@ -402,12 +402,10 @@ void WaveSimApp::Run()
 {
 	auto initial_values = RandomizeWaveSpectrum();
 	auto animated_part = CreateTexture(m_params.size, EF_R8G8_UNORM);
-	float i = 0;
+	float i = 1;
 	while (m_device->run())
 	{
-		GetAnimatedHeightMap(initial_values, animated_part, i+= 0.00000001f);
+		GetAnimatedHeightMap(initial_values, animated_part, i+= 0.01f);
 		PresentWaves(animated_part);
-
-		Sleep(500);
 	}
 }

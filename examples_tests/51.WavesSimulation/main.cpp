@@ -10,7 +10,7 @@ int main()
 		50,
 		1
 	};
-	//Sleep(5000);
+	Sleep(5000);
 	WaveSimApp app(params);
 	app.Run();
 }

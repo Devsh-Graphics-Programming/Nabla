@@ -1,4 +1,5 @@
 #version 450 
+#include <nbl/builtin/glsl/math/complex.glsl>
 
 #define G 9.8
 #define cvec3 mat3x2
@@ -30,9 +31,12 @@ void main()
 		vec2 h0_conj = primary_calculations.data[ssbo_index][1];
 		vec2 k = primary_calculations.data[ssbo_index][2];
 
-//		vec2 wk = sqrt(length(k) * G); 
+		float wk = sqrt(length(k) * G); 
 
-		imageStore(animated, ivec2(gl_GlobalInvocationID.xy), vec4(h0k, 0, 0));
+		vec2 res = nbl_glsl_complex_mul(h0k, vec2(cos(wk * u_pc.TIME), sin(wk * u_pc.TIME))) + 
+				   nbl_glsl_complex_mul(h0_conj, vec2(cos(wk * u_pc.TIME), -sin(wk * u_pc.TIME)));
+
+		imageStore(animated, ivec2(gl_GlobalInvocationID.xy), vec4(res, 0, 0));
 	}
 
 }
