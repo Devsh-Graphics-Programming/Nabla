@@ -29,7 +29,8 @@ private:
 	[[nodiscard]] bool CreateComputePipelines();
 	textureView CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format = nbl::asset::E_FORMAT::EF_R8G8B8A8_UNORM) const;
 	void PresentWaves(const textureView& tex);
-	void RandomizeWaveSpectrum(const textureView& tex);
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> RandomizeWaveSpectrum();
+	void GetAnimatedHeightMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
 public:
 	WaveSimApp(const WaveSimParams& params);
 	void Run();
@@ -44,8 +45,12 @@ private:
 
 	graphicsPipeline m_presenting_pipeline;
 	computePipeline m_spectrum_randomizing_pipeline;
+	computePipeline m_animating_pipeline_1;
+	computePipeline m_animating_pipeline_2;
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_randomizer_descriptor_set;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_animating_1_descriptor_set;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_animating_2_descriptor_set;
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> m_current_gpu_mesh_buffer;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout;
