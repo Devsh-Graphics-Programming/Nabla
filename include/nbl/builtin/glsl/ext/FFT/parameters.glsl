@@ -9,6 +9,7 @@ struct nbl_glsl_ext_FFT_Parameters_t
 {
     uvec4   dimension; // settings packed into the w component
     uvec3   padded_dimension;
+    uint    _pad;
 };
 
 #endif

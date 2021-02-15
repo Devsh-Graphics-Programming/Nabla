@@ -86,7 +86,7 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IV
 R"===(#version 430 core
 
 #define USE_SSBO_FOR_INPUT %u
-#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_ %u
+#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
  

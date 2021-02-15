@@ -21,6 +21,9 @@
 #error "_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD should be defined."
 #endif
 
+#ifndef _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_
+#error "_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ should be defined."
+#endif
 
 // TODO: Investigate why +1 solves all glitches
 #define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ + 1
@@ -152,7 +155,7 @@ void nbl_glsl_ext_FFT(bool is_inverse)
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     // Virtual Threads Calculation
     uint dataLength = nbl_glsl_ext_FFT_getDimLength(nbl_glsl_ext_FFT_getPaddedDimensions());
-    uint num_virtual_threads = (dataLength-1u)/(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)+1u;
+    uint num_virtual_threads = (dataLength-1u)/(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_)+1u;
     uint thread_offset = gl_LocalInvocationIndex;
 
 	uint channel = nbl_glsl_ext_FFT_getChannel();
@@ -167,7 +170,7 @@ void nbl_glsl_ext_FFT(bool is_inverse)
     // Load Initial Values into Local Mem (bit reversed indices)
     for(uint t = 0u; t < num_virtual_threads; t++)
     {
-        uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
+        uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
         uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
         uvec3 bitReversedCoords = nbl_glsl_ext_FFT_getBitReversedCoordinates(coords, leadingZeroes);
 
@@ -184,35 +187,35 @@ void nbl_glsl_ext_FFT(bool is_inverse)
         // Get Shuffled Values X for virtual threads
         for(uint t = 0u; t < num_virtual_threads; t++)
         {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
             _NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid] = floatBitsToUint(current_values[t].x);
         }
         barrier();
         memoryBarrierShared();
         for(uint t = 0u; t < num_virtual_threads; t++)
         {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
             shuffled_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid ^ mask]);
         }
 
         // Get Shuffled Values Y for virtual threads
         for(uint t = 0u; t < num_virtual_threads; t++)
         {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
             _NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid] = floatBitsToUint(current_values[t].y);
         }
         barrier();
         memoryBarrierShared();
         for(uint t = 0u; t < num_virtual_threads; t++)
         {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
             shuffled_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid ^ mask]);
         }
 
         // Computation of each virtual thread
         for(uint t = 0u; t < num_virtual_threads; t++)
         {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
             nbl_glsl_complex shuffled_value = shuffled_values[t];
 
             nbl_glsl_complex twiddle = (is_inverse) 
@@ -231,7 +234,7 @@ void nbl_glsl_ext_FFT(bool is_inverse)
 
     for(uint t = 0u; t < num_virtual_threads; t++)
     {
-        uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
+        uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
 	    uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
         nbl_glsl_complex complex_value = (is_inverse) 
          ? current_values[t]
