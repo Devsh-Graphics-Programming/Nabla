@@ -62,8 +62,19 @@ layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTP
 
 // Get/Set Data Function
 
+//TODO: investigate why putting this uint between the 2 other uvec3's don't work
+layout(push_constant) uniform PushConstants
+{
+    layout (offset = 0) uvec3 dimension;
+    layout (offset = 16) uvec3 padded_dimension;
+	layout (offset = 32) uint direction_isInverse_paddingType; // packed into a uint
+} pc;
+
  nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters() {
 	 nbl_glsl_ext_FFT_Parameters_t ret;
+	 ret.dimension = pc.dimension;
+	 ret.direction_isInverse_paddingType = pc.direction_isInverse_paddingType;
+	 ret.padded_dimension = pc.padded_dimension;
 	 return ret;
  }
 
