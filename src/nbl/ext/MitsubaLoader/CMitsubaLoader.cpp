@@ -943,7 +943,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 						if (_restore && image->isADummyObjectForCache())
 						{
 							auto loadParams = ctx.inner.params;
-							loadParams.restoreLevels = hierarchyLevel + 2u;
+							loadParams.restoreLevels = std::max(loadParams.restoreLevels, hierarchyLevel + 2u);
 							// this will restore the image being kept by found `view`
 							auto bundle = interm_getAssetInHierarchy(m_assetMgr, tex->bitmap.filename.svalue, loadParams, hierarchyLevel, ctx.override_);
 							if (bundle.getContents().empty() || image->isADummyObjectForCache())
