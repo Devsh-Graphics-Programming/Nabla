@@ -14,25 +14,15 @@ using namespace ext::FFT;
 
 core::SRange<const asset::SPushConstantRange> FFT::getDefaultPushConstantRanges()
 {
-	static const asset::SPushConstantRange ranges[3] =
+	static const asset::SPushConstantRange ranges[1] =
 	{
 		{
 			ISpecializedShader::ESS_COMPUTE,
 			0u,
-			sizeof(uint32_t) * 3
-		},
-		{
-			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 4,
-			sizeof(uint32_t) * 3
-		},
-		{
-			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 8,
-			sizeof(uint32_t)
+			sizeof(Parameters_t)
 		},
 	};
-	return {ranges, ranges+3};
+	return {ranges, ranges+1};
 }
 
 core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBindings(video::IVideoDriver* driver, DataType inputType)

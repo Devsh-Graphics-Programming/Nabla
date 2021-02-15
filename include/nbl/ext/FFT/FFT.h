@@ -9,6 +9,7 @@
 #include "nbl/video/IGPUShader.h"
 #include "nbl/asset/ICPUShader.h"
 
+
 namespace nbl
 {
 namespace ext
@@ -16,9 +17,21 @@ namespace ext
 namespace FFT
 {
 
+typedef uint32_t uint;
+struct uvec3 {
+	uint x,y,z;
+};
+struct uvec4 {
+	uint x,y,z,w;
+};
+#include "nbl/builtin/glsl/ext/FFT/parameters.glsl";
+
 class FFT : public core::TotalInterface
 {
 	public:
+		struct Parameters_t : nbl_glsl_ext_FFT_Parameters_t {
+		
+		};
 
 		enum class Direction : uint8_t {
 			X = 0,
@@ -208,9 +221,20 @@ class FFT : public core::TotalInterface
 			
 			uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
 
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &inputDimension);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &paddedInputDimension);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &packed);
+			Parameters_t params = {};
+			params.dimension.x = inputDimension.width;
+			params.dimension.y = inputDimension.height;
+			params.dimension.z = inputDimension.depth;
+			params.dimension.w = packed;
+			// params.direction_isInverse_paddingType = packed;
+			params.padded_dimension.x = paddedInputDimension.width;
+			params.padded_dimension.y = paddedInputDimension.height;
+			params.padded_dimension.z = paddedInputDimension.depth;
+
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
+			// driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &inputDimension);
+			// driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &paddedInputDimension);
+			// driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &packed);
 		}
 
 		// Kernel Normalization

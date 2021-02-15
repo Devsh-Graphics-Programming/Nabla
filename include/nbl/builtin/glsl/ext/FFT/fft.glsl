@@ -97,17 +97,25 @@ nbl_glsl_complex nbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint itera
     return nbl_glsl_complex_conjugate(nbl_glsl_ext_FFT_twiddle(threadId, iteration, logTwoN));
 }
 
+uvec3 nbl_glsl_ext_FFT_getPaddedDimensions() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.padded_dimension.xyz);
+}
+uvec3 nbl_glsl_ext_FFT_getDimensions() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.dimension.xyz);
+}
 uint nbl_glsl_ext_FFT_getDirection() {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return (params.direction_isInverse_paddingType >> 16) & 0x000000ff;
+    return (params.dimension.w >> 16) & 0x000000ff;
 }
 bool nbl_glsl_ext_FFT_getIsInverse() {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return bool((params.direction_isInverse_paddingType >> 8) & 0x000000ff);
+    return bool((params.dimension.w >> 8) & 0x000000ff);
 }
 uint nbl_glsl_ext_FFT_getPaddingType() {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
-    return (params.direction_isInverse_paddingType) & 0x000000ff;
+    return (params.dimension.w) & 0x000000ff;
 }
 
 uint nbl_glsl_ext_FFT_getChannel()
@@ -143,7 +151,7 @@ void nbl_glsl_ext_FFT()
 {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     // Virtual Threads Calculation
-    uint dataLength = nbl_glsl_ext_FFT_getDimLength(params.padded_dimension);
+    uint dataLength = nbl_glsl_ext_FFT_getDimLength(nbl_glsl_ext_FFT_getPaddedDimensions());
     uint num_virtual_threads = (dataLength-1u)/(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)+1u;
     uint thread_offset = gl_LocalInvocationIndex;
 
