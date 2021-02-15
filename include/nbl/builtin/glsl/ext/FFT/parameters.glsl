@@ -7,7 +7,7 @@
 
 struct nbl_glsl_ext_FFT_Parameters_t
 {
-    uvec4   dimension; // settings packed into the w component
+    uvec4   dimension; // settings packed into the w component : (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
     uvec3   padded_dimension;
     uint    _pad;
 };
