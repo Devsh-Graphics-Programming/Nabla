@@ -92,7 +92,7 @@ uint nbl_glsl_ext_FFT_calculateTwiddlePower(in uint threadId, in uint iteration,
 nbl_glsl_complex nbl_glsl_ext_FFT_twiddle(in uint threadId, in uint iteration, in uint logTwoN) 
 {
     uint k = nbl_glsl_ext_FFT_calculateTwiddlePower(threadId, iteration, logTwoN);
-    return nbl_glsl_expImaginary(-1.0f * 2.0f * nbl_glsl_PI * float(k) / (1 << logTwoN));
+    return nbl_glsl_expImaginary(-1.0f * 2.0f * nbl_glsl_PI * float(k) / float(1 << logTwoN));
 }
 
 nbl_glsl_complex nbl_glsl_ext_FFT_twiddleInverse(in uint threadId, in uint iteration, in uint logTwoN) 
