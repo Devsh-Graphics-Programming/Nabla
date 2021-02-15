@@ -1091,7 +1091,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 					// adjust gamma on pixels (painful and long process)
 					if (!std::isnan(tex->bitmap.gamma))
 					{
-						_NBL_DEBUG_BREAK_IF(true); // TODO
+						_NBL_DEBUG_BREAK_IF(true); // TODO : use an image filter!
 					}
 				}
 
