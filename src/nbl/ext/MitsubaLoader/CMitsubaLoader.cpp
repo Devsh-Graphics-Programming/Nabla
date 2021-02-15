@@ -653,11 +653,19 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 {
 	constexpr uint32_t UV_ATTRIB_ID = 2U;
 
-	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh) {
-		assert(shape->bsdf);
+	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh)
+	{
 		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
 		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
-		SContext::SInstanceData instance(tform, bsdf, shape->bsdf->id, shape->obtainEmitter(), CElementEmitter{});
+		SContext::SInstanceData instance(
+			tform,
+			bsdf,
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+			shape->bsdf ? shape->bsdf->id:"",
+#endif
+			shape->obtainEmitter(),
+			CElementEmitter{} // TODO: does enabling a twosided BRDF make the emitter twosided?
+		);
 		ctx.mapMesh2instanceData.insert({ mesh.get(), instance });
 	};
 
@@ -1164,6 +1172,9 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 
 auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
 {
+	if (!bsdf)
+		return {nullptr,nullptr};
+
 	auto found = ctx.instrStreamCache.find(bsdf);
 	if (found!=ctx.instrStreamCache.end())
 		return found->second;

@@ -324,8 +324,6 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			{
 				const uint32_t indexCount = meshbuffer->getIndexCount();
 				if (indexPtr)
-					vertexCount = indexCount;
-				else
 				{
 					for (uint32_t j=0ull; j<indexCount; j++)
 					{
@@ -336,6 +334,8 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 					if (indexCount)
 						vertexCount++;
 				}
+				else
+					vertexCount = indexCount;
 			};
 
 			const void* indices = meshbuffer->getIndices();
