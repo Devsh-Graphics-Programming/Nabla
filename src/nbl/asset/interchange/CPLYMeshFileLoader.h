@@ -30,7 +30,7 @@ enum E_PLY_PROPERTY_TYPE
 };
 
 //! Meshloader capable of loading obj meshes.
-class CPLYMeshFileLoader : public IRenderpassIndependentPipelineLoader
+class CPLYMeshFileLoader : public IAssetLoader, public IRenderpassIndependentPipelineLoader
 {
 protected:
 	//! Destructor
@@ -53,6 +53,35 @@ public:
 	//! creates/loads an animated mesh from the file.
     virtual SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 private:
+
+	enum E_TYPE { ET_POS = 0, ET_UV = 2, ET_NORM = 3, ET_COL = 1 };
+
+	void initialize();
+
+	const std::string getPipelineCacheKey(E_TYPE type, bool indexBufferBindingAvailable) 
+	{
+		auto getTypeHash = [&]() -> std::string
+		{
+			bool status = true;
+
+			switch (type)
+			{
+				case ET_COL:
+					return "nbl/builtin/pipeline/loader/PLY/color_attribute/";
+				case ET_UV:
+					return "nbl/builtin/pipeline/loader/PLY/uv_attribute/";
+				case ET_NORM:
+					return "nbl/builtin/pipeline/loader/PLY/normal_attribute/";
+				default:
+				{
+					status = false;
+					assert(status);
+				}
+			}
+		};
+
+		return getTypeHash() + (indexBufferBindingAvailable ? "triangle_list" : "point_list");
+	}
 
 	struct SPLYProperty
 	{
@@ -153,8 +182,6 @@ private:
         int32_t LineLength = 0, WordLength = 0;
 		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
     };
-
-    enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };
 
 	bool allocateBuffer(SContext& _ctx);
 	char* getNextLine(SContext& _ctx);

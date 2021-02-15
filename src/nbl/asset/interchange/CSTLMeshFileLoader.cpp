@@ -116,7 +116,7 @@ void CSTLMeshFileLoader::initialize()
 	};
 
 	/*
-		Pipeline with color and no-coolr attribute is cached
+		Pipeline permutations are cached
 	*/
 
 	precomputeAndCachePipeline(true);
