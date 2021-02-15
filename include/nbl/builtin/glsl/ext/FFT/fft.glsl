@@ -147,7 +147,7 @@ uint nbl_glsl_ext_FFT_getDimLength(uvec3 dimension)
     return dimension[direction];
 }
 
-void nbl_glsl_ext_FFT()
+void nbl_glsl_ext_FFT(bool is_inverse)
 {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     // Virtual Threads Calculation
@@ -157,8 +157,6 @@ void nbl_glsl_ext_FFT()
 
 	uint channel = nbl_glsl_ext_FFT_getChannel();
     
-    bool is_inverse = nbl_glsl_ext_FFT_getIsInverse();
-
 	// Pass 0: Bit Reversal
 	uint leadingZeroes = nbl_glsl_clz(dataLength) + 1u;
 	uint logTwo = 32u - leadingZeroes;

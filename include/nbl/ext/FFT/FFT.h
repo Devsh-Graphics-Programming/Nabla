@@ -226,15 +226,11 @@ class FFT : public core::TotalInterface
 			params.dimension.y = inputDimension.height;
 			params.dimension.z = inputDimension.depth;
 			params.dimension.w = packed;
-			// params.direction_isInverse_paddingType = packed;
 			params.padded_dimension.x = paddedInputDimension.width;
 			params.padded_dimension.y = paddedInputDimension.height;
 			params.padded_dimension.z = paddedInputDimension.depth;
 
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
-			// driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &inputDimension);
-			// driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &paddedInputDimension);
-			// driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &packed);
 		}
 
 		// Kernel Normalization
