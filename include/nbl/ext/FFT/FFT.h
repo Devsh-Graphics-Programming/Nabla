@@ -62,8 +62,7 @@ class FFT : public core::TotalInterface
 		// returns dispatch size and fills the uniform data
 		static inline DispatchInfo_t buildParameters(
 			asset::VkExtent3D const & paddedInputDimensions,
-			Direction direction,
-			uint32_t num_channels)
+			Direction direction)
 		{
 			assert(num_channels > 0);
 			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
@@ -75,20 +74,20 @@ class FFT : public core::TotalInterface
 
 			if(direction == Direction::X)
 			{
-				ret.workGroupCount[0] = num_channels;
+				ret.workGroupCount[0] = 1;
 				ret.workGroupCount[1] = paddedInputDimensions.height;
 				ret.workGroupCount[2] = paddedInputDimensions.depth;
 			}
 			else if(direction == Direction::Y) {
 				ret.workGroupCount[0] = paddedInputDimensions.width;
-				ret.workGroupCount[1] = num_channels;
+				ret.workGroupCount[1] = 1;
 				ret.workGroupCount[2] = paddedInputDimensions.depth;
 			}
 			else if(direction == Direction::Z)
 			{
 				ret.workGroupCount[0] = paddedInputDimensions.width;
 				ret.workGroupCount[1] = paddedInputDimensions.height;
-				ret.workGroupCount[2] = num_channels;
+				ret.workGroupCount[2] = 1;
 			}
 
 			return ret;
@@ -236,6 +235,7 @@ class FFT : public core::TotalInterface
 			asset::VkExtent3D const & paddedInputDimension,
 			Direction direction,
 			bool isInverse, 
+			uint32_t numChannels,
 			PaddingType paddingType = PaddingType::CLAMP_TO_EDGE)
 		{
 
@@ -253,6 +253,7 @@ class FFT : public core::TotalInterface
 			params.padded_dimension.x = paddedInputDimension.width;
 			params.padded_dimension.y = paddedInputDimension.height;
 			params.padded_dimension.z = paddedInputDimension.depth;
+			params.numChannels = numChannels;
 
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		}
