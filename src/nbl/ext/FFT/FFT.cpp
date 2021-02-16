@@ -14,35 +14,15 @@ using namespace ext::FFT;
 
 core::SRange<const asset::SPushConstantRange> FFT::getDefaultPushConstantRanges()
 {
-	static const asset::SPushConstantRange ranges[5] =
+	static const asset::SPushConstantRange ranges[1] =
 	{
 		{
 			ISpecializedShader::ESS_COMPUTE,
 			0u,
-			sizeof(uint32_t) * 3
-		},
-		{
-			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 4,
-			sizeof(uint32_t) * 3
-		},
-		{
-			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 8,
-			sizeof(uint32_t)
-		},
-		{
-			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 9,
-			sizeof(uint32_t)
-		},
-		{
-			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 10,
-			sizeof(uint32_t)
+			sizeof(Parameters_t)
 		},
 	};
-	return {ranges, ranges+5};
+	return {ranges, ranges+1};
 }
 
 core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBindings(video::IVideoDriver* driver, DataType inputType)
@@ -73,7 +53,7 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 		bnd[0].type = EDT_COMBINED_IMAGE_SAMPLER;
 	}
 
-	bnd[0].samplers = &sampler;
+	bnd[0].samplers = nullptr;
 	
 	if (!sampler)
 	{
@@ -98,132 +78,31 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 	return {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxPaddedDimensionSize)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize)
 {
-	assert(core::isPoT(maxPaddedDimensionSize));
+	uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
 	const char* sourceFmt =
 R"===(#version 430 core
 
 #define USE_SSBO_FOR_INPUT %u
-
-// WorkGroup Size
-
-#ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_
-#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_ %u
-#endif
-
-#ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_
-#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_ 1
-#endif
-
-#ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_
-#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_ 1
-#endif
-
-#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_*_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_*_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_)
-
-layout(local_size_x=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_, local_size_y=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_, local_size_z=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_) in;
- 
+#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
  
-#define _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
-#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
-#include "nbl/builtin/glsl/ext/FFT/fft.glsl"
-
-// Input Descriptor
-
-struct nbl_glsl_ext_FFT_input_t
-{
-	vec2 complex_value;
-};
-
-#ifndef _NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_
-#define _NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_ 0
-#endif
-
-#ifndef _NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_
-#define _NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_ 0
-#endif
-
-#ifndef _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
-
-#if USE_SSBO_FOR_INPUT > 0
-#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
-layout(set=_NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_) readonly restrict buffer InputBuffer
-{
-	nbl_glsl_ext_FFT_input_t inData[];
-};
-#else 
-layout(set=_NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_) uniform sampler2D inputImage;
-#endif
-
-#endif
-
-// Output Descriptor
-
-struct nbl_glsl_ext_FFT_output_t
-{
-	vec2 complex_value;
-};
-
-
-#ifndef _NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_
-#define _NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_ 0
-#endif
-
-#ifndef _NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_
-#define _NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_ 1
-#endif
-
-#ifndef _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
-#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
-layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_) restrict buffer OutputBuffer
-{
-	nbl_glsl_ext_FFT_output_t outData[];
-};
-#endif
-
-// Get/Set Data Function
-
-vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
-{
-	vec2 retValue = vec2(0, 0);
-#if USE_SSBO_FOR_INPUT > 0
-	uvec3 dimension = pc.dimension;
-	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	retValue = inData[index].complex_value;
-#else
-	vec4 texelValue= texelFetch(inputImage, ivec2(coordinate.xy), 0);
-	retValue = vec2(texelValue[channel], 0.0f);
-#endif
-	return retValue;
-}
-
-void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
-{
-	uvec3 dimension = pc.padded_dimension;
-	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	outData[index].complex_value = complex_value;
-}
-
-void main()
-{
-	nbl_glsl_ext_FFT();
-}
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
 )===";
 
 	const size_t extraSize = 32 + 32 + 32 + 32;
 
-	const uint32_t maxItemsPerThread = core::ceil(float(maxPaddedDimensionSize) / DEFAULT_WORK_GROUP_X_DIM);
-	const uint32_t useSSBO = (DataType::SSBO == inputType) ? 1 : 0;
+	const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE) + 1u;
+	const uint32_t useSSBOforInput = (DataType::SSBO == inputType) ? 1 : 0;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
-		useSSBO,
-		DEFAULT_WORK_GROUP_X_DIM,
+		useSSBOforInput,
+		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize,
 		maxItemsPerThread
 	);
@@ -247,12 +126,22 @@ void FFT::defaultBarrier()
 
 // Kernel Normalization
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createKernelNormalizationShader(video::IVideoDriver* driver)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createKernelNormalizationShader(video::IVideoDriver* driver, IAssetManager* am)
 {
-	const char* sourceFmt =
+#if 1
+	IAssetLoader::SAssetLoadParams lp;
+	auto file_path = "../../../include/nbl/builtin/glsl/ext/FFT/normalization.comp";
+	auto shaderAsset = am->getAsset(file_path, lp);
+	auto cpucs = IAsset::castDown<ICPUSpecializedShader>(shaderAsset.getContents().begin()[0]);
+	auto cs = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>((cpucs->getUnspecialized())));
+	asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, file_path);
+	auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
+	return cs_spec;
+#else
+		const char* sourceFmt =
 R"===(#version 430 core
 
-layout(local_size_x=%u, local_size_y=1, local_size_z=1) in;
+layout(local_size_x=256, local_size_y=1, local_size_z=1) in;
  
 struct nbl_glsl_ext_FFT_output_t
 {
@@ -271,18 +160,17 @@ layout(set=0, binding=1) restrict buffer OutBuffer
 
 void main()
 {
-    float power = length(in_data[0].complex_value);
-    vec2 normalized_data = in_data[gl_GlobalInvocationID.x].complex_value / power;
-    out_data[gl_GlobalInvocationID.x].complex_value = normalized_data;
+	float power = length(in_data[0].complex_value);
+	vec2 normalized_data = in_data[gl_GlobalInvocationID.x].complex_value / power;
+	out_data[gl_GlobalInvocationID.x].complex_value = normalized_data;
 }
 )===";
 
-	const size_t extraSize = 32;
+	const size_t extraSize = 0;
 
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
-		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
-		DEFAULT_WORK_GROUP_X_DIM
+		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -295,6 +183,7 @@ void main()
 	auto gpuSpecializedShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
 
 	return gpuSpecializedShader;
+#endif
 }
 
 core::smart_refctd_ptr<video::IGPUPipelineLayout> FFT::getPipelineLayout_KernelNormalization(video::IVideoDriver* driver)
@@ -362,7 +251,7 @@ void FFT::updateDescriptorSet_KernelNormalization(
 }
 
 void FFT::dispatchKernelNormalization(video::IVideoDriver* driver, asset::VkExtent3D const & paddedDimension, uint32_t numChannels) {
-		const uint32_t dispatchSizeX = core::ceil(float(paddedDimension.width * paddedDimension.height * paddedDimension.depth * numChannels) / DEFAULT_WORK_GROUP_X_DIM);
+		const uint32_t dispatchSizeX = core::ceil(float(paddedDimension.width * paddedDimension.height * paddedDimension.depth * numChannels) / DEFAULT_WORK_GROUP_SIZE);
 		driver->dispatch(dispatchSizeX, 1, 1);
 		defaultBarrier();
 }

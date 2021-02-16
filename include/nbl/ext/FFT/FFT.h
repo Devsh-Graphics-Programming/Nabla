@@ -9,6 +9,7 @@
 #include "nbl/video/IGPUShader.h"
 #include "nbl/asset/ICPUShader.h"
 
+
 namespace nbl
 {
 namespace ext
@@ -16,17 +17,28 @@ namespace ext
 namespace FFT
 {
 
+typedef uint32_t uint;
+struct uvec3 {
+	uint x,y,z;
+};
+struct uvec4 {
+	uint x,y,z,w;
+};
+#include "nbl/builtin/glsl/ext/FFT/parameters.glsl";
+
 class FFT : public core::TotalInterface
 {
 	public:
+		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t {
+		};
 
-		enum class Direction : uint32_t {
+		enum class Direction : uint8_t {
 			X = 0,
 			Y = 1,
 			Z = 2,
 		};
 		
-		enum class PaddingType : uint32_t {
+		enum class PaddingType : uint8_t {
 			CLAMP_TO_EDGE = 0,
 			FILL_WITH_ZERO = 1,
 		};
@@ -57,7 +69,7 @@ class FFT : public core::TotalInterface
 			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
 			DispatchInfo_t ret = {};
 
-			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_X_DIM;
+			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_SIZE;
 			ret.workGroupDims[1] = 1;
 			ret.workGroupDims[2] = 1;
 
@@ -106,7 +118,7 @@ class FFT : public core::TotalInterface
 			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
 		}
 		
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxPaddedDimensionSize);
+		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
 		static inline void updateDescriptorSet(
@@ -149,12 +161,37 @@ class FFT : public core::TotalInterface
 			video::IVideoDriver * driver,
 			video::IGPUDescriptorSet * set,
 			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor)
+			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
+			asset::ISampler::E_TEXTURE_CLAMP textureWrap)
 		{
+			using nbl::asset::ISampler;
+
+			static core::smart_refctd_ptr<video::IGPUSampler> samplers[ISampler::E_TEXTURE_CLAMP::ETC_COUNT];
+			auto & sampler = samplers[(uint32_t)textureWrap];
+			if (!sampler)
+			{
+				video::IGPUSampler::SParams params =
+				{
+					{
+						textureWrap,
+						textureWrap,
+						textureWrap,
+						ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+						ISampler::ETF_NEAREST,
+						ISampler::ETF_NEAREST,
+						ISampler::ESMM_NEAREST,
+						0u,
+						0u,
+						ISampler::ECO_ALWAYS
+					}
+				};
+				sampler = driver->createGPUSampler(params);
+			}
+
 			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
 			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
 
-			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
+			for (auto i = 0; i < MAX_DESCRIPTOR_COUNT; i++)
 			{
 				pWrites[i].dstSet = set;
 				pWrites[i].arrayElement = 0u;
@@ -167,7 +204,7 @@ class FFT : public core::TotalInterface
 			pWrites[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
 			pWrites[0].count = 1;
 			pInfos[0].desc = inputImageDescriptor;
-			pInfos[0].image.sampler = nullptr;
+			pInfos[0].image.sampler = sampler;
 			pInfos[0].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
 
 			// Output Buffer 
@@ -201,17 +238,28 @@ class FFT : public core::TotalInterface
 			bool isInverse, 
 			PaddingType paddingType = PaddingType::CLAMP_TO_EDGE)
 		{
-			uint32_t is_inverse_u = isInverse;
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &inputDimension);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &paddedInputDimension);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &direction);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 9, sizeof(uint32_t), &is_inverse_u);
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 10, sizeof(uint32_t), &paddingType);
+
+			uint8_t isInverse_u8 = isInverse;
+			uint8_t direction_u8 = static_cast<uint8_t>(direction);
+			uint8_t paddingType_u8 = static_cast<uint8_t>(paddingType);
+			
+			uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
+
+			Parameters_t params = {};
+			params.dimension.x = inputDimension.width;
+			params.dimension.y = inputDimension.height;
+			params.dimension.z = inputDimension.depth;
+			params.dimension.w = packed;
+			params.padded_dimension.x = paddedInputDimension.width;
+			params.padded_dimension.y = paddedInputDimension.height;
+			params.padded_dimension.z = paddedInputDimension.depth;
+
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		}
 
 		// Kernel Normalization
 				
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createKernelNormalizationShader(video::IVideoDriver* driver);
+		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createKernelNormalizationShader(video::IVideoDriver* driver, asset::IAssetManager* am);
 		
 		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_KernelNormalization(video::IVideoDriver* driver);
 		
@@ -227,7 +275,7 @@ class FFT : public core::TotalInterface
 		FFT() = delete;
 		//~FFT() = delete;
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_X_DIM = 256u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 
 		static void defaultBarrier();
 };
