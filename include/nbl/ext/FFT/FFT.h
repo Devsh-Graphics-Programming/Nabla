@@ -18,10 +18,10 @@ namespace FFT
 {
 
 typedef uint32_t uint;
-struct uvec3 {
+struct alignas(16) uvec3 {
 	uint x,y,z;
 };
-struct uvec4 {
+struct alignas(16) uvec4 {
 	uint x,y,z,w;
 };
 #include "nbl/builtin/glsl/ext/FFT/parameters.glsl";
@@ -64,7 +64,6 @@ class FFT : public core::TotalInterface
 			asset::VkExtent3D const & paddedInputDimensions,
 			Direction direction)
 		{
-			assert(num_channels > 0);
 			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
 			DispatchInfo_t ret = {};
 
@@ -93,6 +92,28 @@ class FFT : public core::TotalInterface
 			return ret;
 		}
 
+		
+		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D const & dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 0, 0, 0 }) {
+			asset::VkExtent3D ret = {};
+			asset::VkExtent3D extendedDim = dimension;
+
+			if(dimension.width < minimum_dimension.width) {
+				extendedDim.width = minimum_dimension.width;
+			}
+			if(dimension.height < minimum_dimension.height) {
+				extendedDim.height = minimum_dimension.height;
+			}
+			if(dimension.depth < minimum_dimension.depth) {
+				extendedDim.depth = minimum_dimension.depth;
+			}
+
+			ret.width = core::roundUpToPoT(extendedDim.width);
+			ret.height = core::roundUpToPoT(extendedDim.height);
+			ret.depth = core::roundUpToPoT(extendedDim.depth);
+
+			return ret;
+		}
+
 		//
 		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
@@ -117,7 +138,7 @@ class FFT : public core::TotalInterface
 			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
 		}
 		
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize, uint32_t maxNumChannels);
+		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
 		static inline void updateDescriptorSet(
@@ -253,7 +274,7 @@ class FFT : public core::TotalInterface
 			params.padded_dimension.x = paddedInputDimension.width;
 			params.padded_dimension.y = paddedInputDimension.height;
 			params.padded_dimension.z = paddedInputDimension.depth;
-			params.numChannels = numChannels;
+			params.padded_dimension.w = numChannels;
 
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		}

@@ -80,7 +80,11 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint cha
 
 void main()
 {
-	nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse());
+    const uint numChannels = nbl_glsl_ext_FFT_Parameters_t_getNumChannels();
+	for(uint ch = 0u; ch < numChannels; ++ch)
+	{
+		nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse(), ch);
+	}
 }
 
 #endif

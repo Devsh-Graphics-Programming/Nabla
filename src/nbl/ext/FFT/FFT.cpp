@@ -78,7 +78,7 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 	return {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize, uint32_t maxNumChannels)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize)
 {
 	uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
@@ -89,7 +89,6 @@ R"===(#version 430 core
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
-#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS %u
  
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
@@ -105,8 +104,7 @@ R"===(#version 430 core
 		useSSBOforInput,
 		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize,
-		maxItemsPerThread,
-		maxNumChannels
+		maxItemsPerThread
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(

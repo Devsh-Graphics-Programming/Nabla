@@ -21,27 +21,6 @@ using namespace nbl::video;
 #include "nbl/core/math/intutil.h"
 #include "nbl/core/math/glslFunctions.h"
 
-VkExtent3D padDimensionToNextPOT(VkExtent3D const & dimension, VkExtent3D const & minimum_dimension = VkExtent3D{ 0, 0, 0 }) {
-	VkExtent3D ret = {};
-	VkExtent3D extendedDim = dimension;
-
-	if(dimension.width < minimum_dimension.width) {
-		extendedDim.width = minimum_dimension.width;
-	}
-	if(dimension.height < minimum_dimension.height) {
-		extendedDim.height = minimum_dimension.height;
-	}
-	if(dimension.depth < minimum_dimension.depth) {
-		extendedDim.depth = minimum_dimension.depth;
-	}
-
-	ret.width = roundUpToPoT(extendedDim.width);
-	ret.height = roundUpToPoT(extendedDim.height);
-	ret.depth = roundUpToPoT(extendedDim.depth);
-
-	return ret;
-}
-
 struct DispatchInfo_t
 {
 	uint32_t workGroupDims[3];
@@ -86,8 +65,7 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_Convolution(
 	video::IVideoDriver* driver,
 	IAssetManager* am,
-	uint32_t maxDimensionSize,
-	uint32_t maxNumChannels) 
+	uint32_t maxDimensionSize) 
 {
 uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
@@ -97,7 +75,6 @@ R"===(#version 430 core
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
-#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS %u
  
 #include "../fft_convolve_ifft.comp"
 
@@ -112,8 +89,7 @@ R"===(#version 430 core
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize,
-		maxItemsPerThread,
-		maxNumChannels
+		maxItemsPerThread
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -211,8 +187,7 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_LastFFT(
 	video::IVideoDriver* driver,
 	IAssetManager* am,
-	uint32_t maxDimensionSize,
-	uint32_t maxNumChannels) {
+	uint32_t maxDimensionSize) {
 	
 uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
@@ -222,8 +197,7 @@ R"===(#version 430 core
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
-#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS %u
- 
+
 #include "../last_fft.comp"
 
 )===";
@@ -237,8 +211,7 @@ R"===(#version 430 core
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize,
-		maxItemsPerThread,
-		maxNumChannels
+		maxItemsPerThread
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -374,7 +347,7 @@ int main()
 	uint32_t kerNumChannels = getFormatChannelCount(kerFormat);
 	assert(srcNumChannels == kerNumChannels); // Just to make sure, because the other case is not handled in this example
 	
-	VkExtent3D paddedDim = padDimensionToNextPOT(srcDim, kerDim);
+	VkExtent3D paddedDim = FFTClass::padDimensionToNextPOT(srcDim, kerDim);
 	uint32_t maxPaddedDimensionSize = core::max(core::max(paddedDim.width, paddedDim.height), paddedDim.depth);
 	
 	VkExtent3D outImageDim = srcDim;
@@ -389,8 +362,8 @@ int main()
 		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(srcImgViewInfo));
 	}
 
-	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize, srcNumChannels);
-	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize, srcNumChannels);
+	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
+	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
 	auto fftGPUSpecializedShader_KernelNormalization = FFTClass::createKernelNormalizationShader(driver, am);
 	
 	auto fftPipelineLayout_SSBOInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
@@ -404,11 +377,11 @@ int main()
 	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(paddedDim, FFTClass::Direction::X);
 	auto fftDispatchInfo_Vertical = FFTClass::buildParameters(paddedDim, FFTClass::Direction::Y);
 
-	auto convolveShader = createShader_Convolution(driver, am, maxPaddedDimensionSize, srcNumChannels);
+	auto convolveShader = createShader_Convolution(driver, am, maxPaddedDimensionSize);
 	auto convolvePipelineLayout = getPipelineLayout_Convolution(driver);
 	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), std::move(convolveShader));
 
-	auto lastFFTShader = createShader_LastFFT(driver, am, maxPaddedDimensionSize, srcNumChannels);
+	auto lastFFTShader = createShader_LastFFT(driver, am, maxPaddedDimensionSize);
 	auto lastFFTPipelineLayout = getPipelineLayout_LastFFT(driver);
 	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(lastFFTPipelineLayout), std::move(lastFFTShader));
 

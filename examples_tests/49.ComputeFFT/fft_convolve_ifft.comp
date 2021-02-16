@@ -98,7 +98,11 @@ void convolve()
 
 void main()
 {
-	nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse()); // inoutData->inoutData
+    const uint numChannels = nbl_glsl_ext_FFT_Parameters_t_getNumChannels();
+	for(uint ch = 0u; ch < numChannels; ++ch)
+	{
+		nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse(), ch);
+	}
 
     barrier();
 
@@ -106,5 +110,8 @@ void main()
 	
     barrier();
 
-	nbl_glsl_ext_FFT(!nbl_glsl_ext_FFT_Parameters_t_getIsInverse()); // inoutData->inoutData
+	for(uint ch = 0u; ch < numChannels; ++ch)
+	{
+		nbl_glsl_ext_FFT(!nbl_glsl_ext_FFT_Parameters_t_getIsInverse(), ch); // inoutData->inoutData
+	}
 }
