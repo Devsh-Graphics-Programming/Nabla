@@ -56,7 +56,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-    ivec2 coords = ivec2(coordinate.xy) - ivec2(pc.kernel_dimension.xy);
+    ivec2 coords = ivec2(coordinate.xy) - ivec2(pc.kernel_dimension.xy / 2);
     vec4 color_value = imageLoad(outImage, coords);
     color_value[channel] = complex_value.x;
     imageStore(outImage, coords, color_value);
