@@ -179,12 +179,76 @@ void nbl_glsl_ext_FFT(bool is_inverse)
         uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
 
         uvec3 coords_e = nbl_glsl_ext_FFT_getCoordinates(even_index);
-        uvec3 bitReversedCoords_e = nbl_glsl_ext_FFT_getBitReversedCoordinates(coords_e, leadingZeroes);
-        even_values[t] = nbl_glsl_ext_FFT_getPaddedData(bitReversedCoords_e, channel);
+        // uvec3 bitReversedCoords_e = nbl_glsl_ext_FFT_getBitReversedCoordinates(coords_e, leadingZeroes);
+        even_values[t] = nbl_glsl_ext_FFT_getPaddedData(coords_e, channel);
 
         uvec3 coords_o = nbl_glsl_ext_FFT_getCoordinates(even_index + 1);
-        uvec3 bitReversedCoords_o = nbl_glsl_ext_FFT_getBitReversedCoordinates(coords_o, leadingZeroes);
-        odd_values[t] = nbl_glsl_ext_FFT_getPaddedData(bitReversedCoords_o, channel);
+        // uvec3 bitReversedCoords_o = nbl_glsl_ext_FFT_getBitReversedCoordinates(coords_o, leadingZeroes);
+        odd_values[t] = nbl_glsl_ext_FFT_getPaddedData(coords_o, channel);
+    }
+
+    // Initial Data Exchange
+    {
+        // Get Even/Odd Values X for virtual threads
+        for(uint t = 0u; t < num_virtual_threads; t++)
+        {
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
+            
+            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
+            uint odd_index = even_index + 1;
+
+            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index] = floatBitsToUint(even_values[t].x);
+            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index] = floatBitsToUint(odd_values[t].x);
+        }
+
+        barrier();
+        memoryBarrierShared();
+
+        for(uint t = 0u; t < num_virtual_threads; t++)
+        {
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
+
+            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
+            uint odd_index = even_index + 1;
+
+            uint even_rev_bits = bitfieldReverse(even_index) >> leadingZeroes;
+            uint odd_rev_bits = bitfieldReverse(odd_index) >> leadingZeroes;
+
+            even_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_rev_bits]);
+            odd_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_rev_bits]);
+        }
+
+        barrier();
+        memoryBarrierShared();
+        
+        // Get Even/Odd Values Y for virtual threads
+        for(uint t = 0u; t < num_virtual_threads; t++)
+        {
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
+            
+            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
+            uint odd_index = even_index + 1;
+
+            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index] = floatBitsToUint(even_values[t].y);
+            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index] = floatBitsToUint(odd_values[t].y);
+        }
+
+        barrier();
+        memoryBarrierShared();
+
+        for(uint t = 0u; t < num_virtual_threads; t++)
+        {
+            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
+
+            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
+            uint odd_index = even_index + 1;
+
+            uint even_rev_bits = bitfieldReverse(even_index) >> leadingZeroes;
+            uint odd_rev_bits = bitfieldReverse(odd_index) >> leadingZeroes;
+
+            even_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_rev_bits]);
+            odd_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_rev_bits]);
+        }
     }
 
     // For loop for each stage of the FFT (each virtual thread computes 1 buttefly)
@@ -207,7 +271,7 @@ void nbl_glsl_ext_FFT(bool is_inverse)
             odd_values[t] = even_value - cmplx_mul; 
         }
 
-        // Exchange Even and Odd Values with Other Threads (or maybe this thread)
+        // Exchange Even/Odd Values with Other Threads (or sometimes the same thread)
         if(i < logTwo - 1)
         {
             // Get Even/Odd Values X for virtual threads
