@@ -175,7 +175,7 @@ class FFT : public core::TotalInterface
 						textureWrap,
 						textureWrap,
 						textureWrap,
-						ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+						ISampler::ETBC_FLOAT_TRANSPARENT_BLACK,
 						ISampler::ETF_NEAREST,
 						ISampler::ETF_NEAREST,
 						ISampler::ESMM_NEAREST,
