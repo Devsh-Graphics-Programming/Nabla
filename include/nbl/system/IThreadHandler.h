@@ -47,7 +47,7 @@ protected:
     };
 
     inline lock_t createLock() { return lock_t{ m_mutex }; }
-    inline raii_dispatch_handler_t createRAIIDisptachHandler() { return raii_dispatch_handler_t(createLock(), m_cvar); }
+    inline raii_dispatch_handler_t createRAIIDispatchHandler() { return raii_dispatch_handler_t(createLock(), m_cvar); }
 
     virtual internal_state_t init() = 0;
     virtual bool wakeupPredicate() const { return m_quit; }

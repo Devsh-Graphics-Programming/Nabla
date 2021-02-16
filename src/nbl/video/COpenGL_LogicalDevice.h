@@ -16,18 +16,15 @@ public:
     using FeaturesType = typename QueueType::FeaturesType;
 
     COpenGL_LogicalDevice(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
-        IOpenGL_LogicalDevice(_egl, config, major, minor)
+        IOpenGL_LogicalDevice(_egl, config, major, minor),
+        m_threadHandler(_egl, _features, config, major, minor),
+        m_thread(&CThreadHandler<FunctionTableType>::thread, &m_threadHandler)
     {
-        EGLint ctx_attributes[] = {
-            EGL_CONTEXT_MAJOR_VERSION, major,
-            EGL_CONTEXT_MINOR_VERSION, minor,
-            EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
-
-            EGL_NONE
-        };
-        // master context for queues
-        // TODO: take the one from device thread handler
-        m_ctx = _egl->call.peglCreateContext(_egl->display, config, EGL_NO_CONTEXT, ctx_attributes);
+        EGLContext master_ctx = m_threadHandler.getContext();
+        uint32_t totalQCount = 0u;
+        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+            totalQCount += params.queueCreateInfos[i].count;
+        assert(totalQCount <= MaxQueueCount);
 
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
@@ -41,16 +38,19 @@ public:
                 const float priority = qci.priorities[j];
 
                 const uint32_t ix = offset + j;
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(_egl, _features, m_ctx, config, famIx, flags, priority);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(_egl, _features, master_ctx, config, famIx, flags, priority);
             }
         }
     }
 
+    ~COpenGL_LogicalDevice()
+    {
+        m_threadHandler.terminate(m_thread);
+    }
+
 private:
-    // context used to run GL calls from logical device (mostly resource creation) in separate thread;
-    // also being master context for all the other ones (the ones in swapchains and queues)
-    EGLContext m_ctx;
-    // TODO pbuf surface
+    CThreadHandler<FunctionTableType> m_threadHandler;
+    std::thread m_thread;
 };
 
 }

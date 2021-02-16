@@ -2,7 +2,7 @@
 #define __NBL_C_OPENGL_FUNCTION_TABLE_H_INCLUDED__
 
 #include "nbl/video/COpenGLFeatureMap.h"
-#include "nbl/video/COpenGL_FunctionTableBase.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
 #endif
@@ -13,12 +13,13 @@ namespace nbl {
 namespace video
 {
 
-class COpenGLFunctionTable : public COpenGL_FunctionTableBase
+class COpenGLFunctionTable : public IOpenGL_FunctionTable
 {
-	using base_t = COpenGL_FunctionTableBase;
+	using base_t = IOpenGL_FunctionTable;
 
 public:
 	using features_t = COpenGLFeatureMap;
+	constexpr static inline auto EGL_API_TYPE = EGL_OPENGL_API;
 
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4sync, OpenGLFunctionLoader
 		, glTextureBarrier
@@ -255,7 +256,7 @@ public:
 	GL4debug gl4Debug;
 
     COpenGLFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
-        COpenGL_FunctionTableBase(_egl),
+		IOpenGL_FunctionTable(_egl),
 		gl4Framebuffer(_egl),
 		gl4Buffer(_egl),
 		gl4Texture(_egl),

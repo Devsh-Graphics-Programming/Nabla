@@ -16,7 +16,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<InternalStateType>
 public:
     void enqueue(uint32_t count, const queue_element_t* elements)
     {
-        auto raii_handler = base_t::createRAIIDisptachHandler();
+        auto raii_handler = base_t::createRAIIDispatchHandler();
 
         for (uint32_t i = 0u; i < count; ++i)
         {

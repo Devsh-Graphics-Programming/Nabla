@@ -42,7 +42,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             ThreadHandlerInternalStateType init() override
             {
-                egl->call.peglBindAPI(EGL_OPENGL_API);
+                egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
                 const EGLint ctx_attributes[] = {
                     EGL_CONTEXT_MAJOR_VERSION, major,
@@ -85,6 +85,7 @@ class COpenGL_Queue final : public IGPUQueue
             {
                 egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
                 egl->call.peglDestroyContext(egl->display, thisCtx);
+                egl->call.peglDestroySurface(egl->display, pbuffer);
             }
 
         private:

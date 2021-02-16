@@ -30,6 +30,7 @@ class COpenGLESFunctionTable final : public IOpenGL_FunctionTable
 {
 public:
 	using features_t = COpenGLESFeatureMap;
+	constexpr static inline auto EGL_API_TYPE = EGL_OPENGL_ES_API;
 
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESgeneral, OpenGLFunctionLoader
 		, glEnableiOES

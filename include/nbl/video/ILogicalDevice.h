@@ -188,18 +188,18 @@ public:
     virtual void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
 
     //! Utility wrapper for the pointer based func
-    inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+    inline void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges)
     {
-        this->flushMappedMemoryRanges(static_cast<uint32_t>(ranges.size()), ranges.data());
+        this->flushMappedMemoryRanges(static_cast<uint32_t>(ranges.size()), ranges.begin());
     }
 
     //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
     virtual void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
 
     //! Utility wrapper for the pointer based func
-    inline void invalidateMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+    inline void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges)
     {
-        this->invalidateMappedMemoryRanges(static_cast<uint32_t>(ranges.size()), ranges.data());
+        this->invalidateMappedMemoryRanges(static_cast<uint32_t>(ranges.size()), ranges.begin());
     }
 
     virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
