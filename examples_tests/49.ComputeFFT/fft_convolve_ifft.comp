@@ -1,6 +1,14 @@
 // WorkGroup Size
 
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+
+#ifndef _NBL_GLSL_EXT_FFT_MAX_CHANNELS
+#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS 4
+#endif
+
+#ifndef _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_
+#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ 256
+#endif
+#define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_
 
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 

@@ -12,6 +12,9 @@
 #include <nbl/builtin/glsl/math/functions.glsl>
 #include <nbl/builtin/glsl/ext/FFT/parameters.glsl>
 
+#ifndef _NBL_GLSL_EXT_FFT_MAX_CHANNELS
+#error "_NBL_GLSL_EXT_FFT_MAX_CHANNELS should be defined."
+#endif
 
 #ifndef _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
 #error "_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ should be defined."
@@ -162,7 +165,6 @@ void nbl_glsl_ext_FFT(bool is_inverse)
 	uint leadingZeroes = nbl_glsl_clz(dataLength) + 1u;
 	uint logTwo = 32u - leadingZeroes;
 	
-    const uint _NBL_GLSL_EXT_FFT_MAX_CHANNELS = 4;
     const uint numChannels = nbl_glsl_ext_FFT_Parameters_t_getNumChannels();
 
     nbl_glsl_complex even_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD][_NBL_GLSL_EXT_FFT_MAX_CHANNELS]; // should be half the prev version

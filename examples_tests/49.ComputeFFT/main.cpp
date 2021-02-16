@@ -86,7 +86,9 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_Convolution(
 	video::IVideoDriver* driver,
 	IAssetManager* am,
-	uint32_t maxDimensionSize) {
+	uint32_t maxDimensionSize,
+	uint32_t maxNumChannels) 
+{
 uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
 	const char* sourceFmt =
@@ -95,6 +97,7 @@ R"===(#version 430 core
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
+#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS %u
  
 #include "../fft_convolve_ifft.comp"
 
@@ -109,7 +112,8 @@ R"===(#version 430 core
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize,
-		maxItemsPerThread
+		maxItemsPerThread,
+		maxNumChannels
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -160,23 +164,21 @@ static inline void updateDescriptorSet_Convolution (
 	driver->updateDescriptorSets(descCount, pWrites, 0u, nullptr);
 }
 
-static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_RemovePadding(video::IVideoDriver* driver) {
-	static const asset::SPushConstantRange ranges[3] =
+static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_LastFFT(video::IVideoDriver* driver) {
+	
+	using FFTClass = ext::FFT::FFT;
+
+	static const asset::SPushConstantRange ranges[2] =
 	{
 		{
 			ISpecializedShader::ESS_COMPUTE,
 			0u,
-			sizeof(uint32_t) * 3
+			sizeof(FFTClass::Parameters_t)
 		},
 		{
 			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 4,
+			sizeof(FFTClass::Parameters_t),
 			sizeof(uint32_t) * 3
-		},
-		{
-			ISpecializedShader::ESS_COMPUTE,
-			sizeof(uint32_t) * 8,
-			sizeof(uint32_t)
 		},
 	};
 
@@ -198,7 +200,7 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 		},
 	};
 	
-	core::SRange<const asset::SPushConstantRange> pcRange = {ranges, ranges+3};
+	core::SRange<const asset::SPushConstantRange> pcRange = {ranges, ranges+2};
 	core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};;
 
 	return driver->createGPUPipelineLayout(
@@ -206,20 +208,51 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 		driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 	);
 }
-static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_RemovePadding(
+static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_LastFFT(
 	video::IVideoDriver* driver,
-	IAssetManager* am) {
+	IAssetManager* am,
+	uint32_t maxDimensionSize,
+	uint32_t maxNumChannels) {
+	
+uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
-	IAssetLoader::SAssetLoadParams lp;
-	auto file_path = "../remove_padding.comp";
-	auto shaderAsset = am->getAsset(file_path, lp);
-	auto cpucs = IAsset::castDown<ICPUSpecializedShader>(shaderAsset.getContents().begin()[0]);
-	auto cs = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>((cpucs->getUnspecialized())));
-	asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, file_path);
-	auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
-	return cs_spec;
+	const char* sourceFmt =
+R"===(#version 430 core
+
+#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
+#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
+#define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
+#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS %u
+ 
+#include "../last_fft.comp"
+
+)===";
+
+	const size_t extraSize = 32 + 32 + 32 + 32;
+	
+	constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
+	const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE) + 1u;
+	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
+	snprintf(
+		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
+		DEFAULT_WORK_GROUP_SIZE,
+		maxPaddedDimensionSize,
+		maxItemsPerThread,
+		maxNumChannels
+	);
+
+	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
+		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
+	);
+	
+	auto gpuShader = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+	
+	auto gpuSpecializedShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+
+	return gpuSpecializedShader;
 }
-static inline void updateDescriptorSet_RemovePadding (
+static inline void updateDescriptorSet_LastFFT (
 	video::IVideoDriver * driver,
 	video::IGPUDescriptorSet * set,
 	core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
@@ -253,28 +286,6 @@ static inline void updateDescriptorSet_RemovePadding (
 	pInfos[1].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
 
 	driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
-}
-static inline void dispatchHelper_RemovePadding(
-	video::IVideoDriver* driver,
-	const DispatchInfo_t& dispatchInfo)
-{
-	driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
-	COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-}
-static inline DispatchInfo_t getDispatchInfo_RemovePadding(
-	asset::VkExtent3D const & inputDimensions)
-{
-	DispatchInfo_t ret = {};
-
-	ret.workGroupDims[0] = 16;
-	ret.workGroupDims[1] = 16;
-	ret.workGroupDims[2] = 1;
-
-	ret.workGroupCount[0] = core::ceil(float(inputDimensions.width) / ret.workGroupDims[0]);
-	ret.workGroupCount[1] = core::ceil(float(inputDimensions.height) / ret.workGroupDims[1]);
-	ret.workGroupCount[2] = core::ceil(float(inputDimensions.depth) / ret.workGroupDims[2]);
-
-	return ret;
 }
 
 int main()
@@ -378,8 +389,8 @@ int main()
 		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(srcImgViewInfo));
 	}
 
-	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
-	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
+	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize, srcNumChannels);
+	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize, srcNumChannels);
 	auto fftGPUSpecializedShader_KernelNormalization = FFTClass::createKernelNormalizationShader(driver, am);
 	
 	auto fftPipelineLayout_SSBOInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
@@ -393,9 +404,13 @@ int main()
 	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(paddedDim, FFTClass::Direction::X);
 	auto fftDispatchInfo_Vertical = FFTClass::buildParameters(paddedDim, FFTClass::Direction::Y);
 
-	auto convolveShader = createShader_Convolution(driver, am, maxPaddedDimensionSize);
+	auto convolveShader = createShader_Convolution(driver, am, maxPaddedDimensionSize, srcNumChannels);
 	auto convolvePipelineLayout = getPipelineLayout_Convolution(driver);
 	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), std::move(convolveShader));
+
+	auto lastFFTShader = createShader_LastFFT(driver, am, maxPaddedDimensionSize, srcNumChannels);
+	auto lastFFTPipelineLayout = getPipelineLayout_LastFFT(driver);
+	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(lastFFTPipelineLayout), std::move(lastFFTShader));
 
 	// Allocate Output Buffer
 	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(paddedDim, srcNumChannels)); // result of: srcFFTX and kerFFTX and Convolution and IFFTY
@@ -449,16 +464,9 @@ int main()
 	auto convolveDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipelineLayout->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_0, fftOutputBuffer_KernelNormalized);
 
-	// IFFT X
-	auto fftDescriptorSet_IFFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_X.get(), fftOutputBuffer_0, fftOutputBuffer_1);
-
-	auto removePaddingShader = createShader_RemovePadding(driver, am);
-	auto removePaddingPipelineLayout = getPipelineLayout_RemovePadding(driver);
-	auto removePaddingPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(removePaddingPipelineLayout), std::move(removePaddingShader));
-	auto removePaddingDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(removePaddingPipelineLayout->getDescriptorSetLayout(0u)));
-	updateDescriptorSet_RemovePadding(driver, removePaddingDescriptorSet.get(), fftOutputBuffer_1, outImgView);
-	auto removePaddingDispatchInfo = getDispatchInfo_RemovePadding(outImageDim);
+	// Last IFFTX 
+	auto lastFFTDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(lastFFTPipelineLayout->getDescriptorSetLayout(0u)));
+	updateDescriptorSet_LastFFT(driver, lastFFTDescriptorSet.get(), fftOutputBuffer_0, outImgView);
 
 	uint32_t outBufferIx = 0u;
 	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
@@ -485,19 +493,12 @@ int main()
 		FFTClass::pushConstants(driver, convolvePipelineLayout.get(), paddedDim, paddedDim, FFTClass::Direction::Y, false, srcNumChannels);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
 
-		// Convolved IFFT X
-		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_IFFT_X.get(), nullptr);
-		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::X, true, srcNumChannels);
+		// Last FFT Padding and Copy to GPU Image
+		driver->bindComputePipeline(lastFFTPipeline.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, lastFFTPipelineLayout.get(), 0u, 1u, &lastFFTDescriptorSet.get(), nullptr);
+		FFTClass::pushConstants(driver, lastFFTPipelineLayout.get(), paddedDim, paddedDim, FFTClass::Direction::X, true, srcNumChannels);
+		driver->pushConstants(lastFFTPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(FFTClass::Parameters_t), sizeof(uint32_t) * 3, &kerDim); // numSrcChannels
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
-		
-		// Remove Padding and Copy to GPU Image
-		driver->bindComputePipeline(removePaddingPipeline.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, removePaddingPipelineLayout.get(), 0u, 1u, &removePaddingDescriptorSet.get(), nullptr);
-		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &paddedDim); // pc.numChannels
-		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &kerDim); // numSrcChannels
-		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &srcNumChannels); // numSrcChannels
-		dispatchHelper_RemovePadding(driver, removePaddingDispatchInfo);
 		
 		if(false == savedToFile) {
 			savedToFile = true;
