@@ -421,8 +421,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, co
             inverseBindPosesBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
         }
 
-        const auto& nameMap = cpusk->getJointNameToIDMap();
-        (*res)[i] = core::make_smart_refctd_ptr<IGPUSkeleton>(std::move(parentJointIDBinding),std::move(inverseBindPosesBinding),impl::CustomBoneNameIterator(nameMap.begin()),impl::CustomBoneNameIterator(nameMap.end()));
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUSkeleton>(std::move(parentJointIDBinding),std::move(inverseBindPosesBinding),cpusk->getJointNameToIDMap());
     }
 
     return res;

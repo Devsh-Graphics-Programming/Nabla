@@ -18,6 +18,12 @@ class IGPUSkeleton final : public asset::ISkeleton<IGPUBuffer>
         using base_t = asset::ISkeleton<IGPUBuffer>;
 
     public:
+		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _inverseBindPosesBinding, const decltype(m_nameToJointID)& nameToJointIDMap) :
+			base_t(std::move(_parentJointIDsBinding),std::move(_inverseBindPosesBinding),nameToJointIDMap.size())
+		{
+			base_t::setJointNames(nameToJointIDMap);
+		}
+
 		template<typename NameIterator>
 		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _inverseBindPosesBinding, NameIterator begin, NameIterator end) :
 			base_t(std::move(_parentJointIDsBinding),std::move(_inverseBindPosesBinding),std::distance(begin,end))
