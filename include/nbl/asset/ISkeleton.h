@@ -113,7 +113,7 @@ namespace asset
 					while (*inName) {*(outName++) = *(inName++);}
 					if (outName!=name)
 					{
-						*(outName++) = '0';
+						*(outName++) = 0;
 						m_nameToJointID.emplace(name,jointID);
 					}
 				}
