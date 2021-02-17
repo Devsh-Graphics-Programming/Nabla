@@ -6,7 +6,7 @@
 #define __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 
 #include "IWriteFile.h"
-#include "IAsset.h"
+#include "nbl/asset/IAsset.h"
 
 namespace nbl
 {
@@ -44,7 +44,7 @@ enum E_WRITER_FLAGS : uint32_t
 	Some assets can be saved to file (or memory file) by classes derived from IAssetWriter.
 	These classes must be registered with IAssetManager::addAssetWriter() which will add it
 	to the list of writers (grab return 0-based index) or just not register the writer upon 
-	failure (don’t grab and return 0xdeadbeefu).
+	failure (donï¿½t grab and return 0xdeadbeefu).
 
 	The writing is impacted by writing flags, defined as E_WRITER_FLAGS.
 

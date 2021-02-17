@@ -15,6 +15,31 @@ namespace nbl
 {
 namespace asset
 {
+namespace impl{
+	class IAssetMetadata_base : public core::IReferenceCounted{
+	protected:
+		template<class Asset>
+		struct asset_metadata;
+
+	};
+
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPUImage>
+		{
+			using type = IImageMetadata;
+		};
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPURenderpassIndependentPipeline>
+		{
+			using type = IRenderpassIndependentPipelineMetadata;
+		};
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPUMesh>
+		{
+			using type = IMeshMetadata;
+		};
+
+}
 
 
 //! A class managing Asset's metadata context
@@ -32,28 +57,9 @@ namespace asset
 	Flexibility has been provided, it is expected each loader has its own base metadata class implementing the 
 	IAssetMetadata interface with its own type enum that other loader's metadata classes derive from the base.
 */
-class IAssetMetadata : public core::IReferenceCounted
+class IAssetMetadata : public impl::IAssetMetadata_base
 {
 	protected:
-		template<class Asset>
-		struct asset_metadata;
-
-		template<>
-		struct asset_metadata<ICPUImage>
-		{
-			using type = IImageMetadata;
-		};
-		template<>
-		struct asset_metadata<ICPURenderpassIndependentPipeline>
-		{
-			using type = IRenderpassIndependentPipelineMetadata;
-		};
-		template<>
-		struct asset_metadata<ICPUMesh>
-		{
-			using type = IMeshMetadata;
-		};
-
 		template<class Asset>
 		using asset_metadata_t = typename asset_metadata<Asset>::type;
 

@@ -502,7 +502,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     //at the very end, insert submeshes into cache
 	uint32_t i = 0u;
 	for (auto meshbuffer : mesh->getMeshBuffers())
-        _override->insertAssetIntoCache(SAssetBundle(meta,{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) }), submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+	{
+		auto bundle = SAssetBundle(meta,{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) });
+        _override->insertAssetIntoCache(bundle, submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+	}
 
 	return SAssetBundle(std::move(meta),{std::move(mesh)});
 }

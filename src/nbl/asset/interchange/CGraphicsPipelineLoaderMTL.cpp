@@ -40,7 +40,8 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : IRe
         );
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
         const char* cacheKey = decltype(constexprStringType)::value;
-        insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) }), cacheKey);
+        auto assetbundle = SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) });
+        insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, cacheKey);
     };
 
     registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
@@ -71,7 +72,8 @@ void CGraphicsPipelineLoaderMTL::initialize()
             static_assert(sizeof(SMtl::params) <= ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
 
             auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng + 1, nullptr, core::smart_refctd_ptr(ds1layout), nullptr, nullptr);
-            insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr, { core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) }), "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
+            auto assetbundle = SAssetBundle(nullptr, { core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) });
+            insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
         }
     }
 
@@ -84,7 +86,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     default_mtl_file->drop();
 
 
-    insertBuiltinAssetIntoCache(m_assetMgr, std::move(bundle), "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
+    insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
@@ -251,11 +253,11 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
                     }
                     ds3Layout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
                 }
-
-                layout = core::move_and_static_cast<ICPUPipelineLayout>(noUVLayout->clone(0u)); // clone at 0 depth
+                auto noUVLayoutClone = noUVLayout->clone(0u);// clone at 0 depth
+                layout = core::move_and_static_cast<ICPUPipelineLayout>(noUVLayoutClone); 
                 layout->setDescriptorSetLayout(3u,std::move(ds3Layout));
-
-                _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ layout }), pplnLayoutCacheKey, _ctx.inner, pipelineHLevel);
+                auto bundle = SAssetBundle(nullptr,{ layout });
+                _ctx.loaderOverride->insertAssetIntoCache(bundle, pplnLayoutCacheKey, _ctx.inner, pipelineHLevel);
             }
         }
 
@@ -667,7 +669,8 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         viewParams.image = std::move(image);
 
         views[i] = ICPUImageView::create(std::move(viewParams));
-        _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ views[i] }), viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+        auto bundle = SAssetBundle(nullptr,{ views[i] });
+        _ctx.loaderOverride->insertAssetIntoCache(bundle, viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
     }
 
     return views;

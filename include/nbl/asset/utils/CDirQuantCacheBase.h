@@ -8,7 +8,7 @@
 
 #include <iostream>
 #include <limits>
-
+#include <cmath>
 
 #include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
@@ -390,7 +390,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				//
 				const float maxDirectionComp = value[maxDirCompIndex];
 				//max component of 3d normal cannot be less than sqrt(1/D)
-				if (maxDirectionComp <= std::sqrtf(1.f/float(dimensions)))
+				if (maxDirectionComp <= sqrtf(1.f/float(dimensions)))
 				{
 					_NBL_DEBUG_BREAK_IF(true);
 					return core::vectorSIMDf(0.f);
