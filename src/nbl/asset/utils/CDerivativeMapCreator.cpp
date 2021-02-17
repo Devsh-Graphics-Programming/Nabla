@@ -45,7 +45,7 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 				{
 					preFilter(windowSample, relativePos, globalTexelCoord, userData);
 					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
-					for (int32_t i=0; i<MaxChannels; i++)
+					for (int32_t i=0; i< Kernel::MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
 						windowSample[i] *= _this->weight(relativePos.x, i);

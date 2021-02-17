@@ -48,6 +48,8 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 {
 	public:
 		using value_type = typename CFloatingPointOnlyImageFilterKernelBase::value_type;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
+
 	private:
 		using StaticPolymorphicBase = CImageFilterKernel<CRTP,value_type>;
 

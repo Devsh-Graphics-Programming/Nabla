@@ -56,6 +56,7 @@ class CChannelIndependentImageFilterKernelBase
 			kernels(std::move(kernels)...)
 		{
 		}
+		inline const IImageFilterKernel::ScaleFactorUserData* getScale() const { return haveScale? &scale : nullptr; }
 };
 
 }
@@ -94,9 +95,9 @@ class CChannelIndependentImageFilterKernel :
 		>;
 
 		template <E_CHANNEL ch>
-		kernel_t<ch>& getKernel() { return std::get<static_cast<size_t>(ch)>(base_t::Base::kernels); }
+		kernel_t<ch>& getKernel() { return std::get<static_cast<size_t>(ch)>(channel_indep_base_t::kernels); }
 		template <E_CHANNEL ch>
-		const kernel_t<ch>& getKernel() const { return std::get<static_cast<size_t>(ch)>(base_t::Base::kernels); }
+		const kernel_t<ch>& getKernel() const { return std::get<static_cast<size_t>(ch)>(channel_indep_base_t::kernels); }
 
 		static core::vectorSIMDf maxSupport(std::initializer_list<core::vectorSIMDf> ilist)
 		{
@@ -123,7 +124,7 @@ class CChannelIndependentImageFilterKernel :
 		{}
 
 		// pass on any scale
-		inline const IImageFilterKernel::UserData* getUserData() const { return base_t::Base::haveScale ? &base_t::Base::scale:nullptr; }
+		inline const IImageFilterKernel::UserData* getUserData() const { return channel_indep_base_t::getScale(); }
 
 		inline float weight(float x, int32_t channel) const
 		{
