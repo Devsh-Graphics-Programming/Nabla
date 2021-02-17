@@ -1468,7 +1468,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	return true;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLines(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLines(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
     if (_inIndexType == EIT_16BIT)
     {
@@ -1487,7 +1487,7 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLi
 	return nullptr;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
 	if (_inIndexType == EIT_16BIT)
     {
@@ -1506,7 +1506,7 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStrips
 	return nullptr;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
 	if (_inIndexType == EIT_16BIT)
     {

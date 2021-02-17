@@ -431,12 +431,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 	const size_t assetCount = std::distance(_begin, _end);
 	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUMeshBuffer> >(assetCount);
 
-    core::vector<const asset::ICPURenderpassIndependentPipeline*> cpuPipelines;
-    cpuPipelines.reserve(assetCount);
     core::vector<const asset::ICPUBuffer*> cpuBuffers;
     cpuBuffers.reserve(assetCount * (asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT+1u));
+    core::vector<const asset::ICPUSkeleton*> cpuSkeletons;
+    cpuSkeletons.reserve(assetCount);
     core::vector<const asset::ICPUDescriptorSet*> cpuDescSets;
     cpuDescSets.reserve(assetCount);
+    core::vector<const asset::ICPURenderpassIndependentPipeline*> cpuPipelines;
+    cpuPipelines.reserve(assetCount);
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
@@ -446,6 +448,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
             cpuPipelines.push_back(cpumb->getPipeline());
         if (cpumb->getAttachedDescriptorSet())
             cpuDescSets.push_back(cpumb->getAttachedDescriptorSet());
+
+        if (cpumb->getSkeleton())
+            cpuSkeletons.push_back(cpumb->getSkeleton());
 
         for (size_t b = 0ull; b < asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
@@ -458,15 +463,17 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 
     using redirs_t = core::vector<size_t>;
 
-    redirs_t pplnRedirs = eliminateDuplicatesAndGenRedirs(cpuPipelines);
     redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
+    redirs_t skelRedirs = eliminateDuplicatesAndGenRedirs(cpuSkeletons);
     redirs_t dsRedirs = eliminateDuplicatesAndGenRedirs(cpuDescSets);
+    redirs_t pplnRedirs = eliminateDuplicatesAndGenRedirs(cpuPipelines);
 
-    auto gpuPipelines = getGPUObjectsFromAssets<asset::ICPURenderpassIndependentPipeline>(cpuPipelines.data(), cpuPipelines.data()+cpuPipelines.size(), _params);
     auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size(), _params);
+    auto gpuSkeletons = getGPUObjectsFromAssets<asset::ICPUSkeleton>(cpuSkeletons.data(), cpuSkeletons.data()+cpuSkeletons.size(), _params);
     auto gpuDescSets = getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(cpuDescSets.data(), cpuDescSets.data()+cpuDescSets.size(), _params);
+    auto gpuPipelines = getGPUObjectsFromAssets<asset::ICPURenderpassIndependentPipeline>(cpuPipelines.data(), cpuPipelines.data()+cpuPipelines.size(), _params);
 
-    size_t pplnIter = 0ull, bufIter = 0ull, dsIter = 0ull;
+    size_t pplnIter = 0ull, dsIter = 0ull, skelIter = 0ull, bufIter = 0ull;
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         const asset::ICPUMeshBuffer* cpumb = _begin[i];
@@ -477,6 +484,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         IGPUDescriptorSet* gpuds = nullptr;
         if (cpumb->getAttachedDescriptorSet())
             gpuds = (*gpuDescSets)[dsRedirs[dsIter++]].get();
+        
+        IGPUSkeleton* gpuskel = nullptr;
+        if (cpumb->getSkeleton())
+            gpuskel = (*gpuSkeletons)[skelRedirs[skelIter++]].get();
 
         asset::SBufferBinding<IGPUBuffer> vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
         for (size_t b = 0ull; b < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
@@ -501,19 +512,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuppln_(gpuppln);
         core::smart_refctd_ptr<IGPUDescriptorSet> gpuds_(gpuds);
-        (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), vtxBindings, std::move(idxBinding));
+        core::smart_refctd_ptr<IGPUSkeleton> gpuskel_(gpuskel);
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), std::move(gpuskel_), vtxBindings, std::move(idxBinding));
         (*res)[i]->setBaseInstance(_begin[i]->getBaseInstance());
         (*res)[i]->setBaseVertex(_begin[i]->getBaseVertex());
         (*res)[i]->setIndexCount(_begin[i]->getIndexCount());
         (*res)[i]->setIndexType(_begin[i]->getIndexType());
         (*res)[i]->setInstanceCount(_begin[i]->getInstanceCount());
         memcpy((*res)[i]->getPushConstantsDataPtr(), _begin[i]->getPushConstantsDataPtr(), IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
-        //const core::aabbox3df oldBBox = cpumb->getBoundingBox();
-        //if (cpumb->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
-        //    cpumb->recalculateBoundingBox();
         (*res)[i]->setBoundingBox(cpumb->getBoundingBox());
-        //if (cpumb->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
-        //    cpumb->setBoundingBox(oldBBox);
     }
 
     return res;

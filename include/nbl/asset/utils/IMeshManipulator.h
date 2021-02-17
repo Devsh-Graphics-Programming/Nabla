@@ -16,6 +16,7 @@
 #include "nbl/asset/ICPUMesh.h"
 
 #include "nbl/asset/utils/CQuantNormalCache.h"
+//#include "nbl/asset/utils/CQuantQuaternionCache.h"
 
 namespace nbl
 {
@@ -159,7 +160,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 
 			const auto& vtxInputParams = ppln->getVertexInputParams();
 			uint32_t size = 0u;
-			for (size_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
+			for (uint32_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
 			if (vtxInputParams.enabledAttribFlags & (1u<<i))
 				size += asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vtxInputParams.attributes[i].format));
 			return size;
@@ -182,7 +183,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
         /**
@@ -191,7 +192,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
         /**
@@ -200,7 +201,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 		
 
 		//! Created duplicate of meshbuffer
@@ -370,9 +371,9 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			
 			auto impl = [meshbuffer,&retval](const auto* indexPtr) -> void
 			{
-				for (size_t j=0ull; j<meshbuffer->getIndexCount(); j++)
+				for (uint32_t j=0u; j<meshbuffer->getIndexCount(); j++)
 				{
-					size_t ix;
+					uint32_t ix;
 					if constexpr (std::is_void_v<std::remove_pointer_t<decltype(indexPtr)>>)
 						ix = j;
 					else
@@ -516,7 +517,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				ICPUMeshBuffer* cpumb = *it;
 
 				const auto indexType = cpumb->getIndexType();
-				size_t indexCount = cpumb->getIndexCount();
+				auto indexCount = cpumb->getIndexCount();
 
 				auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
 				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
@@ -632,6 +633,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 
 		//!
 		virtual CQuantNormalCache* getQuantNormalCache() = 0;
+		//virtual CQuantQuaternionCache* getQuantQuaternionCache() = 0;
 };
 
 } // end namespace scene

@@ -14,14 +14,14 @@ namespace asset
 {
 
 //! Where to move it so its not floating around scopeless?
-enum E_INDEX_TYPE
+enum E_INDEX_TYPE : uint32_t
 {
     EIT_16BIT = 0,
     EIT_32BIT,
     EIT_UNKNOWN
 };
 
-template <class BufferType, class DescSetType, class PipelineType>
+template <class BufferType, class DescSetType, class PipelineType, class SkeletonType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
 public:
@@ -33,32 +33,44 @@ public:
 protected:
     virtual ~IMeshBuffer() = default;
 
-    core::aabbox3df boundingBox;
+    alignas(32) core::aabbox3df boundingBox;
 
     SBufferBinding<BufferType> m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
     SBufferBinding<BufferType> m_indexBufferBinding;
 
+    //! Skeleton
+    core::smart_refctd_ptr<SkeletonType> m_skeleton;
+
     //! Descriptor set which goes to set=3
     core::smart_refctd_ptr<DescSetType> m_descriptorSet;
+
+    alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//by putting m_pushConstantsData here, alignas(64) takes no extra place
+
+    //! Pipeline for drawing
     core::smart_refctd_ptr<PipelineType> m_pipeline;
 
+    uint32_t maxJointsPerVx;
 	//indices
 	E_INDEX_TYPE indexType;
 	int32_t baseVertex;
-    alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//by putting m_pushConstantsData here, alignas(64) takes no extra place
-    uint64_t indexCount;
-    //
-    size_t instanceCount;
+    uint32_t indexCount;
+    // instances
+    uint32_t instanceCount;
     uint32_t baseInstance;
 
 public:
 	//! Constructor.
-	IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline, core::smart_refctd_ptr<DescSetType>&& _ds,
+	IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline,
+        core::smart_refctd_ptr<DescSetType>&& _ds,
+        core::smart_refctd_ptr<SkeletonType>&& _skeleton,
         SBufferBinding<BufferType> _vtxBindings[MAX_ATTR_BUF_BINDING_COUNT],
         SBufferBinding<BufferType>&& _indexBinding
-        ) : boundingBox(), m_indexBufferBinding(std::move(_indexBinding)), m_descriptorSet(std::move(_ds)), m_pipeline(std::move(_pipeline)),
-            indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
-            instanceCount(1ull), baseInstance(0u)
+    ) : boundingBox(), m_indexBufferBinding(std::move(_indexBinding)),
+        m_skeleton(),
+        m_descriptorSet(std::move(_ds)), m_pipeline(std::move(_pipeline)),
+        maxJointsPerVx(0u),
+        indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
+        instanceCount(1u), baseInstance(0u)
 	{
         if (_vtxBindings)
             std::copy(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
@@ -136,48 +148,58 @@ public:
     {
         return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_indexBufferBinding);
     }
-    inline const PipelineType* getPipeline() const
+
+    //!
+    inline const SkeletonType* getSkeleton() const
     {
-        return m_pipeline.get();
+        return m_skeleton.get();
     }
+
+    //! Returns max joint influences
+    inline auto getMaxJointsPerVertex() const { return maxJointsPerVx; }
+
+    //!
+    virtual inline bool isSkinned() const
+    {
+        return m_skeleton.get() && maxJointsPerVx>0u;
+    }
+
+    //!
     inline const DescSetType* getAttachedDescriptorSet() const
     {
         return m_descriptorSet.get();
     }
 
+    //!
+    inline const PipelineType* getPipeline() const
+    {
+        return m_pipeline.get();
+    }
+
 	//! Get type of index data which is stored in this meshbuffer.
 	/** \return Index type of this buffer. */
-	inline const E_INDEX_TYPE& getIndexType() const {return indexType;}
-	inline void setIndexType(const E_INDEX_TYPE& type)
+	inline E_INDEX_TYPE getIndexType() const {return indexType;}
+	inline void setIndexType(const E_INDEX_TYPE type)
 	{
 		indexType = type;
 	}
 
 	//! Get amount of indices in this meshbuffer.
 	/** \return Number of indices in this buffer. */
-	inline const uint64_t& getIndexCount() const {return indexCount;}
+	inline auto getIndexCount() const {return indexCount;}
 	//! It sets amount of indices - value that is being passed to glDrawArrays as vertices amount or to glDrawElements as index amount.
 	/** @returns Whether set amount exceeds mapped buffer's size. Regardless of result the amount is set. */
-	inline bool setIndexCount(const uint64_t &newIndexCount)
+	inline bool setIndexCount(const uint32_t newIndexCount)
 	{
-		/*
-		#ifdef _NBL_DEBUG
-			if (size<0x7fffffffffffffffuLL&&ixbuf&&(ixbuf->getSize()>size+offset))
-			{
-				os::Printer::log("MeshBuffer map vertex buffer overflow!\n",ELL_ERROR);
-				return;
-			}
-		#endif // _NBL_DEBUG
-		*/
         indexCount = newIndexCount;
         if (m_indexBufferBinding.buffer)
         {
             switch (indexType)
             {
                 case EIT_16BIT:
-                    return indexCount*2+m_indexBufferBinding.offset < m_indexBufferBinding.buffer->getSize();
+                    return indexCount*sizeof(uint16_t)+m_indexBufferBinding.offset < m_indexBufferBinding.buffer->getSize();
                 case EIT_32BIT:
-                    return indexCount*4+m_indexBufferBinding.offset < m_indexBufferBinding.buffer->getSize();
+                    return indexCount*sizeof(uint32_t)+m_indexBufferBinding.offset < m_indexBufferBinding.buffer->getSize();
                 default:
                     return false;
             }
@@ -188,21 +210,21 @@ public:
 
 	//! Accesses base vertex number.
 	/** @returns base vertex number. */
-    inline const int32_t& getBaseVertex() const {return baseVertex;}
+    inline int32_t getBaseVertex() const {return baseVertex;}
 	//! Sets base vertex.
-    inline void setBaseVertex(const int32_t& baseVx)
+    inline void setBaseVertex(const int32_t baseVx)
     {
         baseVertex = baseVx;
     }
 
-	inline size_t getInstanceCount() const {return instanceCount;}
-	inline void setInstanceCount(const size_t& count)
+	inline uint32_t getInstanceCount() const {return instanceCount;}
+	inline void setInstanceCount(const uint32_t count)
 	{
 		instanceCount = count;
 	}
 
 	inline uint32_t getBaseInstance() const {return baseInstance;}
-	inline void setBaseInstance(const uint32_t& base)
+	inline void setBaseInstance(const uint32_t base)
 	{
 		baseInstance = base;
 	}

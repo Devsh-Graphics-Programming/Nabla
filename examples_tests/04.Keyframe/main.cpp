@@ -111,7 +111,7 @@ int main()
 	}
 	const char* jointNames[] = {"root","bendy"};
 	auto skeleton = core::make_smart_refctd_ptr<asset::ICPUSkeleton>(std::move(parentIDs),std::move(inverseBindPoses),&jointNames[0],&jointNames[0]+kJointCount);
-	//auto gpuSkeleton = driver->getGPUObjectsFromAssets<asset::ICPUSkeleton>(&skeleton,&skeleton+1u); // TODO: Test conversion path, linker error
+	auto gpuSkeleton = driver->getGPUObjectsFromAssets<asset::ICPUSkeleton>(&skeleton,&skeleton+1u)->begin()[0];
 
 	//
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> mb;
@@ -182,7 +182,7 @@ int main()
 			
 		asset::SBufferBinding<video::IGPUBuffer> bindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
 		bindings[0u] = {0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(vertices),vertices)};
-		mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(pipeline),nullptr,bindings,asset::SBufferBinding<video::IGPUBuffer>{0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indices_indexed16),indices_indexed16)});
+		mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(pipeline),nullptr,std::move(gpuSkeleton),bindings,asset::SBufferBinding<video::IGPUBuffer>{0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indices_indexed16),indices_indexed16)});
 		{
 			mb->setIndexType(asset::EIT_16BIT);
 			mb->setIndexCount(2*3*6);
