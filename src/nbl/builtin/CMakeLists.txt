@@ -3,12 +3,10 @@ function(nbl_add_builtin_resources)
   foreach(X IN LISTS ARGV0)
     list(APPEND builtin_dependencies_list  ${CMAKE_SOURCE_DIR}/include/${X})
   endforeach()
-  list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py)
 
   add_custom_command(
-	OUTPUT "${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
+	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
     COMMENT "Generated built-in resources"
     DEPENDS ${builtin_dependencies_list}
