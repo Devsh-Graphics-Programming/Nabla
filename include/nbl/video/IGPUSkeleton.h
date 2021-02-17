@@ -18,10 +18,11 @@ class IGPUSkeleton final : public asset::ISkeleton<IGPUBuffer>
         using base_t = asset::ISkeleton<IGPUBuffer>;
 
     public:
-		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _inverseBindPosesBinding, const decltype(m_nameToJointID)& nameToJointIDMap) :
+		template<class Comparator>
+		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _inverseBindPosesBinding, const core::map<const char*,joint_id_t,Comparator>& nameToJointIDMap) :
 			base_t(std::move(_parentJointIDsBinding),std::move(_inverseBindPosesBinding),nameToJointIDMap.size())
 		{
-			base_t::setJointNames(nameToJointIDMap);
+			base_t::setJointNames<Comparator>(nameToJointIDMap);
 		}
 
 		template<typename NameIterator>

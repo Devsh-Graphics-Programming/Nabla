@@ -112,6 +112,7 @@ template created_gpu_object_array<asset::ICPUDescriptorSetLayout> IDriver::getGP
 template created_gpu_object_array<asset::ICPUSampler> IDriver::getGPUObjectsFromAssets<asset::ICPUSampler>(const asset::ICPUSampler* const* const, const asset::ICPUSampler* const* const, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(const asset::ICPUDescriptorSet* const* const, const asset::ICPUDescriptorSet* const* const, IGPUObjectFromAssetConverter* _converter);
 
+
 template<typename AssetType>
 created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter)
 {
@@ -136,6 +137,38 @@ template created_gpu_object_array<asset::ICPUDescriptorSetLayout> IDriver::getGP
 template created_gpu_object_array<asset::ICPUSampler> IDriver::getGPUObjectsFromAssets<asset::ICPUSampler>(const core::smart_refctd_ptr<asset::ICPUSampler>*, const core::smart_refctd_ptr<asset::ICPUSampler>*, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(const core::smart_refctd_ptr<asset::ICPUDescriptorSet>*, const core::smart_refctd_ptr<asset::ICPUDescriptorSet>*, IGPUObjectFromAssetConverter* _converter);
 
+
+// TODO: would be nice if something like this worked... eh might have to resort to a Macro
+#if 0
+template<typename AssetType>
+struct SingleFunctionInstantiator
+{
+protected:
+    static auto instantiate(IDriver* driver)
+    {
+        core::smart_refctd_ptr<AssetType> smartptr;
+
+        created_gpu_object_array<AssetType> retval = driver->getGPUObjectsFromAssets<AssetType>(core::SRange<const core::smart_refctd_ptr<asset::IAsset>>(nullptr, nullptr), nullptr);
+        retval = driver->getGPUObjectsFromAssets<AssetType>(&smartptr.get(), &smartptr.get(), nullptr);
+        retval = driver->getGPUObjectsFromAssets<AssetType>(&smartptr, &smartptr, nullptr);
+        return retval;
+    }
+};
+template<typename... AssetTypes>
+struct MultiFunctionInstantiator : public SingleFunctionInstantiator<AssetTypes>...
+{
+};
+
+template MultiFunctionInstantiator<asset::ICPUBuffer,
+    asset::ICPUShader, asset::ICPUImage, asset::ICPUSkeleton,
+    asset::ICPUSpecializedShader, asset::ICPUImageView, asset::ICPUSampler,
+    asset::ICPUDescriptorSetLayout,
+    asset::ICPUDescriptorSet, asset::ICPUPipelineLayout,
+    asset::ICPUComputePipeline, asset::ICPURenderpassIndependentPipeline,
+    asset::ICPUMeshBuffer,
+    asset::ICPUMesh
+>;
+#endif
 }
 }
 

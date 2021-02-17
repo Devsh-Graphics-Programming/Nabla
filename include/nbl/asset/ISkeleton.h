@@ -79,13 +79,14 @@ namespace asset
 			}
 
 			// map must contain one `const char*` per bone
-			inline void setJointNames(const decltype(m_nameToJointID)& nameToJointIDMap)
+			template<class Comparator>
+			inline void setJointNames(const core::map<const char*,joint_id_t,Comparator>& nameToJointIDMap)
 			{
 				clearNames();
 
 				// size the pool
 				for (const auto& mapping : nameToJointIDMap)
-					inName(mapping.first);
+					reserveName(mapping.first);
 				
 				// useless names
 				if (m_stringPoolSize==0ull)
@@ -106,7 +107,7 @@ namespace asset
 
 				// size the pool
 				for (auto it=begin; it!=end; it++)
-					inName(*it);
+					reserveName(*it);
 				
 				// useless names
 				if (m_stringPoolSize==0ull)
@@ -141,7 +142,7 @@ namespace asset
 				if (nameLen)
 					m_stringPoolSize += nameLen+1ull;
 			}
-			inline const char* insertName(const char* outName, const char* inName, joint_id_t jointID)
+			inline char* insertName(char* outName, const char* inName, joint_id_t jointID)
 			{
 				const char* name = outName;
 				while (*inName) {*(outName++) = *(inName++);}
