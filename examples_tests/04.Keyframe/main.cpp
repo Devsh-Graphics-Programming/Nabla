@@ -90,6 +90,30 @@ int main()
 	auto* smgr = device->getSceneManager();
 
 	//
+	constexpr uint32_t kJointCount = 2u;
+	asset::SBufferBinding<asset::ICPUBuffer> parentIDs,inverseBindPoses;
+	{
+		parentIDs.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUSkeleton)*kJointCount);
+		{
+			asset::ICPUSkeleton::joint_id_t parentJointIDs[] = { asset::ICPUSkeleton::invalid_joint_id,0u };
+			memcpy(parentIDs.buffer->getPointer(),parentJointIDs,sizeof(parentJointIDs));
+		}
+		inverseBindPoses.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(matrix3x4SIMD)*kJointCount);
+		{
+			auto* invBindPoses = reinterpret_cast<matrix3x4SIMD*>(inverseBindPoses.buffer->getPointer());
+			for (auto i=0u; i<kJointCount; i++)
+			{
+				matrix3x4SIMD tmp;
+				tmp.setTranslation(core::vectorSIMDf(0.f,float(i)*2.f-1.f,0.f));
+				tmp.getInverse(invBindPoses[i]);
+			}
+		}
+	}
+	const char* jointNames[] = {"root","bendy"};
+	auto skeleton = core::make_smart_refctd_ptr<asset::ICPUSkeleton>(std::move(parentIDs),std::move(inverseBindPoses),&jointNames[0],&jointNames[0]+kJointCount);
+	//auto gpuSkeleton = driver->getGPUObjectsFromAssets<asset::ICPUSkeleton>(&skeleton,&skeleton+1u); // TODO: Test conversion path, linker error
+
+	//
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> mb;
     {
         VertexStruct vertices[8];

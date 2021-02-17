@@ -22,10 +22,14 @@ namespace asset
 	class ISkeleton : public virtual core::IReferenceCounted
 	{
 		public:
-			using joint_id_t = uint32_t;
+			using joint_id_t = uint16_t;
 			_NBL_STATIC_INLINE_CONSTEXPR joint_id_t invalid_joint_id = 0xffffu;
 
 
+			inline const auto& getJointNameToIDMap() const
+			{
+				return m_nameToJointID;
+			}
 			inline joint_id_t getJointIDFromName(const char* jointName) const
 			{
 				auto found = m_nameToJointID.find(jointName);
@@ -34,9 +38,9 @@ namespace asset
 				return invalid_joint_id;
 			}
 
-			inline uint32_t getJointCount() const
+			inline joint_id_t getJointCount() const
 			{
-				return jointCount;
+				return m_jointCount;
 			}
 
 			inline SBufferBinding<BufferType>& getParentJointIDBinding()
@@ -59,10 +63,15 @@ namespace asset
 
 
 		protected:
-			ISkeleton(SBufferBinding<BufferType>&& _parentJointIDsBinding, SBufferBinding<BufferType>&& _inverseBindPosesBinding)
-				:	m_nameToJointID(), m_stringPoolSize(0ull), m_stringPool(nullptr), m_jointCount(0u),
+			ISkeleton(SBufferBinding<BufferType>&& _parentJointIDsBinding, SBufferBinding<BufferType>&& _inverseBindPosesBinding, joint_id_t _jointCount = 0u)
+				:	m_nameToJointID(), m_stringPoolSize(0ull), m_stringPool(nullptr), m_jointCount(_jointCount),
 					m_parentJointIDs(std::move(_parentJointIDsBinding)), m_inverseBindPoses(std::move(_inverseBindPosesBinding))
 			{
+				if (m_jointCount==0u)
+					return;
+
+				assert(m_parentJointIDs.buffer->getSize()>=m_parentJointIDs.offset+sizeof(joint_id_t)*m_jointCount);
+				assert(m_inverseBindPoses.buffer->getSize()>=m_inverseBindPoses.offset+sizeof(core::matrix3x4SIMD)*m_jointCount);
 			}
 			virtual ~ISkeleton()
 			{
@@ -121,9 +130,8 @@ namespace asset
 			size_t m_stringPoolSize;
 			char* m_stringPool;
 
-			uint32_t m_jointCount;
-
 			SBufferBinding<BufferType> m_parentJointIDs,m_inverseBindPoses;
+			joint_id_t m_jointCount;
 	};
 
 } // end namespace asset

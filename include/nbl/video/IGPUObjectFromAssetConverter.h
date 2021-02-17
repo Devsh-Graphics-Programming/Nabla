@@ -6,6 +6,8 @@
 #ifndef __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 
+#include <iterator>
+
 #include "nbl/core/core.h"
 #include "nbl/asset/asset.h"
 
@@ -83,6 +85,7 @@ class IGPUObjectFromAssetConverter
 		virtual ~IGPUObjectFromAssetConverter() = default;
 
 		inline virtual created_gpu_object_array<asset::ICPUBuffer>				            create(const asset::ICPUBuffer** const _begin, const asset::ICPUBuffer** const _end, const SParams& _params);
+		inline virtual created_gpu_object_array<asset::ICPUSkeleton>			            create(const asset::ICPUSkeleton** const _begin, const asset::ICPUSkeleton** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMeshBuffer>			            create(const asset::ICPUMeshBuffer** const _begin, const asset::ICPUMeshBuffer** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMesh>				            create(const asset::ICPUMesh** const _begin, const asset::ICPUMesh** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUImage>				            create(const asset::ICPUImage** const _begin, const asset::ICPUImage** const _end, const SParams& _params);
@@ -323,6 +326,103 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 
 		m_driver->updateBufferRangeViaStagingBuffer(gpubuffer.get(), output->getOffset(), _begin[i]->getSize(), _begin[i]->getPointer());
         output->setBuffer(core::smart_refctd_ptr(gpubuffer));
+    }
+
+    return res;
+}
+namespace impl
+{
+template<typename MapIterator>
+struct CustomBoneNameIterator
+{
+        inline CustomBoneNameIterator(const MapIterator& it) : m_it(it) {}
+        inline CustomBoneNameIterator(MapIterator&& it) : m_it(std::move(it)) {}
+
+        inline bool operator!=(const CustomBoneNameIterator<MapIterator>& other) const
+        {
+            return m_it!=other.m_it;
+        }
+
+        inline CustomBoneNameIterator<MapIterator>& operator++()
+        {
+            ++m_it;
+            return *this;
+        }
+        inline CustomBoneNameIterator<MapIterator> operator++(int)
+        {
+            return m_it++;
+        }
+
+        inline CustomBoneNameIterator<MapIterator> operator-(const CustomBoneNameIterator<MapIterator>& other) const
+        {
+            return m_it-other.m_it;
+        }
+
+        inline const auto& operator*() const
+        {
+            return m_it->first;
+        }
+        inline auto& operator*()
+        {
+            return m_it->first;
+        }
+
+        using iterator_category = typename std::iterator_traits<MapIterator>::iterator_category;
+        using difference_type = typename std::iterator_traits<MapIterator>::difference_type;
+        using value_type = const char*;
+        using reference = std::add_lvalue_reference_t<value_type>;
+        using pointer = std::add_pointer_t<value_type>;
+
+    private:
+        MapIterator m_it;
+};
+}
+auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, const asset::ICPUSkeleton** _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUSkeleton>
+{
+	const size_t assetCount = std::distance(_begin, _end);
+	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUSkeleton> >(assetCount);
+
+    core::vector<const asset::ICPUBuffer*> cpuBuffers;
+    cpuBuffers.reserve(assetCount*2u);
+
+    for (ptrdiff_t i=0u; i<assetCount; i++)
+    {
+        const asset::ICPUSkeleton* cpusk = _begin[i];
+        if (const asset::ICPUBuffer* buf = cpusk->getParentJointIDBinding().buffer.get())
+            cpuBuffers.push_back(buf);;
+        if (const asset::ICPUBuffer* buf = cpusk->getInverseBindPosesBinding().buffer.get())
+            cpuBuffers.push_back(buf);
+    }
+
+    using redirs_t = core::vector<size_t>;
+    redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
+
+    auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size(), _params);
+
+    size_t bufIter = 0ull;
+    for (ptrdiff_t i = 0u; i < assetCount; ++i)
+    {
+        const asset::ICPUSkeleton* cpusk = _begin[i];
+
+		asset::SBufferBinding<IGPUBuffer> parentJointIDBinding;
+        if (cpusk->getParentJointIDBinding().buffer)
+        {
+            parentJointIDBinding.offset = cpusk->getParentJointIDBinding().offset;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            parentJointIDBinding.offset += gpubuf->getOffset();
+            parentJointIDBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+        }
+		asset::SBufferBinding<IGPUBuffer> inverseBindPosesBinding;
+        if (cpusk->getInverseBindPosesBinding().buffer)
+        {
+            inverseBindPosesBinding.offset = cpusk->getInverseBindPosesBinding().offset;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            inverseBindPosesBinding.offset += gpubuf->getOffset();
+            inverseBindPosesBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+        }
+
+        const auto& nameMap = cpusk->getJointNameToIDMap();
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUSkeleton>(std::move(parentJointIDBinding),std::move(inverseBindPosesBinding),impl::CustomBoneNameIterator(nameMap.begin()),impl::CustomBoneNameIterator(nameMap.end()));
     }
 
     return res;

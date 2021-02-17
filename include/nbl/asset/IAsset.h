@@ -164,7 +164,7 @@ class IAsset : virtual public core::IReferenceCounted
 			Additionally the size is used to determine compression level while writing process is performed.
 			As you expect, the bigger the size returned the more likely it is to be compressed with a more expensive (slower) algorithm.
 		*/
-		virtual size_t conservativeSizeEstimate() const = 0;
+		virtual size_t conservativeSizeEstimate() const = 0; // TODO: this shouldn't be a method of IAsset but BlobSerializable ?
 
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;

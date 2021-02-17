@@ -7,6 +7,8 @@
 
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/video/IGPUMesh.h"
+#include "nbl/asset/ICPUSkeleton.h"
+#include "nbl/video/IGPUSkeleton.h"
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
@@ -81,6 +83,8 @@ template<>
 struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
 template<>
 struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
+template<>
+struct asset_traits<asset::ICPUSkeleton> { using GPUObjectType = video::IGPUSkeleton; };
 template<>
 struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
