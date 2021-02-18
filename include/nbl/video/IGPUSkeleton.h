@@ -19,15 +19,15 @@ class IGPUSkeleton final : public asset::ISkeleton<IGPUBuffer>
 
     public:
 		template<class Comparator>
-		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _inverseBindPosesBinding, const core::map<const char*,joint_id_t,Comparator>& nameToJointIDMap) :
-			base_t(std::move(_parentJointIDsBinding),std::move(_inverseBindPosesBinding),nameToJointIDMap.size())
+		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _defaultTransforms, const core::map<const char*,joint_id_t,Comparator>& nameToJointIDMap) :
+			base_t(std::move(_parentJointIDsBinding),std::move(_defaultTransforms),nameToJointIDMap.size())
 		{
 			base_t::setJointNames<Comparator>(nameToJointIDMap);
 		}
 
 		template<typename NameIterator>
-		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _inverseBindPosesBinding, NameIterator begin, NameIterator end) :
-			base_t(std::move(_parentJointIDsBinding),std::move(_inverseBindPosesBinding),std::distance(begin,end))
+		inline IGPUSkeleton(asset::SBufferBinding<IGPUBuffer>&& _parentJointIDsBinding, asset::SBufferBinding<IGPUBuffer>&& _defaultTransforms, NameIterator begin, NameIterator end) :
+			base_t(std::move(_parentJointIDsBinding),std::move(_defaultTransforms),std::distance(begin,end))
 		{
 			base_t::setJointNames<NameIterator>(begin,end);
 		}

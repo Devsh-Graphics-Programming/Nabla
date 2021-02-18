@@ -19,36 +19,46 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 		using base_t = ISkeleton<ICPUBuffer>;
 
 		template<typename NameIterator>
-		inline ICPUSkeleton(SBufferBinding<ICPUBuffer>&& _parentJointIDsBinding, SBufferBinding<ICPUBuffer>&& _inverseBindPosesBinding, NameIterator begin, NameIterator end) : base_t(std::move(_parentJointIDsBinding),std::move(_inverseBindPosesBinding),std::distance(begin,end))
+		inline ICPUSkeleton(SBufferBinding<ICPUBuffer>&& _parentJointIDsBinding, SBufferBinding<ICPUBuffer>&& _defaultTransforms, NameIterator begin, NameIterator end) :
+			base_t(std::move(_parentJointIDsBinding),std::move(_defaultTransforms),std::distance(begin,end))
 		{
 			base_t::setJointNames<NameIterator>(begin,end);
 		}
 		template<typename... Args>
 		inline ICPUSkeleton(Args&&... args) : base_t(std::forward<Args>(args)...) {}
 
-		//
-		inline const core::matrix3x4SIMD& getInversePoseBindMatrix(base_t::joint_id_t jointID) const
+		//!
+		inline const SBufferBinding<ICPUBuffer>& getParentJointIDBinding() const
 		{
-			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_inverseBindPoses.buffer->getPointer());
-			return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_inverseBindPoses.offset)[jointID];
-		}
-		inline core::matrix3x4SIMD& getInversePoseBindMatrix(base_t::joint_id_t jointID)
-		{
-			return const_cast<core::matrix3x4SIMD&>(const_cast<const ICPUSkeleton*>(this)->getInversePoseBindMatrix(jointID));
+			return m_parentJointIDs;
 		}
 
-		//
+		//!
+		inline const SBufferBinding<ICPUBuffer>& getDefaultTransformBinding() const
+		{
+			return m_defaultTransforms;
+		}
+
+		//!
+		inline const core::matrix3x4SIMD& getDefaultTransformMatrix(base_t::joint_id_t jointID) const
+		{
+			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_defaultTransforms.buffer->getPointer());
+			return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_defaultTransforms.offset)[jointID];
+		}
+		inline core::matrix3x4SIMD& getDefaultTransformMatrix(base_t::joint_id_t jointID)
+		{
+			assert(!isImmutable_debug());
+			return const_cast<core::matrix3x4SIMD&>(const_cast<const ICPUSkeleton*>(this)->getDefaultTransformMatrix(jointID));
+		}
+
+		//!
 		inline const base_t::joint_id_t& getParentJointID(base_t::joint_id_t jointID) const
 		{
 			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_parentJointIDs.buffer->getPointer());
 			return reinterpret_cast<const base_t::joint_id_t*>(ptr+m_parentJointIDs.offset)[jointID];
 		}
-		inline base_t::joint_id_t& getParentJointID(base_t::joint_id_t jointID)
-		{
-			return const_cast<base_t::joint_id_t&>(const_cast<const ICPUSkeleton*>(this)->getParentJointID(jointID));
-		}
 
-		//! Serializes mesh to blob for *.baw file format.
+		//! Serializes skeleton to blob for *.nbl file format.
 		/** @param _stackPtr Optional pointer to stack memory to write blob on. If _stackPtr==NULL, sufficient amount of memory will be allocated.
 			@param _stackSize Size of stack memory pointed by _stackPtr.
 			@returns Pointer to memory on which blob was written.
@@ -62,9 +72,9 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			SBufferBinding<ICPUBuffer> _parentJointIDsBinding = {m_parentJointIDs.offset,_depth>0u&&m_parentJointIDs.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_parentJointIDs.buffer->clone(_depth-1u)):m_parentJointIDs.buffer};
-			SBufferBinding<ICPUBuffer> _inverseBindPosesBinding = {m_inverseBindPoses.offset,_depth>0u&&m_inverseBindPoses.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_inverseBindPoses.buffer->clone(_depth-1u)):m_inverseBindPoses.buffer};
+			SBufferBinding<ICPUBuffer> _defaultTransformsBinding = { m_defaultTransforms.offset,_depth>0u&&m_defaultTransforms.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_defaultTransforms.buffer->clone(_depth-1u)):m_defaultTransforms.buffer};
 
- 			auto cp = core::make_smart_refctd_ptr<ICPUSkeleton>(std::move(_parentJointIDsBinding),std::move(_inverseBindPosesBinding),m_jointCount);
+ 			auto cp = core::make_smart_refctd_ptr<ICPUSkeleton>(std::move(_parentJointIDsBinding),std::move(_defaultTransformsBinding),m_jointCount);
 			clone_common(cp.get());
 			assert(!cp->m_stringPool);
 			cp->m_stringPoolSize = m_stringPoolSize;
@@ -83,8 +93,7 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			if (referenceLevelsBelowToConvert)
 			{
 				m_parentJointIDs.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				m_inverseBindPoses.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				// TODO: do we clear out the string pool and the name to bone ID mapping?
+				m_defaultTransforms.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			}
 		}
 
@@ -111,11 +120,11 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
                 return false;
             if (m_parentJointIDs.buffer && !m_parentJointIDs.buffer->canBeRestoredFrom(other->m_parentJointIDs.buffer.get()))
                 return false;
-            if (m_inverseBindPoses.offset != other->m_inverseBindPoses.offset)
+            if (m_defaultTransforms.offset != other->m_defaultTransforms.offset)
                 return false;
-            if ((!m_inverseBindPoses.buffer) != (!other->m_inverseBindPoses.buffer))
+            if ((!m_defaultTransforms.buffer) != (!other->m_defaultTransforms.buffer))
                 return false;
-            if (m_inverseBindPoses.buffer && !m_inverseBindPoses.buffer->canBeRestoredFrom(other->m_inverseBindPoses.buffer.get()))
+            if (m_defaultTransforms.buffer && !m_defaultTransforms.buffer->canBeRestoredFrom(other->m_defaultTransforms.buffer.get()))
                 return false;
 			if (m_jointCount != other->m_jointCount)
 				return false;
@@ -134,8 +143,8 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 				
                 if (m_parentJointIDs.buffer)
                     restoreFromDummy_impl_call(m_parentJointIDs.buffer.get(),other->m_parentJointIDs.buffer.get(),_levelsBelow);
-                if (m_inverseBindPoses.buffer)
-                    restoreFromDummy_impl_call(m_inverseBindPoses.buffer.get(),other->m_inverseBindPoses.buffer.get(),_levelsBelow);
+                if (m_defaultTransforms.buffer)
+                    restoreFromDummy_impl_call(m_defaultTransforms.buffer.get(),other->m_defaultTransforms.buffer.get(),_levelsBelow);
 			}
 		}
 
@@ -145,7 +154,7 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			if (m_parentJointIDs.buffer && m_parentJointIDs.buffer->isAnyDependencyDummy(_levelsBelow))
 					return true;
 
-			return m_inverseBindPoses.buffer && m_inverseBindPoses.buffer->isAnyDependencyDummy(_levelsBelow);
+			return m_defaultTransforms.buffer && m_defaultTransforms.buffer->isAnyDependencyDummy(_levelsBelow);
 		}
 };
 

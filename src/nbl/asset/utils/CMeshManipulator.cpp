@@ -25,7 +25,7 @@ namespace asset
 //! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
 //! triangles and vice versa.
 //! \param mesh: Mesh on which the operation is performed.
-void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
+void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer) 
 {
 	if (!inbuffer)
 		return;
@@ -128,7 +128,7 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
     }
 }
 
-core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer)
+core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer) // TODO: QA
 {
 	if (!_inbuffer || !_inbuffer->getPipeline() || !_inbuffer->getIndices())
 		return NULL;
@@ -250,7 +250,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 }
 
 //! Creates a copy of the mesh, which will only consist of unique primitives
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf) // TODO: QA
 {
 	if (!inbuffer)
 		return nullptr;
@@ -374,7 +374,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 }
 
 //
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(ICPUMeshBuffer* inbuffer, bool makeNewMesh, float epsilon, uint32_t normalAttrID, VxCmpFunction vxcmp)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(ICPUMeshBuffer* inbuffer, bool makeNewMesh, float epsilon, uint32_t normalAttrID, VxCmpFunction vxcmp) // TODO: QA
 {
 	if (inbuffer == nullptr)
 	{
@@ -439,7 +439,7 @@ static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb
 }
 
 //! Creates a copy of a mesh, which will have identical vertices welded together
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType, const bool& makeNewMesh)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType, const bool& makeNewMesh) // TODO: QA
 {
     if (!inbuffer)
         return nullptr;
@@ -499,7 +499,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
     for (auto i=0u; i<vertexCount; i++)
     {
         uint32_t redir = i;
-        for (auto j=0u; j<vertexCount; ++j) // TODO: Use spatial has for this like in the smooth normal computation @Przemog
+        for (auto j=0u; j<vertexCount; ++j) // TODO: Use spatial hash for this like in the smooth normal computation @Przemog
         {
             if (i == j)
                 continue;
@@ -582,7 +582,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
         return core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer);
 }
 
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric) // TODO: QA
 {
 	if (!_inbuffer)
 		return nullptr;
@@ -758,7 +758,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	return outbuffer;
 }
 
-void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric)
+void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) // TODO: QA
 {
     constexpr uint32_t MAX_ATTRIBS = ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT;
 
@@ -857,28 +857,35 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 }
 
 
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer* _src)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer* _src) // TODO: make protected or something?
 {
 	if (!_src)
 		return nullptr;
 
     // i know what im doing
     auto* mutableSrc = const_cast<ICPUMeshBuffer*>(_src);
-    auto* pipeline = mutableSrc->getPipeline();
-    auto* ds = mutableSrc->getAttachedDescriptorSet();
-    // make sure to not copy pipeline or ds, reset them later
-    mutableSrc->setPipeline(nullptr);
+    auto skeleton = core::smart_refctd_ptr<ICPUSkeleton>(mutableSrc->getSkeleton());
+    auto ds = core::smart_refctd_ptr<ICPUDescriptorSet>(mutableSrc->getAttachedDescriptorSet());
+    auto pipeline = core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(mutableSrc->getPipeline());
+    // make sure to not copy skeleton, ds or pipeline, reset them later
     mutableSrc->setAttachedDescriptorSet(nullptr);
-    // TODO: If I put per-vertex bone weights and boneIDs as SSBOs then we'll run into a problem
+    mutableSrc->setPipeline(nullptr);
 
-    constexpr uint32_t COPY_DEPTH = 1u; // copy buffers (but not pipeline or descriptor set because of previous trick)
+    // TODO: Figure out how to prevent a needless skeleton copy just to drop the skeleton copy later
+    constexpr uint32_t COPY_DEPTH = 1u; // copy buffers (but not skeleton, descriptor set or pipeline because of previous trick)
     auto dupl = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(_src->clone(COPY_DEPTH));
-    dupl->setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(pipeline));
-    dupl->setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>(ds));
+    dupl->setSkin(
+        asset::SBufferBinding(dupl->getInverseBindPoseBufferBinding()),
+        asset::SBufferBinding(dupl->getJointAABBBufferBinding()),
+        core::smart_refctd_ptr(skeleton),
+        _src->getMaxJointsPerVertex()
+    );
+    dupl->setPipeline(core::smart_refctd_ptr(pipeline));
+    dupl->setAttachedDescriptorSet(core::smart_refctd_ptr(ds));
 
     // i know what im doing
-    mutableSrc->setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(pipeline));
-    mutableSrc->setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>(ds));
+    mutableSrc->setPipeline(std::move(pipeline));
+    mutableSrc->setAttachedDescriptorSet(std::move(ds));
 
     return dupl;
 }
@@ -934,7 +941,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
 template void CMeshManipulator::_filterInvalidTriangles<uint16_t>(ICPUMeshBuffer* _input);
 template void CMeshManipulator::_filterInvalidTriangles<uint32_t>(ICPUMeshBuffer* _input);
 
-core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache)
+core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache) // TODO: QA
 {
 	if (!_meshbuffer->getPipeline())
         return {};
@@ -991,7 +998,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _o
 	return attribs;
 }
 
-core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric)
+core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric) // TODO: QA
 {
 	if (!_meshbuffer->getPipeline())
         return {};

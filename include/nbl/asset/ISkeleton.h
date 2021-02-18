@@ -43,35 +43,27 @@ namespace asset
 				return m_jointCount;
 			}
 
-			inline SBufferBinding<BufferType>& getParentJointIDBinding()
+			inline const SBufferBinding<const BufferType>& getParentJointIDBinding() const
 			{
-				return m_parentJointIDs;
-			}
-			inline const SBufferBinding<BufferType>& getParentJointIDBinding() const
-			{
-				return m_parentJointIDs;
+				return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_parentJointIDs);
 			}
 
-			inline SBufferBinding<BufferType>& getInverseBindPosesBinding()
+			inline const SBufferBinding<const BufferType>& getDefaultTransforms() const
 			{
-				return m_inverseBindPoses;
-			}
-			inline const SBufferBinding<BufferType>& getInverseBindPosesBinding() const
-			{
-				return m_inverseBindPoses;
+				return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_defaultTransforms);
 			}
 
 
 		protected:
-			ISkeleton(SBufferBinding<BufferType>&& _parentJointIDsBinding, SBufferBinding<BufferType>&& _inverseBindPosesBinding, joint_id_t _jointCount = 0u)
+			ISkeleton(SBufferBinding<BufferType>&& _parentJointIDsBinding, SBufferBinding<BufferType>&& _defaultTransforms, joint_id_t _jointCount = 0u)
 				:	m_nameToJointID(), m_stringPoolSize(0ull), m_stringPool(nullptr), m_jointCount(_jointCount),
-					m_parentJointIDs(std::move(_parentJointIDsBinding)), m_inverseBindPoses(std::move(_inverseBindPosesBinding))
+					m_parentJointIDs(std::move(_parentJointIDsBinding)), m_defaultTransforms(std::move(_defaultTransforms))
 			{
 				if (m_jointCount==0u)
 					return;
 
 				assert(m_parentJointIDs.buffer->getSize()>=m_parentJointIDs.offset+sizeof(joint_id_t)*m_jointCount);
-				assert(m_inverseBindPoses.buffer->getSize()>=m_inverseBindPoses.offset+sizeof(core::matrix3x4SIMD)*m_jointCount);
+				assert(m_defaultTransforms.buffer->getSize()>=m_defaultTransforms.offset+sizeof(core::matrix3x4SIMD)*m_jointCount);
 			}
 			virtual ~ISkeleton()
 			{
@@ -132,7 +124,7 @@ namespace asset
 			size_t m_stringPoolSize;
 			char* m_stringPool;
 
-			SBufferBinding<BufferType> m_parentJointIDs,m_inverseBindPoses;
+			SBufferBinding<BufferType> m_parentJointIDs,m_defaultTransforms;
 			joint_id_t m_jointCount;
 
 		private:

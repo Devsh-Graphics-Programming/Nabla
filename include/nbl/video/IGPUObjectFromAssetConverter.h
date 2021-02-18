@@ -389,8 +389,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, co
     {
         const asset::ICPUSkeleton* cpusk = _begin[i];
         if (const asset::ICPUBuffer* buf = cpusk->getParentJointIDBinding().buffer.get())
-            cpuBuffers.push_back(buf);;
-        if (const asset::ICPUBuffer* buf = cpusk->getInverseBindPosesBinding().buffer.get())
+            cpuBuffers.push_back(buf);
+        if (const asset::ICPUBuffer* buf = cpusk->getDefaultTransformBinding().buffer.get())
             cpuBuffers.push_back(buf);
     }
 
@@ -412,16 +412,16 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, co
             parentJointIDBinding.offset += gpubuf->getOffset();
             parentJointIDBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
         }
-		asset::SBufferBinding<IGPUBuffer> inverseBindPosesBinding;
-        if (cpusk->getInverseBindPosesBinding().buffer)
+		asset::SBufferBinding<IGPUBuffer> defaultTransformBinding;
+        if (cpusk->getDefaultTransformBinding().buffer)
         {
-            inverseBindPosesBinding.offset = cpusk->getInverseBindPosesBinding().offset;
+            defaultTransformBinding.offset = cpusk->getDefaultTransformBinding().offset;
             auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
-            inverseBindPosesBinding.offset += gpubuf->getOffset();
-            inverseBindPosesBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+            defaultTransformBinding.offset += gpubuf->getOffset();
+            defaultTransformBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
         }
 
-        (*res)[i] = core::make_smart_refctd_ptr<IGPUSkeleton>(std::move(parentJointIDBinding),std::move(inverseBindPosesBinding),cpusk->getJointNameToIDMap());
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUSkeleton>(std::move(parentJointIDBinding),std::move(defaultTransformBinding),cpusk->getJointNameToIDMap());
     }
 
     return res;
@@ -449,6 +449,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         if (cpumb->getAttachedDescriptorSet())
             cpuDescSets.push_back(cpumb->getAttachedDescriptorSet());
 
+        if (const asset::ICPUBuffer* buf = cpumb->getInverseBindPoseBufferBinding().buffer.get())
+            cpuBuffers.push_back(buf);
+        if (const asset::ICPUBuffer* buf = cpumb->getJointAABBBufferBinding().buffer.get())
+            cpuBuffers.push_back(buf);
         if (cpumb->getSkeleton())
             cpuSkeletons.push_back(cpumb->getSkeleton());
 
@@ -485,6 +489,22 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         if (cpumb->getAttachedDescriptorSet())
             gpuds = (*gpuDescSets)[dsRedirs[dsIter++]].get();
         
+		asset::SBufferBinding<IGPUBuffer> invBindPoseBinding;
+        if (cpumb->getInverseBindPoseBufferBinding().buffer)
+        {
+            invBindPoseBinding.offset = cpumb->getInverseBindPoseBufferBinding().offset;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            invBindPoseBinding.offset += gpubuf->getOffset();
+            invBindPoseBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+        }
+		asset::SBufferBinding<IGPUBuffer> jointAABBBinding;
+        if (cpumb->getJointAABBBufferBinding().buffer)
+        {
+            jointAABBBinding.offset = cpumb->getJointAABBBufferBinding().offset;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            jointAABBBinding.offset += gpubuf->getOffset();
+            jointAABBBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+        }
         IGPUSkeleton* gpuskel = nullptr;
         if (cpumb->getSkeleton())
             gpuskel = (*gpuSkeletons)[skelRedirs[skelIter++]].get();
@@ -513,14 +533,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuppln_(gpuppln);
         core::smart_refctd_ptr<IGPUDescriptorSet> gpuds_(gpuds);
         core::smart_refctd_ptr<IGPUSkeleton> gpuskel_(gpuskel);
-        (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), std::move(gpuskel_), vtxBindings, std::move(idxBinding));
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), vtxBindings, std::move(idxBinding));
+        (*res)[i]->setBoundingBox(cpumb->getBoundingBox());
+        memcpy((*res)[i]->getPushConstantsDataPtr(), _begin[i]->getPushConstantsDataPtr(), IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
+        (*res)[i]->setSkin(std::move(invBindPoseBinding),std::move(jointAABBBinding),std::move(gpuskel_),core::min(cpumb->getMaxJointsPerVertex(),cpumb->deduceMaxJointsPerVertex()));
         (*res)[i]->setBaseInstance(_begin[i]->getBaseInstance());
         (*res)[i]->setBaseVertex(_begin[i]->getBaseVertex());
         (*res)[i]->setIndexCount(_begin[i]->getIndexCount());
-        (*res)[i]->setIndexType(_begin[i]->getIndexType());
         (*res)[i]->setInstanceCount(_begin[i]->getInstanceCount());
-        memcpy((*res)[i]->getPushConstantsDataPtr(), _begin[i]->getPushConstantsDataPtr(), IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
-        (*res)[i]->setBoundingBox(cpumb->getBoundingBox());
+        (*res)[i]->setIndexType(_begin[i]->getIndexType());
     }
 
     return res;

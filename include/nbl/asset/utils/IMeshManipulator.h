@@ -357,20 +357,32 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		}
 
 		//! Calculates bounding box of the meshbuffer
-		static inline core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* meshbuffer)
+		static inline core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* meshbuffer, core::aabbox3df* outJointAABBs=nullptr)
 		{
-			core::aabbox3df retval;
-			retval.reset(core::vector3df(0.f));
+			core::aabbox3df aabb(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
 			if (!meshbuffer->getPipeline())
-				return retval;
+				return aabb;
 			
 			auto posAttrId = meshbuffer->getPositionAttributeIx();
 			const ICPUBuffer* mappedAttrBuf = meshbuffer->getAttribBoundBuffer(posAttrId).buffer.get();
 			if (posAttrId >= ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
-				return retval;
+				return aabb;
 			
-			auto impl = [meshbuffer,&retval](const auto* indexPtr) -> void
+			const bool computeJointAABBs = outJointAABBs&&meshbuffer->isSkinned();
+			const auto* skeleton = meshbuffer->getSkeleton();
+			if (computeJointAABBs)
+			for (auto i=0u; i<meshbuffer->getSkeleton()->getJointCount(); i++)
+				outJointAABBs[i] = aabb;
+
+			auto impl = [meshbuffer,&aabb,skeleton](const auto* indexPtr, auto* jointAABBs) -> void
 			{
+				const uint32_t jointCount = skeleton ? skeleton->getJointCount():0u;
+				const auto jointIDAttr = meshbuffer->getJointIDAttributeIx();
+				const auto jointWeightAttrId = meshbuffer->getJointWeightAttributeIx();
+				const auto maxInfluences = core::min(meshbuffer->deduceMaxJointsPerVertex(), meshbuffer->getMaxJointsPerVertex());
+				const uint32_t maxWeights = skeleton ? getFormatChannelCount(meshbuffer->getAttribFormat(jointWeightAttrId)):0u;
+				const auto* inverseBindPoses = meshbuffer->getInverseBindPoses();
+
 				for (uint32_t j=0u; j<meshbuffer->getIndexCount(); j++)
 				{
 					uint32_t ix;
@@ -378,34 +390,62 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 						ix = j;
 					else
 						ix = indexPtr[j];
+					const auto pos = meshbuffer->getPosition(ix);
+					
+					if constexpr (!std::is_void_v<std::remove_pointer_t<decltype(jointAABBs)>>)
+					{
+						uint32_t jointIDs[4u];
+						meshbuffer->getAttribute(jointIDs,jointIDAttr,ix);
+						core::vectorSIMDf weights;
+						meshbuffer->getAttribute(weights,jointWeightAttrId,ix);
+						float weightRemainder = 1.f;
+						for (auto i=0u; i<maxInfluences; i++)
+						{
+							if (jointIDs[i]<jointCount)
+							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
+							{
+								core::vectorSIMDf boneSpacePos;
+								inverseBindPoses[i].transformVect(boneSpacePos,pos);
+								jointAABBs[jointIDs[i]].addInternalPoint(boneSpacePos.getAsVector3df());
+							}
+							weightRemainder -= weights[i];
+						}
+					}
 
-
-					if (j)
-						retval.addInternalPoint(meshbuffer->getPosition(ix).getAsVector3df());
-					else
-						retval.reset(meshbuffer->getPosition(ix).getAsVector3df());
+					aabb.addInternalPoint(pos.getAsVector3df());
 				}
 			};
+
 			const void* indices = meshbuffer->getIndices();
+			void* void_null = nullptr;
 			switch (meshbuffer->getIndexType())
 			{
 				case EIT_32BIT:
-					impl(reinterpret_cast<const uint32_t*>(indices));
+					if (computeJointAABBs)
+						impl(reinterpret_cast<const uint32_t*>(indices),outJointAABBs);
+					else
+						impl(reinterpret_cast<const uint32_t*>(indices),void_null);
 					break;
 				case EIT_16BIT:
-					impl(reinterpret_cast<const uint16_t*>(indices));
+					if (computeJointAABBs)
+						impl(reinterpret_cast<const uint16_t*>(indices),outJointAABBs);
+					else
+						impl(reinterpret_cast<const uint16_t*>(indices),void_null);
 					break;
 				default:
-					impl(reinterpret_cast<const void*>(0ull));
+					if (computeJointAABBs)
+						impl(void_null,outJointAABBs);
+					else
+						impl(void_null,void_null);
 					break;
 			}
-			return retval;
+			return aabb;
 		}
 
 		//! Recalculates the cached bounding box of the meshbuffer
 		static inline void recalculateBoundingBox(ICPUMeshBuffer* meshbuffer)
 		{
-			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer));
+			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer,meshbuffer->getJointAABBs()));
 		}
 
 		//! Flips the direction of surfaces.
@@ -611,12 +651,9 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		template<typename T>
 		static inline core::aabbox3df calculateBoundingBox(const IMesh<T>* mesh)
 		{
-			core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);;
+			core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 			auto meshbuffers = mesh->getMeshBuffers();
-			if (meshbuffers.empty())
-				aabb.reset(0.0f,0.0f,0.0f);
-			else
 			for (auto mesh : meshbuffers)
 				aabb.addInternalBox(mesh->getBoundingBox());
 			
