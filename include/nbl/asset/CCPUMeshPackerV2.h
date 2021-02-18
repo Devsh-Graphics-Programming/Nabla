@@ -82,14 +82,21 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                 if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                     return false;
 
+                const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
                 //should I cashe it?
-                const uint32_t attribSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
+                const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
                 const uint32_t currBatchOffset = verticesAddedCnt * attribSize;
 
                 uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset + currBatchOffset;
                 deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
 
-                cdotOut->attribOffset[location] = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
+                auto vtxFormatInfo = virtualAttribConfig.map.find(attribFormat);
+
+                if (vtxFormatInfo == virtualAttribConfig.map.end())
+                    return false;
+
+                cdotOut->attribInfo[location].arrayElement = vtxFormatInfo->second.second;
+                cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
             }
 
             verticesAddedCnt += usedVertices.size();

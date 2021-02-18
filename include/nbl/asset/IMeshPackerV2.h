@@ -43,13 +43,13 @@ public:
 
     struct VirtualAttribute
     {
-        uint32_t binding;
-        E_FORMAT format;
+        uint32_t arrayElement : 4;
+        uint32_t offset : 28;
     };
 
     struct CombinedDataOffsetTable
     {
-        size_t attribOffset[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
+        VirtualAttribute attribInfo[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
     };
 
     struct PackerDataStore : base_t::template PackerDataStoreCommon<BufferType>
@@ -157,11 +157,88 @@ protected:
     core::vector<VirtualAttribute> virtualAttribTable;
     uint16_t enabledAttribFlagsCombined = 0u;
 
+    enum class E_UTB_ARRAY_TYPE
+    {
+        EUAT_FLOAT,
+        EUAT_INT,
+        EUAT_UINT,
+        EUAT_UNKNOWN
+    };
+
+    struct VirtualAttribConfig
+    {
+        core::unordered_map<E_FORMAT, std::pair<E_UTB_ARRAY_TYPE, uint32_t>> map;
+        uint16_t floatArrayElementsCnt = 0u;
+        uint16_t intArrayElementsCnt   = 0u;
+        uint16_t uintArrayElementsCnt  = 0u;
+
+        inline bool insertAttribFormat(E_FORMAT format)
+        {
+            auto lookupResult = map.find(format);
+            if (lookupResult != map.end())
+                return true;
+
+            E_UTB_ARRAY_TYPE utbArrayType = getUTBArrayTypeFromFormat(format);
+
+            //TODO:
+            //if it falils then state of mesh packer is invalid.. maybe return iterator to the inserted element, store array of these iterators in `alloc`
+            //and remove all inserted elements when this function returns false
+            uint16_t arrayElement = 0u;
+            switch (utbArrayType)
+            {
+            case E_UTB_ARRAY_TYPE::EUAT_FLOAT:
+                arrayElement = floatArrayElementsCnt;
+                floatArrayElementsCnt++;
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_INT:
+                arrayElement = intArrayElementsCnt;
+                intArrayElementsCnt++;
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_UINT:
+                arrayElement = uintArrayElementsCnt;
+                uintArrayElementsCnt++;
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_UNKNOWN:
+                assert(false);
+                return false;
+            }
+
+            map.insert(std::make_pair(format, std::make_pair(utbArrayType, arrayElement)));
+
+            return true;
+        }
+
+    private:
+
+        inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
+        {
+            //TODO: moar formats!
+            switch (format)
+            {
+            case EF_R32G32B32_SFLOAT:
+            case EF_R32G32_SFLOAT:
+                return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
+            case EF_A2B10G10R10_SNORM_PACK32:
+                return E_UTB_ARRAY_TYPE::EUAT_INT;
+
+            default:
+                return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
+            }
+        }
+
+    };
+
+    VirtualAttribConfig virtualAttribConfig;
 
     PackerDataStore m_packerDataStore;
     const AllocationParams m_allocParams;
 
 };
+
+//TODO: check if offset < 2^28-1
 
 template <typename MeshBufferType, typename BufferType, typename MDIStructType>
 template <typename MeshBufferIterator>
@@ -198,20 +275,9 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
 
             ramb.attribAllocParams[location].size = maxVtxCnt * attribSize;
 
-            enabledAttribFlagsCombined |= mbVtxInputParams.enabledAttribFlags;
+            virtualAttribConfig.insertAttribFormat(attribFormat);
 
-            if (virtualAttribTable.empty())
-            {
-                virtualAttribTable.push_back({ 0u, attribFormat });
-                continue;
-            }
-
-            auto compareFormat = [&](const VirtualAttribute& vattr) { return vattr.format == attribFormat; };
-            if (std::find_if(virtualAttribTable.begin(), virtualAttribTable.end(), compareFormat) == virtualAttribTable.end())
-            {
-                //binding swapping is inevitable in some cases, so I will just create new bindings instead of trying to preserve original bindings
-                virtualAttribTable.push_back({ static_cast<uint32_t>(virtualAttribTable.size()), attribFormat });
-            }
+            //TODO: reset state when allocation fails
         }
 
         //allocate MDI structs

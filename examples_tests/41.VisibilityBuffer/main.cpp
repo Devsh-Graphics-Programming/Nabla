@@ -21,7 +21,7 @@ constexpr const char* SHADER_OVERRIDES =
 R"(
 #define _NBL_VERT_INPUTS_DEFINED_
 
-//#define nbl_glsl_VirtualAttribute_t uint
+#define nbl_glsl_VirtualAttribute_t uint
 
 vec4 nbl_glsl_decodeRGB10A2_UNORM(in uint x)
 {
@@ -39,28 +39,18 @@ vec4 nbl_glsl_decodeRGB10A2_SNORM(in uint x)
 }
 
 //pos
-layout(set = 0, binding = 0) uniform samplerBuffer MeshPackedData_R32G32B32_SFLOAT;
+layout(set = 0, binding = 0) uniform samplerBuffer MeshPackedDataFloat[2];
 
 //uv
-layout(set = 0, binding = 1) uniform samplerBuffer MeshPackedData_R32G32_SFLOAT;
+layout(set = 0, binding = 1) uniform isamplerBuffer MeshPackedDataInt[1];
 
 //normal
-layout(set = 0, binding = 2) uniform usamplerBuffer MeshPackedData_A2B10G10R10_SNORM_PACK32;
+layout(set = 0, binding = 2) uniform usamplerBuffer MeshPackedDataUint[1];
 
-layout(set = 0, binding = 3) readonly buffer VertexDataOffsetTable
+layout(set = 0, binding = 3) readonly buffer VirtualAttributes
 {
-    int dataOffsetTable[];
-} vertexPosition;
-
-layout(set = 0, binding = 4) readonly buffer VertexUVOffsetTable
-{
-    int dataOffsetTable[];
-} vertexUV;
-
-layout(set = 0, binding = 5) readonly buffer VertexNormalOffsetTable
-{
-    int dataOffsetTable[];
-} vertexNormal;
+    nbl_glsl_VirtualAttribute_t vAttr[][3];
+} virtualAttribTable;
 
 #define _NBL_BASIC_VTX_ATTRIB_FETCH_FUCTIONS_DEFINED_
 #define _NBL_POS_FETCH_FUNCTION_DEFINED
@@ -73,31 +63,40 @@ layout(set = 0, binding = 5) readonly buffer VertexNormalOffsetTable
 //vec3 nbl_glsl_readAttrib(uint offset) 
 //..
 
-vec3 nbl_glsl_fetchVtxPos()
+struct VirtualAttribute
 {
-    int vtxPosOffset = int(gl_VertexIndex) + vertexPosition.dataOffsetTable[gl_DrawID];
-    return texelFetch(MeshPackedData_R32G32B32_SFLOAT, vtxPosOffset).xyz;
+    uint binding;
+    int offset;
+};
+
+VirtualAttribute unpackVirtualAttribute(in nbl_glsl_VirtualAttribute_t vaPacked)
+{
+    VirtualAttribute result;
+    result.binding = bitfieldExtract(vaPacked, 0, 4);
+    result.offset = int(bitfieldExtract(vaPacked, 4, 28));
+    
+    return result;
 }
 
-vec2 nbl_glsl_fetchVtxUV()
+vec3 nbl_glsl_fetchVtxPos(in uint vtxID)
 {
-    int vtxUVOffset = int(gl_VertexIndex) + vertexUV.dataOffsetTable[gl_DrawID];
-    return texelFetch(MeshPackedData_R32G32_SFLOAT, vtxUVOffset).xy;
+    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[gl_DrawID][0]);
+    return texelFetch(MeshPackedDataFloat[va.binding], va.offset + int(vtxID)).xyz;
 }
 
-vec3 nbl_glsl_fetchVtxNormal()
+vec2 nbl_glsl_fetchVtxUV(in uint vtxID)
 {
-    int vtxNormOffset = int(gl_VertexIndex) + vertexNormal.dataOffsetTable[gl_DrawID];
-    return normalize(nbl_glsl_decodeRGB10A2_SNORM(texelFetch(MeshPackedData_A2B10G10R10_SNORM_PACK32, vtxNormOffset).x).xyz);
+    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[gl_DrawID][1]);
+    return texelFetch(MeshPackedDataFloat[va.binding], va.offset + int(vtxID)).xy;
+}
+
+vec3 nbl_glsl_fetchVtxNormal(in uint vtxID)
+{
+    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[gl_DrawID][2]);
+    return nbl_glsl_decodeRGB10A2_SNORM(texelFetch(MeshPackedDataUint[va.binding], va.offset + int(vtxID)).x).xyz;
 }
 
 )";
-
-struct DataOffsetTable
-{
-    uint32_t binding;
-    asset::SBufferBinding<IGPUBuffer> offsetBuffer;
-};
 
 core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedVertexShader(const asset::ICPUSpecializedShader* _fs)
 {
@@ -136,8 +135,7 @@ struct DrawIndexedIndirectInput
     size_t countOffset = 0u;
 };
 
-
-void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>& meshBuffers, DrawIndexedIndirectInput& output, std::array<DataOffsetTable, 3>& offsetTable)
+void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>& meshBuffers, DrawIndexedIndirectInput& output, core::smart_refctd_ptr<IGPUBuffer>& virtualAttribTableOut)
 {
     using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 
@@ -155,63 +153,65 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>&
 
     bool allocSuccessfull = mp.alloc(allocData.data(), meshBuffers.begin(), meshBuffers.end());
     if (!allocSuccessfull)
+    {
         std::cout << "Alloc failed \n";
+        _NBL_DEBUG_BREAK_IF(true);
+    }
+        
 
     mp.instantiateDataStorage();
     MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
 
     core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(meshBuffers.size());
-    
-    const uint32_t offsetTableSz = mp.calcDataTableNeededSize(meshBuffers.begin(), meshBuffers.end());
+
+    const uint32_t offsetTableSz = meshBuffers.size() * 3u;
     core::vector<MeshPacker::CombinedDataOffsetTable> cdot(offsetTableSz);
 
-    mp.commit(pmbd.data(), cdot.data(), allocData.data(), meshBuffers.begin(), meshBuffers.end());
+    bool commitSuccessfull = mp.commit(pmbd.data(), cdot.data(), allocData.data(), meshBuffers.begin(), meshBuffers.end());
+    if (!commitSuccessfull)
+    {
+        std::cout << "Commit failed \n";
+        _NBL_DEBUG_BREAK_IF(true);
+    }
 
     output.vtxBuffer = { 0ull, driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.vertexBuffer->getSize(), packerDataStore.vertexBuffer->getPointer()) };
     output.idxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.indexBuffer->getSize(), packerDataStore.indexBuffer->getPointer());
     output.indirectDrawBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.MDIDataBuffer->getSize(), packerDataStore.MDIDataBuffer->getPointer());
 
-    output.maxCount = offsetTableSz;
+    output.maxCount = meshBuffers.size();   //TODO
     output.stride = sizeof(DrawElementsIndirectCommand_t);
 
-    auto glsl = mp.generateGLSLBufferDefinitions(0u);
+    //auto glsl = mp.generateGLSLBufferDefinitions(0u);
 
-    /*DrawElementsIndirectCommand_t* mdiPtr = static_cast<DrawElementsIndirectCommand_t*>(packerDataStore.MDIDataBuffer->getPointer());
+    //setOffsetTables
+
+    core::vector<MeshPacker::VirtualAttribute> offsetTableLocal;
+    offsetTableLocal.reserve(meshBuffers.size() * 3u);
+    for (uint32_t i = 0u; i < meshBuffers.size(); i++)
+    {
+        MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[i];
+        
+        offsetTableLocal.push_back(virtualAttribTable.attribInfo[0]);
+        offsetTableLocal.push_back(virtualAttribTable.attribInfo[2]);
+        offsetTableLocal.push_back(virtualAttribTable.attribInfo[3]);
+    }
+
+    /*DrawElementsIndirectCommand_t* mdiPtr = static_cast<DrawElementsIndirectCommand_t*>(packerDataStore.MDIDataBuffer->getPointer()) + 99u;
     uint16_t* idxBuffPtr = static_cast<uint16_t*>(packerDataStore.indexBuffer->getPointer());
     float* vtxBuffPtr = static_cast<float*>(packerDataStore.vertexBuffer->getPointer());
 
-    for (uint32_t i = 0u; i < 1188; i++)
+    for (uint32_t i = 0u; i < 264; i++)
     {
-        float* firstCoord = vtxBuffPtr + (*(idxBuffPtr + i) * 3u);
+        float* firstCoord = vtxBuffPtr + ((*(idxBuffPtr + i) + cdot[99].attribInfo[0].offset) * 3u);
         std::cout << "vtx: " << i << " idx: " << *(idxBuffPtr + i) << "    ";
         std::cout << *firstCoord << ' ' << *(firstCoord + 1u) << ' ' << *(firstCoord + 2u) << std::endl;
     }*/
 
-    //setOffsetTables
-
-    core::vector<uint32_t> offsetTableLocal(offsetTableSz);
-
-    for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
-        offsetTableLocal[i] = cdot[i].attribOffset[0];
-
-    offsetTable[0].offsetBuffer.offset = 0u;
-    offsetTable[0].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
-
-    for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
-        offsetTableLocal[i] = cdot[i].attribOffset[1];
-
-    offsetTable[1].offsetBuffer.offset = 0u;
-    offsetTable[1].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
-
-    for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
-        offsetTableLocal[i] = cdot[i].attribOffset[2];
-
-    offsetTable[2].offsetBuffer.offset = 0u;
-    offsetTable[2].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
+    virtualAttribTableOut = driver->createFilledDeviceLocalGPUBufferOnDedMem(offsetTableLocal.size(), offsetTableLocal.data());
 }
 
 void setPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs,
-    core::smart_refctd_ptr<IGPUBuffer>& vtxBuffer, core::smart_refctd_ptr<IGPUBuffer>& outputUBO, std::array<DataOffsetTable, 3>& dataOffsetBuffers,
+    core::smart_refctd_ptr<IGPUBuffer>& vtxBuffer, core::smart_refctd_ptr<IGPUBuffer>& outputUBO, core::smart_refctd_ptr<IGPUBuffer>& virtualAttribBuffer,
     core::smart_refctd_ptr<IGPUDescriptorSet>& outputGPUDescriptorSet0,
     core::smart_refctd_ptr<IGPUDescriptorSet>& outputGPUDescriptorSet1,
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>& outputGpuPipeline)
@@ -222,16 +222,19 @@ void setPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecialize
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds0Layout;
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds1Layout;
     {
-        IGPUDescriptorSetLayout::SBinding b[6];
-        b[0].binding = 0u; b[1].binding = 1u; b[2].binding = 2u; b[3].binding = 3u; b[4].binding = 4u; b[5].binding = 5u;
+        IGPUDescriptorSetLayout::SBinding b[4];
+        b[0].binding = 0u; b[1].binding = 1u; b[2].binding = 2u; b[3].binding = 3u;
         b[0].type = b[1].type = b[2].type = EDT_UNIFORM_TEXEL_BUFFER;
-        b[3].type = b[4].type = b[5].type = EDT_STORAGE_BUFFER;
-        b[0].stageFlags = b[1].stageFlags = b[2].stageFlags = b[3].stageFlags = b[4].stageFlags = b[5].stageFlags = ISpecializedShader::ESS_VERTEX;
-        b[0].count = b[1].count = b[2].count = b[3].count = b[4].count = b[5].count = 1u;
-        ds0Layout = driver->createGPUDescriptorSetLayout(b, b + 6u);
+        b[3].type = EDT_STORAGE_BUFFER;
+        b[0].stageFlags = b[1].stageFlags = b[2].stageFlags = b[3].stageFlags = ISpecializedShader::ESS_VERTEX;
+        b[0].count = 2u;
+        b[1].count = 1u;
+        b[2].count = 1u;
+        b[3].count = 1u;
+        ds0Layout = driver->createGPUDescriptorSetLayout(b, b + 4u);
 
         IGPUDescriptorSetLayout::SBinding b2;
-        b2.binding = 0;
+        b2.binding = 0u;
         b2.type = EDT_UNIFORM_BUFFER;
         b2.stageFlags = ISpecializedShader::ESS_VERTEX;
         b2.count = 1u;
@@ -244,48 +247,46 @@ void setPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecialize
     outputGPUDescriptorSet0 = driver->createGPUDescriptorSet(std::move(ds0Layout));
     outputGPUDescriptorSet1 = driver->createGPUDescriptorSet(std::move(ds1Layout));
     {
-        IGPUDescriptorSet::SWriteDescriptorSet w[6];
-        w[0].arrayElement = w[1].arrayElement = w[2].arrayElement = w[3].arrayElement = w[4].arrayElement = w[5].arrayElement = 0u;
-        w[0].count = w[1].count = w[2].count = w[3].count = w[4].count = w[5].count = 1u;
-        w[0].binding = 0u; w[1].binding = 1u; w[2].binding = 2u; w[3].binding = 3u; w[4].binding = 4u; w[5].binding = 4u;
-        w[0].descriptorType = w[1].descriptorType = w[2].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
-        w[3].descriptorType = w[4].descriptorType = w[5].descriptorType = EDT_STORAGE_BUFFER;
+        IGPUDescriptorSet::SWriteDescriptorSet w[5];
+        w[0].arrayElement = 0u;
+        w[1].arrayElement = 1u;
+        w[2].arrayElement = 0u;
+        w[3].arrayElement = 0u;
+        w[4].arrayElement = 0u;
+        w[0].count = w[1].count = w[2].count = w[3].count = w[4].count = 1u;
+        w[0].binding = 0u; w[1].binding = 0u; w[2].binding = 1u; w[3].binding = 2u; w[4].binding = 3u;
+        w[0].descriptorType = w[1].descriptorType = w[2].descriptorType = w[3].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+        w[4].descriptorType = EDT_STORAGE_BUFFER;
         w[0].dstSet = w[1].dstSet = w[2].dstSet = w[3].dstSet = w[4].dstSet = w[5].dstSet = outputGPUDescriptorSet0.get();
 
-        IGPUDescriptorSet::SDescriptorInfo info[6];
+        IGPUDescriptorSet::SDescriptorInfo info[5];
 
         info[0].buffer.offset = 0u;
         info[0].buffer.size = vtxBuffer->getSize();
         info[0].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32G32B32_SFLOAT);
         info[1].buffer.offset = 0u;
         info[1].buffer.size = vtxBuffer->getSize();
-        info[1].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32G32_SFLOAT);
+        info[1].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32G32B32_SFLOAT);
         info[2].buffer.offset = 0u;
         info[2].buffer.size = vtxBuffer->getSize();
-        info[2].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32_UINT);
+        info[2].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32G32_SFLOAT);
+        info[3].buffer.offset = 0u;
+        info[3].buffer.size = vtxBuffer->getSize();
+        info[3].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32_UINT);
 
         //sampler buffers
         w[0].info = &info[0];
         w[1].info = &info[1];
         w[2].info = &info[2];
-
-        //offset tables
-        info[3].buffer.offset = dataOffsetBuffers[0].offsetBuffer.offset;
-        info[3].buffer.size = dataOffsetBuffers[0].offsetBuffer.buffer->getSize();
-        info[3].desc = core::smart_refctd_ptr(dataOffsetBuffers[0].offsetBuffer.buffer);
         w[3].info = &info[3];
 
-        info[4].buffer.offset = dataOffsetBuffers[1].offsetBuffer.offset;
-        info[4].buffer.size = dataOffsetBuffers[1].offsetBuffer.buffer->getSize();
-        info[4].desc = core::smart_refctd_ptr(dataOffsetBuffers[1].offsetBuffer.buffer);
+        //offset tables
+        info[4].buffer.offset = 0u;
+        info[4].buffer.size = virtualAttribBuffer->getSize();
+        info[4].desc = core::smart_refctd_ptr(virtualAttribBuffer);
         w[4].info = &info[4];
 
-        info[5].buffer.offset = dataOffsetBuffers[2].offsetBuffer.offset;
-        info[5].buffer.size = dataOffsetBuffers[2].offsetBuffer.buffer->getSize();
-        info[5].desc = core::smart_refctd_ptr(dataOffsetBuffers[2].offsetBuffer.buffer);
-        w[5].info = &info[5];
-
-        driver->updateDescriptorSets(6u, w, 0u, nullptr);
+        driver->updateDescriptorSets(5u, w, 0u, nullptr);
 
         IGPUDescriptorSet::SWriteDescriptorSet w2;
         w2.arrayElement = 0u;
@@ -381,11 +382,11 @@ int main()
         auto* vtxShader = pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX);
         core::smart_refctd_ptr<ICPUSpecializedShader> vs = createModifiedVertexShader(vtxShader);
         ICPUSpecializedShader* fs = IAsset::castDown<ICPUSpecializedShader>(am->getAsset("../shader.frag", lp).getContents().begin()->get());
-        std::array<DataOffsetTable, 3> offsetTable;
+        core::smart_refctd_ptr<IGPUBuffer> virtualAttribTable;
 
-        packMeshBuffers(driver, meshBuffers, mdiCallParams, offsetTable);
+        packMeshBuffers(driver, meshBuffers, mdiCallParams, virtualAttribTable);
 
-        setPipeline(driver, vs.get(), fs, mdiCallParams.vtxBuffer.buffer, ubo, offsetTable, ds0, ds1, gpuPipeline);
+        setPipeline(driver, vs.get(), fs, mdiCallParams.vtxBuffer.buffer, ubo, virtualAttribTable, ds0, ds1, gpuPipeline);
     }
 
     //! we want to move around the scene and view it from different angles
