@@ -29,7 +29,7 @@ struct uvec4 {
 class FFT : public core::TotalInterface
 {
 	public:
-		struct alignas(16) Parameters_t  : nbl_glsl_ext_FFT_Parameters_t {
+		struct Parameters_t  : nbl_glsl_ext_FFT_Parameters_t {
 		};
 
 		enum class Direction : uint8_t {

@@ -384,9 +384,9 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 
 	struct
 	{
-		float time;
-		dimension2du size;
 		FFT::Parameters_t params;
+		dimension2du size;
+		float time;
 	} pc;
 	pc.time = time;
 	pc.size = m_params.size;
