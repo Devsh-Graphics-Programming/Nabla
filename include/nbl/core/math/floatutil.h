@@ -427,6 +427,7 @@ class Float16Compressor
 		}
 };
 
+// TODO: @Crisspl lets make the `rgb18e7s3` format and refactor some of this shared exponent magic
 inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
 {
 	union rgb19e7 {

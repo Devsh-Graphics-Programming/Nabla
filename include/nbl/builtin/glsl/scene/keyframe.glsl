@@ -9,23 +9,23 @@
 
 struct nbl_glsl_scene_Keyframe_t
 {
-	uint data[9];
+	uvec2 data[3];
 };
 
 
 vec3 nbl_glsl_scene_Keyframe_t_getScale(in nbl_glsl_scene_Keyframe_t keyframe)
 {
-	return uintBitsToFloat(uvec3(keyframe.data[0],keyframe.data[1],keyframe.data[2]));
+	return nbl_glsl_decodeRGB18E7S3(keyframe.data[3]);
 }
 
 nbl_glsl_quaternion_t nbl_glsl_scene_Keyframe_t_getRotation(in nbl_glsl_scene_Keyframe_t keyframe)
 {
-	return nbl_glsl_quaternion_t_constructFromTruncated(uintBitsToFloat(uvec3(keyframe.data[3],keyframe.data[4],keyframe.data[5])));
+	return {nbl_glsl_decode8888Quaternion(keyframe.data[1][1])};
 }
 
 vec3 nbl_glsl_scene_Keyframe_t_getTranslation(in nbl_glsl_scene_Keyframe_t keyframe)
 {
-	return uintBitsToFloat(uvec3(keyframe.data[6],keyframe.data[7],keyframe.data[8]));
+	return uintBitsToFloat(uvec3(keyframe.data[0].xy, keyframe.data[1][0]));
 }
 
 

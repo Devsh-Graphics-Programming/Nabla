@@ -22,6 +22,28 @@ vec3 nbl_glsl_decodeRGB19E7(in uvec2 x)
 	return v*scale;
 }
 
+vec3 nbl_glsl_decodeRGB18E7S3(in uvec2 x)
+{
+	int exp = int(bitfieldExtract(x[nbl_glsl_RGB18E7S3_COMPONENT_INDICES[3]], nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS[3], nbl_glsl_RGB18E7S3_EXPONENT_BITS) - nbl_glsl_RGB18E7S3_EXP_BIAS - nbl_glsl_RGB18E7S3_MANTISSA_BITS);
+	float scale = exp2(float(exp));
+	
+	vec3 v;
+	v.x = float(bitfieldExtract(x[nbl_glsl_RGB18E7S3_COMPONENT_INDICES[0]], nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS[0], nbl_glsl_RGB18E7S3_MANTISSA_BITS));
+	v.y = float(bitfieldInsert(
+		bitfieldExtract(x[nbl_glsl_RGB18E7S3_COMPONENT_INDICES[1]], nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS[1], nbl_glsl_RGB18E7S3_G_COMPONENT_SPLIT),
+		bitfieldExtract(x[nbl_glsl_RGB18E7S3_COMPONENT_INDICES[2]], 0, nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS[2]),
+		nbl_glsl_RGB18E7S3_G_COMPONENT_SPLIT,
+		nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS[2]
+	));
+	v.z = float(bitfieldExtract(x[nbl_glsl_RGB18E7S3_COMPONENT_INDICES[2]], nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS[2], nbl_glsl_RGB18E7S3_MANTISSA_BITS));
+	
+	uvec3 signs = x.yyy<<uvec3(2u,1u,0u);
+	signs &= 0x80000000u;
+	v = uintBitsToFloat(floatBitsToUint(v)^signs);
+
+	return v*scale;
+}
+
 vec4 nbl_glsl_decodeRGB10A2(in uint x)
 {
 	const uvec3 rgbMask = uvec3(0x3ffu);
