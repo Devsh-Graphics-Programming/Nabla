@@ -353,11 +353,6 @@ struct CustomBoneNameIterator
             return m_it++;
         }
 
-        inline CustomBoneNameIterator<MapIterator> operator-(const CustomBoneNameIterator<MapIterator>& other) const
-        {
-            return m_it-other.m_it;
-        }
-
         inline const auto& operator*() const
         {
             return m_it->first;
