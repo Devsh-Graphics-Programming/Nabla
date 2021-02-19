@@ -102,7 +102,7 @@ bool WaveSimApp::CreateComputePipelines()
 		ANIMATE_STAGE_1,
 		ANIMATE_STAGE_2
 	};
-	
+
 	auto createShader = [&](EPipeline type)
 	{
 		switch (type)
@@ -122,7 +122,7 @@ bool WaveSimApp::CreateComputePipelines()
 		case EPipeline::ANIMATE_STAGE_1:
 		{
 			const char* sourceFmt =
-R"===(#version 450
+				R"===(#version 450
 
 #define USE_SSBO_FOR_INPUT 1
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
@@ -157,13 +157,46 @@ R"===(#version 450
 		}
 		case EPipeline::ANIMATE_STAGE_2:
 		{
+			const char* sourceFmt =
+				R"===(#version 450
 
+#define USE_SSBO_FOR_INPUT 1
+#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
+#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
+#define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
+ 
+#include "../animate_2.comp"
+
+)===";
+			const size_t extraSize = 128;
+			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
+			uint32_t maxPaddedDimensionSize = std::max(m_params.height, m_params.width);
+			const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
+			auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
+			snprintf(
+				reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), sourceFmt,
+				DEFAULT_WORK_GROUP_SIZE,
+				maxPaddedDimensionSize,
+				maxItemsPerThread
+			);
+
+			auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+				core::make_smart_refctd_ptr<ICPUShader>(std::move(shader), ICPUShader::buffer_contains_glsl),
+				ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE }
+			);
+
+			auto gpuShader = m_driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+
+			auto gpuSpecializedShader = m_driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+
+			return gpuSpecializedShader;
 		}
 		}
 	};
 
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> init_ds_layout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ift_x_ds_layout;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> init_ds_layout;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ift_x_ds_layout;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ift_y_ds_layout;
 	{
 		IGPUDescriptorSetLayout::SBinding texture_bindings[1];
 		texture_bindings[0].binding = 0;
@@ -197,6 +230,23 @@ R"===(#version 450
 
 		ift_x_ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 3);
 		m_animating_1_descriptor_set = m_driver->createGPUDescriptorSet(ift_x_ds_layout);
+	}
+	{
+		IGPUDescriptorSetLayout::SBinding texture_bindings[2];
+		texture_bindings[0].binding = 0;
+		texture_bindings[0].type = EDT_STORAGE_BUFFER;
+		texture_bindings[0].count = 1u;
+		texture_bindings[0].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
+		texture_bindings[0].samplers = nullptr;
+
+		texture_bindings[1].binding = 1;
+		texture_bindings[1].type = EDT_STORAGE_IMAGE;
+		texture_bindings[1].count = 1u;
+		texture_bindings[1].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
+		texture_bindings[1].samplers = nullptr;
+
+		ift_y_ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 2);
+		m_animating_2_descriptor_set = m_driver->createGPUDescriptorSet(ift_y_ds_layout);
 	}
 
 	auto createComputePipeline = [&](EPipeline pipeline_type)
@@ -239,6 +289,21 @@ R"===(#version 450
 						nullptr);
 				}
 				break;
+				case EPipeline::ANIMATE_STAGE_2:
+				{
+					ds_layout = ift_y_ds_layout;
+					asset::SPushConstantRange range;
+					range.size = sizeof(ext::FFT::FFT::Parameters_t);
+					range.offset = 0u;
+					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+					layout = m_driver->createGPUPipelineLayout(&range,
+						&range + 1,
+						std::move(ds_layout),
+						nullptr,
+						nullptr,
+						nullptr);
+				}
+				break;
 				}
 
 			}
@@ -252,8 +317,10 @@ R"===(#version 450
 	};
 	m_spectrum_randomizing_pipeline = createComputePipeline(EPipeline::SPECTRUM_RANDOMIZE);
 	m_animating_pipeline_1 = createComputePipeline(EPipeline::ANIMATE_STAGE_1);
+	m_animating_pipeline_2 = createComputePipeline(EPipeline::ANIMATE_STAGE_2);
 	return m_spectrum_randomizing_pipeline.get() != nullptr &&
-		m_animating_pipeline_1.get() != nullptr;
+		m_animating_pipeline_1.get() != nullptr &&
+		m_animating_pipeline_2.get() != nullptr;
 }
 
 WaveSimApp::textureView WaveSimApp::CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format) const
@@ -350,7 +417,7 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 	using namespace ext::FFT;
 	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
 	const uint32_t OUT_SSBO_SIZE = m_params.width * m_params.height * 2 * sizeof(float);
- 	auto animated_data_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(OUT_SSBO_SIZE);
+	auto animated_data_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(OUT_SSBO_SIZE);
 	auto ifft_x_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(OUT_SSBO_SIZE);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write[3];
@@ -360,62 +427,115 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		write[0].count = 1;
 		write[0].arrayElement = 0u;
 		write[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+		write[0].info = info;
 		info[0].desc = h0;
 		info[0].buffer = { 0, IN_SSBO_SIZE };
-		write[0].info = info;
 
 		write[1] = write[0];
 		write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
 		write[1].binding = 1u;
+		write[1].info = info + 1;
 		info[1].desc = animated_data_buffer;
 		info[1].buffer = { 0, OUT_SSBO_SIZE };
-		write[1].info = info + 1;
 
 		write[2] = write[0];
 		write[2].descriptorType = asset::EDT_STORAGE_BUFFER;
 		write[2].binding = 2u;
+		write[2].info = info + 2;
 		info[2].desc = ifft_x_buffer;
 		info[2].buffer = { 0, OUT_SSBO_SIZE };
-		write[2].info = info + 2;
-
 
 		m_driver->updateDescriptorSets(3u, write, 0u, nullptr);
 	}
-
-	struct
 	{
-		FFT::Parameters_t params;
-		dimension2du size;
-		float time;
-	} pc;
-	pc.time = time;
-	pc.size = m_params.size;
-	uint8_t isInverse_u8 = true;
-	uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::X);
-	uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
+		struct
+		{
+			FFT::Parameters_t params;
+			dimension2du size;
+			float time;
+		} pc;
+		pc.time = time;
+		pc.size = m_params.size;
+		uint8_t isInverse_u8 = true;
+		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::X);
+		uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
 
-	uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
+		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
 
-	pc.params.dimension.x = m_params.width;
-	pc.params.dimension.y = m_params.height;
-	pc.params.dimension.z = 1;
-	pc.params.dimension.w = packed;
-	pc.params.padded_dimension = uvec3{ pc.params.dimension.x, 
-										pc.params.dimension.y, 
-										pc.params.dimension.z };
-	auto dispatch_info = FFT::buildParameters({ pc.params.dimension.x,
-												pc.params.dimension.y,
-												pc.params.dimension.z }, FFT::Direction::X, 1);
+		pc.params.dimension.x = m_params.width;
+		pc.params.dimension.y = m_params.height;
+		pc.params.dimension.z = 1;
+		pc.params.dimension.w = packed;
+		pc.params.padded_dimension = uvec3{ pc.params.dimension.x,
+											pc.params.dimension.y,
+											pc.params.dimension.z };
+		auto dispatch_info = FFT::buildParameters({ pc.params.dimension.x,
+													pc.params.dimension.y,
+													pc.params.dimension.z }, FFT::Direction::X, 1);
 
-	auto ds = m_animating_1_descriptor_set.get();
-	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_1->getLayout(), 0u, 1u, &ds, nullptr);
-	m_driver->bindComputePipeline(m_animating_pipeline_1.get());
-	m_driver->pushConstants(m_animating_pipeline_1->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
-	while(m_device->run())
-	{
+		auto ds = m_animating_1_descriptor_set.get();
+		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_1->getLayout(), 0u, 1u, &ds, nullptr);
+		m_driver->bindComputePipeline(m_animating_pipeline_1.get());
+		m_driver->pushConstants(m_animating_pipeline_1->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
+		//while(m_device->run())
+
 		m_driver->beginScene(true);
 		m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
 		m_driver->endScene();
+	}
+
+	{
+		video::IGPUDescriptorSet::SWriteDescriptorSet write[2];
+		video::IGPUDescriptorSet::SDescriptorInfo info[2];
+		write[0].dstSet = m_animating_2_descriptor_set.get();
+		write[0].binding = 0u;
+		write[0].count = 1;
+		write[0].arrayElement = 0u;
+		write[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+		write[0].info = info;
+		info[0].desc = ifft_x_buffer;
+		info[0].buffer = { 0, OUT_SSBO_SIZE };
+
+		write[1] = write[0];
+		write[1].descriptorType = asset::EDT_STORAGE_IMAGE;
+		write[1].binding = 1u;
+		write[1].info = info + 1;
+		info[1].desc = out;
+		info[1].image = { nullptr, EIL_UNDEFINED };
+
+		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
+	}
+
+	{
+		FFT::Parameters_t params;
+		uint8_t isInverse_u8 = true;
+		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::Y);
+		uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
+
+		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
+
+		params.dimension.x = m_params.width;
+		params.dimension.y = m_params.height;
+		params.dimension.z = 1;
+		params.dimension.w = packed;
+		params.padded_dimension = uvec3{	params.dimension.x,
+											params.dimension.y,
+											params.dimension.z };
+		auto dispatch_info = FFT::buildParameters({ params.dimension.x,
+													params.dimension.y,
+													params.dimension.z }, FFT::Direction::Y, 1);
+
+
+		auto ds = m_animating_2_descriptor_set.get();
+		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_2->getLayout(), 0u, 1u, &ds, nullptr);
+		m_driver->bindComputePipeline(m_animating_pipeline_2.get());
+		m_driver->pushConstants(m_animating_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(params), &params);
+		//while (m_device->run())
+		{
+			m_driver->beginScene(true);
+			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
+			m_driver->endScene();
+		}
 	}
 }
 
@@ -443,7 +563,7 @@ void WaveSimApp::Run()
 	float i = 1;
 	while (m_device->run())
 	{
-		GetAnimatedHeightMap(initial_values, animated_part, i+= 0.1f);
-		//PresentWaves(animated_part);
+		GetAnimatedHeightMap(initial_values, animated_part, i += 0.1f);
+		PresentWaves(animated_part);
 	}
 }
