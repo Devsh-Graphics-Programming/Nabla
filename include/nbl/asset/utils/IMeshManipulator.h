@@ -391,7 +391,8 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 					else
 						ix = indexPtr[j];
 					const auto pos = meshbuffer->getPosition(ix);
-					
+
+					bool noJointInfluence = true;
 					if constexpr (!std::is_void_v<std::remove_pointer_t<decltype(jointAABBs)>>)
 					{
 						uint32_t jointIDs[4u];
@@ -407,12 +408,14 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 								core::vectorSIMDf boneSpacePos;
 								inverseBindPoses[i].transformVect(boneSpacePos,pos);
 								jointAABBs[jointIDs[i]].addInternalPoint(boneSpacePos.getAsVector3df());
+								noJointInfluence = false;
 							}
 							weightRemainder -= weights[i];
 						}
 					}
-
-					aabb.addInternalPoint(pos.getAsVector3df());
+					
+					if (noJointInfluence)
+						aabb.addInternalPoint(pos.getAsVector3df());
 				}
 			};
 
