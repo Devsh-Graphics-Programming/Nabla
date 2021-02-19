@@ -80,7 +80,14 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             jointIDAttrId = MAX_VERTEX_ATTRIB_COUNT;
             jointWeightAttrId = MAX_VERTEX_ATTRIB_COUNT;
         }
-        using base_t::base_t;
+        template<typename... Args>
+        ICPUMeshBuffer(Args&&... args) : base_t(std::forward<Args>(args)...)
+        {
+            posAttrId = 0u;
+            normalAttrId = MAX_VERTEX_ATTRIB_COUNT;
+            jointIDAttrId = MAX_VERTEX_ATTRIB_COUNT;
+            jointWeightAttrId = MAX_VERTEX_ATTRIB_COUNT;
+        }
 
         virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
         {
