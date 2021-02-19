@@ -138,7 +138,7 @@ namespace nbl
 			}
 		}
 
-		CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::ICPUMeshBuffer * buffer, float epsilon)
+		CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const asset::ICPUMeshBuffer* buffer, float epsilon)
 		{
 			const size_t idxCount = buffer->getIndexCount();
 			_NBL_DEBUG_BREAK_IF((idxCount % 3));

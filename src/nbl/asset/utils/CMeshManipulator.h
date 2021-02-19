@@ -49,7 +49,7 @@ class CMeshManipulator : public IMeshManipulator
 		static void _filterInvalidTriangles(ICPUMeshBuffer* _input);
 
 		//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
-		static inline core::smart_refctd_ptr<ICPUBuffer> create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, uint32_t _idxCount)
 		{
 			if (!_in)
 				return nullptr;
@@ -58,7 +58,7 @@ class CMeshManipulator : public IMeshManipulator
 
 			auto* outPtr = reinterpret_cast<uint32_t*>(out->getPointer());
 
-			for (size_t i = 0; i < _idxCount; ++i)
+			for (uint32_t i=0u; i<_idxCount; ++i)
 				outPtr[i] = _in[i];
 
 			return out;
@@ -135,8 +135,8 @@ class CMeshManipulator : public IMeshManipulator
 			return output;
 		}
 
-	private:
-			CQuantNormalCache quantNormalCache;
+	private:	
+		CQuantNormalCache quantNormalCache;
 };
 
 } // end namespace scene

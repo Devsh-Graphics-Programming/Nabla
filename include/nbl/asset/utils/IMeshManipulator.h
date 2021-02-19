@@ -202,10 +202,6 @@ class IMeshManipulator : public virtual core::IReferenceCounted
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
         static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-		
-
-		//! Created duplicate of meshbuffer
-		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferDuplicate(const ICPUMeshBuffer* _src);
 
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
@@ -611,21 +607,6 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				cpumb->setIndexType(outIndexType);
 				params.primitiveType = _newPrimitiveType;
 			}
-		}
-
-
-		//! Creates Mesh Duplicate
-		static inline core::smart_refctd_ptr<ICPUMesh> createMeshDuplicate(const ICPUMesh* _src)
-		{
-			if (!_src)
-				return nullptr;
-	
-			core::smart_refctd_ptr<ICPUMesh> dst = core::make_smart_refctd_ptr<ICPUMesh>();
-			auto& dstMeshBuffers = dst->getMeshBufferVector();
-			for (auto meshbuffer : _src->getMeshBuffers())
-				dstMeshBuffers.emplace_back(createMeshBufferDuplicate(meshbuffer));
-
-			return dst;
 		}
 
 		//! Get amount of polygons in mesh.
