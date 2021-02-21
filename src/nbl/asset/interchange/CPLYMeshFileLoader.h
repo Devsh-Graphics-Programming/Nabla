@@ -58,7 +58,7 @@ private:
 
 	void initialize();
 
-	const std::string getPipelineCacheKey(E_TYPE type, bool indexBufferBindingAvailable) 
+	static const std::string getPipelineCacheKey(E_TYPE type, bool indexBufferBindingAvailable) 
 	{
 		auto getTypeHash = [&]() -> std::string
 		{
@@ -66,6 +66,8 @@ private:
 
 			switch (type)
 			{
+				case ET_POS:
+					return "nbl/builtin/pipeline/loader/PLY/only_position_attribute/";
 				case ET_COL:
 					return "nbl/builtin/pipeline/loader/PLY/color_attribute/";
 				case ET_UV:
@@ -172,8 +174,6 @@ private:
 		IAssetLoader::SAssetLoadContext inner;
 		uint32_t topHierarchyLevel;
 		IAssetLoader::IAssetLoaderOverride* loaderOverride;
-		
-		core::vector<uint32_t> hashes4pplns;
 
         core::vector<std::unique_ptr<SPLYElement>> ElementList;
 	

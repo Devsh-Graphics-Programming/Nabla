@@ -28,11 +28,12 @@ CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr)
 	: IRenderpassIndependentPipelineLoader(_m_assetMgr), m_assetMgr(_m_assetMgr)
 {
 	initialize();
-	IRenderpassIndependentPipelineLoader::initialize();
 }
 
 void CSTLMeshFileLoader::initialize()
 {
+	IRenderpassIndependentPipelineLoader::initialize();
+
 	auto precomputeAndCachePipeline = [&](bool withColorAttribute)
 	{
 		auto getShaderDefaultPaths = [&]() -> std::pair<std::string_view, std::string_view>
@@ -102,7 +103,7 @@ void CSTLMeshFileLoader::initialize()
 
 			SRasterizationParams rastarizationParmas;
 
-			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas); // TODO: @Crisspl/@Anastazluk pipeline should also be builtin because no need to customize the metadata anymore
+			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 			{
 				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
 				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
@@ -253,14 +254,18 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	auto vertexBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize * positions.size());
 
-	uint32_t normal{};
+	using quant_normal_t = CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>;
+
+	quant_normal_t normal;
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
 		if (i % 3 == 0)
 			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
 		uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i * vtxSize;
 		memcpy(ptr, positions[i].pointer, 3 * 4);
-		((uint32_t*)(ptr + 12))[0] = normal;
+
+		((quant_normal_t*)((uint32_t*)(ptr + 12)))[0] = normal;
+
 		if (hasColor)
 			memcpy(ptr + 16, colors.data() + i / 3, 4);
 	}

@@ -17,7 +17,7 @@ using namespace core;
 	Define below to write assets
 */
 
-//#define WRITE_ASSETS
+// #define WRITE_ASSETS
 
 int main()
 {

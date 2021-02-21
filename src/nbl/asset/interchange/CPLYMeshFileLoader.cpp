@@ -26,7 +26,6 @@ CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am)
 	: IRenderpassIndependentPipelineLoader(_am)
 {
 	initialize();
-	IRenderpassIndependentPipelineLoader::initialize();
 }
 
 CPLYMeshFileLoader::~CPLYMeshFileLoader() {}
@@ -64,6 +63,8 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 
 void CPLYMeshFileLoader::initialize()
 {
+	IRenderpassIndependentPipelineLoader::initialize();
+
 	auto precomputeAndCachePipeline = [&](CPLYMeshFileLoader::E_TYPE type, bool indexBufferBindingAvailable)
 	{
 		constexpr std::array<std::pair<uint8_t, std::pair<std::string_view, std::string_view>>, 3> avaiableOptionsForShaders
@@ -77,6 +78,7 @@ void CPLYMeshFileLoader::initialize()
 		{
 			switch (type)
 			{
+				case ET_POS:
 				case ET_COL:
 					return std::make_pair("nbl/builtin/material/debug/vertex_color/specialized_shader.vert", "nbl/builtin/material/debug/vertex_color/specialized_shader.frag");
 				case ET_UV: 
@@ -122,7 +124,10 @@ void CPLYMeshFileLoader::initialize()
 
 			SVertexInputParams inputParams;
 			
-			std::vector<uint8_t> availableAttributes = { ET_POS, static_cast<uint8_t>(type) };
+			std::vector<uint8_t> availableAttributes = { ET_POS };
+			if (type != ET_POS)
+				availableAttributes.push_back(static_cast<uint8_t>(type));
+
 			for (auto& attrib : availableAttributes)
 			{
 				const auto currentBitmask = core::createBitmask({ attrib });
@@ -158,10 +163,12 @@ void CPLYMeshFileLoader::initialize()
 		Pipeline permutations are cached
 	*/
 
+	precomputeAndCachePipeline(ET_POS, false);
 	precomputeAndCachePipeline(ET_COL, false);
 	precomputeAndCachePipeline(ET_UV, false);
 	precomputeAndCachePipeline(ET_NORM, false);
 
+	precomputeAndCachePipeline(ET_POS, true);
 	precomputeAndCachePipeline(ET_COL, true);
 	precomputeAndCachePipeline(ET_UV, true);
 	precomputeAndCachePipeline(ET_NORM, true);
@@ -407,14 +414,10 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		}
 	}
 	
-	constexpr uint32_t WHAT_IS_THE_HASH_SUPPOSED_TO_BE = 69u; // TODO: @Crisspl / @Anastazluk figure it out!
-	
-	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(ctx.hashes4pplns),core::smart_refctd_ptr(m_basicViewParamsSemantics));
-	{
-		uint32_t offset = 0u;
-		for (auto meshbuffer : mesh->getMeshBuffers())
-			meta->placeMeta(offset++,meshbuffer->getPipeline());
-	}
+	auto* mbPipeline = mesh->getMeshBuffers().begin()[0]->getPipeline();
+	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(1u, std::move(m_basicViewParamsSemantics));
+	meta->placeMeta(0u, mbPipeline);
+
 	return SAssetBundle(std::move(meta),{ std::move(mesh) });
 }
 
@@ -743,10 +746,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 			}
 
 			if(!mbPipeline)
-				mbPipeline = fetchPipelineFromCache(ET_COL);
-
-			auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(1u, std::move(m_basicViewParamsSemantics));
-			meta->placeMeta(0u, mbPipeline.get());
+				mbPipeline = fetchPipelineFromCache(ET_POS);
 		}
 
 		return mbPipeline;
@@ -766,9 +766,6 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 			_mbuf->setVertexBufferBinding({ 0ul, std::move(buffer) }, index);
 		}
 	}
-
-	constexpr uint32_t hash = 1u; // TODO: @Crisspl why is it always 1?
-	context.hashes4pplns.emplace_back(hash); // TODO
 	
 	_mbuf->setPipeline(std::move(mbPipeline));
 
