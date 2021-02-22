@@ -264,7 +264,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 		uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i * vtxSize;
 		memcpy(ptr, positions[i].pointer, 3 * 4);
 
-		((quant_normal_t*)((uint32_t*)(ptr + 12)))[0] = normal;
+		*reinterpret_cast<quant_normal_t*>(ptr + 12) = normal;
 
 		if (hasColor)
 			memcpy(ptr + 16, colors.data() + i / 3, 4);
