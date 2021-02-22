@@ -133,7 +133,7 @@ void CPLYMeshFileLoader::initialize()
 				const auto currentBitmask = core::createBitmask({ attrib });
 				inputParams.enabledBindingFlags |= currentBitmask;
 				inputParams.enabledAttribFlags |= currentBitmask;
-				inputParams.bindings[attrib] = { 16, EVIR_PER_VERTEX };
+				inputParams.bindings[attrib] = { asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vertexAttribParamsAllOptions[attrib].format)), EVIR_PER_VERTEX };
 				inputParams.attributes[attrib] = vertexAttribParamsAllOptions[attrib];
 			}
 		
@@ -353,7 +353,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 			mb->setNormalnAttributeIx(3u);
       
-			core::vector<core::vectorSIMDf> attribs[4];
+			asset::SBufferBinding<asset::ICPUBuffer> attributes[4];
 			core::vector<uint32_t> indices;
 
 			bool hasNormals = true;
@@ -364,14 +364,56 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				// do we want this element type?
 				if (ctx.ElementList[i]->Name == "vertex")
 				{
+					auto& plyVertexElement = *ctx.ElementList[i];
+
+					for (auto& vertexProperty : plyVertexElement.Properties)
+					{
+						const auto propertyName = vertexProperty.Name;
+
+						if (propertyName == "x" || propertyName == "y" || propertyName == "z")
+						{
+							if (!attributes[ET_POS].buffer)
+							{
+								attributes[ET_POS].offset = 0u;
+								attributes[ET_POS].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT) * plyVertexElement.Count);
+							}
+						}
+						else if(propertyName == "nx" || propertyName == "ny" || propertyName == "nz")
+						{
+							if (!attributes[ET_NORM].buffer)
+							{
+								attributes[ET_NORM].offset = 0u;
+								attributes[ET_NORM].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT) * plyVertexElement.Count);
+							}
+						}
+						else if (propertyName == "u" || propertyName == "s" || propertyName == "v" || propertyName == "t")
+						{
+							if (!attributes[ET_UV].buffer)
+							{
+								attributes[ET_UV].offset = 0u;
+								attributes[ET_UV].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32_SFLOAT) * plyVertexElement.Count);
+							}
+						}
+						else if (propertyName == "red" || propertyName == "green" || propertyName == "blue" || propertyName == "alpha")
+						{
+							if (!attributes[ET_COL].buffer)
+							{
+								attributes[ET_COL].offset = 0u;
+								attributes[ET_COL].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT) * plyVertexElement.Count);
+							}
+						}			
+					}
+
 					// loop through vertex properties
 					for (uint32_t j=0; j<ctx.ElementList[i]->Count; ++j)
-						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs, _params);
+						hasNormals &= readVertex(ctx, plyVertexElement, attributes, j, _params);
 				}
 				else if (ctx.ElementList[i]->Name == "face")
 				{
+					const size_t indicesCount = ctx.ElementList[i]->Count;
+
 					// read faces
-					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
+					for (uint32_t j=0; j < indicesCount; ++j)
 						readFace(ctx, *ctx.ElementList[i], indices);
 				}
 				else
@@ -386,22 +428,22 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
             if (indices.size())
             {
-				asset::SBufferBinding<ICPUBuffer> indexBinding = {0, core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t))};
-                memcpy(indexBinding.buffer->getPointer(), indices.data(), indexBinding.buffer->getSize());
-				auto DATA = reinterpret_cast<uint32_t*>(indexBinding.buffer->getPointer());
+				asset::SBufferBinding<ICPUBuffer> indexBinding = { 0, core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t)) };
+				memcpy(indexBinding.buffer->getPointer(), indices.data(), indexBinding.buffer->getSize());
+				
 				mb->setIndexCount(indices.size());
 				mb->setIndexBufferBinding(std::move(indexBinding));
-                mb->setIndexType(asset::EIT_32BIT);
+				mb->setIndexType(asset::EIT_32BIT);
 
-				if (!genVertBuffersForMBuffer(mb.get(), attribs, ctx))
+				if (!genVertBuffersForMBuffer(mb.get(), attributes, ctx))
 					return {};
             }
             else
             {
-				mb->setIndexCount(attribs[ET_POS].size());
+				mb->setIndexCount(attributes[ET_POS].buffer->getSize());
 				mb->setIndexType(EIT_UNKNOWN);
 
-				if (!genVertBuffersForMBuffer(mb.get(), attribs, ctx))
+				if (!genVertBuffersForMBuffer(mb.get(), attributes, ctx))
 					return {};
             }
 
@@ -429,7 +471,7 @@ static void performActionBasedOnOrientationSystem(const asset::IAssetLoader::SAs
 		performOnLeftHanded();
 }
   
-bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4], const asset::IAssetLoader::SAssetLoadParams& _params)
+bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, asset::SBufferBinding<asset::ICPUBuffer> outAttributes[4], const uint32_t& currentVertexIndex, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
@@ -438,6 +480,11 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 	attribs[ET_COL].second.W = 1.f;
 	attribs[ET_NORM].second.Y = 1.f;
 
+	constexpr auto ET_POS_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32B32_SFLOAT>();
+	constexpr auto ET_NORM_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32B32_SFLOAT>();
+	constexpr auto ET_UV_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32_SFLOAT>();
+	constexpr auto ET_COL_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32B32A32_SFLOAT>();
+
 	bool result = false;
 	for (uint32_t i = 0; i < Element.Properties.size(); ++i)
 	{
@@ -445,86 +492,138 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 
 		if (Element.Properties[i].Name == "x")
 		{
-			attribs[ET_POS].second.X = getFloat(_ctx, t);
+			auto& value = attribs[ET_POS].second.X = getFloat(_ctx, t);
 			attribs[ET_POS].first = true;
+
+			if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+				performActionBasedOnOrientationSystem<float>(value, [](float& varToFlip) { varToFlip = -varToFlip; });
+
+			const size_t propertyOffset = ET_POS_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_POS].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[0] = value;
 		}
 		else if (Element.Properties[i].Name == "y")
 		{
-			attribs[ET_POS].second.Y = getFloat(_ctx, t);
+			auto& value = attribs[ET_POS].second.Y = getFloat(_ctx, t);
 			attribs[ET_POS].first = true;
+
+			const size_t propertyOffset = ET_POS_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_POS].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[1] = value;
 		}
 		else if (Element.Properties[i].Name == "z")
 		{
-			attribs[ET_POS].second.Z = getFloat(_ctx, t);
+			auto& value = attribs[ET_POS].second.Z = getFloat(_ctx, t);
 			attribs[ET_POS].first = true;
+
+			const size_t propertyOffset = ET_POS_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_POS].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[2] = value;
 		}
 		else if (Element.Properties[i].Name == "nx")
 		{
-			attribs[ET_NORM].second.X = getFloat(_ctx, t);
+			auto& value = attribs[ET_NORM].second.X = getFloat(_ctx, t);
 			attribs[ET_NORM].first = result = true;
+
+			if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+				performActionBasedOnOrientationSystem<float>(attribs[ET_NORM].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
+
+			const size_t propertyOffset = ET_NORM_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_NORM].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[0] = value;
 		}
 		else if (Element.Properties[i].Name == "ny")
 		{
-			attribs[ET_NORM].second.Y = getFloat(_ctx, t);
+			auto& value = attribs[ET_NORM].second.Y = getFloat(_ctx, t);
 			attribs[ET_NORM].first = result = true;
+
+			const size_t propertyOffset = ET_NORM_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_NORM].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[1] = value;
 		}
 		else if (Element.Properties[i].Name == "nz")
 		{
-			attribs[ET_NORM].second.Z = getFloat(_ctx, t);
+			auto& value = attribs[ET_NORM].second.Z = getFloat(_ctx, t);
 			attribs[ET_NORM].first = result = true;
+
+			const size_t propertyOffset = ET_NORM_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_NORM].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[2] = value;
 		}
 		// there isn't a single convention for the UV, some softwares like Blender or Assimp use "st" instead of "uv"
 		else if (Element.Properties[i].Name == "u" || Element.Properties[i].Name == "s")
 		{
-			attribs[ET_UV].second.X = getFloat(_ctx, t);
+			auto& value = attribs[ET_UV].second.X = getFloat(_ctx, t);
 			attribs[ET_UV].first = true;
+
+			const size_t propertyOffset = ET_UV_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_UV].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[0] = value;
 		}
 		else if (Element.Properties[i].Name == "v" || Element.Properties[i].Name == "t")
 		{
-			attribs[ET_UV].second.Y = getFloat(_ctx, t);
+			auto& value = attribs[ET_UV].second.Y = getFloat(_ctx, t);
 			attribs[ET_UV].first = true;
+
+			const size_t propertyOffset = ET_UV_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_UV].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[1] = value;
 		}
 		else if (Element.Properties[i].Name == "red")
 		{
 			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[ET_COL].second.X = value;
 			attribs[ET_COL].first = true;
+
+			const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[0] = value;
 		}
 		else if (Element.Properties[i].Name == "green")
 		{
 			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[ET_COL].second.Y = value;
 			attribs[ET_COL].first = true;
+
+			const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[1] = value;
 		}
 		else if (Element.Properties[i].Name == "blue")
 		{
 			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[ET_COL].second.Z = value;
 			attribs[ET_COL].first = true;
+
+			const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[2] = value;
 		}
 		else if (Element.Properties[i].Name == "alpha")
 		{
 			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[ET_COL].second.W = value;
 			attribs[ET_COL].first = true;
+
+			const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
+			uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
+
+			reinterpret_cast<float*>(data)[3] = value;
 		}
 		else
 			skipProperty(_ctx, Element.Properties[i]);
 	}
-
-	for (size_t i = 0u; i < 4u; ++i)
-		if (attribs[i].first)
-		{
-			if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-			{
-				if (i == ET_POS)
-					performActionBasedOnOrientationSystem<float>(attribs[ET_POS].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
-				else if (i == ET_NORM)
-					performActionBasedOnOrientationSystem<float>(attribs[ET_NORM].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
-			}
-
-			_outAttribs[i].push_back(attribs[i].second);
-		}
 
 	return result;
 }
@@ -688,32 +787,25 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 
 bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 	asset::ICPUMeshBuffer* _mbuf,
-	const core::vector<core::vectorSIMDf> _attribs[4],
+	const asset::SBufferBinding<asset::ICPUBuffer> attributes[4],
 	SContext& context
 ) const
 {
 	core::vector<uint8_t> availableAttributes;
 	for (auto i = 0; i < 4; ++i)
-		if (!_attribs[i].empty())
+		if (attributes[i].buffer)
 			availableAttributes.push_back(i);
 
 	{
-		size_t check = _attribs[0].size();
+		size_t check = attributes[0].buffer->getSize();
 		for (size_t i = 1u; i < 4u; ++i)
 		{
-			if (_attribs[i].size() != 0u && _attribs[i].size() != check)
+			if (attributes[i].buffer && attributes[i].buffer->getSize() != check)
 				return false;
-			else if (_attribs[i].size() != 0u)
-				check = _attribs[i].size();
+			else if (attributes[i].buffer)
+				check = attributes[i].buffer->getSize();
 		}
 	}
-	
-	auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr)
-	{
-		size_t i = 0u;
-		for (const core::vectorSIMDf& v : _attribs[_attr])
-			_buf->setAttribute(v, _attr, i++);
-	};
 
 	auto getPipeline = [&]() -> core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>
 	{
@@ -756,15 +848,9 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 
 	for (auto index = 0; index < 4; ++index)
 	{
-		auto attribute = _attribs[index];
-		if (!attribute.empty())
-		{
-			const auto bufferByteSize = attribute.size() * 16ull;
-			auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferByteSize);
-			memcpy(buffer->getPointer(), attribute.data(), bufferByteSize); // TODO refactor input to take SBufferBinding to avoid memcpy
-
-			_mbuf->setVertexBufferBinding({ 0ul, std::move(buffer) }, index);
-		}
+		auto attribute = attributes[index];
+		if (attribute.buffer)
+			_mbuf->setVertexBufferBinding(std::move(attribute), index);
 	}
 	
 	_mbuf->setPipeline(std::move(mbPipeline));

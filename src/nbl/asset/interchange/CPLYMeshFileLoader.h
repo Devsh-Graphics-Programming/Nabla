@@ -189,7 +189,7 @@ private:
 	void fillBuffer(SContext& _ctx);
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const IAssetLoader::SAssetLoadParams& _params);
+ 	bool readVertex(SContext& _ctx, const SPLYElement &Element, asset::SBufferBinding<asset::ICPUBuffer> outAttributes[4], const uint32_t& currentVertexIndex, const IAssetLoader::SAssetLoadParams& _params);
 	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
 
 	void skipElement(SContext& _ctx, const SPLYElement &Element);
@@ -200,7 +200,7 @@ private:
 
 	bool genVertBuffersForMBuffer(
 		ICPUMeshBuffer* _mbuf,
-		const core::vector<core::vectorSIMDf> _attribs[4],
+		const asset::SBufferBinding<asset::ICPUBuffer> attributes[4],
 		SContext& context
 	) const;
 
