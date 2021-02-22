@@ -15,7 +15,7 @@ struct nbl_glsl_scene_Keyframe_t
 
 vec3 nbl_glsl_scene_Keyframe_t_getScale(in nbl_glsl_scene_Keyframe_t keyframe)
 {
-	return nbl_glsl_decodeRGB18E7S3(keyframe.data[3]);
+	return nbl_glsl_decodeRGB18E7S3(keyframe.data[2]);
 }
 
 nbl_glsl_quaternion_t nbl_glsl_scene_Keyframe_t_getRotation(in nbl_glsl_scene_Keyframe_t keyframe)
