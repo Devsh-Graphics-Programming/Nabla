@@ -23,9 +23,9 @@ layout(push_constant) uniform PUSH_CONSTANTS
 
 void main()
 {
-	if (all(lessThan(gl_GlobalInvocationID.xy, u_pc.params.dimension.xy)))
+	//if (all(lessThan(gl_GlobalInvocationID.xy, u_pc.params.dimension.xy)))
 	{
-		nbl_glsl_ext_FFT_OLD(true);
+		nbl_glsl_ext_FFT(true);
 	}
 }
 
@@ -33,13 +33,14 @@ nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters() {
 	 nbl_glsl_ext_FFT_Parameters_t ret;
 	 ret = u_pc.params;
 	 return ret;
- }
+}
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
 	nbl_glsl_complex retValue = nbl_glsl_complex(0, 0);
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
 	uint index = coordinate.y * dimension.x + coordinate.x;
+//	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
 	retValue = ifft_x_in.data[index];
 	return retValue;
 }
@@ -47,7 +48,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions();
-	imageStore(heightmap, ivec2(coordinate.xy), ivec4(complex_value * 10000, 0, 1));
+	imageStore(heightmap, ivec2(coordinate.xy), ivec4(complex_value.x, 0, 0, 1));
 }
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {

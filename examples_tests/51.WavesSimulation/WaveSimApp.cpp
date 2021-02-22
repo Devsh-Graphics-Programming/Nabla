@@ -477,11 +477,12 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_1->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_animating_pipeline_1.get());
 		m_driver->pushConstants(m_animating_pipeline_1->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
-		//while(m_device->run())
-
-		m_driver->beginScene(true);
-		m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
-		m_driver->endScene();
+		//while (m_device->run())
+		{
+			m_driver->beginScene(true);
+			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
+			m_driver->endScene();
+		}
 	}
 
 	{
@@ -518,9 +519,9 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		params.dimension.y = m_params.height;
 		params.dimension.z = 1;
 		params.dimension.w = packed;
-		params.padded_dimension = uvec3{	params.dimension.x,
-											params.dimension.y,
-											params.dimension.z };
+		params.padded_dimension = uvec3{params.dimension.x,
+										params.dimension.y,
+										params.dimension.z };
 		auto dispatch_info = FFT::buildParameters({ params.dimension.x,
 													params.dimension.y,
 													params.dimension.z }, FFT::Direction::Y, 1);

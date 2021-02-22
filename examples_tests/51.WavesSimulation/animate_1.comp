@@ -49,15 +49,15 @@ void main()
 
 		float wk = sqrt(length(k) * G); 
 
-		vec2 res = nbl_glsl_complex_mul(h0k, EI(wk * u_pc.TIME)) + 
+		vec2 res = nbl_glsl_complex_mul(h0k, EI(wk * u_pc.TIME)); + 
 				   nbl_glsl_complex_mul(h0_conj, EI(-wk * u_pc.TIME));
 
 		animated_spectrum.data[ssbo_index] = res;
-		memoryBarrierShared();
-		barrier();
 
-		nbl_glsl_ext_FFT_OLD(true);
 	}
+	memoryBarrierShared();
+	barrier();
+	nbl_glsl_ext_FFT(true);
 
 
 }
@@ -81,7 +81,9 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_
 {
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions();
 	uint index = coordinate.y * dimension.x + coordinate.x;//channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	ifft_x_out.data[index] = 100* complex_value;
+	//uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
+
+	ifft_x_out.data[index] = complex_value;
 }
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
