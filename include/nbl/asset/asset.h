@@ -50,6 +50,7 @@
 // pipelines
 
 // skinning
+#include "nbl/asset/ICPUAnimationLibrary.h"
 #include "nbl/asset/ICPUSkeleton.h"
 
 // meshes

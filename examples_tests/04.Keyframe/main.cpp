@@ -118,6 +118,32 @@ int main()
 		const char* jointNames[] = {"root","bendy"};
 		skeleton = core::make_smart_refctd_ptr<asset::ICPUSkeleton>(std::move(parentIDs),std::move(defaultTransforms),&jointNames[0],&jointNames[0]+kJointCount);
 	}
+	core::smart_refctd_ptr<asset::ICPUAnimationLibrary> animations;
+	{
+		constexpr uint32_t kKeyframeCount = 16u;
+		constexpr uint32_t kAnimationCount = 3u;
+		{
+			asset::SBufferBinding<asset::ICPUBuffer> keyframes = {0ull,core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUAnimationLibrary::Keyframe)*kKeyframeCount)};
+			asset::SBufferBinding<asset::ICPUBuffer> timestamps = {0ull,core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUAnimationLibrary::timestamp_t)*kKeyframeCount)};
+			asset::SBufferRange<asset::ICPUBuffer> namedAnims;
+			namedAnims.offset = 0ull;
+			namedAnims.size = sizeof(asset::ICPUAnimationLibrary::Animation)*kAnimationCount;
+			namedAnims.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(namedAnims.size);
+			animations = core::make_smart_refctd_ptr<asset::ICPUAnimationLibrary>(std::move(keyframes),std::move(timestamps),kKeyframeCount,std::move(namedAnims));
+		}
+		{
+			const uint32_t animationOffsets[] = { 0u,1u,2u };
+			const asset::ICPUAnimationLibrary::Animation anims[] = {
+				{0u,kKeyframeCount,asset::ICPUAnimationLibrary::Animation::EIM_NEAREST},
+				{0u,kKeyframeCount,asset::ICPUAnimationLibrary::Animation::EIM_LINEAR},
+				{0u,kKeyframeCount,asset::ICPUAnimationLibrary::Animation::EIM_CUBIC},
+			};
+			for (auto i=0u; i<kAnimationCount; i++)
+				animations->getAnimation(animationOffsets[i]) = anims[i];
+			const char* animationNames[] = { "moveNearest","moveLinear","moveCubic" };
+			animations->addAnimationNames(animationNames,animationNames+kAnimationCount,animationOffsets);
+		}
+	}
 
 	//
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> gpumb;

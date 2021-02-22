@@ -23,9 +23,10 @@ template <class BufferType>
 class IAnimationLibrary : public virtual core::IReferenceCounted
 {
 	public:
+		using timestamp_t = uint32_t;
 		struct alignas(8) Keyframe
 		{
-				Keyframe() : quat(), scale(0ull)
+				Keyframe() : quat(), scale(0ull) // TODO: initialize scale to 1.f
 				{
 					translation[2] = translation[1] = translation[0] = 0.f;
 				}
@@ -51,7 +52,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 
 			private:
 				float translation[3];
-				CDirQuantCacheBase::Vector8u4 quat;
+				CQuantQuaternionCache::Vector8u4 quat;
 				uint64_t scale;
 		};
 		struct alignas(8) Animation
@@ -63,6 +64,18 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 					EIM_CUBIC=2u<<30u,
 					EIM_MASK=3u<<30u
 				};
+
+				inline Animation()
+				{
+					data[0] = data[1] = 0xffffffffu;
+				}
+				inline Animation(const uint32_t keyframeOffset, const uint32_t keyframeCount, const E_INTERPOLATION_MODE interpolation)
+				{
+					data[0] = keyframeOffset;
+					assert(keyframeCount<0x4fffffffu);
+					data[1] = keyframeCount|interpolation;
+				}
+
 				inline uint32_t getKeyframeOffset() const
 				{
 					return data[0];
@@ -79,14 +92,33 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 				{
 					return data[1]&EIM_MASK;
 				}
+
 			private:
 				uint32_t data[2];
 		};
 
-		inline const auto& getNameToAnimationMap() const
+		//
+		inline const SBufferBinding<const BufferType>& getKeyframeStorageBinding() const
 		{
-			return m_nameToAnimation;
+			return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_keyframeStorageBinding);
 		}
+		inline const SBufferBinding<const BufferType>& getTimestampStorageBinding() const
+		{
+			return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_timestampStorageBinding);
+		}
+
+		//
+		inline const SBufferRange<const BufferType>& getAnimationStorageRange() const
+		{
+			return reinterpret_cast<const SBufferRange<const BufferType>*>(m_animationStorageRange);
+		}
+
+		//
+		inline uint32_t getAnimationCapacity() const
+		{
+			return m_animationStorageRange.size() / sizeof(Animation);
+		}
+
 		inline uint32_t getAnimationOffsetFromName(const char* animationName) const
 		{
 			auto found = m_nameToAnimation.find(animationName);
@@ -95,32 +127,27 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 			return getAnimationCapacity();
 		}
 
-		inline uint32_t getAnimationCapacity() const
+		inline const auto& getNameToAnimationMap() const
 		{
-			return m_animationStorageRange.size()/sizeof(Animation);
-		}
-
-		inline const SBufferRange<const BufferType>& getKeyframeStorageRange() const
-		{
-			return reinterpret_cast<const SBufferRange<const BufferType>*>(m_keyframeStorageRange);
-		}
-		inline const SBufferRange<const BufferType>& getAnimationStorageRange() const
-		{
-			return reinterpret_cast<const SBufferRange<const BufferType>*>(m_animationStorageRange);
+			return m_nameToAnimation;
 		}
 
 
 	protected:
-		IAnimationLibrary(SBufferRange<BufferType>&& _keyframeStorageRange, SBufferRange<BufferType>&& _animationStorageRange) :
-			m_stringPool(), m_nameToAnimation(StringComparator(&m_stringPool)), m_keyframeStorageRange(std::move(_keyframeStorageRange)),
-			m_animationStorageRange(std::move(_animationStorageRange))
+		IAnimationLibrary(SBufferBinding<BufferType>&& _keyframeStorageBinding, SBufferBinding<BufferType>&& _timestampStorageBinding, uint32_t _keyframeCount, SBufferRange<BufferType>&& _animationStorageRange) :
+			m_stringPool(), m_nameToAnimation(StringComparator(&m_stringPool)), m_keyframeStorageBinding(std::move(_keyframeStorageRange)), m_timestampStorageBinding(std::move(_timestampStorageBinding)),
+			m_animationStorageRange(std::move(_animationStorageRange)), m_keyframeCount(_keyframeCount)
 		{
-			assert(m_keyframeStorageRange.isValid() && (m_keyframeStorageRange.offset%sizeof(Keyframe)==0u) && m_keyframeStorageRange.size>=sizeof(Keyframe));
-			assert(m_animationStorageRange.isValid() && (m_animationStorageRange.offset%sizeof(Animation)==0u) && m_animationStorageRange.size>=sizeof(Animation));
+			assert(m_keyframeStorageBinding.buffer && (m_keyframeStorageBinding.offset%sizeof(Keyframe)==0u) && m_keyframeStorageBinding.offset+sizeof(Keyframe)*m_keyframeCount<=m_keyframeStorageBinding.buffer->getSize());
+			assert(m_timestampStorageBinding.buffer && (m_timestampStorageBinding.offset%sizeof(Keyframe)==0u) && m_timestampStorageBinding.offset+sizeof(Keyframe)*m_keyframeCount<=m_timestampStorageBinding.buffer->getSize());
+			
+			if (!m_animationStorageRange.isValid())
+				return;
+			assert((m_animationStorageRange.offset%sizeof(Animation)==0u) && m_animationStorageRange.size>=sizeof(Animation));
 		}
 		virtual ~IAnimationLibrary()
 		{
-			m_nameToAnimation.clear();
+			clearAnimationNames();
 		}
 
 		template <typename>
@@ -167,7 +194,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 			}
 		}
 		//
-		inline clearAnimationNames()
+		inline void clearAnimationNames()
 		{
 			m_nameToAnimation.clear();
 			m_stringPool.clear();
@@ -188,7 +215,9 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 		core::vector<char> m_stringPool;
 		core::map<uint32_t,uint32_t,StringComparator> m_nameToAnimation;
 
-		SBufferRange<BufferType> m_keyframeStorageRange,m_animationStorageRange;
+		SBufferBinding<BufferType> m_keyframeStorageBinding,m_timestampStorageBinding;
+		SBufferRange<BufferType> m_animationStorageRange;
+		uint32_t m_keyframeCount;
 };
 
 } // end namespace asset
