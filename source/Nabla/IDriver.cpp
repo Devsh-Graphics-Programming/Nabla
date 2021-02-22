@@ -86,6 +86,7 @@ template created_gpu_object_array<asset::ICPUComputePipeline> IDriver::getGPUObj
 template created_gpu_object_array<asset::ICPUDescriptorSetLayout> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUSampler> IDriver::getGPUObjectsFromAssets<asset::ICPUSampler>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUAnimationLibrary> IDriver::getGPUObjectsFromAssets<asset::ICPUAnimationLibrary>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
 
 
 template<typename AssetType>
@@ -111,6 +112,7 @@ template created_gpu_object_array<asset::ICPUComputePipeline> IDriver::getGPUObj
 template created_gpu_object_array<asset::ICPUDescriptorSetLayout> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(const asset::ICPUDescriptorSetLayout* const* const, const asset::ICPUDescriptorSetLayout* const* const, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUSampler> IDriver::getGPUObjectsFromAssets<asset::ICPUSampler>(const asset::ICPUSampler* const* const, const asset::ICPUSampler* const* const, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(const asset::ICPUDescriptorSet* const* const, const asset::ICPUDescriptorSet* const* const, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUAnimationLibrary> IDriver::getGPUObjectsFromAssets<asset::ICPUAnimationLibrary>(const asset::ICPUAnimationLibrary* const* const, const asset::ICPUAnimationLibrary* const* const, IGPUObjectFromAssetConverter* _converter);
 
 
 template<typename AssetType>
@@ -136,6 +138,7 @@ template created_gpu_object_array<asset::ICPUComputePipeline> IDriver::getGPUObj
 template created_gpu_object_array<asset::ICPUDescriptorSetLayout> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(const core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>*, const core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>*, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUSampler> IDriver::getGPUObjectsFromAssets<asset::ICPUSampler>(const core::smart_refctd_ptr<asset::ICPUSampler>*, const core::smart_refctd_ptr<asset::ICPUSampler>*, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(const core::smart_refctd_ptr<asset::ICPUDescriptorSet>*, const core::smart_refctd_ptr<asset::ICPUDescriptorSet>*, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUAnimationLibrary> IDriver::getGPUObjectsFromAssets<asset::ICPUAnimationLibrary>(const core::smart_refctd_ptr<asset::ICPUAnimationLibrary>*, const core::smart_refctd_ptr<asset::ICPUAnimationLibrary>*, IGPUObjectFromAssetConverter* _converter);
 
 
 // TODO: would be nice if something like this worked... eh might have to resort to a Macro

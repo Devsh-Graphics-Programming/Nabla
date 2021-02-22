@@ -22,7 +22,7 @@ class IGPUAnimationLibrary final : public asset::IAnimationLibrary<IGPUBuffer>
 		inline IGPUAnimationLibrary(
 			asset::SBufferBinding<IGPUBuffer>&& _keyframeStorageBinding,
 			asset::SBufferBinding<IGPUBuffer>&& _timestampStorageBinding,
-			SBufferRange<BufferType>&& _animationStorageRange,
+			asset::SBufferRange<IGPUBuffer>&& _animationStorageRange,
 			const asset::IAnimationLibrary<OtherBufferType>* animationLibraryToCopyNamedRanges) :
 				base_t(
 					std::move(_keyframeStorageBinding),

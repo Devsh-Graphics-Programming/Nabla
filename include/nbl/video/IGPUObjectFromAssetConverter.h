@@ -99,6 +99,7 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPUImageView>				        create(const asset::ICPUImageView** const _begin, const asset::ICPUImageView** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUDescriptorSet>				    create(const asset::ICPUDescriptorSet** const _begin, const asset::ICPUDescriptorSet** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUComputePipeline>				    create(const asset::ICPUComputePipeline** const _begin, const asset::ICPUComputePipeline** const _end, const SParams& _params);
+        inline virtual created_gpu_object_array<asset::ICPUAnimationLibrary>			    create(const asset::ICPUAnimationLibrary** const _begin, const asset::ICPUAnimationLibrary** const _end, const SParams& _params);
 
         //! iterator_type is always either `[const] core::smart_refctd_ptr<AssetType>*[const]*` or `[const] AssetType*[const]*`
 		template<typename AssetType, typename iterator_type>
@@ -383,8 +384,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, co
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         const asset::ICPUSkeleton* cpusk = _begin[i];
-        if (const asset::ICPUBuffer* buf = cpusk->getParentJointIDBinding().buffer.get())
-            cpuBuffers.push_back(buf);
+        cpuBuffers.push_back(cpusk->getParentJointIDBinding().buffer.get());
         if (const asset::ICPUBuffer* buf = cpusk->getDefaultTransformBinding().buffer.get())
             cpuBuffers.push_back(buf);
     }
@@ -400,7 +400,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, co
         const asset::ICPUSkeleton* cpusk = _begin[i];
 
 		asset::SBufferBinding<IGPUBuffer> parentJointIDBinding;
-        if (cpusk->getParentJointIDBinding().buffer)
         {
             parentJointIDBinding.offset = cpusk->getParentJointIDBinding().offset;
             auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
@@ -1140,7 +1139,63 @@ inline created_gpu_object_array<asset::ICPUComputePipeline> IGPUObjectFromAssetC
 
     return res;
 }
+auto IGPUObjectFromAssetConverter::create(const asset::ICPUAnimationLibrary** _begin, const asset::ICPUAnimationLibrary** _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUAnimationLibrary>
+{
+	const size_t assetCount = std::distance(_begin, _end);
+	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUAnimationLibrary> >(assetCount);
 
-}}//nbl::video
+    core::vector<const asset::ICPUBuffer*> cpuBuffers;
+    cpuBuffers.reserve(assetCount*3u);
+
+    for (ptrdiff_t i=0u; i<assetCount; i++)
+    {
+        const asset::ICPUAnimationLibrary* cpuanim = _begin[i];
+        cpuBuffers.push_back(cpuanim->getKeyframeStorageBinding().buffer.get());
+        cpuBuffers.push_back(cpuanim->getTimestampStorageBinding().buffer.get());
+        if (const asset::ICPUBuffer* buf = cpuanim->getAnimationStorageRange().buffer.get())
+            cpuBuffers.push_back(buf);
+    }
+
+    using redirs_t = core::vector<size_t>;
+    redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
+
+    auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size(), _params);
+
+    size_t bufIter = 0ull;
+    for (ptrdiff_t i = 0u; i<assetCount; ++i)
+    {
+        const asset::ICPUAnimationLibrary* cpuanim = _begin[i];
+
+		asset::SBufferBinding<IGPUBuffer> keyframeBinding,timestampBinding;
+        {
+            keyframeBinding.offset = cpuanim->getKeyframeStorageBinding().offset;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            keyframeBinding.offset += gpubuf->getOffset();
+            keyframeBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+        }
+        {
+            timestampBinding.offset = cpuanim->getTimestampStorageBinding().offset;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            timestampBinding.offset += gpubuf->getOffset();
+            timestampBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+        }
+		asset::SBufferRange<IGPUBuffer> animationRange;
+        if (cpuanim->getAnimationStorageRange().buffer)
+        {
+            animationRange.offset = cpuanim->getAnimationStorageRange().offset;
+            animationRange.size = cpuanim->getAnimationStorageRange().size;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            animationRange.offset += gpubuf->getOffset();
+            animationRange.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+        }
+
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUAnimationLibrary>(std::move(keyframeBinding),std::move(timestampBinding),std::move(animationRange),cpuanim);
+    }
+
+    return res;
+}
+
+}
+}//nbl::video
 
 #endif

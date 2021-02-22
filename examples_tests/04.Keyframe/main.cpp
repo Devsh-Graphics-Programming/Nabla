@@ -118,10 +118,11 @@ int main()
 		const char* jointNames[] = {"root","bendy"};
 		skeleton = core::make_smart_refctd_ptr<asset::ICPUSkeleton>(std::move(parentIDs),std::move(defaultTransforms),&jointNames[0],&jointNames[0]+kJointCount);
 	}
-	core::smart_refctd_ptr<asset::ICPUAnimationLibrary> animations;
+	core::smart_refctd_ptr<video::IGPUAnimationLibrary> gpuanimations;
 	{
 		constexpr uint32_t kKeyframeCount = 16u;
 		constexpr uint32_t kAnimationCount = 3u;
+		core::smart_refctd_ptr<asset::ICPUAnimationLibrary> animations;
 		{
 			asset::SBufferBinding<asset::ICPUBuffer> keyframes = {0ull,core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUAnimationLibrary::Keyframe)*kKeyframeCount)};
 			asset::SBufferBinding<asset::ICPUBuffer> timestamps = {0ull,core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUAnimationLibrary::timestamp_t)*kKeyframeCount)};
@@ -142,7 +143,13 @@ int main()
 				animations->getAnimation(animationOffsets[i]) = anims[i];
 			const char* animationNames[] = { "moveNearest","moveLinear","moveCubic" };
 			animations->addAnimationNames(animationNames,animationNames+kAnimationCount,animationOffsets);
+			
+			for (auto i=0u; i<kAnimationCount; i++)
+			{
+				assert(animations->getAnimationOffsetFromName(animationNames[i]) == animationOffsets[i]);
+			}
 		}
+		gpuanimations = driver->getGPUObjectsFromAssets<asset::ICPUAnimationLibrary>(&animations,&animations+1u)->begin()[0];
 	}
 
 	//

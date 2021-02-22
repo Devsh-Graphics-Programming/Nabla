@@ -26,9 +26,10 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 		using timestamp_t = uint32_t;
 		struct alignas(8) Keyframe
 		{
-				Keyframe() : quat(), scale(0ull) // TODO: initialize scale to 1.f
+				Keyframe() : scale(0ull) // TODO: initialize scale to 1.f
 				{
 					translation[2] = translation[1] = translation[0] = 0.f;
+					quat = core::vectorSIMDu32(128u,128u,128u,255u); // should be (0,0,0,1) encoded
 				}
 				Keyframe(const core::vectorSIMDf& _scale, const core::quaternion& _quat, const CQuantQuaternionCache* quantCache, const core::vectorSIMDf& _translation)
 				{
@@ -38,12 +39,13 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 					//scale = ;
 				}
 
-				/*
 				inline core::quaternion getRotation() const
 				{
-					return quat.getValue(); // TODO: decode from RGBA8_SNORM and normalize
+					const void* _pix[4] = {&quat,nullptr,nullptr,nullptr};
+					double out[4];
+					decodePixels<EF_R8G8B8A8_SNORM,double>(_pix,out,0u,0u);
+					return reinterpret_cast<const core::quaternion&>(core::normalize(core::vectorSIMDf(out[0],out[1],out[2],out[3])));
 				}
-				*/
 
 				inline core::vectorSIMDf getScale() const
 				{
@@ -135,11 +137,11 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 
 	protected:
 		IAnimationLibrary(SBufferBinding<BufferType>&& _keyframeStorageBinding, SBufferBinding<BufferType>&& _timestampStorageBinding, uint32_t _keyframeCount, SBufferRange<BufferType>&& _animationStorageRange) :
-			m_stringPool(), m_nameToAnimation(StringComparator(&m_stringPool)), m_keyframeStorageBinding(std::move(_keyframeStorageRange)), m_timestampStorageBinding(std::move(_timestampStorageBinding)),
+			m_stringPool(), m_nameToAnimation(StringComparator(&m_stringPool)), m_keyframeStorageBinding(std::move(_keyframeStorageBinding)), m_timestampStorageBinding(std::move(_timestampStorageBinding)),
 			m_animationStorageRange(std::move(_animationStorageRange)), m_keyframeCount(_keyframeCount)
 		{
 			assert(m_keyframeStorageBinding.buffer && (m_keyframeStorageBinding.offset%sizeof(Keyframe)==0u) && m_keyframeStorageBinding.offset+sizeof(Keyframe)*m_keyframeCount<=m_keyframeStorageBinding.buffer->getSize());
-			assert(m_timestampStorageBinding.buffer && (m_timestampStorageBinding.offset%sizeof(Keyframe)==0u) && m_timestampStorageBinding.offset+sizeof(Keyframe)*m_keyframeCount<=m_timestampStorageBinding.buffer->getSize());
+			assert(m_timestampStorageBinding.buffer && (m_timestampStorageBinding.offset%sizeof(Keyframe)==0u) && m_timestampStorageBinding.offset+sizeof(timestamp_t)*m_keyframeCount<=m_timestampStorageBinding.buffer->getSize());
 			
 			if (!m_animationStorageRange.isValid())
 				return;
@@ -206,11 +208,11 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 
 				inline bool operator()(const uint32_t lhs, const uint32_t rhs) const
 				{
-					return strcmp(stringPool.data()+lhs,stringPool.data()+rhs)<0;
+					return strcmp(stringPool->data()+lhs,stringPool->data()+rhs)<0;
 				}
 
 			private:
-				core::vector<char>* const stringPool;
+				const core::vector<char>* stringPool;
 		};
 		core::vector<char> m_stringPool;
 		core::map<uint32_t,uint32_t,StringComparator> m_nameToAnimation;

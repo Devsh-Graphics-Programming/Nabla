@@ -16,7 +16,7 @@
 #include "nbl/asset/ICPUMesh.h"
 
 #include "nbl/asset/utils/CQuantNormalCache.h"
-//#include "nbl/asset/utils/CQuantQuaternionCache.h"
+#include "nbl/asset/utils/CQuantQuaternionCache.h"
 
 namespace nbl
 {
@@ -654,7 +654,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 
 		//!
 		virtual CQuantNormalCache* getQuantNormalCache() = 0;
-		//virtual CQuantQuaternionCache* getQuantQuaternionCache() = 0;
+		virtual CQuantQuaternionCache* getQuantQuaternionCache() = 0;
 };
 
 } // end namespace scene

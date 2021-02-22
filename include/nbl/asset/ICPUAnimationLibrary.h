@@ -128,7 +128,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 			size_t estimate = sizeof(SBufferBinding<ICPUBuffer>)*2ull;
 			estimate += sizeof(SBufferRange<ICPUBuffer>);
 			estimate += sizeof(uint32_t);
-			estimate += m_stringPoolSize;
+			estimate += m_stringPool.size();
 			estimate += m_nameToAnimation.size()*sizeof(std::pair<uint32_t,uint32_t>);
 			// do we add other things to the size estimate?
 			return estimate;
@@ -164,7 +164,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 	protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
-			auto* other = static_cast<ICPUSkeleton*>(_other);
+			auto* other = static_cast<ICPUAnimationLibrary*>(_other);
 
 			if (_levelsBelow)
 			{

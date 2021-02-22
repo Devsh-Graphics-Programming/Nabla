@@ -29,6 +29,8 @@
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/video/IGPUImageView.h"
+#include "nbl/asset/ICPUAnimationLibrary.h"
+#include "nbl/video/IGPUAnimationLibrary.h"
 
 
 namespace nbl
@@ -91,6 +93,8 @@ template<>
 struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
 template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
+template<>
+struct asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
 
 
 template<typename AssetType>
