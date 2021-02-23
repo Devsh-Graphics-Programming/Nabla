@@ -61,11 +61,11 @@ struct RadixSorter
 		template<class RandomIt, class KeyAccessor>
 		inline RandomIt operator()(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
 		{
-			return impl<RandomIt,KeyAccessor,0ull>(input,output,rangeSize,comp);
+			return pass<RandomIt,KeyAccessor,0ull>(input,output,rangeSize,comp);
 		}
 	private:
 		template<class RandomIt, class KeyAccessor, size_t pass_ix>
-		inline RandomIt impl(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
+		inline RandomIt pass(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
 		{
 			// clear
 			std::fill_n(histogram,histogram_size,static_cast<histogram_t>(0u));
@@ -80,7 +80,7 @@ struct RadixSorter
 				output[--histogram[comp.operator()<shift,radix_mask>(input[i])]] = input[i];
 
 			if constexpr (pass_ix != last_pass)
-				return impl<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
+				return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
 			else
 				return output;
 		}

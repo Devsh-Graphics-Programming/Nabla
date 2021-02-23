@@ -132,12 +132,15 @@ void CSmoothNormalGenerator::VertexHashMap::validate()
 {
 	const auto oldSize = vertices.size();
 	vertices.resize(oldSize*2u);
+	// TODO: maybe use counting sort (or big radix) and use the histogram directly for the buckets
 	auto finalSortedOutput = core::radix_sort(vertices.data(),vertices.data()+oldSize,oldSize,KeyAccessor());
+	// TODO: optimize out the erase
 	if (finalSortedOutput!=vertices.data())
 		vertices.erase(vertices.begin(),vertices.begin()+oldSize);
 	else
 		vertices.erase(vertices.begin()+oldSize,vertices.end());
 
+	// TODO: are `buckets` even begin USED!?
 	uint16_t prevHash = vertices[0].hash;
 	core::vector<IMeshManipulator::SSNGVertexData>::iterator prevBegin = vertices.begin();
 	buckets.push_back(prevBegin);
