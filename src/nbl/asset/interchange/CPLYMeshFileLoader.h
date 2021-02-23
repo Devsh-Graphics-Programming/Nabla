@@ -52,13 +52,14 @@ public:
 
 	//! creates/loads an animated mesh from the file.
     virtual SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+
 private:
+
+	virtual void initialize() override;
 
 	enum E_TYPE { ET_POS = 0, ET_UV = 2, ET_NORM = 3, ET_COL = 1 };
 
-	void initialize();
-
-	static const std::string getPipelineCacheKey(E_TYPE type, bool indexBufferBindingAvailable) 
+	static const std::string getPipelineCacheKey(E_TYPE type, bool indexBufferBindingAvailable)
 	{
 		auto getTypeHash = [&]() -> std::string
 		{
@@ -66,19 +67,19 @@ private:
 
 			switch (type)
 			{
-				case ET_POS:
-					return "nbl/builtin/pipeline/loader/PLY/only_position_attribute/";
-				case ET_COL:
-					return "nbl/builtin/pipeline/loader/PLY/color_attribute/";
-				case ET_UV:
-					return "nbl/builtin/pipeline/loader/PLY/uv_attribute/";
-				case ET_NORM:
-					return "nbl/builtin/pipeline/loader/PLY/normal_attribute/";
-				default:
-				{
-					status = false;
-					assert(status);
-				}
+			case ET_POS:
+				return "nbl/builtin/pipeline/loader/PLY/only_position_attribute/";
+			case ET_COL:
+				return "nbl/builtin/pipeline/loader/PLY/color_attribute/";
+			case ET_UV:
+				return "nbl/builtin/pipeline/loader/PLY/uv_attribute/";
+			case ET_NORM:
+				return "nbl/builtin/pipeline/loader/PLY/normal_attribute/";
+			default:
+			{
+				status = false;
+				assert(status);
+			}
 			}
 		};
 

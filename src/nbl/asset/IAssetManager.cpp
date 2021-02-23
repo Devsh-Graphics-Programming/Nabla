@@ -418,13 +418,4 @@ void IAssetManager::insertBuiltinAssets()
         for(auto &path : paths)
             addBuiltInToCaches(pipelineLayout, path);
     }
-
-    /*
-        Pipelines
-    */
-
-    //! Okay, an explaination is needed 
-    {
-
-    }
 }

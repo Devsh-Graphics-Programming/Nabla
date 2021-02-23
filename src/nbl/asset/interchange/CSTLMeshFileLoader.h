@@ -35,11 +35,7 @@ class CSTLMeshFileLoader final : public IAssetLoader, public IRenderpassIndepend
 
 	private:
 
-		/*
-			Precompute STL pipeline
-		*/
-
-		void initialize();
+		virtual void initialize() override;
 
 		const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
 

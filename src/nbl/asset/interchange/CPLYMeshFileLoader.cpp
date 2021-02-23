@@ -25,7 +25,7 @@ namespace asset
 CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am) 
 	: IRenderpassIndependentPipelineLoader(_am)
 {
-	initialize();
+
 }
 
 CPLYMeshFileLoader::~CPLYMeshFileLoader() {}

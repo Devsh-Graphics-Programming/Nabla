@@ -84,16 +84,13 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     if (meshbuffers.size() > 1)
     {
         #ifdef  _NBL_DEBUG
-        os::Printer::log("PLY WRITER ERROR (" + std::to_string(__LINE__) + " line): Only one meshbuffer input is allowed for writing!", ELL_ERROR);
+        os::Printer::log("PLY WRITER WARNING (" + std::to_string(__LINE__) + " line): Only one meshbuffer input is allowed for writing! Saving first one", ELL_WARNING);
         #endif // _NBL_DEBUG
-        return false;
     }
 
 	os::Printer::log("Writing mesh", file->getFileName().c_str());
 
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
-
-    
 
     auto getConvertedCpuMeshBufferWithIndexBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUMeshBuffer>
     {
@@ -140,9 +137,14 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     bool vaidToWrite[4]{ 0, 0, 0, 0 };
 
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(0).buffer)
+    const uint32_t POSITION_ATTRIBUTE = rawCopyMeshBuffer->getPositionAttributeIx();
+    constexpr uint32_t COLOR_ATTRIBUTE = 1;
+    constexpr uint32_t UV_ATTRIBUTE = 2;
+    const uint32_t NORMAL_ATTRIBUTE = rawCopyMeshBuffer->getNormalAttributeIx();
+
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(POSITION_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(0);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(POSITION_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[0] = true;
         header +=
@@ -150,9 +152,9 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             "property " + typeStr + " y\n" +
             "property " + typeStr + " z\n";
     }
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(1).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(COLOR_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(1);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(COLOR_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[1] = true;
         header +=
@@ -164,18 +166,18 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             header += "property " + typeStr + " alpha\n";
         }
     }
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(2).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(UV_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(2);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(UV_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[2] = true;
         header +=
             "property " + typeStr + " u\n" +
             "property " + typeStr + " v\n";
     }
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(3).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(NORMAL_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(3);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(NORMAL_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[3] = true;
         header +=

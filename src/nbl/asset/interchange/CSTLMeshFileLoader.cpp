@@ -27,7 +27,7 @@ constexpr auto NORMAL_ATTRIBUTE = 3;
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr)
 	: IRenderpassIndependentPipelineLoader(_m_assetMgr), m_assetMgr(_m_assetMgr)
 {
-	initialize();
+	
 }
 
 void CSTLMeshFileLoader::initialize()
