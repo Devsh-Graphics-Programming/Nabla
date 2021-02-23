@@ -211,6 +211,13 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             {
                 params.meshManipulatorOverride = m_meshManipulator.get();
             }
+            if (restoreLevels)
+            {
+                using flags_t = std::underlying_type_t<IAssetLoader::E_CACHING_FLAGS>;
+                flags_t mask = ~static_cast<flags_t>(0);
+                mask = core::bitfieldInsert<flags_t>(mask, IAssetLoader::ECF_DONT_CACHE_REFERENCES, 2u*_hierarchyLevel, 2u*restoreLevels);
+                params.cacheFlags = static_cast<IAssetLoader::E_CACHING_FLAGS>(params.cacheFlags & mask);
+            }
 
             IAssetLoader::SAssetLoadContext ctx{params, _file};
 
@@ -398,6 +405,26 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             return getAsset(_file, _supposedFilename, _params, &m_defaultLoaderOverride);
         }
 
+        SAssetBundle getAssetWholeBundleRestore(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchyWholeBundleRestore(_filename, _params, 0u, _override);
+        }
+        //TODO change name
+        SAssetBundle getAssetWholeBundleRestore(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchyWholeBundleRestore(_file, _supposedFilename, _params, 0u, _override);
+        }
+        //TODO change name
+        SAssetBundle getAssetWholeBundleRestore(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
+        {
+            return getAssetWholeBundleRestore(_filename, _params, &m_defaultLoaderOverride);
+        }
+        //TODO change name
+        SAssetBundle getAssetWholeBundleRestore(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params)
+        {
+            return getAssetWholeBundleRestore(_file, _supposedFilename, _params, &m_defaultLoaderOverride);
+        }
+
         //TODO change name
 		//! Check whether Assets exist in cache using a key and optionally their types
 		/*
@@ -501,7 +528,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
         //TODO change key
-        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by asset’s key instead
+        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by assetÂ’s key instead
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
             return m_assetCache[ix]->removeObject(_asset, _asset.getCacheKey());

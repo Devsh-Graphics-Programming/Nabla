@@ -12,96 +12,103 @@
 #include "CMeshManipulator.h"
 #include "os.h"
 
-namespace nbl { namespace asset
+namespace nbl
+{
+namespace asset
 {
 
-core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)
+void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold)
 {
-	if (!_inbuffer)
-		return nullptr;
+	if (!_outbuffer || !_inbuffer)
+		return;
 
 	const asset::E_INDEX_TYPE indexType = _inbuffer->getIndexType();
-	if (indexType == asset::EIT_UNKNOWN)
-		return nullptr;
+	const size_t indexSize = indexType == asset::EIT_16BIT ? sizeof(uint16_t):sizeof(uint32_t);
 
-	const size_t indexSize = indexType == asset::EIT_16BIT ? 2u : 4u;
-
-	auto outbuffer = _createNew ? IMeshManipulator::createMeshBufferDuplicate(_inbuffer) : core::smart_refctd_ptr<asset::ICPUMeshBuffer>(_inbuffer);
-
-	void* const indices = outbuffer->getIndices();
-	if (!indices)
+	const uint32_t idxCount = _inbuffer->getIndexCount();
+	const void* const inIndices = _inbuffer->getIndices();
+	if (idxCount==0u || indexType==asset::EIT_UNKNOWN || !inIndices)
 	{
 #ifdef _NBL_DEBUG
 		os::Printer::log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
 #endif
-		return outbuffer;
+		return;
 	}
 
-	const size_t idxCount = outbuffer->getIndexCount();
-	void* indicesCopy = _NBL_ALIGNED_MALLOC(indexSize*idxCount,_NBL_SIMD_ALIGNMENT);
-	memcpy(indicesCopy, indices, indexSize*idxCount);
-	const size_t vertexCount = IMeshManipulator::upperBoundVertexID(outbuffer.get());
-	core::vector<core::vectorSIMDf> vertexPositions;
+	void* const outIndices = _outbuffer->getIndices();
+	if (_outbuffer->getIndexCount()!=idxCount || _outbuffer->getIndexType()!=indexType || !outIndices)
 	{
-		core::vectorSIMDf pos;
-		for (size_t i = 0; i < vertexCount; ++i)
-		{
-			outbuffer->getAttribute(pos, outbuffer->getPositionAttributeIx(), i);
-			vertexPositions.push_back(pos);
-		}
+#ifdef _NBL_DEBUG
+		os::Printer::log("Overdraw optimization: output meshbuffer's index buffer does not match input -- mesh buffer left unchanged.");
+#endif
+		return;
 	}
 
-	uint32_t* const hardClusters = (uint32_t*)_NBL_ALIGNED_MALLOC((idxCount/3) * 4,_NBL_SIMD_ALIGNMENT);
-	const size_t hardClusterCount = indexType == asset::EIT_16BIT ?
-		genHardBoundaries(hardClusters, (uint16_t*)indices, idxCount, vertexCount) :
-		genHardBoundaries(hardClusters, (uint32_t*)indices, idxCount, vertexCount);
+	void* indexCopy = nullptr;
+	const uint16_t* inIndices16 = reinterpret_cast<const uint16_t*>(inIndices);
+	const uint32_t* inIndices32 = reinterpret_cast<const uint32_t*>(inIndices);
+	// TODO: more accure check for overlap
+	if (_outbuffer->getIndexBufferBinding().buffer==_inbuffer->getIndexBufferBinding().buffer)
+	{
+		const size_t dataSize = indexSize*idxCount;
+		indexCopy = _NBL_ALIGNED_MALLOC(dataSize,indexSize);
+		memcpy(outIndices,inIndices,dataSize);
+		inIndices16 = reinterpret_cast<const uint16_t*>(dataSize);
+		inIndices32 = reinterpret_cast<const uint32_t*>(dataSize);
+	}
+	uint16_t* outIndices16 = reinterpret_cast<uint16_t*>(outIndices);
+	uint32_t* outIndices32 = reinterpret_cast<uint32_t*>(outIndices);
 
-	uint32_t* const softClusters = (uint32_t*)_NBL_ALIGNED_MALLOC((idxCount/3 + 1) * 4,_NBL_SIMD_ALIGNMENT);
+	const uint32_t vertexCount = IMeshManipulator::upperBoundVertexID(_inbuffer);
+	core::vector<core::vectorSIMDf> vertexPositions(vertexCount);
+	for (uint32_t i=0u; i<vertexCount; ++i)
+		_inbuffer->getAttribute(vertexPositions[i],_inbuffer->getPositionAttributeIx(),i);
+
+	uint32_t* const hardClusters = reinterpret_cast<uint32_t*>(_NBL_ALIGNED_MALLOC((idxCount/3)*sizeof(uint32_t),_NBL_SIMD_ALIGNMENT));
+	const size_t hardClusterCount = indexType == asset::EIT_16BIT ?
+		genHardBoundaries(hardClusters, inIndices16, idxCount, vertexCount) :
+		genHardBoundaries(hardClusters, inIndices32, idxCount, vertexCount);
+
+	uint32_t* const softClusters = reinterpret_cast<uint32_t*>(_NBL_ALIGNED_MALLOC((idxCount/3+1)*sizeof(uint32_t),_NBL_SIMD_ALIGNMENT));
 	const size_t softClusterCount = indexType == asset::EIT_16BIT ?
-		genSoftBoundaries(softClusters, (uint16_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold) :
-		genSoftBoundaries(softClusters, (uint32_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold);
+		genSoftBoundaries(softClusters, inIndices16, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold) :
+		genSoftBoundaries(softClusters, inIndices32, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold);
 
 	ClusterSortData* sortedData = (ClusterSortData*)_NBL_ALIGNED_MALLOC(softClusterCount*sizeof(ClusterSortData),_NBL_SIMD_ALIGNMENT);
 	if (indexType == asset::EIT_16BIT)
-		calcSortData(sortedData, (uint16_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
+		calcSortData(sortedData, inIndices16, idxCount, vertexPositions, softClusters, softClusterCount);
 	else
-		calcSortData(sortedData, (uint32_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
+		calcSortData(sortedData, inIndices32, idxCount, vertexPositions, softClusters, softClusterCount);
 
-	std::stable_sort(sortedData, sortedData + softClusterCount, std::greater<ClusterSortData>());
+	std::stable_sort(sortedData, sortedData+softClusterCount, std::greater<ClusterSortData>()); // TODO: use core::radix_sort
 
-	for (size_t it = 0, jt = 0; it < softClusterCount; ++it)
+	auto reorderIndices = [&](auto* out, const auto* in)
 	{
-		const uint32_t cluster = sortedData[it].cluster;
-
-		size_t start = softClusters[cluster];
-		size_t end = (cluster+1 < softClusterCount) ? softClusters[cluster+1] : idxCount/3;
-
-		if (indexType == asset::EIT_16BIT)
+		for (size_t it = 0, jt = 0; it < softClusterCount; ++it)
 		{
+			const uint32_t cluster = sortedData[it].cluster;
+
+			size_t start = softClusters[cluster];
+			size_t end = (cluster+1<softClusterCount) ? softClusters[cluster+1]:idxCount/3;
+
 			for (size_t i = start; i < end; ++i)
 			{
-				((uint16_t*)indices)[jt++] = ((uint16_t*)indicesCopy)[3*i + 0];
-				((uint16_t*)indices)[jt++] = ((uint16_t*)indicesCopy)[3*i + 1];
-				((uint16_t*)indices)[jt++] = ((uint16_t*)indicesCopy)[3*i + 2];
+				out[jt++] = in[3 * i + 0];
+				out[jt++] = in[3 * i + 1];
+				out[jt++] = in[3 * i + 2];
 			}
 		}
-		else
-		{
-			for (size_t i = start; i < end; ++i)
-			{
-				((uint32_t*)indices)[jt++] = ((uint32_t*)indicesCopy)[3*i + 0];
-				((uint32_t*)indices)[jt++] = ((uint32_t*)indicesCopy)[3*i + 1];
-				((uint32_t*)indices)[jt++] = ((uint32_t*)indicesCopy)[3*i + 2];
-			}
-		}
-	}
+	};
+	if (indexType==asset::EIT_16BIT)
+		reorderIndices(outIndices16,inIndices16);
+	else
+		reorderIndices(outIndices32,inIndices32);
 
-	_NBL_ALIGNED_FREE(indicesCopy);
+	if (indexCopy)
+		_NBL_ALIGNED_FREE(indexCopy);
 	_NBL_ALIGNED_FREE(hardClusters);
 	_NBL_ALIGNED_FREE(softClusters);
 	_NBL_ALIGNED_FREE(sortedData);
-
-	return outbuffer;
 }
 
 template<typename IdxT>

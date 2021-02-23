@@ -246,7 +246,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     {
                         auto mb = notempty ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.begin()) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 						if (notempty)
-							mb->setNormalnAttributeIx(NORMAL);
+							mb->setNormalAttributeIx(NORMAL);
                         submeshes.push_back(std::move(mb));
                     }
                     indices.emplace_back();
@@ -265,7 +265,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				dummyMaterialCreated = true;
 
 				submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
-				submeshes.back()->setNormalnAttributeIx(NORMAL);
+				submeshes.back()->setNormalAttributeIx(NORMAL);
 				indices.emplace_back();
 				recalcNormals.push_back(false);
 				submeshWasLoadedFromCache.push_back(false);
