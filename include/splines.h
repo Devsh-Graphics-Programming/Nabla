@@ -17,13 +17,16 @@ namespace nbl
 namespace core
 {
 
-
+// TODO @Przemog
+// TODO: Rename to Follow Curve Animator
+// TODO: Refactor into an interpolator so we can use it for rotations too
+// TODO: Refactor the `BlockChange` stuff into an ext::baw::Animators
 class ISpline// : public AllocationOverrideDefault
 {
     public:
         virtual ~ISpline() {}
 
-        //
+        // TODO: add pingpong option
         virtual bool        isLooping() const {return isLoop;}
         virtual size_t      getSegmentCount() const = 0;
         virtual float       getSplineLength() const = 0;

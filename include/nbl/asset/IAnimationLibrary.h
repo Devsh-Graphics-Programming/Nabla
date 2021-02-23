@@ -102,46 +102,44 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 		//
 		inline const SBufferBinding<const BufferType>& getKeyframeStorageBinding() const
 		{
-			return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_keyframeStorageBinding);
+			return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_keyframeStorageBinding);
 		}
 		inline const SBufferBinding<const BufferType>& getTimestampStorageBinding() const
 		{
-			return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_timestampStorageBinding);
+			return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_timestampStorageBinding);
 		}
 
 		//
 		inline const SBufferRange<const BufferType>& getAnimationStorageRange() const
 		{
-			return reinterpret_cast<const SBufferRange<const BufferType>*>(m_animationStorageRange);
+			return reinterpret_cast<const SBufferRange<const BufferType>&>(m_animationStorageRange);
 		}
 
 		//
 		inline uint32_t getAnimationCapacity() const
 		{
-			return m_animationStorageRange.size() / sizeof(Animation);
+			return m_animationStorageRange.size/sizeof(Animation);
 		}
 
 		inline uint32_t getAnimationOffsetFromName(const char* animationName) const
 		{
-			auto found = m_nameToAnimation.find(animationName);
+			m_temporaryString = animationName;
+			auto found = m_nameToAnimation.find(0xffffffffu);
+			m_temporaryString = nullptr;
 			if (found != m_nameToAnimation.end())
 				return found->second;
 			return getAnimationCapacity();
 		}
 
-		inline const auto& getNameToAnimationMap() const
-		{
-			return m_nameToAnimation;
-		}
-
 
 	protected:
 		IAnimationLibrary(SBufferBinding<BufferType>&& _keyframeStorageBinding, SBufferBinding<BufferType>&& _timestampStorageBinding, uint32_t _keyframeCount, SBufferRange<BufferType>&& _animationStorageRange) :
-			m_stringPool(), m_nameToAnimation(StringComparator(&m_stringPool)), m_keyframeStorageBinding(std::move(_keyframeStorageBinding)), m_timestampStorageBinding(std::move(_timestampStorageBinding)),
+			m_stringPool(), m_temporaryString(nullptr), m_nameToAnimation(StringComparator(&m_stringPool,&m_temporaryString)),
+			m_keyframeStorageBinding(std::move(_keyframeStorageBinding)), m_timestampStorageBinding(std::move(_timestampStorageBinding)),
 			m_animationStorageRange(std::move(_animationStorageRange)), m_keyframeCount(_keyframeCount)
 		{
-			assert(m_keyframeStorageBinding.buffer && (m_keyframeStorageBinding.offset%sizeof(Keyframe)==0u) && m_keyframeStorageBinding.offset+sizeof(Keyframe)*m_keyframeCount<=m_keyframeStorageBinding.buffer->getSize());
-			assert(m_timestampStorageBinding.buffer && (m_timestampStorageBinding.offset%sizeof(Keyframe)==0u) && m_timestampStorageBinding.offset+sizeof(timestamp_t)*m_keyframeCount<=m_timestampStorageBinding.buffer->getSize());
+			assert(m_keyframeStorageBinding.buffer && m_keyframeStorageBinding.offset+sizeof(Keyframe)*m_keyframeCount<=m_keyframeStorageBinding.buffer->getSize());
+			assert(m_timestampStorageBinding.buffer && m_timestampStorageBinding.offset+sizeof(timestamp_t)*m_keyframeCount<=m_timestampStorageBinding.buffer->getSize());
 			
 			if (!m_animationStorageRange.isValid())
 				return;
@@ -204,17 +202,21 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 
 		struct StringComparator
 		{
-				StringComparator(const core::vector<char>* const _stringPool) : stringPool(_stringPool) {}
+				StringComparator(const core::vector<char>* const _stringPool, const char* const* _temporaryString) : stringPool(_stringPool), temporaryString(_temporaryString) {}
 
-				inline bool operator()(const uint32_t lhs, const uint32_t rhs) const
+				inline bool operator()(const uint32_t _lhs, const uint32_t _rhs) const
 				{
-					return strcmp(stringPool->data()+lhs,stringPool->data()+rhs)<0;
+					const char* lhs = _lhs!=0xffffffffu ? (stringPool->data()+_lhs):(*temporaryString);
+					const char* rhs = _rhs!=0xffffffffu ? (stringPool->data()+_rhs):(*temporaryString);
+					return strcmp(lhs,rhs)<0;
 				}
 
 			private:
 				const core::vector<char>* stringPool;
+				const char* const* temporaryString;
 		};
 		core::vector<char> m_stringPool;
+		mutable const char* m_temporaryString;
 		core::map<uint32_t,uint32_t,StringComparator> m_nameToAnimation;
 
 		SBufferBinding<BufferType> m_keyframeStorageBinding,m_timestampStorageBinding;

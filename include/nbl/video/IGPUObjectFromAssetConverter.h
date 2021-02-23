@@ -1164,7 +1164,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAnimationLibrary** _b
     size_t bufIter = 0ull;
     for (ptrdiff_t i = 0u; i<assetCount; ++i)
     {
-        const asset::ICPUAnimationLibrary* cpuanim = _begin[i];
+        const asset::IAnimationLibrary<asset::ICPUBuffer>* cpuanim = _begin[i];
 
 		asset::SBufferBinding<IGPUBuffer> keyframeBinding,timestampBinding;
         {
