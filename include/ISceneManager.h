@@ -32,9 +32,7 @@ namespace scene
 {
 	class ICameraSceneNode;
 	class IDummyTransformationSceneNode;
-	class IMeshLoader;
 	class IMeshSceneNode;
-	class IMeshWriter;
 	class ISceneNode;
 	class ISceneNodeAnimator;
 
