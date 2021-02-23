@@ -229,7 +229,6 @@ ${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
 ${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyCircle.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}

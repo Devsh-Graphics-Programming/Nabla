@@ -44,8 +44,6 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 //! destructor
 CSceneManager::~CSceneManager()
 {
-	clearDeletionList();
-
 	if (CursorControl)
 		CursorControl->drop();
 
@@ -166,16 +164,6 @@ IDummyTransformationSceneNode* CSceneManager::addDummyTransformationSceneNode(
 	return node;
 }
 
-//! Returns the root scene node. This is the scene node wich is parent
-//! of all scene nodes. The root scene node is a special scene node which
-//! only exists to manage all scene nodes. It is not rendered and cannot
-//! be removed from the scene.
-//! \return Returns a pointer to the root scene node.
-ISceneNode* CSceneManager::getRootSceneNode()
-{
-	return this;
-}
-
 
 //! Returns the current active camera.
 //! \return The active camera is returned. Note that this can be NULL, if there
@@ -231,32 +219,6 @@ void CSceneManager::OnAnimate(uint32_t timeMs)
         else
             i++;
     }
-}
-
-//! Adds a scene node to the deletion queue.
-void CSceneManager::addToDeletionQueue(IDummyTransformationSceneNode* node)
-{
-	if (!node)
-		return;
-
-	node->grab();
-	DeletionList.push_back(node);
-}
-
-
-//! clears the deletion list
-void CSceneManager::clearDeletionList()
-{
-	if (DeletionList.empty())
-		return;
-
-	for (uint32_t i=0; i<DeletionList.size(); ++i)
-	{
-		DeletionList[i]->remove();
-		DeletionList[i]->drop();
-	}
-
-	DeletionList.clear();
 }
 
 //! Posts an input event to the environment. Usually you do not have to

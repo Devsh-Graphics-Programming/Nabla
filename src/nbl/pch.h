@@ -108,7 +108,6 @@
 #include "CWriteFile.h"
 #include "CZipReader.h"
 #include "FW_Mutex.h" // refactor
-#include "ISceneNodeAnimatorFinishing.h"
 #include "os.h"
 */
 

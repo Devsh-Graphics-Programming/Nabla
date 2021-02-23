@@ -18,9 +18,22 @@ namespace core
 {
 
 // TODO @Przemog
-// TODO: Rename to Follow Curve Animator
-// TODO: Refactor into an interpolator so we can use it for rotations too
+// TODO: Refactor the base into an interpolator so we can use it for rotations too (in `core`)
+    // control points
+    // looping, finishing or pingponging (repeat, clamp or mirror)
+    // do what `getPos_fromParameter` does but call it `getValue`
+    // do what `getUnnormDirection_fromParameter` does but call it `getDerivativeAndTangent`
+// TODO: Refactor the other functionality Follow Curve Animator (in `scene`)
+    // need `getSplineLength` as `getCurveLength`
+    // info about segments
+    // info about arclength being precise (for many splines its not because arclength integrals are not fun)
+    // for the Follow Spine Animators (derived from interpolator)
+        // implement `_fromParameter` as simple passthroughs
+        // remember that `getPos` and `getUnnormDirection` need to be implemented in arclength (so the object can follow at constant speed)
+// TODO: Implement a FollowCircle or FollowEllipsoid derived from Follow Curve Animator
+    // 
 // TODO: Refactor the `BlockChange` stuff into an ext::baw::Animators
+    // all the methods with `BlockChange` in the name
 class ISpline// : public AllocationOverrideDefault
 {
     public:
