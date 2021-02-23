@@ -24,6 +24,106 @@ constexpr auto COLOR_ATTRIBUTE = 1;
 constexpr auto UV_ATTRIBUTE = 2;
 constexpr auto NORMAL_ATTRIBUTE = 3;
 
+CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr)
+	: IRenderpassIndependentPipelineLoader(_m_assetMgr), m_assetMgr(_m_assetMgr)
+{
+	
+}
+
+void CSTLMeshFileLoader::initialize()
+{
+	IRenderpassIndependentPipelineLoader::initialize();
+
+	auto precomputeAndCachePipeline = [&](bool withColorAttribute)
+	{
+		auto getShaderDefaultPaths = [&]() -> std::pair<std::string_view, std::string_view>
+		{
+			if (withColorAttribute)
+				return std::make_pair("nbl/builtin/material/debug/vertex_color/specialized_shader.vert", "nbl/builtin/material/debug/vertex_color/specialized_shader.frag");
+			else
+				return std::make_pair("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert", "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag");
+		 };
+
+		auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
+		const std::string pipelineCacheHash = getPipelineCacheKey(withColorAttribute).data();
+		const uint32_t _hierarchyLevel = 0;
+		const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
+
+		const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
+		auto pipelineBundle = defaultOverride.findCachedAsset(pipelineCacheHash, types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+		if (pipelineBundle.getContents().empty())
+		{
+			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+			{
+				const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+				const auto shaderPaths = getShaderDefaultPaths();
+
+				auto vertexShaderBundle = m_assetMgr->findAssets(shaderPaths.first.data(), types);
+				auto fragmentShaderBundle = m_assetMgr->findAssets(shaderPaths.second.data(), types);
+
+				mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vertexShaderBundle->begin()->getContents().begin()[0]);
+				mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
+			}
+
+			auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
+
+			const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
+			auto mbBundlePipelineLayout = defaultOverride.findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/STL", fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
+			auto mbPipelineLayout = mbBundlePipelineLayout.first;
+
+			auto const positionFormatByteSize = getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT);
+			auto const colorFormatByteSize = withColorAttribute ? getTexelOrBlockBytesize(EF_B8G8R8A8_UNORM) : 0;
+			auto const normalFormatByteSize = getTexelOrBlockBytesize(EF_A2B10G10R10_SNORM_PACK32);
+
+			SVertexInputParams mbInputParams;
+			const auto stride = positionFormatByteSize + colorFormatByteSize + normalFormatByteSize;
+			mbInputParams.enabledBindingFlags |= core::createBitmask({ 0 });
+			mbInputParams.enabledAttribFlags |= core::createBitmask({ POSITION_ATTRIBUTE, NORMAL_ATTRIBUTE, withColorAttribute ? COLOR_ATTRIBUTE : 0 });
+			mbInputParams.bindings[0] = { stride, EVIR_PER_VERTEX };
+
+			mbInputParams.attributes[POSITION_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
+			mbInputParams.attributes[POSITION_ATTRIBUTE].relativeOffset = 0;
+			mbInputParams.attributes[POSITION_ATTRIBUTE].binding = 0;
+
+			if (withColorAttribute)
+			{
+				mbInputParams.attributes[COLOR_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
+				mbInputParams.attributes[COLOR_ATTRIBUTE].relativeOffset = positionFormatByteSize;
+				mbInputParams.attributes[COLOR_ATTRIBUTE].binding = 0;
+			}
+
+			mbInputParams.attributes[NORMAL_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
+			mbInputParams.attributes[NORMAL_ATTRIBUTE].relativeOffset = positionFormatByteSize + colorFormatByteSize;
+			mbInputParams.attributes[NORMAL_ATTRIBUTE].binding = 0;
+
+			SBlendParams blendParams;
+			SPrimitiveAssemblyParams primitiveAssemblyParams;
+			primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
+
+			SRasterizationParams rastarizationParmas;
+
+			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+			{
+				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
+				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
+			}
+
+			asset::SAssetBundle newPipelineBundle(nullptr, {core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(mbPipeline)});
+			defaultOverride.insertAssetIntoCache(newPipelineBundle, pipelineCacheHash, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+		}
+		else
+			return;
+	};
+
+	/*
+		Pipeline permutations are cached
+	*/
+
+	precomputeAndCachePipeline(true);
+	precomputeAndCachePipeline(false);
+}
+
 SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (_params.meshManipulatorOverride == nullptr)
@@ -154,129 +254,43 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	auto vertexBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize * positions.size());
 
-	uint32_t normal{};
+	using quant_normal_t = CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>;
+
+	quant_normal_t normal;
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
 		if (i % 3 == 0)
 			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
 		uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i * vtxSize;
 		memcpy(ptr, positions[i].pointer, 3 * 4);
-		((uint32_t*)(ptr + 12))[0] = normal;
+
+		*reinterpret_cast<quant_normal_t*>(ptr + 12) = normal;
+
 		if (hasColor)
 			memcpy(ptr + 16, colors.data() + i / 3, 4);
 	}
 
-	// TODO: @Anastazluk PRECOMPUTE THE ENTIRE PIPELINE (since metadata is now free to change for every time the same handle gets returned)
-	const std::string shaderDefaultAssetPath = hasColor ? "nbl/builtin/material/debug/vertex_color_debug_shader/specialized_shader" : "nbl/builtin/material/debug/normal_debug_shader/specialized_shader"; // TODO: `normal_debug` is a rather bad name
-	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+	const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
+	const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
+	auto pipelineBundle = _override->findCachedAsset(getPipelineCacheKey(hasColor).data(), types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
 	{
-		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-		auto bundle = m_assetMgr->findAssets(shaderDefaultAssetPath.c_str(), types);
-
-		auto refCountedBundle =
-		{
-			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]),
-			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin()+1)->getContents().begin()[0])
-		};
-
-		for (auto& shader : refCountedBundle)
-		{
-			if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
-				mbVertexShader = std::move(shader);
-			else if (shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
-				mbFragmentShader = std::move(shader);
-		}
+		bool status = !pipelineBundle.getContents().empty();
+		assert(status);
 	}
 
-	auto mbPipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/material/lambertian/no_texture/pipeline_layout", /*TODO: @Anastazluk where the F is the loading SContext???*/, _hierarchyLevel+ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
+	auto mbPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipelineBundle.getContents().begin()[0]);
 
-	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-
-	// TODO: @Anastazluk use `m_basicViewParamsSemantics` from IRenderpassIndependentPipelineLoader
-	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
-	{
-		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u); // this metadata should probably go into pipeline layout's asset bundle (@Crisspl TODO: review)
-
-		constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] =
-		{
-			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
-			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
-			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
-		};
-		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] =
-		{
-			sizeof(SBasicViewParameters::MVP),
-			sizeof(SBasicViewParameters::MV),
-			sizeof(SBasicViewParameters::NormalMat)
-		};
-		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
-		{
-			offsetof(SBasicViewParameters,MVP),
-			offsetof(SBasicViewParameters,MV),
-			offsetof(SBasicViewParameters,NormalMat)
-		};
-		for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
-		{
-			auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
-			semantic.type = types[i];
-			semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-			semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
-			semantic.descriptorSection.uniformBufferObject.set = 1u;
-			semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
-			semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-			semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
-		}
-	}
-
-	auto const positionFormatByteSize = getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT);
-	auto const colorFormatByteSize = hasColor ? getTexelOrBlockBytesize(EF_B8G8R8A8_UNORM) : 0;
-	auto const normalFormatByteSize = getTexelOrBlockBytesize(EF_A2B10G10R10_SNORM_PACK32);
-
-	SVertexInputParams mbInputParams;
-	const auto stride = positionFormatByteSize + colorFormatByteSize + normalFormatByteSize;
-	mbInputParams.enabledBindingFlags |= core::createBitmask({0});
-	mbInputParams.enabledAttribFlags |= core::createBitmask({POSITION_ATTRIBUTE, NORMAL_ATTRIBUTE, hasColor ? COLOR_ATTRIBUTE : 0});
-	mbInputParams.bindings[0] = { stride, EVIR_PER_VERTEX };
-
-	mbInputParams.attributes[POSITION_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-	mbInputParams.attributes[POSITION_ATTRIBUTE].relativeOffset = 0;
-	mbInputParams.attributes[POSITION_ATTRIBUTE].binding = 0;
-
-	if (hasColor)
-	{
-		mbInputParams.attributes[COLOR_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-		mbInputParams.attributes[COLOR_ATTRIBUTE].relativeOffset = positionFormatByteSize;
-		mbInputParams.attributes[COLOR_ATTRIBUTE].binding = 0;
-	}
-
-	mbInputParams.attributes[NORMAL_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-	mbInputParams.attributes[NORMAL_ATTRIBUTE].relativeOffset = positionFormatByteSize + colorFormatByteSize;
-	mbInputParams.attributes[NORMAL_ATTRIBUTE].binding = 0;
-
-	SBlendParams blendParams;
-	SPrimitiveAssemblyParams primitiveAssemblyParams;
-	primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
-
-	SRasterizationParams rastarizationParmas;
-
-	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas); // TODO: @Crisspl/@Anastazluk pipeline should also be builtin because no need to customize the metadata anymore
-	{
-		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
-		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
-		meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
-	}
-
-	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>(1u);
-	meta->placeMeta(0u,mbPipeline.get(),std::move(shaderInputsMetadata));
+	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>(1u, std::move(m_basicViewParamsSemantics));
+	meta->placeMeta(0u, mbPipeline.get());
 
 	meshbuffer->setPipeline(std::move(mbPipeline));
 	meshbuffer->setIndexCount(positions.size());
 	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
 
+	meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
 	mesh->getMeshBufferVector().emplace_back(std::move(meshbuffer));
-
-	return SAssetBundle(std::move(meta),{ std::move(mesh) });
+	
+	return SAssetBundle(std::move(meta), { std::move(mesh) });
 }
 
 
