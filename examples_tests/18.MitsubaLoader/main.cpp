@@ -212,7 +212,9 @@ int main()
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
 		auto serializedLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am);
-		auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs);
+		auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, fs);
+		serializedLoader->initialize();
+		mitsubaLoader->initialize();
 		am->addAssetLoader(std::move(serializedLoader));
 		am->addAssetLoader(std::move(mitsubaLoader));
 
@@ -327,7 +329,11 @@ int main()
 	// look out for this!!!
 	// when added, CMitsubaLoader inserts its own include loader into GLSLCompiler
 	// thats why i have to add it again here (after device recreation) to be able to compile shaders
-	am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, device->getFileSystem()));
+	{
+		auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, fs);
+		mitsubaLoader->initialize();
+		am->addAssetLoader(std::move(mitsubaLoader));
+	}
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
 	{
