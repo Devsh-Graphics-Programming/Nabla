@@ -80,7 +80,7 @@ void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, 
 	else
 		calcSortData(sortedData, inIndices32, idxCount, vertexPositions, softClusters, softClusterCount);
 
-	std::stable_sort(sortedData, sortedData+softClusterCount, std::greater<ClusterSortData>());
+	std::stable_sort(sortedData, sortedData+softClusterCount, std::greater<ClusterSortData>()); // TODO: use core::radix_sort
 
 	auto reorderIndices = [&](auto* out, const auto* in)
 	{
