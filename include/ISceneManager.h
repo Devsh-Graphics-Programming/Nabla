@@ -12,7 +12,6 @@
 #include "vector3d.h"
 #include "dimension2d.h"
 #include "SColor.h"
-#include "ESceneNodeAnimatorTypes.h"
 #include "nbl/asset/ICPUMesh.h"
 
 namespace nbl
