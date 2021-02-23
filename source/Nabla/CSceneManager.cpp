@@ -31,7 +31,6 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 {
 	#ifdef _NBL_DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
-	ISceneNode::setDebugName("CSceneManager ISceneNode");
 	#endif
 
 	if (Driver)
@@ -151,19 +150,6 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 	return node;
 }
 
-//! Adds a dummy transformation scene node to the scene tree.
-IDummyTransformationSceneNode* CSceneManager::addDummyTransformationSceneNode(
-	IDummyTransformationSceneNode* parent, int32_t id)
-{
-	if (!parent)
-		parent = this;
-
-	IDummyTransformationSceneNode* node = new IDummyTransformationSceneNode(parent);
-	node->drop();
-
-	return node;
-}
-
 
 //! Returns the current active camera.
 //! \return The active camera is returned. Note that this can be NULL, if there
@@ -190,16 +176,6 @@ void CSceneManager::setActiveCamera(ICameraSceneNode* camera)
 //! renders the node.
 void CSceneManager::render()
 {
-}
-
-
-//! returns the axis aligned bounding box of this node
-const core::aabbox3d<float>& CSceneManager::getBoundingBox()
-{
-	_NBL_DEBUG_BREAK_IF(true) // Bounding Box of Scene Manager wanted.
-
-	// should never be used.
-	return *((core::aabbox3d<float>*)0);
 }
 
 //!

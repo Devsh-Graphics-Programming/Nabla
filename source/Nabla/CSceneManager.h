@@ -48,9 +48,6 @@ namespace scene
 		//! renders the node.
 		virtual void render();
 
-		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<float>& getBoundingBox();
-
 		//! Adds a camera scene node to the tree and sets it as active camera.
 		//! \param position: Position of the space relative to its parent where the camera will be placed.
 		//! \param lookat: Position where the camera will look at. Also known as target.
@@ -83,10 +80,6 @@ namespace scene
 			SKeyMap* keyMapArray=0, int32_t keyMapSize=0,
 			bool noVerticalMovement=false, float jumpSpeed = 0.f,
 			bool invertMouseY=false, bool makeActive=true);
-
-		//! Adds a dummy transformation scene node to the scene tree.
-		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
-			IDummyTransformationSceneNode* parent=0, int32_t id=-1);
 
 		//! Returns the current active camera.
 		//! \return The active camera is returned. Note that this can be NULL, if there
@@ -123,8 +116,6 @@ namespace scene
 
 		//! cursor control
 		gui::ICursorControl* CursorControl;
-
-		core::vector<IDummyTransformationSceneNode*> DeletionList;
 
 		//! current active camera
 		ICameraSceneNode* ActiveCamera;

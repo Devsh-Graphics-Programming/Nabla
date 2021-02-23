@@ -181,16 +181,6 @@ namespace scene
 			float jumpSpeed = 0.f, bool invertMouse=false,
 			bool makeActive=true) = 0;
 
-		//! Adds a dummy transformation scene node to the scene tree.
-		/** This scene node does not render itself, have a bounding box, a render method,
-        and is as-if always visible ISceneNode.
-		Its actually a base of ISceneNode, and it can be used for doing advanced transformations
-		or structuring the scene tree.
-		\return Pointer to the created scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
-			IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
-
 		//! Get the current active camera.
 		/** \return The active camera is returned. Note that this can
 		be NULL, if there was no camera created yet.
