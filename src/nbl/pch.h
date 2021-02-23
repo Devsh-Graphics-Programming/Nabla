@@ -103,20 +103,11 @@
 #include "CPakReader.h"
 #include "CReadFile.h"
 #include "CSceneManager.h"
-#include "CSceneNodeAnimatorCameraFPS.h"
-#include "CSceneNodeAnimatorCameraMaya.h"
-#include "CSceneNodeAnimatorDelete.h"
-#include "CSceneNodeAnimatorFlyCircle.h"
-#include "CSceneNodeAnimatorFlyStraight.h"
-#include "CSceneNodeAnimatorFollowSpline.h"
-#include "CSceneNodeAnimatorRotation.h"
-#include "CSkinnedMeshSceneNode.h"
 #include "CSkinningStateManager.h"
 #include "CTarReader.h"
 #include "CWriteFile.h"
 #include "CZipReader.h"
 #include "FW_Mutex.h" // refactor
-#include "ISceneNodeAnimatorFinishing.h"
 #include "os.h"
 */
 

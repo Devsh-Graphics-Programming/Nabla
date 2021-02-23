@@ -16,6 +16,7 @@
 #include "nbl/asset/ICPUMesh.h"
 
 #include "nbl/asset/utils/CQuantNormalCache.h"
+#include "nbl/asset/utils/CQuantQuaternionCache.h"
 
 namespace nbl
 {
@@ -159,7 +160,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 
 			const auto& vtxInputParams = ppln->getVertexInputParams();
 			uint32_t size = 0u;
-			for (size_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
+			for (uint32_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
 			if (vtxInputParams.enabledAttribFlags & (1u<<i))
 				size += asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vtxInputParams.attributes[i].format));
 			return size;
@@ -182,7 +183,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
         /**
@@ -191,7 +192,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
         /**
@@ -200,11 +201,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-		
-
-		//! Created duplicate of meshbuffer
-		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferDuplicate(const ICPUMeshBuffer* _src);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
@@ -356,55 +353,98 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		}
 
 		//! Calculates bounding box of the meshbuffer
-		static inline core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* meshbuffer)
+		static inline core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* meshbuffer, core::aabbox3df* outJointAABBs=nullptr)
 		{
-			core::aabbox3df retval;
-			retval.reset(core::vector3df(0.f));
+			core::aabbox3df aabb(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
 			if (!meshbuffer->getPipeline())
-				return retval;
+				return aabb;
 			
 			auto posAttrId = meshbuffer->getPositionAttributeIx();
 			const ICPUBuffer* mappedAttrBuf = meshbuffer->getAttribBoundBuffer(posAttrId).buffer.get();
 			if (posAttrId >= ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
-				return retval;
+				return aabb;
 			
-			auto impl = [meshbuffer,&retval](const auto* indexPtr) -> void
+			const bool computeJointAABBs = outJointAABBs&&meshbuffer->isSkinned();
+			const auto* skeleton = meshbuffer->getSkeleton();
+			if (computeJointAABBs)
+			for (auto i=0u; i<meshbuffer->getSkeleton()->getJointCount(); i++)
+				outJointAABBs[i] = aabb;
+
+			auto impl = [meshbuffer,&aabb,skeleton](const auto* indexPtr, auto* jointAABBs) -> void
 			{
-				for (size_t j=0ull; j<meshbuffer->getIndexCount(); j++)
+				const uint32_t jointCount = skeleton ? skeleton->getJointCount():0u;
+				const auto jointIDAttr = meshbuffer->getJointIDAttributeIx();
+				const auto jointWeightAttrId = meshbuffer->getJointWeightAttributeIx();
+				const auto maxInfluences = core::min(meshbuffer->deduceMaxJointsPerVertex(), meshbuffer->getMaxJointsPerVertex());
+				const uint32_t maxWeights = skeleton ? getFormatChannelCount(meshbuffer->getAttribFormat(jointWeightAttrId)):0u;
+				const auto* inverseBindPoses = meshbuffer->getInverseBindPoses();
+
+				for (uint32_t j=0u; j<meshbuffer->getIndexCount(); j++)
 				{
-					size_t ix;
+					uint32_t ix;
 					if constexpr (std::is_void_v<std::remove_pointer_t<decltype(indexPtr)>>)
 						ix = j;
 					else
 						ix = indexPtr[j];
+					const auto pos = meshbuffer->getPosition(ix);
 
-
-					if (j)
-						retval.addInternalPoint(meshbuffer->getPosition(ix).getAsVector3df());
-					else
-						retval.reset(meshbuffer->getPosition(ix).getAsVector3df());
+					bool noJointInfluence = true;
+					if constexpr (!std::is_void_v<std::remove_pointer_t<decltype(jointAABBs)>>)
+					{
+						uint32_t jointIDs[4u];
+						meshbuffer->getAttribute(jointIDs,jointIDAttr,ix);
+						core::vectorSIMDf weights;
+						meshbuffer->getAttribute(weights,jointWeightAttrId,ix);
+						float weightRemainder = 1.f;
+						for (auto i=0u; i<maxInfluences; i++)
+						{
+							if (jointIDs[i]<jointCount)
+							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
+							{
+								core::vectorSIMDf boneSpacePos;
+								inverseBindPoses[i].transformVect(boneSpacePos,pos);
+								jointAABBs[jointIDs[i]].addInternalPoint(boneSpacePos.getAsVector3df());
+								noJointInfluence = false;
+							}
+							weightRemainder -= weights[i];
+						}
+					}
+					
+					if (noJointInfluence)
+						aabb.addInternalPoint(pos.getAsVector3df());
 				}
 			};
+
 			const void* indices = meshbuffer->getIndices();
+			void* void_null = nullptr;
 			switch (meshbuffer->getIndexType())
 			{
 				case EIT_32BIT:
-					impl(reinterpret_cast<const uint32_t*>(indices));
+					if (computeJointAABBs)
+						impl(reinterpret_cast<const uint32_t*>(indices),outJointAABBs);
+					else
+						impl(reinterpret_cast<const uint32_t*>(indices),void_null);
 					break;
 				case EIT_16BIT:
-					impl(reinterpret_cast<const uint16_t*>(indices));
+					if (computeJointAABBs)
+						impl(reinterpret_cast<const uint16_t*>(indices),outJointAABBs);
+					else
+						impl(reinterpret_cast<const uint16_t*>(indices),void_null);
 					break;
 				default:
-					impl(reinterpret_cast<const void*>(0ull));
+					if (computeJointAABBs)
+						impl(void_null,outJointAABBs);
+					else
+						impl(void_null,void_null);
 					break;
 			}
-			return retval;
+			return aabb;
 		}
 
 		//! Recalculates the cached bounding box of the meshbuffer
 		static inline void recalculateBoundingBox(ICPUMeshBuffer* meshbuffer)
 		{
-			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer));
+			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer,meshbuffer->getJointAABBs()));
 		}
 
 		//! Flips the direction of surfaces.
@@ -516,7 +556,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				ICPUMeshBuffer* cpumb = *it;
 
 				const auto indexType = cpumb->getIndexType();
-				size_t indexCount = cpumb->getIndexCount();
+				auto indexCount = cpumb->getIndexCount();
 
 				auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
 				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
@@ -569,21 +609,6 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			}
 		}
 
-
-		//! Creates Mesh Duplicate
-		static inline core::smart_refctd_ptr<ICPUMesh> createMeshDuplicate(const ICPUMesh* _src)
-		{
-			if (!_src)
-				return nullptr;
-	
-			core::smart_refctd_ptr<ICPUMesh> dst = core::make_smart_refctd_ptr<ICPUMesh>();
-			auto& dstMeshBuffers = dst->getMeshBufferVector();
-			for (auto meshbuffer : _src->getMeshBuffers())
-				dstMeshBuffers.emplace_back(createMeshBufferDuplicate(meshbuffer));
-
-			return dst;
-		}
-
 		//! Get amount of polygons in mesh.
 		/** \param meshbuffer Input mesh
 		\param Outputted Number of polygons in mesh, if successful.
@@ -610,12 +635,9 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		template<typename T>
 		static inline core::aabbox3df calculateBoundingBox(const IMesh<T>* mesh)
 		{
-			core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);;
+			core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 			auto meshbuffers = mesh->getMeshBuffers();
-			if (meshbuffers.empty())
-				aabb.reset(0.0f,0.0f,0.0f);
-			else
 			for (auto mesh : meshbuffers)
 				aabb.addInternalBox(mesh->getBoundingBox());
 			
@@ -632,6 +654,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 
 		//!
 		virtual CQuantNormalCache* getQuantNormalCache() = 0;
+		virtual CQuantQuaternionCache* getQuantQuaternionCache() = 0;
 };
 
 } // end namespace scene

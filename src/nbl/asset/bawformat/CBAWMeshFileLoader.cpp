@@ -253,7 +253,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 			auto normalBuffer = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getMappedBuffer(normalAttribute)));
 			const bool hasNormal = normalBuffer && normalBuffer->getPointer();
 
-			auto copy = m_manager->getMeshManipulator()->createMeshBufferDuplicate(mb);
+			auto copy = m_manager->getMeshManipulator()->createMeshBufferDuplicate(mb); // TODO: createMeshBufferDuplicate is now non-public
 			auto meshFormat = copy->getMeshDataAndFormat();
 
 			meshFormat->setIndexBuffer(core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getIndexBuffer())));

@@ -236,7 +236,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			// create a mesh buffer
 			auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 
-			mb->setNormalnAttributeIx(3u);
+			mb->setNormalAttributeIx(3u);
       
 			core::vector<core::vectorSIMDf> attribs[4];
 			core::vector<uint32_t> indices;
