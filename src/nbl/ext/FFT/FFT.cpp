@@ -96,7 +96,7 @@ R"===(#version 430 core
 
 	const size_t extraSize = 32 + 32 + 32 + 32;
 
-	const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE) + 1u;
+	const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE) + 1u;
 	const uint32_t useSSBOforInput = (DataType::SSBO == inputType) ? 1 : 0;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(

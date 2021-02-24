@@ -18,10 +18,10 @@ namespace FFT
 {
 
 typedef uint32_t uint;
-struct uvec3 {
+struct alignas(16) uvec3 {
 	uint x,y,z;
 };
-struct uvec4 {
+struct alignas(16) uvec4 {
 	uint x,y,z,w;
 };
 #include "nbl/builtin/glsl/ext/FFT/parameters.glsl";
@@ -62,10 +62,8 @@ class FFT : public core::TotalInterface
 		// returns dispatch size and fills the uniform data
 		static inline DispatchInfo_t buildParameters(
 			asset::VkExtent3D const & paddedInputDimensions,
-			Direction direction,
-			uint32_t num_channels)
+			Direction direction)
 		{
-			assert(num_channels > 0);
 			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
 			DispatchInfo_t ret = {};
 
@@ -75,21 +73,43 @@ class FFT : public core::TotalInterface
 
 			if(direction == Direction::X)
 			{
-				ret.workGroupCount[0] = num_channels;
+				ret.workGroupCount[0] = 1;
 				ret.workGroupCount[1] = paddedInputDimensions.height;
 				ret.workGroupCount[2] = paddedInputDimensions.depth;
 			}
 			else if(direction == Direction::Y) {
 				ret.workGroupCount[0] = paddedInputDimensions.width;
-				ret.workGroupCount[1] = num_channels;
+				ret.workGroupCount[1] = 1;
 				ret.workGroupCount[2] = paddedInputDimensions.depth;
 			}
 			else if(direction == Direction::Z)
 			{
 				ret.workGroupCount[0] = paddedInputDimensions.width;
 				ret.workGroupCount[1] = paddedInputDimensions.height;
-				ret.workGroupCount[2] = num_channels;
+				ret.workGroupCount[2] = 1;
 			}
+
+			return ret;
+		}
+
+		
+		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D const & dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 0, 0, 0 }) {
+			asset::VkExtent3D ret = {};
+			asset::VkExtent3D extendedDim = dimension;
+
+			if(dimension.width < minimum_dimension.width) {
+				extendedDim.width = minimum_dimension.width;
+			}
+			if(dimension.height < minimum_dimension.height) {
+				extendedDim.height = minimum_dimension.height;
+			}
+			if(dimension.depth < minimum_dimension.depth) {
+				extendedDim.depth = minimum_dimension.depth;
+			}
+
+			ret.width = core::roundUpToPoT(extendedDim.width);
+			ret.height = core::roundUpToPoT(extendedDim.height);
+			ret.depth = core::roundUpToPoT(extendedDim.depth);
 
 			return ret;
 		}
@@ -176,7 +196,7 @@ class FFT : public core::TotalInterface
 						textureWrap,
 						textureWrap,
 						textureWrap,
-						ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+						ISampler::ETBC_FLOAT_TRANSPARENT_BLACK,
 						ISampler::ETF_NEAREST,
 						ISampler::ETF_NEAREST,
 						ISampler::ESMM_NEAREST,
@@ -236,6 +256,7 @@ class FFT : public core::TotalInterface
 			asset::VkExtent3D const & paddedInputDimension,
 			Direction direction,
 			bool isInverse, 
+			uint32_t numChannels,
 			PaddingType paddingType = PaddingType::CLAMP_TO_EDGE)
 		{
 
@@ -253,6 +274,7 @@ class FFT : public core::TotalInterface
 			params.padded_dimension.x = paddedInputDimension.width;
 			params.padded_dimension.y = paddedInputDimension.height;
 			params.padded_dimension.z = paddedInputDimension.depth;
+			params.padded_dimension.w = numChannels;
 
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		}

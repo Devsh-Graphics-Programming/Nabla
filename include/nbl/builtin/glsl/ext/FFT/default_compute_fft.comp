@@ -7,6 +7,10 @@
 #error "USE_SSBO_FOR_INPUT should be defined."
 #endif
 
+#ifndef _NBL_GLSL_EXT_FFT_MAX_CHANNELS
+#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS 4
+#endif
+
 #ifndef _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ 256
 #endif
@@ -120,7 +124,11 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint cha
 
 void main()
 {
-	nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse());
+    const uint numChannels = nbl_glsl_ext_FFT_Parameters_t_getNumChannels();
+	for(uint ch = 0u; ch < numChannels; ++ch)
+	{
+		nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse(), ch);
+	}
 }
 
 #endif
