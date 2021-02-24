@@ -21,7 +21,7 @@ class IAnimationBlendManager : public virtual core::IReferenceCounted
 		using blend_t = uint32_t;
 
 		// creation (TODO: should we support adding and removing animation libraries at runtime?)
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IVideoDriver* _driver, core::smart_refctd_ptr<video::IGPUAnimationLibrary>&& _animationLibrary)
+        static inline core::smart_refctd_ptr<IAnimationBlendManager> create(video::IVideoDriver* _driver, core::smart_refctd_ptr<video::IGPUAnimationLibrary>&& _animationLibrary)
         {
 			if (true) // TODO: some checks and validation before creating?
 				return nullptr;
@@ -39,11 +39,12 @@ class IAnimationBlendManager : public virtual core::IReferenceCounted
 		// add to a contiguous list in GPU memory
 		void startBlends(const blend_t* begin, const blend_t* end)
 		{
-			// easy enough, just add the uints to the back of a GPU buffer and increment the counter used in dispatch indirect buffer
+			// easy enough, just push the `blend_t`s to a GPU `sparse_vector`
 		}
 		// remove from a contiguous list in GPU memory
 		void pauseBlends(const blend_t* begin, const blend_t* end)
 		{
+			// easy enough, just erase the `blend_t`s from a GPU `sparse_vector`
 		}
 
 		//

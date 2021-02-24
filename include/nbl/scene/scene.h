@@ -11,10 +11,9 @@
 
 //
 #include "nbl/scene/IAnimationBlendManager.h"
-//#include "nbl/scene/ILevelOfDetailLibrary.h"
+#include "nbl/scene/IRenderpassManager.h"
 //#include "nbl/scene/ISensor.h" or asset? or a struct?
 //#include "nbl/scene/ICamera.h" or do we stick it inside the renderpass?
-//#include "nbl/scene/IRenderpassManager.h"
 //#include "nbl/scene/ISceneManager.h" do we need this?
 //#include "nbl/scene/.h"
 

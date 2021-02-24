@@ -136,6 +136,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		// TODO: utilities for adding root nodes, adding skeleton node instances, etc.
 		// should we just do it ourselves with a shader? (set correct timestamps so global gets recomputed)
 #endif
+
 		//
 		inline void removeNodes(const node_t* begin, const node_t* end)
 		{
