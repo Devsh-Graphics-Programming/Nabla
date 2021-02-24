@@ -6,6 +6,7 @@
 #include "nbl/asset/IRenderpass.h"
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/ISpecializedShader.h"
+#include "nbl/asset/ECommonEnums.h"
 
 #include <type_traits>
 
@@ -56,23 +57,6 @@ struct VkRect2D
     VkOffset2D    offset;
     VkExtent2D    extent;
 };
-enum E_STENCIL_FACE_FLAGS : uint32_t
-{
-    ESFF_FRONT_BIT = 0x01,
-    ESFF_BACK_BIT = 0x02,
-    ESFF_FACE_AND_FRONT = 0x03
-};
-enum E_QUERY_CONTROL_FLAGS : uint32_t
-{
-    EQCF_PRECISE_BIT = 0x01
-};
-enum E_QUERY_RESULT_FLAGS : uint32_t
-{
-    EQRF_64_BIT = 0x01,
-    EQRF_WAIT_BIT = 0x02,
-    EQRF_WITH_AVAILABILITY_BIT = 0x04,
-    EQRF_PARTIAL_BIT = 0x08
-};
 
 struct SMemoryBarrier
 {
@@ -111,12 +95,6 @@ struct SClearRect
     uint32_t layerCount;
 };
 
-enum E_SUBPASS_CONTENTS : uint32_t
-{
-    ESC_INLINE = 0,
-    ESC_SECONDARY_COMMAND_BUFFERS = 1
-};
-
 template <
     typename BufferType, 
     typename ImageType, 
@@ -126,7 +104,8 @@ template <
     typename ComputePipelineType,
     typename DescSetType,
     typename PipelineLayoutType,
-    typename EventType
+    typename EventType,
+    typename CommandBufferType
 >
 class ICommandBuffer
 {
@@ -140,6 +119,7 @@ protected:
     using descriptor_set_t = DescSetType;
     using pipeline_layout_t = PipelineLayoutType;
     using event_t = EventType;
+    using cmdbuf_t = CommandBufferType;
 
 public:
     enum E_RESET_FLAGS : uint32_t
@@ -174,7 +154,7 @@ public:
         SMemoryBarrier barrier;
         uint32_t srcQueueFamilyIndex;
         uint32_t dstQueueFamilyIndex;
-        const buffer_t* buffer;
+        core::smart_refctd_ptr<const buffer_t> buffer;
         size_t offset;
         size_t size;
     };
@@ -185,13 +165,13 @@ public:
         asset::E_IMAGE_LAYOUT newLayout;
         uint32_t srcQueueFamilyIndex;
         uint32_t dstQueueFamilyIndex;
-        const image_t* image;
+        core::smart_refctd_ptr<const image_t> image;
         asset::IImage::SSubresourceRange subresourceRange;
     };
     struct SRenderpassBeginInfo
     {
-        const renderpass_t* renderpass;
-        const framebuffer_t* framebuffer;
+        core::smart_refctd_ptr<const renderpass_t> renderpass;
+        core::smart_refctd_ptr<const framebuffer_t> framebuffer;
         VkRect2D renderArea;
         uint32_t clearValueCount;
         const SClearValue* clearValues;
@@ -212,7 +192,7 @@ public:
         m_state = ES_EXECUTABLE;
     }
 
-    virtual void bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
+    virtual void bindIndexBuffer(buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
     virtual void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) = 0;
     virtual void drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) = 0;
     virtual void drawIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
@@ -253,7 +233,7 @@ public:
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
     ) = 0;
 
-    virtual void pipelineBarrier(uint32_t eventCount, const VkEvent* pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+    virtual void pipelineBarrier(uint32_t eventCount, const event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
@@ -276,9 +256,9 @@ public:
     //virtual void writeTimestamp(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
-    /*virtual void bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        descriptor_set_t** pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t pDynamicOffsets
-    ) = 0;*/
+    virtual void bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        descriptor_set_t** pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr
+    ) = 0;
     virtual void pushConstants(pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
 
     virtual void clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
@@ -286,6 +266,14 @@ public:
     virtual void clearAttachments(uint32_t attachmentCount, const SClearAttachment* pAttachments, uint32_t rectCount, const SClearRect* pRects) = 0;
     virtual void fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) = 0;
     virtual void updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) = 0;
+
+    virtual bool executeCommands(uint32_t count, cmdbuf_t** cmdbufs)
+    {
+        for (uint32_t i = 0u; i < count; ++i)
+            if (cmdbufs[i]->getLevel() != EL_SECONDARY)
+                return false;
+        return true;
+    }
 
 protected:
     virtual ~ICommandBuffer() = default;

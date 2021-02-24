@@ -279,6 +279,11 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
 	${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp

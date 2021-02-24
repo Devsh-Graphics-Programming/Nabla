@@ -7,14 +7,21 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/CEGL.h"
 #include "nbl/system/IThreadHandler.h"
-#include "nbl/video/IGPUFramebuffer.h"
-#include "nbl/video/IGPUImageView.h"
-#include "nbl/video/IGPUSampler.h"
-#include "nbl/video/IGPURenderpassIndependentPipeline.h"
+#include "nbl/video/COpenGLComputePipeline.h"
+#include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/asset/ISPIRVOptimizer.h"
+#include "COpenGLBuffer.h"
+#include "nbl/video/COpenGLBufferView.h"
+#include "nbl/video/COpenGLImage.h"
+#include "nbl/video/COpenGLImageView.h"
+//#include "nbl/video/COpenGLFramebuffer.h"
+#include "COpenGLSync.h"
+#include "COpenGLSpecializedShader.h"
+#include "nbl/video/COpenGLSampler.h"
+#include "nbl/video/COpenGLPipelineCache.h"
 
 namespace nbl {
 namespace video
@@ -60,8 +67,8 @@ namespace impl
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
+            ERT_COMPUTE_PIPELINE_CREATE,
             //ERT_GRAPHICS_PIPELINE_CREATE,
-            ERT_SPECIALIZED_SHADER_CREATE,
 
             // non-create requests
             ERT_GET_EVENT_STATUS,
@@ -121,7 +128,7 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_VIEW_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUBufferView>;
-            IGPUBuffer* buffer;
+            core::smart_refctd_ptr<IGPUBuffer> buffer;
             asset::E_FORMAT format;
             size_t offset;
             size_t size;
@@ -143,12 +150,23 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = ERT_SAMPLER_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUSampler>;
             IGPUSampler::SParams params;
+            bool is_gles;
         };
         struct SRequestRenderpassIndependentPipelineCreate
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>;
-            IGPURenderpassIndependentPipeline::SCreationParams params;
+            const IGPURenderpassIndependentPipeline::SCreationParams* params;
+            uint32_t count;
+            IGPUPipelineCache* pipelineCache;
+        };
+        struct SRequestComputePipelineCreate
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_COMPUTE_PIPELINE_CREATE;
+            using retval_t = core::smart_refctd_ptr<IGPUComputePipeline>;
+            const IGPUComputePipeline::SCreationParams* params;
+            uint32_t count;
+            IGPUPipelineCache* pipelineCache;
         };
         struct SRequestSwapchainCreate
         {
@@ -156,14 +174,7 @@ namespace impl
             using retval_t = core::smart_refctd_ptr<ISwapchain>;
             ISwapchain::SCreationParams params;
         };
-        struct SRequestSpecializedShaderCreate
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_SPECIALIZED_SHADER_CREATE;
-            using retval_t = core::smart_refctd_ptr<IGPUSpecializedShader>;
-            const IGPUShader* unspecialized;
-            const asset::ISpecializedShader::SInfo& specInfo;
-            const asset::ISPIRVOptimizer* spvopt;
-        };
+
         //
         // Non-create requests:
         //
@@ -254,6 +265,7 @@ namespace impl
 // Implementation of both GL and GLES is the same code (see COpenGL_LogicalDevice) thanks to IOpenGL_FunctionTable abstraction layer
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
+protected:
     struct SRequest
     {
         using params_variant_t = std::variant<
@@ -267,8 +279,8 @@ class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_Log
             SRequestImageViewCreate,
             SRequestSamplerCreate,
             SRequestRenderpassIndependentPipelineCreate,
+            SRequestComputePipelineCreate,
             SRequestSwapchainCreate,
-            SRequestSpecializedShaderCreate,
 
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
@@ -310,19 +322,21 @@ class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_Log
         uint32_t cb_end = 0u;
 
     public:
-        CThreadHandler(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig _config, EGLint _major, EGLint _minor) :
+        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, EGLConfig _config, EGLint _major, EGLint _minor) :
+            m_queueCount(_qcount),
             egl(_egl),
             config(_config),
             major(_major), minor(_minor),
             thisCtx(EGL_NO_CONTEXT), pbuffer(EGL_NO_SURFACE),
-            features(_features)
+            features(_features),
+            device(dev)
         {
 
         }
 
         // T must be one of request parameter structs
         template <typename RequestParams>
-        SRequest& request(const RequestParams& params, typename RequestParams::retval_t* pretval = nullptr)
+        SRequest& request(RequestParams&& params, typename RequestParams::retval_t* pretval = nullptr)
         {
             auto raii_handler = createRAIIDispatchHandler();
 
@@ -331,7 +345,7 @@ class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_Log
 
             SRequest& req = request_pool[r_id];
             req.type = params.type;
-            req.params_variant = params;
+            req.params_variant = std::move(params);
             req.ready = false;
             if constexpr (!std::is_void_v<typename RequestParams::retval_t>)
             {
@@ -359,8 +373,18 @@ class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_Log
             auto lk = createLock();
             req.cvar.wait(lk, [&req]() -> bool { return req.ready; });
 
+            assert(req.ready);
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
             std::get<RequestParams>(req.params_variant) = RequestParams{};
+        }
+
+        auto getGL_APIversion() const
+        {
+            return std::make_pair(major, minor);
+        }
+        EGLConfig getFBConfig() const
+        {
+            return config;
         }
 
     protected:
@@ -371,7 +395,7 @@ class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_Log
             const EGLint ctx_attributes[] = {
                 EGL_CONTEXT_MAJOR_VERSION, major,
                 EGL_CONTEXT_MINOR_VERSION, minor,
-                EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+                //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
 
                 EGL_NONE
             };
@@ -441,6 +465,59 @@ class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_Log
                 gl.glShader.pglDeleteProgram(p.glnames[0]);
             }
                 break;
+
+            case ERT_BUFFER_CREATE:
+            {
+                auto& p = std::get<SRequestBufferCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(device, &gl, p.mreqs, p.canModifySubdata);
+            }
+                break;
+            case ERT_BUFFER_VIEW_CREATE:
+            {
+                auto& p = std::get<SRequestBufferViewCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPUBufferView>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBufferView>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBufferView>(device, &gl, std::move(p.buffer), p.format, p.offset, p.size);
+            }
+                break;
+            case ERT_IMAGE_CREATE:
+            {
+                auto& p = std::get<SRequestImageCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(device, &gl, std::move(p.params));
+            }
+                break;
+            case ERT_IMAGE_VIEW_CREATE:
+            {
+                auto& p = std::get<SRequestImageViewCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPUImageView>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImageView>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImageView>(device, &gl, std::move(p.params));
+            }
+                break;
+            case ERT_SAMPLER_CREATE:
+            {
+                auto& p = std::get<SRequestSamplerCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPUSampler>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLSampler>(device, &gl, p.params);
+            }
+                break;
+            case ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE:
+            {
+                auto& p = std::get<SRequestRenderpassIndependentPipelineCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>*>(req.pretval);
+                for (uint32_t i = 0u; i < p.count; ++i)
+                    pretval[i] = createRenderpassIndependentPipeline(gl, p.params[i], p.pipelineCache);
+            }
+                break;
+            case ERT_COMPUTE_PIPELINE_CREATE:
+            {
+                auto& p = std::get<SRequestComputePipelineCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPUComputePipeline>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUComputePipeline>*>(req.pretval);
+                for (uint32_t i = 0u; i < p.count; ++i)
+                    pretval[i] = createComputePipeline(gl, p.params[i], p.pipelineCache);
+            }
+                break;
+
             case ERT_FLUSH_MAPPED_MEMORY_RANGES:
             {
                 auto& p = std::get<SRequestFlushMappedMemoryRanges>(req.params_variant);
@@ -470,19 +547,143 @@ class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_Log
         }
 
     private:
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline(IOpenGL_FunctionTable& gl, const IGPURenderpassIndependentPipeline::SCreationParams& params, IGPUPipelineCache* _pipelineCache)
+        {
+            //_parent parameter is ignored
+
+            using GLPpln = COpenGLRenderpassIndependentPipeline;
+
+            IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+            uint32_t shaderCount = 0u;
+            for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+                if (params.shaders[i])
+                    shaders_array[shaderCount++] = params.shaders[i].get();
+
+            auto shaders = core::SRange<IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
+            auto vsIsPresent = [&shaders] {
+                return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
+            };
+
+            auto layout = params.layout;
+            if (!layout || !vsIsPresent())
+                return nullptr;
+
+            GLuint GLnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+            COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT];
+
+            COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+            COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(layout.get());
+            for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
+            {
+                COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
+
+                auto stage = glshdr->getStage();
+                uint32_t ix = core::findLSB<uint32_t>(stage);
+                assert(ix < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+
+                COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(layout) };
+                auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
+                if (bin.binary)
+                {
+                    const GLuint GLname = gl.glShader.pglCreateProgram();
+                    gl.glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+                    GLnames[ix] = GLname;
+                    binaries[ix] = bin;
+
+                    continue;
+                }
+                std::tie(GLnames[ix], bin) = glshdr->compile(&gl, layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
+                binaries[ix] = bin;
+
+                if (cache)
+                {
+                    cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
+
+                    COpenGLPipelineCache::SCacheVal val{ std::move(bin) };
+                    cache->insert(std::move(key), std::move(val));
+                }
+            }
+
+            return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
+                device, &gl,
+                std::move(layout),
+                shaders.begin(), shaders.end(),
+                params.vertexInput, params.blend, params.primitiveAssembly, params.rasterization,
+                getNameCountForSingleEngineObject(), 0u, GLnames, binaries
+            );
+        }
+        core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline(IOpenGL_FunctionTable& gl, const IGPUComputePipeline::SCreationParams& params, IGPUPipelineCache* _pipelineCache)
+        {
+            if (!params.layout || !params.shader)
+                return nullptr;
+            if (params.shader->getStage() != asset::ISpecializedShader::ESS_COMPUTE)
+                return nullptr;
+
+            GLuint GLname = 0u;
+            COpenGLSpecializedShader::SProgramBinary binary;
+            COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+            auto layout = core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(params.layout);
+            auto glshdr = core::smart_refctd_ptr_static_cast<COpenGLSpecializedShader>(params.shader);
+
+            COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), layout };
+            auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
+            if (bin.binary)
+            {
+                const GLuint GLshader = gl.glShader.pglCreateProgram();
+                gl.glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+                GLname = GLshader;
+                binary = bin;
+            }
+            else
+            {
+                std::tie(GLname, bin) = glshdr->compile(&gl, layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
+                binary = bin;
+
+                if (cache)
+                {
+                    cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
+
+                    COpenGLPipelineCache::SCacheVal val{ std::move(bin) };
+                    cache->insert(std::move(key), std::move(val));
+                }
+            }
+
+            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
+        }
+
+        // currently used by shader programs only
+        // they theoretically can be shared between contexts however, because uniforms state is program's state, we cant use that
+        // because they are shareable, all GL names cane be created in the same thread at once though
+        uint32_t getNameCountForSingleEngineObject() const
+        {
+            return m_queueCount + 1u; // +1 because of this context (the one in logical device), probably not needed though
+        }
+
+        uint32_t m_queueCount;
+
         const egl::CEGL* egl;
         EGLConfig config;
-        EGLint major, minor;
+        const EGLint major, minor;
         EGLContext thisCtx;
         EGLSurface pbuffer;
         FeaturesType* features;
+
+        IOpenGL_LogicalDevice* device;
     };
 
+protected:
+    const egl::CEGL* m_egl;
+
 public:
-    IOpenGL_LogicalDevice(const egl::CEGL* _egl, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) : ILogicalDevice(params)
+    IOpenGL_LogicalDevice(const egl::CEGL* _egl, const SCreationParams& params) : ILogicalDevice(params), m_egl(_egl)
     {
 
     }
+
+    virtual void destroyTexture(GLuint img) = 0;
+    virtual void destroyBuffer(GLuint buf) = 0;
+    virtual void destroySampler(GLuint s) = 0;
+    virtual void destroySpecializedShader(uint32_t count, const GLuint* programs) = 0;
 };
 
 }

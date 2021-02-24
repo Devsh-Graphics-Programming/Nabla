@@ -6,7 +6,7 @@
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUFramebuffer.h"
-#include "nbl/video/IGPURenderpassIndependentPipeline.h"
+#include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IGPUEvent.h"
 #include "nbl/video/IGPUDescriptorSet.h"
@@ -24,11 +24,12 @@ class IGPUCommandBuffer :
         IGPUImage,
         IGPURenderpass,
         IGPUFramebuffer,
-        IGPURenderpassIndependentPipeline, // TODO change to IGPUGraphicsPipeline
+        IGPUGraphicsPipeline,
         IGPUComputePipeline,
         IGPUDescriptorSet,
         IGPUPipelineLayout,
-        IGPUEvent
+        IGPUEvent,
+        IGPUCommandBuffer
     >
 {
 public:
@@ -44,6 +45,34 @@ protected:
     virtual ~IGPUCommandBuffer() = default;
 
     const IGPUCommandPool* m_cmdpool; // not owning
+
+
+
+    static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)
+    {
+        int32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
+        for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+        {
+            const int32_t lim = _destPplnLayouts[i] ? //if no descriptor set bound at this index
+                _destPplnLayouts[i]->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _newLayout) : -1;
+
+            compatibilityLimits[i] = lim;
+        }
+
+        /*
+        https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility
+        When binding a descriptor set (see Descriptor Set Binding) to set number N, if the previously bound descriptor sets for sets zero through N-1 were all bound using compatible pipeline layouts, then performing this binding does not disturb any of the lower numbered sets.
+        */
+        for (int32_t i = 0; i < static_cast<int32_t>(_first); ++i)
+            if (compatibilityLimits[i] < i)
+                _destPplnLayouts[i] = nullptr;
+        /*
+        If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
+        */
+        if (compatibilityLimits[_first] < static_cast<int32_t>(_first))
+            for (uint32_t i = _first + 1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+                _destPplnLayouts[i] = nullptr;
+    }
 };
 
 }

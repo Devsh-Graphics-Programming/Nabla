@@ -8,6 +8,10 @@
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IOpenGLPipeline.h"
 
+#ifdef _NBL_COMPILE_WITH_OPENGL_
+
+#include "nbl/video/IOpenGL_FunctionTable.h"
+
 namespace nbl
 { 
 namespace video
@@ -17,11 +21,12 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
 {
     public:
         COpenGLComputePipeline(
+            IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs,
             uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLname, const COpenGLSpecializedShader::SProgramBinary& _binary
         ) : IGPUComputePipeline(std::move(_layout), std::move(_cs)), 
-            IOpenGLPipeline(_ctxCount, _ctxID, &_GLname, &_binary),
+            IOpenGLPipeline(_dev, _gl, _ctxCount, _ctxID, &_GLname, &_binary),
             m_lastUpdateStamp(0u)
         {
 
@@ -51,7 +56,7 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
                     stageUpdateStamps[0u]++;
 	        }
         };
-        inline void setUniformsImitatingPushConstants(uint32_t _ctxID, const PushConstantsState& _pcState) const
+        inline void setUniformsImitatingPushConstants(IOpenGL_FunctionTable* gl, uint32_t _ctxID, const PushConstantsState& _pcState) const
         {
             uint32_t stampValue = _pcState.getStamp(IGPUSpecializedShader::ESS_COMPUTE);
             if (stampValue>m_lastUpdateStamp)
@@ -59,18 +64,20 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
                 auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getUniforms();
                 auto locations = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getLocations();
                 if (uniforms.size())
-                    IOpenGLPipeline<1>::setUniformsImitatingPushConstants(0u, _ctxID, _pcState.data, uniforms, locations);
+                    IOpenGLPipeline<1>::setUniformsImitatingPushConstants(gl, 0u, _ctxID, _pcState.data, uniforms, locations);
                 m_lastUpdateStamp = stampValue;
             }
         }
 
     protected:
-        virtual ~COpenGLComputePipeline() = default;
+        virtual ~COpenGLComputePipeline();
 
         mutable uint32_t m_lastUpdateStamp;
 };
 
 }
 }
+
+#endif
 
 #endif

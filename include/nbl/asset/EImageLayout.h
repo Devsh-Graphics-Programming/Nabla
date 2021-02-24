@@ -30,13 +30,6 @@ enum E_IMAGE_LAYOUT : uint32_t
     EIL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
 };
 
-// TODO move this somewhere as well (should remain in global scope though -- used by buffers and images) 
-enum E_SHARING_MODE : uint32_t
-{
-    ESM_EXCLUSIVE = 0,
-    ESM_CONCURRENT = 1
-};
-
 }}
 
 #endif

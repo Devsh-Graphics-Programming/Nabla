@@ -1478,6 +1478,24 @@ namespace asset
         }
     }
 
+    inline bool isDepthOnlyFormat(asset::E_FORMAT _fmt)
+    {
+        switch (_fmt)
+        {
+        case EF_D16_UNORM:
+        case EF_X8_D24_UNORM_PACK32:
+        case EF_D32_SFLOAT:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    inline bool isStencilOnlyFormat(asset::E_FORMAT _fmt)
+    {
+        return (_fmt == EF_S8_UINT);
+    }
+
     inline bool isDepthOrStencilFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)

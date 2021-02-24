@@ -12,7 +12,7 @@
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 #include "CNullDriver.h"
-#include "COpenGLExtensionHandler.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 #include <assert.h>
 
 namespace nbl
@@ -20,32 +20,18 @@ namespace nbl
 namespace video
 {
 
+class IOpenGL_LogicalDevice;
+
 class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 {
     protected:
-        virtual ~COpenGLBuffer()
-        {
-            if (isCurrentlyMapped())
-                unmapMemory();
-
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard==0);
-            FW_AtomicCounterIncr(concurrentAccessGuard);
-#endif // OPENGL_LEAK_DEBUG
-            if (BufferName)
-                COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
-
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard==1);
-            FW_AtomicCounterDecr(concurrentAccessGuard);
-#endif // OPENGL_LEAK_DEBUG
-        }
+        virtual ~COpenGLBuffer();
 
     public:
-        COpenGLBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(mreqs), BufferName(0), cachedFlags(0)
+        COpenGLBuffer(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(mreqs), m_device(dev), BufferName(0), cachedFlags(0)
         {
 			lastTimeReallocated = 0;
-            COpenGLExtensionHandler::extGlCreateBuffers(1,&BufferName);
+            gl->extGlCreateBuffers(1,&BufferName);
             if (BufferName==0)
                 return;
 
@@ -57,12 +43,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)
                 cachedFlags |= GL_MAP_COHERENT_BIT;
-            COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
-
-#ifdef OPENGL_LEAK_DEBUG
-            for (size_t i=0; i<3; i++)
-                concurrentAccessGuard[i] = 0;
-#endif // OPENGL_LEAK_DEBUG
+            gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
         }
 
         //!
@@ -73,12 +54,13 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         inline bool canUpdateSubRange() const override {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
 
         //!
+        /*
         inline void updateSubRange(const MemoryRange& memrange, const void* data) override
         {
             if (canUpdateSubRange())
                 COpenGLExtensionHandler::extGlNamedBufferSubData(BufferName,memrange.offset,memrange.length,data);
         }
-
+        */
 
         //! Returns the allocation which is bound to the resource
         inline IDriverMemoryAllocation* getBoundMemory() override {return this;}
@@ -99,7 +81,11 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         //!
         inline E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const override {return static_cast<E_MAPPING_CAPABILITY_FLAGS>(cachedMemoryReqs.mappingCapability);} //move up?
 
+        //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
+        inline bool isDedicated() const override { return true; }
+
         //!
+        /*
         inline void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const MemoryRange& memrange) override
         {
         #ifdef _DEBUG
@@ -126,8 +112,10 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             currentMappingAccess = static_cast<E_MAPPING_CPU_ACCESS_FLAG>((canRead ? static_cast<uint32_t>(EMCAF_READ):0u)|(canWrite ? static_cast<uint32_t>(EMCAF_WRITE):0u));
             return mappedPtr;
         }
+        */
 
         //!
+        /*
         inline void unmapMemory() override
         {
         #ifdef _DEBUG
@@ -138,71 +126,12 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             mappedRange = MemoryRange(0,0);
             currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
         }
+        */
 
-        //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
-        inline bool isDedicated() const override {return true;}
     protected:
+        IOpenGL_LogicalDevice* m_device;
         GLbitfield cachedFlags;
         GLuint BufferName;
-
-        inline bool pseudoMoveAssign(IGPUBuffer* other) override
-        {
-            COpenGLBuffer* otherAsGL = static_cast<COpenGLBuffer*>(other);
-            if (!otherAsGL || otherAsGL==this || otherAsGL->cachedFlags!=cachedFlags || otherAsGL->BufferName==0)
-                return false;
-
-            #ifdef _DEBUG
-            if (otherAsGL->getReferenceCount()!=1)
-                os::Printer::log("What are you doing!? You should only swap internals with an IGPUBuffer that is unused yet!",ELL_ERROR);
-            #endif // _DEBUG
-
-            #ifdef OPENGL_LEAK_DEBUG
-                assert(otherAsGL->concurrentAccessGuard==0);
-                FW_AtomicCounterIncr(otherAsGL->concurrentAccessGuard);
-                assert(concurrentAccessGuard==0);
-                FW_AtomicCounterIncr(concurrentAccessGuard);
-            #endif // OPENGL_LEAK_DEBUG
-
-            if (BufferName)
-                COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
-
-            cachedMemoryReqs = otherAsGL->cachedMemoryReqs;
-
-            mappedPtr = otherAsGL->mappedPtr;
-            mappedRange = otherAsGL->mappedRange;
-            currentMappingAccess = otherAsGL->currentMappingAccess;
-
-            cachedFlags = otherAsGL->cachedFlags;
-            BufferName = otherAsGL->BufferName;
-
-            lastTimeReallocated = CNullDriver::incrementAndFetchReallocCounter();
-
-
-            otherAsGL->cachedMemoryReqs = {{0,0,0},0,0,0,0};
-
-            otherAsGL->mappedPtr = nullptr;
-            otherAsGL->mappedRange = MemoryRange(0,0);
-            otherAsGL->currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
-
-            otherAsGL->cachedFlags = 0;
-            otherAsGL->BufferName = 0;
-
-            otherAsGL->lastTimeReallocated = CNullDriver::incrementAndFetchReallocCounter();
-
-            #ifdef OPENGL_LEAK_DEBUG
-                assert(concurrentAccessGuard==1);
-                FW_AtomicCounterDecr(concurrentAccessGuard);
-                assert(otherAsGL->concurrentAccessGuard==1);
-                FW_AtomicCounterDecr(otherAsGL->concurrentAccessGuard);
-            #endif // OPENGL_LEAK_DEBUG
-
-            return true;
-        }
-
-    private:
-#ifdef OPENGL_LEAK_DEBUG
-        FW_AtomicCounter concurrentAccessGuard;
-#endif // OPENGL_LEAK_DEBUG
 };
 
 } // end namespace video

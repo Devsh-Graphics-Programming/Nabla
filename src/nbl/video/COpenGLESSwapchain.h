@@ -1,0 +1,17 @@
+#ifndef __NBL_C_OPENGLES_SWAPCHAIN_H_INCLUDED__
+#define __NBL_C_OPENGLES_SWAPCHAIN_H_INCLUDED__
+
+#include "nbl/video/COpenGL_Swapchain.h"
+#include "nbl/video/COpenGLESFunctionTable.h"
+
+namespace nbl {
+namespace video
+{
+
+using COpenGLESSwapchain = COpenGL_Swapchain<COpenGLESFunctionTable>;
+
+}
+}
+
+
+#endif

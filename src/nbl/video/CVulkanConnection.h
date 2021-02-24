@@ -52,7 +52,7 @@ public:
         }
     }
 
-    E_TYPE getAPIType() const override { return ET_VULKAN; }
+    E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
     core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const override
     {

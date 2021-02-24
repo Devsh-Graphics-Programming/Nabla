@@ -27,12 +27,13 @@ class COpenGL_Queue final : public IGPUQueue
         struct CThreadHandler final : public system::IAsyncQueueDispatcher<QueueElementType, ThreadHandlerInternalStateType>
         {
         public:
-            CThreadHandler(const egl::CEGL* _egl, FeaturesType* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
+            CThreadHandler(const egl::CEGL* _egl, FeaturesType* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor, uint32_t _ctxid) :
                 egl(_egl),
                 masterCtx(_master), config(_config),
                 major(_major), minor(_minor),
                 thisCtx(EGL_NO_CONTEXT), pbuffer(EGL_NO_SURFACE),
-                features(_features)
+                features(_features),
+                m_ctxid(_ctxid)
             {
 
             }
@@ -47,7 +48,7 @@ class COpenGL_Queue final : public IGPUQueue
                 const EGLint ctx_attributes[] = {
                     EGL_CONTEXT_MAJOR_VERSION, major,
                     EGL_CONTEXT_MINOR_VERSION, minor,
-                    EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+                    //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
 
                     EGL_NONE
                 };
@@ -96,12 +97,13 @@ class COpenGL_Queue final : public IGPUQueue
             EGLContext thisCtx;
             EGLSurface pbuffer;
             FeaturesType* features;
+            uint32_t m_ctxid;
         };
 
     public:
-        COpenGL_Queue(const egl::CEGL* _egl, FeaturesType* _features, EGLContext _masterCtx, EGLConfig _config, EGLint _gl_major, EGLint _gl_minor, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
+        COpenGL_Queue(const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _masterCtx, EGLConfig _config, EGLint _gl_major, EGLint _gl_minor, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
             IGPUQueue(_famIx, _flags, _priority),
-            threadHandler(_egl, _features, _masterCtx, _config, _gl_major, _gl_minor),
+            threadHandler(_egl, _features, _masterCtx, _config, _gl_major, _gl_minor, _ctxid),
             thread(&CThreadHandler::thread, &threadHandler)
         {
 

@@ -18,9 +18,9 @@ public:
         m_pdevice = COpenGLPhysicalDevice::create(&m_egl);
     }
 
-    E_TYPE getAPIType() const override
+    E_API_TYPE getAPIType() const override
     {
-        return ET_OPENGL;
+        return EAT_OPENGL;
     }
 
     core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const override

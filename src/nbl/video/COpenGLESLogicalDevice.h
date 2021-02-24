@@ -3,12 +3,13 @@
 
 #include "nbl/video/COpenGL_LogicalDevice.h"
 #include "nbl/video/COpenGLESQueue.h"
+#include "nbl/video/COpenGLESSwapchain.h"
 
 namespace nbl {
 namespace video
 {
 
-using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue>;
+using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue, COpenGLESSwapchain>;
 
 }
 }

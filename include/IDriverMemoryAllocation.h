@@ -106,50 +106,15 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! For details @see E_MAPPING_CAPABILITY_FLAGS
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
 
-
-        //! Utility function, tells if mapMemoryRange has been already called and unmapMemory was not called after.
-        inline bool isCurrentlyMapped() const {return mappedPtr!=nullptr;}
-
-        //! Returns the currently mapped range, only valid if isCurrentlyMapped()==true
-        inline MemoryRange getCurrentMappedRange() const {return mappedRange;}
-
         //!
         inline E_MAPPING_CPU_ACCESS_FLAG getCurrentMappingCaps() const {return currentMappingAccess;}
-
-		//! Maps the memory sub-range of the allocation for reading, writing or both, @see getMappingCaps and @see getMappedPointer.
-        /** This differs from the pointer returned by getMappedPointer, as it already has the offset of the mapping applied to the base pointer.
-        Accessing the memory using the returned pointer with an offset which results in an address before or after the mapped range,
-        or after calling unmapeMemory, will cause undefined behaviour, including program termination.
-        For further advice and restrictions on the pointer usage @see getMappedPointer
-		@returns Internal pointer to access driver allocated memory with the offset already applied. */
-        virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const MemoryRange& memrange) {return nullptr;}
-
-		//! Gets internal pointer.
-        /** It is best you use a GPU Fence to ensure any operations that you have queued up which are or will be writing to this memory
-        or reading from it have completed before you start using the returned pointer. Otherwise this will result in a race condition.
-		WARNING: UNMAP will invalidate pointer!
-        WARNING: NEED TO FENCE BEFORE USE!
-		@returns Internal pointer with 0 offset into the memory allocation, so the address that it is pointing to may be unsafe
-		to access without an offset if a memory range (if a subrange not starting at 0 was mapped). */
-        inline void* getMappedPointer() {return mappedPtr;}
-
-        //! Constant variant of getMappedPointer
-        inline const void* getMappedPointer() const {return mappedPtr;}
-
-        //! Unmaps mapped memory
-        /** Unmaps memory, does not perform the implicit flush even in OpenGL (because we use ARB_buffer_storage).
-        Any pointers obtained through mapMemoryRange or getMappedPointer before invoking this function will become invalid to use.
-        */
-        virtual void unmapMemory() = 0;
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         virtual bool isDedicated() const = 0;
 
     protected:
-        IDriverMemoryAllocation() : mappedPtr(nullptr), mappedRange(0,0), currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
+        IDriverMemoryAllocation() : currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
 
-        uint8_t*                    mappedPtr;
-        MemoryRange                 mappedRange;
         E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;
 };
 

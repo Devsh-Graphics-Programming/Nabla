@@ -6,7 +6,7 @@
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/ICPURenderpass.h"
 #include "nbl/asset/ICPUFramebuffer.h"
-#include "nbl/asset/ICPURenderpassIndependentPipeline.h"
+#include "nbl/asset/ICPUGraphicsPipeline.h"
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/asset/ICPUEvent.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
@@ -23,11 +23,12 @@ class ICPUCommandBuffer final :
         ICPUImage,
         ICPURenderpass,
         ICPUFramebuffer,
-        ICPURenderpassIndependentPipeline, // TODO change to ICPUGraphicsPipeline
+        ICPUGraphicsPipeline,
         ICPUComputePipeline,
         ICPUDescriptorSet,
         ICPUPipelineLayout,
-        ICPUEvent
+        ICPUEvent,
+        ICPUCommandBuffer
     >
 {
 public:

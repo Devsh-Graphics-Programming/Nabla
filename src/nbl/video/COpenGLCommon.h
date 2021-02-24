@@ -6,7 +6,7 @@
 #define __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
-#include "COpenGLExtensionHandler.h"
+#include "GLES3/gl32.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace nbl

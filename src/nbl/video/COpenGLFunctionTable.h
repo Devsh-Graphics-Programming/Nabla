@@ -156,6 +156,7 @@ public:
 		, glIsImageHandleResidentNV
 		, glMakeTextureHandleResidentNV
 		, glGetTexImage
+		, glTextureParameteriv
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4shader, OpenGLFunctionLoader
 		, glCreateProgramPipelines
@@ -203,6 +204,7 @@ public:
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4drawing, OpenGLFunctionLoader
 		, glDrawArraysInstancedBaseInstance
+		, glDrawElementsInstancedBaseInstance
 		, glDrawElementsInstancedBaseVertex
 		, glDrawElementsInstancedBaseVertexBaseInstance
 		, glDrawTransformFeedback
@@ -231,6 +233,9 @@ public:
 		, glGetFloati_v
 		, glGetInternalformati64v
 		, glClipControl
+		, glDepthRangeArrayv
+		, glDepthRange
+		, glViewportArrayv
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4sync, OpenGLFunctionLoader
 		, glTextureBarrier
@@ -256,7 +261,7 @@ public:
 	GL4debug gl4Debug;
 
     COpenGLFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
-		IOpenGL_FunctionTable(_egl),
+		IOpenGL_FunctionTable(_egl, _features),
 		gl4Framebuffer(_egl),
 		gl4Buffer(_egl),
 		gl4Texture(_egl),
@@ -267,8 +272,7 @@ public:
 		gl4Query(_egl),
 		gl4General(_egl),
 		gl4Sync(_egl),
-		gl4Debug(_egl),
-        features(_features)
+		gl4Debug(_egl)
     {
 
     }
@@ -1250,6 +1254,45 @@ public:
 		}
 	}
 
+	void extGlTextureParameteriv(GLuint texture, GLenum target, GLenum pname, const GLuint* params) override
+	{
+		if (gl4Texture.pglTextureParameteriv)
+		{
+			gl4Texture.pglTextureParameteriv(texture, pname, params);
+
+			return;
+		}
+
+		GLint bound;
+		switch (target)
+		{
+		case GL_TEXTURE_1D:
+			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+			break;
+		case GL_TEXTURE_1D_ARRAY:
+			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+			break;
+		case GL_TEXTURE_2D:
+			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+			break;
+		case GL_TEXTURE_CUBE_MAP:
+			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+			break;
+		case GL_TEXTURE_2D_ARRAY:
+			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+			break;
+		case GL_TEXTURE_3D:
+			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+			break;
+		default:
+			os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+			return;
+		}
+		glTexture.pglBindTexture(target, texture);
+		glTexture.pglTexParameteriv(target, pname, params);
+		glTexture.pglBindTexture(target, bound);
+	}
+
 	////////////////
 	// GL-exclusive functions
 	////////////////
@@ -1674,9 +1717,58 @@ public:
 				gl4General.pglGetInternalformati64v(target, internalformat, pname, bufSize, params);
 		}
 	}
+	void extGlMinSampleShading(GLfloat value) override
+	{
+		if (gl4Fragment.pglMinSampleShading)
+			gl4Fragment.pglMinSampleShading(value);
+	}
+	void extGlCopyImageSubData(
+		GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ,
+		GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ,
+		GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth
+	) override
+	{
+		glTexture.pglCopyImageSubData(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+	}
 
-private:
-    const COpenGLFeatureMap* features;
+	void extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance) override
+	{
+		gl4Drawing.pglDrawArraysInstancedBaseInstance(mode, first, count, instancecount, baseinstance);
+	}
+
+	void extGlDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint baseinstance) override
+	{
+		gl4Drawing.pglDrawElementsInstancedBaseInstance(mode, count, type, indices, instancecount, baseinstance);
+	}
+
+	void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex) override
+	{
+		gl4Drawing.pglDrawElementsInstancedBaseVertex(mode, count, type, indices, instancecount, basevertex);
+	}
+
+	void extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance) override
+	{
+		gl4Drawing.pglDrawElementsInstancedBaseVertexBaseInstance(mode, count, type, indices, instancecount, basevertex, baseinstance);
+	}
+
+	void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride) override
+	{
+		gl4Drawing.pglMultiDrawArraysIndirect(mode, indirect, drawcount, stride);
+	}
+
+	void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) override
+	{
+		gl4Drawing.pglMultiDrawElementsIndirect(mode, type, indirect, drawcount, stride);
+	}
+
+	void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) override
+	{
+		gl4General.pglViewportArrayv(first, count, v);
+	}
+	void extGlDepthRangeArrayv(GLuint first, GLsizei count, const GLdouble* v) override
+	{
+		gl4General.pglDepthRangeArrayv(first, count, v);
+	}
 };
 
 }

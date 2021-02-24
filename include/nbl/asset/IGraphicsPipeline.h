@@ -21,10 +21,21 @@ public:
         core::smart_refctd_ptr<renderpass_independent_t> renderpassIndependent;
         IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
         core::smart_refctd_ptr<RenderpassType> renderpass;
-        uint32_t subpassIx;
+        uint32_t subpassIx = 0u;
     };
 
-    IGraphicsPipeline(SCreationParams&& _params) : m_params(std::move(_params))
+    static bool validate(const SCreationParams& params)
+    {
+        // TODO more validation
+
+        auto& rp = params.renderpass;
+        uint32_t sp = params.subpassIx;
+        if (sp >= rp->getSubpasses().size())
+            return false;
+        return true;
+    }
+
+    explicit IGraphicsPipeline(SCreationParams&& _params) : m_params(std::move(_params))
     {
 
     }

@@ -10,6 +10,7 @@
 #include "nbl/video/IGPUImage.h"
 
 #include "nbl/video/COpenGLCommon.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
@@ -19,26 +20,22 @@ namespace nbl
 namespace video
 {
 
+class IOpenGL_LogicalDevice;
+
 class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 {
 	protected:
-		virtual ~COpenGLImage()
-		{
-			if (name)
-				glDeleteTextures(1,&name);
-			#ifdef OPENGL_LEAK_DEBUG
-				COpenGLExtensionHandler::textureLeaker.deregisterObj(this);
-			#endif // OPENGL_LEAK_DEBUG
-		}
+		virtual ~COpenGLImage();
 
+		IOpenGL_LogicalDevice* m_device;
 		GLenum internalFormat;
 		GLenum target;
 		GLuint name;
 
 	public:
 		//! constructor
-		COpenGLImage(IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(_params)),
-			internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+		COpenGLImage(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(_params)),
+			m_device(dev), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
 		{
 			#ifdef OPENGL_LEAK_DEBUG
 				COpenGLExtensionHandler::textureLeaker.registerObj(this);
@@ -47,21 +44,21 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 			switch (params.type)
 			{
 				case IGPUImage::ET_1D:
-					target = GL_TEXTURE_1D_ARRAY;
-					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
-					COpenGLExtensionHandler::extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
+					target = gl->TEXTURE_1D_ARRAY;
+					gl->extGlCreateTextures(target, 1, &name);
+					gl->extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
 																	params.extent.width, params.arrayLayers);
 					break;
 				case IGPUImage::ET_2D:
 					target = GL_TEXTURE_2D_ARRAY;
-					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
-					COpenGLExtensionHandler::extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
+					gl->extGlCreateTextures(target, 1, &name);
+					gl->extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
 																	params.extent.width, params.extent.height, params.arrayLayers);
 					break;
 				case IGPUImage::ET_3D:
 					target = GL_TEXTURE_3D;
-					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
-					COpenGLExtensionHandler::extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
+					gl->extGlCreateTextures(target, 1, &name);
+					gl->extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
 																	params.extent.width, params.extent.height, params.extent.depth);
 					break;
 				default:
@@ -86,7 +83,6 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		inline size_t getBoundMemoryOffset() const override { return 0ull; }
 
 		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
-		inline void unmapMemory() override {}
 		inline bool isDedicated() const override { return true; }
 };
 

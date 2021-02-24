@@ -8,6 +8,7 @@
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IGPUFramebuffer.h"
+#include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/ISwapchain.h"
 
 namespace nbl {
@@ -106,7 +107,7 @@ public:
     virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) = 0;
     virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
-    virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params) = 0;
+    virtual core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params) = 0;
 
     virtual core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 
@@ -185,22 +186,24 @@ public:
 
 
     //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
-    virtual void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
+    void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+    {
+        core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
+        return flushMappedMemoryRanges(ranges);
+    }
 
     //! Utility wrapper for the pointer based func
-    inline void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges)
-    {
-        this->flushMappedMemoryRanges(static_cast<uint32_t>(ranges.size()), ranges.begin());
-    }
+    virtual void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
     //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
-    virtual void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
+    void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+    {
+        core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
+        return invalidateMappedMemoryRanges(ranges);
+    }
 
     //! Utility wrapper for the pointer based func
-    inline void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges)
-    {
-        this->invalidateMappedMemoryRanges(static_cast<uint32_t>(ranges.size()), ranges.begin());
-    }
+    virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
     virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
@@ -256,23 +259,16 @@ public:
     //! Low level function used to implement the above, use with caution
     virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
-/*
-    inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
-    {
-        auto retval = createDeviceLocalGPUBufferOnDedMem(size);
+    virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
-        updateBufferRangeViaStagingBuffer(retval.get(), 0u, size, data);
-
-        return retval;
-    }
-*/
+    virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) = 0;
 
     //! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
     virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) { return nullptr; }
 
 
     //! Creates an Image (@see ICPUImage)
-    virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) = 0;
+    virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) { return nullptr; }
 
     //! The counterpart of @see bindBufferMemory for images
     virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
@@ -306,6 +302,23 @@ public:
 
     //! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
     virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) = 0;
+
+    virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+
+    void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+    {
+        core::SRange<const IGPUDescriptorSetLayout*> layouts{ _layouts, _layouts + count };
+        createGPUDescriptorSets(pool, layouts, output);
+    }
+    void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout*> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+    {
+        uint32_t i = 0u;
+        for (const IGPUDescriptorSetLayout* layout_ : layouts)
+        {
+            auto layout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(layout_);
+            output[i++] = createGPUDescriptorSet(pool, std::move(layout));
+        }
+    }
 
     //! Fill out the descriptor sets with descriptors
     virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
@@ -341,7 +354,7 @@ public:
         core::smart_refctd_ptr<IGPUComputePipeline>* output
     ) = 0;
 
-    virtual bool createGPUComputePipelines(
+    bool createGPUComputePipelines(
         IGPUPipelineCache* pipelineCache,
         uint32_t count,
         const IGPUComputePipeline::SCreationParams* createInfos,
@@ -368,7 +381,7 @@ public:
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
     ) = 0;
 
-    virtual bool createGPURenderpassIndependentPipelines(
+    bool createGPURenderpassIndependentPipelines(
         IGPUPipelineCache* pipelineCache,
         uint32_t count,
         const IGPURenderpassIndependentPipeline::SCreationParams* createInfos,
@@ -377,6 +390,16 @@ public:
     {
         auto ci = core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams>{createInfos, createInfos+count};
         return createGPURenderpassIndependentPipelines(pipelineCache, ci, output);
+    }
+
+    virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
+
+    virtual bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+
+    bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, uint32_t count, const IGPUGraphicsPipeline::SCreationParams* params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
+    {
+        auto ci = core::SRange<const IGPUGraphicsPipeline::SCreationParams>{ params, params + count };
+        return createGPUGraphicsPipelines(pipelineCache, ci, output);
     }
 
     virtual core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) = 0;

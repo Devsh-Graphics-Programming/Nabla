@@ -3,6 +3,7 @@
 
 #include "os.h" // Printer::log
 
+#include "nbl/video/COpenGLFeatureMap.h"
 #include "nbl/core/string/UniqueStringLiteralType.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/video/CEGL.h"
@@ -16,7 +17,7 @@ namespace nbl {
 		class IOpenGL_FunctionTable
 		{
 		public:
-			// tokens common for GL 4.6 and GLES 3.2 assuming presence of extensions required for GLES backend
+			// tokens common for GL 4.6 and GLES 3.2 assuming presence of some extensions
 			static inline constexpr GLenum MAP_PERSISTENT_BIT				= 0x0040;
 			static inline constexpr GLenum MAP_COHERENT_BIT					= 0x0080;
 			static inline constexpr GLenum DYNAMIC_STORAGE_BIT				= 0x0100;
@@ -24,6 +25,13 @@ namespace nbl {
 			static inline constexpr GLenum BUFFER_IMMUTABLE_STORAGE			= 0x821F;
 			static inline constexpr GLenum BUFFER_STORAGE_FLAGS				= 0x8220;
 			static inline constexpr GLenum CLIENT_MAPPED_BUFFER_BARRIER_BIT = 0x00004000;
+			static inline constexpr GLenum TEXTURE_MAX_ANISOTROPY			= 0x84FE;
+			static inline constexpr GLenum TEXTURE_LOD_BIAS					= 0x8501;
+			//desktop GL only
+			static inline constexpr GLenum TEXTURE_1D						= 0x0de0;
+			static inline constexpr GLenum TEXTURE_1D_ARRAY					= 0x8c18;
+			static inline constexpr GLenum MIRROR_CLAMP_TO_EDGE				= 0x8743;
+			static inline constexpr GLenum MIRROR_CLAMP_TO_BORDER			= 0x8912;
 
 			class OpenGLFunctionLoader final : public system::FuncPtrLoader
 			{
@@ -43,7 +51,7 @@ namespace nbl {
 				}
 			};
 
-			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLsync, OpenGLFunctionLoader
+			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL_sync, OpenGLFunctionLoader
 				, glFenceSync
 				, glDeleteSync
 				, glClientWaitSync
@@ -104,6 +112,9 @@ namespace nbl {
 				, glTexBuffer
 				, glTexBufferRange
 				, glDeleteTextures
+				, glGenTextures
+				, glTexParameteriv
+				, glCopyImageSubData
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLshader, OpenGLFunctionLoader
 				, glCreateShader
@@ -240,13 +251,14 @@ namespace nbl {
 				, glBlendFunci
 				, glBlendFuncSeparatei
 				, glColorMaski
+				, glViewport
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLcompute, OpenGLFunctionLoader
 				, glDispatchCompute
 				, glDispatchComputeIndirect
 			);
 
-			GLsync glSync;
+			GL_sync glSync;
 			GLframeBuffer glFramebuffer;
 			GLbuffer glBuffer;
 			GLtexture glTexture;
@@ -261,6 +273,7 @@ namespace nbl {
 			GLcompute glCompute;
 
 			const egl::CEGL* m_egl;
+			const COpenGLFeatureMap* features;
 
 			virtual void extGlDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) = 0;
 			using GLDebugCallbackType = GLDEBUGPROC;
@@ -304,7 +317,6 @@ namespace nbl {
 			virtual inline void* extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access);
 			virtual inline void extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length);
 			virtual inline GLboolean extGlUnmapNamedBuffer(GLuint buffer);
-			// TODO left to do below:
 			virtual void extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void* data) = 0;
 			virtual void extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void* data) = 0;
 			virtual inline void extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size);
@@ -322,6 +334,8 @@ namespace nbl {
 			virtual inline void extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor);
 			virtual inline void extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids);
 			virtual inline void extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
+			virtual void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) = 0;
+			virtual void extGlDepthRangeArrayv(GLuint first, GLsizei count, const double* v) = 0;
 			virtual inline void extGlEnablei(GLenum target, GLuint index)
 			{
 				if (glGeneral.pglEnablei)
@@ -365,9 +379,96 @@ namespace nbl {
 			}
 			virtual void extGlMinSampleShading(GLfloat value) = 0;
 			virtual inline void extGlSwapInterval(int interval);
+			virtual inline void extGlTextureParameteriv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
+			{
+				GLint bound;
+				switch (target)
+				{
+				case GL_TEXTURE_2D:
+					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+					break;
+				case GL_TEXTURE_CUBE_MAP:
+					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+					break;
+				case GL_TEXTURE_2D_ARRAY:
+					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+					break;
+				case GL_TEXTURE_3D:
+					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+					break;
+				default:
+					os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+					return;
+				}
+				glTexture.pglBindTexture(target, texture);
+				glTexture.pglTexParameteriv(target, pname, params);
+				glTexture.pglBindTexture(target, bound);
+			}
+			virtual void extGlCopyImageSubData(
+				GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ,
+				GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ,
+				GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth
+			) = 0;
+
+			virtual void extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance)
+			{
+				if (baseinstance == 0u)
+					glDrawing.pglDrawArraysInstanced(mode, first, count, instancecount);
+#ifdef _NBL_DEBUG
+				else
+				{
+					os::Printer::log("GlDrawArraysInstancedBaseInstance unsupported!", ESS_ERROR);
+				}
+#endif
+			}
+
+			virtual void extGlDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint baseinstance)
+			{
+				if (baseinstance == 0u)
+					glDrawing.pglDrawElementsInstanced(mode, count, type, indices, instancecount);
+#ifdef _NBL_DEBUG
+				else
+				{
+					os::Printer::log("GlDrawElementsInstancedBaseInstance unsupported!", ESS_ERROR);
+				}
+#endif
+			}
+
+			virtual void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex)
+			{
+				if (basevertex == 0u)
+					glDrawing.pglDrawElementsInstanced(mode, count, type, indices, instancecount);
+#ifdef _NBL_DEBUG
+				else
+				{
+					os::Printer::log("GlDrawElementsInstancedBaseVertex unsupported!", ESS_ERROR);
+				}
+#endif
+			}
+
+			virtual void extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance)
+			{
+				if (basevertex == 0u)
+					extGlDrawElementsInstancedBaseInstance(mode, count, type, indices, instancecount, baseinstance);
+				else if (baseinstance == 0u)
+					extGlDrawElementsInstancedBaseVertex(mode, count, type, indices, instancecount, basevertex);
+#ifdef _NBL_DEBUG
+				else
+				{
+					os::Printer::log("GlDrawElementsInstancedBaseVertexBaseInstance unsupported!", ESS_ERROR);
+				}
+#endif
+			}
+
+			virtual void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
+
+			virtual void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
+
+
+			const COpenGLFeatureMap* getFeatures() const { return features; }
 
 			// constructor
-			IOpenGL_FunctionTable(const egl::CEGL* _egl) :
+			IOpenGL_FunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
 				glSync(_egl),
 				glFramebuffer(_egl),
 				glBuffer(_egl),
@@ -381,7 +482,8 @@ namespace nbl {
 				//glDebug(_egl),
 				glGeneral(_egl),
 				glCompute(_egl),
-				m_egl(_egl)
+				m_egl(_egl),
+				features(_features)
 			{
 
 			}
@@ -389,7 +491,7 @@ namespace nbl {
 
 		void IOpenGL_FunctionTable::extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures)
 		{
-			glGenTextures(n, textures);
+			glTexture.pglGenTextures(n, textures);
 		}
 
 		inline void IOpenGL_FunctionTable::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)

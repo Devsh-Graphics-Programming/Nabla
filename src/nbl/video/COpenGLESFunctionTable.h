@@ -2,7 +2,7 @@
 #define __NBL_C_OPENGLES_FUNCTION_TABLE_H_INCLUDED__
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
-#include "nbl/video/COpenGLESFeatureMap.h"
+#include "nbl/video/COpenGLFeatureMap.h"
 #define GL_GLEXT_PROTOTYPES
 #include "GLES3/gl2ext.h"
 
@@ -13,7 +13,10 @@ namespace video
 /**
 Extensions being loaded:
 * KHR_debug
-* OES_draw_elements_base_vertex
+* GL_EXT_base_instance
+* GL_EXT_draw_elements_base_vertex
+* GL_OES_draw_elements_base_vertex
+* GL_EXT_multi_draw_indirect
 * OES_copy_image
 * OES_draw_buffers_indexed
 * EXT_color_buffer_float
@@ -25,11 +28,12 @@ Extensions being loaded:
 * GL_OES_shader_image_atomic
 * GL_OES_texture_view
 * GL_EXT_texture_view
+* GL_OES_viewport_array
 */
 class COpenGLESFunctionTable final : public IOpenGL_FunctionTable
 {
 public:
-	using features_t = COpenGLESFeatureMap;
+	using features_t = COpenGLFeatureMap;
 	constexpr static inline auto EGL_API_TYPE = EGL_OPENGL_ES_API;
 
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESgeneral, OpenGLFunctionLoader
@@ -41,6 +45,9 @@ public:
 		, glBlendFuncSeparateiOES
 		, glColorMaskiOES
 		, glIsEnablediOES
+		, glDepthRangeArrayfvOES
+		, glDepthRangef
+		, glViewportArrayvOES
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESbuffer, OpenGLFunctionLoader
 		, glBufferStorageEXT
@@ -51,6 +58,7 @@ public:
 		, glCopyImageSubDataOES
 		, glTextureViewOES
 		, glTextureViewEXT
+		, glCopyImageSubDataEXT
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESdebug, OpenGLFunctionLoader
 		, glDebugMessageControlKHR
@@ -59,11 +67,20 @@ public:
 		, glDebugMessageCallback
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESdrawing, OpenGLFunctionLoader
+		, glDrawElementsBaseVertexEXT
+		, glDrawRangeElementsBaseVertexEXT
+		, glDrawElementsInstancedBaseVertexEXT
+		, glDrawElementsInstancedBaseInstanceEXT
+		, glDrawArraysInstancedBaseInstanceEXT
 		, glDrawElementsBaseVertexOES
-		, glDrawRangeElementsBaseVertexOES
 		, glDrawElementsInstancedBaseVertexOES
+		, glDrawElementsInstancedBaseVertexBaseInstanceEXT
+		, glDrawRangeElementsBaseVertexOES
+		, glMultiDrawArraysIndirectEXT
+		, glMultiDrawElementsIndirectEXT
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESfragment, OpenGLFunctionLoader
+		, glMinSampleShading
 		, glMinSampleShadingOES
 	);
 
@@ -74,9 +91,8 @@ public:
 	GLESdrawing glesDrawing;
 	GLESfragment glesFragment;
 
-	COpenGLESFunctionTable(const egl::CEGL* _egl, const COpenGLESFeatureMap* _features) : 
-		IOpenGL_FunctionTable(_egl),
-		features(_features),
+	COpenGLESFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
+		IOpenGL_FunctionTable(_egl, _features),
 		glesGeneral(_egl),
 		glesBuffer(_egl),
 		glesDebug(_egl),
@@ -435,12 +451,131 @@ public:
 	}
 	void extGlMinSampleShading(GLfloat value) override
 	{
-		if (glesFragment.pglMinSampleShadingOES)
+		if (glesFragment.pglMinSampleShading)
+			glesFragment.pglMinSampleShading(value);
+		else if (glesFragment.pglMinSampleShadingOES)
 			glesFragment.pglMinSampleShadingOES(value);
 	}
+	void extGlCopyImageSubData(
+		GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ,
+		GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ,
+		GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth
+	) override
+	{
+		if (features->Version >= 320)
+			glTexture.pglCopyImageSubData(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_copy_image))
+			glesTexture.pglCopyImageSubDataOES(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_copy_image))
+			glesTexture.pglCopyImageSubDataEXT(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+	}
 
-private:
-	const COpenGLESFeatureMap* features;
+	void extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
+			glesDrawing.pglDrawArraysInstancedBaseInstanceEXT(mode, first, count, instancecount, baseinstance);
+		else 
+			IOpenGL_FunctionTable::extGlDrawArraysInstancedBaseInstance(mode, first, count, instancecount, baseinstance);
+	}
+
+	void extGlDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint baseinstance) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
+			glesDrawing.pglDrawArraysInstancedBaseInstanceEXT(mode, count, type, indices, instancecount, baseinstance);
+		else
+			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseInstance(mode, count, type, indices, instancecount, baseinstance);
+	}
+
+	void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_draw_elements_base_vertex))
+			glesDrawing.pglDrawElementsInstancedBaseVertexEXT(mode, count, type, indices, instancecount, basevertex);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_draw_elements_base_vertex))
+			glesDrawing.pglDrawElementsInstancedBaseVertexOES(mode, count, type, indices, instancecount, basevertex);
+		else
+			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseVertex(mode, count, type, indices, instancecount, basevertex);
+	}
+
+	void extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
+			glesDrawing.pglDrawElementsInstancedBaseVertexBaseInstanceEXT(mode, count, type, indices, instancecount, basevertex, baseinstance);
+		else
+			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseVertexBaseInstance(mode, count, type, indices, instancecount, basevertex, baseinstance);
+	}
+
+	void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect))
+			glesDrawing.pglMultiDrawArraysIndirectEXT(mode, indirect, drawcount, stride);
+		else if (drawcount == 1)
+			glDrawing.pglDrawArraysIndirect(mode, indirect);
+#ifdef _NBL_DEBUG
+		else
+		{
+			os::Printer::log("MDI not supported!", ELL_ERROR);
+		}
+#endif
+	}
+
+	void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect))
+			glesDrawing.pglMultiDrawElementsIndirectEXT(mode, type, indirect, drawcount, stride);
+		else if (drawcount == 1)
+			glDrawing.pglDrawElementsIndirect(mode, type, indirect);
+#ifdef _NBL_DEBUG
+		else
+		{
+			os::Printer::log("MDI not supported!", ELL_ERROR);
+		}
+#endif
+	}
+
+	void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array))
+			glesGeneral.pglViewportArrayvOES(first, count, v);
+		else if (first == 0u)
+		{
+#ifdef _NBL_DEBUG
+			os::Printer::log("Multiple viewports not supported, setting only first viewport!");
+#endif
+			glGeneral.pglViewport(v[0], v[1], v[2], v[3]);
+		}
+#ifdef _NBL_DEBUG
+		else
+		{
+			os::Printer::log("Multiple viewports not supported!");
+		}
+#endif
+	}
+	void extGlDepthRangeArrayv(GLuint first, GLsizei count, const GLdouble* v) override
+	{
+		GLfloat fv[2 * 16];
+		for (GLsizei i = 0; i < 2*count; ++i)
+		{
+			fv[i] = v[i];
+		}
+
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array))
+		{
+			glesGeneral.pglDepthRangeArrayfvOES(first, count, fv);
+		}
+		else if (first == 0)
+		{
+#ifdef _NBL_DEBUG
+			os::Printer::log("Multiple viewports not supported, setting only first viewport!");
+#endif
+			glesGeneral.pglDepthRangef(fv[0], fv[1]);
+		}
+#ifdef _NBL_DEBUG
+		else
+		{
+			os::Printer::log("Multiple viewports not supported!");
+		}
+#endif
+	}
 };
 
 }

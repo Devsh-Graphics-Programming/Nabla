@@ -45,16 +45,18 @@ public:
 
         const uint32_t presentAttachments = params.attachmentCount;
 
-        if (rp->getAttachmentCount() != presentAttachments)
+        if (rp->getCreationParameters().attachmentCount != presentAttachments)
             return false;
 
         if (!(params.flags & ECF_IMAGELESS_BIT))
         {
             for (uint32_t i = 0u; i < params.attachmentCount; ++i)
             {
-                const auto a = static_cast<IGPURenderpass::E_ATTACHMENT_POINT>(i);
+                auto& a = params.attachments[i];
+                const asset::E_FORMAT this_format = a->getCreationParameters().format;
+                const asset::E_FORMAT rp_format = rp->getAttachments().begin()[i].format;
 
-                if (static_cast<bool>(params.attachments[i]) != rp->isAttachmentEnabled(a))
+                if (this_format != rp_format)
                     return false;
             }
 
@@ -75,17 +77,23 @@ public:
             {
                 const auto& aParams = a->getCreationParameters();
 
+                if (aParams.image->getCreationParameters().extent.width < params.width)
+                    return false;
                 if (aParams.image->getCreationParameters().extent.height < params.height)
                     return false;
                 if (aParams.subresourceRange.layerCount < params.layers)
                     return false;
-                if (aParams.viewType == IGPUImageView::ET_3D)
+                if (aParams.subresourceRange.levelCount != 1u)
+                    return false;
+                if (aParams.viewType == ImageViewType::ET_3D)
                     return false;
             }
         }
 
         return true;
     }
+
+    const SCreationParams& getCreationParameters() const { return m_params; }
 
 protected:
     explicit IFramebuffer(SCreationParams&& params) : m_params(std::move(params))

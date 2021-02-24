@@ -3,27 +3,59 @@
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
+#include "nbl/video/COpenGLFramebuffer.h"
+#include "nbl/video/COpenGLDescriptorSet.h"
+
 namespace nbl {
 namespace video
 {
 
-template <typename QueueType_>
+template <typename QueueType_, typename SwapchainType_>
 class COpenGL_LogicalDevice final : public IOpenGL_LogicalDevice
 {
+    template <E_REQUEST_TYPE DestroyReqType>
+    SRequest& destroyGlObjects(uint32_t count, GLuint names[MaxGlNamesForSingleObject])
+    {
+        assert(count <= MaxGlNamesForSingleObject);
+        using req_params_t = SRequest_Destroy<DestroyReqType>;
+
+        req_params_t params;
+        params.count = count;
+        std::copy(names, names + count, params.glnames);
+
+        auto req = m_threadHandler.request<req_params_t>(std::move(params));
+        // dont need to wait on this
+        //m_threadHandler.waitForRequestCompletion<req_params_t>(req);
+        return req;
+    }
+
+    static inline constexpr bool IsGLES = (QueueType_::FunctionTableType::EGL_API_TYPE == EGL_OPENGL_ES_API);
+    static_assert(QueueType_::FunctionTableType::EGL_API_TYPE == EGL_OPENGL_API || QueueType_::FunctionTableType::EGL_API_TYPE == EGL_OPENGL_ES_API);
+
+    static uint32_t getTotalQueueCount(const SCreationParams& params)
+    {
+        uint32_t count = 0u;
+        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+            count += params.queueCreateInfos[i].count;
+        return count;
+    }
+
 public:
     using QueueType = QueueType_;
+    using SwapchainType = SwapchainType_;
     using FunctionTableType = typename QueueType::FunctionTableType;
-    using FeaturesType = typename QueueType::FeaturesType;
+    using FeaturesType = typename COpenGLFeatureMap;
+
+    static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different APIs!");
 
     COpenGL_LogicalDevice(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
-        IOpenGL_LogicalDevice(_egl, config, major, minor),
-        m_threadHandler(_egl, _features, config, major, minor),
-        m_thread(&CThreadHandler<FunctionTableType>::thread, &m_threadHandler)
+        IOpenGL_LogicalDevice(_egl, params),
+        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), config, major, minor),
+        m_thread(&CThreadHandler<FunctionTableType>::thread, &m_threadHandler),
+        m_glfeatures(_features)
     {
         EGLContext master_ctx = m_threadHandler.getContext();
-        uint32_t totalQCount = 0u;
-        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
-            totalQCount += params.queueCreateInfos[i].count;
+        uint32_t totalQCount = getTotalQueueCount(params);
         assert(totalQCount <= MaxQueueCount);
 
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
@@ -38,7 +70,8 @@ public:
                 const float priority = qci.priorities[j];
 
                 const uint32_t ix = offset + j;
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(_egl, _features, master_ctx, config, famIx, flags, priority);
+                const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(_egl, _features, ctxid, master_ctx, config, famIx, flags, priority);
             }
         }
     }
@@ -48,9 +81,361 @@ public:
         m_threadHandler.terminate(m_thread);
     }
 
+
+    core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
+    {
+        if (!asset::IImage::validateCreationParameters(params))
+            return nullptr;
+        if constexpr (IsGLES)
+        {
+            if (params.type == IGPUImage::ET_1D)
+                return nullptr;
+        }
+
+        core::smart_refctd_ptr<IGPUImage> retval;
+
+        SRequestImageCreate req_params;
+        req_params.params = std::move(params);
+        auto& req = m_threadHandler.request<SRequestImageCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestImageCreate>(req);
+
+        return retval;
+    }
+    core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) override
+    {
+        if (!IGPUImageView::validateCreationParameters(params))
+            return nullptr;
+        if constexpr (isGLES)
+        {
+            if (params.viewType == IGPUImageView::ET_1D || params.viewType == IGPUImageView::ET_1D_ARRAY)
+                return nullptr;
+            if (params.viewType == IGPUImageView::ET_CUBE_MAP_ARRAY && m_glfeatures->Version < 320 && !m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_cube_map_array))
+                return nullptr;
+        }
+
+        core::smart_refctd_ptr<IGPUImageView> retval;
+
+        SRequestImageViewCreate req_params;
+        req_params.params = std::move(params);
+        auto& req = m_threadHandler.request<SRequestImageViewCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestImageViewCreate>(req);
+
+        return retval;
+    }
+
+
+    core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
+    {
+        core::smart_refctd_ptr<IGPUSampler> retval;
+
+        SRequestSamplerCreate req_params;
+        req_params.params = _params;
+        req_params.is_gles = IsGLES;
+        auto& req = m_threadHandler.request<SRequestSamplerCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestSamplerCreate>(req);
+
+        return retval;
+    }
+
+    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
+    {
+        auto source = _cpushader->getSPVorGLSL();
+        auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
+        if (_cpushader->containsGLSL())
+            return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone), IGPUShader::buffer_contains_glsl);
+        else
+            return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone));
+    }
+
+    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override
+    {
+        const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
+
+        const std::string& EP = _specInfo.entryPoint;
+        const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
+
+        core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
+        if (glUnspec->containsGLSL())
+        {
+            auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
+            auto end = begin + glUnspec->getSPVorGLSL()->getSize();
+            std::string glsl(begin, end);
+            COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
+            auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
+            {
+                auto fl = fopen("shader.glsl", "w");
+                fwrite(glsl.c_str(), 1, glsl.size(), fl);
+                fclose(fl);
+            }
+            spirv = GLSLCompiler->compileSPIRVFromGLSL(
+                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+                stage,
+                EP.c_str(),
+                _specInfo.m_filePathHint.c_str()
+            );
+
+            if (!spirv)
+                return nullptr;
+        }
+        else
+        {
+            spirv = glUnspec->m_code;
+        }
+
+        if (_spvopt)
+            spirv = _spvopt->optimize(spirv.get());
+
+        if (!spirv)
+            return nullptr;
+
+        core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv));
+
+        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint };
+        asset::CShaderIntrospector introspector(GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
+        const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
+        if (!introspection)
+        {
+            _NBL_DEBUG_BREAK_IF(true);
+            os::Printer::log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", ELL_ERROR);
+            return nullptr;
+        }
+
+        core::vector<COpenGLSpecializedShader::SUniform> uniformList;
+        if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList, introspection))
+        {
+            _NBL_DEBUG_BREAK_IF(true);
+            os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
+            return nullptr;
+        }
+
+        auto ctx = getThreadContext_helper(false);
+        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
+    }
+
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+        const asset::SVertexInputParams& _vertexInputParams,
+        const asset::SBlendParams& _blendParams,
+        const asset::SPrimitiveAssemblyParams& _primAsmParams,
+        const asset::SRasterizationParams& _rasterParams
+    ) override
+    {
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> retval;
+
+        IGPURenderpassIndependentPipeline::SCreationParams params;
+        params.blend = _blendParams;
+        params.primitiveAssembly = _primAsmParams;
+        params.rasterization = _rasterParams;
+        params.vertexInput = _vertexInputParams;
+        params.layout = std::move(_layout);
+        for (auto* s = _shaders; s != _shadersEnd; ++s)
+        {
+            uint32_t ix = core::findLSB<uint32_t>((*s)->getStage());
+            params.shaders[ix] = core::smart_refctd_ptr<IGPUSpecializedShader>(*s);
+        }
+
+        SRequestRenderpassIndependentPipelineCreate req_params;
+        req_params.params = &params;
+        req_params.count = 1u;
+        req_params.pipelineCache = _pipelineCache;
+        auto& req = m_threadHandler.request<SRequestRenderpassIndependentPipelineCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
+
+        return retval;
+    }
+
+    bool createGPURenderpassIndependentPipelines(
+        IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
+    ) override
+    {
+        SRequestRenderpassIndependentPipelineCreate req_params;
+        req_params.params = createInfos.begin();
+        req_params.count = createInfos.size();
+        req_params.pipelineCache = pipelineCache;
+        auto& req = m_threadHandler.request<SRequestRenderpassIndependentPipelineCreate>(std::move(req_params), output);
+        m_threadHandler.waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
+
+        return true;
+    }
+
+    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
+    ) override
+    {
+        core::smart_refctd_ptr<IGPUComputePipeline> retval;
+
+        IGPUComputePipeline::SCreationParams params;
+        params.layout = std::move(_layout);
+        params.shader = std::move(_shader);
+        SRequestComputePipelineCreate req_params;
+        req_params.params = &params;
+        req_params.count = 1u;
+        req_params.pipelineCache = _pipelineCache;
+        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
+
+        return retval;
+    }
+
+    bool createGPUComputePipelines(
+        IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
+        core::smart_refctd_ptr<IGPUComputePipeline>* output
+    ) override
+    {
+        SRequestComputePipelineCreate req_params;
+        req_params.params = createInfos.begin();
+        req_params.count = createInfos.size();
+        req_params.pipelineCache = pipelineCache;
+        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), output);
+        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
+
+        return true;
+    }
+
+    core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params) override
+    {
+        // now supporting only single subpass and no input nor resolve attachments
+        // obvs preserve attachments are ignored as well
+        if (params.renderpass->getCreationParameters().subpassCount != 1u)
+            return nullptr;
+        if (!IGPUFramebuffer::validate(params))
+            return nullptr;
+
+        return core::make_smart_refctd_ptr<COpenGLFramebuffer>(std::move(params));
+    }
+
+    core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override
+    {
+        // ignoring descriptor pool
+        return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(layout));
+    }
+
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
+    {
+        return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(_begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
+    }
+
+    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
+        const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+    ) override
+    {
+        return core::make_smart_refctd_ptr<COpenGLPipelineLayout>(
+            _pcRangesBegin, _pcRangesEnd,
+            std::move(_layout0), std::move(_layout1),
+            std::move(_layout2), std::move(_layout3)
+        );
+    }
+
+    core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
+    {
+        return core::make_smart_refctd_ptr<IGPURenderpass>(params); // theres no COpenGLRenderpass (no need for such)
+    }
+
+    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override
+    {
+        if (!IGPUGraphicsPipeline::validate(params))
+            return nullptr;
+        return core::make_smart_refctd_ptr<IGPUGraphicsPipeline>(std::move(params)); // theres no COpenGLGraphicsPipeline (no need for such)
+    }
+
+    bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override
+    {
+        uint32_t i = 0u;
+        for (const auto& ci : params)
+        {
+            if (!(output[i++] = createGPUGraphicsPipeline(pipelineCache, IGPUGraphicsPipeline::SCreationParams(ci))))
+                return false;
+        }
+        return true;
+    }
+
+    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override
+    {
+        IGPUImage::SCreationParams imgci;
+        imgci.arrayLayers = params.arrayLayers;
+        imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
+        imgci.format = params.surfaceFormat.format;
+        imgci.mipLevels = 1u;
+        imgci.queueFamilyIndices = params.queueFamilyIndices;
+        imgci.samples = asset::IImage::ESCF_1_BIT;
+        imgci.type = asset::IImage::ET_2D;
+        imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
+
+        IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
+        mreqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        mreqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+        auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
+        for (auto& img_dst : (*images))
+        {
+            img_dst = createGPUImageOnDedMem(IGPUImage::SCreationParams(imgci), mreqs);
+            if (!img_dst)
+                return nullptr;
+        }
+
+        EGLContext master_ctx = m_threadHandler.getContext();
+        EGLConfig fbconfig = m_threadHandler.getFBConfig();
+        auto glver = m_threadHandler.getGL_APIversion();
+
+        return SwapchainType::create(std::move(params), m_egl, std::move(images), m_glfeatures, master_ctx, fbconfig, glver.first, glver.second);
+    }
+
+    void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies)
+    {
+        for (uint32_t i = 0u; i < descriptorWriteCount; i++)
+            static_cast<COpenGLDescriptorSet*>(pDescriptorWrites[i].dstSet)->writeDescriptorSet(pDescriptorWrites[i]);
+        for (uint32_t i = 0u; i < descriptorCopyCount; i++)
+            static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
+    }
+
+    void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
+    {
+        SRequestFlushMappedMemoryRanges req_params;
+        req_params.memoryRanges = ranges;
+        auto& req = m_threadHandler.request<SRequestFlushMappedMemoryRanges>(req_params);
+        m_threadHandler.waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
+    }
+
+    void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
+    {
+        SRequestInvalidateMappedMemoryRanges req_params;
+        req_params.memoryRanges = ranges;
+        auto& req = m_threadHandler.request<SRequestInvalidateMappedMemoryRanges>(req_params);
+        m_threadHandler.waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
+    }
+
+
+    void destroyTexture(GLuint img) override
+    {
+        destroyGlObjects<ERT_TEXTURE_DESTROY>(1u, &img);
+    }
+    void destroyBuffer(GLuint buf) override
+    {
+        destroyGlObjects<ERT_BUFFER_DESTROY>(1u, &buf);
+    }
+    void destroySampler(GLuint s) override
+    {
+        destroyGlObjects<ERT_SAMPLER_DESTROY>(1u, &s);
+    }
+    void destroySpecializedShader(uint32_t count, const GLuint* programs) override
+    {
+        auto& req = destroyGlObjects<ERT_PROGRAM_DESTROY>(count, programs);
+        // actually wait for this to complete because `programs` is most likely stack array or something owned exclusively by the object (which is being destroyed)
+        m_threadHandler.waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
+    }
+
 private:
     CThreadHandler<FunctionTableType> m_threadHandler;
     std::thread m_thread;
+    const FeaturesType* m_glfeatures;
 };
 
 }

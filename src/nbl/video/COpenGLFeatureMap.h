@@ -320,6 +320,10 @@ public:
 	"GL_EXT_sparse_texture2",
 	"GL_EXT_shader_framebuffer_fetch",
 	"GL_EXT_shader_framebuffer_fetch_non_coherent",
+	"GL_EXT_copy_image",
+	"GL_EXT_draw_elements_base_vertex",
+	"GL_EXT_base_instance",
+	"GL_EXT_multi_draw_indirect",
 	"GL_FfdMaskSGIX",
 	"GL_GREMEDY_frame_terminator",
 	"GL_GREMEDY_string_marker",
@@ -432,7 +436,6 @@ public:
 	"GL_NV_shader_atomic_float64",
 	"GL_NV_conservative_raster_pre_snap",
 	"GL_NV_shader_texture_footprint",
-	"GL_OES_read_format",
 	"GL_OML_interlace",
 	"GL_OML_resample",
 	"GL_OML_subsample",
@@ -517,7 +520,16 @@ public:
 	"GL_KHR_blend_equation_advanced_coherent",
 	//"GLX_EXT_swap_control_tear",
 	"GL_NVX_gpu_memory_info",
-	"GL_NVX_multiview_per_view_attributes"
+	"GL_NVX_multiview_per_view_attributes",
+	"GL_OES_read_format",
+	"GL_OES_texture_compression_astc_hdr",
+	"GL_OES_texture_compression_astc_ldr",
+	"GL_OES_texture_border_clamp",
+	"GL_OES_texture_cube_map_array",
+	"GL_OES_sample_shading",
+	"GL_OES_copy_image",
+	"GL_OES_viewport_array",
+	"GL_OES_draw_elements_base_vertex"
 };
 	enum EOpenGLFeatures {
 		NBL_3DFX_multisample = 0,
@@ -825,6 +837,10 @@ public:
 		NBL_EXT_sparse_texture2,
 		NBL_EXT_shader_framebuffer_fetch,
 		NBL_EXT_shader_framebuffer_fetch_non_coherent,
+		NBL_EXT_copy_image,
+		NBL_EXT_draw_elements_base_vertex,
+		NBL_EXT_base_instance,
+		NBL_EXT_multi_draw_indirect,
 		NBL_FfdMaskSGIX,
 		NBL_GREMEDY_frame_terminator,
 		NBL_GREMEDY_string_marker,
@@ -937,7 +953,6 @@ public:
 		NBL_NV_shader_atomic_float64,
 		NBL_NV_conservative_raster_pre_snap,
 		NBL_NV_shader_texture_footprint,
-		NBL_OES_read_format,
 		NBL_OML_interlace,
 		NBL_OML_resample,
 		NBL_OML_subsample,
@@ -1022,6 +1037,16 @@ public:
 		NBL_KHR_blend_equation_advanced_coherent,
 		NBL_NVX_gpu_memory_info,
 		NBL_NVX_multiview_per_view_attributes,
+		NBL_OES_read_format,
+		NBL_OES_texture_compression_astc_hdr,
+		NBL_OES_texture_compression_astc_ldr,
+		NBL_OES_texture_border_clamp,
+		NBL_OES_texture_cube_map_array,
+		NBL_OES_sample_shading,
+		NBL_OES_copy_image,
+		NBL_OES_viewport_array,
+		NBL_OES_draw_elements_base_vertex,
+
 		NBL_OpenGL_Feature_Count
 	};
 
@@ -1167,6 +1192,8 @@ public:
 	GLfloat DimSmoothedLine[2];
 	//! Minimal and maximal supported thickness for points with smoothing
 	GLfloat DimSmoothedPoint[2];
+	//!
+	uint32_t MaxColorAttachments;
 
 	bool isIntelGPU = false;
 	// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)

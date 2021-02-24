@@ -7,6 +7,7 @@
 #include "nbl/asset/spvUtils.h"
 #include <algorithm>
 #include "spirv_cross/spirv_parser.hpp"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
@@ -154,7 +155,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const 
 	m_uniformsList = uniformList;
 }
 
-auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
 {
 	spirv_cross::ParsedIR parsed;
 	if (_parsedSpirv)
@@ -176,30 +177,30 @@ auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout, con
 	std::string glslCode = comp.compile();
 	const char* glslCode_cstr = glslCode.c_str();
 
-	GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
+	GLuint GLname = gl->glShader.pglCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
 
 	GLchar logbuf[1u<<12]; //4k
-	COpenGLExtensionHandler::extGlGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
+	gl->glShader.pglGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
 	if (logbuf[0])
 		os::Printer::log(logbuf, ELL_ERROR);
 
 	if (m_locations.empty())
-		gatherUniformLocations(GLname);
+		gatherUniformLocations(gl, GLname);
 
 	SProgramBinary binary;
 	GLint binaryLength = 0;
-	COpenGLExtensionHandler::extGlGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
+	gl->glShader.pglGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
 	binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
-	COpenGLExtensionHandler::extGlGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
+	gl->glShader.pglGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
 
 	return {GLname, std::move(binary)};
 }
 
-void COpenGLSpecializedShader::gatherUniformLocations(GLuint _GLname) const
+void COpenGLSpecializedShader::gatherUniformLocations(IOpenGL_FunctionTable* gl, GLuint _GLname) const
 {
 	m_locations.resize(m_uniformsList.size());
 	for (size_t i = 0ull; i < m_uniformsList.size(); ++i)
-		m_locations[i] = COpenGLExtensionHandler::extGlGetUniformLocation(_GLname, m_uniformsList[i].m.name.c_str());
+		m_locations[i] = gl->glShader.pglGetUniformLocation(_GLname, m_uniformsList[i].m.name.c_str());
 }
 
 #endif

@@ -22,8 +22,8 @@ public:
 
     struct SCreationParams
     {
-        IGPUPipelineLayout* layout;
-        IGPUSpecializedShader* shader;
+        core::smart_refctd_ptr<IGPUPipelineLayout> layout;
+        core::smart_refctd_ptr<IGPUSpecializedShader> shader;
     };
 
 protected:
