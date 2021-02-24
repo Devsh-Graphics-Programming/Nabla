@@ -211,6 +211,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
+		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requsts > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
+		/** Ideal O(1) insertion and erasure
+		* Add: new nodes using pool allocator, add the node_t references to the back of the contiguous array (increment atomic) and record where the reference is (offset into contiguous) as an additional property of the node
+		* Remove: lookup the contiguous offset property for the removed node, decremenet contiguous array size atomic and save the return value as the reference to be swapped, swap the erased reference with the one to be swapped, dereference the swapped reference and update its pointer to contiguous 
+		**/
 };
 
 

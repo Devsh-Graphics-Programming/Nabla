@@ -10,8 +10,7 @@
 #include "nbl/ui/ui.h"
 
 //
-//#include "nbl/scene/IAnimationBlendManager.h"
-#include "nbl/scene/ITransformTreeManager.h"
+#include "nbl/scene/IAnimationBlendManager.h"
 //#include "nbl/scene/ILevelOfDetailLibrary.h"
 //#include "nbl/scene/ISensor.h" or asset? or a struct?
 //#include "nbl/scene/ICamera.h" or do we stick it inside the renderpass?
