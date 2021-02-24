@@ -13,7 +13,7 @@ namespace nbl
 namespace scene
 {
 
-
+// TODO: split into ITT and ITTM because no need for multiple pipeline copies for multiple TTs
 class ITransformTreeManager : public virtual core::IReferenceCounted
 {
 	public:
@@ -21,7 +21,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		_NBL_STATIC_INLINE_CONSTEXPR node_t invalid_node = video::IPropertyPool::invalid_index;
 
 		using timestamp_t = video::IGPUAnimationLibrary::timestamp_t;
+		// two timestamp values are reserved for initialization
+		_NBL_STATIC_INLINE_CONSTEXPR timestamp_t min_timestamp = 0u;
+		_NBL_STATIC_INLINE_CONSTEXPR timestamp_t max_timestamp = 0xfffffffdu;
 
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t parent_prop_ix = 0u;
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t global_transform_prop_ix = 3u;
 	private:
 		using parent_t = node_t;
@@ -36,6 +40,42 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			relative_transform_t,modified_stamp_t,
 			global_transform_t,recomputed_stamp_t
 		>;
+
+		struct RelativeTransformModificationRequest
+		{
+			public:
+				enum E_TYPE : uint32_t
+				{
+					ET_OVERWRITE=0u, // exchange the value `This(vertex)`
+					ET_CONCATENATE_AFTER=1u, // apply transform after `This(Previous(vertex))`
+					ET_CONCATENATE_BEFORE=2u, // apply transform before `Previous(This(vertex))`
+					ET_WEIGHTED_ACCUMULATE=3u, // add to existing value `(Previous+This)(vertex)`
+					ET_COUNT
+				};
+				RelativeTransformModificationRequest(const E_TYPE type, const core::matrix3x4SIMD& _weightedModification) : storage(_weightedModification)
+				{
+					constexpr uint32_t log2ET_COUNT = 2u;
+					static_assert(ET_COUNT<=(0x1u<<log2ET_COUNT),"Need to rewrite the type encoding routine!");
+					
+					uint32_t typeBits[log2ET_COUNT];
+					for (uint32_t i=0u; i<log2ET_COUNT; i++)
+						typeBits[i] = (type>>i)&0x1u;
+
+					// stuff the bits into x and z components of scale (without a rotation) 
+					reinterpret_cast<uint32_t&>(storage.rows[0].x) |= typeBits[0];
+					reinterpret_cast<uint32_t&>(storage.rows[2].z) |= typeBits[1];
+				}
+				RelativeTransformModificationRequest(const E_TYPE type, const core::matrix3x4SIMD& _modification, const float weight) : RelativeTransformModificationRequest(type,_modification*weight) {}
+
+				inline E_TYPE getType() const
+				{
+					uint32_t retval = reinterpret_cast<const uint32_t&>(storage.rows[0].x)&0x1u;
+					retval |= (reinterpret_cast<const uint32_t&>(storage.rows[2].z)&0x1u)<<1u;
+					return static_cast<E_TYPE>(retval);
+				}
+			private:
+				core::matrix3x4SIMD storage;
+		};
 
 		// creation
 		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IVideoDriver* _driver, asset::SBufferRange<video::IGPUBuffer>&& memoryBlock, core::allocator<uint8_t>&& alloc = core::allocator<uint8_t>())
@@ -71,6 +111,10 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			asset::SBufferRange<video::IGPUBuffer> retval = {m_nodeStorage->getPropertyOffset(global_transform_prop_ix),m_nodeStorage->getCapacity()*sizeof(global_transform_t),m_nodeStorage->getMemoryBlock().buffer};
 			return retval;
 		}
+
+		// need to at least initialize with the parent node property with the recompute and update timestamps at 0xfffffffeu and 0xffffffffu respectively 
+		// but a function with optional relative transform would be nice
+		// need our own compute shader to initialize the properties ;(
 #if 0
 		//
 		struct AllocationRequest
@@ -104,21 +148,23 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		}
 
 		// TODO: make all these functions take a pipeline barrier type (future new API) with default being a full barrier
-		void updateLocalTransforms(const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirectParameters, const asset::SBufferBinding<video::IGPUBuffer>& requestBuffer) //do we take a per-request nodeID buffer too?
+		template<typename... Args>
+		inline void updateLocalTransforms(Args&&... args)
 		{
-			assert(false); // TODO
+			soleUpdateOrFusedRecompute_impl(m_updatePipeline.get(),std::forward<Args>(args)...);
 		}
 		//
-		void recomputeGlobalTransforms(/*dispatchIndirectParams,nodeList*/)
+		void recomputeGlobalTransforms(const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirectParameters,const asset::SBufferBinding<video::IGPUBuffer>& nodeIDBuffer)
 		{
 			// TODO: do it properly
 			auto out = getGlobalTransformationBufferRange();
 			m_driver->copyBuffer(m_nodeStorage->getMemoryBlock().buffer.get(),out.buffer.get(),m_nodeStorage->getPropertyOffset(1u),out.offset,out.size);
 		}
 		//
-		void updateAndRecomputeGlobalTransforms(/*Same args as `updateLocalTransforms` and `recomputeGlobalTransforms`*/)
+		template<typename... Args>
+		inline void updateAndRecomputeTransforms(Args&&... args)
 		{
-			assert(false); // TODO
+			soleUpdateOrFusedRecompute_impl(m_updateAndRecomputePipeline.get(),std::forward<Args>(args)...);
 		}
 
 		//
@@ -141,34 +187,30 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		}
 		~ITransformTreeManager()
 		{
-			//
+			// everything drops itself automatically
 		}
 
-#if 0
-		struct RootNodeParentIterator
+		void soleUpdateOrFusedRecompute_impl(
+			const video::IGPUComputePipeline* pipeline,
+			const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirectParameters,
+			const asset::SBufferBinding<video::IGPUBuffer>& nodeIDBuffer, // first uint in the nodeIDBuffer is used to denote how many requests we have
+			const asset::SBufferBinding<video::IGPUBuffer>& modificationRequestBuffer,
+			const asset::SBufferBinding<video::IGPUBuffer>& modificationRequestTimestampBuffer
+		)
 		{
-			inline RootNodeParentIterator& operator++()
-			{
-				//do nothing
-				return *this;
-			}
-			inline RootNodeParentIterator operator++(int)
-			{
-				//do nothing
-			}
+			// TODO: first a dispatch to sort the modification requests and timestamps according to node frequency
+			m_driver->bindComputePipeline(pipeline);
+			assert(false); // TODO: get a descriptor set to populate with our input buffers (plus indirect dispatch buffer + nodeIDBuffer if pipeline==m_updateAndRecomputePipeline)
+			const video::IGPUDescriptorSet* descSets[] = { m_transformHierarchyDS.get(),nullptr };
+			m_driver->bindDescriptorSets(video::EPBP_COMPUTE,pipeline->getLayout(),0u,2u,descSets,nullptr);
+			m_driver->dispatchIndirect(dispatchIndirectParameters.buffer.get(),dispatchIndirectParameters.offset);
+			// TODO: pipeline barrier for UBO, SSBO and TBO and if pipeline==m_updatePipeline then COMMAND_BIT too
+		}
 
-			inline node_t operator*() const
-			{
-				return invalid_node;
-			}
-
-			//using iterator_category = typename std::iterator_traits::;
-			//using difference_type = ptrdiff_t;
-			using value_type = node_t;
-		};
-#endif
 		video::IVideoDriver* m_driver;
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
+		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
 };
 
 
