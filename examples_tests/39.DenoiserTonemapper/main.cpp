@@ -15,14 +15,6 @@
 
 #include "CommonPushConstants.h"
 
-/*
-	Uncomment bellow define to perform
-	DDS input/output Denoiser Tonemapper's
-	data saving.
-*/
-
-#define DDSInputOutputDenoiserSave
-
 using namespace nbl;
 using namespace asset;
 using namespace video;
@@ -882,124 +874,6 @@ void main()
 					denoiserInputs[k].rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
 					denoiserInputs[k].format = forcedOptiXFormat;
 					denoiserInputs[k].pixelStrideInBytes = forcedOptiXFormatPixelStride;
-					
-					#ifdef DDSInputOutputDenoiserSave
-
-					auto createImage = [&](core::smart_refctd_ptr<ICPUBuffer> referecceTexelBuffer, uint64_t memoryOffset, bool isInputFilterImage = true) -> core::smart_refctd_ptr<ICPUImage>
-					{
-						asset::ICPUImage::SCreationParams imgInfo;
-						imgInfo.format = isInputFilterImage ? EF_R16G16B16_SFLOAT : EF_R16G16B16A16_SFLOAT;
-						imgInfo.type = asset::ICPUImage::ET_2D;
-						imgInfo.extent.width = param.width;
-						imgInfo.extent.height = param.height;
-						imgInfo.extent.depth = 1u;
-						imgInfo.mipLevels = 1u;
-						imgInfo.arrayLayers = 1u;
-						imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
-						imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-
-						auto image = asset::ICPUImage::create(std::move(imgInfo));
-						const auto texelFormatBytesize = getTexelOrBlockBytesize(image->getCreationParameters().format);
-
-						auto createTexelBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUBuffer>
-						{
-							if (isInputFilterImage)
-								return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(image->getImageDataSizeInBytes(), reinterpret_cast<uint8_t*>(referecceTexelBuffer->getPointer()) + memoryOffset, core::adopt_memory);
-							else
-							{
-								auto texelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(image->getImageDataSizeInBytes());
-								memset(texelBuffer->getPointer(), 0, texelBuffer->getSize());
-								return texelBuffer;
-							}	
-						};
-
-						auto texelBuffer = createTexelBuffer();
-						auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
-						asset::ICPUImage::SBufferCopy& region = regions->front();
-
-						region.imageSubresource.mipLevel = 0u;
-						region.imageSubresource.baseArrayLayer = 0u;
-						region.imageSubresource.layerCount = 1u;
-						region.bufferOffset = 0u;
-						region.bufferRowLength = image->getCreationParameters().extent.width;
-						region.bufferImageHeight = 0u;
-						region.imageOffset = { 0u, 0u, 0u };
-						region.imageExtent = image->getCreationParameters().extent;
-
-						image->setBufferAndRegions(std::move(texelBuffer), regions);
-
-						return image;
-					};
-
-					auto getConvertedOptixData = [&](core::smart_refctd_ptr<ICPUBuffer> texelBuffer, uint64_t memoryOffset) -> core::smart_refctd_ptr<ICPUImageView>
-					{
-						core::smart_refctd_ptr<asset::ICPUImage> inputFilterImage = createImage(texelBuffer, memoryOffset);
-						core::smart_refctd_ptr<asset::ICPUImage> outputFilterImage = createImage(texelBuffer, memoryOffset, false);
-
-						using ConvertFilter = asset::CConvertFormatImageFilter<EF_R16G16B16_SFLOAT, EF_R16G16B16A16_SFLOAT>;
-						ConvertFilter convertFilter;
-						ConvertFilter::state_type state;
-
-						state.extent = { param.width, param.height, 1 };
-						state.inBaseLayer = 0;
-						state.inImage = inputFilterImage.get();
-						state.inMipLevel = 0;
-						state.inOffset = { 0, 0, 0 };
-						state.layerCount = 1;
-						state.outBaseLayer = 0;
-						state.outImage = outputFilterImage.get();
-						state.outMipLevel = 0;
-						state.outOffset = { 0, 0, 0 };
-
-						if (!convertFilter.execute(&state))
-							os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
-
-						ICPUImageView::SCreationParams imageViewParams;
-						imageViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-						imageViewParams.format = outputFilterImage->getCreationParameters().format;
-						imageViewParams.image = std::move(outputFilterImage);
-						imageViewParams.viewType = ICPUImageView::ET_2D;
-						imageViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
-
-						return ICPUImageView::create(std::move(imageViewParams));
-					};
-
-					core::smart_refctd_ptr<ICPUImageView> inputDenoiserImageData = getConvertedOptixData(denoiserInputsTexelBuffer, shaderConstants.outImageOffset[k] * sizeof(uint16_t));
-					{
-						IAssetWriter::SAssetWriteParams wp(inputDenoiserImageData.get());
-						auto getInputTerminateName = [&]() -> std::string
-						{
-							switch (k)
-							{
-								case EII_COLOR:
-									return "color";
-								case EII_ALBEDO:
-									return "albedo";
-								case EII_NORMAL:
-									return "normal";
-								default:
-									"";
-							}
-						};
-
-						std::string removedExtensionFile = outputFileBundle[i].value().substr(0, outputFileBundle[i].value().size() - 4);
-						std::string fileName = removedExtensionFile + "_optix_input_" + getInputTerminateName() + ".dds";
-
-						if(!am->writeAsset(fileName , wp))
-							os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not save input denoiser .dds file!", ELL_ERROR);
-
-						if (k >= denoiserInputCount - 1)
-						{
-							core::smart_refctd_ptr<ICPUImageView> outputDenoiserImageData = getConvertedOptixData(denoiserOutputTexelBuffer, shaderConstants.inImageTexelOffset[EII_COLOR]);
-							fileName = removedExtensionFile + "_optix_output.dds";
-							IAssetWriter::SAssetWriteParams wp(outputDenoiserImageData.get());
-
-							if (!am->writeAsset(fileName, wp))
-								os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not save output denoiser .dds file!", ELL_ERROR);
-						}
-					}
-
-					#endif // DDSInputOutputDenoiserSave
 
 				}
 
