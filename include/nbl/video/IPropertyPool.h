@@ -113,30 +113,3 @@ class IPropertyPool : public core::IReferenceCounted
 }
 
 #endif
-
-/*
-Old Code
-
-class IMeshSceneNodeInstanced : public ISceneNode
-{
-    struct MeshLoD
-    {
-        video::IGPUMesh* mesh;
-        void* userDataForVAOSetup; //put array of vertex attribute mappings here or something
-        float lodDistance;
-    };
-
-    virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
-        const size_t shaderLoDsPerPass = 1, void* overrideUserData = NULL, const size_t& extraDataSizePerInstanceInput = 0) = 0;
-
-    virtual video::CGPUMesh* getLoDMesh(const size_t& lod) = 0;
-
-
-    virtual const core::aabbox3df& getLoDInvariantBBox() const = 0;
-
-
-    inline void setBBoxUpdateEnabled() { wantBBoxUpdate = true; }
-    inline void setBBoxUpdateDisabled() { wantBBoxUpdate = false; }
-    inline const bool& getBBoxUpdateMode() { return wantBBoxUpdate; }
-};
-*/

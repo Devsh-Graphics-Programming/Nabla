@@ -116,12 +116,7 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
                                             AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_NBL_SIMD_ALIGNMENT),
                                                                         addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)
         {
-            mAllocation = ImplBase::mDataAlloc.allocate(bufSz,maxAllocatableAlignment);
-			if constexpr(!alloc_traits::supportsNullBuffer)
-			{
-                this->getBaseAddrAllocRef().setDataBufferPtr(std::get<1u>(mAllocation));
-            }
-			
+            mAllocation = ImplBase::mDataAlloc.allocate(bufSz,maxAllocatableAlignment);			
         }
 
         virtual ~HeterogenousMemoryAddressAllocatorAdaptor()
