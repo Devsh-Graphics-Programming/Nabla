@@ -27,11 +27,18 @@ namespace nbl {
 			static inline constexpr GLenum CLIENT_MAPPED_BUFFER_BARRIER_BIT = 0x00004000;
 			static inline constexpr GLenum TEXTURE_MAX_ANISOTROPY			= 0x84FE;
 			static inline constexpr GLenum TEXTURE_LOD_BIAS					= 0x8501;
+			static inline constexpr GLenum DEPTH_CLAMP						= 0x864F;
 			//desktop GL only
 			static inline constexpr GLenum TEXTURE_1D						= 0x0de0;
 			static inline constexpr GLenum TEXTURE_1D_ARRAY					= 0x8c18;
 			static inline constexpr GLenum MIRROR_CLAMP_TO_EDGE				= 0x8743;
 			static inline constexpr GLenum MIRROR_CLAMP_TO_BORDER			= 0x8912;
+			static inline constexpr GLenum DOUBLE							= 0x140A;
+			static inline constexpr GLenum COLOR_LOGIC_OP					= 0x0BF2;
+			static inline constexpr GLenum PRIMITIVE_RESTART				= 0x8F9D;
+			static inline constexpr GLenum MULTISAMPLE						= 0x809D;
+			static inline constexpr GLenum POLYGON_OFFSET_POINT				= 0x2A01;
+			static inline constexpr GLenum POLYGON_OFFSET_LINE				= 0x2A02;
 
 			class OpenGLFunctionLoader final : public system::FuncPtrLoader
 			{
@@ -120,6 +127,7 @@ namespace nbl {
 				, glCreateShader
 				, glCreateShaderProgramv
 				//, glCreateProgramPipelines
+				, glGenProgramPipelines
 				, glDeleteProgramPipelines
 				, glUseProgramStages
 				, glShaderSource
@@ -170,7 +178,8 @@ namespace nbl {
 				, glLineWidth
 				, glDepthFunc
 				, glHint
-
+				, glFrontFace
+				, glCullFace
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLfragment, OpenGLFunctionLoader
 				, glBlendEquation
@@ -275,6 +284,9 @@ namespace nbl {
 			const egl::CEGL* m_egl;
 			const COpenGLFeatureMap* features;
 
+			virtual bool isGLES() const = 0;
+
+
 			virtual void extGlDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) = 0;
 			using GLDebugCallbackType = GLDEBUGPROC;
 			virtual void extGlDebugMessageCallback(GLDebugCallbackType callback, const void* userParam) = 0;
@@ -329,6 +341,7 @@ namespace nbl {
 			virtual inline void extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex);
 			virtual inline void extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index);
 			virtual inline void extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index);
+			virtual void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset) = 0;
 			virtual inline void extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset);
 			virtual inline void extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
 			virtual inline void extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor);
@@ -463,6 +476,10 @@ namespace nbl {
 			virtual void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
 
 			virtual void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
+
+			virtual void extGlLogicOp(GLenum opcode) = 0;
+
+			virtual void extGlPolygonMode(GLenum face, GLenum mode) = 0;
 
 
 			const COpenGLFeatureMap* getFeatures() const { return features; }
@@ -640,7 +657,6 @@ namespace nbl {
 		}
 		inline void IOpenGL_FunctionTable::extGlCreateFramebuffers(GLsizei n, GLuint* framebuffers)
 		{
-			
 			glFramebuffer.pglGenFramebuffers(n, framebuffers);
 		}
 		inline GLenum IOpenGL_FunctionTable::extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target)

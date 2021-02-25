@@ -34,11 +34,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			};
 			struct SMultibindTextures
 			{
+				// TODO targets (needed for GLES backend since we dont have ARB_multi_bind)
 				GLuint* textures = nullptr;
 				GLuint* samplers = nullptr;
 			};
 			struct SMultibindTextureImages
 			{
+				// TODO formats (needed for GLES backend since we dont have ARB_multi_bind)
 				GLuint* textures = nullptr;
 			};
         

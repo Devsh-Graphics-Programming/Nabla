@@ -62,16 +62,23 @@ struct SOpenGLState
 
     struct {
         // TODO add viewports to flushing routine
-        struct {
+        struct SViewport {
             GLint x = 0;
             GLint y = 0;
             // initial values depend on surface attached to context, lets force always updating this (makes life easier, i dont have to query the extents then)
             GLsizei width = std::numeric_limits<GLsizei>::max();
             GLsizei height = std::numeric_limits<GLsizei>::max();
 
-            GLdouble minDepth = 0.0;
-            GLdouble maxDepth = 1.0;
+            bool operator==(const SViewport& rhs) const { return x==rhs.x && y==rhs.y && width==rhs.width && height==rhs.height; }
+            bool operator!=(const SViewport& rhs) const { return !operator==(rhs); }
         } viewport[MAX_VIEWPORT_COUNT]; // 16 is max supported viewport count throughout implementations
+        struct SViewportDepthClamp {
+            double minDepth = 0.0;
+            double maxDepth = 1.0;
+
+            bool operator==(const SViewportDepthClamp& rhs) const { return minDepth==rhs.minDepth && maxDepth==rhs.maxDepth; }
+            bool operator!=(const SViewportDepthClamp& rhs) const { return !operator==(rhs); }
+        } viewport_depth[MAX_VIEWPORT_COUNT];
         //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
         GLenum polygonMode = GL_FILL;
         GLenum faceCullingEnable = 0;
@@ -91,9 +98,8 @@ struct SOpenGLState
             bool operator!=(const SStencilFunc& rhs) const { return func!=rhs.func || ref!=rhs.ref || mask!=rhs.mask; }
         };
         SStencilFunc stencilFunc_front, stencilFunc_back;
-        // TODO add stencilWriteMask to flushing routine (glStencilMaskSeparate)
-        GLuint stencilWriteMask_front;
-        GLuint stencilWriteMask_back;
+        GLuint stencilWriteMask_front = ~static_cast<GLuint>(0);
+        GLuint stencilWriteMask_back = ~static_cast<GLuint>(0);
         GLenum depthFunc = GL_LESS;
         GLenum frontFace = GL_CCW;
         GLboolean depthClampEnable = GL_FALSE;

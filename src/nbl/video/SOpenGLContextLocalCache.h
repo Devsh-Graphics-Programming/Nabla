@@ -21,6 +21,23 @@ namespace impl
 
 struct SOpenGLContextLocalCache
 {
+    enum GL_STATE_BITS : uint32_t
+    {
+        // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
+        GSB_PIPELINE = 1u << 0,
+        GSB_RASTER_PARAMETERS = 1u << 1,
+        // we want the two to happen together and just before a draw (set VAO first, then binding)
+        GSB_VAO_AND_VERTEX_INPUT = 1u << 2,
+        // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
+        GSB_DESCRIPTOR_SETS = 1u << 3,
+        // GL_DISPATCH_INDIRECT_BUFFER 
+        GSB_DISPATCH_INDIRECT = 1u << 4,
+        GSB_PUSH_CONSTANTS = 1u << 5,
+        GSB_PIXEL_PACK_UNPACK = 1u << 6,
+        // flush everything
+        GSB_ALL = ~0x0u
+    };
+
     struct SPipelineCacheVal
     {
         GLuint GLname;
@@ -73,7 +90,7 @@ struct SOpenGLContextLocalCache
 
     void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline, uint32_t ctxid);
 
-    template<E_PIPELINE_BIND_POINT PBP>
+    template<asset::E_PIPELINE_BIND_POINT PBP>
     inline void pushConstants(const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
     {
         //validation is done in pushConstants_validate() of command buffer GL impl (COpenGLCommandBuffer/COpenGLPrimaryCommandBuffer)
@@ -98,7 +115,52 @@ struct SOpenGLContextLocalCache
         memcpy(pushConstantsState<PBP>()->data + _offset, _values, _size);
     }
 
+    // state flushing 
+    void flushStateGraphics(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
+    void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
+
 private:
+    void flushState_descriptors(IOpenGL_FunctionTable* gl, asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout);
+    GLuint createGraphicsPipeline(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& _hash);
+
+    inline void freeUpVAOCache(IOpenGL_FunctionTable* gl, bool exitOnFirstDelete)
+    {
+        for (auto it = VAOMap.begin(); VAOMap.size() > maxVAOCacheSize && it != VAOMap.end();)
+        {
+            if (it->first == currentState.vertexInputParams.vao.first)
+                continue;
+
+            if (CNullDriver::ReallocationCounter - it->second.lastUsed > 1000) //maybe make this configurable
+            {
+                gl->glVertex.pglDeleteVertexArrays(1, &it->second.GLname);
+                it = VAOMap.erase(it);
+                if (exitOnFirstDelete)
+                    return;
+            }
+            else
+                it++;
+        }
+    }
+    //TODO DRY
+    inline void freeUpGraphicsPipelineCache(IOpenGL_FunctionTable* gl, bool exitOnFirstDelete)
+    {
+        for (auto it = GraphicsPipelineMap.begin(); GraphicsPipelineMap.size() > maxPipelineCacheSize && it != GraphicsPipelineMap.end();)
+        {
+            if (it->first == currentState.pipeline.graphics.usedShadersHash)
+                continue;
+
+            if (CNullDriver::ReallocationCounter - it->second.lastUsed > 1000) //maybe make this configurable
+            {
+                gl->glShader.pglDeleteProgramPipelines(1, &it->second.GLname);
+                it = GraphicsPipelineMap.erase(it);
+                if (exitOnFirstDelete)
+                    return;
+            }
+            else
+                it++;
+        }
+    }
+
     static inline GLenum getGLpolygonMode(asset::E_POLYGON_MODE pm)
     {
         const static GLenum glpm[3]{ GL_FILL, GL_LINE, GL_POINT };

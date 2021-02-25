@@ -164,6 +164,8 @@ public:
 		, glPatchParameteri
 		, glPrimitiveRestartIndex
 		, glProvokingVertex
+		, glLogicOp
+		, glPolygonMode
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4fragment, OpenGLFunctionLoader
 		, glPointParameterf
@@ -276,6 +278,8 @@ public:
     {
 
     }
+
+	bool isGLES() const override { return false; }
 
 	void extGlDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) override
 	{
@@ -1640,7 +1644,7 @@ public:
 		}
 		*/
 	}
-	void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
+	void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset) override
 	{
 		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 		{
@@ -1781,6 +1785,16 @@ public:
 	void extGlDepthRangeArrayv(GLuint first, GLsizei count, const GLdouble* v) override
 	{
 		gl4General.pglDepthRangeArrayv(first, count, v);
+	}
+
+	void extGlLogicOp(GLenum opcode) override
+	{
+		gl4Shader.pglLogicOp(opcode);
+	}
+
+	void extGlPolygonMode(GLenum face, GLenum mode) override
+	{
+		gl4Shader.pglPolygonMode(face, mode);
 	}
 };
 

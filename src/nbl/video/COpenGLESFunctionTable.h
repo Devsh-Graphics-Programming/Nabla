@@ -101,6 +101,8 @@ public:
 		glesFragment(_egl)
 	{}
 
+	bool isGLES() const override { return true; }
+
 	void extGlDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) override
 	{
 		if (features->Version >= 320)
@@ -487,6 +489,11 @@ public:
 			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseInstance(mode, count, type, indices, instancecount, baseinstance);
 	}
 
+	void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset) override
+	{
+		assert(false);
+	}
+
 	void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_draw_elements_base_vertex))
@@ -576,6 +583,16 @@ public:
 			os::Printer::log("Multiple viewports not supported!");
 		}
 #endif
+	}
+
+	void extGlLogicOp(GLenum opcode) override
+	{
+		assert(false);
+	}
+
+	void extGlPolygonMode(GLenum face, GLenum mode) override
+	{
+		assert(false);
 	}
 };
 

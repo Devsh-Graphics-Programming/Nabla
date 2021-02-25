@@ -4,7 +4,7 @@ namespace nbl {
 namespace video
 {
 
-    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal)
+    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
     {
         IGPUImage* dstImage = c.dstImage.get();
         IGPUBuffer* srcBuffer = c.srcBuffer.get();
@@ -40,8 +40,8 @@ namespace video
                 ctxlocal->nextState.pixelUnpack.BCwidth = blockDims[0];
                 ctxlocal->nextState.pixelUnpack.BCheight = blockDims[1];
                 ctxlocal->nextState.pixelUnpack.BCdepth = blockDims[2];
-                // TODO flush
-                //ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
+
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
 
                 uint32_t imageSize = pitch;
                 switch (type)
@@ -73,8 +73,7 @@ namespace video
             }
             else
             {
-                // TODO flush
-                //ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
                 switch (type)
                 {
                 case IGPUImage::ET_1D:
@@ -100,7 +99,7 @@ namespace video
         }
     }
 
-    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal)
+    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
     {
         auto* srcImage = c.srcImage.get();
         auto* dstBuffer = c.dstBuffer.get();
@@ -139,8 +138,8 @@ namespace video
                 ctxlocal->nextState.pixelPack.BCwidth = blockDims[0];
                 ctxlocal->nextState.pixelPack.BCheight = blockDims[1];
                 ctxlocal->nextState.pixelPack.BCdepth = blockDims[2];
-                // TODO flush
-                //ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
+
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
 
                 // TODO impl in func table
                 //gl->extGlGetCompressedTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
@@ -148,8 +147,7 @@ namespace video
             }
             else
             {
-                // TODO flush
-                //ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
 
                 // TODO impl in func table
                 //gl->extGlGetTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
@@ -282,7 +280,7 @@ namespace video
             {
                 auto& c = cmd.get<ECT_DRAW>();
 
-                // TODO flush state
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
@@ -294,7 +292,7 @@ namespace video
             {
                 auto& c = cmd.get<ECT_DRAW_INDEXED>();
 
-                // TODO flush state
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
@@ -326,7 +324,7 @@ namespace video
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
-                // TODO flush
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
                 if (c.drawCount)
                 {
@@ -342,7 +340,7 @@ namespace video
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
 
-                // TODO flush
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
@@ -380,13 +378,14 @@ namespace video
                     for (uint32_t i = 0u; i < count; ++i)
                     {
                         auto& vp = ctxlocal->nextState.rasterParams.viewport[first + i];
+                        auto& vpd = ctxlocal->nextState.rasterParams.viewport_depth[first + i];
 
                         vp.x = c.viewports[i].x;
                         vp.y = c.viewports[i].y;
                         vp.width = c.viewports[i].width;
                         vp.height = c.viewports[i].height;
-                        vp.minDepth = c.viewports[i].minDepth;
-                        vp.maxDepth = c.viewports[i].maxDepth;
+                        vpd.minDepth = c.viewports[i].minDepth;
+                        vpd.maxDepth = c.viewports[i].maxDepth;
                     }
                 }
             }
@@ -414,7 +413,7 @@ namespace video
             case ECT_COPY_BUFFER:
             {
                 auto& c = cmd.get<ECT_COPY_BUFFER>();
-                // TODO flush some state?
+                // TODO flush some state? -- not needed i think
                 GLuint readb = static_cast<COpenGLBuffer*>(c.srcBuffer.get())->getOpenGLName();
                 GLuint writeb = static_cast<COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
                 for (uint32_t i = 0u; i < c.regionCount; ++i)
@@ -427,7 +426,7 @@ namespace video
             case ECT_COPY_IMAGE:
             {
                 auto& c = cmd.get<ECT_COPY_IMAGE>();
-                // TODO flush some state?
+                // TODO flush some state? -- not needed i think
                 IGPUImage* dstImage = c.dstImage.get();
                 IGPUImage* srcImage = c.srcImage.get();
                 if (!dstImage->validateCopies(c.regions, c.regions + c.regionCount, srcImage))
@@ -452,14 +451,14 @@ namespace video
             {
                 auto& c = cmd.get<ECT_COPY_BUFFER_TO_IMAGE>();
 
-                copyBufferToImage(c, gl, ctxlocal);
+                copyBufferToImage(c, gl, ctxlocal, ctxid);
             }
             break;
             case ECT_COPY_IMAGE_TO_BUFFER:
             {
                 auto& c = cmd.get<ECT_COPY_IMAGE_TO_BUFFER>();
 
-                copyImageToBuffer(c, gl, ctxlocal);
+                copyImageToBuffer(c, gl, ctxlocal, ctxid);
             }
             break;
             case ECT_BLIT_IMAGE:
@@ -532,7 +531,9 @@ namespace video
             case ECT_DISPATCH:
             {
                 auto& c = cmd.get<ECT_DISPATCH>();
-                // TODO flush some state
+                
+                ctxlocal->flushStateCompute(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
+
                 gl->glCompute.pglDispatchCompute(c.groupCountX, c.groupCountY, c.groupCountZ);
             }
             break;
@@ -540,7 +541,9 @@ namespace video
             {
                 auto& c = cmd.get<ECT_DISPATCH_INDIRECT>();
                 ctxlocal->nextState.dispatchIndirect.buffer = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
-                // TODO flush
+                
+                ctxlocal->flushStateCompute(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
+
                 gl->glCompute.pglDispatchComputeIndirect(static_cast<GLintptr>(c.offset));
             }
             break;
@@ -684,9 +687,9 @@ namespace video
                     updtRng.size = c.size;
 
                     if (c.stageFlags & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
-                        ctxlocal->pushConstants<EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
+                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
                     if (c.stageFlags & asset::ISpecializedShader::ESS_COMPUTE)
-                        ctxlocal->pushConstants<EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
+                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
                 }
             }
             break;
