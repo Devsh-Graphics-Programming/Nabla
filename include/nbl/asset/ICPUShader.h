@@ -92,6 +92,12 @@ class ICPUShader : public IAsset, public IShader
 			}
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			--_levelsBelow;
+			return m_code->isAnyDependencyDummy(_levelsBelow);
+		}
+
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<ICPUBuffer>	m_code;
 		const bool							m_containsGLSL;

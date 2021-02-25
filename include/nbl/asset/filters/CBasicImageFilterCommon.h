@@ -7,7 +7,7 @@
 
 #include "nbl/core/core.h"
 
-#include "nbl/asset/IImageFilter.h"
+#include "nbl/asset/filters/IImageFilter.h"
 
 namespace nbl
 {

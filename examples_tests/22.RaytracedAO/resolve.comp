@@ -26,18 +26,21 @@ void main()
 			const uint rayID = baseID+i;
 			nbl_glsl_ext_RadeonRays_Intersection hit = hits[rayID];
 
-			// actually got a hit
-			if (hit.shapeid<0)
-				continue;
-
 			const vec3 thoughput = vec3(unpackHalf2x16(rays[rayID].useless_padding).yx,unpackHalf2x16(rays[rayID].backfaceCulling).yx);
-				
-			const bool frontface = true; // TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
-			nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[hit.shapeid].material,frontface);
-			color += nbl_glsl_MC_oriented_material_t_getEmissive(material)*thoughput;
+			// init to miss color
+			vec3 emissive = staticViewData.envmapBaseColor;
+			// actually got a hit	
+			if (hit.shapeid>=0)
+			{
+				const bool frontface = true; // TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
 
-			// hit buffer needs clearing
-			hits[rayID].shapeid = -1;
+				// hit buffer needs clearing
+				hits[rayID].shapeid = -1;
+
+				nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[hit.shapeid].material,frontface);
+				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+			}
+			color += emissive*thoughput;
 		}
 		if (pc.cummon.rcpFramesDispatched<1.0)
 			acc += (color-acc)*pc.cummon.rcpFramesDispatched;

@@ -97,6 +97,12 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			}
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			--_levelsBelow;
+			return params.image->isAnyDependencyDummy(_levelsBelow);
+		}
+
 		virtual ~ICPUImageView() = default;
 };
 

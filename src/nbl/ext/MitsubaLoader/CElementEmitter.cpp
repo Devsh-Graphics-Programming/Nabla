@@ -252,7 +252,7 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 	return !error;
 }
 
-bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
 {
 	// TODO: some more validation
 	switch (type)
@@ -274,7 +274,7 @@ bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 		case Type::AREA:
 			break;
 		default:
-			globalMetadata->emitters.push_back(*this);
+			metadata->m_global.m_emitters.push_back(*this);
 			break;
 	}
 

@@ -64,14 +64,8 @@ class CCameraSceneNode : public ICameraSceneNode
 		//! \return Returns the up vector of the camera.
 		virtual const core::vectorSIMDf& getUpVector() const override;
 
-		//! PreRender event
-		virtual void OnRegisterSceneNode();
-
 		//! Render
 		virtual void render();
-
-		//! Returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<float>& getBoundingBox();
 
 		//!
 		virtual void recomputeProjectionMatrix();
@@ -86,9 +80,6 @@ class CCameraSceneNode : public ICameraSceneNode
 
 		//! Returns if the input receiver of the camera is currently enabled.
 		virtual bool isInputReceiverEnabled() const;
-
-		//! Returns type of the scene node
-		virtual ESCENE_NODE_TYPE getType() const { return ESNT_CAMERA; }
 
 		//! Binds the camera scene node's rotation to its target position and vice vera, or unbinds them.
 		virtual void bindTargetAndRotation(bool bound);

@@ -227,9 +227,9 @@ void nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(in nbl_glsl_LightSample 
 
 vec3 nbl_glsl_MC_textureOrRGBconst(in uvec2 data, in bool texPresenceFlag)
 {
-	return 
+	return
 #ifdef TEX_PREFETCH_STREAM
-	texPresenceFlag ? 
+	texPresenceFlag ?
 		uintBitsToFloat(uvec3(registers[data.x],registers[data.x+1u],registers[data.x+2u])) :
 #endif
 		nbl_glsl_decodeRGB19E7(data);
@@ -1053,18 +1053,26 @@ vec3 nbl_glsl_MC_runGenerateAndRemainderStream(in nbl_glsl_MC_precomputed_t prec
 	nbl_glsl_MC_microfacet_t microfacet;
 	uint generator_rnpOffset;
 	nbl_glsl_LightSample s = nbl_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, microfacet, generator_rnpOffset);
+
 	nbl_glsl_MC_eval_and_pdf_t eval_pdf = nbl_bsdf_eval_and_pdf(precomp, rnps, generator_rnpOffset, s, microfacet);
-	nbl_glsl_MC_bxdf_eval_t acc = eval_pdf.rgb;
-	float restPdf = eval_pdf.a;
-	float pdf = generator_pdf + restPdf;
+	const vec3 restEval = eval_pdf.rgb;
+	const float restPdf = eval_pdf.a;
 
 	out_smpl = s;
-	out_pdf = pdf;
+	out_pdf = restPdf;
 
-	float rcp_generator_pdf = 1.0 / generator_pdf;
-	vec3 rem = (generator_rem + acc*rcp_generator_pdf) / (1.0 + restPdf*rcp_generator_pdf);
+	vec3 num = restEval;
+	float den = restPdf;
+	if (generator_pdf>FLT_MIN)
+	{
+		out_pdf += generator_pdf;
+		// guaranteed less than INF
+		const float rcp_generator_pdf = 1.0/generator_pdf;
 
-	return rem;
+		num = num*rcp_generator_pdf+generator_rem;
+		den = den*rcp_generator_pdf+1.0;
+	}
+	return out_pdf>FLT_MIN ? (num/den):vec3(0.0);
 }
 
 #endif //GEN_CHOICE_STREAM

@@ -5,6 +5,8 @@
 #ifndef __NBL_ASSET_UTILS_H_INCLUDED__
 #define __NBL_ASSET_UTILS_H_INCLUDED__
 
+// TODO: this whole header should die
+
 #include "nbl/asset/ICPUBuffer.h"
 #include <algorithm>
 

@@ -97,7 +97,7 @@ bool CSceneNodeAnimatorCameraFPS::OnEvent(const SEvent& evt)
 
 void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 {
-	if (!node || node->getType() != ESNT_CAMERA)
+	if (!node/* || node->getType() != ESNT_CAMERA*/)
 		return;
 
 	ICameraSceneNode* camera = static_cast<ICameraSceneNode*>(node);
@@ -128,11 +128,11 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 		allKeysUp();
 		firstInput = false;
 	}
-
+/*
 	scene::ISceneManager * smgr = camera->getSceneManager();
 	if(smgr && smgr->getActiveCamera() != camera)
 		return;
-
+*/
 	// get time
 	float timeDiff = (float) ( timeMs - LastAnimationTime );
 	LastAnimationTime = timeMs;
@@ -180,13 +180,10 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 		}
 
 		// Special case, mouse is whipped outside of window before it can update.
-		video::IVideoDriver* driver = smgr->getVideoDriver();
-		core::vector2d<uint32_t> mousepos(uint32_t(CursorControl->getPosition().X), uint32_t(CursorControl->getPosition().Y));
-		core::rect<uint32_t> screenRect(0, 0, driver->getScreenSize().Width, driver->getScreenSize().Height);
+		auto mousepos = CursorControl->getRelativePosition();
 
 		// Only if we are moving outside quickly.
-		bool reset = !screenRect.isPointInside(mousepos);
-
+		bool reset = mousepos.X<0.f||mousepos.X>1.f||mousepos.Y<0.f||mousepos.Y>1.f;
 		if(reset)
 		{
 			// Force a reset.
