@@ -673,8 +673,7 @@ public:
 			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				return gl4Framebuffer.pglCheckNamedFramebufferStatusEXT(framebuffer, target);
 		}
-		else
-			return base_t::extGlCheckNamedFramebufferStatus(framebuffer, target);
+		else return base_t::extGlCheckNamedFramebufferStatus(framebuffer, target);
 	}
 
 	void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textureType) override
@@ -926,6 +925,7 @@ public:
 			if (gl4Buffer.pglNamedBufferStorageEXT)
 				gl4Buffer.pglNamedBufferStorageEXT(buffer, size, data, flags);
 		}
+		/*
 		else if (gl4Buffer.pglBufferStorage && glBuffer.pglBindBuffer)
 		{
 			GLint bound;
@@ -934,6 +934,7 @@ public:
 			gl4Buffer.pglBufferStorage(GL_ARRAY_BUFFER, size, data, flags);
 			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 		}
+		*/
 	}
 
 	void extGlNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, const void* data) override
@@ -948,7 +949,7 @@ public:
 			if (gl4Buffer.pglNamedBufferSubDataEXT)
 				gl4Buffer.pglNamedBufferSubDataEXT(buffer, offset, size, data);
 		}
-		else base_t::extGlNamedBufferSubData(buffer, offset, size, data);
+		//else base_t::extGlNamedBufferSubData(buffer, offset, size, data);
 	}
 
 	void* extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access) override
@@ -978,7 +979,7 @@ public:
 			if (gl4Buffer.pglFlushMappedNamedBufferRangeEXT)
 				gl4Buffer.pglFlushMappedNamedBufferRangeEXT(buffer, offset, length);
 		}
-		else base_t::extGlFlushMappedNamedBufferRange(buffer, offset, length);
+		//else base_t::extGlFlushMappedNamedBufferRange(buffer, offset, length);
 	}
 
 	GLboolean extGlUnmapNamedBuffer(GLuint buffer) override
@@ -993,7 +994,7 @@ public:
 			if (gl4Buffer.pglUnmapNamedBufferEXT)
 				return gl4Buffer.pglUnmapNamedBufferEXT(buffer);
 		}
-		else return base_t::extGlUnmapNamedBuffer(buffer);
+		//else return base_t::extGlUnmapNamedBuffer(buffer);
 	}
 
 	void extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void* data) override
@@ -1008,6 +1009,7 @@ public:
 			if (gl4Buffer.pglClearNamedBufferDataEXT)
 				gl4Buffer.pglClearNamedBufferDataEXT(buffer, internalformat, format, type, data);
 		}
+		/*
 		else if (gl4Buffer.pglClearBufferData && glBuffer.pglBindBuffer)
 		{
 			GLint bound;
@@ -1016,6 +1018,7 @@ public:
 			gl4Buffer.pglClearBufferData(GL_ARRAY_BUFFER, internalformat, format, type, data);
 			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 		}
+		*/
 	}
 
 	void extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void* data) override
@@ -1030,6 +1033,7 @@ public:
 			if (gl4Buffer.pglClearNamedBufferSubDataEXT)
 				gl4Buffer.pglClearNamedBufferSubDataEXT(buffer, internalformat, offset, size, format, type, data);
 		}
+		/*
 		else if (gl4Buffer.pglClearBufferSubData && glBuffer.pglBindBuffer)
 		{
 			GLint bound;
@@ -1038,6 +1042,7 @@ public:
 			gl4Buffer.pglClearBufferSubData(GL_ARRAY_BUFFER, internalformat, offset, size, format, type, data);
 			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 		}
+		*/
 	}
 
 	void extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size) override
@@ -1052,10 +1057,12 @@ public:
 			if (gl4Buffer.pglNamedCopyBufferSubDataEXT)
 				gl4Buffer.pglNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
 		}
+		/*
 		else
 		{
 			base_t::extGlCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
 		}
+		*/
 	}
 
 	void extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data) override
@@ -1070,10 +1077,12 @@ public:
 			if (gl4Buffer.pglGetNamedBufferParameterivEXT)
 				gl4Buffer.pglGetNamedBufferParameterivEXT(buffer, value, data);
 		}
+		/*
 		else
 		{
 			base_t::extGlGetNamedBufferParameteriv(buffer, value, data);
 		}
+		*/
 	}
 
 	void extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data) override
@@ -1083,10 +1092,12 @@ public:
 			if (gl4Buffer.pglGetNamedBufferParameteri64v)
 				gl4Buffer.pglGetNamedBufferParameteri64v(buffer, value, data);
 		}
+		/*
 		else
 		{
 			base_t::extGlGetNamedBufferParameteri64v(buffer, value, data);
 		}
+		*/
 	}
 
 	void extGlCreateVertexArrays(GLsizei n, GLuint* arrays) override
@@ -1618,6 +1629,7 @@ public:
 			if (gl4Buffer.pglGetNamedBufferSubDataEXT)
 				gl4Buffer.pglGetNamedBufferSubDataEXT(buffer, offset, size, data);
 		}
+		/*
 		else if (gl4Buffer.pglGetBufferSubData && glBuffer.pglBindBuffer)
 		{
 			GLint bound;
@@ -1626,6 +1638,7 @@ public:
 			gl4Buffer.pglGetBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
 			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
 		}
+		*/
 	}
 	void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 	{
