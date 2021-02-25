@@ -20,11 +20,7 @@ class IOpenGL_LogicalDevice;
 class COpenGLImageView final : public IGPUImageView
 {
 	protected:
-		virtual ~COpenGLImageView()
-		{
-			if (name)
-				glDeleteTextures(1u,&name);
-		}
+		virtual ~COpenGLImageView();
 
 		IOpenGL_LogicalDevice* m_device;
 		GLuint name;
@@ -43,6 +39,9 @@ class COpenGLImageView final : public IGPUImageView
 			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
             assert(internalFormat != GL_INVALID_ENUM);
 
+			//glTextureView spec:
+			//GL_INVALID_OPERATION is generated if texture has already been bound or otherwise given a target.
+			//thus we cannot create a name for view with glCreateTextures
 			gl->glTexture.pglGenTextures(1, &name);
 			gl->extGlTextureView(	name, target, static_cast<COpenGLImage*>(params.image.get())->getOpenGLName(), internalFormat, 
 														params.subresourceRange.baseMipLevel, params.subresourceRange.levelCount,

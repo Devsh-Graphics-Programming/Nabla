@@ -29,6 +29,7 @@ Extensions being loaded:
 * GL_OES_texture_view
 * GL_EXT_texture_view
 * GL_OES_viewport_array
+* GL_EXT_multi_draw_indirect
 */
 class COpenGLESFunctionTable final : public IOpenGL_FunctionTable
 {
