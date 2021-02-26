@@ -69,8 +69,6 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
 
-        _NBL_DEBUG_BREAK_IF(std::distance(mbBegin, it) == 100u || std::distance(mbBegin, it) == 150u);
-
         for (TriangleBatch& batch : triangleBatches)
         {
             core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);

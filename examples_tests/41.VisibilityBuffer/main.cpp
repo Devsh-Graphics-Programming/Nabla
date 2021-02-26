@@ -146,6 +146,7 @@ struct PCstruct
     float Ni;
     uint extra; //flags copied from MTL metadata
 };
+
 layout (push_constant) uniform Block {
     PCstruct params;
 } PC;
@@ -512,10 +513,18 @@ void createVirtualTexture(video::IVideoDriver* driver, core::vector<ICPUMeshBuff
     }
     assert(pipelineMetadata);
 
+    vt->shrink();
+    for (const auto& cm : vt_commits)
+    {
+        vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
+    }
+
+    /*TODO: zamieniæ push constants na ssbo (dla ka¿dego mdi)*/
+
     outputGPUvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
 }
 
-void setPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs,
+void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs,
     core::smart_refctd_ptr<IGPUBuffer>& vtxBuffer, core::smart_refctd_ptr<IGPUBuffer>& outputUBO, core::smart_refctd_ptr<IGPUBuffer>& virtualAttribBuffer,
     core::smart_refctd_ptr<IGPUVirtualTexture>& vt,
     core::smart_refctd_ptr<IGPUDescriptorSet>& outputGPUDescriptorSet0,
@@ -759,7 +768,7 @@ int main()
 
         packMeshBuffers(driver, meshBuffers, mdiCallParams, virtualAttribTable);
 
-        setPipeline(driver, vs.get(), fs.get(), mdiCallParams.vtxBuffer.buffer, ubo, virtualAttribTable, gpuvt, ds0, ds1, ds2, gpuPipeline);
+        createPipeline(driver, vs.get(), fs.get(), mdiCallParams.vtxBuffer.buffer, ubo, virtualAttribTable, gpuvt, ds0, ds1, ds2, gpuPipeline);
     }
 
     //! we want to move around the scene and view it from different angles
