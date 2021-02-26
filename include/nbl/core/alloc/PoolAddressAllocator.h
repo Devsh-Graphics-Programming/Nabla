@@ -29,19 +29,38 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
             #ifdef _NBL_DEBUG
                 assert(Base::checkResize(newBuffSz,Base::alignOffset));
+                assert(freeStackCtr==0u);
             #endif // _NBL_DEBUG
 
-            for (size_type i=0u; i<freeStackCtr; i++)
+            for (_size_type i=0u; i<freeStackCtr; i++)
                 getFreeStack(i) = (blockCount-1u-i)*blockSize+Base::combinedOffset;
 
-            for (size_type i=0; i<other.freeStackCtr; i++)
+            for (_size_type i=0; i<other.freeStackCtr; i++)
             {
-                size_type freeEntry = other.getFreeStack(i)-other.combinedOffset;
-
+                _size_type freeEntry = other.getFreeStack(i)-other.combinedOffset;
+                // check in case of shrink
                 if (freeEntry<blockCount*blockSize)
                     getFreeStack(freeStackCtr++) = freeEntry+Base::combinedOffset;
             }
         }
+        inline bool safe_shrink_size_common(_size_type& sizeBound, _size_type newBuffAlignmentWeCanGuarantee) noexcept
+        {
+            _size_type capacity = get_total_size()-Base::alignOffset;
+            if (sizeBound>=capacity)
+                return false;
+
+            if (freeStackCtr==0u)
+            {
+                sizeBound = capacity;
+                return false;
+            }
+
+            auto allocSize = get_allocated_size();
+            if (allocSize>sizeBound)
+                sizeBound = allocSize;
+            return true;
+        }
+
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
@@ -125,45 +144,37 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) noexcept
         {
-            size_type retval = get_total_size()-Base::alignOffset;
-            if (sizeBound>=retval)
-                return Base::safe_shrink_size(sizeBound,newBuffAlignmentWeCanGuarantee);
-
-            if (freeStackCtr==0u)
-                return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
-
-            auto allocSize = get_allocated_size();
-            if (allocSize>sizeBound)
-                sizeBound = allocSize;
-
-            auto tmpStackCopy = &getFreeStack(freeStackCtr);
-
-            size_type boundedCount = 0;
-            for (size_type i=0; i<freeStackCtr; i++)
+            if (safe_shrink_size_common(sizeBound,newBuffAlignmentWeCanGuarantee))
             {
-                auto freeAddr = getFreeStack(i);
-                if (freeAddr<sizeBound+Base::combinedOffset)
-                    continue;
+                auto tmpStackCopy = &getFreeStack(freeStackCtr);
 
-                tmpStackCopy[boundedCount++] = freeAddr;
-            }
-
-            if (boundedCount)
-            {
-                std::make_heap(tmpStackCopy,tmpStackCopy+boundedCount);
-                std::sort_heap(tmpStackCopy,tmpStackCopy+boundedCount);
-                // could do sophisticated modified version of std::adjacent_find with a binary search, but F'it
-                size_type endAddr = (blockCount-1u)*blockSize+Base::combinedOffset;
-                size_type i=0u;
-                for (;i<boundedCount; i++,endAddr-=blockSize)
+                size_type boundedCount = 0;
+                for (size_type i=0; i<freeStackCtr; i++)
                 {
-                    if (tmpStackCopy[boundedCount-1u-i]!=endAddr)
-                        break;
+                    auto freeAddr = getFreeStack(i);
+                    if (freeAddr<sizeBound+Base::combinedOffset)
+                        continue;
+
+                    tmpStackCopy[boundedCount++] = freeAddr;
                 }
 
-                retval -= i*blockSize;
+                if (boundedCount)
+                {
+                    std::make_heap(tmpStackCopy,tmpStackCopy+boundedCount);
+                    std::sort_heap(tmpStackCopy,tmpStackCopy+boundedCount);
+                    // could do sophisticated modified version of std::adjacent_find with a binary search, but F'it
+                    size_type endAddr = (blockCount-1u)*blockSize+Base::combinedOffset;
+                    size_type i=0u;
+                    for (;i<boundedCount; i++,endAddr-=blockSize)
+                    {
+                        if (tmpStackCopy[boundedCount-1u-i]!=endAddr)
+                            break;
+                    }
+
+                    sizeBound -= i*blockSize;
+                }
             }
-            return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
+            return Base::safe_shrink_size(sizeBound,newBuffAlignmentWeCanGuarantee);
         }
 
 
