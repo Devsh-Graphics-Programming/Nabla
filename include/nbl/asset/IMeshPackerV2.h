@@ -71,7 +71,7 @@ public:
 	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     template <typename MeshBufferIterator>
-    uint32_t calcDataTableNeededSize(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+    uint32_t calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
@@ -297,7 +297,7 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
 
 template <typename MeshBufferType, typename BufferType, typename MDIStructType>
 template <typename MeshBufferIterator>
-uint32_t IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::calcDataTableNeededSize(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+uint32_t IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     uint32_t acc = 0u;
     for (auto mbIt = mbBegin; mbIt != mbEnd; mbIt++)
