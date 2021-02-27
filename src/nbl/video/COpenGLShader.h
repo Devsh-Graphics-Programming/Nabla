@@ -90,6 +90,19 @@ R"(
 #ifdef NBL_GL_KHR_shader_subgroup_ballot_subgroup_ballot
 #define NBL_GL_KHR_shader_subgroup_ballot_bit_count
 #endif
+
+// the natural extensions
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_basic
+#define NBL_GL_KHR_shader_subgroup_basic
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_invocation_id
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_elect
+#endif
+
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_vote
+#define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
+#define NBL_GL_KHR_shader_subgroup_vote_subgroup_all_equal_T
+#endif
 )";
 
 			insertAfterVersionAndPragmaShaderStage(_glsl, insertion);
