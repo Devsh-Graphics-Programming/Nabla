@@ -53,7 +53,7 @@ if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_OPTIX)
 	add_subdirectory(39.DenoiserTonemapper EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(40.GLITest EXCLUDE_FROM_ALL)
-#add_subdirectory(41.VisibilityBuffer EXCLUDE_FROM_ALL) #TODO: waits for SPIRV-Cross issue about barycentrics
+add_subdirectory(41.VisibilityBuffer EXCLUDE_FROM_ALL) #TODO: waits for SPIRV-Cross issue about barycentrics
 add_subdirectory(42.FragmentShaderPathTracer EXCLUDE_FROM_ALL)
 add_subdirectory(43.SumAndCDFFilters EXCLUDE_FROM_ALL)
 add_subdirectory(44.LevelCurveExtraction EXCLUDE_FROM_ALL)
@@ -62,3 +62,4 @@ add_subdirectory(46.SamplingValidation EXCLUDE_FROM_ALL)
 add_subdirectory(47.DerivMapTest EXCLUDE_FROM_ALL)
 add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
+add_subdirectory(50.MeshPacking EXCLUDE_FROM_ALL)
