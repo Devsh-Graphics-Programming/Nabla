@@ -90,7 +90,70 @@ int main()
 	auto* smgr = device->getSceneManager();
 
 	//
-	core::smart_refctd_ptr<video::IGPUMeshBuffer> mb;
+	asset::SBufferBinding<asset::ICPUBuffer> inverseBindPoses,jointAABBs;
+	core::smart_refctd_ptr<asset::ICPUSkeleton> skeleton;
+	{
+		constexpr uint32_t kJointCount = 2u;
+		asset::SBufferBinding<asset::ICPUBuffer> parentIDs,defaultTransforms,inverseBindPoses,jointAABBs;
+		{
+			parentIDs.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUSkeleton)*kJointCount);
+			{
+				asset::ICPUSkeleton::joint_id_t parentJointIDs[] = { asset::ICPUSkeleton::invalid_joint_id,0u };
+				memcpy(parentIDs.buffer->getPointer(),parentJointIDs,sizeof(parentJointIDs));
+			}
+			defaultTransforms.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(matrix3x4SIMD)*kJointCount);
+			inverseBindPoses.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(matrix3x4SIMD)*kJointCount);
+			{
+				auto* dftTransforms = reinterpret_cast<matrix3x4SIMD*>(defaultTransforms.buffer->getPointer());
+				auto* invBindPoses = reinterpret_cast<matrix3x4SIMD*>(inverseBindPoses.buffer->getPointer());
+				for (auto i=0u; i<kJointCount; i++)
+				{
+					dftTransforms[i] = matrix3x4SIMD();
+					dftTransforms[i].setTranslation(core::vectorSIMDf(0.f,float(i)*2.f-1.f,0.f));
+					dftTransforms[i].getInverse(invBindPoses[i]);
+				}
+			}
+			jointAABBs.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(aabbox3df)*kJointCount);
+		}
+		const char* jointNames[] = {"root","bendy"};
+		skeleton = core::make_smart_refctd_ptr<asset::ICPUSkeleton>(std::move(parentIDs),std::move(defaultTransforms),&jointNames[0],&jointNames[0]+kJointCount);
+	}
+	core::smart_refctd_ptr<video::IGPUAnimationLibrary> gpuanimations;
+	{
+		constexpr uint32_t kKeyframeCount = 16u;
+		constexpr uint32_t kAnimationCount = 3u;
+		core::smart_refctd_ptr<asset::ICPUAnimationLibrary> animations;
+		{
+			asset::SBufferBinding<asset::ICPUBuffer> keyframes = {0ull,core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUAnimationLibrary::Keyframe)*kKeyframeCount)};
+			asset::SBufferBinding<asset::ICPUBuffer> timestamps = {0ull,core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(asset::ICPUAnimationLibrary::timestamp_t)*kKeyframeCount)};
+			asset::SBufferRange<asset::ICPUBuffer> namedAnims;
+			namedAnims.offset = 0ull;
+			namedAnims.size = sizeof(asset::ICPUAnimationLibrary::Animation)*kAnimationCount;
+			namedAnims.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(namedAnims.size);
+			animations = core::make_smart_refctd_ptr<asset::ICPUAnimationLibrary>(std::move(keyframes),std::move(timestamps),kKeyframeCount,std::move(namedAnims));
+		}
+		{
+			const uint32_t animationOffsets[] = { 0u,1u,2u };
+			const asset::ICPUAnimationLibrary::Animation anims[] = {
+				{0u,kKeyframeCount,asset::ICPUAnimationLibrary::Animation::EIM_NEAREST},
+				{0u,kKeyframeCount,asset::ICPUAnimationLibrary::Animation::EIM_LINEAR},
+				{0u,kKeyframeCount,asset::ICPUAnimationLibrary::Animation::EIM_CUBIC},
+			};
+			for (auto i=0u; i<kAnimationCount; i++)
+				animations->getAnimation(animationOffsets[i]) = anims[i];
+			const char* animationNames[] = { "moveNearest","moveLinear","moveCubic" };
+			animations->addAnimationNames(animationNames,animationNames+kAnimationCount,animationOffsets);
+			
+			for (auto i=0u; i<kAnimationCount; i++)
+			{
+				assert(animations->getAnimationOffsetFromName(animationNames[i]) == animationOffsets[i]);
+			}
+		}
+		gpuanimations = driver->getGPUObjectsFromAssets<asset::ICPUAnimationLibrary>(&animations,&animations+1u)->begin()[0];
+	}
+
+	//
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> gpumb;
     {
         VertexStruct vertices[8];
         vertices[0] = VertexStruct{{-1.f,-1.f,-1.f},{  0,  0}};
@@ -101,6 +164,8 @@ int main()
         vertices[5] = VertexStruct{{ 1.f,-1.f, 1.f},{255,127}};
         vertices[6] = VertexStruct{{-1.f, 1.f, 1.f},{  0,255}};
         vertices[7] = VertexStruct{{ 1.f, 1.f, 1.f},{127,255}};
+		asset::SBufferBinding<asset::ICPUBuffer> bindings[asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+		bindings[0u] = {0u,core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(sizeof(vertices),vertices,core::adopt_memory)};
 
         uint16_t indices_indexed16[] =
         {
@@ -111,27 +176,28 @@ int main()
             0,2,4,2,4,6,
             1,3,5,3,5,7
         };
+		asset::SBufferBinding<asset::ICPUBuffer> indexBinding{0u,core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(sizeof(indices_indexed16),indices_indexed16,core::adopt_memory)};
 			
 		asset::SPushConstantRange range[1] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 
-		auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
+		auto createSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
 		{
 			auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
-			auto unspec = driver->createGPUShader(std::move(spirv));
-			return driver->createGPUSpecializedShader(unspec.get(), { nullptr,nullptr,"main",stage });
+			return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(spirv),asset::ICPUSpecializedShader::SInfo{ nullptr,nullptr,"main",stage });
 		};
 		// origFilepath is only relevant when you have filesystem #includes in your shader
-		auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
+		auto createSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
 		{
 			auto resolved_includes = device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
-			return createGPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
+			return createSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
 		};
-		core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
+		constexpr uint32_t kShaderCount = 2u;
+		core::smart_refctd_ptr<asset::ICPUSpecializedShader> shaders[kShaderCount] =
 		{
-			createGPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert"),
-			createGPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
+			createSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert"),
+			createSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
 		};
-		auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);
+		auto shadersPtr = reinterpret_cast<asset::ICPUSpecializedShader**>(shaders);
 			
 		asset::SVertexInputParams inputParams;
 		inputParams.enabledAttribFlags = 0b11u;
@@ -152,17 +218,19 @@ int main()
 		asset::SStencilOpParams defaultStencil;
 		asset::SRasterizationParams rasterParams;
 		rasterParams.faceCullingMode = asset::EFCM_NONE;
-		auto pipeline = driver->createGPURenderpassIndependentPipeline(	nullptr,driver->createGPUPipelineLayout(range,range+1u,nullptr,nullptr,nullptr,nullptr),
-																		shadersPtr,shadersPtr+sizeof(shaders)/sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
-																		inputParams,blendParams,assemblyParams,rasterParams);
-			
-		asset::SBufferBinding<video::IGPUBuffer> bindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-		bindings[0u] = {0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(vertices),vertices)};
-		mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(pipeline),nullptr,bindings,asset::SBufferBinding<video::IGPUBuffer>{0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indices_indexed16),indices_indexed16)});
+		auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
+			core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,nullptr,nullptr,nullptr,nullptr),
+			shadersPtr,shadersPtr+kShaderCount,
+			inputParams,blendParams,assemblyParams,rasterParams
+		);
+
+		auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>(std::move(pipeline),nullptr,bindings,std::move(indexBinding));
 		{
+			mb->setSkin(std::move(inverseBindPoses),std::move(jointAABBs),std::move(skeleton),1u);
 			mb->setIndexType(asset::EIT_16BIT);
 			mb->setIndexCount(2*3*6);
 		}
+		gpumb = driver->getGPUObjectsFromAssets<asset::ICPUMeshBuffer>(&mb,&mb+1u)->begin()[0];
 	}
 
 
@@ -187,9 +255,9 @@ int main()
 
         //! Stress test for memleaks aside from demo how to create meshes that live on the GPU RAM
         {
-			driver->bindGraphicsPipeline(mb->getPipeline());
-			driver->pushConstants(mb->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
-			driver->drawMeshBuffer(mb.get());
+			driver->bindGraphicsPipeline(gpumb->getPipeline());
+			driver->pushConstants(gpumb->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+			driver->drawMeshBuffer(gpumb.get());
         }
 		driver->endScene();
 

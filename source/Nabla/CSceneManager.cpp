@@ -31,7 +31,6 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 {
 	#ifdef _NBL_DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
-	ISceneNode::setDebugName("CSceneManager ISceneNode");
 	#endif
 
 	if (Driver)
@@ -44,8 +43,6 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 //! destructor
 CSceneManager::~CSceneManager()
 {
-	clearDeletionList();
-
 	if (CursorControl)
 		CursorControl->drop();
 
@@ -153,29 +150,6 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 	return node;
 }
 
-//! Adds a dummy transformation scene node to the scene tree.
-IDummyTransformationSceneNode* CSceneManager::addDummyTransformationSceneNode(
-	IDummyTransformationSceneNode* parent, int32_t id)
-{
-	if (!parent)
-		parent = this;
-
-	IDummyTransformationSceneNode* node = new IDummyTransformationSceneNode(parent);
-	node->drop();
-
-	return node;
-}
-
-//! Returns the root scene node. This is the scene node wich is parent
-//! of all scene nodes. The root scene node is a special scene node which
-//! only exists to manage all scene nodes. It is not rendered and cannot
-//! be removed from the scene.
-//! \return Returns a pointer to the root scene node.
-ISceneNode* CSceneManager::getRootSceneNode()
-{
-	return this;
-}
-
 
 //! Returns the current active camera.
 //! \return The active camera is returned. Note that this can be NULL, if there
@@ -204,16 +178,6 @@ void CSceneManager::render()
 {
 }
 
-
-//! returns the axis aligned bounding box of this node
-const core::aabbox3d<float>& CSceneManager::getBoundingBox()
-{
-	_NBL_DEBUG_BREAK_IF(true) // Bounding Box of Scene Manager wanted.
-
-	// should never be used.
-	return *((core::aabbox3d<float>*)0);
-}
-
 //!
 void CSceneManager::OnAnimate(uint32_t timeMs)
 {
@@ -231,32 +195,6 @@ void CSceneManager::OnAnimate(uint32_t timeMs)
         else
             i++;
     }
-}
-
-//! Adds a scene node to the deletion queue.
-void CSceneManager::addToDeletionQueue(IDummyTransformationSceneNode* node)
-{
-	if (!node)
-		return;
-
-	node->grab();
-	DeletionList.push_back(node);
-}
-
-
-//! clears the deletion list
-void CSceneManager::clearDeletionList()
-{
-	if (DeletionList.empty())
-		return;
-
-	for (uint32_t i=0; i<DeletionList.size(); ++i)
-	{
-		DeletionList[i]->remove();
-		DeletionList[i]->drop();
-	}
-
-	DeletionList.clear();
 }
 
 //! Posts an input event to the environment. Usually you do not have to

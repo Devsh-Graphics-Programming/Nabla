@@ -103,6 +103,18 @@ public:
         {
         }
 
+		SAssetLoadParams(const SAssetLoadParams& rhs, bool _reload = false) :
+			decryptionKeyLen(rhs.decryptionKeyLen),
+			decryptionKey(rhs.decryptionKey),
+			cacheFlags(rhs.cacheFlags),
+			relativeDir(rhs.relativeDir),
+			loaderFlags(rhs.loaderFlags),
+			meshManipulatorOverride(rhs.meshManipulatorOverride),
+			restoreLevels(rhs.restoreLevels),
+			reload(_reload)
+		{
+		}
+
         size_t decryptionKeyLen;
         const uint8_t* decryptionKey;
         E_CACHING_FLAGS cacheFlags;
@@ -110,8 +122,7 @@ public:
         E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
 		uint32_t restoreLevels = 0u;
-		// user should not ever write to this flag
-		bool reload = false;
+		const bool reload = false;
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
@@ -267,7 +278,7 @@ public:
 
 		//! Restores only the chosen asset 
 		//! The asset is chosen via chooseDefaultAsset()
-		virtual void handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels);
+		virtual core::smart_refctd_ptr<IAsset> handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels);
 
 		//! Restores all of assets in _bundle
 		virtual void handleRestore(SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels);

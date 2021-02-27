@@ -18,31 +18,22 @@ class CPLYMetadata final : public IAssetMetadata
         class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
         {
             public:
-                CRenderpassIndependentPipeline() : IRenderpassIndependentPipelineMetadata(), m_hash(0xdeadbeefu) {}
-                CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& other)
+                CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& _other) : CRenderpassIndependentPipeline()
                 {
-                    operator=(std::move(other));
+                    CRenderpassIndependentPipeline::operator=(std::move(_other));
                 }
+                template<typename... Args>
+                CRenderpassIndependentPipeline(Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...) {}
 
-                CRenderpassIndependentPipeline& operator=(const CRenderpassIndependentPipeline&) = delete;
                 inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
                 {
                     IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
-                    std::swap(m_hash,other.m_hash);
                     return *this;
                 }
-
-                uint32_t m_hash;
         };
-            
-        template<class InContainer>
-        CPLYMetadata(InContainer&& hashContainer, core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage) : 
-            IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(hashContainer.size())), m_semanticStorage(std::move(_semanticStorage))
-        {
-            auto metaIt = m_metaStorage->begin();
-            for (auto hash : hashContainer)
-                (metaIt++)->m_hash = hash;
-        }
+           
+        CPLYMetadata(uint32_t pplnCount, core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage) :
+            IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(pplnCount)), m_semanticStorage(std::move(_semanticStorage)) {}
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CPLYMeshFileLoader";
         const char* getLoaderName() const override { return LoaderName; }
