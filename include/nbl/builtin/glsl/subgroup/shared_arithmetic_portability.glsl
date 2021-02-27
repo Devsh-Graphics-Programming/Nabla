@@ -18,7 +18,7 @@
 */
 
 #if defined(NBL_GLSL_SUBGROUP_SIZE_IS_CONSTEXPR)
-	#define NBL_GLSL_SUBGROUP_EMULATION_SCRATCH_BOUND(LAST_ITEM)  ((((NBL_GLSL_EVAL(LAST_ITEM)&(-nbl_glsl_SubgroupSize))<<1)|(NBL_GLSL_EVAL(LAST_ITEM)&nbl_glsl_SubgroupSize))+nbl_glsl_HalfSubgroupSize+1)
+	#define NBL_GLSL_SUBGROUP_EMULATION_SCRATCH_BOUND(LAST_ITEM)  ((((NBL_GLSL_EVAL(LAST_ITEM)&(-nbl_glsl_SubgroupSize))<<1)|(NBL_GLSL_EVAL(LAST_ITEM)&(nbl_glsl_SubgroupSize-1)))+nbl_glsl_HalfSubgroupSize+1)
 #else
 	#define NBL_GLSL_SUBGROUP_EMULATION_SCRATCH_BOUND(LAST_ITEM)  ((NBL_GLSL_EVAL(LAST_ITEM)<<1)+(nbl_glsl_MaxSubgroupSize>>1)+1)
 #endif

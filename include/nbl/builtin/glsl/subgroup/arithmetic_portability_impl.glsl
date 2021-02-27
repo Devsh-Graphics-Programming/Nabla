@@ -80,7 +80,7 @@ uint nbl_glsl_subgroup_getSubgroupEmulationMemoryStoreOffset(in uint loMask, in 
 	nbl_glsl_subgroupBarrier(); \
 	nbl_glsl_subgroupMemoryBarrierShared(); \
 	VALUE = OP (VALUE,CONV (_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset-1u])); \
-	for (uint stp=nbl_glsl_MinSubgroupSize; stp<nbl_glsl_HalfSubgroupSize; stp<<=1u) \
+	for (uint stp=2u; stp<nbl_glsl_HalfSubgroupSize; stp<<=1u) \
 	{ \
 		nbl_glsl_subgroupBarrier(); \
 		nbl_glsl_subgroupMemoryBarrierShared(); \
