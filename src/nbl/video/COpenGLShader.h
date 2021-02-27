@@ -91,7 +91,7 @@ R"(
 #define NBL_GL_KHR_shader_subgroup_ballot_bit_count
 #endif
 
-// the natural extensions
+// the natural extensions TODO: @Crisspl implement support for https://www.khronos.org/registry/OpenGL/extensions/KHR/KHR_shader_subgroup.txt
 #ifdef NBL_IMPL_GL_KHR_shader_subgroup_basic
 #define NBL_GL_KHR_shader_subgroup_basic
 #define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
@@ -100,8 +100,41 @@ R"(
 #endif
 
 #ifdef NBL_IMPL_GL_KHR_shader_subgroup_vote
+#define NBL_GL_KHR_shader_subgroup_vote
 #define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
 #define NBL_GL_KHR_shader_subgroup_vote_subgroup_all_equal_T
+#endif
+
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_ballot
+#define NBL_GL_KHR_shader_subgroup_ballot
+#define NBL_GL_KHR_shader_subgroup_ballot_bit_count
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_mask
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_ballot
+#define NBL_GL_KHR_shader_subgroup_ballot_inclusive_bit_count
+#define NBL_GL_KHR_shader_subgroup_ballot_exclusive_bit_count
+#define NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot_bit_count
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_broadcast_first
+#endif
+
+// TODO: do a SPIR-V Cross contribution to do all the fallbacks (later)
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_shuffle
+#define NBL_GL_KHR_shader_subgroup_shuffle
+#endif
+
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_shuffle_relative
+#define NBL_GL_KHR_shader_subgroup_shuffle_relative
+#endif
+
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_arithmetic
+#define NBL_GL_KHR_shader_subgroup_arithmetic
+#endif
+
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_clustered
+#define NBL_GL_KHR_shader_subgroup_clustered
+#endif
+
+#ifdef NBL_IMPL_GL_KHR_shader_subgroup_quad
+#define NBL_GL_KHR_shader_subgroup_quad
 #endif
 )";
 
