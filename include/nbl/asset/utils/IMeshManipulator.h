@@ -502,7 +502,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			uint32_t patchVertexCount = 0u;
 			for (auto it=_begin; it!=_end; it++)
 			{
-				ICPUMeshBuffer* cpumb = *it;
+				auto& cpumb = *it;
 				assert(!cpumb->isADummyObjectForCache());
 				assert(cpumb->isMutable());
 
@@ -553,7 +553,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			// modify
 			for (auto it=_begin; it!=_end; it++)
 			{
-				ICPUMeshBuffer* cpumb = *it;
+				auto& cpumb = *it;
 
 				const auto indexType = cpumb->getIndexType();
 				auto indexCount = cpumb->getIndexCount();
@@ -562,6 +562,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
 
 				void* correctlyOffsetIndexBufferPtr;
+
 				const bool iota = indexType==EIT_UNKNOWN||!cpumb->getIndexBufferBinding().buffer;
 				if (iota)
 					correctlyOffsetIndexBufferPtr = iotaUint32Buffer->getPointer();
