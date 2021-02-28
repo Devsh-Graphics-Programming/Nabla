@@ -1002,17 +1002,55 @@ namespace nbl
 
 					if (normalTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
-						// TODO
+						auto& glTFNormalTexture = glTFMaterial.normalTexture.emplace();
+						auto& normalTextureData = normalTexture.get_object();
+
+						auto& index = normalTextureData.at_key("index");
+						auto& texCoord = normalTextureData.at_key("texCoord");
+						auto& scale = normalTextureData.at_key("scale");
+
+						if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFNormalTexture.index = index.get_uint64().value();
+
+						if (texCoord.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFNormalTexture.texCoord = texCoord.get_uint64().value();
+
+						if (scale.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFNormalTexture.scale = texCoord.get_double().value();
 					}
 
 					if (occlusionTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
-						// TODO
+						auto& glTFOcclusionTexture = glTFMaterial.occlusionTexture.emplace();
+						auto& occlusionTextureData = occlusionTexture.get_object();
+
+						auto& index = occlusionTextureData.at_key("index");
+						auto& texCoord = occlusionTextureData.at_key("texCoord");
+						auto& strength = occlusionTextureData.at_key("strength");
+
+						if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFOcclusionTexture.index = index.get_uint64().value();
+
+						if (texCoord.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFOcclusionTexture.texCoord = texCoord.get_uint64().value();
+
+						if (strength.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFOcclusionTexture.strength = texCoord.get_double().value();
 					}
 
 					if (emissiveTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
-						// TODO
+						auto& glTFEmissiveTexture = glTFMaterial.emissiveTexture.emplace();
+						auto& emissiveTextureData = emissiveTexture.get_object();
+
+						auto& index = emissiveTextureData.at_key("index");
+						auto& texCoord = emissiveTextureData.at_key("texCoord");
+
+						if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFEmissiveTexture.index = index.get_uint64().value();
+
+						if (texCoord.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFEmissiveTexture.texCoord = texCoord.get_uint64().value();
 					}
 
 					if (emissiveFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
@@ -1290,62 +1328,140 @@ namespace nbl
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, SMaterialDependencyData& materialData, bool isDS3L)
 		{
-			core::smart_refctd_ptr<ICPUImageView> TMP_IMAGE_VIEW; // TODO, for testing purposes
+			/*
+				Assumes all supported textures are always present
+				since vulkan doesnt support bindings with no/null descriptor,
+				absent textures are filled with dummy 2D texture (while creating descriptor set)
+			*/
+
+			std::vector<core::smart_refctd_ptr<ICPUImageView>> IMAGE_VIEWS(SGLTF::SGLTFMaterial::EGT_COUNT);
+			{
+				auto default_imageview_bundle = assetManager->getAsset("nbl/builtin/image_view/dummy2d", context.loadContext.params);
+				const bool status = !default_imageview_bundle.getContents().empty();
+				assert(status);
+
+				auto cpuDummyImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
+				for (uint16_t i = 0; i < SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
+					IMAGE_VIEWS.push_back(core::smart_refctd_ptr(cpuDummyImageView));
+			}
+
 			auto getCpuDs3Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
 			{
 				if (isDS3L)
 				{
 					auto& material = materialData;
 
-					/*
-						Assumes all supported textures are always present
-						since vulkan doesnt support bindings with no/null descriptor,
-						absent textures WILL (TODO) be filled with dummy 2D texture (while creating descriptor set)
-					*/
-
-					_NBL_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = 1; // TODO
-					auto cpuSamplerBindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(samplerBindingsAmount); // TODO
-
-					ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
-					cpuSamplerBinding.count = 1u;
-					cpuSamplerBinding.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-					cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
-					cpuSamplerBinding.binding = 0u;
-					std::fill(cpuSamplerBindings->begin(), cpuSamplerBindings->end(), cpuSamplerBinding);
-
-					/*
-						TODO: MORE SAMPLERS AND TEXTURES SUPPORT
-					*/
+					_NBL_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = SGLTF::SGLTFMaterial::EGT_COUNT;
+					auto cpuSamplerBindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(samplerBindingsAmount);
+					{
+						ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
+						cpuSamplerBinding.count = 1u;
+						cpuSamplerBinding.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+						cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
+						std::fill(cpuSamplerBindings->begin(), cpuSamplerBindings->end(), cpuSamplerBinding);
+					}
 
 					core::smart_refctd_ptr<ICPUSampler> samplers[samplerBindingsAmount]; 
+
+					auto fillAssets = [&](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
+					{
+						auto& [cpuImageView, cpuSamplerCacheKey] = (*material.cpuTextures)[globalTextureIndex];
+
+						IMAGE_VIEWS[localTextureIndex] = cpuImageView;
+
+						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
+						auto sampler_bundle = context.loaderOverride->findCachedAsset(cpuSamplerCacheKey, types, context.loadContext, context.hierarchyLevel /*TODO + what here?*/);
+						if (sampler_bundle.getContents().empty())
+							samplers[localTextureIndex] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("nbl/builtin/sampler/default", assetManager);
+						else
+							samplers[localTextureIndex] = core::smart_refctd_ptr_static_cast<ICPUSampler>(sampler_bundle.getContents().begin()[0]);
+					};
 
 					if (material.glTFMaterial->pbrMetallicRoughness.has_value())
 					{
 						auto& pbrMetallicRoughness = material.glTFMaterial->pbrMetallicRoughness.value();
-
-						if (pbrMetallicRoughness.baseColorTexture.has_value())
 						{
-							auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
-
-							if (baseColorTexture.index.has_value())
+							if (pbrMetallicRoughness.baseColorTexture.has_value())
 							{
-								auto& [cpuImageView, cpuSamplerCacheKey] = (*material.cpuTextures)[baseColorTexture.index.value()];
+								auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
 
-								TMP_IMAGE_VIEW = cpuImageView;
+								if (baseColorTexture.index.has_value())
+									fillAssets(baseColorTexture.index.value(), SGLTF::SGLTFMaterial::EGT_BASE_COLOR_TEXTURE);
 
-								const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
-								auto sampler_bundle = context.loaderOverride->findCachedAsset(cpuSamplerCacheKey, types, context.loadContext, context.hierarchyLevel /*TODO + what here?*/);
-								if (sampler_bundle.getContents().empty())
-									samplers[0] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("nbl/builtin/sampler/default", assetManager);
-								else
-									samplers[0] = core::smart_refctd_ptr_static_cast<ICPUSampler>(sampler_bundle.getContents().begin()[0]);
+								/*
+									if (baseColorTexture.texCoord.has_value())
+									{
+										;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
+									}
+								*/
 							}
 
-							if (baseColorTexture.texCoord.has_value())
+							if (pbrMetallicRoughness.metallicRoughnessTexture.has_value())
+							{
+								auto& metallicRoughnessTexture = pbrMetallicRoughness.metallicRoughnessTexture.value();
+
+								if (metallicRoughnessTexture.index.has_value())
+									fillAssets(metallicRoughnessTexture.index.value(), SGLTF::SGLTFMaterial::EGT_METALLIC_ROUGHNESS_TEXTURE);
+
+								/*
+									if (metallicRoughnessTexture.texCoord.has_value())
+									{
+										;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
+									}
+								*/
+							}
+						}
+					}
+
+					if (material.glTFMaterial->normalTexture.has_value())
+					{
+						auto& normalTexture = material.glTFMaterial->normalTexture.value();
+
+						if (normalTexture.index.has_value())
+						{
+							fillAssets(normalTexture.index.value(), SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE);
+
+							auto cpuNormalTexture = IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE];
+
+							// TODO, create new filter for converting cpuNormalTexture to Derivative Normal Map
+
+							/*
+								if (normalTexture.texCoord.has_value())
+								{
+									;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
+								}
+							*/
+						}
+					}
+
+					if (material.glTFMaterial->occlusionTexture.has_value())
+					{
+						auto& occlusionTexture = material.glTFMaterial->occlusionTexture.value();
+
+						if (occlusionTexture.index.has_value())
+							fillAssets(occlusionTexture.index.value(), SGLTF::SGLTFMaterial::EGT_OCCLUSION_TEXTURE);
+
+						/*
+							if (occlusionTexture.texCoord.has_value())
 							{
 								;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
 							}
-						}
+						*/
+					}
+
+					if (material.glTFMaterial->emissiveTexture.has_value())
+					{
+						auto& emissiveTexture = material.glTFMaterial->emissiveTexture.value();
+
+						if (emissiveTexture.index.has_value())
+							fillAssets(emissiveTexture.index.value(), SGLTF::SGLTFMaterial::EGT_EMISSIVE_TEXTURE);
+
+						/*
+							if (emissiveTexture.texCoord.has_value())
+							{
+								;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
+							}
+						*/
 					}
 
 					for (uint32_t i = 0u; i < samplerBindingsAmount; ++i)
@@ -1359,30 +1475,32 @@ namespace nbl
 				else
 					return nullptr;
 			};
-
+			  
 			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", assetManager);		
 			auto cpuDs3Layout = getCpuDs3Layout();
 
 			if (isDS3L)
 			{
-				auto cpuDescriptorSet3 = makeAndGetDS3set(TMP_IMAGE_VIEW, cpuDs3Layout);
+				auto cpuDescriptorSet3 = makeAndGetDS3set(IMAGE_VIEWS, cpuDs3Layout);
 				materialData.cpuMeshBuffer->setAttachedDescriptorSet(std::move(cpuDescriptorSet3));
 			}
 
 			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(cpuDs1Layout), nullptr, isDS3L ? std::move(cpuDs3Layout) : nullptr);
 			return cpuPipelineLayout;
 		}
-
-		// TODO - it has to be an image bundle of image views
-		core::smart_refctd_ptr<ICPUDescriptorSet> CGLTFLoader::makeAndGetDS3set(core::smart_refctd_ptr<ICPUImageView> cpuImageView, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout)
+		
+		core::smart_refctd_ptr<ICPUDescriptorSet> CGLTFLoader::makeAndGetDS3set(std::vector<core::smart_refctd_ptr<ICPUImageView>>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout)
 		{
 			auto cpuDescriptorSet3 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDescriptorSet3Layout));
+			
+			for (uint16_t i = 0; i < SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
+			{
+				auto cpuDescriptor = cpuDescriptorSet3->getDescriptors(i).begin();
 
-			auto cpuDescriptor = cpuDescriptorSet3->getDescriptors(0).begin(); // TODO
-
-			cpuDescriptor->desc = cpuImageView;
-			cpuDescriptor->image.imageLayout = EIL_UNDEFINED;
-			cpuDescriptor->image.sampler = nullptr; // not needed, immutable (in DS layout) samplers are used
+				cpuDescriptor->desc = cpuImageViews[i];
+				cpuDescriptor->image.imageLayout = EIL_UNDEFINED;
+				cpuDescriptor->image.sampler = nullptr; //! Not needed, immutable (in DescriptorSet layout) samplers are used
+			}
 
 			return cpuDescriptorSet3;
 		}

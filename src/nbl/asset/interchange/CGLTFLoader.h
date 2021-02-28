@@ -375,6 +375,16 @@ namespace nbl
 
 					struct SGLTFMaterial
 					{
+						enum E_GLTF_TEXTURES
+						{
+							EGT_BASE_COLOR_TEXTURE,
+							EGT_METALLIC_ROUGHNESS_TEXTURE,
+							EGT_NORMAL_TEXTURE,
+							EGT_OCCLUSION_TEXTURE,
+							EGT_EMISSIVE_TEXTURE,
+							EGT_COUNT,
+						};
+						
 						/*
 							Basic reference to a texture.
 						*/
@@ -388,7 +398,7 @@ namespace nbl
 								Mesh must have corresponding texture coordinate attributes for the material to be applicable to it.
 							*/
 
-							std::optional<uint32_t> texCoord;
+							std::optional<uint32_t> texCoord;    
 						};
 
 						/*
@@ -449,19 +459,19 @@ namespace nbl
 							std::optional<SMetallicRoughnessTexture> metallicRoughnessTexture;
 						};
 
-						struct SNormalTexture
+						struct SNormalTexture : public STextureInfo
 						{
-							// TODO
+							std::optional<double> scale; //! The scalar multiplier applied to each normal vector of the normal texture.
 						};
 
-						struct SOcclusionTexture
+						struct SOcclusionTexture : public STextureInfo
 						{
-							// TODO
+							std::optional<double> strength; //! A scalar multiplier controlling the amount of occlusion applied.
 						};
 
-						struct SEmissiveTexture
+						struct SEmissiveTexture : public STextureInfo
 						{
-							// TODO
+							
 						};
 
 						struct SAlphaMode
@@ -518,7 +528,7 @@ namespace nbl
 
 				void loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file);
 				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, SMaterialDependencyData& materialData, bool isDS3L = false);
-				core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(core::smart_refctd_ptr<ICPUImageView> cpuImageView, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
+				core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(std::vector<core::smart_refctd_ptr<ICPUImageView>>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
 
 				asset::IAssetManager* const assetManager;
 		};

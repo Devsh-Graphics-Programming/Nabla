@@ -57,7 +57,11 @@ int main()
     asset::IAssetLoader::SAssetLoadParams loadingParams;
 
     auto meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/Avocado/glTF/Avocado.gltf", loadingParams);
-    assert(!meshes_bundle.isEmpty());
+	{
+		bool status = !meshes_bundle.getContents().empty();
+		assert(status);
+	}
+   
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
@@ -68,7 +72,7 @@ int main()
 		used for camera-specific data, so we can create just one DS.
 	*/
 
-	auto cpuDescriptorSetLayout1 = mesh_raw->getMeshBuffer(0)->getPipeline()->getLayout()->getDescriptorSetLayout(1);
+	auto cpuDescriptorSetLayout1 = mesh_raw->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1);
 	auto gpuDescriptorSet1Layout = driver->getGPUObjectsFromAssets(&cpuDescriptorSetLayout1, &cpuDescriptorSetLayout1 + 1)->front();
 
 	auto gpuDescriptorSet1 = driver->createGPUDescriptorSet(std::move(gpuDescriptorSet1Layout));
@@ -101,10 +105,10 @@ int main()
 
 		auto& graphicsDataMesh = graphicsData.meshes.emplace_back();
 
-		for (size_t i = 0; i < gpuMesh->getMeshBufferCount(); ++i)
+		for (size_t i = 0; i < gpuMesh->getMeshBuffers().size(); ++i)
 		{
 			auto& graphicsResources = graphicsDataMesh.resources.emplace_back();
-			graphicsResources.gpuMeshBuffer = gpuMesh->getMeshBuffer(i);
+			graphicsResources.gpuMeshBuffer = (gpuMesh->getMeshBufferIterator() + i)->get();
 			graphicsResources.gpuPipeline = graphicsResources.gpuMeshBuffer->getPipeline();
 		}
 	}
