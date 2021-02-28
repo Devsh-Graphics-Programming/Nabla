@@ -20,8 +20,9 @@ int main()
 	char returned = *(cache.get(11));
 	assert(returned == 'c');
 
+#ifdef _NBL_DEBUG
 	cache.print();
-
+#endif
 	//non const, const
 	int i = 0;
 	cache.insert(++i, '1');

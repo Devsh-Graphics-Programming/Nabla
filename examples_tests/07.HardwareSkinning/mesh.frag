@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#version 420 core
+#version 440 core
 layout(binding = 0) uniform sampler2D tex0;
 
 in vec3 Normal;

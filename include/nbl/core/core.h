@@ -29,6 +29,8 @@
 #include "nbl/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "nbl/core/alloc/StackAddressAllocator.h"
 #include "nbl/core/alloc/SimpleBlockBasedAllocator.h"
+// algorithm
+#include "nbl/core/algorithm/radix_sort.h"
 // containers
 #include "nbl/core/containers/dynamic_array.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"

@@ -328,6 +328,7 @@ namespace asset
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
     }
 
+    // TODO: @Crisspl your SNORM decodes are WRONG, they need a max(,-1.f)
     template<>
     inline void decodePixels<asset::EF_R8G8B8A8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {

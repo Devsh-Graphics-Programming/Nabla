@@ -4,100 +4,100 @@
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/asset/CGeometryCreator.h"
-#include "nbl/asset/CMeshManipulator.h"
+#include "nbl/asset/interchange/CGLSLLoader.h"
+#include "nbl/asset/interchange/CSPVLoader.h"
 
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
-#include "nbl/asset/CGraphicsPipelineLoaderMTL.h"
+#include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-#include "nbl/asset/COBJMeshFileLoader.h"
+#include "nbl/asset/interchange/COBJMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
-#include "nbl/asset/CSTLMeshFileLoader.h"
+#include "nbl/asset/interchange/CSTLMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
-#include "nbl/asset/CPLYMeshFileLoader.h"
+#include "nbl/asset/interchange/CPLYMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-#include "nbl/asset/CBAWMeshFileLoader.h"
+#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
-#include "nbl/asset/CGLTFLoader.h"
+#include "nbl/asset/interchange/CGLTFLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
-#include "nbl/asset/CImageLoaderJPG.h"
+#include "nbl/asset/interchange/CImageLoaderJPG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
-#include "nbl/asset/CImageLoaderPNG.h"
+#include "nbl/asset/interchange/CImageLoaderPNG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
-#include "nbl/asset/CImageLoaderTGA.h"
+#include "nbl/asset/interchange/CImageLoaderTGA.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
-#include "nbl/asset/CImageLoaderOpenEXR.h"
+#include "nbl/asset/interchange/CImageLoaderOpenEXR.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLI_LOADER_
-#include "nbl/asset/CGLILoader.h"
+#include "nbl/asset/interchange/CGLILoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BIN_LOADER_
-#include "nbl/asset/CBufferLoaderBIN.h"
+#include "nbl/asset/interchange/CBufferLoaderBIN.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
-#include "nbl/asset/CSTLMeshWriter.h"
+#include "nbl/asset/interchange/CSTLMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
-#include "nbl/asset/CPLYMeshWriter.h"
+#include "nbl/asset/interchange/CPLYMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-#include "nbl/asset/CBAWMeshWriter.h"
+#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
-#include "nbl/asset/CGLTFWriter.h"
+#include "nbl/asset/interchange/CGLTFWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
-#include "nbl/asset/CImageWriterTGA.h"
+#include "nbl/asset/interchange/CImageWriterTGA.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
-#include "nbl/asset/CImageWriterJPG.h"
+#include "nbl/asset/interchange/CImageWriterJPG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
-#include "nbl/asset/CImageWriterPNG.h"
+#include "nbl/asset/interchange/CImageWriterPNG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
-#include "nbl/asset/CImageWriterOpenEXR.h"
+#include "nbl/asset/interchange/CImageWriterOpenEXR.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
-#include "nbl/asset/CGLIWriter.h"
+#include "nbl/asset/interchange/CGLIWriter.h"
 #endif
 
-#include "nbl/core/core.h"
-#include "nbl/asset/CGLSLLoader.h"
-#include "nbl/asset/CSPVLoader.h"
+#include "nbl/asset/utils/CGeometryCreator.h"
+#include "nbl/asset/utils/CMeshManipulator.h"
 
 
 using namespace nbl;
 using namespace asset;
+
 
 std::function<void(SAssetBundle&)> nbl::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
 {
@@ -145,6 +145,9 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
+#endif
+#ifdef _NBL_COMPILE_WITH_MTL_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
@@ -197,15 +200,15 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
 #endif
-#ifdef _NBL_COMPILE_WITH_MTL_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
-#endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
+
+    for (auto& loader : m_loaders.vector)
+        loader->initialize();
 }
 
 
@@ -215,7 +218,7 @@ void IAssetManager::insertBuiltinAssets()
 {
 	auto addBuiltInToCaches = [&](auto&& asset, const char* path) -> void
 	{
-		asset::SAssetBundle bundle({ asset });
+		asset::SAssetBundle bundle(nullptr,{ asset });
 		changeAssetKey(bundle, path);
 		insertBuiltinAssetIntoCache(bundle);
 	};
@@ -234,29 +237,43 @@ void IAssetManager::insertBuiltinAssets()
 		};
 		auto fileSystem = getFileSystem();
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specializedshaders/fullscreentriangle.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/specializedshaders/fullscreentriangle.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/materials/lambertian/singletexture/specializedshader.vert")>(),
+			{
+                "nbl/builtin/specialized_shader/fullscreentriangle.vert"
+            });
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/materials/lambertian/singletexture/specializedshader.vert","nbl/builtin/materials/debug/vertex_uv/specializedshader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/materials/lambertian/singletexture/specializedshader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
+			{
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
+            });
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::ISpecializedShader::ESS_FRAGMENT, 
-			{"nbl/builtin/materials/lambertian/singletexture/specializedshader.frag"});
+			{
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
+            });
 
-		// TODO
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/materials/debug/vertex_normal/specializedshader.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/materials/debug/vertex_normal/specializedshader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/materials/debug/vertex_color/specializedshader.vert")>(),
+			{
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/materials/debug/vertex_color/specializedshader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/materials/debug/vertex_uv/specializedshader.frag")>(),
+			{
+                "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
+            });
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
-			{"nbl/builtin/materials/debug/vertex_uv/specializedshader.frag"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/materials/debug/vertex_normal/specializedshader.frag")>(),
+			{   
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
+            });
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
-			{"nbl/builtin/materials/debug/vertex_normal/specializedshader.frag","nbl/builtin/materials/debug/vertex_color/specializedshader.frag"});
+			{
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
+                "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"
+            });
 	}
 
     /*
@@ -270,7 +287,7 @@ void IAssetManager::insertBuiltinAssets()
     binding1.type = asset::EDT_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
-    addBuiltInToCaches(ds1Layout, "nbl/builtin/materials/lambertian/singletexture/descriptorsetlayout/1");
+    addBuiltInToCaches(ds1Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/1");
 
     /*
         SBinding for the texture (sampler).
@@ -284,7 +301,7 @@ void IAssetManager::insertBuiltinAssets()
     binding3.samplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
-    addBuiltInToCaches(ds3Layout, "nbl/builtin/materials/lambertian/singletexture/descriptorsetlayout/3"); // TODO find everything what has been using it so far
+    addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
 
 	constexpr uint32_t pcCount = 1u;
 	asset::SPushConstantRange pcRanges[pcCount] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
@@ -292,7 +309,7 @@ void IAssetManager::insertBuiltinAssets()
 			pcRanges,pcRanges+pcCount,
 			nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout)
 	);
-	addBuiltInToCaches(pLayout,"nbl/builtin/materials/lambertian/singletexture/pipelinelayout"); // TODO find everything what has been using it so far
+	addBuiltInToCaches(pLayout,"nbl/builtin/material/lambertian/singletexture/pipeline_layout"); // TODO find everything what has been using it so far
 
 	// samplers
 	{
@@ -311,11 +328,11 @@ void IAssetManager::insertBuiltinAssets()
 		params.MinLod = -1000.f;
 		params.MaxLod = 1000.f;
 		auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-		addBuiltInToCaches(sampler, "nbl/builtin/samplers/default");
+		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default");
 
 		params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_BORDER;
 		sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-		addBuiltInToCaches(sampler, "nbl/builtin/samplers/default_clamp_to_border");
+		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default_clamp_to_border");
 	}
 
 
@@ -367,8 +384,8 @@ void IAssetManager::insertBuiltinAssets()
         info.subresourceRange.levelCount = 1u;
         auto dummy2dImgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(info));
 
-        addBuiltInToCaches(dummy2dImgView, "nbl/builtin/image_views/dummy2d");
-        addBuiltInToCaches(dummy2dImage, "nbl/builtin/images/dummy2d");
+        addBuiltInToCaches(dummy2dImgView, "nbl/builtin/image_view/dummy2d");
+        addBuiltInToCaches(dummy2dImage, "nbl/builtin/image/dummy2d");
     }
 
     //ds layouts
@@ -412,8 +429,12 @@ void IAssetManager::insertBuiltinAssets()
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
-        auto paths = {"nbl/builtin/materials/lambertian/no_texture/pipelinelayout",
-                      "nbl/builtin/loaders/PLY/pipelinelayout"};
+        auto paths =
+        {               
+            "nbl/builtin/material/lambertian/no_texture/pipeline_layout",
+            "nbl/builtin/pipeline_layout/loader/PLY",
+            "nbl/builtin/pipeline_layout/loader/STL" 
+        };
 
         for(auto &path : paths)
             addBuiltInToCaches(pipelineLayout, path);

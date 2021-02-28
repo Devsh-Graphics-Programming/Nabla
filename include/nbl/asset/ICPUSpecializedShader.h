@@ -122,6 +122,12 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			}
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			--_levelsBelow;
+			return m_unspecialized->isAnyDependencyDummy(_levelsBelow);
+		}
+
 	private:
 		SInfo								m_specInfo;
 		core::smart_refctd_ptr<ICPUShader>	m_unspecialized;

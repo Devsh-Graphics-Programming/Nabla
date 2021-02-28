@@ -6,11 +6,17 @@
 #ifndef __NBL_C_NBL_DEVICE_STUB_H_INCLUDED__
 #define __NBL_C_NBL_DEVICE_STUB_H_INCLUDED__
 
+
 #include "IrrlichtDevice.h"
 #include "SIrrCreationParameters.h"
+
+
+#include "nbl/asset/utils/IIncludeHandler.h"
+
 #include "nbl/video/CCUDAHandler.h"
+//#include "nbl/video/COpenCLHandler.h" move this
 #include "COpenCLHandler.h"
-#include "nbl/asset/IIncludeHandler.h"
+
 
 namespace nbl
 {

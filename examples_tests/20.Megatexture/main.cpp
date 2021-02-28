@@ -10,9 +10,7 @@
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 #include <nbl/video/IGPUVirtualTexture.h>
-#include <nbl/asset/CMTLPipelineMetadata.h>
 #include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
 //#include "nbl/ext/ScreenShot/ScreenShot.h"
 using namespace nbl;
@@ -177,12 +175,12 @@ struct SPushConstants
 static_assert(sizeof(SPushConstants)<=asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "doesnt fit in push constants");
 
 constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT]{
-    asset::CMTLPipelineMetadata::EMP_AMBIENT,
-    asset::CMTLPipelineMetadata::EMP_DIFFUSE,
-    asset::CMTLPipelineMetadata::EMP_SPECULAR,
-    asset::CMTLPipelineMetadata::EMP_SHININESS,
-    asset::CMTLPipelineMetadata::EMP_OPACITY,
-    asset::CMTLPipelineMetadata::EMP_BUMP
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_DIFFUSE,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_SPECULAR,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHININESS,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP
 };
 
 core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs, const asset::ICPUVirtualTexture* _vt)
@@ -290,19 +288,23 @@ int main()
 
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("sponza.obj", lp);
-    assert(!meshes_bundle.isEmpty());
+    assert(!meshes_bundle.getContents().empty());
+
+    const auto meta = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
+
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
+    // all pipelines will have the same metadata
+    const asset::CMTLMetadata::CRenderpassIndependentPipeline* pipelineMetadata = nullptr;
     core::vector<commit_t> vt_commits;
     //modifying push constants and default fragment shader for VT
-    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
+    for (auto mb : mesh_raw->getMeshBuffers())
     {
         SPushConstants pushConsts;
         memset(pushConsts.map_data, 0xff, TEX_OF_INTEREST_CNT*sizeof(pushConsts.map_data[0]));
         pushConsts.extra = 0u;
 
-        auto* mb = mesh_raw->getMeshBuffer(i);
         auto* ds = mb->getAttachedDescriptorSet();
         if (!ds)
             continue;
@@ -333,24 +335,24 @@ int main()
             pushConsts.map_data[k] = reinterpret_cast<uint64_t*>(&texData)[0];
         }
 
-        auto* pipeline = mb->getPipeline();
-        auto* metadata = static_cast<asset::CMTLPipelineMetadata*>( pipeline->getMetadata() );
+        pipelineMetadata = static_cast<const asset::CMTLMetadata::CRenderpassIndependentPipeline*>(meta->getAssetSpecificMetadata(mb->getPipeline()));
 
         //copy texture presence flags
-        pushConsts.extra = metadata->getMaterialParams().extra;
-        pushConsts.ambient = metadata->getMaterialParams().ambient;
-        pushConsts.diffuse = metadata->getMaterialParams().diffuse;
-        pushConsts.emissive = metadata->getMaterialParams().emissive;
-        pushConsts.specular = metadata->getMaterialParams().specular;
-        pushConsts.IoR = metadata->getMaterialParams().IoR;
-        pushConsts.opacity = metadata->getMaterialParams().opacity;
-        pushConsts.shininess = metadata->getMaterialParams().shininess;
+        pushConsts.extra = pipelineMetadata->m_materialParams.extra;
+        pushConsts.ambient = pipelineMetadata->m_materialParams.ambient;
+        pushConsts.diffuse = pipelineMetadata->m_materialParams.diffuse;
+        pushConsts.emissive = pipelineMetadata->m_materialParams.emissive;
+        pushConsts.specular = pipelineMetadata->m_materialParams.specular;
+        pushConsts.IoR = pipelineMetadata->m_materialParams.IoR;
+        pushConsts.opacity = pipelineMetadata->m_materialParams.opacity;
+        pushConsts.shininess = pipelineMetadata->m_materialParams.shininess;
         memcpy(mb->getPushConstantsDataPtr(), &pushConsts, sizeof(pushConsts));
 
         //we dont want this DS to be converted into GPU DS, so set to nullptr
         //dont worry about deletion of textures (invalidation of pointers), they're grabbed in VTtexDataMap
         mb->setAttachedDescriptorSet(nullptr);
     }
+    assert(pipelineMetadata);
 
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
     {
@@ -383,15 +385,15 @@ int main()
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng + 1, core::smart_refctd_ptr(ds0layout), nullptr, core::smart_refctd_ptr(ds2layout), nullptr);
     }
 
-    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
+    for (auto mb : mesh_raw->getMeshBuffers())
     {
-        auto* mb = mesh_raw->getMeshBuffer(i);
-
         auto* pipeline = mb->getPipeline();
+
         auto newPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(0u));//shallow copy
         //leave original ds1 layout since it's for UBO with matrices
         if (!pipelineLayout->getDescriptorSetLayout(1u))
             pipelineLayout->setDescriptorSetLayout(1u, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(1u)));
+
         newPipeline->setLayout(core::smart_refctd_ptr(pipelineLayout));
         {
             auto* fs = pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX);
@@ -405,8 +407,6 @@ int main()
             }
             newPipeline->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, newfs.get());
         }
-        auto* metadata = static_cast<asset::CMTLPipelineMetadata*>(pipeline->getMetadata());
-        am->setAssetMetadata(newPipeline.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(metadata));
 
         //set new pipeline (with overriden FS and layout)
         mb->setPipeline(std::move(newPipeline));
@@ -435,7 +435,7 @@ int main()
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
     
-    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
         if (bnd.type==asset::EDT_UNIFORM_BUFFER)
@@ -446,9 +446,8 @@ int main()
 
     size_t neededDS1UBOsz = 0ull;
     {
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
-        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
-            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+        for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
                 neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
     }
 
@@ -519,26 +518,25 @@ int main()
 		camera->render();
 
         core::vector<uint8_t> uboData(gpuubo->getSize());
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
-        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
+        for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {
-            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
             {
                 switch (shdrIn.type)
                 {
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
                 {
                     core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
                     memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW:
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
                 {
                     core::matrix3x4SIMD MV = camera->getViewMatrix();
                     memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
                 {
                     core::matrix3x4SIMD MV = camera->getViewMatrix();
                     memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
@@ -549,9 +547,8 @@ int main()
         }       
         driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
-        for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+        for (auto gpumb : gpumesh->getMeshBuffers())
         {
-            video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
             const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();
 
             driver->bindGraphicsPipeline(pipeline);

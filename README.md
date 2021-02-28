@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Nabla**(previously called **[IrrlichtBaW](https://github.com/buildaworldnet/IrrlichtBAW)** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. 
+**Nabla** (previously called **[IrrlichtBaW](https://github.com/buildaworldnet/IrrlichtBAW)** ) is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. 
 The name change to Nabla allows for using Nabla side by side with the legacy Irrlicht and IrrlichtBaW engines. 
 The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. 
 
@@ -63,15 +63,21 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 
 
-### [Delta BRDF Test](https://www.youtube.com/watch?v=jIJWG0eaxU8)
+### [Bathroom Scene Raytracing](https://www.youtube.com/watch?t=28&v=vqKZKP1hYcc&feature=youtu.be)
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%207.gif)
 
 
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%201.gif?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%208.gif)
 
 
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%202.gif?raw=true)
+### [Stairs Scene Raytracing](https://www.youtube.com/watch?v=2uRBiLdvva4)
+
+
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%206.gif?raw=true)
 
 
 
@@ -109,34 +115,13 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
 
-
 ### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%201.gif?raw=true)
-
-
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
 
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%203.gif?raw=true)
-
-
-
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
 
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%205.gif?raw=true)
-
-
-
 ### Screenshots
-
-### Screen Shots
 
 ##### <u>Pseudo Spectral rendering</u>
 
@@ -146,13 +131,13 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
 
-##### <u>Over 10 area lights</u>
+**<u>Stairs raytracing</u>** 
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/c727e929e45e3fe6af824eae4c296ae82f538dff/site_media/readme/screenshots/RTAA.png)
 
-##### <u>Raytracing sample</u>
+**<u>Bathroom raytracing</u>** 
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/screenshots/BathroomScene.png?raw=true)
 
 ##### <u>Raytracing sample</u>
 
@@ -161,10 +146,6 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 ##### <u>1 Megapixel, 1 Million Samples</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
-
-##### <u>Raytracing sample</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
 
 ##### <u>BRDF Explorer</u>
 

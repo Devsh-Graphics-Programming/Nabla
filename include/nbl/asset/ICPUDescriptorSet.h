@@ -238,6 +238,38 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			}
 		}
 
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+		{
+			--_levelsBelow;
+			if (m_layout->isAnyDependencyDummy(_levelsBelow))
+				return true;
+			for (auto it = m_descriptors->begin(); it != m_descriptors->end(); it++)
+			{
+				auto descriptor = it->desc.get();
+				if (!descriptor)
+					continue;
+
+				switch (descriptor->getTypeCategory())
+				{
+				case IDescriptor::EC_BUFFER:
+					if (static_cast<ICPUBuffer*>(descriptor)->isAnyDependencyDummy(_levelsBelow))
+						return true;
+					break;
+				case IDescriptor::EC_IMAGE:
+					if (static_cast<ICPUImageView*>(descriptor)->isAnyDependencyDummy(_levelsBelow))
+						return true;
+					if (it->image.sampler && it->image.sampler->isAnyDependencyDummy(_levelsBelow))
+						return true;
+					break;
+				case IDescriptor::EC_BUFFER_VIEW:
+					if (static_cast<ICPUBufferView*>(descriptor)->isAnyDependencyDummy(_levelsBelow))
+						return true;
+					break;
+				}
+			}
+			return false;
+		}
+
 		virtual ~ICPUDescriptorSet() = default;
 };
 

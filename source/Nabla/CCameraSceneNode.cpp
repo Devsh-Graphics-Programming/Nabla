@@ -154,16 +154,6 @@ void CCameraSceneNode::recomputeProjectionMatrix()
 }
 
 
-//! prerender
-void CCameraSceneNode::OnRegisterSceneNode()
-{
-	if ( SceneManager->getActiveCamera () == this )
-		SceneManager->registerNodeForRendering(this, ESNRP_CAMERA);
-
-	ISceneNode::OnRegisterSceneNode();
-}
-
-
 //! render
 void CCameraSceneNode::render()
 {
@@ -196,13 +186,6 @@ void CCameraSceneNode::render()
 		driver->setTransform(video::E4X3TS_VIEW, viewMatrix );
 	}
 #endif
-}
-
-
-//! returns the axis aligned bounding box of this node
-const core::aabbox3d<float>& CCameraSceneNode::getBoundingBox()
-{
-	return ViewArea.getBoundingBox();
 }
 
 

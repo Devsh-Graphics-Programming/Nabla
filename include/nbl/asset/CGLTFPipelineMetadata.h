@@ -1,7 +1,8 @@
 #ifndef __NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
 #define __NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IPipelineMetadata.h"
+#include "nbl/asset/metadata/IAssetMetadata.h"
+#include "nbl/asset/metadata/IRenderpassIndependentPipelineMetadata.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 
@@ -9,7 +10,7 @@ namespace nbl
 {
     namespace asset
     {
-        class CGLTFPipelineMetadata final : public IPipelineMetadata
+        class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassIndependentPipelineMetadata
         {
         public:
 
@@ -45,7 +46,6 @@ namespace nbl
                 : m_materialParams(materialParams), m_shaderInputs(std::move(_inputs)) {}
 
             const SGLTFMaterialParameters& getMaterialParameters() const { return m_materialParams; }
-            core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
             _NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CGLTFLoader";
             const char* getLoaderName() const override { return loaderName; }
