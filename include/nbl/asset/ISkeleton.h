@@ -22,10 +22,14 @@ namespace asset
 	class ISkeleton : public virtual core::IReferenceCounted
 	{
 		public:
-			using joint_id_t = uint32_t;
+			using joint_id_t = uint16_t;
 			_NBL_STATIC_INLINE_CONSTEXPR joint_id_t invalid_joint_id = 0xffffu;
 
 
+			inline const auto& getJointNameToIDMap() const
+			{
+				return m_nameToJointID;
+			}
 			inline joint_id_t getJointIDFromName(const char* jointName) const
 			{
 				auto found = m_nameToJointID.find(jointName);
@@ -34,59 +38,68 @@ namespace asset
 				return invalid_joint_id;
 			}
 
-			inline uint32_t getJointCount() const
+			inline joint_id_t getJointCount() const
 			{
-				return jointCount;
+				return m_jointCount;
 			}
 
-			inline SBufferBinding<BufferType>& getParentJointIDBinding()
+			inline const SBufferBinding<const BufferType>& getParentJointIDBinding() const
 			{
-				return m_parentJointIDs;
-			}
-			inline const SBufferBinding<BufferType>& getParentJointIDBinding() const
-			{
-				return m_parentJointIDs;
+				return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_parentJointIDs);
 			}
 
-			inline SBufferBinding<BufferType>& getInverseBindPosesBinding()
+			inline const SBufferBinding<const BufferType>& getDefaultTransforms() const
 			{
-				return m_inverseBindPoses;
-			}
-			inline const SBufferBinding<BufferType>& getInverseBindPosesBinding() const
-			{
-				return m_inverseBindPoses;
+				return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_defaultTransforms);
 			}
 
 
 		protected:
-			ISkeleton(SBufferBinding<BufferType>&& _parentJointIDsBinding, SBufferBinding<BufferType>&& _inverseBindPosesBinding)
-				:	m_nameToJointID(), m_stringPoolSize(0ull), m_stringPool(nullptr), m_jointCount(0u),
-					m_parentJointIDs(std::move(_parentJointIDsBinding)), m_inverseBindPoses(std::move(_inverseBindPosesBinding))
+			ISkeleton(SBufferBinding<BufferType>&& _parentJointIDsBinding, SBufferBinding<BufferType>&& _defaultTransforms, joint_id_t _jointCount = 0u)
+				:	m_nameToJointID(), m_stringPoolSize(0ull), m_stringPool(nullptr), m_jointCount(_jointCount),
+					m_parentJointIDs(std::move(_parentJointIDsBinding)), m_defaultTransforms(std::move(_defaultTransforms))
 			{
+				if (m_jointCount==0u)
+					return;
+
+				assert(m_parentJointIDs.buffer->getSize()>=m_parentJointIDs.offset+sizeof(joint_id_t)*m_jointCount);
+				assert(m_defaultTransforms.buffer->getSize()>=m_defaultTransforms.offset+sizeof(core::matrix3x4SIMD)*m_jointCount);
 			}
 			virtual ~ISkeleton()
 			{
-				_NBL_DELETE_ARRAY(m_stringPool,m_stringPoolSize);
+				clearNames();
+			}
+
+			// map must contain one `const char*` per bone
+			template<class Comparator>
+			inline void setJointNames(const core::map<const char*,joint_id_t,Comparator>& nameToJointIDMap)
+			{
+				clearNames();
+
+				// size the pool
+				for (const auto& mapping : nameToJointIDMap)
+					reserveName(mapping.first);
+				
+				// useless names
+				if (m_stringPoolSize==0ull)
+					return;
+
+				m_stringPool = _NBL_NEW_ARRAY(char,m_stringPoolSize);
+				
+				char* outName = m_stringPool;
+				for (const auto& mapping : nameToJointIDMap)
+					outName = insertName(outName,mapping.first,mapping.second);
 			}
 
 			// iterator range must contain one `const char*` per bone
 			template<typename NameIterator>
 			inline void setJointNames(NameIterator begin, NameIterator end)
 			{
-				// deinit
-				if (m_stringPool)
-					_NBL_DELETE_ARRAY(m_stringPool,m_stringPoolSize);
-				m_stringPoolSize = 0ull;
-				m_nameToJointID.clear();
+				clearNames();
 
 				// size the pool
 				for (auto it=begin; it!=end; it++)
-				{
-					const char* inName = *it;
-					const auto nameLen = strlen(inName);
-					if (nameLen)
-						m_stringPoolSize += nameLen+1ull;
-				}
+					reserveName(*it);
 				
 				// useless names
 				if (m_stringPoolSize==0ull)
@@ -97,33 +110,48 @@ namespace asset
 				char* outName = m_stringPool;
 				joint_id_t jointID = 0u;
 				for (auto it=begin; it!=end; it++,jointID++)
-				{
-					const char* name = outName;
-
-					const char* inName = *it;
-					while (*inName) {*(outName++) = *(inName++);}
-					if (outName!=name)
-					{
-						*(outName++) = '0';
-						m_nameToJointID.emplace(name,jointID);
-					}
-				}
+					outName = insertName(outName,*it,jointID);
 			}
 
 			struct StringComparator
 			{
 				inline bool operator()(const char* lhs, const char* rhs) const
 				{
-					return strcmp(lhs,rhs);
+					return strcmp(lhs,rhs)<0;
 				}
 			};
 			core::map<const char*,joint_id_t,StringComparator> m_nameToJointID;
 			size_t m_stringPoolSize;
 			char* m_stringPool;
 
-			uint32_t m_jointCount;
+			SBufferBinding<BufferType> m_parentJointIDs,m_defaultTransforms;
+			joint_id_t m_jointCount;
 
-			SBufferBinding<BufferType> m_parentJointIDs,m_inverseBindPoses;
+		private:
+			inline void reserveName(const char* inName)
+			{
+				const auto nameLen = strlen(inName);
+				if (nameLen)
+					m_stringPoolSize += nameLen+1ull;
+			}
+			inline char* insertName(char* outName, const char* inName, joint_id_t jointID)
+			{
+				const char* name = outName;
+				while (*inName) {*(outName++) = *(inName++);}
+				if (outName!=name)
+				{
+					*(outName++) = 0;
+					m_nameToJointID.emplace(name,jointID);
+				}
+				return outName;
+			}
+			inline void clearNames()
+			{
+				if (m_stringPool)
+					_NBL_DELETE_ARRAY(m_stringPool,m_stringPoolSize);
+				m_stringPoolSize = 0ull;
+				m_nameToJointID.clear();
+			}
 	};
 
 } // end namespace asset

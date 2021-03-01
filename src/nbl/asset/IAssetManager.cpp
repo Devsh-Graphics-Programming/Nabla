@@ -218,27 +218,41 @@ void IAssetManager::insertBuiltinAssets()
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/specialized_shader/fullscreentriangle.vert"});
+			{
+                "nbl/builtin/specialized_shader/fullscreentriangle.vert"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/material/lambertian/singletexture/specialized_shader.vert","nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"});
+			{
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::ISpecializedShader::ESS_FRAGMENT, 
-			{"nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"});
+			{
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
+            });
 
-		// TODO
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
+			{
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/material/debug/vertex_color/specialized_shader.vert"});
+			{
+                "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
-			{"nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"});
+			{   
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
-			{"nbl/builtin/material/debug/vertex_normal/specialized_shader.frag","nbl/builtin/material/debug/vertex_color/specialized_shader.frag"});
+			{
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
+                "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"
+            });
 	}
 
     /*
@@ -394,8 +408,12 @@ void IAssetManager::insertBuiltinAssets()
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
-        auto paths = {"nbl/builtin/material/lambertian/no_texture/pipeline_layout",
-                      "nbl/builtin/pipeline_layout/loader/PLY"};
+        auto paths =
+        {               
+            "nbl/builtin/material/lambertian/no_texture/pipeline_layout",
+            "nbl/builtin/pipeline_layout/loader/PLY",
+            "nbl/builtin/pipeline_layout/loader/STL" 
+        };
 
         for(auto &path : paths)
             addBuiltInToCaches(pipelineLayout, path);

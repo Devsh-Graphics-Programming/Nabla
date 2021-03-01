@@ -189,13 +189,6 @@ void CCameraSceneNode::render()
 }
 
 
-//! returns the axis aligned bounding box of this node
-const core::aabbox3d<float>& CCameraSceneNode::getBoundingBox()
-{
-	return ViewArea.getBoundingBox();
-}
-
-
 //! returns the view frustum. needed sometimes by bsp or lod render nodes.
 const SViewFrustum* CCameraSceneNode::getViewFrustum() const
 {

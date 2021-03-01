@@ -8,7 +8,6 @@
 
 #include "nbl/core/core.h"
 
-#include "ESceneNodeAnimatorTypes.h"
 #include "IEventReceiver.h"
 
 namespace nbl
@@ -31,12 +30,6 @@ namespace scene
 		\param timeMs Current time in milli seconds. */
 		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs) =0;
 
-		//! Creates a clone of this animator.
-		/** Please note that you will have to drop
-		(IReferenceCounted::drop()) the returned pointer after calling this. */
-		virtual ISceneNodeAnimator* createClone(IDummyTransformationSceneNode* node,
-				ISceneManager* newManager=0) =0;
-
 		//! Returns true if this animator receives events.
 		/** When attached to an active camera, this animator will be
 		able to respond to events such as mouse and keyboard events. */
@@ -47,20 +40,6 @@ namespace scene
 
 		//! Event receiver, override this function for camera controlling animators
 		virtual bool OnEvent(const SEvent& event)
-		{
-			return false;
-		}
-
-		//! Returns type of the scene node animator
-		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const
-		{
-			return ESNAT_UNKNOWN;
-		}
-
-		//! Returns if the animator has finished.
-		/** This is only valid for non-looping animators with a discrete end state.
-		\return true if the animator has finished, false if it is still running. */
-		virtual bool hasFinished(void) const
 		{
 			return false;
 		}

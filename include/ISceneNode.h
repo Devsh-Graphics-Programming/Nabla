@@ -39,7 +39,7 @@ namespace scene
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
 			:   IDummyTransformationSceneNode(parent,position,rotation,scale),
-                AutomaticCullingState(true), IsVisible(true), renderPriority(0x80000000u)
+                AutomaticCullingState(true), IsVisible(true)
 		{
 		}
 
@@ -59,31 +59,6 @@ namespace scene
 
 		//! Renders the node.
 		virtual void render() = 0;
-
-
-		//! Get the axis aligned, not transformed bounding box of this node.
-		/** This means that if this node is an animated 3d character,
-		moving in a room, the bounding box will always be around the
-		origin. To get the box in real world coordinates, just
-		transform it with the matrix you receive with
-		getAbsoluteTransformation() or simply use
-		getTransformedBoundingBox(), which does the same.
-		\return The non-transformed bounding box. */
-		virtual const core::aabbox3d<float>& getBoundingBox() = 0;
-
-
-		//! Get the axis aligned, transformed and animated absolute bounding box of this node.
-		/** \return The transformed bounding box. */
-		virtual const core::aabbox3d<float> getTransformedBoundingBox()
-		{
-			core::aabbox3d<float> box = getBoundingBox();
-			AbsoluteTransformation.transformBoxEx(box);
-			return box;
-		}
-
-		inline const uint32_t& getRenderPriorityScore() const {return renderPriority;}
-
-		inline void setRenderPriorityScore(const uint32_t& nice) {renderPriority = nice;}
 
 
 		//! Returns whether the node should be visible (only matters if all of its parents are visible).
@@ -125,8 +100,6 @@ namespace scene
 
 		//! Is the node visible?
 		bool IsVisible;
-
-		uint32_t renderPriority;
 
         static void OnAnimate_static(IDummyTransformationSceneNode* node, uint32_t timeMs) // could be pushed up to IDummyTransformationSceneNode
 		{

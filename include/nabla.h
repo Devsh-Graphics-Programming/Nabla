@@ -47,7 +47,6 @@
 #include "rect.h"
 #include "dimension2d.h"
 #include "EDriverTypes.h"
-#include "ESceneNodeAnimatorTypes.h"
 #include "ICameraSceneNode.h"
 #include "ICursorControl.h"
 #include "IDummyTransformationSceneNode.h"

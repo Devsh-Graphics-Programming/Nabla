@@ -12,7 +12,6 @@
 #include "vector3d.h"
 #include "dimension2d.h"
 #include "SColor.h"
-#include "ESceneNodeAnimatorTypes.h"
 #include "nbl/asset/ICPUMesh.h"
 
 namespace nbl
@@ -32,13 +31,9 @@ namespace scene
 {
 	class ICameraSceneNode;
 	class IDummyTransformationSceneNode;
-	class IMeshLoader;
 	class IMeshSceneNode;
-	class IMeshSceneNodeInstanced;
-	class IMeshWriter;
 	class ISceneNode;
 	class ISceneNodeAnimator;
-	class ISceneNodeAnimatorCollisionResponse;
 
 	//! The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
 	/** All Scene nodes can be created only here. There is a always growing
@@ -183,25 +178,6 @@ namespace scene
 			float jumpSpeed = 0.f, bool invertMouse=false,
 			bool makeActive=true) = 0;
 
-		//! Adds a dummy transformation scene node to the scene tree.
-		/** This scene node does not render itself, have a bounding box, a render method,
-        and is as-if always visible ISceneNode.
-		Its actually a base of ISceneNode, and it can be used for doing advanced transformations
-		or structuring the scene tree.
-		\return Pointer to the created scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
-			IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
-
-		//! Gets the root scene node.
-		/** This is the scene node which is parent
-		of all scene nodes. The root scene node is a special scene node which
-		only exists to manage all scene nodes. It will not be rendered and cannot
-		be removed from the scene.
-		\return Pointer to the root scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* getRootSceneNode() = 0;
-
 		//! Get the current active camera.
 		/** \return The active camera is returned. Note that this can
 		be NULL, if there was no camera created yet.
@@ -212,17 +188,6 @@ namespace scene
 		/** The previous active camera will be deactivated.
 		\param camera: The new camera which should be active. */
 		virtual void setActiveCamera(ICameraSceneNode* camera) = 0;
-
-		//! Adds a scene node to the deletion queue.
-		/** The scene node is immediatly
-		deleted when it's secure. Which means when the scene node does not
-		execute animators and things like that. This method is for example
-		used for deleting scene nodes by their scene node animators. In
-		most other cases, a ISceneNode::remove() call is enough, using this
-		deletion queue is not necessary.
-		See ISceneManager::createDeleteAnimator() for details.
-		\param node: Node to detete. */
-		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node) = 0;
 
 		//! Posts an input event to the environment.
 		/** Usually you do not have to

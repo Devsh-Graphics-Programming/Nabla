@@ -71,8 +71,9 @@ set(nbl_resources_to_embed
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loader/mtl/common.glsl"
   # math and limits
-  "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/constants.glsl"
+  "nbl/builtin/glsl/math/complex.glsl"
+  "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/quaternions.glsl"
   "nbl/builtin/glsl/math/typeless_arithmetic.glsl"
   "nbl/builtin/glsl/limits/numeric.glsl"
@@ -93,6 +94,7 @@ set(nbl_resources_to_embed
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   # scene
+  "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
   "nbl/builtin/glsl/scene/node.glsl"
   # shapes
@@ -130,6 +132,10 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/vote.glsl"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
+  "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+  "nbl/builtin/glsl/ext/FFT/fft.glsl"
+  "nbl/builtin/glsl/ext/FFT/parameters.glsl"
+  "nbl/builtin/glsl/ext/FFT/normalization.comp"
   "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"

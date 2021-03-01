@@ -30,7 +30,7 @@ enum E_PLY_PROPERTY_TYPE
 };
 
 //! Meshloader capable of loading obj meshes.
-class CPLYMeshFileLoader : public IRenderpassIndependentPipelineLoader
+class CPLYMeshFileLoader : public IAssetLoader, public IRenderpassIndependentPipelineLoader
 {
 protected:
 	//! Destructor
@@ -52,7 +52,39 @@ public:
 
 	//! creates/loads an animated mesh from the file.
     virtual SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+
 private:
+
+	virtual void initialize() override;
+
+	enum E_TYPE { ET_POS = 0, ET_UV = 2, ET_NORM = 3, ET_COL = 1 };
+
+	static const std::string getPipelineCacheKey(E_TYPE type, bool indexBufferBindingAvailable)
+	{
+		auto getTypeHash = [&]() -> std::string
+		{
+			bool status = true;
+
+			switch (type)
+			{
+			case ET_POS:
+				return "nbl/builtin/pipeline/loader/PLY/only_position_attribute/";
+			case ET_COL:
+				return "nbl/builtin/pipeline/loader/PLY/color_attribute/";
+			case ET_UV:
+				return "nbl/builtin/pipeline/loader/PLY/uv_attribute/";
+			case ET_NORM:
+				return "nbl/builtin/pipeline/loader/PLY/normal_attribute/";
+			default:
+			{
+				status = false;
+				assert(status);
+			}
+			}
+		};
+
+		return getTypeHash() + (indexBufferBindingAvailable ? "triangle_list" : "point_list");
+	}
 
 	struct SPLYProperty
 	{
@@ -130,11 +162,19 @@ private:
 
     struct SContext
     {
+		~SContext()
+		{
+			if (Buffer)
+			{
+				_NBL_DELETE_ARRAY(reinterpret_cast<uint8_t*>(Buffer), PLY_INPUT_BUFFER_SIZE);
+				Buffer = nullptr;
+			}
+			ElementList.clear();
+		}
+
 		IAssetLoader::SAssetLoadContext inner;
 		uint32_t topHierarchyLevel;
 		IAssetLoader::IAssetLoaderOverride* loaderOverride;
-		
-		core::vector<uint32_t> hashes4pplns;
 
         core::vector<std::unique_ptr<SPLYElement>> ElementList;
 	
@@ -142,21 +182,7 @@ private:
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
 		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
-
-		std::function<void()> deallocate = [&]()
-		{ 
-			if (Buffer)
-			{
-				_NBL_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
-				Buffer = nullptr;
-			}
-			ElementList.clear();
-		};
-
-		core::SRAIIBasedExiter<decltype(deallocate)> exiter = core::makeRAIIExiter(deallocate);
     };
-
-    enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };
 
 	bool allocateBuffer(SContext& _ctx);
 	char* getNextLine(SContext& _ctx);
@@ -164,7 +190,7 @@ private:
 	void fillBuffer(SContext& _ctx);
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const IAssetLoader::SAssetLoadParams& _params);
+ 	bool readVertex(SContext& _ctx, const SPLYElement &Element, asset::SBufferBinding<asset::ICPUBuffer> outAttributes[4], const uint32_t& currentVertexIndex, const IAssetLoader::SAssetLoadParams& _params);
 	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
 
 	void skipElement(SContext& _ctx, const SPLYElement &Element);
@@ -175,7 +201,7 @@ private:
 
 	bool genVertBuffersForMBuffer(
 		ICPUMeshBuffer* _mbuf,
-		const core::vector<core::vectorSIMDf> _attribs[4],
+		const asset::SBufferBinding<asset::ICPUBuffer> attributes[4],
 		SContext& context
 	) const;
 
