@@ -102,7 +102,7 @@ uint nbl_glsl_ext_FFT_getEvenIndex(in uint threadId, in uint iteration, in uint 
 void nbl_glsl_workgroup_FFT_DIF(bool is_inverse, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
 {
     // special first iteration
-    nbl_glsl_FFT_DIF_radix2(nbl_glsl_FFT_twiddle(is_inverse,gl_LocalInvocationIndex,uint(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_<<1u)),lo,hi);
+    nbl_glsl_FFT_DIF_radix2(nbl_glsl_FFT_twiddle(is_inverse,gl_LocalInvocationIndex,uint(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_+1u)),lo,hi);
     
     barrier();
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*0u] = floatBitsToUint(lo.x);
@@ -145,14 +145,14 @@ void nbl_glsl_workgroup_FFT_DIF(bool is_inverse, inout nbl_glsl_complex lo, inou
         uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*3u])
     );
     */
-    const uint tid = bitfieldReverse(gl_LocalInvocationIndex)>>23u;
+    const uint tid = gl_LocalInvocationIndex;
     lo = nbl_glsl_complex(
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+0u]),
+        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*0u]),
         uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*2u])
     );
     hi = nbl_glsl_complex(
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+1u]),
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+1u+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*2u])
+        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*1u]),
+        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*3u])
     );
     barrier();
     if (is_inverse)
@@ -179,8 +179,10 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
     {
         const uint tid = (t<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
         values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),channel);
+        if (is_inverse)
+            values[t] /= float(virtual_thread_count);
     }
-#if 0
+#if 1
     // do huge FFT steps
     for (uint step=halfDataLength; step>_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_; step>>=1u)
     for(uint t=0u; t<virtual_thread_count; t++)
@@ -206,9 +208,7 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
     {
         //const uint tid = (bitfieldReverse(t)>>(32u-findMSB(item_per_thread_count)-_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_))|gl_LocalInvocationIndex;
         const uint tid = (t<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-        if (is_inverse)
-            values[t] /= float(virtual_thread_count);
-        nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,values[t]);
+        nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(bitfieldReverse(tid)>>(32u-findMSB(item_per_thread_count)-_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)),channel,values[t]);
     }
 }
  else
