@@ -24,7 +24,7 @@ struct alignas(16) uvec3 {
 struct alignas(16) uvec4 {
 	uint x,y,z,w;
 };
-#include "nbl/builtin/glsl/ext/FFT/parameters.glsl";
+#include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl";
 
 class FFT : public core::TotalInterface
 {

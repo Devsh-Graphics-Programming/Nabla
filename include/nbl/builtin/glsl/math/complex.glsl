@@ -36,4 +36,46 @@ nbl_glsl_complex nbl_glsl_complex_conjugate(in nbl_glsl_complex complex) {
     return complex * vec2(1, -1);
 }
 
+
+// FFT
+#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_FFT_twiddle(in uint k, in float N)
+{
+    return nbl_glsl_expImaginary(-2.f*nbl_glsl_PI*float(k)/N);
+}
+nbl_glsl_complex nbl_glsl_FFT_twiddle(in uint k, in uint logTwoN)
+{
+    return nbl_glsl_FFT_twiddle(k,float(1<<logTwoN));
+}
+
+nbl_glsl_complex nbl_glsl_FFT_twiddle(in bool is_inverse, in uint k, in float N)
+{
+    nbl_glsl_complex twiddle = nbl_glsl_FFT_twiddle(k, N);
+    if (is_inverse)
+        return nbl_glsl_complex_conjugate(twiddle);
+    return twiddle;
+}
+nbl_glsl_complex nbl_glsl_FFT_twiddle(in bool is_inverse, in uint k, in uint logTwoN)
+{
+    return nbl_glsl_FFT_twiddle(is_inverse,k,float(1<<logTwoN));
+}
+
+// decimation in time
+void nbl_glsl_FFT_DIT_radix2(in nbl_glsl_complex twiddle, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
+{
+    nbl_glsl_complex wHi = nbl_glsl_complex_mul(hi,twiddle);
+    hi = lo-wHi;
+    lo += wHi;
+}
+
+// decimation in frequency
+void nbl_glsl_FFT_DIF_radix2(in nbl_glsl_complex twiddle, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
+{
+    nbl_glsl_complex diff = lo-hi;
+    lo += hi;
+    hi = nbl_glsl_complex_mul(diff,twiddle);
+}
+
+// TODO: radices 4,8 and 16
+
 #endif
