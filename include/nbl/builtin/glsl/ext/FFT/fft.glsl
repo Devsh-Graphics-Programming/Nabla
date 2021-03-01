@@ -99,10 +99,14 @@ uint nbl_glsl_ext_FFT_getEvenIndex(in uint threadId, in uint iteration, in uint 
 
 // TODO: temp
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_ findMSB(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_)
-void nbl_glsl_workgroup_FFT_DIF(bool is_inverse, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
+//TODO: optimization for DFT of real signal
+
+// Decimates in Frequency for forward transform, in Time for reverse, hence no bitreverse permutation needed
+void nbl_glsl_workgroup_FFT(bool is_inverse, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
 {
+    const float doubleWorkgroupSize = float(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_<<1u);
     // special first iteration
-    nbl_glsl_FFT_DIF_radix2(nbl_glsl_FFT_twiddle(is_inverse,gl_LocalInvocationIndex,uint(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_+1u)),lo,hi);
+    nbl_glsl_FFT_DIF_radix2(nbl_glsl_FFT_twiddle(is_inverse,gl_LocalInvocationIndex,doubleWorkgroupSize),lo,hi);
     
     barrier();
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*0u] = floatBitsToUint(lo.x);
@@ -122,29 +126,12 @@ void nbl_glsl_workgroup_FFT_DIF(bool is_inverse, inout nbl_glsl_complex lo, inou
         nbl_glsl_complex high = nbl_glsl_complex(uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_w_ix]),uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_w_ix+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*2]));
         nbl_glsl_FFT_DIF_radix2(nbl_glsl_FFT_twiddle(is_inverse,sub_ix,float(step<<1u)),low,high);
         barrier();
-        /* this makes stockham or something
-        _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*0u] = floatBitsToUint(low.x);
-        _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*1u] = floatBitsToUint(high.x);
-        _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*2u] = floatBitsToUint(low.y);
-        _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*3u] = floatBitsToUint(high.y);
-        */
         _NBL_GLSL_SCRATCH_SHARED_DEFINED_[lo_w_ix] = floatBitsToUint(low.x);
         _NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_w_ix] = floatBitsToUint(high.x);
         _NBL_GLSL_SCRATCH_SHARED_DEFINED_[lo_w_ix+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*2] = floatBitsToUint(low.y);
         _NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_w_ix+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*2] = floatBitsToUint(high.y);
         barrier();
     }
-    /* stockham
-    const uint tid = gl_LocalInvocationIndex;
-    lo = nbl_glsl_complex(
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*0u]),
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*2u])
-    );
-    hi = nbl_glsl_complex(
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*1u]),
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*3u])
-    );
-    */
     const uint tid = gl_LocalInvocationIndex;
     lo = nbl_glsl_complex(
         uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_*0u]),
@@ -157,8 +144,8 @@ void nbl_glsl_workgroup_FFT_DIF(bool is_inverse, inout nbl_glsl_complex lo, inou
     barrier();
     if (is_inverse)
     {
-        lo /= float(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_<<1u);
-        hi /= float(_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_<<1u);
+        lo /= doubleWorkgroupSize;
+        hi /= doubleWorkgroupSize;
     }
 }
 
@@ -171,9 +158,8 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
 
     const uint halfDataLength = dataLength>>1u;
     const uint virtual_thread_count = item_per_thread_count>>1u;
- if (true)
- {
     nbl_glsl_complex values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD*2u]; // TODO: redo later
+
     // Load Values into local memory
     for(uint t=0u; t<item_per_thread_count; t++)
     {
@@ -182,7 +168,6 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
         if (is_inverse)
             values[t] /= float(virtual_thread_count);
     }
-#if 1
     // do huge FFT steps
     for (uint step=halfDataLength; step>_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_; step>>=1u)
     for(uint t=0u; t<virtual_thread_count; t++)
@@ -195,210 +180,19 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
         const uint subFFTItem = (lo<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
         nbl_glsl_FFT_DIF_radix2(nbl_glsl_FFT_twiddle(is_inverse,subFFTItem,float(step<<1u)),values[lo_ix],values[hi_ix]);
     }
-#endif
     // do workgroup sized sub-FFTs
     for(uint t=0u; t<virtual_thread_count; t++)
     {
         const uint lo_ix = t<<1u;
         const uint hi_ix = lo_ix|1u;
-        nbl_glsl_workgroup_FFT_DIF(is_inverse,values[lo_ix],values[hi_ix]);
+        nbl_glsl_workgroup_FFT(is_inverse,values[lo_ix],values[hi_ix]);
     }
     // write out to main memory
     for(uint t=0u; t<item_per_thread_count; t++)
     {
-        //const uint tid = (bitfieldReverse(t)>>(32u-findMSB(item_per_thread_count)-_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_))|gl_LocalInvocationIndex;
         const uint tid = (t<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
         nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(bitfieldReverse(tid)>>(32u-findMSB(item_per_thread_count)-_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)),channel,values[t]);
     }
-}
- else
- {
-    const uint logTwo = findMSB(dataLength);
-    uint thread_offset = gl_LocalInvocationIndex;
-
-	// Pass 0: Bit Reversal
-	uint leadingZeroes = nbl_glsl_clz(dataLength) + 1u;	
-    nbl_glsl_complex even_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD]; // should be half the prev version
-    nbl_glsl_complex odd_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
-
-    // Load Initial Values into Local Mem (bit reversed indices)
-    for(uint t = 0u; t<virtual_thread_count; t++)
-    {
-        uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-        uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
-        uint odd_index = even_index + 1; 
-
-        uvec3 coords_e = nbl_glsl_ext_FFT_getCoordinates(even_index);
-        even_values[t] = nbl_glsl_ext_FFT_getPaddedData(coords_e, channel);
-
-        uvec3 coords_o = nbl_glsl_ext_FFT_getCoordinates(odd_index);
-        odd_values[t] = nbl_glsl_ext_FFT_getPaddedData(coords_o, channel);
-    }
-
-    // Initial Data Exchange
-    {
-        // Get Even/Odd Values X for virtual threads
-        for(uint t = 0u; t<virtual_thread_count; t++)
-        {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-            
-            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
-            uint odd_index = even_index + 1;
-
-            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index] = floatBitsToUint(even_values[t].x);
-            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index] = floatBitsToUint(odd_values[t].x);
-        }
-
-        barrier();
-        memoryBarrierShared();
-
-        for(uint t = 0u; t<virtual_thread_count; t++)
-        {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
-            uint odd_index = even_index + 1;
-
-            uint even_rev_bits = bitfieldReverse(even_index) >> leadingZeroes;
-            uint odd_rev_bits = bitfieldReverse(odd_index) >> leadingZeroes;
-
-            even_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_rev_bits]);
-            odd_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_rev_bits]);
-        }
-
-        barrier();
-        memoryBarrierShared();
-        
-        // Get Even/Odd Values Y for virtual threads
-        for(uint t = 0u; t<virtual_thread_count; t++)
-        {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-            
-            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
-            uint odd_index = even_index + 1;
-
-            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index] = floatBitsToUint(even_values[t].y);
-            _NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index] = floatBitsToUint(odd_values[t].y);
-        }
-
-        barrier();
-        memoryBarrierShared();
-
-        for(uint t = 0u; t<virtual_thread_count; t++)
-        {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-            uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, 0, dataLength); // same as tid * 2
-            uint odd_index = even_index + 1;
-
-            uint even_rev_bits = bitfieldReverse(even_index) >> leadingZeroes;
-            uint odd_rev_bits = bitfieldReverse(odd_index) >> leadingZeroes;
-
-            even_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_rev_bits]);
-            odd_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_rev_bits]);
-        }
-    }
-
-    // For loop for each stage of the FFT (each virtual thread computes 1 buttefly)
-	for(uint i = 0u; i < logTwo; ++i) 
-    {
-        // Computation of each virtual thread
-        for(uint t = 0u; t<virtual_thread_count; t++)
-        {
-            uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-            const uint k = nbl_glsl_ext_FFT_calculateTwiddlePower(tid,i,logTwo);
-
-            nbl_glsl_FFT_DIT_radix2(nbl_glsl_FFT_twiddle(is_inverse,k,logTwo),even_values[t],odd_values[t]);
-        }
-
-        // Exchange Even/Odd Values with Other Threads (or sometimes the same thread)
-        if(i < logTwo - 1)
-        {
-            // Get Even/Odd Values X for virtual threads
-            for(uint t = 0u; t<virtual_thread_count; t++)
-            {
-                uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-                uint stage = i;
-                uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, stage, dataLength);
-                uint odd_index = even_index + (1u << stage);
-
-                _NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index] = floatBitsToUint(even_values[t].x);
-                _NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index] = floatBitsToUint(odd_values[t].x);
-            }
-
-            barrier();
-            memoryBarrierShared();
-
-            for(uint t = 0u; t<virtual_thread_count; t++)
-            {
-                uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-                uint stage = i + 1u;
-                uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, stage, dataLength);
-                uint odd_index = even_index + (1u << stage);
-
-                even_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index]);
-                odd_values[t].x = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index]);
-            }
-
-            barrier();
-            memoryBarrierShared();
-
-            // Get Even/Odd Values Y for virtual threads
-            for(uint t = 0u; t<virtual_thread_count; t++)
-            {
-                uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-                uint stage = i;
-                uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, stage, dataLength);
-                uint odd_index = even_index + (1u << stage);
-
-                _NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index] = floatBitsToUint(even_values[t].y);
-                _NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index] = floatBitsToUint(odd_values[t].y);
-            }
-
-            barrier();
-            memoryBarrierShared();
-
-            for(uint t = 0u; t<virtual_thread_count; t++)
-            {
-                uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-                uint stage = i + 1u;
-                uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, stage, dataLength);
-                uint odd_index = even_index + (1u << stage);
-
-                even_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[even_index]);
-                odd_values[t].y = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[odd_index]);
-            }
-        }
-    }
-    
-    for(uint t = 0u; t<virtual_thread_count; t++)
-    {
-        uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
-
-        uint stage = logTwo - 1;
-        uint even_index = nbl_glsl_ext_FFT_getEvenIndex(tid, stage, dataLength); // same as tid
-        uint odd_index = even_index + (1u << stage);
-
-	    uvec3 coords_e = nbl_glsl_ext_FFT_getCoordinates(even_index);
-	    uvec3 coords_o = nbl_glsl_ext_FFT_getCoordinates(odd_index);
-
-        nbl_glsl_complex complex_value_e = (!is_inverse) 
-        ? even_values[t]
-        : even_values[t] / dataLength;
-
-        nbl_glsl_complex complex_value_o = (!is_inverse) 
-        ? odd_values[t]
-        : odd_values[t] / dataLength;
-
-        nbl_glsl_ext_FFT_setData(coords_e, channel, complex_value_e);
-        nbl_glsl_ext_FFT_setData(coords_o, channel, complex_value_o);
-    }
-}
 }
 
 #endif
