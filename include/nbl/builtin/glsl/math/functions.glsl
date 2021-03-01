@@ -238,20 +238,36 @@ vec4 nbl_glsl_conditionalAbsOrMax(in bool cond, in vec4 x, in vec4 limit)
     return max(condAbs,limit);
 }
 
-//
+//! Integer
 uint nbl_glsl_rotl(in uint x, in uint k)
 {
 	return (x<<k) | (x>>(32u-k));
 }
 
-// Count Leading Zeroes (naive?)
+// Count Leading Zeroes
 uint nbl_glsl_clz(in uint x) 
 {
     return 31u - findMSB(x);
 }
 
+// GLSL's builtin is badly named
+uint nbl_glsl_bitfieldOverwrite(in uint base, in uint value, in uint offset, in uint count)
+{
+    return bitfieldInsert(base,value,int(offset),int(count));
+}
 
-// trig
+uint nbl_glsl_bitfieldInsert_impl(in uint base, in uint shifted_masked_value, in uint lo, in uint count)
+{
+    const uint hi = base^lo;
+    return (hi<<count)|shifted_masked_value|lo;
+}
+uint nbl_glsl_bitfieldInsert(in uint base, uint value, in uint offset, in uint count)
+{
+    const uint shifted_masked_value = (value&((0x1u<<count)-1u))<<offset;
+    return nbl_glsl_bitfieldInsert_impl(base,shifted_masked_value,base&((0x1u<<offset)-1u),count);
+}
+
+//! Trig
 
 // returns `acos(acos(A)+acos(B)+acos(C))-PI` but requires `sinA,sinB,sinC` are all positive
 float nbl_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float cosC, in float sinA, in float sinB, in float sinC)

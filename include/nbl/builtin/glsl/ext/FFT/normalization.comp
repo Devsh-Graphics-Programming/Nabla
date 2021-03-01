@@ -20,7 +20,7 @@ layout(set=0, binding=1) restrict buffer OutBuffer
 void main()
 {
 	float power = length(in_data[0]);
-	vec2 normalized_data = in_data[gl_GlobalInvocationID.x] / power;
+	vec2 normalized_data = in_data[gl_GlobalInvocationID.x];// / power;
 	out_data[gl_GlobalInvocationID.x] = normalized_data;
 }
 
