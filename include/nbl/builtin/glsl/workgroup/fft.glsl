@@ -10,6 +10,7 @@
 
 
 #include <nbl/builtin/glsl/math/complex.glsl>
+#include <nbl/builtin/glsl/subgroup/basic_portability.glsl>
 //#include <nbl/builtin/glsl/subgroup/fft.glsl>
 
 
@@ -29,8 +30,9 @@
 //TODO: optimization for DFT of real signal
 
 
-void nbl_glsl_workgroup_FFT_loop(in bool is_inverse, in uint stride)
+void nbl_glsl_workgroupFFT_loop(in bool is_inverse, in uint stride)
 {
+    barrier();
     const uint sub_ix = gl_LocalInvocationIndex&(stride-1u);
     const uint lo_x_ix = nbl_glsl_bitfieldInsert_impl(gl_LocalInvocationIndex,0u,sub_ix,1u);
     const uint hi_x_ix = lo_x_ix|stride;
@@ -46,15 +48,13 @@ void nbl_glsl_workgroup_FFT_loop(in bool is_inverse, in uint stride)
     else
         nbl_glsl_FFT_DIF_radix2(twiddle,low,high);
 
-    barrier();
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[lo_x_ix] = floatBitsToUint(low.x);
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_x_ix] = floatBitsToUint(high.x);
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[lo_y_ix] = floatBitsToUint(low.y);
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_y_ix] = floatBitsToUint(high.y);
-    barrier();
 }
 //! Decimates in Frequency for forward transform, in Time for reverse, hence no bitreverse permutation needed
-void nbl_glsl_workgroup_FFT(in bool is_inverse, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
+void nbl_glsl_workgroupFFT(in bool is_inverse, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
 {
     const float doubleWorkgroupSize = float(_NBL_GLSL_WORKGROUP_SIZE_<<1u);
     // special first iteration
@@ -68,21 +68,21 @@ void nbl_glsl_workgroup_FFT(in bool is_inverse, inout nbl_glsl_complex lo, inout
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_WORKGROUP_SIZE_*1u] = floatBitsToUint(hi.x);
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_WORKGROUP_SIZE_*2u] = floatBitsToUint(lo.y);
     _NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_WORKGROUP_SIZE_*3u] = floatBitsToUint(hi.y);
-    barrier();
 
     // TODO: use subgroup_FFT op to reduce bank conflicts in the final iterations
     if (is_inverse)
     {
         for (uint step=1u; step<_NBL_GLSL_WORKGROUP_SIZE_; step<<=1u)
-            nbl_glsl_workgroup_FFT_loop(true,step);
+            nbl_glsl_workgroupFFT_loop(true,step);
     }
     else
     {
         for (uint step=_NBL_GLSL_WORKGROUP_SIZE_>>1u; step>0u; step>>=1u)
-            nbl_glsl_workgroup_FFT_loop(false,step);
+            nbl_glsl_workgroupFFT_loop(false,step);
     }
 
     // get the values out
+    barrier();
     lo = nbl_glsl_complex(
         uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_WORKGROUP_SIZE_*0u]),
         uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid+_NBL_GLSL_WORKGROUP_SIZE_*2u])

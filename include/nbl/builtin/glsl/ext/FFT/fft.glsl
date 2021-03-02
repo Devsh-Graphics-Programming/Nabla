@@ -117,7 +117,7 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
     {
         const uint lo_ix = t<<1u;
         const uint hi_ix = lo_ix|1u;
-        nbl_glsl_workgroup_FFT(is_inverse,nbl_glsl_ext_FFT_impl_values[lo_ix],nbl_glsl_ext_FFT_impl_values[hi_ix]);
+        nbl_glsl_workgroupFFT(is_inverse,nbl_glsl_ext_FFT_impl_values[lo_ix],nbl_glsl_ext_FFT_impl_values[hi_ix]);
     }
     // special inverse steps
     if (is_inverse)

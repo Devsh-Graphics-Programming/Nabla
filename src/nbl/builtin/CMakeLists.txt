@@ -105,6 +105,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/subgroup/basic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
+  ##"nbl/builtin/glsl/subgroup/fft.glsl"
   # utilities
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
