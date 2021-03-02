@@ -1,12 +1,3 @@
-#ifndef _NBL_GLSL_EXT_DEFAULT_COMPUTE_FFT_INCLUDED_
-#define _NBL_GLSL_EXT_DEFAULT_COMPUTE_FFT_INCLUDED_
-
-// WorkGroup Size
-
-#ifndef _NBL_GLSL_EXT_FFT_MAX_CHANNELS
-#define _NBL_GLSL_EXT_FFT_MAX_CHANNELS 4
-#endif
-
 #ifndef _NBL_GLSL_WORKGROUP_SIZE_
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 #endif
@@ -84,5 +75,3 @@ void main()
 		nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse(), ch);
 	}
 }
-
-#endif

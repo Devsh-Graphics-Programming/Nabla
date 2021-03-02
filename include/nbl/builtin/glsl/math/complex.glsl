@@ -8,6 +8,8 @@
 #include <nbl/builtin/glsl/math/constants.glsl>
 #include <nbl/builtin/glsl/math/functions.glsl>
 
+#define nbl_glsl_complex16_t uint
+
 #define nbl_glsl_complex vec2
 #define nbl_glsl_cvec2 mat2
 #define nbl_glsl_cvec3 mat3x2
@@ -15,9 +17,9 @@
 
 nbl_glsl_complex nbl_glsl_expImaginary(in float _theta)
 {
-    float r = cos(_theta);
-    float i = sin(_theta);
-    return vec2(r, i);
+    nbl_glsl_complex retval;
+    nbl_glsl_sincos(_theta,retval.y,retval.x);
+    return retval;
 }
 
 nbl_glsl_complex nbl_glsl_complex_mul(in nbl_glsl_complex rhs, in nbl_glsl_complex lhs)
@@ -32,16 +34,47 @@ nbl_glsl_complex nbl_glsl_complex_add(in nbl_glsl_complex rhs, in nbl_glsl_compl
     return rhs + lhs;
 }
 
+nbl_glsl_complex16_t nbl_glsl_complex16_t_conjugate(in nbl_glsl_complex16_t complex) {
+    return complex^0x80000000u;
+}
 nbl_glsl_complex nbl_glsl_complex_conjugate(in nbl_glsl_complex complex) {
-    return complex * vec2(1, -1);
+    return nbl_glsl_complex(complex.x,-complex.y);
 }
 
 
 // FFT
-#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in uint k, in float N)
+{
+    const float arg = -2.f*nbl_glsl_PI*float(k)/N;
+    nbl_glsl_complex retval;
+    retval.x = cos(arg);
+    retval.y = sqrt(1.f-retval.x*retval.x); // twiddle is always half the range, so no conditional -1.f needed
+    return retval;
+}
+nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in uint k, in uint logTwoN)
+{
+    return nbl_glsl_FFT_half_twiddle(k,float(1<<logTwoN));
+}
+
+nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in bool is_inverse, in uint k, in float N)
+{
+    nbl_glsl_complex twiddle = nbl_glsl_FFT_half_twiddle(k,N);
+    if (is_inverse)
+        return nbl_glsl_complex_conjugate(twiddle);
+    return twiddle;
+}
+nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in bool is_inverse, in uint k, in uint logTwoN)
+{
+    return nbl_glsl_FFT_half_twiddle(is_inverse,k,float(1<<logTwoN));
+}
+
+
 nbl_glsl_complex nbl_glsl_FFT_twiddle(in uint k, in float N)
 {
-    return nbl_glsl_expImaginary(-2.f*nbl_glsl_PI*float(k)/N);
+    nbl_glsl_complex retval;
+    retval.x = cos(-2.f*nbl_glsl_PI*float(k)/N);
+    retval.y = sqrt(1.f-retval.x*retval.x); // twiddle is always half the range, so no conditional -1.f needed
+    return retval;
 }
 nbl_glsl_complex nbl_glsl_FFT_twiddle(in uint k, in uint logTwoN)
 {
@@ -50,7 +83,7 @@ nbl_glsl_complex nbl_glsl_FFT_twiddle(in uint k, in uint logTwoN)
 
 nbl_glsl_complex nbl_glsl_FFT_twiddle(in bool is_inverse, in uint k, in float N)
 {
-    nbl_glsl_complex twiddle = nbl_glsl_FFT_twiddle(k, N);
+    nbl_glsl_complex twiddle = nbl_glsl_FFT_twiddle(k,N);
     if (is_inverse)
         return nbl_glsl_complex_conjugate(twiddle);
     return twiddle;
@@ -59,6 +92,8 @@ nbl_glsl_complex nbl_glsl_FFT_twiddle(in bool is_inverse, in uint k, in uint log
 {
     return nbl_glsl_FFT_twiddle(is_inverse,k,float(1<<logTwoN));
 }
+
+
 
 // decimation in time
 void nbl_glsl_FFT_DIT_radix2(in nbl_glsl_complex twiddle, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)

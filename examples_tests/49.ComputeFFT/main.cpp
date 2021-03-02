@@ -74,7 +74,6 @@ R"===(#version 430 core
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
-#define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
  
 #include "../fft_convolve_ifft.comp"
 
@@ -83,13 +82,11 @@ R"===(#version 430 core
 	const size_t extraSize = 32 + 32 + 32 + 32;
 	
 	constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-	const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE) + 1u;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
-		maxPaddedDimensionSize,
-		maxItemsPerThread
+		maxPaddedDimensionSize
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -196,7 +193,6 @@ R"===(#version 430 core
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
-#define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
 
 #include "../last_fft.comp"
 
@@ -205,13 +201,11 @@ R"===(#version 430 core
 	const size_t extraSize = 32 + 32 + 32 + 32;
 	
 	constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-	const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE) + 1u;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
-		maxPaddedDimensionSize,
-		maxItemsPerThread
+		maxPaddedDimensionSize
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(

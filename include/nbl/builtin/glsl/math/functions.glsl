@@ -191,7 +191,8 @@ void nbl_glsl_sincos(in float theta, out float s, out float c)
 {
     c = cos(theta);
     s = sqrt(1.0-c*c);
-    s = theta<0.0 ? -s:s; // TODO: do with XOR
+    s = theta<0.0 ? -s:s; // TODO: test with XOR
+    //s = uintBitsToFloat(floatBitsToUint(s)^(floatBitsToUint(theta)&0x80000000u));
 }
 
 mat2x3 nbl_glsl_frisvad(in vec3 n)

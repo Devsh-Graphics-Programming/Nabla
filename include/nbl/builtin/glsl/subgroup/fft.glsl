@@ -15,6 +15,8 @@
 //TODO: optimization for DFT of real signal
 
 // TODO: with stockham or something that does not require stupid shuffles to extract and pack
+// https://cnx.org/contents/8D0YvnW1@7.1:1aiTU8is@6/Alternate-FFT-Structures
+// These twiddle factors can be precomputed once and stored in an array in computer memory, and accessed in the FFT algorithm by table lookup. This simple technique yields very substantial savings and is almost always used in practice.
 void nbl_glsl_subgroupFFT_loop(in bool is_inverse, in uint stride, inout nbl_glsl_complex lo, inout nbl_glsl_complex hi)
 {
     const uint sub_ix = nbl_glsl_SubgroupInvocationID&(stride-1u);

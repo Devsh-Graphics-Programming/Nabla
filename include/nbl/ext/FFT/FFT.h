@@ -41,11 +41,12 @@ class FFT : public core::TotalInterface
 		enum class PaddingType : uint8_t {
 			CLAMP_TO_EDGE = 0,
 			FILL_WITH_ZERO = 1,
+			// TODO: mirror?
 		};
 
 		enum class DataType {
 			SSBO,
-			TEXTURE2D,
+			TEXTURE2D
 		};
 
 		struct DispatchInfo_t

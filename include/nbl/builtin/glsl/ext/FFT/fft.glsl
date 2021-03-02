@@ -8,16 +8,8 @@
 #include <nbl/builtin/glsl/math/complex.glsl>
 #include <nbl/builtin/glsl/ext/FFT/parameters.glsl>
 
-#ifndef _NBL_GLSL_EXT_FFT_MAX_CHANNELS
-#error "_NBL_GLSL_EXT_FFT_MAX_CHANNELS should be defined."
-#endif
-
 #ifndef _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
 #error "_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ should be defined."
-#endif
-
-#ifndef _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD
-#error "_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD should be defined."
 #endif
 
 #include "nbl/builtin/glsl/workgroup/shared_fft.glsl"
@@ -72,7 +64,8 @@ uvec3 nbl_glsl_ext_FFT_getCoordinates(in uint tidx)
 #include "nbl/builtin/glsl/workgroup/fft.glsl"
 
 
-nbl_glsl_complex nbl_glsl_ext_FFT_impl_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD*2u]; // TODO: redo later
+nbl_glsl_complex nbl_glsl_ext_FFT_impl_values[(_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_-1u)/_NBL_GLSL_WORKGROUP_SIZE_+1u];
+
 void nbl_glsl_ext_FFT_loop(in bool is_inverse, in uint virtual_thread_count, in uint step)
 {
     for(uint t=0u; t<virtual_thread_count; t++)
@@ -90,7 +83,7 @@ void nbl_glsl_ext_FFT_loop(in bool is_inverse, in uint virtual_thread_count, in 
             nbl_glsl_FFT_DIF_radix2(twiddle,nbl_glsl_ext_FFT_impl_values[lo_ix],nbl_glsl_ext_FFT_impl_values[hi_ix]);
     }
 }
-// TODO: try radix-4 or even radix-8 for perf
+
 void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
 {
     // Virtual Threads Calculation

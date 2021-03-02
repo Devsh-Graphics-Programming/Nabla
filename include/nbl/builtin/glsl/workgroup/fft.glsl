@@ -27,8 +27,7 @@
 #endif
 
 
-//TODO: optimization for DFT of real signal
-
+//TODO: try radix-4 or even radix-8 for perf
 
 void nbl_glsl_workgroupFFT_loop(in bool is_inverse, in uint stride)
 {
@@ -42,7 +41,10 @@ void nbl_glsl_workgroupFFT_loop(in bool is_inverse, in uint stride)
     nbl_glsl_complex low = nbl_glsl_complex(uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[lo_x_ix]),uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[lo_y_ix]));
     nbl_glsl_complex high = nbl_glsl_complex(uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_x_ix]),uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[hi_y_ix]));
 
-    nbl_glsl_complex twiddle = nbl_glsl_FFT_twiddle(is_inverse,sub_ix,float(stride<<1u));
+    nbl_glsl_complex twiddle = nbl_glsl_complex(1.f,0.f);
+    if (stride!=1u)
+        twiddle = nbl_glsl_FFT_twiddle(is_inverse,sub_ix,float(stride<<1u));
+
     if (is_inverse)
         nbl_glsl_FFT_DIT_radix2(twiddle,low,high);
     else
@@ -97,16 +99,22 @@ void nbl_glsl_workgroupFFT(in bool is_inverse, inout nbl_glsl_complex lo, inout 
     if (is_inverse)
     {
         nbl_glsl_FFT_DIT_radix2(nbl_glsl_FFT_twiddle(true,gl_LocalInvocationIndex,doubleWorkgroupSize),lo,hi);
-        
-    const float doubleSubgroupSize = float(nbl_glsl_SubgroupSize<<1u);
-    lo /= doubleSubgroupSize;
-    hi /= doubleSubgroupSize;
-    const float scaleFactor = float(nbl_glsl_SubgroupSize<<1u)/doubleWorkgroupSize;
-        lo *= scaleFactor;
-        hi *= scaleFactor;
+
+        lo /= doubleWorkgroupSize;
+        hi /= doubleWorkgroupSize;
     }
 }
 
+#if 0 // TODO
+// Computes Forward FFT of two real signals
+void nbl_glsl_workgroupRealFFT(in bool is_inverse, in float sequenceALo, in float sequenceAHi, in float sequenceBLo, in float sequenceBHi)
+{
+    nbl_glsl_complex lo = nbl_glsl_complex(sequenceALo,sequenceBLo);
+    nbl_glsl_complex hi = nbl_glsl_complex(sequenceAHi,sequenceBHi);
+    nbl_glsl_workgroupFFT(false,lo,hi);
+    // extract aDFT and bDFT by using sorensens method
+}
+#endif
 
 
 #endif
