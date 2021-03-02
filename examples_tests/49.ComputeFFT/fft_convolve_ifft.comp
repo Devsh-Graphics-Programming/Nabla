@@ -5,11 +5,9 @@
 #define _NBL_GLSL_EXT_FFT_MAX_CHANNELS 4
 #endif
 
-#ifndef _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_
-#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ 256
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
 #endif
-#define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_
-
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 
  
@@ -87,7 +85,7 @@ void convolve()
 	for(uint ch = 0u; ch < numChannels; ++ch) {
 		for(uint t = 0u; t < num_virtual_threads; t++)
 		{
-			uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_;
+			uint tid = thread_offset + t * _NBL_GLSL_WORKGROUP_SIZE_;
 			uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
 			uint idx = ch * (dimension.x * dimension.y * dimension.z) + coords.z * (dimension.x * dimension.y) + coords.y * (dimension.x) + coords.x;
 			nbl_glsl_complex temp = inoutData[idx];

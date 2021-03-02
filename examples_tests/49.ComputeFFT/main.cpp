@@ -72,7 +72,7 @@ uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 	const char* sourceFmt =
 R"===(#version 430 core
 
-#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
+#define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
  
@@ -194,7 +194,7 @@ uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 	const char* sourceFmt =
 R"===(#version 430 core
 
-#define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
+#define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
 
