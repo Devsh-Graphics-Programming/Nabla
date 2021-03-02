@@ -24,7 +24,7 @@ layout(set=0, binding=1, rgba16f) uniform image2D outImage;
 
 layout(push_constant) uniform PushConstants
 {
-	layout (offset = 0) nbl_glsl_ext_FFT_Parameters_t params;
+	nbl_glsl_ext_FFT_Parameters_t params;
     layout (offset = 32) uvec3 kernel_dimension;
 } pc;
 
@@ -72,6 +72,6 @@ void main()
     const uint numChannels = nbl_glsl_ext_FFT_Parameters_t_getNumChannels();
 	for(uint ch = 0u; ch < numChannels; ++ch)
 	{
-		nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse(), ch);
+		nbl_glsl_ext_FFT(true, ch);
 	}
 }
