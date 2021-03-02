@@ -177,6 +177,25 @@ void nbl_glsl_workgroup_FFT(in bool is_inverse, inout nbl_glsl_complex lo, inout
     }
 }
 
+
+nbl_glsl_complex nbl_glsl_ext_FFT_impl_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD*2u]; // TODO: redo later
+void nbl_glsl_ext_FFT_loop(in bool is_inverse, in uint virtual_thread_count, in uint step)
+{
+    for(uint t=0u; t<virtual_thread_count; t++)
+    {
+        const uint pseudo_step = step>>_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_;
+        const uint lo = t&(pseudo_step-1u);
+        const uint lo_ix = nbl_glsl_bitfieldInsert_impl(t,0u,lo,1u);
+        const uint hi_ix = lo_ix|pseudo_step;
+        
+        const uint subFFTItem = (lo<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+        nbl_glsl_complex twiddle = nbl_glsl_FFT_twiddle(is_inverse,subFFTItem,float(step<<1u));
+        if (is_inverse)
+            nbl_glsl_FFT_DIT_radix2(twiddle,nbl_glsl_ext_FFT_impl_values[lo_ix],nbl_glsl_ext_FFT_impl_values[hi_ix]);
+        else
+            nbl_glsl_FFT_DIF_radix2(twiddle,nbl_glsl_ext_FFT_impl_values[lo_ix],nbl_glsl_ext_FFT_impl_values[hi_ix]);
+    }
+}
 // TODO: try radix-4 or even radix-8 for perf
 void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
 {
@@ -186,56 +205,35 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
 
     const uint halfDataLength = dataLength>>1u;
     const uint virtual_thread_count = item_per_thread_count>>1u;
-    nbl_glsl_complex values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD*2u]; // TODO: redo later
 
     // Load Values into local memory
     for(uint t=0u; t<item_per_thread_count; t++)
     {
         const uint tid = (t<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-        values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),channel);
+        nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),channel);
         if (is_inverse)
-            values[t] /= float(virtual_thread_count);
+            nbl_glsl_ext_FFT_impl_values[t] /= float(virtual_thread_count);
     }
+    // special forward steps
     if (!is_inverse)
-    {
-        for (uint step=halfDataLength; step>_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_; step>>=1u)
-        for(uint t=0u; t<virtual_thread_count; t++)
-        {
-            const uint pseudo_step = step>>_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_;
-            const uint lo = t&(pseudo_step-1u);
-            const uint lo_ix = nbl_glsl_bitfieldInsert_impl(t,0u,lo,1u);
-            const uint hi_ix = lo_ix|pseudo_step;
-        
-            const uint subFFTItem = (lo<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-            nbl_glsl_FFT_DIF_radix2(nbl_glsl_FFT_twiddle(is_inverse,subFFTItem,float(step<<1u)),values[lo_ix],values[hi_ix]);
-        }
-    }
+    for (uint step = halfDataLength; step > _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_; step >>= 1u)
+        nbl_glsl_ext_FFT_loop(false,virtual_thread_count,step);
     // do workgroup sized sub-FFTs
     for(uint t=0u; t<virtual_thread_count; t++)
     {
         const uint lo_ix = t<<1u;
         const uint hi_ix = lo_ix|1u;
-        nbl_glsl_workgroup_FFT(is_inverse,values[lo_ix],values[hi_ix]);
+        nbl_glsl_workgroup_FFT(is_inverse,nbl_glsl_ext_FFT_impl_values[lo_ix],nbl_glsl_ext_FFT_impl_values[hi_ix]);
     }
+    // special inverse steps
     if (is_inverse)
-    {
-        for (uint step=_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_<<1u; step<dataLength; step<<=1u)
-        for(uint t=0u; t<virtual_thread_count; t++)
-        {
-            const uint pseudo_step = step>>_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_;
-            const uint lo = t&(pseudo_step-1u);
-            const uint lo_ix = nbl_glsl_bitfieldInsert_impl(t,0u,lo,1u);
-            const uint hi_ix = lo_ix|pseudo_step;
-        
-            const uint subFFTItem = (lo<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-            nbl_glsl_FFT_DIT_radix2(nbl_glsl_FFT_twiddle(is_inverse,subFFTItem,float(step<<1u)),values[lo_ix],values[hi_ix]);
-        }
-    }
+    for (uint step=_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_<<1u; step<dataLength; step<<=1u)
+        nbl_glsl_ext_FFT_loop(true,virtual_thread_count,step);
     // write out to main memory
     for(uint t=0u; t<item_per_thread_count; t++)
     {
         const uint tid = (t<<_NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-        nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,values[t]);
+        nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,nbl_glsl_ext_FFT_impl_values[t]);
     }
 }
 
