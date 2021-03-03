@@ -84,23 +84,12 @@ void nbl_glsl_ext_FFT_loop(in bool is_inverse, in uint virtual_thread_count, in 
     }
 }
 
-void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
+void nbl_glsl_ext_FFT_preloaded(bool is_inverse, in uint dataLength)
 {
     // Virtual Threads Calculation
-    const uint dataLength = nbl_glsl_ext_FFT_Parameters_t_getFFTLength();
-    const uint item_per_thread_count = dataLength>>_NBL_GLSL_WORKGROUP_SIZE_LOG2_;
-
     const uint halfDataLength = dataLength>>1u;
-    const uint virtual_thread_count = item_per_thread_count>>1u;
+    const uint virtual_thread_count = halfDataLength>>_NBL_GLSL_WORKGROUP_SIZE_LOG2_;
 
-    // Load Values into local memory
-    for(uint t=0u; t<item_per_thread_count; t++)
-    {
-        const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-        nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),channel);
-        if (is_inverse)
-            nbl_glsl_ext_FFT_impl_values[t] /= float(virtual_thread_count);
-    }
     // special forward steps
     if (!is_inverse)
     for (uint step=halfDataLength; step>_NBL_GLSL_WORKGROUP_SIZE_; step>>=1u)
@@ -111,11 +100,32 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
         const uint lo_ix = t<<1u;
         const uint hi_ix = lo_ix|1u;
         nbl_glsl_workgroupFFT(is_inverse,nbl_glsl_ext_FFT_impl_values[lo_ix],nbl_glsl_ext_FFT_impl_values[hi_ix]);
+        if (is_inverse)
+        {
+            nbl_glsl_ext_FFT_impl_values[lo_ix] /= float(virtual_thread_count);
+            nbl_glsl_ext_FFT_impl_values[hi_ix] /= float(virtual_thread_count);
+        }
     }
     // special inverse steps
     if (is_inverse)
     for (uint step=_NBL_GLSL_WORKGROUP_SIZE_<<1u; step<dataLength; step<<=1u)
         nbl_glsl_ext_FFT_loop(true,virtual_thread_count,step);
+}
+
+void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
+{
+    // Virtual Threads Calculation
+    const uint dataLength = nbl_glsl_ext_FFT_Parameters_t_getFFTLength();
+    const uint item_per_thread_count = dataLength>>_NBL_GLSL_WORKGROUP_SIZE_LOG2_;
+
+    // Load Values into local memory
+    for(uint t=0u; t<item_per_thread_count; t++)
+    {
+        const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+        nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),channel);
+    }
+    // do FFT
+    nbl_glsl_ext_FFT_preloaded(is_inverse,dataLength);
     // write out to main memory
     for(uint t=0u; t<item_per_thread_count; t++)
     {

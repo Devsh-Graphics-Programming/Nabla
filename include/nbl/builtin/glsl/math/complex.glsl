@@ -43,32 +43,6 @@ nbl_glsl_complex nbl_glsl_complex_conjugate(in nbl_glsl_complex complex) {
 
 
 // FFT
-nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in uint k, in float N)
-{
-    const float arg = -2.f*nbl_glsl_PI*float(k)/N;
-    nbl_glsl_complex retval;
-    retval.x = cos(arg);
-    retval.y = sqrt(1.f-retval.x*retval.x); // twiddle is always half the range, so no conditional -1.f needed
-    return retval;
-}
-nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in uint k, in uint logTwoN)
-{
-    return nbl_glsl_FFT_half_twiddle(k,float(1<<logTwoN));
-}
-
-nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in bool is_inverse, in uint k, in float N)
-{
-    nbl_glsl_complex twiddle = nbl_glsl_FFT_half_twiddle(k,N);
-    if (is_inverse)
-        return nbl_glsl_complex_conjugate(twiddle);
-    return twiddle;
-}
-nbl_glsl_complex nbl_glsl_FFT_half_twiddle(in bool is_inverse, in uint k, in uint logTwoN)
-{
-    return nbl_glsl_FFT_half_twiddle(is_inverse,k,float(1<<logTwoN));
-}
-
-
 nbl_glsl_complex nbl_glsl_FFT_twiddle(in uint k, in float N)
 {
     nbl_glsl_complex retval;
