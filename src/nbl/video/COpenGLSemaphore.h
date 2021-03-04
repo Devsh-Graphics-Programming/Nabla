@@ -32,7 +32,7 @@ public:
         ES_ERROR
     };
 
-    COpenGLSemaphore()
+    COpenGLSemaphore(ILogicalDevice* dev) : IGPUSemaphore(dev)
     {
 
     }

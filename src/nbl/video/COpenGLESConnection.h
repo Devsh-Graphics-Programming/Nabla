@@ -2,13 +2,13 @@
 #define __NBL_C_OPENGL_CONNECTION_H_INCLUDED__
 
 #include "nbl/video/COpenGL_Connection.h"
-#include "nbl/video/COpenGLPhysicalDevice.h"
+#include "nbl/video/COpenGLESPhysicalDevice.h"
 
 namespace nbl {
 namespace video
 {
 
-using COpenGLConnection = COpenGL_Connection<COpenGLPhysicalDevice, EAT_OPENGL>;
+using COpenGLESConnection = COpenGL_Connection<COpenGLESPhysicalDevice, EAT_OPENGL_ES>;
 
 }
 }

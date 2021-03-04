@@ -28,21 +28,21 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         virtual ~COpenGLBuffer();
 
     public:
-        COpenGLBuffer(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(mreqs), m_device(dev), BufferName(0), cachedFlags(0)
+        COpenGLBuffer(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(dev, mreqs), m_device(dev), BufferName(0), cachedFlags(0)
         {
 			lastTimeReallocated = 0;
             gl->extGlCreateBuffers(1,&BufferName);
             if (BufferName==0)
                 return;
 
-            cachedFlags =   (canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|
-                            (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? GL_CLIENT_STORAGE_BIT:0);
+            cachedFlags =   (canModifySubData ? IOpenGL_FunctionTable::DYNAMIC_STORAGE_BIT:0)|
+                            (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? IOpenGL_FunctionTable::CLIENT_STORAGE_BIT:0);
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)
-                cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
+                cachedFlags |= IOpenGL_FunctionTable::MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)
-                cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
+                cachedFlags |= IOpenGL_FunctionTable::MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)
-                cachedFlags |= GL_MAP_COHERENT_BIT;
+                cachedFlags |= IOpenGL_FunctionTable::MAP_COHERENT_BIT;
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
         }
 
@@ -51,7 +51,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 
 
         //!
-        inline bool canUpdateSubRange() const override {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
+        inline bool canUpdateSubRange() const override {return cachedFlags&IOpenGL_FunctionTable::DYNAMIC_STORAGE_BIT;}
 
         //!
         /*

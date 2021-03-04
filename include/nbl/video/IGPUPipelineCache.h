@@ -7,16 +7,19 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/ICPUPipelineCache.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl { namespace video
 {
 
-class IGPUPipelineCache : public core::IReferenceCounted
+class IGPUPipelineCache : public core::IReferenceCounted, public IBackendObject
 {
 protected:
 	virtual ~IGPUPipelineCache() = default;
 
 public:
+	explicit IGPUPipelineCache(ILogicalDevice* dev) : IBackendObject(dev) {}
+
 	virtual void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) = 0;
 
 	virtual core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const = 0;

@@ -10,7 +10,7 @@ namespace video
 
 class COpenGLPrimaryCommandBuffer final : public COpenGLCommandBuffer, public IGPUPrimaryCommandBuffer
 {
-    explicit COpenGLPrimaryCommandBuffer(const IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(_cmdpool)
+    COpenGLPrimaryCommandBuffer(ILogicalDevice* dev, const IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, _cmdpool)
     {
 
     }

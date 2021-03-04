@@ -13,6 +13,8 @@ namespace asset
 class IRenderpass
 {
 public:
+    static constexpr inline uint32_t ATTACHMENT_UNUSED = 0xffFFffFFu;
+
     enum E_LOAD_OP : uint8_t
     {
         ELO_LOAD,
@@ -47,8 +49,8 @@ public:
         {
             struct SAttachmentRef
             {
-                uint32_t attachment;
-                E_IMAGE_LAYOUT layout;
+                uint32_t attachment = ATTACHMENT_UNUSED;
+                E_IMAGE_LAYOUT layout = EIL_UNDEFINED;
             };
 
             E_SUBPASS_DESCRIPTION_FLAGS flags = ESDF_NONE;

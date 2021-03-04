@@ -9,7 +9,17 @@ namespace nbl {
 namespace video
 {
 
-using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue, COpenGLESSwapchain>;
+class COpenGLESLogicalDevice final : public COpenGL_LogicalDevice<COpenGLESQueue, COpenGLESSwapchain>
+{
+    using base_t = COpenGL_LogicalDevice<COpenGLESQueue, COpenGLESSwapchain>;
+
+public:
+    COpenGLESLogicalDevice(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
+        base_t(_egl, EAT_OPENGL_ES, _features, config, major, minor, params)
+    {
+
+    }
+};
 
 }
 }

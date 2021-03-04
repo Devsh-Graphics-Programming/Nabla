@@ -51,7 +51,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		};
 
 	public:
-		COpenGLDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get())
+		COpenGLDescriptorSet(ILogicalDevice* dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(dev, std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get())
 		{
 			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
 			uint32_t uboCount = 0u;//includes dynamics

@@ -12,7 +12,7 @@ namespace video
 class COpenGLEvent : public IGPUEvent
 {
 public:
-
+    using IGPUEvent::IGPUEvent;
 
 private:
     core::smart_refctd_ptr<COpenGLSync> m_syncSignal, m_syncUnsignal;

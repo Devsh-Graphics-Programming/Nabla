@@ -2,17 +2,18 @@
 #define __NBL_I_GPU_RENDERPASS_H_INCLUDED__
 
 #include "nbl/asset/IRenderpass.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
 {
 
-class IGPURenderpass : public asset::IRenderpass, public core::IReferenceCounted
+class IGPURenderpass : public asset::IRenderpass, public core::IReferenceCounted, public IBackendObject
 {
     using base_t = asset::IRenderpass;
 
 public:
-    using base_t::base_t;
+    IGPURenderpass(ILogicalDevice* dev, const SCreationParams& params) : base_t(params), IBackendObject(dev) {}
 };
 
 }

@@ -8,6 +8,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/IPipelineLayout.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
@@ -18,10 +19,20 @@ namespace video
     @see IPipelineLayout
 */
 
-class IGPUPipelineLayout : public core::IReferenceCounted, public asset::IPipelineLayout<IGPUDescriptorSetLayout>
+class IGPUPipelineLayout : public core::IReferenceCounted, public asset::IPipelineLayout<IGPUDescriptorSetLayout>, public IBackendObject
 {
+    using base_t = asset::IPipelineLayout<IGPUDescriptorSetLayout>;
+
 public:
-    using asset::IPipelineLayout<IGPUDescriptorSetLayout>::IPipelineLayout;
+    IGPUPipelineLayout(
+        ILogicalDevice* dev,
+        const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
+    ) : base_t(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3)), IBackendObject(dev)
+    {
+
+    }
 
 protected:
     virtual ~IGPUPipelineLayout() = default;

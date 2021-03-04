@@ -28,6 +28,11 @@ namespace nbl {
 			static inline constexpr GLenum TEXTURE_MAX_ANISOTROPY			= 0x84FE;
 			static inline constexpr GLenum TEXTURE_LOD_BIAS					= 0x8501;
 			static inline constexpr GLenum DEPTH_CLAMP						= 0x864F;
+			static inline constexpr GLenum FRAMEBUFFER_SRGB					= 0x8DB9; // GL_EXT_sRGB_write_control GLES extension (i think we got to require this)
+			// clip control
+			static inline constexpr GLenum UPPER_LEFT						= 0x8CA2;
+			static inline constexpr GLenum ZERO_TO_ONE						= 0x935F;
+
 			//desktop GL only
 			static inline constexpr GLenum TEXTURE_1D						= 0x0de0;
 			static inline constexpr GLenum TEXTURE_1D_ARRAY					= 0x8c18;
@@ -39,6 +44,7 @@ namespace nbl {
 			static inline constexpr GLenum MULTISAMPLE						= 0x809D;
 			static inline constexpr GLenum POLYGON_OFFSET_POINT				= 0x2A01;
 			static inline constexpr GLenum POLYGON_OFFSET_LINE				= 0x2A02;
+			static inline constexpr GLenum TEXTURE_CUBE_MAP_SEAMLESS		= 0x884F;
 
 			class OpenGLFunctionLoader final : public system::FuncPtrLoader
 			{
@@ -190,6 +196,7 @@ namespace nbl {
 				, glStencilOpSeparate
 				, glStencilMaskSeparate
 				, glBlendFuncSeparate
+				, glDepthRangef
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLvertex, OpenGLFunctionLoader
 				, glGenVertexArrays
@@ -349,6 +356,7 @@ namespace nbl {
 			virtual inline void extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 			virtual void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) = 0;
 			virtual void extGlDepthRangeArrayv(GLuint first, GLsizei count, const double* v) = 0;
+			virtual void extGlClipControl(GLenum origin, GLenum depth) = 0;
 			virtual inline void extGlEnablei(GLenum target, GLuint index)
 			{
 				if (glGeneral.pglEnablei)

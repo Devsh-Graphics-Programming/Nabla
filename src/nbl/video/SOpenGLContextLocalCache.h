@@ -2,6 +2,7 @@
 #define __NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED__
 
 #include "nbl/video/SOpenGLState.h"
+#include "nbl/core/containers/LRUCache.h"
 
 namespace nbl {
 namespace video
@@ -25,15 +26,16 @@ struct SOpenGLContextLocalCache
     {
         // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
         GSB_PIPELINE = 1u << 0,
-        GSB_RASTER_PARAMETERS = 1u << 1,
+        GSB_FRAMEBUFFER = 1u << 1,
+        GSB_RASTER_PARAMETERS = 1u << 2,
         // we want the two to happen together and just before a draw (set VAO first, then binding)
-        GSB_VAO_AND_VERTEX_INPUT = 1u << 2,
-        // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
-        GSB_DESCRIPTOR_SETS = 1u << 3,
+        GSB_VAO_AND_VERTEX_INPUT = 1u << 3,
+        // flush just before dispatches or drawcalls
+        GSB_DESCRIPTOR_SETS = 1u << 4,
         // GL_DISPATCH_INDIRECT_BUFFER 
-        GSB_DISPATCH_INDIRECT = 1u << 4,
-        GSB_PUSH_CONSTANTS = 1u << 5,
-        GSB_PIXEL_PACK_UNPACK = 1u << 6,
+        GSB_DISPATCH_INDIRECT = 1u << 5,
+        GSB_PUSH_CONSTANTS = 1u << 6,
+        GSB_PIXEL_PACK_UNPACK = 1u << 7,
         // flush everything
         GSB_ALL = ~0x0u
     };
@@ -41,16 +43,18 @@ struct SOpenGLContextLocalCache
     struct SPipelineCacheVal
     {
         GLuint GLname;
-        core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
-        uint64_t lastUsed;
     };
 
     static inline constexpr size_t maxVAOCacheSize = 0x1ull << 10; //make this cache configurable
     static inline constexpr size_t maxPipelineCacheSize = 0x1ull << 13;//8k
+    static inline constexpr size_t maxFBOCacheSize = 0x1ull << 8; // 256
 
-    SOpenGLContextLocalCache()
+    SOpenGLContextLocalCache() : VAOMap(maxVAOCacheSize), GraphicsPipelineMap(maxPipelineCacheSize), FBOCache(maxFBOCacheSize)
     {
-        VAOMap.reserve(maxVAOCacheSize);
+    }
+    ~SOpenGLContextLocalCache()
+    {
+        // TODO destroy all GL names in the caches
     }
 
     SOpenGLState currentState;
@@ -77,16 +81,50 @@ struct SOpenGLContextLocalCache
             return nullptr;
     }
 
-    core::vector<SOpenGLState::HashVAOPair> VAOMap;
-    struct HashPipelinePair
+    core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash> VAOMap;
+    core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc> GraphicsPipelineMap;
+    core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc> FBOCache;
+
+    inline void removePipelineEntry(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& key)
     {
-        SOpenGLState::SGraphicsPipelineHash first;
-        SPipelineCacheVal second;
+        SOpenGLContextLocalCache::SPipelineCacheVal* found = GraphicsPipelineMap.peek(key);
+        if (found)
+        {
+            GLuint GLname = found->GLname;
 
-        inline bool operator<(const HashPipelinePair& rhs) const { return first < rhs.first; }
-    };
-    core::vector<HashPipelinePair> GraphicsPipelineMap;
+            GraphicsPipelineMap.erase(key);
 
+            if (currentState.pipeline.graphics.usedPipeline == GLname)
+            {
+                currentState.pipeline.graphics.pipeline = nullptr;
+                currentState.pipeline.graphics.usedPipeline = 0u;
+                memset(currentState.pipeline.graphics.usedShadersHash.data(), 0, sizeof(SOpenGLState::SGraphicsPipelineHash));
+            }
+
+            // TODO? maybe make LRU cache delete on erase
+            gl->glShader.pglDeleteProgramPipelines(1, &GLname);
+        }
+    }
+    inline void removeFBOEntry(IOpenGL_FunctionTable* gl, const SOpenGLState::SFBOHash& key)
+    {
+        GLuint* found = FBOCache.peek(key);
+        if (found)
+        {
+            GLuint GLname = found[0];
+
+            FBOCache.erase(key);
+
+            // for safety
+            if (currentState.framebuffer.GLname == GLname)
+            {
+                currentState.framebuffer.GLname = 0u;
+                memset(currentState.framebuffer.hash.data(), 0, sizeof(SOpenGLState::SFBOHash));
+            }
+
+            // TODO? maybe make LRU cache delete on erase
+            gl->glFramebuffer.pglDeleteFramebuffers(1, &GLname);
+        }
+    }
 
     void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline, uint32_t ctxid);
 
@@ -120,46 +158,10 @@ struct SOpenGLContextLocalCache
     void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
 
 private:
+    uint64_t m_timestampCounter = 0u;
+
     void flushState_descriptors(IOpenGL_FunctionTable* gl, asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout);
     GLuint createGraphicsPipeline(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& _hash);
-
-    inline void freeUpVAOCache(IOpenGL_FunctionTable* gl, bool exitOnFirstDelete)
-    {
-        for (auto it = VAOMap.begin(); VAOMap.size() > maxVAOCacheSize && it != VAOMap.end();)
-        {
-            if (it->first == currentState.vertexInputParams.vao.first)
-                continue;
-
-            if (CNullDriver::ReallocationCounter - it->second.lastUsed > 1000) //maybe make this configurable
-            {
-                gl->glVertex.pglDeleteVertexArrays(1, &it->second.GLname);
-                it = VAOMap.erase(it);
-                if (exitOnFirstDelete)
-                    return;
-            }
-            else
-                it++;
-        }
-    }
-    //TODO DRY
-    inline void freeUpGraphicsPipelineCache(IOpenGL_FunctionTable* gl, bool exitOnFirstDelete)
-    {
-        for (auto it = GraphicsPipelineMap.begin(); GraphicsPipelineMap.size() > maxPipelineCacheSize && it != GraphicsPipelineMap.end();)
-        {
-            if (it->first == currentState.pipeline.graphics.usedShadersHash)
-                continue;
-
-            if (CNullDriver::ReallocationCounter - it->second.lastUsed > 1000) //maybe make this configurable
-            {
-                gl->glShader.pglDeleteProgramPipelines(1, &it->second.GLname);
-                it = GraphicsPipelineMap.erase(it);
-                if (exitOnFirstDelete)
-                    return;
-            }
-            else
-                it++;
-        }
-    }
 
     static inline GLenum getGLpolygonMode(asset::E_POLYGON_MODE pm)
     {

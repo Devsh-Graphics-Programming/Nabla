@@ -11,17 +11,18 @@
 #include "nbl/asset/IBufferView.h"
 
 #include "IGPUBuffer.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
 namespace video
 {
 
-class IGPUBufferView : public asset::IBufferView<IGPUBuffer>
+class IGPUBufferView : public asset::IBufferView<IGPUBuffer>, public IBackendObject
 {
 public:
-    IGPUBufferView(core::smart_refctd_ptr<IGPUBuffer> _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) :
-        asset::IBufferView<IGPUBuffer>(std::move(_buffer), _format, _offset, _size)
+    IGPUBufferView(ILogicalDevice* dev, core::smart_refctd_ptr<IGPUBuffer> _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) :
+        asset::IBufferView<IGPUBuffer>(std::move(_buffer), _format, _offset, _size), IBackendObject(dev)
     {}
 
 protected:

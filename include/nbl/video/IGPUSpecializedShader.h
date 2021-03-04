@@ -7,6 +7,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/ISpecializedShader.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
@@ -18,10 +19,10 @@ namespace video
 	@see ISpecializedShader
 */
 
-class IGPUSpecializedShader : public asset::ISpecializedShader
+class IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendObject
 {
 	public:
-		IGPUSpecializedShader(asset::ISpecializedShader::E_SHADER_STAGE _stage) : m_stage(_stage) {}
+		IGPUSpecializedShader(ILogicalDevice* dev, asset::ISpecializedShader::E_SHADER_STAGE _stage) : IBackendObject(dev), m_stage(_stage) {}
 
 		asset::ISpecializedShader::E_SHADER_STAGE getStage() const { return m_stage; }
 

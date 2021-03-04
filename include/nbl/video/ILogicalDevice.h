@@ -10,6 +10,11 @@
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/ISwapchain.h"
+#include "nbl/asset/ICPUShader.h"
+#include "nbl/asset/ISPIRVOptimizer.h"
+#include "nbl/video/IGPUShader.h"
+#include "nbl/video/IGPUPipelineCache.h"
+#include "nbl/video/EApiType.h"
 
 namespace nbl {
 namespace video
@@ -55,7 +60,7 @@ public:
         size_t offset;
     };
 
-    ILogicalDevice(const SCreationParams& params)
+    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params) : m_apiType(api_type)
     {
         uint32_t qcnt = 0u;
         uint32_t greatestFamNum = 0u;
@@ -82,6 +87,8 @@ public:
         }
     }
 
+    E_API_TYPE getAPIType() const { return m_apiType; }
+
     IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
@@ -100,16 +107,35 @@ public:
     virtual void resetFences(uint32_t _count, IGPUFence** _fences) = 0;
     virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
 
-    virtual void createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _outCmdBufs) = 0;
-    virtual void freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
-    virtual void createDescriptorSets(IDescriptorPool* _descPool, uint32_t _count, IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* _outDescSets) = 0;
+    bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _outCmdBufs)
+    {
+        if (!_cmdPool->wasCreatedBy(this))
+            return false;
+        return createCommandBuffers_impl(_cmdPool, _level, _count, _outCmdBufs);
+    }
+    bool freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count)
+    {
+        for (uint32_t i = 0u; i < _count; ++i)
+            if (!_cmdbufs[i]->wasCreatedBy(this))
+                return false;
+        return freeCommandBuffers_impl(_cmdbufs, _count);
+    }
 
     virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) = 0;
     virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
-    virtual core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params) = 0;
+    core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params)
+    {
+        if (!params.renderpass->wasCreatedBy(this))
+            return nullptr;
+        if (!IGPUFramebuffer::validate(params))
+            return nullptr;
+        return createGPUFramebuffer_impl(std::move(params));
+    }
 
     virtual core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) = 0;
+
+    virtual void regenerateMipLevels(IGPUImageView* imageview) = 0;
 
 
     static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
@@ -261,10 +287,20 @@ public:
 
     virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
-    virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) = 0;
+    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
+    {
+        if (!_unspecialized->wasCreatedBy(this))
+            return nullptr;
+        return createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+    }
 
     //! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
-    virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) { return nullptr; }
+    core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer)
+    {
+        if (!_underlying->wasCreatedBy(this))
+            return nullptr;
+        return createGPUBufferView_impl(_underlying, _fmt, _offset, _size);
+    }
 
 
     //! Creates an Image (@see ICPUImage)
@@ -301,9 +337,21 @@ public:
 
 
     //! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
-    virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) = 0;
+    core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params)
+    {
+        if (!params.image->wasCreatedBy(this))
+            return nullptr;
+        return createGPUImageView_impl(std::move(params));
+    }
 
-    virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+    core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
+    {
+        if (!pool->wasCreatedBy(this))
+            return nullptr;
+        if (layout->wasCreatedBy(this))
+            return nullptr;
+        return createGPUDescriptorSet_impl(pool, std::move(layout));
+    }
 
     void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
     {
@@ -330,29 +378,65 @@ public:
     virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
 
     //! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-    virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
+    {
+        for (auto b = _begin; b != _end; ++b)
+        {
+            if (b->type == asset::EDT_COMBINED_IMAGE_SAMPLER && b->samplers)
+            {
+                auto* samplers = b->samplers;
+                for (uint32_t i = 0u; i < b->count; ++i)
+                    if (!samplers[i]->wasCreatedBy(this))
+                        return nullptr;
+            }
+        }
+        return createGPUDescriptorSetLayout_impl(_begin, _end);
+    }
 
     //! Create a pipeline layout (@see ICPUPipelineLayout)
-    virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
+    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
         const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
     )
     {
-        return nullptr;
+        if (_layout0 && !_layout0->wasCreatedBy(this))
+            return nullptr;
+        if (_layout1 && !_layout1->wasCreatedBy(this))
+            return nullptr;
+        if (_layout2 && !_layout2->wasCreatedBy(this))
+            return nullptr;
+        if (_layout3 && !_layout3->wasCreatedBy(this))
+            return nullptr;
+        return createGPUPipelineLayout_impl(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3));
     }
 
-    virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
-    ) = 0;
+    ) {
+        if (_pipelineCache && !_pipelineCache->wasCreatedBy(this))
+            return nullptr;
+        if (!_layout->wasCreatedBy(this))
+            return nullptr;
+        if (!_shader->wasCreatedBy(this))
+            return nullptr;
+        return createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+    }
 
-    virtual bool createGPUComputePipelines(
+    bool createGPUComputePipelines(
         IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPUComputePipeline>* output
-    ) = 0;
+    ) {
+        if (pipelineCache && !pipelineCache->wasCreatedBy(this))
+            return false;
+        for (const auto& ci : createInfos)
+            if (!ci.layout->wasCreatedBy(this) || !ci.shader->wasCreatedBy(this))
+                return false;
+        return createGPUComputePipelines_impl(pipelineCache, createInfos, output);
+    }
 
     bool createGPUComputePipelines(
         IGPUPipelineCache* pipelineCache,
@@ -365,7 +449,7 @@ public:
         return createGPUComputePipelines(pipelineCache, ci, output);
     }
 
-    virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
@@ -373,13 +457,36 @@ public:
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams
-    ) = 0;
+    ) {
+        if (_pipelineCache && !_pipelineCache->wasCreatedBy(this))
+            return nullptr;
+        if (!_layout->wasCreatedBy(this))
+            return nullptr;
+        for (auto s = _shaders; s != _shadersEnd; ++s)
+        {
+            if (!(*s)->wasCreatedBy(this))
+                return nullptr;
+        }
+        return createGPURenderpassIndependentPipeline_impl(_pipelineCache, std::move(_layout), _shaders, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams);
+    }
 
-    virtual bool createGPURenderpassIndependentPipelines(
+    bool createGPURenderpassIndependentPipelines(
         IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
-    ) = 0;
+    ) {
+        if (pipelineCache && !pipelineCache->wasCreatedBy(this))
+            return false;
+        for (const IGPURenderpassIndependentPipeline::SCreationParams& ci : createInfos)
+        {
+            if (!ci.layout->wasCreatedBy(this))
+                return false;
+            for (auto& s : ci.shaders)
+                if (s && !s->wasCreatedBy(this))
+                    return false;
+        }
+        return createGPURenderpassIndependentPipelines_impl(pipelineCache, createInfos, output);
+    }
 
     bool createGPURenderpassIndependentPipelines(
         IGPUPipelineCache* pipelineCache,
@@ -392,9 +499,34 @@ public:
         return createGPURenderpassIndependentPipelines(pipelineCache, ci, output);
     }
 
-    virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
+    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params)
+    {
+        if (pipelineCache && pipelineCache->wasCreatedBy(this))
+            return nullptr;
+        if (!params.renderpass->wasCreatedBy(this))
+            return nullptr;
+        if (!params.renderpassIndependent->wasCreatedBy(this))
+            return nullptr;
+        if (!IGPUGraphicsPipeline::validate(params))
+            return nullptr;
+        return createGPUGraphicsPipeline_impl(pipelineCache, std::move(params));
+    }
 
-    virtual bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+    bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
+    {
+        if (pipelineCache && pipelineCache->wasCreatedBy(this))
+            return false;
+        for (const auto& ci : params)
+        {
+            if (!ci.renderpass->wasCreatedBy(this))
+                return false;
+            if (!ci.renderpassIndependent->wasCreatedBy(this))
+                return false;
+            if (!IGPUGraphicsPipeline::validate(ci))
+                return nullptr;
+        }
+        return createGPUGraphicsPipelines_impl(pipelineCache, params, output);
+    }
 
     bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, uint32_t count, const IGPUGraphicsPipeline::SCreationParams* params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
     {
@@ -417,10 +549,53 @@ public:
     //vkCreateShaderModule //????
 
 protected:
+    virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _outCmdBufs) = 0;
+    virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
+    virtual core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
+    virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
+    virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
+    virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
+    virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+    virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
+    virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
+        const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
+    ) = 0;
+    virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
+    ) = 0;
+    virtual bool createGPUComputePipelines_impl(
+        IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
+        core::smart_refctd_ptr<IGPUComputePipeline>* output
+    ) = 0;
+    virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+        const asset::SVertexInputParams& _vertexInputParams,
+        const asset::SBlendParams& _blendParams,
+        const asset::SPrimitiveAssemblyParams& _primAsmParams,
+        const asset::SRasterizationParams& _rasterParams
+    ) = 0;
+    virtual bool createGPURenderpassIndependentPipelines_impl(
+        IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
+    ) = 0;
+    virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
+    virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+
     using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUQueue>>;
     queues_array_t m_queues;
     using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
     q_offsets_array_t m_offsets;
+
+private:
+    const E_API_TYPE m_apiType;
 };
 
 }

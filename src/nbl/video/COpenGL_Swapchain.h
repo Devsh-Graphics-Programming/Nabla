@@ -2,7 +2,7 @@
 #define __NBL_C_OPENGL__SWAPCHAIN_H_INCLUDED__
 
 #include "nbl/video/ISwapchain.h"
-#include "nbl/video/COpenGLFunctionTable.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/system/IThreadHandler.h"
 #include "nbl/video/COpenGLImage.h"
 #include "nbl/video/surface/ISurfaceGL.h"
@@ -68,20 +68,14 @@ protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
     COpenGL_Swapchain(SCreationParams&& params, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
         ISwapchain(std::move(params)),
-        m_threadHandler(_egl, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _master, _config, _major, _minor),
-        m_thread(&CThreadHandler::thread, &m_threadHandler)
+        m_threadHandler(_egl, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _master, _config, _major, _minor)
     {
         m_images = std::move(images);
     }
 
-    ~COpenGL_Swapchain()
-    {
-        m_threadHandler.terminate(m_thread);
-    }
-
 private:
     using SThreadHandlerInternalState = FunctionTableType;
-    class CThreadHandler final : public system::IThreadHandler<SThreadHandlerInternalState>
+    class CThreadHandler final : public system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>
     {
     public:
         CThreadHandler(const egl::CEGL* _egl, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
@@ -107,7 +101,7 @@ private:
     protected:
         using base_t = system::IThreadHandler<SThreadHandlerInternalState>;
 
-        SThreadHandlerInternalState init() override
+        SThreadHandlerInternalState init()
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
@@ -134,6 +128,8 @@ private:
 
             const uint32_t fboCount = images.size();
             auto gl = SThreadHandlerInternalState(egl, features);
+
+            gl.glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
 
             gl.extGlCreateFramebuffers(fboCount, fbos);
             for (uint32_t i = 0u; i < fboCount; ++i)
@@ -166,14 +162,14 @@ private:
             lock.lock();
         }
 
-        void exit(internal_state_t& gl) override
+        void exit(internal_state_t& gl)
         {
             gl.glFramebuffer.pglDeleteFramebuffers(images.size(), fbos);
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         }
 
-        bool wakeupPredicate() const override { return needToBlit || base_t::wakeupPredicate(); }
-        bool continuePredicate() const override { return needToBlit && base_t::continuePredicate(); }
+        bool wakeupPredicate() const { return needToBlit; }
+        bool continuePredicate() const { return needToBlit; }
 
     private:
 		const egl::CEGL* egl;
@@ -192,7 +188,6 @@ private:
     };
 
     CThreadHandler m_threadHandler;
-    std::thread m_thread;
     uint32_t m_imgIx = 0u;
 };
 

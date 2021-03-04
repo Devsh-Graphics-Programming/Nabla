@@ -66,7 +66,7 @@ class COpenGLSampler : public IGPUSampler
 		~COpenGLSampler();
 
 	public:
-		COpenGLSampler(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, bool is_gles, const asset::ISampler::SParams& _params) : IGPUSampler(_params), m_device(dev)
+		COpenGLSampler(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, bool is_gles, const asset::ISampler::SParams& _params) : IGPUSampler(dev, _params), m_device(dev)
 		{
 			gl->extGlCreateSamplers(1, &m_GLname);//TODO before we were using GlGenSamplers for some reason..
 

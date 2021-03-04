@@ -15,6 +15,9 @@
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
 
+#include <string_view> // for hash
+#include <array>
+
 namespace nbl
 {
 namespace video
@@ -34,6 +37,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             const asset::SRasterizationParams& _rasterParams,
             uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[SHADER_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
         ) : IGPURenderpassIndependentPipeline(
+            _dev,
             std::move(_layout), _shadersBegin, _shadersEnd,
             _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
             ),
@@ -192,8 +196,26 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             }
         }
 
+        using SPipelineHash = std::array<GLuint, SHADER_STAGE_COUNT>;
+
+        inline SPipelineHash getPipelineHash(uint32_t ctxid) const
+        {
+            SPipelineHash hash;
+            for (uint32_t i = 0u; i < hash.size(); ++i)
+                hash[i] = getShaderGLnameForCtx(i, ctxid);
+            return hash;
+        }
+
         struct SVAOHash
         {
+            struct hash
+            {
+                std::size_t operator()(const SVAOHash& h) const
+                {
+                    return std::hash<std::string_view>{} (std::string_view(reinterpret_cast<const char*>(h.hashVal), sizeof(h.hashVal)));
+                }
+            };
+
             constexpr static size_t getHashLength()
             {
                 return sizeof(hashVal)/sizeof(uint32_t);

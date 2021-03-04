@@ -21,6 +21,84 @@ class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
     static inline constexpr EGLint EGL_API_TYPE = LogicalDeviceType::FunctionTableType::EGL_API_TYPE;
     static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
 
+protected:
+	struct SInitResult
+	{
+		EGLConfig config;
+		EGLContext ctx;
+		EGLint major;
+		EGLint minor;
+	};
+	static SInitResult createContext(const egl::CEGL* _egl, EGLenum api_type, const std::pair<EGLint, EGLint>& bestApiVer, EGLint minMinorVer)
+	{
+		// TODO those params should be somehow sourced externally
+		const EGLint
+			red = 8,
+			green = 8,
+			blue = 8,
+			alpha = 0;
+		const EGLint bufsz = red + green + blue;
+		const EGLint depth = 0;
+		const EGLint stencil = 0;
+
+		_egl->call.peglBindAPI(api_type);
+
+		const EGLint egl_attributes[] = {
+			EGL_RED_SIZE, red,
+			EGL_GREEN_SIZE, green,
+			EGL_BLUE_SIZE, blue,
+			EGL_BUFFER_SIZE, bufsz,
+			EGL_DEPTH_SIZE, depth,
+			EGL_STENCIL_SIZE, stencil,
+			EGL_ALPHA_SIZE, alpha,
+			EGL_COLOR_BUFFER_TYPE, EGL_RGB_BUFFER,
+			EGL_CONFORMANT, EGL_OPENGL_BIT,
+			EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+			//Params.Stereobuffer
+			//Params.Vsync
+			EGL_SURFACE_TYPE, (EGL_WINDOW_BIT | EGL_PBUFFER_BIT),
+
+			EGL_NONE
+		};
+
+		SInitResult res;
+		res.config;
+		res.ctx = EGL_NO_CONTEXT;
+		res.major = 0;
+		res.minor = 0;
+
+		EGLint ccnt = 1;
+		_egl->call.peglChooseConfig(_egl->display, egl_attributes, &res.config, 1, &ccnt);
+		if (ccnt < 1)
+			return res;
+
+		EGLint ctx_attributes[] = {
+			EGL_CONTEXT_MAJOR_VERSION, bestApiVer.first,
+			EGL_CONTEXT_MINOR_VERSION, bestApiVer.second,
+			//EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+
+			EGL_NONE
+		};
+		EGLint& gl_major = ctx_attributes[1];
+		EGLint& gl_minor = ctx_attributes[3];
+
+		EGLContext ctx = EGL_NO_CONTEXT;
+		do
+		{
+			res.ctx = _egl->call.peglCreateContext(_egl->display, res.config, EGL_NO_CONTEXT, ctx_attributes);
+			--gl_minor;
+		} while (res.ctx == EGL_NO_CONTEXT && gl_minor >= minMinorVer); // fail if cant create >=4.3 context
+		++gl_minor;
+
+		if (res.ctx == EGL_NO_CONTEXT)
+			return res;
+
+		res.major = gl_major;
+		res.minor = gl_minor;
+
+		return res;
+	}
+
 public:
     IOpenGL_PhysicalDeviceBase(const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor) : 
         m_egl(_egl), config(_config), m_gl_major(_major), m_gl_minor(_minor)
@@ -55,6 +133,7 @@ public:
 		auto GetInteger64v = reinterpret_cast<PFNGLGETINTEGER64VPROC>(_egl->call.peglGetProcAddress("glGetInteger64v"));
 		auto GetIntegeri_v = reinterpret_cast<PFNGLGETINTEGERI_VPROC>(_egl->call.peglGetProcAddress("glGetIntegeri_v"));
 		auto GetFloatv = reinterpret_cast<decltype(glGetFloatv)*>(_egl->call.peglGetProcAddress("glGetFloatv"));
+		auto GetBooleanv = reinterpret_cast<PFNGLGETBOOLEANVPROC>(_egl->call.peglGetProcAddress("glGetBooleanv"));
 
 		// initialize features
 		std::string vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
@@ -182,6 +261,105 @@ public:
 			m_glfeatures.DimSmoothedLine = 0;
 			m_glfeatures.DimSmoothedPoint = 0;
 		}
+
+		// physical device features
+		{
+			m_features.logicOp = !IsGLES;
+			m_features.multiViewport = IsGLES ? m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
+			m_features.multiDrawIndirect = ISGLES ? m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
+			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
+			m_features.robustBufferAccess = false;
+
+			if (m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
+			{
+				GLboolean subgroupQuadAllStages = GL_FALSE;
+				GetBooleanv(GL_SUBGROUP_QUAD_ALL_STAGES_KHR, &subgroupQuadAllStages);
+				m_features.shaderSubgroupQuadAllStages = static_cast<bool>(subgroupQuadAllStages);
+
+				GLint subgroup = 0;
+				GetIntegerv(GL_SUBGROUP_SUPPORTED_FEATURES_KHR, &subgroup);
+
+				m_features.shaderSubgroupBasic = (subgroup & GL_SUBGROUP_FEATURE_BASIC_BIT_KHR);
+				m_features.shaderSubgroupVote = (subgroup & GL_SUBGROUP_FEATURE_VOTE_BIT_KHR);
+				m_features.shaderSubgroupArithmetic = (subgroup & GL_SUBGROUP_FEATURE_ARITHMETIC_BIT_KHR);
+				m_features.shaderSubgroupBallot = (subgroup & GL_SUBGROUP_FEATURE_BALLOT_BIT_KHR);
+				m_features.shaderSubgroupShuffle = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_BIT_KHR);
+				m_features.shaderSubgroupShuffleRelative = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR);
+				m_features.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
+				m_features.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
+			}
+		}
+
+		// physical device limits
+		{
+			m_limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
+			m_limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
+			m_limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
+
+			m_limits.maxUBOSize = m_glfeatures.maxUBOSize;
+			m_limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
+			m_limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
+			m_limits.maxBufferSize = std::max(m_limits.maxUBOSize, m_limits.maxSSBOSize);
+
+			GLint max_ssbos[5];
+			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
+			GetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, max_ssbos + 1);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, max_ssbos + 2);
+			GetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, max_ssbos + 3);
+			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, max_ssbos + 4);
+			uint32_t maxSSBOsPerStage = static_cast<uint32_t>(*std::min_element(max_ssbos, max_ssbos + 5));
+
+			m_limits.maxPerStageSSBOs = maxSSBOsPerStage;
+
+			m_limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
+			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
+			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
+			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
+
+			GetFloatv(GL_POINT_SIZE_RANGE, m_limits.pointSizeRange);
+			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_limits.lineWidthRange);
+
+			GLint maxViewportExtent[2];
+			GetIntegeri_v(GL_MAX_VIEWPORT_DIMS, 0, maxViewportExtent);
+			GetIntegeri_v(GL_MAX_VIEWPORT_DIMS, 1, maxViewportExtent + 1);
+
+			GLint maxViewports = 16;
+			GetIntegerv(GL_MAX_VIEWPORTS, &maxViewports);
+
+			m_limits.maxViewports = maxViewports;
+
+			m_limits.maxViewportDims[0] = maxViewportExtent[0];
+			m_limits.maxViewportDims[1] = maxViewportExtent[1];
+
+			m_limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
+			m_limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
+			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
+
+			m_limits.subgroupSize = 0u;
+			m_limits.subgroupOpsShaderStages = 0u;
+
+			if (m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
+			{
+				GLint subgroupSize = 0;
+				GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
+
+				GLint subgroupOpsStages = 0;
+				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
+				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
+					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_VERTEX;
+				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
+					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_TESSELATION_CONTROL;
+				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
+					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_TESSELATION_EVALUATION;
+				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
+					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_GEOMETRY;
+				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
+					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_FRAGMENT;
+				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
+					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_COMPUTE;
+			}
+		}
+
 
 		// we dont need this any more
 		_egl->call.peglMakeCurrent(_egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);

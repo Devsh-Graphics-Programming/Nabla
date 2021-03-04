@@ -8,6 +8,7 @@
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUPipelineLayout.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
@@ -19,12 +20,23 @@ namespace video
 	@see IRenderpassIndependentPipeline
 */
 
-class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>
+class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
 {
 		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 
 	public:
-		using base_t::base_t;
+		IGPURenderpassIndependentPipeline(
+			ILogicalDevice* dev,
+			core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+			IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+			const asset::SVertexInputParams& _vertexInputParams,
+			const asset::SBlendParams& _blendParams,
+			const asset::SPrimitiveAssemblyParams& _primAsmParams,
+			const asset::SRasterizationParams& _rasterParams
+		) : base_t(std::move(_layout), _shadersBegin, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams), IBackendObject(dev)
+		{
+
+		}
 
 		struct SCreationParams
 		{

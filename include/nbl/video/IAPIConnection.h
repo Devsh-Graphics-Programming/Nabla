@@ -4,6 +4,8 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/EApiType.h"
+#include "nbl/video/surface/ISurface.h"
+#include "nbl/system/IWindow.h"
 
 namespace nbl {
 namespace video
@@ -12,12 +14,13 @@ namespace video
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
-    // TODO implement in some source file in src/nbl/...
     static core::smart_refctd_ptr<IAPIConnection> create(E_API_TYPE apiType, uint32_t appVer, const char* appName);
 
     virtual E_API_TYPE getAPIType() const = 0;
 
     virtual core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const = 0;
+
+    virtual core::smart_refctd_ptr<ISurface> createSurface(system::IWindow* window) const = 0;
 
 protected:
     IAPIConnection() = default;

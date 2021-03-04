@@ -3,12 +3,13 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/IDescriptorSetLayout.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
 {
 
-class IDescriptorPool : public core::IReferenceCounted
+class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
 public:
     enum E_CREATE_FLAGS : uint32_t
@@ -23,6 +24,8 @@ public:
         asset::E_DESCRIPTOR_TYPE type;
         uint32_t count;
     };
+
+    explicit IDescriptorPool(ILogicalDevice* dev) : IBackendObject(dev) {}
 };
 
 }

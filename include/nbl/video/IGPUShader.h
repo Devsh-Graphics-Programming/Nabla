@@ -7,6 +7,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/ISPIR_VProgram.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
@@ -18,9 +19,11 @@ namespace video
 	@see IReferenceCounted
 */
 
-class IGPUShader : public asset::IShader
+class IGPUShader : public asset::IShader, public IBackendObject
 {
     protected:
+        explicit IGPUShader(ILogicalDevice* dev) : IBackendObject(dev) {}
+
         virtual ~IGPUShader() = default;
 };
 

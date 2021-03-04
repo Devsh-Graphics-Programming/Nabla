@@ -8,17 +8,25 @@
 #include "nbl/asset/IComputePipeline.h"
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUPipelineLayout.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
 {
 
-class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>
+class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
 {
     using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 
 public:
-    using base_t::base_t;
+    IGPUComputePipeline(
+        ILogicalDevice* dev,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs
+    ) : base_t(std::move(_layout), std::move(_cs)), IBackendObject(dev)
+    {
+
+    }
 
     struct SCreationParams
     {

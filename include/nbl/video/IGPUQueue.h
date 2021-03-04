@@ -6,12 +6,13 @@
 #include <nbl/video/IGPUSemaphore.h>
 #include <nbl/video/IGPUFence.h>
 #include <nbl/asset/IRenderpass.h>
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
 {
 
-class IGPUQueue : public core::IReferenceCounted
+class IGPUQueue : public core::IReferenceCounted, public IBackendObject
 {
 public:
     enum E_CREATE_FLAGS : uint32_t
@@ -31,8 +32,8 @@ public:
     };
 
     //! `flags` takes bits from E_CREATE_FLAGS
-    IGPUQueue(uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
-        : m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
+    IGPUQueue(ILogicalDevice* dev, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
+        : IBackendObject(dev), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
     {
 
     }

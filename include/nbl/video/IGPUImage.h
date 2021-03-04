@@ -11,13 +11,14 @@
 #include "nbl/asset/IImage.h"
 
 #include "IGPUBuffer.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
 namespace video
 {
 
-class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>
+class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>, public IBackendObject
 {
     public:
         _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
@@ -53,7 +54,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
         _NBL_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
-		IGPUImage(SCreationParams&& _params)
+		IGPUImage(ILogicalDevice* dev, SCreationParams&& _params) : IBackendObject(dev)
         {
 			params = std::move(_params);
         }

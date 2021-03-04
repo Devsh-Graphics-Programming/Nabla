@@ -13,7 +13,7 @@ class IGPUPrimaryCommandBuffer : public virtual IGPUCommandBuffer
 
 public:
     // this init of IGPUCommandBuffer will be always ignored by compiler since IGPUPrimaryCommandBuffer will never be most derived class
-    IGPUPrimaryCommandBuffer() : IGPUCommandBuffer(nullptr) {}
+    IGPUPrimaryCommandBuffer() : IGPUCommandBuffer(nullptr, nullptr) {}
 
     E_LEVEL getLevel() const override { return EL_PRIMARY; }
 

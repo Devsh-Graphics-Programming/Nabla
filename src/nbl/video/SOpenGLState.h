@@ -9,7 +9,9 @@
 #include "nbl/video/COpenGLComputePipeline.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/asset/ECommonEnums.h"
+#include "nbl/video/COpenGLFramebuffer.h"
 #include <limits>
+#include <string_view>
 
 namespace nbl {
 namespace video
@@ -21,20 +23,14 @@ struct SOpenGLState
 
     using buffer_binding_t = asset::SBufferBinding<const COpenGLBuffer>;
 
-    struct SVAO {
-        GLuint GLname;
-        uint64_t lastUsed;
-    };
-    struct HashVAOPair
+    using SVAOCacheKey = COpenGLRenderpassIndependentPipeline::SVAOHash;
+    struct SVAO
     {
-		COpenGLRenderpassIndependentPipeline::SVAOHash first = {};
-		SVAO second = { 0u,0ull };
-		//extra vao state being cached
-		std::array<buffer_binding_t, IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT> vtxBindings;
+        GLuint GLname;
+        //extra vao state being cached
+        std::array<buffer_binding_t, IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT> vtxBindings;
         buffer_binding_t idxBinding;
         asset::E_INDEX_TYPE idxType; // not really state but i have to keep it somewhere
-
-        inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
     };
     struct SDescSetBnd {
         core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
@@ -42,7 +38,23 @@ struct SOpenGLState
         core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
     };
 
-    using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
+    using SGraphicsPipelineHash = COpenGLRenderpassIndependentPipeline::SPipelineHash;
+    struct SGraphicsPipelineHashFunc
+    {
+        std::size_t operator() (const SGraphicsPipelineHash& x) const { return std::hash<std::string_view>{} (std::string_view(reinterpret_cast<const char*>(x.data()), x.size()*sizeof(GLuint))); }
+    };
+
+    using SFBOHash = COpenGLFramebuffer::hash_t;
+    struct SFBOHashFunc
+    {
+        std::size_t operator() (const SFBOHash& x) const { return std::hash<std::string_view>{} (std::string_view(reinterpret_cast<const char*>(x.data()), x.size()*sizeof(SFBOHash::value_type))); }
+    };
+
+    struct {
+        SFBOHash hash = {0,0,0,0,0,0,0,0,0};
+        GLuint GLname = 0u;
+        core::smart_refctd_ptr<const COpenGLFramebuffer> fbo = nullptr; // only ever non-null in nextState (needed only in flushing routine)
+    } framebuffer;
 
     struct {
         struct {
@@ -149,7 +161,8 @@ struct SOpenGLState
     } rasterParams;
 
     struct {
-		HashVAOPair vao = {};
+        SVAOCacheKey vaokey;
+        SVAO vaoval;
 
         //putting it here because idk where else
         core::smart_refctd_ptr<const COpenGLBuffer> indirectDrawBuf;

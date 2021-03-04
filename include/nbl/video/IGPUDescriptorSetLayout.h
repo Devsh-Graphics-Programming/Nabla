@@ -8,6 +8,7 @@
 #include "nbl/asset/IDescriptorSetLayout.h"
 
 #include "nbl/video/IGPUSampler.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
@@ -19,10 +20,12 @@ namespace video
     @see IDescriptorSetLayout
 */
 
-class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>
+class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>, public IBackendObject
 {
+    using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
+
 public:
-    using IDescriptorSetLayout<IGPUSampler>::IDescriptorSetLayout;
+    IGPUDescriptorSetLayout(ILogicalDevice* dev, const SBinding* const _begin, const SBinding* const _end) : base_t(_begin, _end), IBackendObject(dev) {}
 
 protected:
     virtual ~IGPUDescriptorSetLayout() = default;

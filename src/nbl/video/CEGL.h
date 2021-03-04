@@ -11,18 +11,23 @@ namespace egl
 class CEGL
 {
 public:
-    void initialize()
+    bool initialize()
     {
         if (display != EGL_NO_DISPLAY)
-            return;
+            return true;
 
         display = call.peglGetDisplay(EGL_DEFAULT_DISPLAY);
-        call.peglInitialize(display, nullptr, nullptr);
+        if (display == EGL_NO_DISPLAY)
+            return false;
+        if (!call.peglInitialize(display, nullptr, nullptr))
+            return false;
+        return true;
     }
-    void deinitialize()
+    bool deinitialize()
     {
         if (display != EGL_NO_DISPLAY)
-            call.peglTerminate(display);
+            return call.peglTerminate(display);
+        return true;
     }
 
     CEGLCaller call;

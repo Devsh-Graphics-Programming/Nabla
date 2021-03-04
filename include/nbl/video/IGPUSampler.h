@@ -6,19 +6,20 @@
 #define __NBL_VIDEO_I_GPU_SAMPLER_H_INCLUDED__
 
 #include "nbl/asset/ISampler.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
 namespace video
 {
 
-class IGPUSampler : public asset::ISampler
+class IGPUSampler : public asset::ISampler, public IBackendObject
 {
 protected:
     virtual ~IGPUSampler() = default;
 
 public:
-    using asset::ISampler::ISampler;
+    IGPUSampler(ILogicalDevice* dev, const SParams& params) : ISampler(params), IBackendObject(dev) {}
 };
 
 }

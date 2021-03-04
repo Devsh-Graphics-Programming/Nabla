@@ -16,13 +16,7 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURende
         nextState.pipeline.graphics.usedShadersHash = hash;
         return;
     }
-    SOpenGLState::SGraphicsPipelineHash hash;
-    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-    {
-        hash[i] = nextState.pipeline.graphics.pipeline->getShaderAtIndex(i) ?
-            nextState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, ctxid) :
-            0u;
-    }
+    SOpenGLState::SGraphicsPipelineHash hash = nextState.pipeline.graphics.pipeline->getPipelineHash(ctxid);
     nextState.pipeline.graphics.usedShadersHash = hash;
 
     const auto& ppln = nextState.pipeline.graphics.pipeline;
@@ -260,22 +254,21 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
 
                 constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = { 0u, 0u, 0u, 0u, 0u };
 
-                HashPipelinePair lookingFor{ nextState.pipeline.graphics.usedShadersHash, {} };
-                if (lookingFor.first != NULL_HASH)
+                SOpenGLState::SGraphicsPipelineHash lookingFor = nextState.pipeline.graphics.usedShadersHash;
+                if (lookingFor != NULL_HASH)
                 {
-                    auto found = std::lower_bound(GraphicsPipelineMap.begin(), GraphicsPipelineMap.end(), lookingFor);
-                    if (found != GraphicsPipelineMap.end() && found->first == nextState.pipeline.graphics.usedShadersHash)
+                    auto found = GraphicsPipelineMap.get(lookingFor);
+                    if (found)
                     {
-                        currentState.pipeline.graphics.usedPipeline = found->second.GLname;
-                        found->second.lastUsed = CNullDriver::ReallocationCounter++;
+                        currentState.pipeline.graphics.usedPipeline = found->GLname;
                     }
                     else
                     {
-                        currentState.pipeline.graphics.usedPipeline = lookingFor.second.GLname = createGraphicsPipeline(gl, nextState.pipeline.graphics.usedShadersHash);
-                        lookingFor.second.lastUsed = CNullDriver::ReallocationCounter++;
-                        lookingFor.second.object = nextState.pipeline.graphics.pipeline;
-                        freeUpGraphicsPipelineCache(gl, true);
-                        GraphicsPipelineMap.insert(found, lookingFor);
+                        GLuint pipeline = createGraphicsPipeline(gl, nextState.pipeline.graphics.usedShadersHash);
+                        SOpenGLState::SGraphicsPipelineHash hash;
+                        SPipelineCacheVal val;
+                        currentState.pipeline.graphics.usedPipeline = val.GLname = pipeline;
+                        GraphicsPipelineMap.insert(std::move(hash), std::move(val));
                     }
                 }
                 gl->glShader.pglBindProgramPipeline(currentState.pipeline.graphics.usedPipeline);
@@ -295,10 +288,33 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
         gl->glShader.pglUseProgram(0);
     }
 
-    if (stateBits & GSB_RASTER_PARAMETERS)
-    {
 #define STATE_NEQ(member) (nextState.member != currentState.member)
 #define UPDATE_STATE(member) (currentState.member = nextState.member)
+    if (stateBits & GSB_FRAMEBUFFER)
+    {
+        if (STATE_NEQ(framebuffer.hash))
+        {
+            auto* found = FBOCache.get(nextState.framebuffer.hash);
+            GLuint GLname = 0u;
+            if (found)
+                GLname = *found;
+            else
+            {
+                GLname = nextState.framebuffer.fbo->createGLFBO(gl);
+                FBOCache.insert(nextState.framebuffer.hash, GLname);
+            }
+
+            assert(GLname != 0u);
+
+            currentState.framebuffer.GLname = GLname;
+            UPDATE_STATE(framebuffer.hash);
+
+            gl->glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, GLname);
+        }
+    }
+
+    if (stateBits & GSB_RASTER_PARAMETERS)
+    {
 #define DISABLE_ENABLE(able, what)\
     {\
         if (able)\
@@ -553,32 +569,28 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
         bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
-        if (STATE_NEQ(vertexInputParams.vao.first))
+        if (STATE_NEQ(vertexInputParams.vaokey))
         {
-            auto hashVal = nextState.vertexInputParams.vao.first;
-            auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair{ hashVal, SOpenGLState::SVAO{} });
-            if (it != VAOMap.end() && it->first == hashVal) {
-                it->second.lastUsed = CNullDriver::ReallocationCounter++;
-                currentState.vertexInputParams.vao = *it;
+            auto hashVal = nextState.vertexInputParams.vaokey;
+            auto it = VAOMap.get(hashVal);
+            if (it) {
+                currentState.vertexInputParams.vaokey = hashVal;
+                currentState.vertexInputParams.vaoval.GLname = *it;
             }
             else
             {
                 GLuint GLvao;
                 gl->extGlCreateVertexArrays(1u, &GLvao);
-                SOpenGLState::SVAO vao;
-                vao.GLname = GLvao;
-                vao.lastUsed = CNullDriver::ReallocationCounter++;
-                SOpenGLState::HashVAOPair vaostate;
-                vaostate.first = hashVal;
-                vaostate.second = vao;
-                //intentionally leaving vao.vtxBindings,idxBinding untouched in currentState so that STATE_NEQ gives true and they get bound
-                currentState.vertexInputParams.vao = vaostate;
+                SOpenGLState::SVAO val;
+                val.GLname = GLvao;
+                val.idxType = nextState.vertexInputParams.vaoval.idxType;
+                //intentionally leaving val.vtxBindings,idxBinding untouched in currentState so that STATE_NEQ gives true and they get bound
+                currentState.vertexInputParams.vaoval = val;
                 //bindings in cached object will be updated/filled later
-                VAOMap.insert(it, std::move(vaostate));
-                freeUpVAOCache(gl, true);
+                VAOMap.insert(hashVal, GLvao);
                 brandNewVAO = true;
             }
-            GLuint vao = currentState.vertexInputParams.vao.second.GLname;
+            GLuint vao = currentState.vertexInputParams.vaoval.GLname;
             gl->glVertex.pglBindVertexArray(vao);
 
             bool updatedBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT]{};
@@ -586,7 +598,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             {
                 if (hashVal.attribFormatAndComponentCount[attr] != asset::EF_UNKNOWN) {
                     if (brandNewVAO)
-                        gl->extGlEnableVertexArrayAttrib(currentState.vertexInputParams.vao.second.GLname, attr);
+                        gl->extGlEnableVertexArrayAttrib(vao, attr);
                 }
                 else
                     continue;
@@ -614,41 +626,24 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             }
             //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
         }
-        GLuint GLvao = currentState.vertexInputParams.vao.second.GLname;
+        GLuint GLvao = currentState.vertexInputParams.vaoval.GLname;
         assert(GLvao);
         {
-            bool anyBindingChanged = false;
+            // changing buffer binding in vao is practically free, so we're always doing that and not caching this part of vao state
             for (uint32_t i = 0u; i < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++i)
             {
-                const auto& hash = currentState.vertexInputParams.vao.first;
+                const auto& hash = currentState.vertexInputParams.vaokey;
                 if (hash.attribFormatAndComponentCount[i] == asset::EF_UNKNOWN)
                     continue;
 
                 const uint32_t bnd = hash.getBindingForAttrib(i);
 
-                if (STATE_NEQ(vertexInputParams.vao.vtxBindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
-                {
-                    assert(nextState.vertexInputParams.vao.vtxBindings[bnd].buffer);//something went wrong
-                    gl->extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vao.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vao.vtxBindings[bnd].offset, hash.getStrideForBinding(bnd));
-                    UPDATE_STATE(vertexInputParams.vao.vtxBindings[bnd]);
-                    anyBindingChanged = true;
-                }
+                assert(nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer);//something went wrong
+                gl->extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, hash.getStrideForBinding(bnd));
+                UPDATE_STATE(vertexInputParams.vaoval.vtxBindings[bnd]);
             }
-            if (STATE_NEQ(vertexInputParams.vao.idxBinding))
-            {
-                gl->extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.vao.idxBinding.buffer ? nextState.vertexInputParams.vao.idxBinding.buffer->getOpenGLName() : 0u);
-                UPDATE_STATE(vertexInputParams.vao.idxBinding);
-                anyBindingChanged = true;
-            }
-
-            //update bindings in cache as well
-            if (brandNewVAO || anyBindingChanged)
-            {
-                auto found = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair{ currentState.vertexInputParams.vao.first, SOpenGLState::SVAO{} });
-                //dont even check if found anything because it's obvious that such vao is in the cache
-                found->vtxBindings = currentState.vertexInputParams.vao.vtxBindings;
-                found->idxBinding = currentState.vertexInputParams.vao.idxBinding;
-            }
+            gl->extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.vaoval.idxBinding.buffer ? nextState.vertexInputParams.vaoval.idxBinding.buffer->getOpenGLName() : 0u);
+            UPDATE_STATE(vertexInputParams.vaoval.idxBinding);
         }
         if (STATE_NEQ(vertexInputParams.indirectDrawBuf))
         {

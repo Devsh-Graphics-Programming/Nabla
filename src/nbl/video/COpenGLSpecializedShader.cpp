@@ -139,15 +139,15 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 using namespace nbl;
 using namespace nbl::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
-	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo.shaderStage),
+COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
+	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(dev, _specInfo.shaderStage),
     m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
 	m_specInfo(_specInfo),//TODO make it move()
 	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))
 {
 	m_options.version = _GLSLversion;
 	//vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
-	m_options.vulkan_semantics = false; // with this it's likely that SPIRV-Cross will take care of built-in variables renaming, but need testing
+	m_options.vulkan_semantics = false;
 	m_options.separate_shader_objects = true;
 
 	core::XXHash_256(_spirv->getPointer(), _spirv->getSize(), m_spirvHash.data());
@@ -155,7 +155,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const 
 	m_uniformsList = uniformList;
 }
 
-auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
 {
 	spirv_cross::ParsedIR parsed;
 	if (_parsedSpirv)
@@ -169,7 +169,14 @@ auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, const COpenGLP
 	spirv_cross::CompilerGLSL comp(std::move(parsed));
 
 	comp.set_entry_point(m_specInfo.entryPoint, asset::ESS2spvExecModel(m_specInfo.shaderStage));
-	comp.set_common_options(m_options);
+	auto options = m_options;
+	options.es = gl->isGLES();
+	if (needClipControlWorkaround)
+	{
+		options.vertex.fixup_clipspace = true;
+		options.vertex.flip_vert_y = true;
+	}
+	comp.set_common_options(options);
 
 	impl::specialize(comp, m_specInfo);
 	impl::reorderBindings(comp, _layout);

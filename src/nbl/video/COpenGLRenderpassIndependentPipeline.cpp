@@ -10,6 +10,8 @@ namespace video
 
 COpenGLRenderpassIndependentPipeline::~COpenGLRenderpassIndependentPipeline()
 {
+    m_device->destroyPipeline(this);
+
     constexpr uint32_t MaxNamesPerStage = 128u;
     const auto namesPerStage = m_GLprograms->size() / SHADER_STAGE_COUNT;
     assert(namesPerStage < MaxNamesPerStage);

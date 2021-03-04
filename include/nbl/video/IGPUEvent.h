@@ -3,15 +3,16 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/IEvent.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
 {
 
-class IGPUEvent : public asset::IEvent, public core::IReferenceCounted
+class IGPUEvent : public asset::IEvent, public core::IReferenceCounted, public IBackendObject
 {
 public:
-    using asset::IEvent::IEvent;
+    explicit IGPUEvent(ILogicalDevice* dev) : IBackendObject(dev) {}
 
 protected:
     virtual ~IGPUEvent() = default;

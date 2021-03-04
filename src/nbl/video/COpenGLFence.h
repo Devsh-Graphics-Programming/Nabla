@@ -17,7 +17,7 @@ protected:
     }
 
 public:
-    COpenGLFence(E_CREATE_FLAGS flags) : IGPUFence(flags), m_sync()
+    COpenGLFence(ILogicalDevice* dev, E_CREATE_FLAGS flags) : IGPUFence(dev, flags), m_sync()
     {
     }
 

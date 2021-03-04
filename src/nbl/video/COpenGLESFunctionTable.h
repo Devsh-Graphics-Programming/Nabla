@@ -30,6 +30,7 @@ Extensions being loaded:
 * GL_EXT_texture_view
 * GL_OES_viewport_array
 * GL_EXT_multi_draw_indirect
+* GL_EXT_clip_control
 */
 class COpenGLESFunctionTable final : public IOpenGL_FunctionTable
 {
@@ -49,6 +50,7 @@ public:
 		, glDepthRangeArrayfvOES
 		, glDepthRangef
 		, glViewportArrayvOES
+		, glClipControlEXT
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESbuffer, OpenGLFunctionLoader
 		, glBufferStorageEXT
@@ -582,6 +584,16 @@ public:
 		{
 			os::Printer::log("Multiple viewports not supported!");
 		}
+#endif
+	}
+
+	void extGlClipControl(GLenum origin, GLenum depth) override
+	{
+		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control))
+			glesGeneral.pglClipControlEXT(origin, depth);
+#ifdef _NBL_DEBUG
+		else
+			os::Printer::log("GL_EXT_clip_control not supported on GLES backend!", ELL_ERROR);
 #endif
 	}
 

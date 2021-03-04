@@ -13,7 +13,7 @@ namespace nbl {
 namespace video
 {
 
-class COpenGLFunctionTable : public IOpenGL_FunctionTable
+class COpenGLFunctionTable final : public IOpenGL_FunctionTable
 {
 	using base_t = IOpenGL_FunctionTable;
 
@@ -1785,6 +1785,10 @@ public:
 	void extGlDepthRangeArrayv(GLuint first, GLsizei count, const GLdouble* v) override
 	{
 		gl4General.pglDepthRangeArrayv(first, count, v);
+	}
+	void extGlClipControl(GLenum origin, GLenum depth) override
+	{
+		gl4General.pglClipControl(origin, depth);
 	}
 
 	void extGlLogicOp(GLenum opcode) override

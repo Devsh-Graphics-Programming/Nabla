@@ -10,22 +10,20 @@
 #include "nbl/asset/IImageView.h"
 
 #include "nbl/video/IGPUImage.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
 namespace video
 {
 
-class IGPUImageView : public asset::IImageView<IGPUImage>
+class IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
 {
 	public:
-		//! Regenerates the mip map levels of the texture.
-		virtual void regenerateMipMapLevels() = 0; // deprecated
-
         const SCreationParams& getCreationParameters() const { return params; }
 
 	protected:
-		IGPUImageView(SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)) {}
+		IGPUImageView(ILogicalDevice* dev, SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)), IBackendObject(dev) {}
 		virtual ~IGPUImageView() = default;
 };
 

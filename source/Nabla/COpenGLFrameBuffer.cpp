@@ -9,6 +9,7 @@
 #include "COpenGLDriver.h"
 
 #include "os.h"
+#include "..\..\src\nbl\video\COpenGLFramebuffer.h"
 
 
 
@@ -184,7 +185,6 @@ bool COpenGLFrameBuffer::attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::sma
 
 	return true;
 }
-
 
 }
 }

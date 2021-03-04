@@ -41,6 +41,8 @@ public:
 
     inline VkPhysicalDevice getInternalObject() const { return m_vkphysdev; }
 
+    E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
+
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {

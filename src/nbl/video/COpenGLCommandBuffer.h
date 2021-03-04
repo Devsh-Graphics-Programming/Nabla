@@ -484,18 +484,22 @@ public:
 
 
     // this init of IGPUCommandBuffer will be always ignored by compiler since COpenGLCommandBuffer will never be most derived class
-    COpenGLCommandBuffer() : IGPUCommandBuffer(nullptr) {}
+    COpenGLCommandBuffer() : IGPUCommandBuffer(nullptr, nullptr) {}
 
 
-    void bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    bool bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
+        if (!this->isCompatibleDevicewise(buffer))
+            return false;
+
         SCmd<ECT_BIND_INDEX_BUFFER> cmd;
         cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
         cmd.indexType = indexType;
         cmd.offset = offset;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
+    bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
     {
         SCmd<ECT_DRAW> cmd;
         cmd.vertexCount = vertexCount;
@@ -503,8 +507,9 @@ public:
         cmd.firstVertex = firstVertex;
         cmd.firstInstance = firstInstance;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
+    bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
     {
         SCmd<ECT_DRAW_INDEXED> cmd;
         cmd.indexCount = indexCount;
@@ -513,8 +518,9 @@ public:
         cmd.vertexOffset = vertexOffset;
         cmd.firstInstance = firstInstance;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void drawIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    bool drawIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         SCmd<ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
@@ -522,8 +528,9 @@ public:
         cmd.drawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void drawIndexedIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    bool drawIndexedIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         SCmd<ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
@@ -531,49 +538,64 @@ public:
         cmd.drawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
+    bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
     {
         SCmd<ECT_SET_VIEWPORT> cmd;
         cmd.firstViewport = firstViewport;
         cmd.viewportCount = viewportCount;
         cmd.viewports = pViewports;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void setLineWidth(float lineWidth) override
+    bool setLineWidth(float lineWidth) override
     {
         SCmd<ECT_SET_LINE_WIDTH> cmd;
         cmd.lineWidth = lineWidth;
+        pushCommand(std::move(cmd));
+        return true;
     }
-    void setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) override
+    bool setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) override
     {
         SCmd<ECT_SET_DEPTH_BIAS> cmd;
         cmd.depthBiasConstantFactor;
         cmd.depthBiasClamp = depthBiasClamp;
         cmd.depthBiasSlopeFactor = depthBiasSlopeFactor;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void setBlendConstants(const float blendConstants[4]) override
+    bool setBlendConstants(const float blendConstants[4]) override
     {
         SCmd<ECT_SET_BLEND_CONSTANTS> cmd;
         memcpy(cmd.blendConstants, blendConstants, 4*sizeof(float));
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void copyBuffer(buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
+    bool copyBuffer(buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
+        if (!this->isCompatibleDevicewise(srcBuffer))
+            return false;
+        if (!this->isCompatibleDevicewise(dstBuffer))
+            return false;
         SCmd<ECT_COPY_BUFFER> cmd;
         cmd.srcBuffer = core::smart_refctd_ptr<buffer_t>(srcBuffer);
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.regionCount = regionCount;
         cmd.regions = pRegions;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void copyImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
+    bool copyImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
+        if (!this->isCompatibleDevicewise(srcImage))
+            return false;
+        if (!this->isCompatibleDevicewise(dstImage))
+            return false;
         SCmd<ECT_COPY_IMAGE> cmd;
         cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
@@ -582,9 +604,14 @@ public:
         cmd.regionCount = regionCount;
         cmd.regions = pRegions;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void copyBufferToImage(buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyBufferToImage(buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
+        if (!this->isCompatibleDevicewise(srcBuffer))
+            return false;
+        if (!this->isCompatibleDevicewise(dstImage))
+            return false;
         SCmd<ECT_COPY_BUFFER_TO_IMAGE> cmd;
         cmd.srcBuffer = core::smart_refctd_ptr<buffer_t>(srcBuffer);
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
@@ -592,9 +619,14 @@ public:
         cmd.regionCount = regionCount;
         cmd.regions = pRegions;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void copyImageToBuffer(buffer_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyImageToBuffer(buffer_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
+        if (!this->isCompatibleDevicewise(srcImage))
+            return false;
+        if (!this->isCompatibleDevicewise(dstBuffer))
+            return false;
         SCmd<ECT_COPY_IMAGE_TO_BUFFER> cmd;
         cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
@@ -602,9 +634,12 @@ public:
         cmd.regionCount = regionCount;
         cmd.regions = pRegions;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void blitImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
+    bool blitImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
+        if (!this->isCompatibleDevicewise(srcImage))
+            return false;
         SCmd<ECT_BLIT_IMAGE> cmd;
         cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
@@ -613,9 +648,12 @@ public:
         cmd.regions = pRegions;
         cmd.filter = filter;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void resolveImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
+    bool resolveImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
+        if (!this->isCompatibleDevicewise(srcImage))
+            return false;
         SCmd<ECT_RESOLVE_IMAGE> cmd;
         cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
@@ -624,10 +662,14 @@ public:
         cmd.regionCount = regionCount;
         cmd.regions = pRegions;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, buffer_t** pBuffers, const size_t* pOffsets) override
+    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, buffer_t** pBuffers, const size_t* pOffsets) override
     {
+        for (uint32_t i = 0u; i < bindingCount; ++i)
+            if (!this->isCompatibleDevicewise(pBuffers[i]))
+                return false;
         SCmd<ECT_BIND_VERTEX_BUFFERS> cmd;
         cmd.first = firstBinding;
         cmd.count = bindingCount;
@@ -638,61 +680,71 @@ public:
             cmd.buffers[i] = core::smart_refctd_ptr<buffer_t>(b);
         }
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void setScissor(uint32_t firstScissor, uint32_t scissorCount, const asset::VkRect2D* pScissors) override
+    bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const asset::VkRect2D* pScissors) override
     {
         SCmd<ECT_SET_SCISSORS> cmd;
         cmd.firstScissor = firstScissor;
         cmd.scissorCount = scissorCount;
         cmd.scissors = pScissors;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void setDepthBounds(float minDepthBounds, float maxDepthBounds) override
+    bool setDepthBounds(float minDepthBounds, float maxDepthBounds) override
     {
         SCmd<ECT_SET_DEPTH_BOUNDS> cmd;
         cmd.minDepthBounds = minDepthBounds;
         cmd.maxDepthBounds = maxDepthBounds;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override
+    bool setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override
     {
         SCmd<ECT_SET_STENCIL_COMPARE_MASK> cmd;
         cmd.faceMask = faceMask;
         cmd.cmpMask = compareMask;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override
+    bool setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override
     {
         SCmd<ECT_SET_STENCIL_WRITE_MASK> cmd;
         cmd.faceMask = faceMask;
         cmd.writeMask = writeMask;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override
+    bool setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override
     {
         SCmd<ECT_SET_STENCIL_REFERENCE> cmd;
         cmd.faceMask = faceMask;
         cmd.reference = reference;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
+    bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
         SCmd<ECT_DISPATCH> cmd;
         cmd.groupCountX = groupCountX;
         cmd.groupCountY = groupCountY;
         cmd.groupCountZ = groupCountZ;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void dispatchIndirect(buffer_t* buffer, size_t offset) override
+    bool dispatchIndirect(buffer_t* buffer, size_t offset) override
     {
+        if (!this->isCompatibleDevicewise(buffer))
+            return false;
         SCmd<ECT_DISPATCH_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
         cmd.offset = offset;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
+    bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
         SCmd<ECT_DISPATCH_BASE> cmd;
         cmd.baseGroupX = baseGroupX;
@@ -702,29 +754,39 @@ public:
         cmd.groupCountY = groupCountY;
         cmd.groupCountZ = groupCountZ;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void setEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
+    bool setEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
     {
+        if (!this->isCompatibleDevicewise(event))
+            return false;
         SCmd<ECT_SET_EVENT> cmd;
         cmd.event = core::smart_refctd_ptr<event_t>(event);
         cmd.stageMask = stageMask;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
+    bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
     {
+        if (!this->isCompatibleDevicewise(event))
+            return false;
         SCmd<ECT_RESET_EVENT> cmd;
         cmd.event = core::smart_refctd_ptr<event_t>(event);
         cmd.stageMask = stageMask;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void waitEvents(uint32_t eventCount, event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+    bool waitEvents(uint32_t eventCount, event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
     ) override
     {
+        for (uint32_t i = 0u; i < eventCount; ++i)
+            if (!this->isCompatibleDevicewise(pEvents[i]))
+                return false;
         SCmd<ECT_WAIT_EVENTS> cmd;
         cmd.eventCount = eventCount;
         cmd.events = reinterpret_cast<core::smart_refctd_ptr<event_t>*>(pEvents); // TODO
@@ -737,14 +799,18 @@ public:
         cmd.imageMemoryBarrierCount = imageMemoryBarrierCount;
         cmd.pImageMemoryBarriers = pImageMemoryBarriers;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void pipelineBarrier(uint32_t eventCount, const event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+    bool pipelineBarrier(uint32_t eventCount, const event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
+        for (uint32_t i = 0u; i < eventCount; ++i)
+            if (!this->isCompatibleDevicewise(pEvents[i]))
+                return false;
         SCmd<ECT_PIPELINE_BARRIER> cmd;
         cmd.eventCount = eventCount;
         cmd.events = reinterpret_cast<core::smart_refctd_ptr<event_t>*>(pEvents); // TODO
@@ -758,50 +824,67 @@ public:
         cmd.imageMemoryBarrierCount = imageMemoryBarrierCount;
         cmd.pImageMemoryBarriers = pImageMemoryBarriers;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
+    bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
     {
+        if (!this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
+            return false;
         SCmd<ECT_BEGIN_RENDERPASS> cmd;
         cmd.renderpassBegin = pRenderPassBegin[0];
         cmd.content = content;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void nextSubpass(asset::E_SUBPASS_CONTENTS contents) override
+    bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override
     {
         SCmd<ECT_NEXT_SUBPASS> cmd;
         cmd.contents = contents;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void endRenderPass() override
+    bool endRenderPass() override
     {
         SCmd<ECT_END_RENDERPASS> cmd;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void setDeviceMask(uint32_t deviceMask) override
+    bool setDeviceMask(uint32_t deviceMask) override
     { 
         // theres no need to add this command to buffer in GL backend
-        IGPUCommandBuffer::setDeviceMask(deviceMask);
+        return IGPUCommandBuffer::setDeviceMask(deviceMask);
     }
 
-    void bindGraphicsPipeline(graphics_pipeline_t* pipeline) override
+    bool bindGraphicsPipeline(graphics_pipeline_t* pipeline) override
     {
+        if (!this->isCompatibleDevicewise(pipeline))
+            return false;
         SCmd<ECT_BIND_GRAPHICS_PIPELINE> cmd;
         cmd.pipeline = core::smart_refctd_ptr<graphics_pipeline_t>(pipeline);
         pushCommand(std::move(cmd));
+        return true;
     }
-    void bindComputePipeline(compute_pipeline_t* pipeline) override
+    bool bindComputePipeline(compute_pipeline_t* pipeline) override
     {
+        if (!this->isCompatibleDevicewise(pipeline))
+            return false;
         SCmd<ECT_BIND_COMPUTE_PIPELINE> cmd;
         cmd.pipeline = core::smart_refctd_ptr<compute_pipeline_t>(pipeline);
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+    bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
         descriptor_set_t** pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets
     ) override
     {
+        if (!this->isCompatibleDevicewise(layout))
+            return false;
+        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+            if (!this->isCompatibleDevicewise(pDescriptorSets[i]))
+                return false;
         SCmd<ECT_BIND_DESCRIPTOR_SETS> cmd;
         cmd.pipelineBindPoint = pipelineBindPoint;
         cmd.layout = core::smart_refctd_ptr<pipeline_layout_t>(layout);
@@ -811,8 +894,9 @@ public:
             cmd.descriptorSets[i] = core::smart_refctd_ptr<IGPUDescriptorSet>(pDescriptorSets[i]);
         cmd.dynamicOffsets = std::move(dynamicOffsets);
         pushCommand(std::move(cmd));
+        return true;
     }
-    void pushConstants(pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         SCmd<ECT_PUSH_CONSTANTS> cmd;
         cmd.layout = core::smart_refctd_ptr<pipeline_layout_t>(layout);
@@ -821,10 +905,13 @@ public:
         cmd.size = size;
         cmd.values = pValues;
         pushCommand(std::move(cmd));
+        return true;
     }
 
-    void clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
+        if (!this->isCompatibleDevicewise(image))
+            return false;
         SCmd<ECT_CLEAR_COLOR_IMAGE> cmd;
         cmd.image = core::smart_refctd_ptr<image_t>(image);
         cmd.imageLayout = imageLayout;
@@ -832,9 +919,12 @@ public:
         cmd.rangeCount = rangeCount;
         cmd.ranges = pRanges;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void clearDepthStencilImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearDepthStencilImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
+        if (!this->isCompatibleDevicewise(image))
+            return false;
         SCmd<ECT_CLEAR_DEPTH_STENCIL_IMAGE> cmd;
         cmd.image = core::smart_refctd_ptr<image_t>(image);
         cmd.imageLayout = imageLayout;
@@ -842,8 +932,9 @@ public:
         cmd.rangeCount = rangeCount;
         cmd.ranges = pRanges;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override
+    bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override
     {
         SCmd<ECT_CLEAR_ATTACHMENTS> cmd;
         cmd.attachmentCount = attachmentCount;
@@ -851,29 +942,39 @@ public:
         cmd.rectCount = rectCount;
         cmd.rects = pRects;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
+    bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
     {
+        if (!this->isCompatibleDevicewise(dstBuffer))
+            return false;
         SCmd<ECT_FILL_BUFFER> cmd;
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.dstOffset = dstOffset;
         cmd.size = size;
         cmd.data = data;
         pushCommand(std::move(cmd));
+        return true;
     }
-    void updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
+    bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
     {
+        if (!this->isCompatibleDevicewise(dstBuffer))
+            return false;
         SCmd<ECT_UPDATE_BUFFER> cmd;
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.dstOffset = dstOffset;
         cmd.dataSize = dataSize;
         cmd.data = pData;
         pushCommand(std::move(cmd));
+        return true;
     }
     bool executeCommands(uint32_t count, IGPUCommandBuffer** cmdbufs) override
     {
         if (!IGPUCommandBuffer::executeCommands(count, cmdbufs))
             return false;
+        for (uint32_t i = 0u; i < count; ++i)
+            if (this->isCompatibleDevicewise(cmdbufs[i]))
+                return false;
 
         for (uint32_t i = 0u; i < count; ++i)
         {

@@ -33,7 +33,7 @@ class COpenGLImageView final : public IGPUImageView
 		};
 		_NBL_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 
-		COpenGLImageView(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(std::move(_params)), m_device(dev), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
+		COpenGLImageView(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(dev, std::move(_params)), m_device(dev), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
 			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
@@ -60,15 +60,6 @@ class COpenGLImageView final : public IGPUImageView
 			{
 				gl->extGlTextureParameteriv(name, target, pname[i], swizzle+i);
 			}
-		}
-
-		void regenerateMipMapLevels() override
-		{
-			if (params.subresourceRange.levelCount <= 1u)
-				return;
-
-			assert(false);
-			//COpenGLExtensionHandler::extGlGenerateTextureMipmap(name,target);
 		}
 
 		inline GLuint getOpenGLName() const { return name; }

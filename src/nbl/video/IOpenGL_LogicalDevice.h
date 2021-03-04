@@ -6,7 +6,7 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/CEGL.h"
-#include "nbl/system/IThreadHandler.h"
+#include "nbl/system/IAsyncQueueDispatcher.h"
 #include "nbl/video/COpenGLComputePipeline.h"
 #include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
 #include "nbl/video/IGPUSpecializedShader.h"
@@ -17,6 +17,7 @@
 #include "nbl/video/COpenGLBufferView.h"
 #include "nbl/video/COpenGLImage.h"
 #include "nbl/video/COpenGLImageView.h"
+#include "nbl/video/COpenGLFramebuffer.h"
 //#include "nbl/video/COpenGLFramebuffer.h"
 #include "COpenGLSync.h"
 #include "COpenGLSpecializedShader.h"
@@ -49,7 +50,6 @@ namespace impl
             // GL pipelines and vaos are kept, created and destroyed in COpenGL_Queue internal thread
             ERT_BUFFER_DESTROY,
             ERT_TEXTURE_DESTROY,
-            ERT_FRAMEBUFFER_DESTROY,
             ERT_SWAPCHAIN_DESTROY,
             ERT_SYNC_DESTROY,
             ERT_SAMPLER_DESTROY,
@@ -60,7 +60,6 @@ namespace impl
             ERT_BUFFER_VIEW_CREATE,
             ERT_IMAGE_CREATE,
             ERT_IMAGE_VIEW_CREATE,
-            ERT_FRAMEBUFFER_CREATE,
             ERT_SWAPCHAIN_CREATE,
             ERT_SEMAPHORE_CREATE,
             ERT_EVENT_CREATE,
@@ -78,12 +77,17 @@ namespace impl
             ERT_WAIT_FOR_FENCES,
             ERT_FLUSH_MAPPED_MEMORY_RANGES,
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
+            ERT_REGENERATE_MIP_LEVELS
             //BIND_BUFFER_MEMORY
         };
 
         constexpr static inline bool isDestroyRequest(E_REQUEST_TYPE rt)
         {
             return (rt < ERT_BUFFER_CREATE);
+        }
+        constexpr static inline bool isCreationRequest(E_REQUEST_TYPE rt)
+        {
+            return !isDestroyRequest(rt) && (rt < ERT_GET_EVENT_STATUS);
         }
 
         template <E_REQUEST_TYPE rt>
@@ -110,12 +114,6 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_FENCE_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUFence>;
-        };
-        struct SRequestFramebufferCreate
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_FRAMEBUFFER_CREATE;
-            using retval_t = core::smart_refctd_ptr<IGPUFramebuffer>;
-            IGPUFramebuffer::SCreationParams params;
         };
         struct SRequestBufferCreate
         {
@@ -222,6 +220,12 @@ namespace impl
             using retval_t = void;
             core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges;
         };
+        struct SRequestRegenerateMipLevels
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_REGENERATE_MIP_LEVELS;
+            using retval_t = void;
+            IGPUImageView* imgview = nullptr;
+        };
     };
 
 /*
@@ -266,13 +270,12 @@ namespace impl
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
 protected:
-    struct SRequest
+    struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t
     {
         using params_variant_t = std::variant<
             SRequestSemaphoreCreate,
             SRequestEventCreate,
             SRequestFenceCreate,
-            SRequestFramebufferCreate,
             SRequestBufferCreate,
             SRequestBufferViewCreate,
             SRequestImageCreate,
@@ -284,7 +287,6 @@ protected:
 
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
-            SRequest_Destroy<ERT_FRAMEBUFFER_DESTROY>,
             SRequest_Destroy<ERT_SWAPCHAIN_DESTROY>,
             SRequest_Destroy<ERT_SYNC_DESTROY>,
             SRequest_Destroy<ERT_SAMPLER_DESTROY>,
@@ -296,7 +298,8 @@ protected:
             SRequestResetFences,
             SRequestWaitForFences,
             SRequestFlushMappedMemoryRanges,
-            SRequestInvalidateMappedMemoryRanges
+            SRequestInvalidateMappedMemoryRanges,
+            SRequestRegenerateMipLevels
         >;
 
         E_REQUEST_TYPE type;
@@ -304,22 +307,14 @@ protected:
 
         // cast to `RequestParams::retval_t*`
         void* pretval;
-        // wait on this for result to be ready
-        std::condition_variable cvar;
-        bool ready = false;
     };
 
     template <typename FunctionTableType>
-    class CThreadHandler : public system::IThreadHandler<FunctionTableType>
+    class CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler<FunctionTableType>, SRequest, 256u, FunctionTableType>
     {
+        using base_t = system::IAsyncQueueDispatcher<CThreadHandler<FunctionTableType>, SRequest, 256u, FunctionTableType>;
+        friend base_t;
         using FeaturesType = typename FunctionTableType::features_t;
-
-        constexpr static inline uint32_t MaxRequestCount = 256u;
-        constexpr static inline uint32_t CircularBufMask = MaxRequestCount - 1u;
-
-        SRequest request_pool[MaxRequestCount];
-        uint32_t cb_begin = 0u;
-        uint32_t cb_end = 0u;
 
     public:
         CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, EGLConfig _config, EGLint _major, EGLint _minor) :
@@ -334,32 +329,6 @@ protected:
 
         }
 
-        // T must be one of request parameter structs
-        template <typename RequestParams>
-        SRequest& request(RequestParams&& params, typename RequestParams::retval_t* pretval = nullptr)
-        {
-            auto raii_handler = createRAIIDispatchHandler();
-
-            const uint32_t r_id = cb_end;
-            cb_end = (cb_end + 1u) & CircularBufMask;
-
-            SRequest& req = request_pool[r_id];
-            req.type = params.type;
-            req.params_variant = std::move(params);
-            req.ready = false;
-            if constexpr (!std::is_void_v<typename RequestParams::retval_t>)
-            {
-                assert(pretval);
-                req.pretval = pretval;
-            }
-            else
-            {
-                req.pretval = nullptr;
-            }
-
-            return req;
-        }
-
         EGLContext getContext()
         {
             auto lk = createLock();
@@ -370,10 +339,8 @@ protected:
         template <typename RequestParams>
         void waitForRequestCompletion(SRequest& req)
         {
-            auto lk = createLock();
-            req.cvar.wait(lk, [&req]() -> bool { return req.ready; });
+            base_t::waitForRequestCompletion(req);
 
-            assert(req.ready);
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
             std::get<RequestParams>(req.params_variant) = RequestParams{};
         }
@@ -388,7 +355,7 @@ protected:
         }
 
     protected:
-        FunctionTableType init() override
+        FunctionTableType init()
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
@@ -416,14 +383,25 @@ protected:
             return FunctionTableType(&egl->call, features);
         }
 
-        bool wakeupPredicate() const override final { return (cb_begin!=cb_end) || base_t::wakeupPredicate(); }
-        bool continuePredicate() const override final { return (cb_begin!=cb_end) && base_t::continuePredicate(); }
-
-        void work(lock_t& lock, FunctionTableType& _gl) override
+        // RequestParams must be one of request parameter structs
+        template <typename RequestParams>
+        void request_impl(SRequest& req, RequestParams&& params, typename RequestParams::retval_t* pretval = nullptr)
         {
-            SRequest& req = request_pool[cb_begin];
-            cb_begin = (cb_begin + 1u) & CircularBufMask;
-            
+            req.type = params.type;
+            req.params_variant = std::move(params);
+            if constexpr (!std::is_void_v<typename RequestParams::retval_t>)
+            {
+                assert(pretval);
+                req.pretval = pretval;
+            }
+            else
+            {
+                req.pretval = nullptr;
+            }
+        }
+
+        void process_request(SRequest& req, FunctionTableType& _gl)
+        {
             IOpenGL_FunctionTable& gl = static_cast<IOpenGL_FunctionTable&>(_gl);
             switch (req.type)
             {
@@ -437,12 +415,6 @@ protected:
             {
                 auto& p = std::get<SRequest_Destroy<ERT_TEXTURE_DESTROY>>(req.params_variant);
                 gl.glTexture.pglDeleteTextures(p.count, p.glnames);
-            }
-                break;
-            case ERT_FRAMEBUFFER_DESTROY:
-            {
-                auto& p = std::get<SRequest_Destroy<ERT_FRAMEBUFFER_DESTROY>>(req.params_variant);
-                gl.glFramebuffer.pglDeleteFramebuffers(p.count, p.glnames);
             }
                 break;
             case ERT_SYNC_DESTROY:
@@ -527,19 +499,27 @@ protected:
                 break;
             case ERT_INVALIDATE_MAPPED_MEMORY_RANGES:
             {
-                gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT); // i think there's no point in calling it number_of_mem_ranges times?
+                gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+            }
+                break;
+            case ERT_REGENERATE_MIP_LEVELS:
+            {
+                auto& p = std::get<SRequestRegenerateMipLevels>(req.params_variant);
+                COpenGLImageView* view = static_cast<COpenGLImageView*>(p.imgview);
+                GLuint name = view->getOpenGLName();
+                GLenum target = COpenGLImageView::ViewTypeToGLenumTarget[view->getCreationParameters().viewType];
+                gl.extGlGenerateTextureMipmap(name, target);
             }
                 break;
             }
-
-            req.ready = true;
-            // moving unlock before the switch (but after cb_begin increment) probably wouldnt hurt
-            lock.unlock(); // unlock so that notified thread wont immidiately block again
-            req.cvar.notify_all(); //notify_one() would do as well, but lets call notify_all() in case something went horribly wrong (theoretically not possible) and multiple threads are waiting for single request
-            lock.lock(); // reacquire (must be locked at the exit of this function -- see system::IThreadHandler docs)
+            gl.glGeneral.pglFlush();
+            // created GL object must be in fact ready when request gets reported as ready
+            // @matt - needed?
+            if (isCreationRequest(req.type))
+                gl.glGeneral.pglFinish();
         }
 
-        void exit(FunctionTableType& gl) override
+        void exit(FunctionTableType& gl)
         {
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
             egl->call.peglDestroyContext(egl->display, thisCtx);
@@ -563,6 +543,17 @@ protected:
             auto vsIsPresent = [&shaders] {
                 return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
             };
+
+            asset::ISpecializedShader::E_SHADER_STAGE lastVertexLikeStage = asset::ISpecializedShader::ESS_VERTEX;
+            for (uint32_t i = 0u; i < shaders.size(); ++i)
+            {
+                auto stage = shaders.begin()[shaders.size()-1u-i];
+                if (stage != asset::ISpecializedShader::ESS_FRAGMENT)
+                {
+                    lastVertexLikeStage = stage;
+                    break;
+                }
+            }
 
             auto layout = params.layout;
             if (!layout || !vsIsPresent())
@@ -592,7 +583,7 @@ protected:
 
                     continue;
                 }
-                std::tie(GLnames[ix], bin) = glshdr->compile(&gl, layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
+                std::tie(GLnames[ix], bin) = glshdr->compile(&gl, (stage == lastVertexLikeStage), layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
                 binaries[ix] = bin;
 
                 if (cache)
@@ -648,7 +639,7 @@ protected:
                 }
             }
 
-            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
+            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
 
         // currently used by shader programs only
@@ -675,11 +666,13 @@ protected:
     const egl::CEGL* m_egl;
 
 public:
-    IOpenGL_LogicalDevice(const egl::CEGL* _egl, const SCreationParams& params) : ILogicalDevice(params), m_egl(_egl)
+    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params) : ILogicalDevice(api_type, params), m_egl(_egl)
     {
 
     }
 
+    virtual void destroyFramebuffer(COpenGLFramebuffer* fbo) = 0;
+    virtual void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) = 0;
     virtual void destroyTexture(GLuint img) = 0;
     virtual void destroyBuffer(GLuint buf) = 0;
     virtual void destroySampler(GLuint s) = 0;

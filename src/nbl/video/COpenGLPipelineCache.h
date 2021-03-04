@@ -30,6 +30,8 @@ public:
 		bool operator<(const SCacheKey& _rhs) const;
 	};
 
+	using IGPUPipelineCache::IGPUPipelineCache;
+
 	void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) override
 	{
 		const std::lock_guard<std::mutex> _1_(m_bin_cache_mutex);

@@ -2,12 +2,13 @@
 #define __NBL_I_GPU_FENCE_H_INCLUDED__
 
 #include <nbl/core/IReferenceCounted.h>
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
 {
 
-class IGPUFence : public core::IReferenceCounted
+class IGPUFence : public core::IReferenceCounted, public IBackendObject
 {
 public:
     enum E_CREATE_FLAGS : uint32_t
@@ -22,7 +23,7 @@ public:
         ES_ERROR
     };
 
-    IGPUFence(E_CREATE_FLAGS flags) : m_status((flags&ECF_SIGNALED_BIT) ? ES_SUCCESS:ES_NOT_READY)
+    IGPUFence(ILogicalDevice* dev, E_CREATE_FLAGS flags) : IBackendObject(dev), m_status((flags&ECF_SIGNALED_BIT) ? ES_SUCCESS:ES_NOT_READY)
     {
     }
 

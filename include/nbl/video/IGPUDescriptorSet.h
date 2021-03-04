@@ -12,6 +12,7 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl
 {
@@ -23,10 +24,12 @@ namespace video
 	@see IDescriptorSet
 */
 
-class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLayout>
+class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLayout>, public IBackendObject
 {
+		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
+
 	public:
-		using asset::IDescriptorSet<const IGPUDescriptorSetLayout>::IDescriptorSet;
+		IGPUDescriptorSet(ILogicalDevice* dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : base_t(std::move(_layout)), IBackendObject(dev) {}
 
 	protected:
 		virtual ~IGPUDescriptorSet() = default;

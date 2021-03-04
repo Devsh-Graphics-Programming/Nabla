@@ -1,6 +1,7 @@
 #ifndef __NBL_C_OPENGL_FRAMEBUFFER_H_INCLUDED__
 #define __NBL_C_OPENGL_FRAMEBUFFER_H_INCLUDED__
 
+#include <array>
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLImageView.h"
@@ -9,12 +10,46 @@ namespace nbl {
 namespace video
 {
 
+class IOpenGL_LogicalDevice;
+
 class COpenGLFramebuffer final : public IGPUFramebuffer
 {
     using base_t = IGPUFramebuffer;
 
+    IOpenGL_LogicalDevice* m_device;
+
 public:
-    using base_t::base_t;
+    COpenGLFramebuffer(SCreationParams&& params, IOpenGL_LogicalDevice* dev);
+
+    ~COpenGLFramebuffer();
+
+    using hash_t = std::array<uint64_t, IGPURenderpass::SCreationParams::MaxColorAttachments+1u>;
+
+    hash_t getHashValue() const
+    {
+        const auto& sub = m_params.renderpass->getSubpasses().begin()[0];
+        const auto* attachments = m_params.attachments;
+
+        hash_t hash;
+        memset(hash.data(), 0, sizeof(hash_t::value_type)*hash.size());
+        for (uint32_t i = 0u; i < sub.colorAttachmentCount; ++i)
+        {
+            uint32_t a = sub.colorAttachments[i].attachment;
+            if (a == IGPURenderpass::ATTACHMENT_UNUSED)
+                continue;
+
+            auto& att = attachments[a];
+            static_assert(sizeof(hash_t::value_type)==sizeof(void*), "Bad reinterpret_cast!");
+            hash[i] = reinterpret_cast<hash_t::value_type>(att.get());
+        }
+        if (sub.depthStencilAttachment && sub.depthStencilAttachment->attachment != IGPURenderpass::ATTACHMENT_UNUSED)
+        {
+            auto& att = attachments[sub.depthStencilAttachment->attachment];
+            hash[IGPURenderpass::SCreationParams::MaxColorAttachments] = reinterpret_cast<hash_t::value_type>(att.get());
+        }
+
+        return hash;
+    }
 
     GLuint createGLFBO(IOpenGL_FunctionTable* gl) const
     {
@@ -31,15 +66,19 @@ public:
         for (uint32_t i = 0u; i < sub.colorAttachmentCount; ++i)
         {
             const uint32_t a = sub.colorAttachments[i].attachment;
-            const auto& att = attachments[a];
-            const auto& d = descriptions[a];
+            if (a != IGPURenderpass::ATTACHMENT_UNUSED)
+            {
+                const auto& att = attachments[a];
+                const auto& d = descriptions[a];
 
-            auto* glatt = static_cast<COpenGLImageView*>(att.get());
-            const GLuint glname = glatt->getOpenGLName();
-            const GLenum textarget = COpenGLImageView::ViewTypeToGLenumTarget[glatt->getCreationParameters().viewType];
+                auto* glatt = static_cast<COpenGLImageView*>(att.get());
+                const GLuint glname = glatt->getOpenGLName();
+                const GLenum textarget = COpenGLImageView::ViewTypeToGLenumTarget[glatt->getCreationParameters().viewType];
 
-            gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0 + i, glname, 0, textarget);
-            drawbuffers[i] = GL_COLOR_ATTACHMENT0 + i;
+                gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0 + i, glname, 0, textarget);
+            }
+
+            drawbuffers[i] = (a != IGPURenderpass::ATTACHMENT_UNUSED) ?  (GL_COLOR_ATTACHMENT0 + i) : GL_NONE;
         }
         if (sub.depthStencilAttachment)
         {

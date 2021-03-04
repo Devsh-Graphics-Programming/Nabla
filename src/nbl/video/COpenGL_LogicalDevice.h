@@ -4,14 +4,16 @@
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
 #include "nbl/video/COpenGLFramebuffer.h"
+#include "nbl/video/COpenGLRenderpass.h"
 #include "nbl/video/COpenGLDescriptorSet.h"
+#include "nbl/video/COpenGLPrimaryCommandBuffer.h"
 
 namespace nbl {
 namespace video
 {
 
 template <typename QueueType_, typename SwapchainType_>
-class COpenGL_LogicalDevice final : public IOpenGL_LogicalDevice
+class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 {
     template <E_REQUEST_TYPE DestroyReqType>
     SRequest& destroyGlObjects(uint32_t count, GLuint names[MaxGlNamesForSingleObject])
@@ -48,10 +50,9 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different APIs!");
 
-    COpenGL_LogicalDevice(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
-        IOpenGL_LogicalDevice(_egl, params),
+    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
+        IOpenGL_LogicalDevice(_egl, api_type, params),
         m_threadHandler(this, _egl, _features, getTotalQueueCount(params), config, major, minor),
-        m_thread(&CThreadHandler<FunctionTableType>::thread, &m_threadHandler),
         m_glfeatures(_features)
     {
         EGLContext master_ctx = m_threadHandler.getContext();
@@ -76,13 +77,8 @@ public:
         }
     }
 
-    ~COpenGL_LogicalDevice()
-    {
-        m_threadHandler.terminate(m_thread);
-    }
 
-
-    core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
+    core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override final
     {
         if (!asset::IImage::validateCreationParameters(params))
             return nullptr;
@@ -101,30 +97,9 @@ public:
 
         return retval;
     }
-    core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) override
-    {
-        if (!IGPUImageView::validateCreationParameters(params))
-            return nullptr;
-        if constexpr (isGLES)
-        {
-            if (params.viewType == IGPUImageView::ET_1D || params.viewType == IGPUImageView::ET_1D_ARRAY)
-                return nullptr;
-            if (params.viewType == IGPUImageView::ET_CUBE_MAP_ARRAY && m_glfeatures->Version < 320 && !m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_cube_map_array))
-                return nullptr;
-        }
-
-        core::smart_refctd_ptr<IGPUImageView> retval;
-
-        SRequestImageViewCreate req_params;
-        req_params.params = std::move(params);
-        auto& req = m_threadHandler.request<SRequestImageViewCreate>(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestImageViewCreate>(req);
-
-        return retval;
-    }
 
 
-    core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
+    core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override final
     {
         core::smart_refctd_ptr<IGPUSampler> retval;
 
@@ -137,7 +112,7 @@ public:
         return retval;
     }
 
-    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
+    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override final
     {
         auto source = _cpushader->getSPVorGLSL();
         auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
@@ -147,7 +122,130 @@ public:
             return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone));
     }
 
-    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override
+    core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override final
+    {
+        return core::make_smart_refctd_ptr<COpenGLRenderpass>(params);
+    }
+
+    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
+    {
+        IGPUImage::SCreationParams imgci;
+        imgci.arrayLayers = params.arrayLayers;
+        imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
+        imgci.format = params.surfaceFormat.format;
+        imgci.mipLevels = 1u;
+        imgci.queueFamilyIndices = params.queueFamilyIndices;
+        imgci.samples = asset::IImage::ESCF_1_BIT;
+        imgci.type = asset::IImage::ET_2D;
+        imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
+
+        IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
+        mreqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        mreqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+        auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
+        for (auto& img_dst : (*images))
+        {
+            img_dst = createGPUImageOnDedMem(IGPUImage::SCreationParams(imgci), mreqs);
+            if (!img_dst)
+                return nullptr;
+        }
+
+        EGLContext master_ctx = m_threadHandler.getContext();
+        EGLConfig fbconfig = m_threadHandler.getFBConfig();
+        auto glver = m_threadHandler.getGL_APIversion();
+
+        return SwapchainType::create(std::move(params), m_egl, std::move(images), m_glfeatures, master_ctx, fbconfig, glver.first, glver.second);
+    }
+
+    void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override final
+    {
+        for (uint32_t i = 0u; i < descriptorWriteCount; i++)
+            static_cast<COpenGLDescriptorSet*>(pDescriptorWrites[i].dstSet)->writeDescriptorSet(pDescriptorWrites[i]);
+        for (uint32_t i = 0u; i < descriptorCopyCount; i++)
+            static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
+    }
+
+    void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override final
+    {
+        SRequestFlushMappedMemoryRanges req_params;
+        req_params.memoryRanges = ranges;
+        auto& req = m_threadHandler.request<SRequestFlushMappedMemoryRanges>(req_params);
+        m_threadHandler.waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
+    }
+
+    void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override final
+    {
+        SRequestInvalidateMappedMemoryRanges req_params;
+        req_params.memoryRanges = ranges;
+        auto& req = m_threadHandler.request<SRequestInvalidateMappedMemoryRanges>(req_params);
+        m_threadHandler.waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
+    }
+
+    void regenerateMipLevels(IGPUImageView* imageview) override final
+    {
+        SRequestRegenerateMipLevels req_params;
+        req_params.imgview = imageview;
+        auto& req = m_threadHandler.request<SRequestRegenerateMipLevels>(req_params);
+        m_threadHandler.waitForRequestCompletion<SRequestRegenerateMipLevels>(req);
+    }
+
+
+    void destroyFramebuffer(COpenGLFramebuffer* fbo) override final
+    {
+        for (auto& q : (*m_queues))
+        {
+            static_cast<QueueType*>(q.get())->destroyFramebuffer(fbo);
+        }
+    }
+    void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) override final
+    {
+        for (auto& q : (*m_queues))
+        {
+            static_cast<QueueType*>(q.get())->destroyPipeline(pipeline);
+        }
+    }
+    void destroyTexture(GLuint img) override final
+    {
+        destroyGlObjects<ERT_TEXTURE_DESTROY>(1u, &img);
+    }
+    void destroyBuffer(GLuint buf) override final
+    {
+        destroyGlObjects<ERT_BUFFER_DESTROY>(1u, &buf);
+    }
+    void destroySampler(GLuint s) override final
+    {
+        destroyGlObjects<ERT_SAMPLER_DESTROY>(1u, &s);
+    }
+    void destroySpecializedShader(uint32_t count, const GLuint* programs) override final
+    {
+        auto& req = destroyGlObjects<ERT_PROGRAM_DESTROY>(count, programs);
+        // actually wait for this to complete because `programs` is most likely stack array or something owned exclusively by the object (which is being destroyed)
+        m_threadHandler.waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
+    }
+
+protected:
+    bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _output) override final
+    {
+        if (_level != IGPUCommandBuffer::EL_PRIMARY)
+            return false;
+        for (uint32_t i = 0u; i < _count; ++i)
+            _output[i] = core::make_smart_refctd_ptr<COpenGLPrimaryCommandBuffer>(this, _cmdPool);
+        return true;
+    }
+    bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override final
+    {
+        return false; // not sure if we even need this method at all...
+    }
+    core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override final
+    {
+        // now supporting only single subpass and no input nor resolve attachments
+        // obvs preserve attachments are ignored as well
+        if (params.renderpass->getCreationParameters().subpassCount != 1u)
+            return nullptr;
+
+        return core::make_smart_refctd_ptr<COpenGLFramebuffer>(this, std::move(params));
+    }
+    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
     {
         const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
 
@@ -208,11 +306,104 @@ public:
             return nullptr;
         }
 
-        auto ctx = getThreadContext_helper(false);
-        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
+        bool needClipControlWorkaround = false;
+        if constexpr (IsGLES)
+        {
+            needClipControlWorkaround = !m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
+        }
+        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
     }
+    core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
+    {
+        SRequestBufferViewCreate req_params;
+        req_params.buffer = core::smart_refctd_ptr<IGPUBuffer>(_underlying);
+        req_params.format = _fmt;
+        req_params.offset = _offset;
+        req_params.size = _size;
+        core::smart_refctd_ptr<IGPUBufferView> retval;
+        auto& req = m_threadHandler.request<SRequestBufferViewCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestBufferViewCreate>(req);
+        return retval;
+    }
+    core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override final
+    {
+        if (!IGPUImageView::validateCreationParameters(params))
+            return nullptr;
+        if constexpr (isGLES)
+        {
+            if (params.viewType == IGPUImageView::ET_1D || params.viewType == IGPUImageView::ET_1D_ARRAY)
+                return nullptr;
+            if (params.viewType == IGPUImageView::ET_CUBE_MAP_ARRAY && m_glfeatures->Version < 320 && !m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_cube_map_array))
+                return nullptr;
+        }
 
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+        core::smart_refctd_ptr<IGPUImageView> retval;
+
+        SRequestImageViewCreate req_params;
+        req_params.params = std::move(params);
+        auto& req = m_threadHandler.request<SRequestImageViewCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestImageViewCreate>(req);
+
+        return retval;
+    }
+    core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override final
+    {
+        // ignoring descriptor pool
+        return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(this, std::move(layout));
+    }
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override final
+    {
+        return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(_begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
+    }
+    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
+        const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+    ) override final
+    {
+        return core::make_smart_refctd_ptr<COpenGLPipelineLayout>(
+            this,
+            _pcRangesBegin, _pcRangesEnd,
+            std::move(_layout0), std::move(_layout1),
+            std::move(_layout2), std::move(_layout3)
+        );
+    }
+    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
+    ) override final
+    {
+        core::smart_refctd_ptr<IGPUComputePipeline> retval;
+
+        IGPUComputePipeline::SCreationParams params;
+        params.layout = std::move(_layout);
+        params.shader = std::move(_shader);
+        SRequestComputePipelineCreate req_params;
+        req_params.params = &params;
+        req_params.count = 1u;
+        req_params.pipelineCache = _pipelineCache;
+        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
+
+        return retval;
+    }
+    bool createGPUComputePipelines_impl(
+        IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
+        core::smart_refctd_ptr<IGPUComputePipeline>* output
+    ) override final
+    {
+        SRequestComputePipelineCreate req_params;
+        req_params.params = createInfos.begin();
+        req_params.count = createInfos.size();
+        req_params.pipelineCache = pipelineCache;
+        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), output);
+        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
+
+        return true;
+    }
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
@@ -220,7 +411,7 @@ public:
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams
-    ) override
+    ) override final
     {
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> retval;
 
@@ -245,12 +436,11 @@ public:
 
         return retval;
     }
-
-    bool createGPURenderpassIndependentPipelines(
+    bool createGPURenderpassIndependentPipelines_impl(
         IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
-    ) override
+    ) override final
     {
         SRequestRenderpassIndependentPipelineCreate req_params;
         req_params.params = createInfos.begin();
@@ -261,93 +451,11 @@ public:
 
         return true;
     }
-
-    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
-        IGPUPipelineCache* _pipelineCache,
-        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-        core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
-    ) override
+    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override final
     {
-        core::smart_refctd_ptr<IGPUComputePipeline> retval;
-
-        IGPUComputePipeline::SCreationParams params;
-        params.layout = std::move(_layout);
-        params.shader = std::move(_shader);
-        SRequestComputePipelineCreate req_params;
-        req_params.params = &params;
-        req_params.count = 1u;
-        req_params.pipelineCache = _pipelineCache;
-        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
-
-        return retval;
+        return core::make_smart_refctd_ptr<IGPUGraphicsPipeline>(this, std::move(params)); // theres no COpenGLGraphicsPipeline (no need for such)
     }
-
-    bool createGPUComputePipelines(
-        IGPUPipelineCache* pipelineCache,
-        core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
-        core::smart_refctd_ptr<IGPUComputePipeline>* output
-    ) override
-    {
-        SRequestComputePipelineCreate req_params;
-        req_params.params = createInfos.begin();
-        req_params.count = createInfos.size();
-        req_params.pipelineCache = pipelineCache;
-        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), output);
-        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
-
-        return true;
-    }
-
-    core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params) override
-    {
-        // now supporting only single subpass and no input nor resolve attachments
-        // obvs preserve attachments are ignored as well
-        if (params.renderpass->getCreationParameters().subpassCount != 1u)
-            return nullptr;
-        if (!IGPUFramebuffer::validate(params))
-            return nullptr;
-
-        return core::make_smart_refctd_ptr<COpenGLFramebuffer>(std::move(params));
-    }
-
-    core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override
-    {
-        // ignoring descriptor pool
-        return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(layout));
-    }
-
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
-    {
-        return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(_begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
-    }
-
-    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
-        const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
-    ) override
-    {
-        return core::make_smart_refctd_ptr<COpenGLPipelineLayout>(
-            _pcRangesBegin, _pcRangesEnd,
-            std::move(_layout0), std::move(_layout1),
-            std::move(_layout2), std::move(_layout3)
-        );
-    }
-
-    core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
-    {
-        return core::make_smart_refctd_ptr<IGPURenderpass>(params); // theres no COpenGLRenderpass (no need for such)
-    }
-
-    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override
-    {
-        if (!IGPUGraphicsPipeline::validate(params))
-            return nullptr;
-        return core::make_smart_refctd_ptr<IGPUGraphicsPipeline>(std::move(params)); // theres no COpenGLGraphicsPipeline (no need for such)
-    }
-
-    bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override
+    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override final
     {
         uint32_t i = 0u;
         for (const auto& ci : params)
@@ -358,83 +466,8 @@ public:
         return true;
     }
 
-    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override
-    {
-        IGPUImage::SCreationParams imgci;
-        imgci.arrayLayers = params.arrayLayers;
-        imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
-        imgci.format = params.surfaceFormat.format;
-        imgci.mipLevels = 1u;
-        imgci.queueFamilyIndices = params.queueFamilyIndices;
-        imgci.samples = asset::IImage::ESCF_1_BIT;
-        imgci.type = asset::IImage::ET_2D;
-        imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
-
-        IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
-        mreqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        mreqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-        auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
-        for (auto& img_dst : (*images))
-        {
-            img_dst = createGPUImageOnDedMem(IGPUImage::SCreationParams(imgci), mreqs);
-            if (!img_dst)
-                return nullptr;
-        }
-
-        EGLContext master_ctx = m_threadHandler.getContext();
-        EGLConfig fbconfig = m_threadHandler.getFBConfig();
-        auto glver = m_threadHandler.getGL_APIversion();
-
-        return SwapchainType::create(std::move(params), m_egl, std::move(images), m_glfeatures, master_ctx, fbconfig, glver.first, glver.second);
-    }
-
-    void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies)
-    {
-        for (uint32_t i = 0u; i < descriptorWriteCount; i++)
-            static_cast<COpenGLDescriptorSet*>(pDescriptorWrites[i].dstSet)->writeDescriptorSet(pDescriptorWrites[i]);
-        for (uint32_t i = 0u; i < descriptorCopyCount; i++)
-            static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
-    }
-
-    void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
-    {
-        SRequestFlushMappedMemoryRanges req_params;
-        req_params.memoryRanges = ranges;
-        auto& req = m_threadHandler.request<SRequestFlushMappedMemoryRanges>(req_params);
-        m_threadHandler.waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
-    }
-
-    void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
-    {
-        SRequestInvalidateMappedMemoryRanges req_params;
-        req_params.memoryRanges = ranges;
-        auto& req = m_threadHandler.request<SRequestInvalidateMappedMemoryRanges>(req_params);
-        m_threadHandler.waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
-    }
-
-
-    void destroyTexture(GLuint img) override
-    {
-        destroyGlObjects<ERT_TEXTURE_DESTROY>(1u, &img);
-    }
-    void destroyBuffer(GLuint buf) override
-    {
-        destroyGlObjects<ERT_BUFFER_DESTROY>(1u, &buf);
-    }
-    void destroySampler(GLuint s) override
-    {
-        destroyGlObjects<ERT_SAMPLER_DESTROY>(1u, &s);
-    }
-    void destroySpecializedShader(uint32_t count, const GLuint* programs) override
-    {
-        auto& req = destroyGlObjects<ERT_PROGRAM_DESTROY>(count, programs);
-        // actually wait for this to complete because `programs` is most likely stack array or something owned exclusively by the object (which is being destroyed)
-        m_threadHandler.waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
-    }
-
 private:
     CThreadHandler<FunctionTableType> m_threadHandler;
-    std::thread m_thread;
     const FeaturesType* m_glfeatures;
 };
 

@@ -12,6 +12,7 @@
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUPipelineLayout.h"
 #include "nbl/video/IGPUCommandPool.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
@@ -30,7 +31,8 @@ class IGPUCommandBuffer :
         IGPUPipelineLayout,
         IGPUEvent,
         IGPUCommandBuffer
-    >
+    >,
+    public IBackendObject
 {
 public:
     // TODO impl commands
@@ -38,7 +40,7 @@ public:
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
 protected:
-    explicit IGPUCommandBuffer(const IGPUCommandPool* _cmdpool) : m_cmdpool(_cmdpool)
+    explicit IGPUCommandBuffer(ILogicalDevice* dev, const IGPUCommandPool* _cmdpool) : IBackendObject(dev), m_cmdpool(_cmdpool)
     {
 
     }

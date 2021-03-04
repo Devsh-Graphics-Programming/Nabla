@@ -272,8 +272,8 @@ namespace video
             {
                 auto& c = cmd.get<ECT_BIND_INDEX_BUFFER>();
                 auto* buffer = static_cast<COpenGLBuffer*>(c.buffer.get());
-                ctxlocal->nextState.vertexInputParams.vao.idxBinding = { c.offset, core::smart_refctd_ptr<const COpenGLBuffer>(buffer) };
-                ctxlocal->nextState.vertexInputParams.vao.idxType = c.indexType;
+                ctxlocal->nextState.vertexInputParams.vaoval.idxBinding = { c.offset, core::smart_refctd_ptr<const COpenGLBuffer>(buffer) };
+                ctxlocal->nextState.vertexInputParams.vaoval.idxType = c.indexType;
             }
             break;
             case ECT_DRAW:
@@ -297,7 +297,7 @@ namespace video
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
                 GLenum idxType = GL_INVALID_ENUM;
-                switch (ctxlocal->currentState.vertexInputParams.vao.idxType)
+                switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
                 {
                 case asset::EIT_16BIT:
                     idxType = GL_UNSIGNED_SHORT;
@@ -310,7 +310,7 @@ namespace video
 
                 if (idxType != GL_INVALID_ENUM)
                 {
-                    GLuint64 idxBufOffset = ctxlocal->currentState.vertexInputParams.vao.idxBinding.offset;
+                    GLuint64 idxBufOffset = ctxlocal->currentState.vertexInputParams.vaoval.idxBinding.offset;
                     static_assert(sizeof(idxBufOffset) == sizeof(void*), "Bad reinterpret_cast");
                     gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, c.indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), c.instanceCount, c.firstIndex, c.firstInstance);
                 }
@@ -346,7 +346,7 @@ namespace video
                 GLenum glpt = getGLprimitiveType(primType);
 
                 GLenum idxType = GL_INVALID_ENUM;
-                switch (ctxlocal->currentState.vertexInputParams.vao.idxType)
+                switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
                 {
                 case asset::EIT_16BIT:
                     idxType = GL_UNSIGNED_SHORT;
@@ -483,7 +483,7 @@ namespace video
 
                 for (uint32_t i = 0u; i < c.count; ++i)
                 {
-                    auto& binding = ctxlocal->nextState.vertexInputParams.vao.vtxBindings[c.first + i];
+                    auto& binding = ctxlocal->nextState.vertexInputParams.vaoval.vtxBindings[c.first + i];
                     binding.buffer = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffers[i]);
                     binding.offset = c.offsets[i];
                 }
@@ -581,9 +581,13 @@ namespace video
             case ECT_BEGIN_RENDERPASS:
             {
                 auto& c = cmd.get<ECT_BEGIN_RENDERPASS>();
-                //c.renderpassBegin.framebuffer
-                // TODO bind framebuffer
-                GLuint fbo = 0; // TODO get fbo name!!!!!!!!!
+                auto framebuf = core::smart_refctd_ptr_static_cast<const COpenGLFramebuffer>(c.renderpassBegin.framebuffer);
+
+                ctxlocal->nextState.framebuffer.hash = framebuf->getHashValue();
+                ctxlocal->nextState.framebuffer.fbo = std::move(framebuf);
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_FRAMEBUFFER, ctxid);
+
+                GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
                 beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo);
             }
             break;
