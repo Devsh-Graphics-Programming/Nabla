@@ -3,12 +3,12 @@
 int main()
 {
 	WaveSimParams params{
-		512, 
-		512,
+		128, 
+		128,
 		{ 1.f, 1.f },
 		{ 1.f, 1.f },
-		5,
-		1000
+		6,
+		5
 	};
 	Sleep(5000);
 	WaveSimApp app(params);

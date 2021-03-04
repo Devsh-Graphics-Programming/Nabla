@@ -135,7 +135,7 @@ bool WaveSimApp::CreateComputePipelines()
 			const size_t extraSize = 128;
 			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 			uint32_t maxPaddedDimensionSize = std::max(m_params.height, m_params.width);
-			const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
+			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
 			auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
 			snprintf(
 				reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), sourceFmt,
@@ -171,7 +171,7 @@ bool WaveSimApp::CreateComputePipelines()
 			const size_t extraSize = 128;
 			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 			uint32_t maxPaddedDimensionSize = std::max(m_params.height, m_params.width);
-			const uint32_t maxItemsPerThread = (maxPaddedDimensionSize - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
+			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
 			auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
 			snprintf(
 				reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), sourceFmt,
@@ -369,11 +369,11 @@ void WaveSimApp::PresentWaves(const textureView& tex)
 	}
 
 	{
-		m_driver->beginScene(true, true);
+		//m_driver->beginScene(true, true);
 		m_driver->bindGraphicsPipeline(m_presenting_pipeline.get());
 		m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_presenting_pipeline->getLayout(), 3u, 1u, &sampler_descriptor_set.get(), nullptr);
 		m_driver->drawMeshBuffer(m_current_gpu_mesh_buffer.get());
-		m_driver->endScene();
+		//m_driver->endScene();
 	}
 }
 
@@ -399,15 +399,11 @@ smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::RandomizeWaveSpectrum()
 		m_driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 	}
 	{
-		m_driver->beginScene(true);
-
 		auto ds = m_randomizer_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_spectrum_randomizing_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_spectrum_randomizing_pipeline.get());
 		m_driver->pushConstants(m_spectrum_randomizing_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(m_params), &m_params);
 		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.height + 15u) / 16u, 1u);
-
-		m_driver->endScene();
 	}
 	return initial_buffer;
 }
@@ -445,6 +441,7 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		info[2].desc = ifft_x_buffer;
 		info[2].buffer = { 0, OUT_SSBO_SIZE };
 
+
 		m_driver->updateDescriptorSets(3u, write, 0u, nullptr);
 	}
 	{
@@ -456,8 +453,8 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		} pc;
 		pc.time = time;
 		pc.size = m_params.size;
-		uint8_t isInverse_u8 = true;
-		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::X);
+		uint8_t isInverse_u8 = false;
+		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::Y);
 		uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
 
 		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
@@ -472,7 +469,7 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		pc.params.padded_dimension.w = 1;
 		auto dispatch_info = FFT::buildParameters({ pc.params.dimension.x,
 													pc.params.dimension.y,
-													pc.params.dimension.z }, FFT::Direction::X);
+													pc.params.dimension.z }, FFT::Direction::Y);
 
 		auto ds = m_animating_1_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_1->getLayout(), 0u, 1u, &ds, nullptr);
@@ -482,6 +479,7 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		{
 			m_driver->beginScene(true);
 			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
+			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 			m_driver->endScene();
 		}
 	}
@@ -505,13 +503,20 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		info[1].desc = out;
 		info[1].image = { nullptr, EIL_UNDEFINED };
 
+		/*write[1] = write[0];
+		write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+		write[1].binding = 1u;
+		write[1].info = info + 1;
+		info[1].desc = animated_data_buffer;
+		info[1].buffer = { 0, OUT_SSBO_SIZE };*/
+
 		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
 	}
 
 	{
 		FFT::Parameters_t params;
-		uint8_t isInverse_u8 = true;
-		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::Y);
+		uint8_t isInverse_u8 = false;
+		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::X);
 		uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
 
 		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
@@ -527,8 +532,7 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 										
 		auto dispatch_info = FFT::buildParameters({ params.dimension.x,
 													params.dimension.y,
-													params.dimension.z }, FFT::Direction::Y);
-
+													params.dimension.z }, FFT::Direction::X);
 
 		auto ds = m_animating_2_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_2->getLayout(), 0u, 1u, &ds, nullptr);
@@ -536,10 +540,12 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		m_driver->pushConstants(m_animating_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(params), &params);
 		//while (m_device->run())
 		{
-			m_driver->beginScene(true);
+			//m_driver->beginScene(true);
 			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
-			m_driver->endScene();
+			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			//m_driver->endScene();
 		}
+
 	}
 }
 
@@ -562,12 +568,18 @@ WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 
 void WaveSimApp::Run()
 {
+	
+	float i = 1;
+
 	auto initial_values = RandomizeWaveSpectrum();
 	auto animated_part = CreateTexture(m_params.size, EF_R8G8_UNORM);
-	float i = 1;
 	while (m_device->run())
 	{
-		GetAnimatedHeightMap(initial_values, animated_part, i += 0.1f);
+		m_driver->beginScene(true);
+
+		GetAnimatedHeightMap(initial_values, animated_part, i += 0.01f);
 		PresentWaves(animated_part);
+		m_driver->endScene();
+
 	}
 }

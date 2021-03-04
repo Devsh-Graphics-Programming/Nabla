@@ -25,10 +25,14 @@ layout(set = 0, binding = 1, std430) buffer ANIMATED_SPECTRUM
 	vec2 data[];
 } animated_spectrum;
 
+
 layout(set = 0, binding = 2, std430) buffer IFFT_X_OUT
 {
 	vec2 data[];
 } ifft_x_out;
+
+//layout(location = 0, binding = 2, rgba8) uniform image2D out_tex;
+
 
 layout(push_constant) uniform PUSH_CONSTANTS
 {
@@ -49,13 +53,14 @@ void main()
 
 		float wk = sqrt(length(k) * G); 
 
-		vec2 res = nbl_glsl_complex_mul(h0k, EI(wk * u_pc.TIME)); + 
+		vec2 res = nbl_glsl_complex_mul(h0k, EI(wk * u_pc.TIME)) + 
 				   nbl_glsl_complex_mul(h0_conj, EI(-wk * u_pc.TIME));
 
 		animated_spectrum.data[ssbo_index] = res;
-
+		//uint x_shift = (gl_GlobalInvocationID.x >=  u_pc.IMG_SIZE.x / 2) ? -u_pc.IMG_SIZE.x / 2 : u_pc.IMG_SIZE.x / 2;  
+        //uint y_shift = (gl_GlobalInvocationID.y >=  u_pc.IMG_SIZE.y / 2) ? -u_pc.IMG_SIZE.y / 2 : u_pc.IMG_SIZE.y / 2;  
+		//imageStore(out_tex, ivec2(gl_GlobalInvocationID.xy), vec4(1, 1, 0, 1));
 	}
-	memoryBarrierShared();
 	barrier();
 	nbl_glsl_ext_FFT(true, 0);
 
@@ -73,9 +78,10 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 	nbl_glsl_complex retValue = nbl_glsl_complex(0, 0);
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
 	uint index = coordinate.y * dimension.x + coordinate.x;
-	retValue = animated_spectrum.data[index];
+	retValue = primary_calculations.data[index][1];
 	return retValue;
 }
+
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
@@ -83,7 +89,9 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_
 	uint index = coordinate.y * dimension.x + coordinate.x;//channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
 	//uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
 
-	ifft_x_out.data[index] = complex_value;
+	ifft_x_out.data[index] = any(isnan(complex_value)) ? vec2(0, 0) : complex_value;
+
+	//imageStore(ifft_x_out, ivec2(coordinate.xy), vec4(complex_value, 0, 1));
 }
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
