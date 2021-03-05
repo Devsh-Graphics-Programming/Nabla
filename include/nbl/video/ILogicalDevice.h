@@ -98,12 +98,14 @@ public:
 
     virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
-    virtual core::smart_refctd_ptr<IGPUEvent> createEvent() const = 0;
-    virtual IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) const = 0;
-    virtual IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) const = 0;
-    virtual IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) const = 0;
+    // TODO (all this events stuff) impl in COpenGL_LogicalDevice
+    virtual core::smart_refctd_ptr<IGPUEvent> createEvent() = 0;
+    virtual IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) = 0;
+    virtual IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) = 0;
+    virtual IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) = 0;
 
-    virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) const = 0;
+    virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) = 0;
+    virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
     virtual void resetFences(uint32_t _count, IGPUFence** _fences) = 0;
     virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
 

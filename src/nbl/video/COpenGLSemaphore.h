@@ -2,14 +2,16 @@
 #define __NBL_C_OPENGL_SEMAPHORE_H_INCLUDED__
 
 #include "nbl/video/IGPUSemaphore.h"
-#include "nbl/video/COpenGLSync.h"
-#include "COpenGLExtensionHandler.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/video/IOpenGLSyncPrimitiveBase.h"
 
 namespace nbl {
 namespace video
 {
 
-class COpenGLSemaphore : public IGPUSemaphore
+class IOpenGL_LogicalDevice;
+
+class COpenGLSemaphore : public IGPUSemaphore, public IOpenGLSyncPrimitiveBase
 {
 protected:
     ~COpenGLSemaphore()
@@ -32,29 +34,16 @@ public:
         ES_ERROR
     };
 
-    COpenGLSemaphore(ILogicalDevice* dev) : IGPUSemaphore(dev)
+    COpenGLSemaphore(IOpenGL_LogicalDevice* dev) : IGPUSemaphore(dev), IOpenGLSyncPrimitiveBase(dev)
     {
 
     }
 
-    inline COpenGLSync* getInternalObject() { return m_sync.get(); }
-
-    void wait()
+    void wait(IOpenGL_FunctionTable* _gl)
     {
-        m_sync->waitGPU();
+        prewait();
+        m_sync->waitGPU(_gl);
     }
-
-    void signal(core::smart_refctd_ptr<COpenGLSync>&& _sync)
-    {
-        m_sync = std::move(_sync);
-        glFlush();
-    }
-
-private:
-    bool isWaitable() const { return static_cast<bool>(m_sync); }
-    bool isSignalable() const { return !m_sync; }
-
-    core::smart_refctd_ptr<COpenGLSync> m_sync = nullptr;
 };
 
 }}

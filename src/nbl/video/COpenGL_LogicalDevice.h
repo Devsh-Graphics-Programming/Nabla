@@ -8,6 +8,8 @@
 #include "nbl/video/COpenGLDescriptorSet.h"
 #include "nbl/video/COpenGLPrimaryCommandBuffer.h"
 
+#include <chrono>
+
 namespace nbl {
 namespace video
 {
@@ -25,7 +27,7 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
         params.count = count;
         std::copy(names, names + count, params.glnames);
 
-        auto req = m_threadHandler.request<req_params_t>(std::move(params));
+        auto& req = m_threadHandler.request<req_params_t>(std::move(params));
         // dont need to wait on this
         //m_threadHandler.waitForRequestCompletion<req_params_t>(req);
         return req;
@@ -48,7 +50,7 @@ public:
     using FunctionTableType = typename QueueType::FunctionTableType;
     using FeaturesType = typename COpenGLFeatureMap;
 
-    static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different APIs!");
+    static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
     COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
         IOpenGL_LogicalDevice(_egl, api_type, params),
@@ -154,7 +156,52 @@ public:
         EGLConfig fbconfig = m_threadHandler.getFBConfig();
         auto glver = m_threadHandler.getGL_APIversion();
 
-        return SwapchainType::create(std::move(params), m_egl, std::move(images), m_glfeatures, master_ctx, fbconfig, glver.first, glver.second);
+        return SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, master_ctx, fbconfig, glver.first, glver.second);
+    }
+
+    core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
+    {
+        return core::make_smart_refctd_ptr<COpenGLSemaphore>(this);
+    }
+
+    core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) override final
+    {
+        if (_flags & IGPUFence::ECF_SIGNALED_BIT)
+        {
+            SRequestFenceCreate params;
+            params.flags = _flags;
+            core::smart_refctd_ptr<IGPUFence> retval;
+            auto& req = m_threadHandler.request<SRequestFenceCreate>(std::move(params), &retval);
+            m_threadHandler.waitForRequestCompletion<SRequestFenceCreate>(req);
+
+            return retval;
+        }
+        return core::make_smart_refctd_ptr<COpenGLFence>(this);
+    }
+
+    IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override final
+    {
+        COpenGLFence* fence = static_cast<COpenGLFence*>(_fence);
+        return fence->isWaitable() ? IGPUFence::ES_SUCCESS : IGPUFence::ES_NOT_READY;
+    }
+
+    void resetFences(uint32_t _count, IGPUFence** _fences) override final
+    {
+        for (uint32_t i = 0u; i < _count; ++i)
+            static_cast<COpenGLFence*>(_fences[i])->reset();
+    }
+
+    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override final
+    {
+        SRequestWaitForFences params;
+        params.fences = core::SRange<IGPUFence*>(_fences, _fences + _count);
+        params.timeout = _timeout;
+        params.waitForAll = _waitAll;
+        IGPUFence::E_STATUS retval;
+        auto& req = m_threadHandler.request<SRequestWaitForFences>(std::move(params), &retval);
+        m_threadHandler.waitForRequestCompletion<SRequestWaitForFences>(req);
+
+        return retval;
     }
 
     void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override final
@@ -221,6 +268,14 @@ public:
         auto& req = destroyGlObjects<ERT_PROGRAM_DESTROY>(count, programs);
         // actually wait for this to complete because `programs` is most likely stack array or something owned exclusively by the object (which is being destroyed)
         m_threadHandler.waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
+    }
+    void destroySync(GLsync sync) override final
+    {
+        SRequestSyncDestroy req_params;
+        req_params.glsync = sync;
+        auto& req = m_threadHandler.request<SRequestSyncDestroy>(std::move(req_params));
+        //dont need to wait on this
+        //m_threadHandler.waitForRequestCompletion<SRequestSyncDestroy>(req);
     }
 
 protected:

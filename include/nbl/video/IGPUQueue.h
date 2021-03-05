@@ -7,6 +7,7 @@
 #include <nbl/video/IGPUFence.h>
 #include <nbl/asset/IRenderpass.h>
 #include "nbl/video/IBackendObject.h"
+#include "nbl/video/ISwapchain.h"
 
 namespace nbl {
 namespace video
@@ -30,6 +31,14 @@ public:
         uint32_t commandBufferCount;
         IGPUPrimaryCommandBuffer** commandBuffers;
     };
+    struct SPresentInfo
+    {
+        uint32_t waitSemaphoreCount;
+        IGPUSemaphore** waitSemaphores;
+        uint32_t swapchainCount;
+        ISwapchain** swapchains;
+        const uint32_t* imgIndices;
+    };
 
     //! `flags` takes bits from E_CREATE_FLAGS
     IGPUQueue(ILogicalDevice* dev, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
@@ -39,6 +48,8 @@ public:
     }
 
     virtual void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
+
+    virtual bool present(const SPresentInfo& info) = 0;
 
     float getPriority() const { return m_priority; }
     uint32_t getFamilyIndex() const { return m_familyIndex; }

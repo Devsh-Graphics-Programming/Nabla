@@ -23,16 +23,12 @@ public:
         ES_ERROR
     };
 
-    IGPUFence(ILogicalDevice* dev, E_CREATE_FLAGS flags) : IBackendObject(dev), m_status((flags&ECF_SIGNALED_BIT) ? ES_SUCCESS:ES_NOT_READY)
+    IGPUFence(ILogicalDevice* dev, E_CREATE_FLAGS flags) : IBackendObject(dev)
     {
     }
 
 protected:
     virtual ~IGPUFence() = default;
-
-    inline E_STATUS setStatus(E_STATUS s) { return m_status = s; }
-
-    mutable E_STATUS m_status;
 };
 
 }

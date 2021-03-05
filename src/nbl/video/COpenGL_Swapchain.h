@@ -6,10 +6,15 @@
 #include "nbl/system/IThreadHandler.h"
 #include "nbl/video/COpenGLImage.h"
 #include "nbl/video/surface/ISurfaceGL.h"
+#include "nbl/video/COpenGLSync.h"
+#include "nbl/video/COpenGLFence.h"
+#include "nbl/video/COpenGLSemaphore.h"
 
 namespace nbl {
 namespace video
 {
+
+class IOpenGL_LogicalDevice;
 
 template <typename FunctionTableType_>
 class COpenGL_Swapchain final : public ISwapchain
@@ -21,12 +26,23 @@ public:
     using FunctionTableType = FunctionTableType_;
 
     // should be called by GL/GLES backend's impl of vkQueuePresentKHR
-    void present(uint32_t _imgIx)
+    inline bool present(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore** sems)
     {
-        m_threadHandler.requestBlit(_imgIx);
+        if (_imgIx >= m_params.minImageCount)
+            return false;
+        for (uint32_t i = 0u; i < semCount; ++i)
+        {
+            if (!this->isCompatibleDevicewise(sems[i]))
+                return false;
+            if (!static_cast<COpenGLSemaphore*>(sems[i])->isWaitable())
+                return false;
+        }
+        m_threadHandler.requestBlit(_imgIx, semCount, sems);
+
+        return true;
     }
 
-    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor)
+    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor)
     {
         if (!images || !images->size())
             return nullptr;
@@ -35,7 +51,7 @@ public:
         if (images->size() > MaxImages)
             return nullptr;
 
-        auto extent = (*images)[0]->getCreationParameters().extent;
+        auto extent = asset::VkExtent3D{ params.width, params.height };
         for (auto& img : (*images))
         {
             auto& ci = img->getCreationParameters();
@@ -51,14 +67,37 @@ public:
                 return nullptr;
         }
 
-        return core::make_smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(std::move(params), _egl, std::move(images), _features, _master, _config, _major, _minor);
+        return core::make_smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(std::move(params), dev, _egl, std::move(images), _features, _master, _config, _major, _minor);
     }
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
     {
-        // TODO impl
+        if (semaphore && !this->isCompatibleDevicewise(semaphore))
+            return EAIR_ERROR;
+        if (fence && this->isCompatibleDevicewise(fence))
+            return EAIR_ERROR;
+
+        // TODO currently completely ignoring `timeout`
+
         ++m_imgIx;
         m_imgIx %= static_cast<uint32_t>(m_images->size());
+
+        if (semaphore || fence)
+        {
+            core::smart_refctd_ptr<COpenGLSync> sync = m_threadHandler.getSyncForImgIx(m_imgIx);
+            if (semaphore)
+            {
+                COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(semaphore);
+                sem->signal(core::smart_refctd_ptr(sync));
+            }
+            if (fence)
+            {
+                COpenGLFence* fen = static_cast<COpenGLFence*>(fence);
+                fen->signal(core::smart_refctd_ptr(sync));
+            }
+        }
+
+        assert(out_imgIx);
         out_imgIx[0] = m_imgIx;
 
         return EAIR_SUCCESS;
@@ -66,9 +105,9 @@ public:
 
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
-    COpenGL_Swapchain(SCreationParams&& params, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
-        ISwapchain(std::move(params)),
-        m_threadHandler(_egl, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _master, _config, _major, _minor)
+    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
+        ISwapchain(dev, std::move(params)),
+        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _master, _config, _major, _minor)
     {
         m_images = std::move(images);
     }
@@ -78,7 +117,8 @@ private:
     class CThreadHandler final : public system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>
     {
     public:
-        CThreadHandler(const egl::CEGL* _egl, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
+        CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
+            m_device(dev),
             egl(_egl),
             masterCtx(_master), config(_config),
             major(_major), minor(_minor),
@@ -90,16 +130,33 @@ private:
             assert(images.size() <= MaxImages);
         }
 
-        void requestBlit(uint32_t _imgIx)
+        void requestBlit(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore** sems)
         {
             auto raii_handler = createRAIIDispatchHandler();
 
             needToBlit = true;
-            imgIx = _imgIx;
+            request.imgIx = _imgIx;
+            request.semCount = semCount;
+            request.sems.clear();
+            if (request.sems.capacity()<semCount)
+                request.sems.reserve(semCount);
+            for (uint32_t i = 0u; i < semCount; ++i)
+            {
+                COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(sems[i]);
+                request.sems.push_back(core::smart_refctd_ptr<COpenGLSemaphore>(sem));
+            }
+        }
+
+        core::smart_refctd_ptr<COpenGLSync> getSyncForImgIx(uint32_t imgix)
+        {
+            auto lk = createLock();
+
+            return syncs[imgix];
         }
 
     protected:
         using base_t = system::IThreadHandler<SThreadHandlerInternalState>;
+        friend base_t;
 
         SThreadHandlerInternalState init()
         {
@@ -150,28 +207,36 @@ private:
         {
             needToBlit = false;
 
-            lock.unlock();
+            const uint32_t imgix = request.imgIx;
+            const GLint w = images.begin()[imgix]->getCreationParameters().extent.width;
+            const GLint h = images.begin()[imgix]->getCreationParameters().extent.height;
 
-            const GLint w = images.begin()[imgIx]->getCreationParameters().extent.width;
-            const GLint h = images.begin()[imgIx]->getCreationParameters().extent.height;
-            // TODO
-            // wait semaphores
-            gl.extGlBlitNamedFramebuffer(fbos[imgIx], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            for (uint32_t i = 0u; i < request.semCount; ++i)
+            {
+                core::smart_refctd_ptr<COpenGLSemaphore>& sem = request.sems[i];
+                sem->wait(&gl);
+            }
+
+            gl.extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
             egl->call.peglSwapBuffers(egl->display, surface);
-
-            lock.lock();
+            syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>(m_device, &gl);
+            gl.glGeneral.pglFlush();
         }
 
         void exit(internal_state_t& gl)
         {
             gl.glFramebuffer.pglDeleteFramebuffers(images.size(), fbos);
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            egl->call.peglDestroyContext(egl->display, thisCtx);
+            egl->call.peglDestroySurface(egl->display, surface);
         }
 
         bool wakeupPredicate() const { return needToBlit; }
         bool continuePredicate() const { return needToBlit; }
 
     private:
+        IOpenGL_LogicalDevice* m_device;
+
 		const egl::CEGL* egl;
         EGLContext masterCtx;
         EGLConfig config;
@@ -182,7 +247,14 @@ private:
 		COpenGLFeatureMap* features;
         core::SRange<core::smart_refctd_ptr<IGPUImage>> images;
         GLuint fbos[MaxImages]{};
-        uint32_t imgIx = 0u;
+        core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
+        struct SRequest {
+            SRequest() { sems.reserve(50); }
+
+            uint32_t imgIx = 0u;
+            core::vector<core::smart_refctd_ptr<COpenGLSemaphore>> sems;
+            uint32_t semCount = 0;
+        } request;
 
         bool needToBlit = false;
     };

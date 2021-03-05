@@ -56,7 +56,7 @@ public:
 
     //void exit(internal_state_t& state); // optional, no `state` parameter in case of no internal state
 
-    //void request_impl(request_t& req, ...);
+    //void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request()
     //void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
     ///////
 

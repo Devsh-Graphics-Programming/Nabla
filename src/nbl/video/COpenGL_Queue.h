@@ -12,6 +12,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/COpenGLCommandBuffer.h"
+#include "nbl/video/COpenGL_Swapchain.h"
 
 namespace nbl {
 namespace video
@@ -26,6 +27,45 @@ class COpenGL_Queue final : public IGPUQueue
 
     private:
         static inline constexpr bool IsGLES = (FunctionTableType::EGL_API_TYPE == EGL_OPENGL_ES_API);
+
+        static inline GLbitfield pipelineStageFlagsToMemBarrierBits(asset::E_PIPELINE_STAGE_FLAGS flags)
+        {
+            constexpr GLbitfield VertexInputBits = GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT;
+            constexpr GLbitfield AnyShaderStageCommonBits = GL_UNIFORM_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT;
+            constexpr GLbitfield TransferBits = GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT;
+            constexpr GLbitfield HostBits = TransferBits | IOpenGL_FunctionTable::CLIENT_MAPPED_BUFFER_BARRIER_BIT;
+            constexpr GLbitfield AllGraphicsBits = GL_COMMAND_BARRIER_BIT | VertexInputBits | AnyShaderStageCommonBits;
+            constexpr GLbitfield AllCommandsBits = GL_ALL_BARRIER_BITS;
+            constexpr uint32_t PipelineStageCount = 14u;
+            const GLbitfield bits[PipelineStageCount] = {
+                GL_ALL_BARRIER_BITS, // EPSF_TOP_OF_PIPE_BIT
+                AnyShaderStageCommonBits | TransferBits | VertexInputBits | GL_COMMAND_BARRIER_BIT, // EPSF_DRAW_INDIRECT_BIT
+                AnyShaderStageCommonBits | TransferBits | VertexInputBits, // EPSF_VERTEX_INPUT_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_VERTEX_SHADER_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_TESSELLATION_CONTROL_SHADER_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_TESSELLATION_EVALUATION_SHADER_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_GEOMETRY_SHADER_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_FRAGMENT_SHADER_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_EARLY_FRAGMENT_TESTS_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_LATE_FRAGMENT_TESTS_BIT
+                AnyShaderStageCommonBits | TransferBits, // EPSF_COLOR_ATTACHMENT_OUTPUT_BIT
+                AnyShaderStageCommonBits | TransferBits, //EPSF_COMPUTE_SHADER_BIT
+                TransferBits, // EPSF_TRANSFER_BIT
+                0 // EPSF_BOTTOM_OF_PIPE_BIT
+            };
+
+            GLbitfield barrier = 0;
+            if (flags & asset::EPSF_HOST_BIT)
+                barrier |= HostBits;
+            if (flags & asset::EPSF_ALL_GRAPHICS_BIT)
+                barrier |= AllGraphicsBits;
+            if (flags & asset::EPSF_ALL_COMMANDS_BIT)
+                barrier |= AllCommandsBits;
+            for (uint32_t i = 0u; i < PipelineStageCount; ++i)
+                if (flags & (1u << i))
+                    barrier |= bits[i];
+            return barrier;
+        }
 
         using ThreadHandlerInternalStateType = FunctionTableType;
 
@@ -82,7 +122,7 @@ class COpenGL_Queue final : public IGPUQueue
             using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadHandlerInternalStateType>;
             friend base_t;
 
-            ThreadHandlerInternalStateType init() override
+            ThreadHandlerInternalStateType init()
             {
                 egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
@@ -157,7 +197,16 @@ class COpenGL_Queue final : public IGPUQueue
                     auto& submit = p.submit;
 
                     // wait semaphores
-                    // TODO glMemoryBarrier() corresponding to _submit.pWaitDstStageMask[i]
+                    for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
+                    {
+                        GLbitfield barrierBits = pipelineStageFlagsToMemBarrierBits(submit.pWaitDstStageMask[i]);
+                        gl.glSync.pglMemoryBarrier(barrierBits);
+
+                        IGPUSemaphore* sem = submit.pWaitSemaphores[i];
+                        COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
+                        assert(glsem->isWaitable());
+                        glsem->wait(&gl);
+                    }
 
                     for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
                     {
@@ -165,14 +214,20 @@ class COpenGL_Queue final : public IGPUQueue
                         auto* cmdbuf = dynamic_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i]);
                         cmdbuf->executeAll(&gl, &m_ctxlocal, m_ctxid);
                     }
-                    // glFlush?
-                    // signal semaphores
-                    // glFinish
+
+                    for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
+                    {
+                        IGPUSemaphore* sem = submit.pSignalSemaphores[i];
+                        COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
+                        glsem->signal(&gl);
+                    }
                 }
                 break;
                 case ERT_FENCE:
                 {
-                    // TODO
+                    auto& p = std::get<SRequestParams_Fence>(req.params);
+                    core::smart_refctd_ptr<COpenGLFence> fence = std::move(p.fence);
+                    fence->signal(&gl);
                 }
                 break;
                 case ERT_DESTROY_FRAMEBUFFER:
@@ -192,7 +247,7 @@ class COpenGL_Queue final : public IGPUQueue
                 }
             }
 
-            void exit(internal_state_t& gl) override
+            void exit(internal_state_t& gl)
             {
                 egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
                 egl->call.peglDestroyContext(egl->display, thisCtx);
@@ -222,46 +277,15 @@ class COpenGL_Queue final : public IGPUQueue
 
         void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
         {
-            /*
-            core::smart_refctd_ptr<COpenGLSync> lastSync;
-            for (uint32_t j = 0u; j < _count; ++j) // move to OpenGL backend
-            {
-                auto& submit = _submits[j];
-                for (uint32_t i = 0u; i < submit.waitSemaphoreCount; ++i)
-                {
-                    auto* sem = static_cast<COpenGLSemaphore*>(submit.pWaitSemaphores[i]);
-                    sem->wait();
-                }
-                
-                for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
-                {
-                    auto* cmdbuf = submit.commandBuffers[i];
-
-                    // TODO glMemoryBarrier() corresponding to _submit.pWaitDstStageMask[i]
-
-                    //cmdbuf->setState(IGPUCommandBuffer::ES_PENDING); // TODO: setState() is inaccessible
-                    // TODO actually submit the gl work in the command buffer
-
-                    //Once execution of all submissions of a command buffer complete, it moves from the pending state, back to the executable state.
-                    //If a command buffer was recorded with the VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT flag, it instead moves to the invalid state.
-                    
-                }
-
-                lastSync = core::make_smart_refctd_ptr<COpenGLSync>();
-                //m_gl->glGeneral.pglFlush();
-                for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
-                {
-                    auto* sem = static_cast<COpenGLSemaphore*>(submit.pSignalSemaphores[i]);
-                    sem->signal(core::smart_refctd_ptr(lastSync));
-                }
-            }
-
-            if (_fence)
-                static_cast<COpenGLFence*>(_fence)->associateGLSync(std::move(lastSync));
-            */
             for (uint32_t i = 0u; i < _count; ++i)
             {
                 SRequestParams_Submit params;
+                const SSubmitInfo& submit = _submits[i];
+                for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
+                {
+                    COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(submit.pSignalSemaphores[i]);
+                    sem->setToBeSignaled();
+                }
                 params.submit = _submits[i];
 
                 threadHandler.request(std::move(params));
@@ -270,11 +294,34 @@ class COpenGL_Queue final : public IGPUQueue
             if (_fence)
             {
                 SRequestParams_Fence params;
-                params.fence = core::smart_refctd_ptr<COpenGLFence>(static_cast<COpenGLFence*>(_fence));
+                COpenGLFence* fence = static_cast<COpenGLFence*>(_fence);
+                fence->setToBeSignaled();
+                params.fence = core::smart_refctd_ptr<COpenGLFence>(fence);
 
                 threadHandler.request(std::move(params));
                 // wait on completion ?
             }
+        }
+
+        bool present(const SPresentInfo& info) override
+        {
+            for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
+                if (!this->isCompatibleDevicewise(info.waitSemaphores[i]))
+                    return false;
+            if (uint32_t i = 0u; i < info.swapchainCount; ++i)
+                if (!this->isCompatibleDevicewise(info.swapchains[i]))
+                    return false;
+
+            using swapchain_t = COpenGL_Swapchain<FunctionTableType_>;
+            bool retval = true;
+            if (uint32_t i = 0u; i < info.swapchainCount; ++i)
+            {
+                swapchain_t* sc = static_cast<swapchain_t*>(info.swapchains[i]);
+                const uint32_t imgix = info.imgIndices[i];
+                retval &= sc->present(imgix, info.waitSemaphoreCount, info.waitSemaphores);
+            }
+
+            return retval;
         }
 
         void destroyFramebuffer(COpenGLFramebuffer* fbo)

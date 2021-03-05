@@ -2,63 +2,61 @@
 #define __NBL_C_OPENGL_FENCE_H_INCLUDED__
 
 #include "nbl/video/IGPUFence.h"
-#include "nbl/video/COpenGLSync.h"
-#include "COpenGLExtensionHandler.h"
+#include "nbl/video/IOpenGLSyncPrimitiveBase.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 
 namespace nbl {
 namespace video
 {
 
-class COpenGLFence : public IGPUFence
+class IOpenGL_LogicalDevice;
+
+class COpenGLFence final : public IGPUFence, public IOpenGLSyncPrimitiveBase
 {
 protected:
-    ~COpenGLFence()
-    {
-    }
+    ~COpenGLFence() = default;
 
 public:
-    COpenGLFence(ILogicalDevice* dev, E_CREATE_FLAGS flags) : IGPUFence(dev, flags), m_sync()
+    // signaled ctor
+    COpenGLFence(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl) : IGPUFence(dev, ECF_SIGNALED_BIT), IOpenGLSyncPrimitiveBase(dev)
     {
+        signal(gl);
+    }
+    // un-signaled ctor
+    explicit COpenGLFence(IOpenGL_LogicalDevice* dev) : IGPUFence(dev, static_cast<E_CREATE_FLAGS>(0)), IOpenGLSyncPrimitiveBase(dev)
+    {
+
     }
 
-    void associateGLSync(core::smart_refctd_ptr<COpenGLSync>&& _sync)
+    E_STATUS wait(IOpenGL_FunctionTable* _gl, uint64_t timeout)
     {
-        setStatus(ES_NOT_READY); // or TIMEOUT ?
-        m_sync = std::move(_sync);
-    }
-/*
-    E_STATUS wait(uint64_t timeout) override
-    {
-        if (!m_sync)
-            return setStatus(ES_SUCCESS);
+        const uint64_t pretimeout = prewait();
 
-        auto status = m_sync->waitCPU(timeout);
-        switch (status)
+        // TODO
+        // im not sure if this is proper vulkan emulation
+        // @matt ?
         {
-        case COpenGLSync::ES_ALREADY_SIGNALED: [[fallthrough]];
-        case COpenGLSync::ES_CONDITION_SATISFIED:
-            return setStatus(ES_SUCCESS);
-        case COpenGLSync::ES_TIMEOUT_EXPIRED:
-            return setStatus(ES_TIMEOUT);
-        case COpenGLSync::ES_FAIL: [[fallthrough]];
-        default:
-            return setStatus(ES_ERROR);
+            if (pretimeout >= timeout)
+                return ES_TIMEOUT;
+            timeout -= pretimeout;
         }
+
+        COpenGLSync::E_STATUS status = m_sync->waitCPU(_gl, timeout);
+        if (status == COpenGLSync::ES_FAIL)
+            return ES_ERROR;
+        else if (status == COpenGLSync::ES_TIMEOUT_EXPIRED)
+            return ES_TIMEOUT;
+        else
+            return ES_SUCCESS;
     }
 
-    void reset() override
+    void reset()
     {
-        assert(wait() == SUCCESS);
-        m_sync = nullptr;
-        m_status = ES_NOT_READY;
+        IOpenGLSyncPrimitiveBase::reset();
     }
 
-    E_STATUS query() const override
-    {
-        return const_cast<COpenGLFence*>(this)->wait(0ull);
-    }
-*/
 private:
+    IOpenGL_LogicalDevice* m_device;
     core::smart_refctd_ptr<COpenGLSync> m_sync;
 };
 

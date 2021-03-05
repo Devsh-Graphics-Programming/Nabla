@@ -7,12 +7,13 @@
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IGPUFence.h"
 #include "nbl/video/IGPUImage.h"
+#include "nbl/video/IBackendObject.h"
 
 namespace nbl {
 namespace video
 {
 
-class ISwapchain : public core::IReferenceCounted
+class ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
 public:
     struct SCreationParams
@@ -51,7 +52,7 @@ public:
 
     virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
 
-    ISwapchain(SCreationParams&& params) : m_params(std::move(params)) {}
+    ISwapchain(ILogicalDevice* dev, SCreationParams&& params) : IBackendObject(dev), m_params(std::move(params)) {}
 
 protected:
     virtual ~ISwapchain() = default;

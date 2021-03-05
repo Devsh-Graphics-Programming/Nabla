@@ -23,6 +23,7 @@
 #include "COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLSampler.h"
 #include "nbl/video/COpenGLPipelineCache.h"
+#include "nbl/video/COpenGLFence.h"
 
 namespace nbl {
 namespace video
@@ -61,7 +62,6 @@ namespace impl
             ERT_IMAGE_CREATE,
             ERT_IMAGE_VIEW_CREATE,
             ERT_SWAPCHAIN_CREATE,
-            ERT_SEMAPHORE_CREATE,
             ERT_EVENT_CREATE,
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
@@ -100,10 +100,12 @@ namespace impl
             GLuint glnames[MaxGlNamesForSingleObject];
             uint32_t count;
         };
-        struct SRequestSemaphoreCreate
+        struct SRequestSyncDestroy
         {
-            static inline constexpr E_REQUEST_TYPE type = ERT_SEMAPHORE_CREATE;
-            using retval_t = core::smart_refctd_ptr<IGPUSemaphore>;
+            static inline constexpr E_REQUEST_TYPE type = ERT_SYNC_DESTROY;
+            using retval_t = void;
+
+            GLsync glsync;
         };
         struct SRequestEventCreate
         {
@@ -114,6 +116,8 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_FENCE_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUFence>;
+
+            IGPUFence::E_CREATE_FLAGS flags;
         };
         struct SRequestBufferCreate
         {
@@ -273,7 +277,6 @@ protected:
     struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t
     {
         using params_variant_t = std::variant<
-            SRequestSemaphoreCreate,
             SRequestEventCreate,
             SRequestFenceCreate,
             SRequestBufferCreate,
@@ -288,9 +291,9 @@ protected:
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
             SRequest_Destroy<ERT_SWAPCHAIN_DESTROY>,
-            SRequest_Destroy<ERT_SYNC_DESTROY>,
             SRequest_Destroy<ERT_SAMPLER_DESTROY>,
             SRequest_Destroy<ERT_PROGRAM_DESTROY>,
+            SRequestSyncDestroy,
 
             SRequestGetEventStatus,
             SRequestResetEvent,
@@ -419,9 +422,8 @@ protected:
                 break;
             case ERT_SYNC_DESTROY:
             {
-                auto& p = std::get<SRequest_Destroy<ERT_SYNC_DESTROY>>(req.params_variant);
-                assert(p.count == 1u);
-                gl.glSync.pglDeleteSync(p.glnames[0]);
+                auto& p = std::get<SRequestSyncDestroy>(req.params_variant);
+                gl.glSync.pglDeleteSync(p.glsync);
             }
                 break;
             case ERT_SAMPLER_DESTROY:
@@ -489,6 +491,16 @@ protected:
                     pretval[i] = createComputePipeline(gl, p.params[i], p.pipelineCache);
             }
                 break;
+            case ERT_FENCE_CREATE:
+            {
+                auto& p = std::get<SRequestFenceCreate>(req.params_variant);
+                core::smart_refctd_ptr<IGPUFence>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUFence>*>(req.pretval);
+                if (p.flags & IGPUFence::ECF_SIGNALED_BIT)
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, &gl);
+                else
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device);
+            }
+                break;
 
             case ERT_FLUSH_MAPPED_MEMORY_RANGES:
             {
@@ -509,6 +521,18 @@ protected:
                 GLuint name = view->getOpenGLName();
                 GLenum target = COpenGLImageView::ViewTypeToGLenumTarget[view->getCreationParameters().viewType];
                 gl.extGlGenerateTextureMipmap(name, target);
+            }
+                break;
+            case ERT_WAIT_FOR_FENCES:
+            {
+                auto& p = std::get<SRequestWaitForFences>(req.params_variant);
+                uint32_t _count = p.fences.size();
+                IGPUFence** _fences = p.fences.begin();
+                bool _waitAll = p.waitForAll;
+                uint64_t _timeout = p.timeout;
+
+                IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
+                retval[0] = waitForFences(&gl, _count, _fences, _waitAll, _timeout);
             }
                 break;
             }
@@ -641,6 +665,49 @@ protected:
 
             return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
+        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout)
+        {
+            if (_waitAll)
+            {
+                using clock_t = std::chrono::high_resolution_clock;
+
+                auto start = clock_t::time_point();
+                for (uint32_t i = 0u; i < _count; ++i)
+                {
+                    COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
+                    IGPUFence::E_STATUS status;
+                    if (fence->isWaitable())
+                    {
+                        uint64_t timeout = _timeout;
+                        if (start == clock_t::time_point())
+                            start = clock_t::now();
+                        else
+                        {
+                            const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
+                            if (dt > timeout)
+                                return IGPUFence::ES_TIMEOUT;
+                            timeout -= dt;
+                        }
+
+                        status = fence->wait(&gl, _timeout);
+                        if (status != IGPUFence::ES_SUCCESS)
+                            return status;
+                    }
+                    else return IGPUFence::ES_ERROR;
+                }
+            }
+            else
+            {
+                for (uint32_t i = 0u; i < _count; ++i)
+                {
+                    COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
+                    if (fence->isWaitable())
+                    {
+                        return fence->wait(&gl, _timeout);
+                    }
+                }
+            }
+        }
 
         // currently used by shader programs only
         // they theoretically can be shared between contexts however, because uniforms state is program's state, we cant use that
@@ -677,6 +744,7 @@ public:
     virtual void destroyBuffer(GLuint buf) = 0;
     virtual void destroySampler(GLuint s) = 0;
     virtual void destroySpecializedShader(uint32_t count, const GLuint* programs) = 0;
+    virtual void destroySync(GLsync sync) = 0;
 };
 
 }

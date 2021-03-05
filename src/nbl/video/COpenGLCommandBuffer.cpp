@@ -594,7 +594,7 @@ namespace video
             case ECT_NEXT_SUBPASS:
             {
                 auto& c = cmd.get<ECT_NEXT_SUBPASS>();
-                // TODO some barriers based on subpass dependencies?
+                // TODO (when we support subpasses) some barriers based on subpass dependencies?
                 // not needed now tho, we dont support multiple subpasses yet
             }
             break;

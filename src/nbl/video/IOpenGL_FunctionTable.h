@@ -24,7 +24,7 @@ namespace nbl {
 			static inline constexpr GLenum CLIENT_STORAGE_BIT				= 0x0200;
 			static inline constexpr GLenum BUFFER_IMMUTABLE_STORAGE			= 0x821F;
 			static inline constexpr GLenum BUFFER_STORAGE_FLAGS				= 0x8220;
-			static inline constexpr GLenum CLIENT_MAPPED_BUFFER_BARRIER_BIT = 0x00004000;
+			static inline constexpr GLbitfield CLIENT_MAPPED_BUFFER_BARRIER_BIT = 0x00004000;
 			static inline constexpr GLenum TEXTURE_MAX_ANISOTROPY			= 0x84FE;
 			static inline constexpr GLenum TEXTURE_LOD_BIAS					= 0x8501;
 			static inline constexpr GLenum DEPTH_CLAMP						= 0x864F;

@@ -1,19 +1,19 @@
 ﻿#ifndef __NBL_C_OPENGL_SYNC_H_INCLUDED__
 #define __NBL_C_OPENGL_SYNC_H_INCLUDED__
 
-#include "COpenGLExtensionHandler.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/core/IReferenceCounted.h"
 
 namespace nbl {
 namespace video
 {
 
-class COpenGLSync
+class IOpenGL_LogicalDevice;
+
+class COpenGLSync final : public core::IReferenceCounted
 {
     protected:
-        virtual ~COpenGLSync()
-        {
-            COpenGLExtensionHandler::extGlDeleteSync(fence);
-        }
+        virtual ~COpenGLSync();
 
     public:
         enum E_STATUS : uint32_t
@@ -28,42 +28,48 @@ class COpenGLSync
             ES_ALREADY_SIGNALED
         };
 
-        inline COpenGLSync() : cachedRetval(ES_TIMEOUT_EXPIRED)
+        inline COpenGLSync(IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl) : device(_dev), cachedRetval(ES_TIMEOUT_EXPIRED)
         {
-            fence = COpenGLExtensionHandler::extGlFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+            sync = _gl->glSync.pglFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
         }
 
-        E_STATUS waitCPU(const uint64_t& timeout)
+        E_STATUS waitCPU(IOpenGL_FunctionTable* _gl, uint64_t timeout)
         {
             if (cachedRetval != ES_TIMEOUT_EXPIRED)
                 return cachedRetval;
 
-            GLenum status = COpenGLExtensionHandler::extGlClientWaitSync(fence, 0, timeout);
+            GLenum status = _gl->glSync.pglClientWaitSync(sync, 0, timeout);
             switch (status)
             {
             case GL_ALREADY_SIGNALED:
-                return cachedRetval = ES_ALREADY_SIGNALED;
+                return (cachedRetval = ES_ALREADY_SIGNALED);
                 break;
             case GL_TIMEOUT_EXPIRED:
-                return cachedRetval = ES_TIMEOUT_EXPIRED;
+                return (cachedRetval = ES_TIMEOUT_EXPIRED);
                 break;
             case GL_CONDITION_SATISFIED:;
-                return cachedRetval = ES_ALREADY_SIGNALED;
+                return (cachedRetval = ES_CONDITION_SATISFIED);
                 break;
             default:
                 break;
             }
-            return cachedRetval = ES_FAIL;
+            return (cachedRetval = ES_FAIL);
         }
 
-        void waitGPU()
+        void waitGPU(IOpenGL_FunctionTable* _gl)
         {
-            COpenGLExtensionHandler::extGlWaitSync(fence, 0, GL_TIMEOUT_IGNORED);
+            _gl->glSync.pglWaitSync(sync, 0, GL_TIMEOUT_IGNORED);
+        }
+
+        inline GLsync getOpenGLName() const
+        {
+            return sync;
         }
 
     private:
+        IOpenGL_LogicalDevice* device;
         E_STATUS cachedRetval;
-        GLsync fence;
+        GLsync sync;
 };
 
 }}
