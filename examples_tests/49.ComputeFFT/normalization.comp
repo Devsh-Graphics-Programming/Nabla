@@ -12,21 +12,13 @@ layout(set=0, binding=1, rg16f) uniform image2D NormalizedKernel[3];
 
 void main()
 {
-	const uvec3 sizes = gl_WorkGroupSize*gl_NumWorkGroups;
-	const uvec3 strides = uvec3(1u,sizes.x,sizes.y*sizes.x);
+// TODO: push constants
+	const uvec2 log2_sizes = findMSB(gl_WorkGroupSize*gl_NumWorkGroups).xy;
+	const uvec2 strides = uvec2(1u,0x1u<<log2_sizes.x);
 
 	const float power = length(in_data[0]);
+	nbl_glsl_complex value = in_data[gl_GlobalInvocationID.x*strides.x+gl_GlobalInvocationID.y*strides.y]/power;
 
-	nbl_glsl_complex value = in_data[gl_GlobalInvocationID.x*strides.x+gl_GlobalInvocationID.y*strides.y];
-	value /= power;
-	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(gl_GlobalInvocationID),vec4(value,0.0,0.0));
-
-#if 0
-	const uint k = bitfieldReverse(gl_GlobalInvocationID.x%2048u)>>21u;
-	const uint l = bitfieldReverse(gl_GlobalInvocationID.x/2048u)>>21u;
-	nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(k+l));
-	//shift.x = 1.f;
-	//shift.y = 0.f;
-	out_data[gl_GlobalInvocationID.x] = nbl_glsl_complex_mul(in_data[gl_GlobalInvocationID.x],shift)/power;
-#endif
+	uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>(uvec2(32u)-log2_sizes);
+	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
 }
