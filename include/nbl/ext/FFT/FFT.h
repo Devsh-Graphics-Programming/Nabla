@@ -60,6 +60,8 @@ class FFT : public core::TotalInterface
 			uint32_t dims[3];
 		};
 
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
+
 		// returns dispatch size and fills the uniform data
 		static inline DispatchInfo_t buildParameters(
 			asset::VkExtent3D const & paddedInputDimensions,
@@ -280,27 +282,11 @@ class FFT : public core::TotalInterface
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		}
 
-		// Kernel Normalization
-				
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createKernelNormalizationShader(video::IVideoDriver* driver, asset::IAssetManager* am);
-		
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_KernelNormalization(video::IVideoDriver* driver);
-		
-		static void updateDescriptorSet_KernelNormalization(
-			video::IVideoDriver * driver,
-			video::IGPUDescriptorSet * set,
-			core::smart_refctd_ptr<video::IGPUBuffer> kernelBufferDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> normalizedKernelBufferDescriptor);
-
-		static void dispatchKernelNormalization(video::IVideoDriver* driver, asset::VkExtent3D const & paddedDimension, uint32_t numChannels);
+		static void defaultBarrier();
 
 	private:
 		FFT() = delete;
 		//~FFT() = delete;
-
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-
-		static void defaultBarrier();
 };
 
 

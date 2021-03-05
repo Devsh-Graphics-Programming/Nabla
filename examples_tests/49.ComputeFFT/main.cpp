@@ -358,11 +358,40 @@ int main()
 
 	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
 	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
-	auto fftGPUSpecializedShader_KernelNormalization = FFTClass::createKernelNormalizationShader(driver, am);
+	auto fftGPUSpecializedShader_KernelNormalization = [&]() -> auto
+	{
+		IAssetLoader::SAssetLoadParams lp;
+		auto shaderAsset = am->getAsset("../normalization.comp", lp);
+		auto stuff = driver->getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(shaderAsset.getContents(),nullptr);
+		return *stuff->begin();
+	}();
 	
 	auto fftPipelineLayout_SSBOInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
 	auto fftPipelineLayout_ImageInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::TEXTURE2D);
-	auto fftPipelineLayout_KernelNormalization = FFTClass::getPipelineLayout_KernelNormalization(driver);
+	auto fftPipelineLayout_KernelNormalization = [&]() -> auto
+	{
+		static IGPUDescriptorSetLayout::SBinding bnd[] =
+		{
+			{
+				0u,
+				EDT_STORAGE_BUFFER,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr,
+			},
+			{
+				1u,
+				EDT_STORAGE_BUFFER,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr,
+			},
+		};
+		return driver->createGPUPipelineLayout(
+			nullptr,nullptr,
+			driver->createGPUDescriptorSetLayout(bnd,bnd+2),nullptr,nullptr,nullptr
+		);
+	}();
 
 	auto fftPipeline_SSBOInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_SSBOInput), std::move(fftGPUSpecializedShader_SSBOInput));
 	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_ImageInput), std::move(fftGPUSpecializedShader_ImageInput));
@@ -396,8 +425,40 @@ int main()
 		FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
 		
 		// Normalization of FFT Y result
-		auto fftDescriptorSet_KernelNormalization = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_KernelNormalization->getDescriptorSetLayout(0u)));
-		FFTClass::updateDescriptorSet_KernelNormalization(driver, fftDescriptorSet_KernelNormalization.get(), fftOutputBuffer_1, fftOutputBuffer_KernelNormalized);
+		auto fftDescriptorSet_KernelNormalization = [&]() -> auto
+		{
+			auto dset = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_KernelNormalization->getDescriptorSetLayout(0u)));
+
+			video::IGPUDescriptorSet::SDescriptorInfo pInfos[2];
+			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[2];
+
+			for (auto i = 0; i < 2; i++)
+			{
+				pWrites[i].dstSet = dset.get();
+				pWrites[i].arrayElement = 0u;
+				pWrites[i].count = 1u;
+				pWrites[i].info = pInfos + i;
+			}
+
+			// In Buffer 
+			pWrites[0].binding = 0;
+			pWrites[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+			pWrites[0].count = 1;
+			pInfos[0].desc = fftOutputBuffer_1;
+			pInfos[0].buffer.size = fftOutputBuffer_1->getSize();
+			pInfos[0].buffer.offset = 0u;
+
+			// Out Buffer 
+			pWrites[1].binding = 1;
+			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+			pWrites[1].count = 1;
+			pInfos[1].desc = fftOutputBuffer_KernelNormalized;
+			pInfos[1].buffer.size = fftOutputBuffer_KernelNormalized->getSize();
+			pInfos[1].buffer.offset = 0u;
+
+			driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
+			return dset;
+		}();
 
 		// Ker Image FFT X
 		driver->bindComputePipeline(fftPipeline_ImageInput.get());
@@ -420,12 +481,16 @@ int main()
 		// Ker Normalization
 		driver->bindComputePipeline(fftPipeline_KernelNormalization.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_KernelNormalization.get(), 0u, 1u, &fftDescriptorSet_KernelNormalization.get(), nullptr);
-		FFTClass::dispatchKernelNormalization(driver, paddedDim, srcNumChannels);
+		{
+			const uint32_t dispatchSizeX = (paddedDim.width*paddedDim.height*paddedDim.depth*srcNumChannels-1u)/FFTClass::DEFAULT_WORK_GROUP_SIZE+1u;
+			driver->dispatch(dispatchSizeX,1,1);
+			FFTClass::defaultBarrier();
+		}
 	}
 
 	// Src FFT X 
 	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_ImageInput->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Src_FFT_X.get(), srcImageView, fftOutputBuffer_0, ISampler::ETC_CLAMP_TO_EDGE);
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Src_FFT_X.get(), srcImageView, fftOutputBuffer_0, ISampler::ETC_MIRROR);
 
 	// Convolution
 	auto convolveDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipelineLayout->getDescriptorSetLayout(0u)));
