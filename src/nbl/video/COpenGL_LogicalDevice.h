@@ -7,6 +7,7 @@
 #include "nbl/video/COpenGLRenderpass.h"
 #include "nbl/video/COpenGLDescriptorSet.h"
 #include "nbl/video/COpenGLPrimaryCommandBuffer.h"
+#include "nbl/video/COpenGLEvent.h"
 
 #include <chrono>
 
@@ -162,6 +163,24 @@ public:
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
     {
         return core::make_smart_refctd_ptr<COpenGLSemaphore>(this);
+    }
+
+    // TODO impl all this events stuff
+    core::smart_refctd_ptr<IGPUEvent> createEvent() override
+    {
+        return core::make_smart_refctd_ptr<COpenGLEvent>(this);
+    }
+    IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override
+    {
+        return IGPUEvent::ES_FAILURE;
+    }
+    IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override
+    {
+        return IGPUEvent::ES_FAILURE;
+    }
+    IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override
+    {
+        return IGPUEvent::ES_FAILURE;
     }
 
     core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) override final
