@@ -96,25 +96,20 @@ class FFT : public core::TotalInterface
 		}
 
 		
-		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D const & dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 0, 0, 0 }) {
-			asset::VkExtent3D ret = {};
-			asset::VkExtent3D extendedDim = dimension;
+		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 1, 1, 1 })
+		{
+			if(dimension.width < minimum_dimension.width)
+				dimension.width = minimum_dimension.width;
+			if(dimension.height < minimum_dimension.height)
+				dimension.height = minimum_dimension.height;
+			if(dimension.depth < minimum_dimension.depth)
+				dimension.depth = minimum_dimension.depth;
 
-			if(dimension.width < minimum_dimension.width) {
-				extendedDim.width = minimum_dimension.width;
-			}
-			if(dimension.height < minimum_dimension.height) {
-				extendedDim.height = minimum_dimension.height;
-			}
-			if(dimension.depth < minimum_dimension.depth) {
-				extendedDim.depth = minimum_dimension.depth;
-			}
+			dimension.width = core::roundUpToPoT(dimension.width);
+			dimension.height = core::roundUpToPoT(dimension.height);
+			dimension.depth = core::roundUpToPoT(dimension.depth);
 
-			ret.width = core::roundUpToPoT(extendedDim.width);
-			ret.height = core::roundUpToPoT(extendedDim.height);
-			ret.depth = core::roundUpToPoT(extendedDim.depth);
-
-			return ret;
+			return dimension;
 		}
 
 		//

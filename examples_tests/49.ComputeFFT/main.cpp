@@ -301,83 +301,68 @@ int main()
 
 	IAssetLoader::SAssetLoadParams lp;
 	auto srcImageBundle = am->getAsset("../../media/colorexr.exr", lp);
-	auto srcCpuImg = IAsset::castDown<ICPUImage>(srcImageBundle.getContents().begin()[0]);
 	auto kerImageBundle = am->getAsset("../../media/kernels/physical_flare_512.exr", lp);
-	auto kerCpuImg = IAsset::castDown<ICPUImage>(kerImageBundle.getContents().begin()[0]);
-	
-	IGPUImage::SCreationParams srcImgInfo;
-	IGPUImage::SCreationParams kerImgInfo;
-	
-	smart_refctd_ptr<IGPUImage> outImg;
-	smart_refctd_ptr<IGPUImageView> outImgView;
 
 	smart_refctd_ptr<IGPUImageView> srcImageView;
-	IGPUImageView::SCreationParams srcImgViewInfo;
 	{
-		srcImgInfo = srcCpuImg->getCreationParameters();
+		auto srcGpuImages = driver->getGPUObjectsFromAssets<ICPUImage>(srcImageBundle.getContents());
 
-		auto srcGpuImages = driver->getGPUObjectsFromAssets(&srcCpuImg.get(),&srcCpuImg.get()+1);
-		auto srcGpuImage = srcGpuImages->operator[](0u);
-
+		IGPUImageView::SCreationParams srcImgViewInfo;
 		srcImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-		srcImgViewInfo.image = std::move(srcGpuImage);
+		srcImgViewInfo.image = srcGpuImages->operator[](0u);
 		srcImgViewInfo.viewType = IGPUImageView::ET_2D;
-		srcImgViewInfo.format = srcImgInfo.format;
+		srcImgViewInfo.format = srcImgViewInfo.image->getCreationParameters().format;
 		srcImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
 		srcImgViewInfo.subresourceRange.baseMipLevel = 0;
 		srcImgViewInfo.subresourceRange.levelCount = 1;
 		srcImgViewInfo.subresourceRange.baseArrayLayer = 0;
 		srcImgViewInfo.subresourceRange.layerCount = 1;
-		srcImageView = driver->createGPUImageView(IGPUImageView::SCreationParams(srcImgViewInfo));
+		srcImageView = driver->createGPUImageView(std::move(srcImgViewInfo));
 	}
 	smart_refctd_ptr<IGPUImageView> kerImageView;
 	{
-		kerImgInfo = kerCpuImg->getCreationParameters();
-
-		auto kerGpuImages = driver->getGPUObjectsFromAssets(&kerCpuImg.get(),&kerCpuImg.get()+1);
-		auto kerGpuImage = kerGpuImages->operator[](0u);
+		auto kerGpuImages = driver->getGPUObjectsFromAssets<ICPUImage>(kerImageBundle.getContents());
 
 		IGPUImageView::SCreationParams kerImgViewInfo;
 		kerImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-		kerImgViewInfo.image = std::move(kerGpuImage);
+		kerImgViewInfo.image = kerGpuImages->operator[](0u);
 		kerImgViewInfo.viewType = IGPUImageView::ET_2D;
-		kerImgViewInfo.format = kerImgInfo.format;
+		kerImgViewInfo.format = kerImgViewInfo.image->getCreationParameters().format;
 		kerImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
 		kerImgViewInfo.subresourceRange.baseMipLevel = 0;
 		kerImgViewInfo.subresourceRange.levelCount = 1;
 		kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
 		kerImgViewInfo.subresourceRange.layerCount = 1;
-		kerImageView = driver->createGPUImageView(IGPUImageView::SCreationParams(kerImgViewInfo));
+		kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
 	}
 
 	using FFTClass = ext::FFT::FFT;
 	
-	E_FORMAT srcFormat = srcImgInfo.format;
-	E_FORMAT kerFormat = kerImgInfo.format;
-	VkExtent3D srcDim = srcImgInfo.extent;
-	VkExtent3D kerDim = kerImgInfo.extent;
+	const E_FORMAT srcFormat = srcImageView->getCreationParameters().format;
 	uint32_t srcNumChannels = getFormatChannelCount(srcFormat);
-	uint32_t kerNumChannels = getFormatChannelCount(kerFormat);
+	uint32_t kerNumChannels = getFormatChannelCount(kerImageView->getCreationParameters().format);
 	//! OVERRIDE (we dont need alpha)
 	srcNumChannels = channelCountOverride;
 	kerNumChannels = channelCountOverride;
 	assert(srcNumChannels == kerNumChannels); // Just to make sure, because the other case is not handled in this example
 	
-	VkExtent3D paddedDim = FFTClass::padDimensionToNextPOT(srcDim, kerDim);
-	uint32_t maxPaddedDimensionSize = core::max(core::max(paddedDim.width, paddedDim.height), paddedDim.depth);
-	
-	VkExtent3D outImageDim = srcDim;
+	const auto srcDim = srcImageView->getCreationParameters().image->getCreationParameters().extent;
 
 	// Create Out Image
+	smart_refctd_ptr<IGPUImage> outImg;
+	smart_refctd_ptr<IGPUImageView> outImgView;
 	{
-		srcImgInfo.extent = outImageDim;
-		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(srcImgInfo));
+		auto dstImgViewInfo = srcImageView->getCreationParameters();
 
-		srcImgViewInfo.image = outImg;
-		srcImgViewInfo.format = srcImgInfo.format;
-		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(srcImgViewInfo));
+		auto dstImgInfo = dstImgViewInfo.image->getCreationParameters();
+		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(dstImgInfo));
+
+		dstImgViewInfo.image = outImg;
+		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(dstImgViewInfo));
 	}
-
+	 // TODO: re-examine
+	const VkExtent3D paddedDim = FFTClass::padDimensionToNextPOT(srcDim);
+	uint32_t maxPaddedDimensionSize = core::max(core::max(paddedDim.width, paddedDim.height), paddedDim.depth);
 	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
 	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
 	auto fftGPUSpecializedShader_KernelNormalization = [&]() -> auto
@@ -460,6 +445,7 @@ int main()
 		kernelNormalizedSpectrums[i] = createKernelSpectrum();
 
 	// Precompute Kernel FFT
+	const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
 	{
 		// Ker FFT X 
 		auto fftDescriptorSet_Ker_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_ImageInput->getDescriptorSetLayout(0u)));
@@ -610,8 +596,8 @@ int main()
 				auto& region = regions->front();
 
 				region.bufferOffset = 0u;
-				region.bufferRowLength = srcCpuImg->getRegions().begin()[0].bufferRowLength;
-				region.bufferImageHeight = srcDim.height;
+				region.bufferRowLength = 0u;
+				region.bufferImageHeight = 0u;
 				//region.imageSubresource.aspectMask = wait for Vulkan;
 				region.imageSubresource.mipLevel = 0u;
 				region.imageSubresource.baseArrayLayer = 0u;
