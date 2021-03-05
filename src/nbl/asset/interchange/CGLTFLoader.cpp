@@ -1334,15 +1334,21 @@ namespace nbl
 				absent textures are filled with dummy 2D texture (while creating descriptor set)
 			*/
 
-			std::vector<core::smart_refctd_ptr<ICPUImageView>> IMAGE_VIEWS(SGLTF::SGLTFMaterial::EGT_COUNT);
+			std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT> IMAGE_VIEWS;
 			{
 				auto default_imageview_bundle = assetManager->getAsset("nbl/builtin/image_view/dummy2d", context.loadContext.params);
 				const bool status = !default_imageview_bundle.getContents().empty();
 				assert(status);
 
 				auto cpuDummyImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
-				for (uint16_t i = 0; i < SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
-					IMAGE_VIEWS.push_back(core::smart_refctd_ptr(cpuDummyImageView));
+				for(auto& imageView : IMAGE_VIEWS)
+					imageView = core::smart_refctd_ptr(cpuDummyImageView);
+			}
+
+			std::array<core::smart_refctd_ptr<ICPUSampler>, SGLTF::SGLTFMaterial::EGT_COUNT> SAMPLERS;
+			{
+				for (auto& sampler : SAMPLERS)
+					sampler = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("nbl/builtin/sampler/default", assetManager);
 			}
 
 			auto getCpuDs3Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
@@ -1361,8 +1367,6 @@ namespace nbl
 						std::fill(cpuSamplerBindings->begin(), cpuSamplerBindings->end(), cpuSamplerBinding);
 					}
 
-					core::smart_refctd_ptr<ICPUSampler> samplers[samplerBindingsAmount]; 
-
 					auto fillAssets = [&](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
 					{
 						auto& [cpuImageView, cpuSamplerCacheKey] = (*material.cpuTextures)[globalTextureIndex];
@@ -1371,10 +1375,9 @@ namespace nbl
 
 						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
 						auto sampler_bundle = context.loaderOverride->findCachedAsset(cpuSamplerCacheKey, types, context.loadContext, context.hierarchyLevel /*TODO + what here?*/);
-						if (sampler_bundle.getContents().empty())
-							samplers[localTextureIndex] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("nbl/builtin/sampler/default", assetManager);
-						else
-							samplers[localTextureIndex] = core::smart_refctd_ptr_static_cast<ICPUSampler>(sampler_bundle.getContents().begin()[0]);
+
+						if (!sampler_bundle.getContents().empty())
+							SAMPLERS[localTextureIndex] = core::smart_refctd_ptr_static_cast<ICPUSampler>(sampler_bundle.getContents().begin()[0]);
 					};
 
 					if (material.glTFMaterial->pbrMetallicRoughness.has_value())
@@ -1467,7 +1470,7 @@ namespace nbl
 					for (uint32_t i = 0u; i < samplerBindingsAmount; ++i)
 					{
 						(*cpuSamplerBindings)[i].binding = i;
-						(*cpuSamplerBindings)[i].samplers = samplers;
+						(*cpuSamplerBindings)[i].samplers = SAMPLERS.data() + i;
 					}
 
 					return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuSamplerBindings->begin(), cpuSamplerBindings->end());
@@ -1489,7 +1492,7 @@ namespace nbl
 			return cpuPipelineLayout;
 		}
 		
-		core::smart_refctd_ptr<ICPUDescriptorSet> CGLTFLoader::makeAndGetDS3set(std::vector<core::smart_refctd_ptr<ICPUImageView>>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout)
+		core::smart_refctd_ptr<ICPUDescriptorSet> CGLTFLoader::makeAndGetDS3set(std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout)
 		{
 			auto cpuDescriptorSet3 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDescriptorSet3Layout));
 			

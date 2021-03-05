@@ -19,15 +19,21 @@ layout (location = 0) out vec4 OutColor;
 
 #if !defined(_NBL_FRAG_SET3_BINDINGS_DEFINED_) && !defined(_DISABLE_UV_ATTRIBUTES)
 #define _NBL_FRAG_SET3_BINDINGS_DEFINED_
-layout (set = 3, binding = 0) uniform sampler2D texture_0;
+layout (set = 3, binding = 0) uniform sampler2D baseColorTexture;
 #endif //_NBL_FRAG_SET3_BINDINGS_DEFINED_
+
+// TODO use push constants to determine which textures are in use
+layout (set = 3, binding = 1) uniform sampler2D metallicRoughnessTexture;
+layout (set = 3, binding = 2) uniform sampler2D normalDerivativeTexture;
+layout (set = 3, binding = 3) uniform sampler2D occlusionTexture;
+layout (set = 3, binding = 4) uniform sampler2D emissiveTexture;
 
 #ifndef _NBL_FRAG_MAIN_DEFINED_
 #define _NBL_FRAG_MAIN_DEFINED_
 void main()
 {
 #ifndef _DISABLE_UV_ATTRIBUTES
-	OutColor = texture(texture_0, UV_0);
+	OutColor = texture(baseColorTexture, UV_0);
 #endif // _DISABLE_UV_ATTRIBUTES
 
 #ifndef _DISABLE_COLOR_ATTRIBUTES
