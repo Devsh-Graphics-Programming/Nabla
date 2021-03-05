@@ -76,9 +76,10 @@ void convolve(in uint item_per_thread_count, in uint ch)
 		uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
 		//coords &= uvec3(0xffeu);
 		coords = bitfieldReverse(coords)>>uvec3(21u,22u,0u);
-		//nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(k+l));
+		const nbl_glsl_complex shift = nbl_glsl_expImaginary(-dot(vec2(coords.xy),vec2(512.f)/vec2(2048.f,1024.f))*nbl_glsl_PI); // TODO: does this shift go away later?
 		//
-		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(nbl_glsl_ext_FFT_impl_values[t],texelFetch(NormalizedKernel[ch],ivec2(coords.xy),0).xy);
+		nbl_glsl_complex value = nbl_glsl_complex_mul(nbl_glsl_ext_FFT_impl_values[t],shift);
+		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(texelFetch(NormalizedKernel[ch],ivec2(coords.xy),0).xy,value);
 	}
 }
 

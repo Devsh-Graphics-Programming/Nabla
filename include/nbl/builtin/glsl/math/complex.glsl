@@ -17,9 +17,7 @@
 
 nbl_glsl_complex nbl_glsl_expImaginary(in float _theta)
 {
-    nbl_glsl_complex retval;
-    nbl_glsl_sincos(_theta,retval.y,retval.x);
-    return retval;
+    return vec2(cos(_theta),sin(_theta));
 }
 
 nbl_glsl_complex nbl_glsl_complex_mul(in nbl_glsl_complex rhs, in nbl_glsl_complex lhs)
