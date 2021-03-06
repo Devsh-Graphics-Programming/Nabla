@@ -18,7 +18,10 @@ void main()
 
 	const float power = length(in_data[0]);
 	nbl_glsl_complex value = in_data[gl_GlobalInvocationID.x*strides.x+gl_GlobalInvocationID.y*strides.y]/power;
+	
 
 	uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>(uvec2(32u)-log2_sizes);
+	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-float(coord.x+coord.y)*nbl_glsl_PI); // TODO: does this shift go away later?
+	value = nbl_glsl_complex_mul(value,shift);
 	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
 }
