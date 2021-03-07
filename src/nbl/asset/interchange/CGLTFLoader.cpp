@@ -6,6 +6,7 @@
 
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
+#include "nbl/asset/metadata/CGLTFMetadata.h"
 #include "nbl/asset/CGLTFPipelineMetadata.h"
 #include "simdjson/singleheader/simdjson.h"
 #include <filesystem>
@@ -335,10 +336,12 @@ namespace nbl
 					}
 				}
 			}
-		
+			
+			std::vector<std::vector<core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>> globalMetadataContainer; // TODO: to optimize in future
 			core::vector<core::smart_refctd_ptr<ICPUMesh>> cpuMeshes;
 			for (auto& glTFnode : glTF.nodes) 
 			{
+				auto& globalPipelineMeta = globalMetadataContainer.emplace_back();
 				auto& cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<ICPUMesh>();
 
 				for (auto& glTFprimitive : glTFnode.glTFMesh.primitives) 
@@ -675,6 +678,7 @@ namespace nbl
 							cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
 						else
 						{
+							CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
 							SMaterialDependencyData materialDependencyData;
 							const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
 
@@ -682,7 +686,7 @@ namespace nbl
 							materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
 							materialDependencyData.cpuTextures = &cpuTextures;
 
-							auto cpuPipelineLayout = ds3lAvailableFlag ? makePipelineLayoutFromGLTF(context, materialDependencyData, true) : makePipelineLayoutFromGLTF(context, materialDependencyData);
+							auto cpuPipelineLayout = ds3lAvailableFlag ? makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, true) : makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
 							auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
 
 							cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
@@ -693,46 +697,45 @@ namespace nbl
 							{
 								if (ds3lAvailableFlag)
 								{
-									CGLTFPipelineMetadata::SGLTFMaterialParameters materialParameters; //!< Filling Push Constants
-
 									if (materialDependencyData.glTFMaterial->pbrMetallicRoughness.has_value())
 									{
 										auto& glTFMetallicRoughness = materialDependencyData.glTFMaterial->pbrMetallicRoughness.value();
 
 										if (glTFMetallicRoughness.baseColorFactor.has_value())
 											for(uint8_t i = 0; i < glTFMetallicRoughness.baseColorFactor.value().size(); ++i)
-												materialParameters.metallicRoughness.baseColorFactor[i] = glTFMetallicRoughness.baseColorFactor.value()[i];
+												pushConstants.metallicRoughness.baseColorFactor[i] = glTFMetallicRoughness.baseColorFactor.value()[i];
 
 										if (glTFMetallicRoughness.metallicFactor.has_value())
-											materialParameters.metallicRoughness.metallicFactor = glTFMetallicRoughness.metallicFactor.value();
+											pushConstants.metallicRoughness.metallicFactor = glTFMetallicRoughness.metallicFactor.value();
 
 										if (glTFMetallicRoughness.roughnessFactor.has_value())
-											materialParameters.metallicRoughness.roughnessFactor = glTFMetallicRoughness.roughnessFactor.value();
+											pushConstants.metallicRoughness.roughnessFactor = glTFMetallicRoughness.roughnessFactor.value();
 									}
 
 									if (materialDependencyData.glTFMaterial->alphaCutoff.has_value())
-										materialParameters.alphaCutoff = materialDependencyData.glTFMaterial->alphaCutoff.value();
+										pushConstants.alphaCutoff = materialDependencyData.glTFMaterial->alphaCutoff.value();
 
 									if (materialDependencyData.glTFMaterial->alphaMode.has_value())
 									{
 										const std::string& alphaModeStream = materialDependencyData.glTFMaterial->alphaMode.value();
 										if (alphaModeStream == SGLTF::SGLTFMaterial::SAlphaMode::OPAQUE_MODE.data())
-											materialParameters.alphaMode = CGLTFPipelineMetadata::EAM_OPAQUE;
+											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_OPAQUE;
 										else if (alphaModeStream == SGLTF::SGLTFMaterial::SAlphaMode::MASK_MODE.data())
-											materialParameters.alphaMode = CGLTFPipelineMetadata::EAM_MASK;
+											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_MASK;
 										else if (alphaModeStream == SGLTF::SGLTFMaterial::SAlphaMode::BLEND_MODE.data())
-											materialParameters.alphaMode = CGLTFPipelineMetadata::EAM_BLEND;
+											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_BLEND;
 									}
 
 									if (materialDependencyData.glTFMaterial->emissiveFactor.has_value())
 										for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
-											materialParameters.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
+											pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
 										 
-									glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(materialParameters, core::smart_refctd_ptr(m_basicViewParamsSemantics));
+									glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(pushConstants, core::smart_refctd_ptr(m_basicViewParamsSemantics));
 								}
 							}
 
-							SAssetBundle pipelineBundle = SAssetBundle(std::move(glTFPipelineMetadata), { cpuPipeline } );
+							globalPipelineMeta.push_back(core::smart_refctd_ptr(glTFPipelineMetadata));
+							SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline } );
 
 							_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 
@@ -740,12 +743,21 @@ namespace nbl
 							cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 						}
 					}
-
-					/////
 				}
 			}
 
-			return SAssetBundle(nullptr, cpuMeshes); // TODO, global nodes metadata (?)
+			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata;
+
+			/*
+				TODO: it needs hashes and better system for meta since gltf bundle may return more than one mesh
+				and each mesh may have more than one meshbuffer, so more meta as well
+			*/
+
+			for (size_t i = 0; i < globalMetadataContainer.size(); ++i)
+				for (size_t z = 0; z < globalMetadataContainer[i].size(); ++z)
+					glTFPipelineMetadata->placeMeta(z, cpuMeshes[i]->getMeshBufferVector()[z]->getPipeline(), *globalMetadataContainer[i][z]); 
+
+			return SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), cpuMeshes);
 		}
 
 		void CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file)
@@ -1326,7 +1338,7 @@ namespace nbl
 			}
 		}
 
-		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, SMaterialDependencyData& materialData, bool isDS3L)
+		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isDS3L)
 		{
 			/*
 				Assumes all supported textures are always present
@@ -1389,8 +1401,11 @@ namespace nbl
 								auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
 
 								if (baseColorTexture.index.has_value())
+								{
 									fillAssets(baseColorTexture.index.value(), SGLTF::SGLTFMaterial::EGT_BASE_COLOR_TEXTURE);
-
+									pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_BASE_COLOR_TEXTURE;
+								}
+									
 								/*
 									if (baseColorTexture.texCoord.has_value())
 									{
@@ -1404,8 +1419,11 @@ namespace nbl
 								auto& metallicRoughnessTexture = pbrMetallicRoughness.metallicRoughnessTexture.value();
 
 								if (metallicRoughnessTexture.index.has_value())
+								{
 									fillAssets(metallicRoughnessTexture.index.value(), SGLTF::SGLTFMaterial::EGT_METALLIC_ROUGHNESS_TEXTURE);
-
+									pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_METALLIC_ROUGHNESS_TEXTURE;
+								}
+								
 								/*
 									if (metallicRoughnessTexture.texCoord.has_value())
 									{
@@ -1423,6 +1441,7 @@ namespace nbl
 						if (normalTexture.index.has_value())
 						{
 							fillAssets(normalTexture.index.value(), SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE);
+							pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE;
 
 							auto cpuNormalTexture = IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE];
 
@@ -1442,8 +1461,11 @@ namespace nbl
 						auto& occlusionTexture = material.glTFMaterial->occlusionTexture.value();
 
 						if (occlusionTexture.index.has_value())
+						{
 							fillAssets(occlusionTexture.index.value(), SGLTF::SGLTFMaterial::EGT_OCCLUSION_TEXTURE);
-
+							pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_OCCLUSION_TEXTURE;
+						}
+						
 						/*
 							if (occlusionTexture.texCoord.has_value())
 							{
@@ -1457,8 +1479,11 @@ namespace nbl
 						auto& emissiveTexture = material.glTFMaterial->emissiveTexture.value();
 
 						if (emissiveTexture.index.has_value())
+						{
 							fillAssets(emissiveTexture.index.value(), SGLTF::SGLTFMaterial::EGT_EMISSIVE_TEXTURE);
-
+							pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_EMISSIVE_TEXTURE;
+						}
+						
 						/*
 							if (emissiveTexture.texCoord.has_value())
 							{
@@ -1488,7 +1513,13 @@ namespace nbl
 				materialData.cpuMeshBuffer->setAttachedDescriptorSet(std::move(cpuDescriptorSet3));
 			}
 
-			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(cpuDs1Layout), nullptr, isDS3L ? std::move(cpuDs3Layout) : nullptr);
+			constexpr uint32_t PUSH_CONSTANTS_COUNT = 1u;
+			asset::SPushConstantRange pushConstantRange[PUSH_CONSTANTS_COUNT]; 
+			pushConstantRange[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+			pushConstantRange[0].offset = 0u;
+			pushConstantRange[0].size = sizeof(CGLTFPipelineMetadata::SGLTFMaterialParameters);
+
+			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, nullptr, std::move(cpuDs1Layout), nullptr, isDS3L ? std::move(cpuDs3Layout) : nullptr);
 			return cpuPipelineLayout;
 		}
 		

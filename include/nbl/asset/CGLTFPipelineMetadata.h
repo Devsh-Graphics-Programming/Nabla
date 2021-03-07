@@ -10,11 +10,16 @@ namespace nbl
 {
     namespace asset
     {
+        // TODO pack push constants as a struct to CGLTFPipelineMetadata since it will have to many bytes above 128b
+
         class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassIndependentPipelineMetadata
         {
         public:
 
-            enum E_ALPHA_MODE : uint16_t
+            CGLTFPipelineMetadata() {}
+            virtual ~CGLTFPipelineMetadata() {}
+
+            enum E_ALPHA_MODE : uint32_t
             {
                 EAM_OPAQUE = core::createBitmask({0}),
                 EAM_MASK = core::createBitmask({1}),
@@ -37,6 +42,18 @@ namespace nbl
                 E_ALPHA_MODE alphaMode = EAM_OPAQUE;
                 float alphaCutoff = 0.5f; 
 
+                enum E_GLTF_TEXTURES : uint32_t
+                {
+                    EGT_BASE_COLOR_TEXTURE = core::createBitmask<uint8_t>({ 0 }),
+                    EGT_METALLIC_ROUGHNESS_TEXTURE = core::createBitmask<uint8_t>({ 1 }),
+                    EGT_NORMAL_TEXTURE = core::createBitmask<uint8_t>({ 2 }),
+                    EGT_OCCLUSION_TEXTURE = core::createBitmask<uint8_t>({ 3 }),
+                    EGT_EMISSIVE_TEXTURE = core::createBitmask<uint8_t>({ 4 }),
+                    EGT_COUNT = 5,
+                };
+
+                uint32_t availableTextures = 0;
+
             } PACK_STRUCT;
             #include "nbl/nblunpack.h"
             //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
@@ -45,14 +62,11 @@ namespace nbl
             CGLTFPipelineMetadata(const SGLTFMaterialParameters& materialParams, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
                 : m_materialParams(materialParams), m_shaderInputs(std::move(_inputs)) {}
 
-            const SGLTFMaterialParameters& getMaterialParameters() const { return m_materialParams; }
+            SGLTFMaterialParameters m_materialParams;
+            core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
 
             _NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CGLTFLoader";
             const char* getLoaderName() const override { return loaderName; }
-
-        private:
-            SGLTFMaterialParameters m_materialParams;
-            core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
         };
     }
 }

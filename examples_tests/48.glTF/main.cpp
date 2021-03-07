@@ -1,6 +1,7 @@
 #define _IRR_STATIC_LIB_
 #include <nabla.h>
 
+#include "../include/nbl/asset/metadata/CGLTFMetadata.h"
 #include "../common/QToQuitEventReceiver.h"
 #include "../include/nbl/ext/ScreenShot/ScreenShot.h"
 
@@ -18,6 +19,7 @@ struct GraphicsData
 		{
 			const IGPUMeshBuffer* gpuMeshBuffer;
 			const IGPURenderpassIndependentPipeline* gpuPipeline;
+			const asset::CGLTFPipelineMetadata* pipelineMetadata;
 		};
 
 		core::vector<Resources> resources;
@@ -63,7 +65,8 @@ int main()
 	}
    
     auto mesh = meshes_bundle.getContents().begin()[0];
-    auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+    auto* mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+	auto* meta = meshes_bundle.getMetadata()->selfCast<asset::CGLTFMetadata>();
 
 	auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
 
@@ -100,16 +103,24 @@ int main()
 	GraphicsData graphicsData;
 	for (auto* asset = meshes_bundle.getContents().begin(); asset != meshes_bundle.getContents().end(); ++asset)
 	{
-		auto cpuMesh = core::smart_refctd_ptr_static_cast<ICPUMesh>(*asset);
-		auto gpuMesh = driver->getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1)->front();
-
 		auto& graphicsDataMesh = graphicsData.meshes.emplace_back();
+
+		auto cpuMesh = core::smart_refctd_ptr_static_cast<ICPUMesh>(*asset);
+		{
+			for (size_t i = 0; i < cpuMesh->getMeshBuffers().size(); ++i)
+			{
+				auto& graphicsResources = graphicsDataMesh.resources.emplace_back();
+				auto* glTFMetaPushConstants = meta->getAssetSpecificMetadata(cpuMesh->getMeshBufferVector()[i]->getPipeline());
+				graphicsResources.pipelineMetadata = glTFMetaPushConstants;
+			}
+		}
+
+		auto gpuMesh = driver->getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1)->front();
 
 		for (size_t i = 0; i < gpuMesh->getMeshBuffers().size(); ++i)
 		{
-			auto& graphicsResources = graphicsDataMesh.resources.emplace_back();
-			graphicsResources.gpuMeshBuffer = (gpuMesh->getMeshBufferIterator() + i)->get();
-			graphicsResources.gpuPipeline = graphicsResources.gpuMeshBuffer->getPipeline();
+			auto* gpuMeshBuffer = graphicsDataMesh.resources[i].gpuMeshBuffer = (gpuMesh->getMeshBufferIterator() + i)->get();
+			graphicsDataMesh.resources[i].gpuPipeline = gpuMeshBuffer->getPipeline();
 		}
 	}
 
@@ -153,6 +164,7 @@ int main()
 		{
 			for (auto& graphicsResource : gpuMeshData.resources)
 			{
+				driver->pushConstants(graphicsResource.gpuPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(asset::CGLTFPipelineMetadata), graphicsResource.pipelineMetadata);
 				driver->bindGraphicsPipeline(graphicsResource.gpuPipeline);
 				driver->bindDescriptorSets(video::EPBP_GRAPHICS, graphicsResource.gpuPipeline->getLayout(), 1u, 1u, &gpuDescriptorSet1.get(), nullptr);
 
