@@ -64,11 +64,13 @@ struct PCstruct
     float Ni;
     uint extra; //flags copied from MTL metadata
 };
+#define nbl_glsl_MaterialParametersStruct PCstruct
+#define _NBL_FRAG_MATERIAL_PARAMETERS_STRUCT_DEFINED_
+
 layout (push_constant) uniform Block {
-    PCstruct params;
+    nbl_glsl_MaterialParametersStruct params;
 } PC;
 #define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
-
 
 #ifndef _NO_UV
     uint nbl_glsl_VT_layer2pid(in uint layer)
