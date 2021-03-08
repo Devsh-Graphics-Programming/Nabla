@@ -14,10 +14,10 @@ void main()
 {
 // TODO: push constants
 	const uvec2 log2_sizes = findMSB(gl_WorkGroupSize*gl_NumWorkGroups).xy;
-	const uvec2 strides = uvec2(1u,0x1u<<log2_sizes.x);
+	const uvec3 strides = uvec3(1u,0x1u<<log2_sizes.x,0x1u<<(log2_sizes.x+log2_sizes.y));
 
 	const float power = length(in_data[0]);
-	nbl_glsl_complex value = in_data[gl_GlobalInvocationID.x*strides.x+gl_GlobalInvocationID.y*strides.y]/power;
+	nbl_glsl_complex value = in_data[gl_GlobalInvocationID.x*strides.x+gl_GlobalInvocationID.y*strides.y+gl_GlobalInvocationID.z*strides.z]/power;
 	
 
 	uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>(uvec2(32u)-log2_sizes);

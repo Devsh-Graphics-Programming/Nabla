@@ -55,11 +55,6 @@ class FFT : public core::TotalInterface
 			uint32_t workGroupCount[3];
 		};
 
-		struct alignas(16) Uniforms_t 
-		{
-			uint32_t dims[3];
-		};
-
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 
 		// returns dispatch size and fills the uniform data
@@ -116,18 +111,10 @@ class FFT : public core::TotalInterface
 		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
 		//
-		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, DataType inputType);
+		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultDescriptorSetLayout(video::IVideoDriver* driver, DataType inputType);
 		
 		//
-		static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, DataType inputType)
-		{
-			auto pcRange = getDefaultPushConstantRanges();
-			auto bindings = getDefaultBindings(driver, inputType);
-			return driver->createGPUPipelineLayout(
-				pcRange.begin(),pcRange.end(),
-				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
-			);
-		}
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, DataType inputType);
 		
 		//
 		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t numChannels)
@@ -182,29 +169,7 @@ class FFT : public core::TotalInterface
 			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
 			asset::ISampler::E_TEXTURE_CLAMP textureWrap)
 		{
-			using nbl::asset::ISampler;
-
-			static core::smart_refctd_ptr<video::IGPUSampler> samplers[ISampler::E_TEXTURE_CLAMP::ETC_COUNT];
-			auto & sampler = samplers[(uint32_t)textureWrap];
-			if (!sampler)
-			{
-				video::IGPUSampler::SParams params =
-				{
-					{
-						textureWrap,
-						textureWrap,
-						textureWrap,
-						ISampler::ETBC_FLOAT_TRANSPARENT_BLACK,
-						ISampler::ETF_NEAREST,
-						ISampler::ETF_NEAREST,
-						ISampler::ESMM_NEAREST,
-						0u,
-						0u,
-						ISampler::ECO_ALWAYS
-					}
-				};
-				sampler = driver->createGPUSampler(params);
-			}
+			auto sampler = getSampler(driver,textureWrap);
 
 			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
 			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
@@ -282,6 +247,8 @@ class FFT : public core::TotalInterface
 	private:
 		FFT() = delete;
 		//~FFT() = delete;
+
+		static core::smart_refctd_ptr<video::IGPUSampler> getSampler(video::IVideoDriver* driver, asset::ISampler::E_TEXTURE_CLAMP textureWrap);
 };
 
 

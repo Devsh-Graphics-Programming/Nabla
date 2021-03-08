@@ -347,13 +347,12 @@ int main()
 		dstImgViewInfo.image = outImg;
 		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(dstImgViewInfo));
 	}
-	 // TODO: re-examine
-	const VkExtent3D paddedDim = FFTClass::padDimensionToNextPOT(srcDim);
-	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, paddedDim.width);
+	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, srcDim.width);
 	
 	auto fftPipelineLayout_ImageInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::TEXTURE2D);
 	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_ImageInput), std::move(fftGPUSpecializedShader_ImageInput));
 
+	const VkExtent3D paddedDim = FFTClass::padDimensionToNextPOT(srcDim);
 	auto convolveShader = createShader_Convolution(driver, am, paddedDim.height);
 	auto convolvePipelineLayout = getPipelineLayout_Convolution(driver);
 	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), std::move(convolveShader));
@@ -481,7 +480,7 @@ int main()
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
 
 		// Ker Image FFT Y
-		auto fftPipeline_SSBOInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_SSBOInput), FFTClass::createShader(driver,FFTClass::DataType::SSBO,paddedKerDim.height));
+		auto fftPipeline_SSBOInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_SSBOInput), FFTClass::createShader(driver,FFTClass::DataType::SSBO,kerDim.height));
 		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_Y.get(), nullptr);
 		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedKerDim, paddedKerDim, FFTClass::Direction::Y, false, srcNumChannels);

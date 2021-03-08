@@ -12,9 +12,9 @@ using namespace nbl::asset;
 using namespace nbl::video;
 using namespace ext::FFT;
 
-core::SRange<const asset::SPushConstantRange> FFT::getDefaultPushConstantRanges()
+core::SRange<const SPushConstantRange> FFT::getDefaultPushConstantRanges()
 {
-	static const asset::SPushConstantRange ranges[1] =
+	static const SPushConstantRange ranges[1] =
 	{
 		{
 			ISpecializedShader::ESS_COMPUTE,
@@ -25,9 +25,31 @@ core::SRange<const asset::SPushConstantRange> FFT::getDefaultPushConstantRanges(
 	return {ranges, ranges+1};
 }
 
-core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBindings(video::IVideoDriver* driver, DataType inputType)
+core::smart_refctd_ptr<IGPUSampler> FFT::getSampler(IVideoDriver* driver,ISampler::E_TEXTURE_CLAMP textureWrap)
 {
-	static core::smart_refctd_ptr<IGPUSampler> sampler;
+	IGPUSampler::SParams params =
+	{
+		{
+			textureWrap,
+			textureWrap,
+			textureWrap,
+			ISampler::ETBC_FLOAT_TRANSPARENT_BLACK,
+			ISampler::ETF_NEAREST,
+			ISampler::ETF_NEAREST,
+			ISampler::ESMM_NEAREST,
+			0u,
+			0u,
+			ISampler::ECO_ALWAYS
+		}
+	};
+	// TODO: cache using the asset manager's caches
+	return driver->createGPUSampler(params);
+}
+
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> FFT::getDefaultDescriptorSetLayout(IVideoDriver* driver, FFT::DataType inputType)
+{
+	const bool usingTexture = inputType==DataType::TEXTURE2D;
+	core::smart_refctd_ptr<IGPUSampler> sampler = usingTexture ? getSampler(driver,ISampler::ETC_CLAMP_TO_EDGE):nullptr;
 
 	static IGPUDescriptorSetLayout::SBinding bnd[] =
 	{
@@ -36,7 +58,7 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 			EDT_STORAGE_BUFFER,
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
-			&sampler
+			usingTexture ? &sampler:nullptr
 		},
 		{
 			1u,
@@ -47,38 +69,24 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 		},
 	};
 
-	if (DataType::SSBO == inputType) {
-		bnd[0].type = EDT_STORAGE_BUFFER;
-	} else if (DataType::TEXTURE2D == inputType) {
+	if (usingTexture)
 		bnd[0].type = EDT_COMBINED_IMAGE_SAMPLER;
-	}
-
-	bnd[0].samplers = nullptr;
-	
-	if (!sampler)
-	{
-		IGPUSampler::SParams params =
-		{
-			{
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
-				ISampler::ETF_NEAREST,
-				ISampler::ETF_NEAREST,
-				ISampler::ESMM_NEAREST,
-				0u,
-				0u,
-				ISampler::ECO_ALWAYS
-			}
-		};
-		sampler = driver->createGPUSampler(params);
-	}
-
-	return {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
+	else
+		bnd[0].type = EDT_STORAGE_BUFFER;
+	return driver->createGPUDescriptorSetLayout(bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
+}
+		
+//
+core::smart_refctd_ptr<IGPUPipelineLayout> FFT::getDefaultPipelineLayout(IVideoDriver* driver, FFT::DataType inputType)
+{
+	auto pcRange = getDefaultPushConstantRanges();
+	return driver->createGPUPipelineLayout(
+		pcRange.begin(),pcRange.end(),
+		getDefaultDescriptorSetLayout(driver,inputType),nullptr,nullptr,nullptr
+	);
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize)
+core::smart_refctd_ptr<IGPUSpecializedShader> FFT::createShader(IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize)
 {
 	uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
@@ -93,27 +101,25 @@ R"===(#version 430 core
 
 )===";
 
-	const size_t extraSize = 32 + 32 + 32 + 32;
+	constexpr size_t extraSize = 10u*2u+1u;
 
 	const uint32_t useSSBOforInput = (DataType::SSBO == inputType) ? 1 : 0;
-	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
+	auto source = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
-		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
+		reinterpret_cast<char*>(source->getPointer()),source->getSize(), sourceFmt,
 		useSSBOforInput,
 		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize
 	);
 
-	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
-		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
+	auto shader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(std::move(source),asset::ICPUShader::buffer_contains_glsl));
+	
+	auto specializedShader = driver->createGPUSpecializedShader(
+		shader.get(),
+		ISpecializedShader::SInfo{nullptr, nullptr, "main", ISpecializedShader::ESS_COMPUTE}
 	);
-	
-	auto gpuShader = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
-	
-	auto gpuSpecializedShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
 
-	return gpuSpecializedShader;
+	return specializedShader;
 }
 
 void FFT::defaultBarrier()
