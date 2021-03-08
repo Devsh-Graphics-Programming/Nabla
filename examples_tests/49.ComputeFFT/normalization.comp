@@ -10,18 +10,20 @@ layout(set=0, binding=0) restrict readonly buffer InBuffer
 
 layout(set=0, binding=1, rg16f) uniform image2D NormalizedKernel[3];
 
+layout(push_constant) uniform PushConstants
+{
+	uvec4 strides;
+	uvec4 bitreverse_shift;
+} pc;
+
 void main()
 {
-// TODO: push constants
-	const uvec2 log2_sizes = findMSB(gl_WorkGroupSize*gl_NumWorkGroups).xy;
-	const uvec3 strides = uvec3(1u,0x1u<<log2_sizes.x,0x1u<<(log2_sizes.x+log2_sizes.y));
-
-	const float power = length(in_data[0]);
-	nbl_glsl_complex value = in_data[gl_GlobalInvocationID.x*strides.x+gl_GlobalInvocationID.y*strides.y+gl_GlobalInvocationID.z*strides.z]/power;
+	nbl_glsl_complex value = in_data[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)];
 	
+	const float power = length(in_data[0]);
 
-	uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>(uvec2(32u)-log2_sizes);
-	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-float(coord.x+coord.y)*nbl_glsl_PI); // TODO: does this shift go away later?
-	value = nbl_glsl_complex_mul(value,shift);
+	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
+	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));
+	value = nbl_glsl_complex_mul(value,shift)/power;
 	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
 }

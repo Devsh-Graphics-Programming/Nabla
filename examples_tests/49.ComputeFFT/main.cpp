@@ -404,6 +404,11 @@ int main()
 		FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
 		
 		// Normalization of FFT Y result
+		struct NormalizationPushConstants
+		{
+			ext::FFT::uvec4 stride;
+			ext::FFT::uvec4 bitreverse_shift;
+		};
 		auto fftPipelineLayout_KernelNormalization = [&]() -> auto
 		{
 			IGPUDescriptorSetLayout::SBinding bnd[] =
@@ -423,8 +428,12 @@ int main()
 					nullptr
 				},
 			};
+			SPushConstantRange pc_rng;
+			pc_rng.offset = 0u;
+			pc_rng.size = sizeof(NormalizationPushConstants);
+			pc_rng.stageFlags = ISpecializedShader::ESS_COMPUTE;
 			return driver->createGPUPipelineLayout(
-				nullptr,nullptr,
+				&pc_rng,&pc_rng+1u,
 				driver->createGPUDescriptorSetLayout(bnd,bnd+2),nullptr,nullptr,nullptr
 			);
 		}();
@@ -494,6 +503,14 @@ int main()
 		);
 		driver->bindComputePipeline(fftPipeline_KernelNormalization.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_KernelNormalization.get(), 0u, 1u, &fftDescriptorSet_KernelNormalization.get(), nullptr);
+		{
+			NormalizationPushConstants normalizationPC;
+			normalizationPC.stride = {1u,paddedKerDim.width,paddedKerDim.width*paddedKerDim.height,paddedKerDim.width*paddedKerDim.height}; // TODO: take from the Y FFT pass
+			normalizationPC.bitreverse_shift.x = 32-core::findMSB(paddedKerDim.width);
+			normalizationPC.bitreverse_shift.y = 32-core::findMSB(paddedKerDim.height);
+			normalizationPC.bitreverse_shift.z = 0;
+			driver->pushConstants(fftPipelineLayout_KernelNormalization.get(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(normalizationPC),&normalizationPC);
+		}
 		{
 			const uint32_t dispatchSizeX = (paddedKerDim.width-1u)/16u+1u;
 			const uint32_t dispatchSizeY = (paddedKerDim.height-1u)/16u+1u;
