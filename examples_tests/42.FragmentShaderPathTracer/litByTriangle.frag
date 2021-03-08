@@ -293,7 +293,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
             rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
             rayStack[stackPtr]._immutable.maxT = maxT;
             rayStack[stackPtr]._immutable.direction = _sample.L;
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+2,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
             rayStack[stackPtr]._immutable.normalAtOrigin = interaction.isotropic.N;
             rayStack[stackPtr]._immutable.wasBSDFAtOrigin = isBSDF;
             stackPtr++;

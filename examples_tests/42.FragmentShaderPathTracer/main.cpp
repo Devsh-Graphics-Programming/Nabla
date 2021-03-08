@@ -146,7 +146,7 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 
 struct ShaderParameters
 {
-	const uint32_t MaxDepthLog2 = 3; //5
+	const uint32_t MaxDepthLog2 = 4; //5
 	const uint32_t MaxSamplesLog2 = 10; //18
 } kShaderParameters;
 
@@ -261,7 +261,7 @@ int main()
 		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	E_LIGHT_GEOMETRY lightGeom = ELG_RECTANGLE;
+	E_LIGHT_GEOMETRY lightGeom = ELG_SPHERE;
 	constexpr const char* shaderPaths[] = {"../litBySphere.frag","../litByTriangle.frag","../litByRectangle.frag"};
 	auto gpuEnvmapResources = createGpuResources(shaderPaths[lightGeom]);
 	auto gpuEnvmapPipeline = gpuEnvmapResources.first;

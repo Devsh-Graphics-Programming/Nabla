@@ -155,10 +155,10 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
 
 
         const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);    
-        vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
+        mat2x3 epsilon = rand3d(depth,sampleIx,scramble_state);
     
         float rcpChoiceProb;
-        const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
+        const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon[0].z,rcpChoiceProb);
     
 
         float maxT;
@@ -171,7 +171,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
             vec3 lightRemainder;
             _sample = nbl_glsl_light_generate_and_remainder_and_pdf(
                 lightRemainder,lightPdf,maxT,
-                intersection,interaction,epsilon,
+                intersection,interaction,epsilon[0],
                 depth
             );
             throughput *= lightRemainder;
@@ -190,7 +190,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
         else
         {
             maxT = FLT_MAX;
-            _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,monochromeEta,_cache);
+            _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon[0],bsdf,monochromeEta,_cache);
         }
             
         // do a cool trick and always compute the bsdf parts this way! (no divergence)
@@ -219,7 +219,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
             rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
             rayStack[stackPtr]._immutable.maxT = maxT;
             rayStack[stackPtr]._immutable.direction = _sample.L;
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+2,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
             stackPtr++;
         }
     }

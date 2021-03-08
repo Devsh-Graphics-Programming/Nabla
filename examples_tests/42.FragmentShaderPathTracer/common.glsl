@@ -462,12 +462,17 @@ layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 
 #include <nbl/builtin/glsl/random/xoroshiro.glsl>
 
-vec3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
+mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
+    mat2x3 retval;
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
-	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz;
-	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
-    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
+    for (int i=0; i<2u; i++)
+    {
+	    uvec3 seqVal = texelFetch(sampleSequence,int(address)+i).xyz;
+	    seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
+        retval[i] = vec3(seqVal)*uintBitsToFloat(0x2f800004u);
+    }
+    return retval;
 }
 
 bool traceRay(in ImmutableRay_t _immutable);
@@ -511,7 +516,7 @@ void main()
             // apply stochastic reconstruction filter
             const float gaussianFilterCutoff = 2.5;
             const float truncation = exp(-0.5*gaussianFilterCutoff*gaussianFilterCutoff);
-            vec2 remappedRand = rand3d(0u,i,scramble_state).xy;
+            vec2 remappedRand = rand3d(0u,i,scramble_state)[0].xy;
             remappedRand.x *= 1.0-truncation;
             remappedRand.x += truncation;
             tmp.xy += pixOffsetParam*nbl_glsl_BoxMullerTransform(remappedRand,1.5);
