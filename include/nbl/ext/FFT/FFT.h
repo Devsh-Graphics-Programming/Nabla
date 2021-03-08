@@ -123,7 +123,7 @@ class FFT : public core::TotalInterface
 			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
 		}
 		
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
+		static core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultPipeline(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
 		static inline void updateDescriptorSet(
@@ -214,7 +214,7 @@ class FFT : public core::TotalInterface
 
 		static inline void pushConstants(
 			video::IVideoDriver* driver,
-			video::IGPUPipelineLayout * pipelineLayout,
+			const video::IGPUPipelineLayout * pipelineLayout,
 			asset::VkExtent3D const & inputDimension,
 			asset::VkExtent3D const & paddedInputDimension,
 			Direction direction,

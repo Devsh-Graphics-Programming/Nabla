@@ -73,6 +73,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> FFT::getDefaultDescriptorSetLayo
 		bnd[0].type = EDT_COMBINED_IMAGE_SAMPLER;
 	else
 		bnd[0].type = EDT_STORAGE_BUFFER;
+	// TODO: cache using the asset manager's caches
 	return driver->createGPUDescriptorSetLayout(bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
 }
 		
@@ -80,14 +81,16 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> FFT::getDefaultDescriptorSetLayo
 core::smart_refctd_ptr<IGPUPipelineLayout> FFT::getDefaultPipelineLayout(IVideoDriver* driver, FFT::DataType inputType)
 {
 	auto pcRange = getDefaultPushConstantRanges();
+	// TODO: cache using the asset manager's caches
 	return driver->createGPUPipelineLayout(
 		pcRange.begin(),pcRange.end(),
 		getDefaultDescriptorSetLayout(driver,inputType),nullptr,nullptr,nullptr
 	);
 }
 
-core::smart_refctd_ptr<IGPUSpecializedShader> FFT::createShader(IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize)
+core::smart_refctd_ptr<video::IGPUComputePipeline> FFT::getDefaultPipeline(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize)
 {
+	// TODO: cache using the asset manager's caches
 	uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
 	const char* sourceFmt =
@@ -119,7 +122,7 @@ R"===(#version 430 core
 		ISpecializedShader::SInfo{nullptr, nullptr, "main", ISpecializedShader::ESS_COMPUTE}
 	);
 
-	return specializedShader;
+	return driver->createGPUComputePipeline(nullptr, getDefaultPipelineLayout(driver,inputType), std::move(specializedShader));
 }
 
 void FFT::defaultBarrier()
