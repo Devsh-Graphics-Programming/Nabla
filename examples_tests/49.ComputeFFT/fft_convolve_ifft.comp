@@ -65,6 +65,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint cha
 	return nbl_glsl_ext_FFT_getData(clamped_coord, channel);
 }
 
+
 void convolve(in uint item_per_thread_count, in uint ch) 
 {
 // TODO: decouple kernel size from image size
@@ -79,8 +80,11 @@ void convolve(in uint item_per_thread_count, in uint ch)
         coords = bitfieldReverse(coords)>>(uvec3(32u)-log2_size);
 
         vec2 uv = (vec2(coords.xy))/vec2(uvec2(1u)<<log2_size.xy)+vec2(0.5f)/vec2(textureSize(NormalizedKernel[ch],0));
+const float scaling = 0.2;
+uv = mix(uv,uv-1.0,greaterThan(uv,vec2(0.5)))*scaling;
 		//
-		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(nbl_glsl_ext_FFT_impl_values[t],textureLod(NormalizedKernel[ch],uv,0).xy);
+		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
+		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(nbl_glsl_ext_FFT_impl_values[t],convSpectrum);
 	}
 }
 
