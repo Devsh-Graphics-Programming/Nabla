@@ -36,8 +36,8 @@ class CGLTFMetadata final : public IAssetMetadata
         {
             auto& meta = m_metaStorage->operator[](offset);
 
-            meta.m_inputSemantics;
-            meta.m_materialParams;
+            meta.m_inputSemantics = _meta.m_inputSemantics;
+            meta.m_materialParams = _meta.m_materialParams;
 
             IAssetMetadata::insertAssetSpecificMetadata(pipeline, &meta);
         }

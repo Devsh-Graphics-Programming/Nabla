@@ -164,7 +164,7 @@ int main()
 		{
 			for (auto& graphicsResource : gpuMeshData.resources)
 			{
-				driver->pushConstants(graphicsResource.gpuPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(asset::CGLTFPipelineMetadata), graphicsResource.pipelineMetadata);
+				driver->pushConstants(graphicsResource.gpuPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(asset::CGLTFPipelineMetadata::SGLTFMaterialParameters), &graphicsResource.pipelineMetadata->m_materialParams);
 				driver->bindGraphicsPipeline(graphicsResource.gpuPipeline);
 				driver->bindDescriptorSets(video::EPBP_GRAPHICS, graphicsResource.gpuPipeline->getLayout(), 1u, 1u, &gpuDescriptorSet1.get(), nullptr);
 

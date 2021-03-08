@@ -746,14 +746,23 @@ namespace nbl
 				}
 			}
 
-			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata;
-
 			/*
 				TODO: it needs hashes and better system for meta since gltf bundle may return more than one mesh
 				and each mesh may have more than one meshbuffer, so more meta as well
 			*/
 
-			for (size_t i = 0; i < globalMetadataContainer.size(); ++i)
+			auto getGlobalPipelineCount = [&]() // TODO change it
+			{
+				size_t count = {};
+				for (auto& meshMeta : globalMetadataContainer)
+					for (auto& pipelineMeta : meshMeta)
+						++count;
+				return count;
+			};
+
+			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(getGlobalPipelineCount());
+
+			for (size_t i = 0; i < globalMetadataContainer.size(); ++i) // TODO change it 
 				for (size_t z = 0; z < globalMetadataContainer[i].size(); ++z)
 					glTFPipelineMetadata->placeMeta(z, cpuMeshes[i]->getMeshBufferVector()[z]->getPipeline(), *globalMetadataContainer[i][z]); 
 

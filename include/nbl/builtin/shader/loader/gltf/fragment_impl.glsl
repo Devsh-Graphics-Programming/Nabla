@@ -17,6 +17,24 @@ layout (location = _NBL_F_IN_COLOR_ATTRIBUTE_ID) in vec4 Color_0;
 layout (location = 0) out vec4 OutColor;
 #endif //_NBL_FRAG_OUTPUTS_DEFINED_
 
+layout( push_constant, row_major ) uniform Block {
+	vec4 baseColorFactor;
+	float metallicFactor;
+	float roughnessFactor;
+	
+	vec3 emissiveFactor;
+	uint alphaMode;
+	float alphaCutoff;
+	
+	uint availableTextures;
+} pushConstants;
+
+#define EGT_BASE_COLOR_TEXTURE_BIT 1
+#define EGT_METALLIC_ROUGHNESS_TEXTURE_BIT 2
+#define EGT_NORMAL_TEXTURE_BIT 4
+#define EGT_OCCLUSION_TEXTURE_BIT 8
+#define EGT_EMISSIVE_TEXTURE_BIT 16
+
 #if !defined(_NBL_FRAG_SET3_BINDINGS_DEFINED_) && !defined(_DISABLE_UV_ATTRIBUTES)
 #define _NBL_FRAG_SET3_BINDINGS_DEFINED_
 layout (set = 3, binding = 0) uniform sampler2D baseColorTexture;
@@ -33,6 +51,37 @@ layout (set = 3, binding = 4) uniform sampler2D emissiveTexture;
 void main()
 {
 #ifndef _DISABLE_UV_ATTRIBUTES
+	
+	const uint baseColorTextureCheck = pushConstants.availableTextures & EGT_BASE_COLOR_TEXTURE_BIT;
+	vec4 baseColor;
+	
+	if(baseColorTextureCheck != 0u)
+		baseColor = textureGrad(baseColorTexture, UV_0, UV_0, UV_0); // TODO: partial derivative parameters & UV index
+	
+	const uint metallicRoughnessTextureCheck = pushConstants.availableTextures & EGT_METALLIC_ROUGHNESS_TEXTURE_BIT;
+	vec4 metallicRoughness;
+	
+	if(metallicRoughnessTextureCheck != 0u)
+		metallicRoughness = textureGrad(metallicRoughnessTexture, UV_0, UV_0, UV_0); // TODO: partial derivative parameters & UV index
+	
+	const uint normalDerivativeTextureCheck = pushConstants.availableTextures & EGT_NORMAL_TEXTURE_BIT;
+	vec4 normalDerivative;
+	
+	if(normalDerivativeTextureCheck != 0u)
+		normalDerivative = textureGrad(normalDerivativeTexture, UV_0, UV_0, UV_0); // TODO: partial derivative parameters & UV index
+	
+	const uint occlusionTextureCheck = pushConstants.availableTextures & EGT_OCCLUSION_TEXTURE_BIT;
+	vec4 occlusion;
+	
+	if(occlusionTextureCheck != 0u)
+		occlusion = textureGrad(occlusionTexture, UV_0, UV_0, UV_0); // TODO: partial derivative parameters & UV index
+	
+	const uint emissiveTextureCheck = pushConstants.availableTextures & EGT_EMISSIVE_TEXTURE_BIT;
+	vec4 emissive;
+	
+	if(emissiveTextureCheck != 0u)
+		emissive = textureGrad(emissiveTexture, UV_0, UV_0, UV_0); // TODO: partial derivative parameters & UV index
+
 	OutColor = texture(baseColorTexture, UV_0);
 #endif // _DISABLE_UV_ATTRIBUTES
 
