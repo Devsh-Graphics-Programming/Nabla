@@ -260,6 +260,9 @@ endif()
 
 
 set(NABLA_SRCS_NORMAL
+	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+
 	# Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
@@ -285,6 +288,13 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLESConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
