@@ -260,6 +260,10 @@ endif()
 
 
 set(NABLA_SRCS_NORMAL
+	# system
+	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
+
+	# video
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 
