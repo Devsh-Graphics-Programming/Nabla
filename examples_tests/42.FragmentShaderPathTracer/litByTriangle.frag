@@ -5,31 +5,14 @@
 #version 430 core
 #extension GL_GOOGLE_include_directive : require
 
+#define SPHERE_COUNT 8
 #define TRIANGLE_METHOD 2 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
 #include "common.glsl"
 
-#define SPHERE_COUNT 8
-Sphere spheres[SPHERE_COUNT] = {
-    Sphere_Sphere(vec3(0.0,-100.5,-1.0),100.0,0u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,-1.0),0.5,1u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,-1.0),0.5,2u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,-1.0),0.5,3u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,1.0),0.5,5u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.5,1.0,0.5),0.5,6u,INVALID_ID_16BIT)
-};
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
     Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
 };
-
-
-#define LIGHT_COUNT 1
-Light lights[LIGHT_COUNT] = {
-    {vec3(30.0,25.0,15.0),0u}
-};
-
 
 bool traceRay(in ImmutableRay_t _immutable)
 {
@@ -68,7 +51,7 @@ bool traceRay(in ImmutableRay_t _immutable)
 }
 
 
-#include <irr/builtin/glsl/sampling/projected_spherical_triangle.glsl>
+#include <nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl>
 
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
@@ -228,10 +211,10 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
 
 
         const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);    
-        vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
+        mat2x3 epsilon = rand3d(depth,sampleIx,scramble_state);
     
         float rcpChoiceProb;
-        const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
+        const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon[0].z,rcpChoiceProb);
     
 
         float maxT;
@@ -246,7 +229,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
             _sample = nbl_glsl_light_generate_and_remainder_and_pdf(
                 lightRemainder,lightPdf,maxT,
                 intersection,interaction,
-                isBSDF,epsilon,depth
+                isBSDF,epsilon[0],depth
             );
             throughput *= lightRemainder;
         }
@@ -264,7 +247,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
         else
         {
             maxT = FLT_MAX;
-            _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,monochromeEta,_cache);
+            _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon[0],bsdf,monochromeEta,_cache);
         }
             
         // do a cool trick and always compute the bsdf parts this way! (no divergence)

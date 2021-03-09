@@ -80,6 +80,20 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
 }
 
 
+Sphere spheres[SPHERE_COUNT] = {
+    Sphere_Sphere(vec3(0.0,-100.5,-1.0),100.0,0u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(2.0,0.0,-1.0),0.5,1u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(0.0,0.0,-1.0),0.5,2u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(-2.0,0.0,-1.0),0.5,3u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(2.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(0.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(-2.0,0.0,1.0),0.5,5u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(0.5,1.0,0.5),0.5,6u,INVALID_ID_16BIT)
+#if SPHERE_COUNT>8
+    ,Sphere_Sphere(vec3(-1.5,1.5,0.0),0.3,INVALID_ID_16BIT,0u)
+#endif
+};
+
 
 struct Triangle
 {
@@ -276,6 +290,20 @@ float scene_getLightChoicePdf(in Light light)
 {
     return 1.0/float(LIGHT_COUNT);
 }
+
+
+#define LIGHT_COUNT 1
+Light lights[LIGHT_COUNT] =
+{
+    {
+        vec3(30.0,25.0,15.0),
+#if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
+        0u
+#else
+        8u
+#endif
+    }
+};
 
 
 

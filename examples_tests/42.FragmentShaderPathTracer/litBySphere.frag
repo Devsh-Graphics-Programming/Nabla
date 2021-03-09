@@ -5,25 +5,8 @@
 #version 430 core
 #extension GL_GOOGLE_include_directive : require
 
-#include "common.glsl"
-
 #define SPHERE_COUNT 9
-Sphere spheres[SPHERE_COUNT] = {
-    Sphere_Sphere(vec3(0.0,-100.5,-1.0),100.0,0u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,-1.0),0.5,1u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,-1.0),0.5,2u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,-1.0),0.5,3u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,1.0),0.5,5u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.5,1.0,0.5),0.5,6u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-1.5,1.5,0.0),0.3,INVALID_ID_16BIT,0u)
-};
-
-
-Light lights[LIGHT_COUNT] = {
-    {vec3(30.0,25.0,15.0),8u}
-};
+#include "common.glsl"
 
 
 
@@ -154,7 +137,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
         #endif
 
 
-        const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);    
+        const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);
         mat2x3 epsilon = rand3d(depth,sampleIx,scramble_state);
     
         float rcpChoiceProb;
