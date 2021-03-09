@@ -120,7 +120,7 @@ bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t s
 
     // check if we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
-    if (depth<MAX_DEPTH && bsdfID!=INVALID_ID_16BIT)
+    if (bsdfID!=INVALID_ID_16BIT)
     {
         // common preload
         BSDFNode bsdf = bsdfs[bsdfID];

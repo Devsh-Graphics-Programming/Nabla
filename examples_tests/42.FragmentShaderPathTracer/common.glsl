@@ -573,6 +573,7 @@ void main()
             if (ray._mutable.intersectionT>=_immutable.maxT)
             {
                 missProgram(_immutable,ray._payload);
+                break;
             }
             else if (!anyHitType)
             {
