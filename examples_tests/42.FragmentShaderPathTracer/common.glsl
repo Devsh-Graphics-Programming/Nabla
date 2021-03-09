@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 // basic settings
-#define MAX_DEPTH 8
+#define MAX_DEPTH 15
 #define SAMPLES 32
 
 // firefly and variance reduction techniques
