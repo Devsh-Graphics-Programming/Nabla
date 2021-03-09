@@ -8,9 +8,9 @@ int main()
 		{ 1.f, 1.f },
 		{ 1.f, 1.f },
 		6,
-		5
+		50
 	};
-	Sleep(5000);
+	//Sleep(5000);
 	WaveSimApp app(params);
 	app.Run();
 }

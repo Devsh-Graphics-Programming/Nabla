@@ -57,7 +57,8 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions();
 		uint index = coordinate.y * dimension.x + coordinate.x;
 
-	imageStore(heightmap, ivec2(coordinate.xy), vec4( complex_value, 0, 1));
+//	imageStore(heightmap, ivec2(coordinate.xy), vec4( length(ifft_x_in.data[index]) == 0 ? vec2(1, 1) : ifft_x_in.data[index] , 0, 1));
+	imageStore(heightmap, ivec2(coordinate.xy), vec4( complex_value.r, 0, 0, 1));
 }
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {

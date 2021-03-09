@@ -477,10 +477,10 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		m_driver->pushConstants(m_animating_pipeline_1->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
 		//while (m_device->run())
 		{
-			m_driver->beginScene(true);
+			//m_driver->beginScene(true);
 			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
 			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-			m_driver->endScene();
+			//m_driver->endScene();
 		}
 	}
 
@@ -577,7 +577,7 @@ void WaveSimApp::Run()
 	{
 		m_driver->beginScene(true);
 
-		GetAnimatedHeightMap(initial_values, animated_part, i += 0.01f);
+		GetAnimatedHeightMap(initial_values, animated_part, i+=0.01);
 		PresentWaves(animated_part);
 		m_driver->endScene();
 
