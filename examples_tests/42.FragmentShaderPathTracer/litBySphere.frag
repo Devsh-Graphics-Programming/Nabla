@@ -12,7 +12,7 @@
 
 bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
 {
-    const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
+    const bool anyHit = _immutable.anyHit;
 
 	int objectID = -1;
     float intersectionT = _immutable.maxT;
@@ -42,7 +42,7 @@ vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in v
     return Light_getRadiance(light);
 }
 
-nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
+nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in uint depth)
 {
     // normally we'd pick from set of lights, using `u.z`
     const Light light = lights[0];
@@ -82,7 +82,7 @@ nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 }
 
 
-bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
+bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t _mutable = ray._mutable;
 
@@ -114,9 +114,6 @@ bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t s
         vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(lightPdf,sphere,ray._immutable.origin,interaction,lights[lightID]);
         ray._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
     }
-    
-    const int sampleIx = bitfieldExtract(ray._immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
-    const int depth = bitfieldExtract(ray._immutable.typeDepthSampleIx,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
     // check if we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
@@ -138,7 +135,7 @@ bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t s
 
 
         const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);
-        mat2x3 epsilon = rand3d(depth,sampleIx,scramble_state);
+        mat2x3 epsilon = rand3d(depth,_sample,scramble_state);
     
         float rcpChoiceProb;
         const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon[0].z,rcpChoiceProb);
@@ -202,7 +199,7 @@ bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t s
             ray._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
             ray._immutable.maxT = maxT;
             ray._immutable.direction = _sample.L;
-            ray._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+2,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
+            ray._immutable.anyHit = doNEE;
             return false;
         }
     }

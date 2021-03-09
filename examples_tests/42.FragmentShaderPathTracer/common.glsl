@@ -315,7 +315,7 @@ struct ImmutableRay_t
     vec3 origin;
     float maxT;
     vec3 direction;
-    int typeDepthSampleIx;
+    bool anyHit;
 #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
     vec3 normalAtOrigin;
     bool wasBSDFAtOrigin;
@@ -355,16 +355,16 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
 
 
 #define INTERSECTION_ERROR_BOUND_LOG2 (-8.0)
-float getTolerance_common(in int depth)
+float getTolerance_common(in uint depth)
 {
     float depthRcp = 1.0/float(depth);
     return INTERSECTION_ERROR_BOUND_LOG2;// *depthRcp*depthRcp;
 }
-float getStartTolerance(in int depth)
+float getStartTolerance(in uint depth)
 {
     return exp2(getTolerance_common(depth));
 }
-float getEndTolerance(in int depth)
+float getEndTolerance(in uint depth)
 {
     return 1.0-exp2(getTolerance_common(depth)+1.0);
 }
@@ -501,7 +501,7 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
 }
 
 bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable);
-bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
+bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
 {
@@ -548,8 +548,7 @@ void main()
             // for depth of field we could do another stochastic point-pick
             tmp = invMVP*tmp;
             ray._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
-            
-            ray._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+            ray._immutable.anyHit = false;
 
             #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
                 ray._immutable.normalAtOrigin = vec3(0.0,0.0,0.0);
@@ -577,7 +576,7 @@ void main()
             }
             else if (!anyHitType)
             {
-                if (closestHitProgram(ray,scramble_state))
+                if (closestHitProgram(j,i,ray,scramble_state))
                     break;
             }
         }
