@@ -346,9 +346,6 @@ struct Ray_t
     MutableRay_t _mutable;
     Payload_t _payload;
 };
-#define MAX_STACK_SIZE 1
-int stackPtr = 0;
-Ray_t rayStack[MAX_STACK_SIZE];
 
 
 bool anyHitProgram(in ImmutableRay_t _immutable)
@@ -381,15 +378,15 @@ vec2 SampleSphericalMap(vec3 v)
     return uv;
 }
 
-void missProgram() 
+void missProgram(in ImmutableRay_t _immutable, inout Payload_t _payload)
 {
-    vec3 finalContribution = rayStack[stackPtr]._payload.throughput; 
+    vec3 finalContribution = _payload.throughput; 
     //#define USE_ENVMAP
     // true miss
-    if (rayStack[stackPtr]._immutable.maxT>=FLT_MAX)
+    if (_immutable.maxT>=FLT_MAX)
     {
         #ifdef USE_ENVMAP
-	        vec2 uv = SampleSphericalMap(rayStack[stackPtr]._immutable.direction);
+	        vec2 uv = SampleSphericalMap(_immutable.direction);
             finalContribution *= textureLod(envMap, uv, 0.0).rgb;
         #else
         const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
@@ -398,9 +395,9 @@ void missProgram()
     }
     else
     {
-        finalContribution *= rayStack[stackPtr]._payload.otherTechniqueHeuristic;
+        finalContribution *= _payload.otherTechniqueHeuristic;
     }
-    rayStack[stackPtr]._payload.accumulation += finalContribution;
+    _payload.accumulation += finalContribution;
 }
 
 #include <nbl/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
@@ -503,8 +500,8 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
     return retval;
 }
 
-bool traceRay(in ImmutableRay_t _immutable);
-void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
+bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable);
+bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
 {
@@ -534,11 +531,11 @@ void main()
     {
         nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
-        stackPtr = 0;
+        Ray_t ray;
         // raygen
         {
-            rayStack[stackPtr]._immutable.origin = camPos;
-            rayStack[stackPtr]._immutable.maxT = FLT_MAX;
+            ray._immutable.origin = camPos;
+            ray._immutable.maxT = FLT_MAX;
 
             vec4 tmp = NDC;
             // apply stochastic reconstruction filter
@@ -550,41 +547,42 @@ void main()
             tmp.xy += pixOffsetParam*nbl_glsl_BoxMullerTransform(remappedRand,1.5);
             // for depth of field we could do another stochastic point-pick
             tmp = invMVP*tmp;
-            rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
+            ray._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
             
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+            ray._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
             #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
-                rayStack[stackPtr]._immutable.normalAtOrigin = vec3(0.0,0.0,0.0);
-                rayStack[stackPtr]._immutable.wasBSDFAtOrigin = false;
+                ray._immutable.normalAtOrigin = vec3(0.0,0.0,0.0);
+                ray._immutable.wasBSDFAtOrigin = false;
             #endif
 
-            rayStack[stackPtr]._payload.accumulation = vec3(0.0);
-            rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // needed for direct eye-light paths
-            rayStack[stackPtr]._payload.throughput = vec3(1.0);
+            ray._payload.accumulation = vec3(0.0);
+            ray._payload.otherTechniqueHeuristic = 0.0; // needed for direct eye-light paths
+            ray._payload.throughput = vec3(1.0);
             #ifdef KILL_DIFFUSE_SPECULAR_PATHS
-            rayStack[stackPtr]._payload.hasDiffuse = false;
+            ray._payload.hasDiffuse = false;
             #endif
         }
 
         // trace
-        while (stackPtr!=-1)
+        for (int j=1; j<=MAX_DEPTH; j+=2)
         {
-            ImmutableRay_t _immutable = rayStack[stackPtr]._immutable;
-            bool anyHitType = traceRay(_immutable);
+            const ImmutableRay_t _immutable = ray._immutable;
+            bool anyHitType = traceRay(_immutable,ray._mutable);
                 
-            if (rayStack[stackPtr]._mutable.intersectionT>=_immutable.maxT)
+            if (ray._mutable.intersectionT>=_immutable.maxT)
             {
-                missProgram();
+                missProgram(_immutable,ray._payload);
+                break;
             }
             else if (!anyHitType)
             {
-                closestHitProgram(_immutable,scramble_state);
+                if (closestHitProgram(ray,scramble_state))
+                    break;
             }
-            stackPtr--;
         }
 
-        vec3 accumulation = rayStack[0]._payload.accumulation;
+        vec3 accumulation = ray._payload.accumulation;
 
         float rcpSampleSize = 1.0/float(i+1);
         color += (accumulation-color)*rcpSampleSize;

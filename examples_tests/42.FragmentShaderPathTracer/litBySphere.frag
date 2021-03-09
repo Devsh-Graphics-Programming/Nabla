@@ -10,7 +10,7 @@
 
 
 
-bool traceRay(in ImmutableRay_t _immutable)
+bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
 {
     const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
 
@@ -28,8 +28,8 @@ bool traceRay(in ImmutableRay_t _immutable)
         //if (anyHit && closerIntersection && anyHitProgram(_immutable))
            //break;
     }
-    rayStack[stackPtr]._mutable.objectID = objectID;
-    rayStack[stackPtr]._mutable.intersectionT = intersectionT;
+    _mutable.objectID = objectID;
+    _mutable.intersectionT = intersectionT;
     // hit
     return anyHit;
 }
@@ -82,18 +82,18 @@ nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 }
 
 
-void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
+bool closestHitProgram(inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
-    const MutableRay_t mutable = rayStack[stackPtr]._mutable;
+    const MutableRay_t _mutable = ray._mutable;
 
-    Sphere sphere = spheres[mutable.objectID];
-    vec3 intersection = _immutable.origin+_immutable.direction*mutable.intersectionT;
+    Sphere sphere = spheres[_mutable.objectID];
+    vec3 intersection = ray._immutable.origin+ray._immutable.direction*_mutable.intersectionT;
     
     nbl_glsl_AnisotropicViewSurfaceInteraction interaction;
     {
         nbl_glsl_IsotropicViewSurfaceInteraction isotropic;
 
-        isotropic.V.dir = -_immutable.direction;
+        isotropic.V.dir = -ray._immutable.direction;
         //isotropic.V.dPosdScreen = screw that
         isotropic.N = Sphere_getNormal(sphere,intersection);
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
@@ -105,22 +105,22 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
     const uint bsdfLightIDs = sphere.bsdfLightIDs;
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
 
-    vec3 throughput = rayStack[stackPtr]._payload.throughput;
+    vec3 throughput = ray._payload.throughput;
     
     // finish MIS
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(lightPdf,sphere,_immutable.origin,interaction,lights[lightID]);
-        rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
+        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(lightPdf,sphere,ray._immutable.origin,interaction,lights[lightID]);
+        ray._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
     }
     
-    const int sampleIx = bitfieldExtract(_immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
-    const int depth = bitfieldExtract(_immutable.typeDepthSampleIx,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+    const int sampleIx = bitfieldExtract(ray._immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
+    const int depth = bitfieldExtract(ray._immutable.typeDepthSampleIx,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
     // check if we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
-    if (depth<MAX_DEPTH && bsdfID!=INVALID_ID_16BIT)
+    if (bsdfID!=INVALID_ID_16BIT)
     {
         // common preload
         BSDFNode bsdf = bsdfs[bsdfID];
@@ -129,11 +129,11 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
         #ifdef KILL_DIFFUSE_SPECULAR_PATHS
         if (BSDFNode_isNotDiffuse(bsdf))
         {
-            if (rayStack[stackPtr]._payload.hasDiffuse)
-                return;
+            if (ray._payload.hasDiffuse)
+                return true;
         }
         else
-            rayStack[stackPtr]._payload.hasDiffuse = true;
+            ray._payload.hasDiffuse = true;
         #endif
 
 
@@ -189,21 +189,22 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
         const float lumaThroughputThreshold = bsdfPdfThreshold;
         if (bsdfPdf>bsdfPdfThreshold && (!doNEE || bsdfPdf<FLT_MAX) && getLuma(throughput)>lumaThroughputThreshold)
         {
-            rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
+            ray._payload.throughput = throughput*rcpChoiceProb;
 
             float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
             heuristicFactor /= doNEE ? lightPdf:bsdfPdf; // weightNonGenerator/(weightGenerator*probGenerated)
             heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
             if (doNEE)
                 heuristicFactor = 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
-            rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
+            ray._payload.otherTechniqueHeuristic = heuristicFactor;
                     
             // trace new ray
-            rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
-            rayStack[stackPtr]._immutable.maxT = maxT;
-            rayStack[stackPtr]._immutable.direction = _sample.L;
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+2,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
-            stackPtr++;
+            ray._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
+            ray._immutable.maxT = maxT;
+            ray._immutable.direction = _sample.L;
+            ray._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+2,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
+            return false;
         }
     }
+    return true;
 }
