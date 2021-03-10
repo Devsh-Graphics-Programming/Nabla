@@ -7,12 +7,122 @@
 
 #include "BuildConfigOptions.h"
 #include "GLES3/gl32.h"
+#include "nbl/asset/ECommonEnums.h"
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace nbl
 {
 namespace video
 {
+
+inline GLbitfield pipelineStageFlagsToMemoryBarrierBits(asset::E_PIPELINE_STAGE_FLAGS srcflags, asset::E_PIPELINE_STAGE_FLAGS dstflags)
+{
+    constexpr GLbitfield NonFramebufferTransferBits = GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT;
+    constexpr GLbitfield HostBits = IOpenGL_FunctionTable::CLIENT_MAPPED_BUFFER_BARRIER_BIT;
+    constexpr GLbitfield VertexInputBits = GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT;
+    constexpr GLbitfield AllBarrierBits = GL_ALL_BARRIER_BITS ^ GL_ATOMIC_COUNTER_BARRIER_BIT;
+
+    constexpr GLbitfield TransferBits = NonFramebufferTransferBits | GL_FRAMEBUFFER_BARRIER_BIT;
+    constexpr GLbitfield AnyShaderStageCommonBits = GL_UNIFORM_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT;
+    constexpr GLbitfield AllComputeBits = GL_COMMAND_BARRIER_BIT | AnyShaderStageCommonBits;
+    constexpr GLbitfield AllLateFragmentTestsBits = GL_QUERY_BUFFER_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT;
+    constexpr GLbitfield AllRasterizationBits = AnyShaderStageCommonBits | AllLateFragmentTestsBits;
+    constexpr GLbitfield AllProgrammablePullingBits = GL_TRANSFORM_FEEDBACK_BARRIER_BIT | AllRasterizationBits;
+    constexpr GLbitfield AllDirectGraphicsBits = VertexInputBits | AllProgrammablePullingBits;
+    constexpr GLbitfield AllGraphicsBits = GL_COMMAND_BARRIER_BIT | AllDirectGraphicsBits;
+
+    constexpr uint32_t PipelineStageCount = 14u;
+    const GLbitfield producerBits[PipelineStageCount] = { // src stage mask
+        0, // stages before top of pipe can't possibly create anything
+        0, // indirect command execute doesn't produce any writes 
+        0, // vertex input stage is also readonly
+        AllBarrierBits , // vertex shader stage
+        AllBarrierBits, // control shader stage
+        AllBarrierBits, // evaluation shader stage
+        AllBarrierBits, // geometry shader stage
+        AllBarrierBits, // fragment shader stage
+        AllBarrierBits, // early fragment test stage
+        AllBarrierBits, // late fragment test stage
+        AllBarrierBits, // color attachment output stage
+        AllBarrierBits, // compute shader stage
+        AllBarrierBits, // transfer could have stored into anything
+        AllBarrierBits // bottom of pipe could have produced everything
+    };
+
+    GLbitfield srcbits = 0;
+    if (srcflags & asset::EPSF_ALL_GRAPHICS_BIT)
+        srcbits |= AllBarrierBits;
+    if (srcflags & asset::EPSF_ALL_COMMANDS_BIT)
+        srcbits |= AllBarrierBits;
+
+    if (srcflags & asset::EPSF_HOST_BIT)
+        srcbits |= HostBits | NonFramebufferTransferBits | GL_COMMAND_BARRIER_BIT | VertexInputBits | GL_UNIFORM_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_TRANSFORM_FEEDBACK_BARRIER_BIT | GL_QUERY_BUFFER_BARRIER_BIT;
+    for (uint32_t i = 0u; i < PipelineStageCount; ++i)
+        if (srcflags & (1u << i))
+            srcbits |= producerBits[i];
+
+    const GLbitfield consumerBits[PipelineStageCount] = { // dst stage mask
+        AllBarrierBits, // every later stage could consume anything
+        AllGraphicsBits | AllComputeBits, // every later shader count consume anything
+        AllDirectGraphicsBits, // vertex input stage is later than command stage
+        AllProgrammablePullingBits, // vertex shader stage is later than vertex input stage
+        AllProgrammablePullingBits, // control shader stage is later than vertex shader stage, but cannot consume any less resource types
+        AllProgrammablePullingBits, // evaluation shader stage is later than control shader stage, but cannot consume less resource types
+        AllProgrammablePullingBits, // geometry shader stage is later than evaluation shader stage, but cannot consume any less resource types
+        AllRasterizationBits, // fragment shader stage needs to include all the bits late fragment test needs
+        AllRasterizationBits, // early fragment test stage is later than geometry shader stage and ergo no longer writes into transform feedback can no longer occur
+        AllLateFragmentTestsBits, // late fragment test stage needs access to framebuffer and query buffer
+        GL_FRAMEBUFFER_BARRIER_BIT, // color attachment output stage only writes to framebuffer
+        GL_COMMAND_BARRIER_BIT | AnyShaderStageCommonBits, // compute shader stage is later than command stage
+        TransferBits,
+        0 // bottom of pipe produces nothing
+    };
+
+    GLbitfield dstbits = 0;
+    if (dstflags & asset::EPSF_HOST_BIT)
+        dstbits |= HostBits;
+    if (dstflags & asset::EPSF_ALL_GRAPHICS_BIT)
+        dstbits |= AllGraphicsBits;
+    if (dstflags & asset::EPSF_ALL_COMMANDS_BIT)
+        dstbits |= AllGraphicsBits | AllComputeBits | TransferBits; // OpenGL queue can do everything
+    for (uint32_t i = 0u; i < PipelineStageCount; ++i)
+        if (dstflags & (1u << i))
+            dstbits |= consumerBits[i];
+
+    return srcbits & dstbits;
+}
+inline GLbitfield accessFlagsToMemoryBarrierBits(asset::E_ACCESS_FLAGS flags)
+{
+	constexpr uint32_t AccessBitCount = 17u;
+	constexpr GLbitfield ShaderBits = GL_UNIFORM_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT;
+	//transfer (FRAMEBUFFER_BARRIER_BIT for blit and resolve)
+	constexpr GLbitfield TransferBits = GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT;
+	constexpr GLbitfield AllBarrierBits = GL_ALL_BARRIER_BITS ^ GL_ATOMIC_COUNTER_BARRIER_BIT;
+	constexpr GLbitfield bits[AccessBitCount] = {
+		GL_COMMAND_BARRIER_BIT,
+		GL_ELEMENT_ARRAY_BARRIER_BIT,
+		GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT,
+		GL_UNIFORM_BARRIER_BIT,
+		0, // input attachment read
+		ShaderBits,
+		ShaderBits,
+		GL_FRAMEBUFFER_BARRIER_BIT,
+		GL_FRAMEBUFFER_BARRIER_BIT,
+		GL_FRAMEBUFFER_BARRIER_BIT,
+		GL_FRAMEBUFFER_BARRIER_BIT,
+		TransferBits,
+		TransferBits,
+		IOpenGL_FunctionTable::CLIENT_MAPPED_BUFFER_BARRIER_BIT,
+		IOpenGL_FunctionTable::CLIENT_MAPPED_BUFFER_BARRIER_BIT,
+		AllBarrierBits,
+		AllBarrierBits
+	};
+
+	GLbitfield barrier = 0;
+	for (uint32_t i = 0u; i < AccessBitCount; ++i)
+		if (flags & (1u<<i))
+			barrier |= bits[i];
+	return barrier;
+}
 
 inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 {
@@ -1590,7 +1700,6 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 
 }
 }
-#endif
 
 
 #endif

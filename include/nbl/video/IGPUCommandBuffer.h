@@ -40,13 +40,13 @@ public:
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
 protected:
-    explicit IGPUCommandBuffer(ILogicalDevice* dev, const IGPUCommandPool* _cmdpool) : IBackendObject(dev), m_cmdpool(_cmdpool)
+    explicit IGPUCommandBuffer(ILogicalDevice* dev, IGPUCommandPool* _cmdpool) : IBackendObject(dev), m_cmdpool(_cmdpool)
     {
 
     }
     virtual ~IGPUCommandBuffer() = default;
 
-    const IGPUCommandPool* m_cmdpool; // not owning
+    IGPUCommandPool* m_cmdpool; // not owning
 
 
 

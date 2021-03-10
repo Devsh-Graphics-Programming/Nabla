@@ -69,6 +69,8 @@
 #define _NBL_DEBUG_BREAK_IF( _CONDITION_ )
 #endif
 
+#define _NBL_TODO() _NBL_DEBUG_BREAK_IF(true)
+
 //! Workarounds for compiler specific bugs
 // MSVC 2019 is a special snowflake
 #if defined(_MSC_VER) && _MSC_VER>=1920

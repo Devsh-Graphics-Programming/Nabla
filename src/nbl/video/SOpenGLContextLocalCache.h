@@ -49,7 +49,7 @@ struct SOpenGLContextLocalCache
     static inline constexpr size_t maxPipelineCacheSize = 0x1ull << 13;//8k
     static inline constexpr size_t maxFBOCacheSize = 0x1ull << 8; // 256
 
-    SOpenGLContextLocalCache() : VAOMap(maxVAOCacheSize), GraphicsPipelineMap(maxPipelineCacheSize), FBOCache(maxFBOCacheSize)
+    SOpenGLContextLocalCache(IOpenGL_FunctionTable* _gl) : VAOMap(maxVAOCacheSize, VAODisposalFunc(_gl)), GraphicsPipelineMap(maxPipelineCacheSize, PipelineDisposalFunc(_gl)), FBOCache(maxFBOCacheSize, FBODisposalFunc(_gl))
     {
     }
     ~SOpenGLContextLocalCache()
@@ -81,8 +81,74 @@ struct SOpenGLContextLocalCache
             return nullptr;
     }
 
+    struct VAODisposalFunc
+    {
+        VAODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            ,tid(std::this_thread::get_id()) 
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(GLuint& vao) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glVertex.pglDeleteVertexArrays(1, &vao);
+        }
+    };
     core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash> VAOMap;
+    struct PipelineDisposalFunc
+    {
+        PipelineDisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(SPipelineCacheVal& val) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glShader.pglDeleteProgramPipelines(1, &val.GLname);
+        }
+    };
     core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc> GraphicsPipelineMap;
+    struct FBODisposalFunc
+    {
+        FBODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(GLuint& val) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glFramebuffer.pglDeleteFramebuffers(1, &val);
+        }
+    };
     core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc> FBOCache;
 
     inline void removePipelineEntry(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& key)
@@ -100,9 +166,6 @@ struct SOpenGLContextLocalCache
                 currentState.pipeline.graphics.usedPipeline = 0u;
                 memset(currentState.pipeline.graphics.usedShadersHash.data(), 0, sizeof(SOpenGLState::SGraphicsPipelineHash));
             }
-
-            // TODO? maybe make LRU cache delete on erase
-            gl->glShader.pglDeleteProgramPipelines(1, &GLname);
         }
     }
     inline void removeFBOEntry(IOpenGL_FunctionTable* gl, const SOpenGLState::SFBOHash& key)
@@ -120,10 +183,32 @@ struct SOpenGLContextLocalCache
                 currentState.framebuffer.GLname = 0u;
                 memset(currentState.framebuffer.hash.data(), 0, sizeof(SOpenGLState::SFBOHash));
             }
-
-            // TODO? maybe make LRU cache delete on erase
-            gl->glFramebuffer.pglDeleteFramebuffers(1, &GLname);
         }
+    }
+
+    GLuint getSingleColorAttachmentFBO(IOpenGL_FunctionTable* gl, IGPUImage* img)
+    {
+        auto hash = COpenGLFramebuffer::getHashColorImage(img);
+        auto found = FBOCache.get(hash);
+        if (found)
+            return *found;
+        GLuint fbo = COpenGLFramebuffer::getNameColorImage(gl, img);
+        if (!fbo)
+            return 0u;
+        FBOCache.insert(hash, fbo);
+        return fbo;
+    }
+    GLuint getDepthStencilAttachmentFBO(IOpenGL_FunctionTable* gl, IGPUImage* img)
+    {
+        auto hash = COpenGLFramebuffer::getHashDepthStencilImage(img);
+        auto found = FBOCache.get(hash);
+        if (found)
+            return *found;
+        GLuint fbo = COpenGLFramebuffer::getNameDepthStencilImage(gl, img);
+        if (!fbo)
+            return 0u;
+        FBOCache.insert(hash, fbo);
+        return fbo;
     }
 
     void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline, uint32_t ctxid);

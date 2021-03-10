@@ -56,6 +56,8 @@ public:
         bool logicOp = false;
         bool multiDrawIndirect = false;
         bool multiViewport = false;
+        bool vertexAttributeDouble = false;
+        bool dispatchBase = false;
         bool shaderSubgroupBasic = false;
         bool shaderSubgroupVote = false;
         bool shaderSubgroupArithmetic = false;

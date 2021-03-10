@@ -19,10 +19,13 @@ namespace impl
 	{
 		public:
 			using list_value_t = std::pair<Key,Value>;
-			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = FixedCapacityDoublyLinkedList<list_value_t>::invalid_iterator;
+			using list_t = FixedCapacityDoublyLinkedList<list_value_t>;
+			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = list_t::invalid_iterator;
+
+			using disposal_func_t = typename list_t::disposal_func_t;
 
 		protected:
-			FixedCapacityDoublyLinkedList<list_value_t> m_list;
+			list_t m_list;
 
 		private:
 			MapHash m_hash;
@@ -31,7 +34,7 @@ namespace impl
 		protected:
 			const mutable Key* searchedKey;
 
-			inline LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals) : m_list(capacity), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
+			inline LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
 			{
 			}
 
@@ -129,7 +132,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 
 	public:
 		//Constructor
-		inline LRUCache(const uint32_t capacity, MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
+		inline LRUCache(const uint32_t capacity, typename base_t::disposal_func_t && = typename base_t::disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
 			base_t(capacity,std::move(_hash),std::move(_equals)),
 			m_shortcut_map(capacity>>2,WrapHash{this},WrapEquals{this}) // 4x less buckets than capacity seems reasonable
 		{

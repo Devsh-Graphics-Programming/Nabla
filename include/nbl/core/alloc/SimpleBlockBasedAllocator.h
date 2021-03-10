@@ -90,6 +90,10 @@ class SimpleBlockBasedAllocator
             std::swap(blockAlloc,other.blockAlloc);
             return *this;
         }
+		SimpleBlockBasedAllocator(SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>&& other)
+		{
+			operator=(std::move(other));
+		}
 
         inline void		reset()
         {
@@ -134,7 +138,7 @@ class SimpleBlockBasedAllocator
 				if (!block)
 					continue;
                     
-				size_type addr = p-block->data();
+				size_type addr = reinterpret_cast<uint8_t*>(p)-block->data();
 				if (addr<blockSize)
 				{
 					block->free(addr,bytes);

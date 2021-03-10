@@ -294,20 +294,24 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
     {
         if (STATE_NEQ(framebuffer.hash))
         {
-            auto* found = FBOCache.get(nextState.framebuffer.hash);
             GLuint GLname = 0u;
-            if (found)
-                GLname = *found;
-            else
+            if (nextState.framebuffer.hash != SOpenGLState::NULL_FBO_HASH)
             {
-                GLname = nextState.framebuffer.fbo->createGLFBO(gl);
-                FBOCache.insert(nextState.framebuffer.hash, GLname);
-            }
+                auto* found = FBOCache.get(nextState.framebuffer.hash);
+                if (found)
+                    GLname = *found;
+                else
+                {
+                    GLname = nextState.framebuffer.fbo->createGLFBO(gl);
+                    FBOCache.insert(nextState.framebuffer.hash, GLname);
+                }
 
-            assert(GLname != 0u);
+                assert(GLname != 0u);
+            }
 
             currentState.framebuffer.GLname = GLname;
             UPDATE_STATE(framebuffer.hash);
+            UPDATE_STATE(framebuffer.fbo);
 
             gl->glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, GLname);
         }

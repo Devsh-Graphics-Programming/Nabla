@@ -40,7 +40,6 @@ public:
     inline void signal(IOpenGL_FunctionTable* _gl)
     {
         m_sync = core::make_smart_refctd_ptr<COpenGLSync>(m_device, _gl);
-        _gl->glGeneral.pglFlush();
         m_toBeSignaled = false;
     }
     inline void signal(core::smart_refctd_ptr<COpenGLSync>&& sync)

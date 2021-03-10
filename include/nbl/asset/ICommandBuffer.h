@@ -68,7 +68,7 @@ union SClearColorValue
 {
     float float32[4];
     int32_t int32[4];
-    uint32_t uint32_t[4];
+    uint32_t uint32[4];
 };
 struct SClearDepthStencilValue
 {
@@ -122,6 +122,8 @@ protected:
     using cmdbuf_t = CommandBufferType;
 
 public:
+    _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
+
     enum E_RESET_FLAGS : uint32_t
     {
         ERF_RELEASE_RESOURCES_BIT = 0x01
@@ -233,7 +235,7 @@ public:
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
     ) = 0;
 
-    virtual bool pipelineBarrier(uint32_t eventCount, const event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+    virtual bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,

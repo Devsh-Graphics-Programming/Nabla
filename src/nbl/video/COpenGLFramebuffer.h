@@ -14,16 +14,66 @@ class IOpenGL_LogicalDevice;
 
 class COpenGLFramebuffer final : public IGPUFramebuffer
 {
+public:
+    using hash_t = std::array<uint64_t, IGPURenderpass::SCreationParams::MaxColorAttachments+1u>;
+
+private:
     using base_t = IGPUFramebuffer;
 
     IOpenGL_LogicalDevice* m_device;
+
+    static hash_t getHashImage(const IGPUImage* img, uint32_t ix)
+    {
+        hash_t hash;
+        memset(hash.data(), 0, sizeof(hash_t::value_type) * hash.size());
+        hash[ix] = reinterpret_cast<hash_t::value_type>(img);
+        return hash;
+    }
 
 public:
     COpenGLFramebuffer(SCreationParams&& params, IOpenGL_LogicalDevice* dev);
 
     ~COpenGLFramebuffer();
 
-    using hash_t = std::array<uint64_t, IGPURenderpass::SCreationParams::MaxColorAttachments+1u>;
+    static hash_t getHashColorImage(const IGPUImage* img)
+    {
+        return getHashImage(img, 0);
+    }
+    static GLuint getNameColorImage(IOpenGL_FunctionTable* gl, const IGPUImage* img)
+    {
+        GLuint fbo;
+        gl->extGlCreateFramebuffers(1u, &fbo);
+        auto* glimg = static_cast<const COpenGLImage*>(img);
+        const GLenum textarget = glimg->getOpenGLTarget();
+        gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), 0, textarget);
+        GLenum drawbuf = GL_COLOR_ATTACHMENT0;
+        gl->extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuf);
+
+        return fbo;
+    }
+    static hash_t getHashDepthStencilImage(const IGPUImage* img)
+    {
+        return getHashImage(img, IGPURenderpass::SCreationParams::MaxColorAttachments);
+    }
+    static GLuint getNameDepthStencilImage(IOpenGL_FunctionTable* gl, const IGPUImage* img)
+    {
+        GLuint fbo;
+        auto* glimg = static_cast<const COpenGLImage*>(img);
+        const GLenum textarget = glimg->getOpenGLTarget();
+        auto format = glimg->getCreationParameters().format;
+        GLenum attpoint = GL_INVALID_ENUM;
+        if (asset::isDepthOnlyFormat(format))
+            attpoint = GL_DEPTH_ATTACHMENT;
+        else if (asset::isStencilOnlyFormat(format))
+            attpoint = GL_STENCIL_ATTACHMENT;
+        else if (asset::isDepthOrStencilFormat(format))
+            attpoint = GL_DEPTH_STENCIL_ATTACHMENT;
+        else return 0u;
+        gl->extGlCreateFramebuffers(1u, &fbo);
+        gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), 0, textarget);
+
+        return fbo;
+    }
 
     hash_t getHashValue() const
     {

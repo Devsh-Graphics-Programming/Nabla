@@ -7,6 +7,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/IGPUMeshBuffer.h"
+#include "nbl/video/COpenGLCommandPool.h"
 
 namespace nbl {
 namespace video
@@ -15,7 +16,7 @@ namespace video
 class COpenGLCommandBuffer : public virtual IGPUCommandBuffer
 {
 protected:
-    ~COpenGLCommandBuffer() = default;
+    ~COpenGLCommandBuffer();
 
 #define _NBL_COMMAND_TYPES_LIST \
     ECT_BIND_INDEX_BUFFER,\
@@ -265,28 +266,11 @@ protected:
     {
         uint32_t eventCount;
         core::smart_refctd_ptr<IGPUEvent>* events;
-        std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask;
-        std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask;
-        uint32_t memoryBarrierCount;
-        const asset::SMemoryBarrier* pMemoryBarriers;
-        uint32_t bufferMemoryBarrierCount;
-        const SBufferMemoryBarrier* pBufferMemoryBarriers;
-        uint32_t imageMemoryBarrierCount;
-        const SImageMemoryBarrier* pImageMemoryBarriers;
+        GLbitfield barrier;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_PIPELINE_BARRIER)
     {
-        uint32_t eventCount;
-        core::smart_refctd_ptr<IGPUEvent>* events;
-        std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask;
-        std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask;
-        std::underlying_type_t<asset::E_DEPENDENCY_FLAGS> dependencyFlags;
-        uint32_t memoryBarrierCount;
-        const asset::SMemoryBarrier* pMemoryBarriers;
-        uint32_t bufferMemoryBarrierCount;
-        const SBufferMemoryBarrier* pBufferMemoryBarriers;
-        uint32_t imageMemoryBarrierCount;
-        const SImageMemoryBarrier* pImageMemoryBarriers;
+        GLbitfield barrier;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_BEGIN_RENDERPASS)
     {
@@ -365,7 +349,7 @@ protected:
         std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags;
         uint32_t offset;
         uint32_t size;
-        const void* values;
+        uint8_t values[MAX_PUSH_CONSTANT_BYTESIZE];
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_CLEAR_COLOR_IMAGE)
     {
@@ -437,8 +421,37 @@ protected:
 
     static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo);
 
+    static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
+
     static bool pushConstants_validate(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values);
 
+    static void blit(IOpenGL_FunctionTable* gl, GLuint src, GLuint dst, const asset::VkOffset3D srcOffsets[2], const asset::VkOffset3D dstOffsets[2], asset::ISampler::E_TEXTURE_FILTER filter);
+
+    static inline GLbitfield barriersToMemBarrierBits(
+        uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
+        uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
+        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
+    ) {
+        constexpr GLbitfield bufferBits = GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT | GL_UNIFORM_BARRIER_BIT | GL_COMMAND_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT;
+        constexpr GLbitfield imageBits = GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT;
+
+        // ignoring source access flags
+        std::underlying_type_t<asset::E_ACCESS_FLAGS> bufaccess = 0u;
+        for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
+            bufaccess |= pBufferMemoryBarriers[i].barrier.dstAccessMask;// | pBufferMemoryBarriers[i].barrier.srcAccessMask;
+        std::underlying_type_t<asset::E_ACCESS_FLAGS> imgaccess = 0u;
+        for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
+            imgaccess |= pImageMemoryBarriers[i].barrier.dstAccessMask;// | pImageMemoryBarriers[i].barrier.srcAccessMask;
+        std::underlying_type_t<asset::E_ACCESS_FLAGS> memaccess = 0u;
+        for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
+            memaccess |= pMemoryBarriers[i].dstAccessMask;// | pMemoryBarriers[i].srcAccessMask;
+
+        GLbitfield bufbarrier = bufferBits & accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(bufaccess));
+        GLbitfield imgbarrier = imageBits & accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(imgaccess));
+        GLbitfield membarrier = accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(memaccess));
+
+        return bufbarrier | imgbarrier | membarrier;
+    }
 
     static inline GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
     {
@@ -471,6 +484,8 @@ protected:
             return GL_INVALID_ENUM;
         }
     }
+
+    COpenGLCommandPool* getGLCommandPool() const { return static_cast<COpenGLCommandPool*>(m_cmdpool); }
 
     template <E_COMMAND_TYPE ECT>
     void pushCommand(SCmd<ECT>&& cmd)
@@ -543,10 +558,18 @@ public:
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
     {
+        if (viewportCount == 0u)
+            return false;
+
         SCmd<ECT_SET_VIEWPORT> cmd;
         cmd.firstViewport = firstViewport;
         cmd.viewportCount = viewportCount;
-        cmd.viewports = pViewports;
+        auto* viewports = getGLCommandPool()->emplace_n<asset::SViewport>(cmd.viewportCount, pViewports[0]);
+        if (!viewports)
+            return false;
+        for (uint32_t i = 0u; i < viewportCount; ++i)
+            viewports[i] = pViewports[i];
+        cmd.viewports = viewports;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -582,11 +605,18 @@ public:
             return false;
         if (!this->isCompatibleDevicewise(dstBuffer))
             return false;
+        if (regionCount == 0u)
+            return false;
         SCmd<ECT_COPY_BUFFER> cmd;
         cmd.srcBuffer = core::smart_refctd_ptr<buffer_t>(srcBuffer);
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.regionCount = regionCount;
-        cmd.regions = pRegions;
+        auto* regions = getGLCommandPool()->emplace_n<asset::SBufferCopy>(regionCount, pRegions[0]);
+        if (!regions)
+            return false;
+        for (uint32_t i = 0u; i < regionCount; ++i)
+            regions[i] = pRegions[i];
+        cmd.regions = regions;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -602,7 +632,12 @@ public:
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.dstImageLayout = dstImageLayout;
         cmd.regionCount = regionCount;
-        cmd.regions = pRegions;
+        auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SImageCopy>(regionCount, pRegions[0]);
+        if (!regions)
+            return false;
+        for (uint32_t i = 0u; i < regionCount; ++i)
+            regions[i] = pRegions[i];
+        cmd.regions = regions;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -617,7 +652,12 @@ public:
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.dstImageLayout = dstImageLayout;
         cmd.regionCount = regionCount;
-        cmd.regions = pRegions;
+        auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SBufferCopy>(regionCount, pRegions[0]);
+        if (!regions)
+            return false;
+        for (uint32_t i = 0u; i < regionCount; ++i)
+            regions[i] = pRegions[i];
+        cmd.regions = regions;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -632,7 +672,12 @@ public:
         cmd.srcImageLayout = srcImageLayout;
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.regionCount = regionCount;
-        cmd.regions = pRegions;
+        auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SBufferCopy>(regionCount, pRegions[0]);
+        if (!regions)
+            return false;
+        for (uint32_t i = 0u; i < regionCount; ++i)
+            regions[i] = pRegions[i];
+        cmd.regions = regions;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -645,7 +690,12 @@ public:
         cmd.srcImageLayout = srcImageLayout;
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.regionCount = regionCount;
-        cmd.regions = pRegions;
+        auto* regions = getGLCommandPool()->emplace_n<asset::SImageBlit>(regionCount, pRegions[0]);
+        if (!regions)
+            return false;
+        for (uint32_t i = 0u; i < regionCount; ++i)
+            regions[i] = pRegions[i];
+        cmd.regions = regions;
         cmd.filter = filter;
         pushCommand(std::move(cmd));
         return true;
@@ -660,7 +710,12 @@ public:
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.dstImageLayout = dstImageLayout;
         cmd.regionCount = regionCount;
-        cmd.regions = pRegions;
+        auto* regions = getGLCommandPool()->emplace_n<asset::SImageResolve>(regionCount, pRegions[0]);
+        if (!regions)
+            return false;
+        for (uint32_t i = 0u; i < regionCount; ++i)
+            regions[i] = pRegions[i];
+        cmd.regions = regions;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -688,7 +743,12 @@ public:
         SCmd<ECT_SET_SCISSORS> cmd;
         cmd.firstScissor = firstScissor;
         cmd.scissorCount = scissorCount;
-        cmd.scissors = pScissors;
+        auto* scissors = getGLCommandPool()->emplace_n<asset::VkRect2D>(scissorCount, pScissors[0]);
+        if (!scissors)
+            return false;
+        for (uint32_t i = 0u; i < scissorCount; ++i)
+            scissors[i] = pScissors[i];
+        cmd.scissors = scissors;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -787,42 +847,31 @@ public:
         for (uint32_t i = 0u; i < eventCount; ++i)
             if (!this->isCompatibleDevicewise(pEvents[i]))
                 return false;
+        if (eventCount == 0u)
+            return false;
         SCmd<ECT_WAIT_EVENTS> cmd;
         cmd.eventCount = eventCount;
-        cmd.events = reinterpret_cast<core::smart_refctd_ptr<event_t>*>(pEvents); // TODO
-        cmd.srcStageMask = srcStageMask;
-        cmd.dstStageMask = dstStageMask;
-        cmd.memoryBarrierCount = memoryBarrierCount;
-        cmd.pMemoryBarriers = pMemoryBarriers;
-        cmd.bufferMemoryBarrierCount = bufferMemoryBarrierCount;
-        cmd.pBufferMemoryBarriers = pBufferMemoryBarriers;
-        cmd.imageMemoryBarrierCount = imageMemoryBarrierCount;
-        cmd.pImageMemoryBarriers = pImageMemoryBarriers;
+        auto* events = getGLCommandPool()->emplace_n<core::smart_refctd_ptr<event_t>>(eventCount);
+        if (!events)
+            return false;
+        for (uint32_t i = 0u; i < eventCount; ++i)
+            events[i] = core::smart_refctd_ptr<event_t>(pEvents[i]);
+        cmd.events = events;
+        cmd.barrier = barriersToMemBarrierBits(memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
         pushCommand(std::move(cmd));
         return true;
     }
 
-    bool pipelineBarrier(uint32_t eventCount, const event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+    bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
-        for (uint32_t i = 0u; i < eventCount; ++i)
-            if (!this->isCompatibleDevicewise(pEvents[i]))
-                return false;
+        GLbitfield barrier = pipelineStageFlagsToMemoryBarrierBits(static_cast<asset::E_PIPELINE_STAGE_FLAGS>(srcStageMask), static_cast<asset::E_PIPELINE_STAGE_FLAGS>(dstStageMask));
+
         SCmd<ECT_PIPELINE_BARRIER> cmd;
-        cmd.eventCount = eventCount;
-        cmd.events = reinterpret_cast<core::smart_refctd_ptr<event_t>*>(pEvents); // TODO
-        cmd.srcStageMask = srcStageMask;
-        cmd.dstStageMask = dstStageMask;
-        cmd.dependencyFlags = dependencyFlags;
-        cmd.memoryBarrierCount = memoryBarrierCount;
-        cmd.pMemoryBarriers = pMemoryBarriers;
-        cmd.bufferMemoryBarrierCount = bufferMemoryBarrierCount;
-        cmd.pBufferMemoryBarriers = pBufferMemoryBarriers;
-        cmd.imageMemoryBarrierCount = imageMemoryBarrierCount;
-        cmd.pImageMemoryBarriers = pImageMemoryBarriers;
+        cmd.barrier = barrier & barriersToMemBarrierBits(memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
         pushCommand(std::move(cmd));
         return true;
     }
@@ -854,6 +903,7 @@ public:
     bool setDeviceMask(uint32_t deviceMask) override
     { 
         // theres no need to add this command to buffer in GL backend
+        assert(false); //make calling this an error
         return IGPUCommandBuffer::setDeviceMask(deviceMask);
     }
 
@@ -903,7 +953,7 @@ public:
         cmd.stageFlags = stageFlags;
         cmd.offset = offset;
         cmd.size = size;
-        cmd.values = pValues;
+        memcpy(cmd.values, pValues, size);
         pushCommand(std::move(cmd));
         return true;
     }
@@ -917,7 +967,12 @@ public:
         cmd.imageLayout = imageLayout;
         cmd.color = pColor[0];
         cmd.rangeCount = rangeCount;
-        cmd.ranges = pRanges;
+        auto* ranges = getGLCommandPool()->emplace_n<asset::IImage::SSubresourceRange>(rangeCount, pRanges[0]);
+        if (!ranges)
+            return false;
+        for (uint32_t i = 0u; i < rangeCount; ++i)
+            ranges[i] = pRanges[i];
+        cmd.ranges = ranges;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -930,17 +985,34 @@ public:
         cmd.imageLayout = imageLayout;
         cmd.depthStencil = pDepthStencil[0];
         cmd.rangeCount = rangeCount;
-        cmd.ranges = pRanges;
+        auto* ranges = getGLCommandPool()->emplace_n<asset::IImage::SSubresourceRange>(rangeCount, pRanges[0]);
+        if (!ranges)
+            return false;
+        for (uint32_t i = 0u; i < rangeCount; ++i)
+            ranges[i] = pRanges[i];
+        cmd.ranges = ranges;
         pushCommand(std::move(cmd));
         return true;
     }
     bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override
     {
+        if (attachmentCount==0u || rectCount==0u)
+            return false;
         SCmd<ECT_CLEAR_ATTACHMENTS> cmd;
         cmd.attachmentCount = attachmentCount;
-        cmd.attachments = pAttachments;
+        auto* attachments = getGLCommandPool()->emplace_n<asset::SClearAttachment>(attachmentCount, pAttachments[0]);
+        if (!attachments)
+            return false;
+        for (uint32_t i = 0u; i < attachmentCount; ++i)
+            attachments[i] = pAttachments[i];
+        cmd.attachments = attachments;
         cmd.rectCount = rectCount;
-        cmd.rects = pRects;
+        auto* rects = getGLCommandPool()->emplace_n<asset::SClearRect>(rectCount, pRects[0]);
+        if (!rects)
+            return false;
+        for (uint32_t i = 0u; i < rectCount; ++i)
+            rects[i] = pRects[i];
+        cmd.rects = rects;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -961,10 +1033,14 @@ public:
         if (!this->isCompatibleDevicewise(dstBuffer))
             return false;
         SCmd<ECT_UPDATE_BUFFER> cmd;
+        uint8_t* data = getGLCommandPool()->emplace_n<uint8_t>(dataSize);
+        if (!data)
+            return false;
+        memcpy(data, pData, dataSize);
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.dstOffset = dstOffset;
         cmd.dataSize = dataSize;
-        cmd.data = pData;
+        cmd.data = data;
         pushCommand(std::move(cmd));
         return true;
     }

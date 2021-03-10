@@ -1,8 +1,100 @@
 #include "nbl/video/COpenGLCommandBuffer.h"
+#include "nbl/video/COpenGLCommon.h"
 
 namespace nbl {
 namespace video
 {
+
+    COpenGLCommandBuffer::~COpenGLCommandBuffer()
+    {
+        auto* pool = getGLCommandPool();
+        for (auto& cmd : m_commands)
+        {
+            switch (cmd.type)
+            {
+            case ECT_SET_VIEWPORT:
+            {
+                auto& c = cmd.get<ECT_SET_VIEWPORT>();
+                pool->free_n<asset::SViewport>(c.viewports, c.viewportCount);
+            }
+            break;
+            case ECT_COPY_BUFFER:
+            {
+                auto& c = cmd.get<ECT_COPY_BUFFER>();
+                pool->free_n<asset::SBufferCopy>(c.regions, c.regionCount);
+            }
+            break;
+            case ECT_COPY_IMAGE:
+            {
+                auto& c = cmd.get<ECT_COPY_IMAGE>();
+                pool->free_n<asset::IImage::SImageCopy>(c.regions, c.regionCount);
+            }
+            break;
+            case ECT_COPY_BUFFER_TO_IMAGE:
+            {
+                auto& c = cmd.get<ECT_COPY_BUFFER_TO_IMAGE>();
+                pool->free_n<asset::IImage::SBufferCopy>(c.regions, c.regionCount);
+            }
+            break;
+            case ECT_COPY_IMAGE_TO_BUFFER:
+            {
+                auto& c = cmd.get<ECT_COPY_IMAGE_TO_BUFFER>();
+                pool->free_n<asset::IImage::SBufferCopy>(c.regions, c.regionCount);
+            }
+            break;
+            case ECT_BLIT_IMAGE:
+            {
+                auto& c = cmd.get<ECT_BLIT_IMAGE>();
+                pool->free_n<asset::SImageBlit>(c.regions, c.regionCount);
+            }
+            break;
+            case ECT_RESOLVE_IMAGE:
+            {
+                auto& c = cmd.get<ECT_RESOLVE_IMAGE>();
+                pool->free_n<asset::SImageResolve>(c.regions, c.regionCount);
+            }
+            break;
+            case ECT_SET_SCISSORS:
+            {
+                auto& c = cmd.get<ECT_SET_SCISSORS>();
+                pool->free_n<asset::VkRect2D>(c.scissors, c.scissorCount);
+            }
+            break;
+            case ECT_WAIT_EVENTS:
+            {
+                auto& c = cmd.get<ECT_WAIT_EVENTS>();
+                pool->free_n<core::smart_refctd_ptr<event_t>>(c.events, c.eventCount);
+            }
+            break;
+            case ECT_CLEAR_COLOR_IMAGE:
+            {
+                auto& c = cmd.get<ECT_CLEAR_COLOR_IMAGE>();
+                pool->free_n<asset::IImage::SSubresourceRange>(c.ranges, c.rangeCount);
+            }
+            break;
+            case ECT_CLEAR_DEPTH_STENCIL_IMAGE:
+            {
+                auto& c = cmd.get<ECT_CLEAR_DEPTH_STENCIL_IMAGE>();
+                pool->free_n<asset::IImage::SSubresourceRange>(c.ranges, c.rangeCount);
+            }
+            break;
+            case ECT_CLEAR_ATTACHMENTS:
+            {
+                auto& c = cmd.get<ECT_CLEAR_ATTACHMENTS>();
+                pool->free_n<asset::SClearAttachment>(c.attachments, c.attachmentCount);
+                pool->free_n<asset::SClearRect>(c.rects, c.rectCount);
+            }
+            break;
+            case ECT_UPDATE_BUFFER:
+            {
+                auto& c = cmd.get<ECT_UPDATE_BUFFER>();
+                pool->free_n<uint8_t>(reinterpret_cast<const uint8_t*>(c.data), c.dataSize);
+            }
+            break;
+            default: break; // other commands dont use cmd pool
+            }
+        }
+    }
 
     void COpenGLCommandBuffer::copyBufferToImage(const SCmd<ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
     {
@@ -166,31 +258,40 @@ namespace video
 
         for (uint32_t i = 0u; i < sub.colorAttachmentCount; ++i)
         {
-            // TODO how do i set clear color in vulkan ???
-            GLfloat colorf[4]{ 0.f, 0.f, 0.f, 0.f };
-            GLint colori[4]{ 0,0,0,0 };
-            GLuint coloru[4]{ 0u,0u,0u,0u };
+            const uint32_t a = color[i].attachment;
 
-            uint32_t a = color[i].attachment;
             if (descriptions[a].loadOp == asset::IRenderpass::ELO_CLEAR)
             {
-                asset::E_FORMAT fmt = descriptions[a].format;
+                if (a < info.clearValueCount)
+                {
+                    const GLfloat* colorf = info.clearValues[a].color.float32;
+                    const GLint* colori = info.clearValues[a].color.int32;
+                    const GLuint* coloru = info.clearValues[a].color.uint32;
 
-                if (asset::isFloatingPointFormat(fmt))
-                {
-                    gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, colorf);
-                }
-                else if (asset::isIntegerFormat(fmt))
-                {
-                    if (asset::isSignedFormat(fmt))
+                    asset::E_FORMAT fmt = descriptions[a].format;
+
+                    if (asset::isFloatingPointFormat(fmt))
                     {
-                        gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, colori);
+                        gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, colorf);
                     }
-                    else
+                    else if (asset::isIntegerFormat(fmt))
                     {
-                        gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, coloru);
+                        if (asset::isSignedFormat(fmt))
+                        {
+                            gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, colori);
+                        }
+                        else
+                        {
+                            gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, coloru);
+                        }
                     }
                 }
+#ifdef _NBL_DEBUG
+                else
+                {
+                    os::Printer::log("Begin renderpass command: not enough clear values provided, an attachment not cleared!");
+                }
+#endif
             }
         }
         if (depthstencil)
@@ -198,25 +299,86 @@ namespace video
             auto* depthstencilDescription = descriptions + depthstencil->attachment;
             if (depthstencilDescription->loadOp == asset::IRenderpass::ELO_CLEAR)
             {
-                asset::E_FORMAT fmt = depthstencilDescription->format;
+                if (depthstencil->attachment < info.clearValueCount)
+                {
+                    const auto& clear = info.clearValues[depthstencil->attachment].depthStencil;
+                    asset::E_FORMAT fmt = depthstencilDescription->format;
 
-                // isnt there a way in vulkan to clear only depth or only stencil part?? TODO
+                    // isnt there a way in vulkan to clear only depth or only stencil part?? TODO
 
-                // how do i set clear values in vulkan ??? TODO
-                GLfloat depth = 1.f;
-                GLint stencil = 0;
-                if (asset::isDepthOnlyFormat(fmt))
-                {
-                    gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &depth);
+                    GLfloat depth = clear.depth;
+                    GLint stencil = clear.stencil;
+                    if (asset::isDepthOnlyFormat(fmt))
+                    {
+                        gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &depth);
+                    }
+                    else if (asset::isStencilOnlyFormat(fmt))
+                    {
+                        gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, &stencil);
+                    }
+                    else if (asset::isDepthOrStencilFormat(fmt))
+                    {
+                        gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, depth, stencil);
+                    }
                 }
-                else if (asset::isStencilOnlyFormat(fmt))
+#ifdef _NBL_DEBUG
+                else
                 {
-                    gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, &stencil);
+                    os::Printer::log("Begin renderpass command: not enough clear values provided, an attachment not cleared!");
                 }
-                else if (asset::isDepthOrStencilFormat(fmt))
+#endif
+            }
+        }
+    }
+
+    void COpenGLCommandBuffer::clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments)
+    {
+        auto& framebuffer = ctxlocal->currentState.framebuffer.fbo;
+        const GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
+        if (!framebuffer || !fbo)
+            return;
+        auto& rp = framebuffer->getCreationParameters().renderpass;
+        auto& sub = rp->getSubpasses().begin()[0];
+        auto* color = sub.colorAttachments;
+        auto* depthstencil = sub.depthStencilAttachment;
+        auto* descriptions = rp->getAttachments().begin();
+
+        for (uint32_t i = 0u; i < count; ++i)
+        {
+            auto& attachment = attachments[i];
+            if (attachment.aspectMask & asset::IImage::EAF_COLOR_BIT)
+            {
+                uint32_t num = attachment.colorAttachment;
+                uint32_t a = color[num].attachment;
                 {
-                    gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, depth, stencil);
+                    asset::E_FORMAT fmt = descriptions[a].format;
+
+                    if (asset::isFloatingPointFormat(fmt))
+                    {
+                        gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + num, attachment.clearValue.color.float32);
+                    }
+                    else if (asset::isIntegerFormat(fmt))
+                    {
+                        if (asset::isSignedFormat(fmt))
+                        {
+                            gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + num, attachment.clearValue.color.int32);
+                        }
+                        else
+                        {
+                            gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + num, attachment.clearValue.color.uint32);
+                        }
+                    }
                 }
+            }
+            else if (attachment.aspectMask & (asset::IImage::EAF_DEPTH_BIT | asset::IImage::EAF_STENCIL_BIT))
+            {
+                auto aspectMask = (attachment.aspectMask & (asset::IImage::EAF_DEPTH_BIT | asset::IImage::EAF_STENCIL_BIT));
+                if (aspectMask == (asset::IImage::EAF_DEPTH_BIT | asset::IImage::EAF_STENCIL_BIT))
+                    gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, attachment.clearValue.depthStencil.depth, attachment.clearValue.depthStencil.stencil);
+                else if (aspectMask == asset::IImage::EAF_DEPTH_BIT)
+                    gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &attachment.clearValue.depthStencil.depth);
+                else if (aspectMask == asset::IImage::EAF_STENCIL_BIT)
+                    gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, reinterpret_cast<const GLint*>(&attachment.clearValue.depthStencil.stencil));
             }
         }
     }
@@ -465,16 +627,34 @@ namespace video
             {
                 auto& c = cmd.get<ECT_BLIT_IMAGE>();
 
-                // no way to do it easily in GL
-                // idea: have one 1 fbo per function table (effectively per context) just to do blits and resolves
+                GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get());
+                GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get());
+                for (uint32_t i = 0u; i < c.regionCount; ++i)
+                {
+                    auto& info = c.regions[i];
+                    blit(gl, srcfbo, dstfbo, info.srcOffsets, info.dstOffsets, c.filter);
+                }
             }
             break;
             case ECT_RESOLVE_IMAGE:
             {
                 auto& c = cmd.get<ECT_RESOLVE_IMAGE>();
 
-                // no way to do it easily in GL
-                // idea: have one 1 fbo per function table (effectively per context) just to do blits and resolves
+                GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get());
+                GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get());
+                for (uint32_t i = 0u; i < c.regionCount; ++i)
+                {
+                    auto& info = c.regions[i];
+                    asset::VkOffset3D srcoffsets[2]{ info.srcOffset,info.srcOffset };
+                    srcoffsets[1].x += info.extent.width;
+                    srcoffsets[1].y += info.extent.height;
+                    srcoffsets[1].z += info.extent.depth;
+                    asset::VkOffset3D dstoffsets[2]{ info.dstOffset,info.dstOffset };
+                    dstoffsets[1].x += info.extent.width;
+                    dstoffsets[1].y += info.extent.height;
+                    dstoffsets[1].z += info.extent.depth;
+                    blit(gl, srcfbo, dstfbo, srcoffsets, dstoffsets, asset::ISampler::ETF_NEAREST);
+                }
             }
             break;
             case ECT_BIND_VERTEX_BUFFERS:
@@ -575,7 +755,7 @@ namespace video
             case ECT_PIPELINE_BARRIER:
             {
                 auto& c = cmd.get<ECT_PIPELINE_BARRIER>();
-                // TODO
+                gl->glSync.pglMemoryBarrier(c.barrier);
             }
             break;
             case ECT_BEGIN_RENDERPASS:
@@ -588,7 +768,8 @@ namespace video
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_FRAMEBUFFER, ctxid);
 
                 GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
-                beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo);
+                if (fbo)
+                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo);
             }
             break;
             case ECT_NEXT_SUBPASS:
@@ -601,7 +782,9 @@ namespace video
             case ECT_END_RENDERPASS:
             {
                 auto& c = cmd.get<ECT_END_RENDERPASS>();
-                // no-op
+                ctxlocal->nextState.framebuffer.hash = SOpenGLState::NULL_FBO_HASH;
+                ctxlocal->nextState.framebuffer.GLname = 0u;
+                ctxlocal->nextState.framebuffer.fbo = nullptr;
             }
             break;
             case ECT_SET_DEVICE_MASK:
@@ -629,26 +812,31 @@ namespace video
             case ECT_RESET_QUERY_POOL:
             {
                 auto& c = cmd.get<ECT_RESET_QUERY_POOL>();
+                _NBL_TODO();
             }
             break;
             case ECT_BEGIN_QUERY:
             {
                 auto& c = cmd.get<ECT_BEGIN_QUERY>();
+                _NBL_TODO();
             }
             break;
             case ECT_END_QUERY:
             {
                 auto& c = cmd.get<ECT_END_QUERY>();
+                _NBL_TODO();
             }
             break;
             case ECT_COPY_QUERY_POOL_RESULTS:
             {
                 auto& c = cmd.get<ECT_COPY_QUERY_POOL_RESULTS>();
+                _NBL_TODO();
             }
             break;
             case ECT_WRITE_TIMESTAMP:
             {
                 auto& c = cmd.get<ECT_WRITE_TIMESTAMP>();
+                _NBL_TODO();
             }
             break;
             case ECT_BIND_DESCRIPTOR_SETS:
@@ -700,16 +888,50 @@ namespace video
             case ECT_CLEAR_COLOR_IMAGE:
             {
                 auto& c = cmd.get<ECT_CLEAR_COLOR_IMAGE>();
+                GLuint fbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.image.get());
+                auto format = c.image->getCreationParameters().format;
+                // eeeeh ignoring subresource ranges for now (TODO) -- would have to dynamically create texture views....
+                if (asset::isFloatingPointFormat(format))
+                {
+                    gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0, c.color.float32);
+                }
+                else if (asset::isIntegerFormat(format))
+                {
+                    if (asset::isSignedFormat(format))
+                    {
+                        gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0, c.color.int32);
+                    }
+                    else
+                    {
+                        gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0, c.color.uint32);
+                    }
+                }
             }
             break;
             case ECT_CLEAR_DEPTH_STENCIL_IMAGE:
             {
                 auto& c = cmd.get<ECT_CLEAR_DEPTH_STENCIL_IMAGE>();
+                GLuint fbo = ctxlocal->getDepthStencilAttachmentFBO(gl, c.image.get());
+                auto fmt = c.image->getCreationParameters().format;
+                if (asset::isDepthOnlyFormat(fmt))
+                {
+                    gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &c.depthStencil.depth);
+                }
+                else if (asset::isStencilOnlyFormat(fmt))
+                {
+                    static_assert(sizeof(GLint)==sizeof(c.depthStencil.stencil), "Bad reinterpret_cast!");
+                    gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, reinterpret_cast<const GLint*>(&c.depthStencil.stencil));
+                }
+                else if (asset::isDepthOrStencilFormat(fmt))
+                {
+                    gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, c.depthStencil.depth, c.depthStencil.stencil);
+                }
             }
             break;
             case ECT_CLEAR_ATTACHMENTS:
             {
                 auto& c = cmd.get<ECT_CLEAR_ATTACHMENTS>();
+                clearAttachments(gl, ctxlocal, c.attachmentCount, c.attachments);
             }
             break;
             case ECT_FILL_BUFFER:
@@ -738,6 +960,19 @@ namespace video
             break;
             }
         }
+    }
+
+    void COpenGLCommandBuffer::blit(IOpenGL_FunctionTable* gl, GLuint src, GLuint dst, const asset::VkOffset3D srcOffsets[2], const asset::VkOffset3D dstOffsets[2], asset::ISampler::E_TEXTURE_FILTER filter)
+    {
+        GLint sx0 = srcOffsets[0].x;
+        GLint sy0 = srcOffsets[0].y;
+        GLint sx1 = srcOffsets[1].x;
+        GLint sy1 = srcOffsets[1].y;
+        GLint dx0 = dstOffsets[0].x;
+        GLint dy0 = dstOffsets[0].y;
+        GLint dx1 = dstOffsets[1].x;
+        GLint dy1 = dstOffsets[1].y;
+        gl->extGlBlitNamedFramebuffer(src, dst, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GL_COLOR_BUFFER_BIT, filter==asset::ISampler::ETF_NEAREST?GL_NEAREST:GL_LINEAR);
     }
 }
 }

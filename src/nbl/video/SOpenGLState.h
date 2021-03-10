@@ -45,15 +45,16 @@ struct SOpenGLState
     };
 
     using SFBOHash = COpenGLFramebuffer::hash_t;
+    constexpr inline static SFBOHash NULL_FBO_HASH = { 0,0,0,0,0,0,0,0,0 };
     struct SFBOHashFunc
     {
         std::size_t operator() (const SFBOHash& x) const { return std::hash<std::string_view>{} (std::string_view(reinterpret_cast<const char*>(x.data()), x.size()*sizeof(SFBOHash::value_type))); }
     };
 
     struct {
-        SFBOHash hash = {0,0,0,0,0,0,0,0,0};
+        SFBOHash hash = NULL_FBO_HASH;
         GLuint GLname = 0u;
-        core::smart_refctd_ptr<const COpenGLFramebuffer> fbo = nullptr; // only ever non-null in nextState (needed only in flushing routine)
+        core::smart_refctd_ptr<const COpenGLFramebuffer> fbo = nullptr;
     } framebuffer;
 
     struct {

@@ -256,11 +256,11 @@ public:
     }
 
 
-    void destroyFramebuffer(COpenGLFramebuffer* fbo) override final
+    void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) override final
     {
         for (auto& q : (*m_queues))
         {
-            static_cast<QueueType*>(q.get())->destroyFramebuffer(fbo);
+            static_cast<QueueType*>(q.get())->destroyFramebuffer(fbohash);
         }
     }
     void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) override final

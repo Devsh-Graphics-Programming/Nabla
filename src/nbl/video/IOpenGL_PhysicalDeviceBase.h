@@ -269,6 +269,7 @@ public:
 			m_features.multiDrawIndirect = ISGLES ? m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.robustBufferAccess = false;
+			m_features.vertexAttributeDouble = !IsGLES;
 
 			if (m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{

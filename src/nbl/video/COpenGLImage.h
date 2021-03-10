@@ -41,7 +41,7 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 				COpenGLExtensionHandler::textureLeaker.registerObj(this);
 			#endif // OPENGL_LEAK_DEBUG
 			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
-			switch (params.type)
+			switch (params.type) // TODO what about multisample targets?
 			{
 				case IGPUImage::ET_1D:
 					target = gl->TEXTURE_1D_ARRAY;

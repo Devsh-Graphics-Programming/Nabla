@@ -738,7 +738,7 @@ public:
 
     }
 
-    virtual void destroyFramebuffer(COpenGLFramebuffer* fbo) = 0;
+    virtual void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) = 0;
     virtual void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) = 0;
     virtual void destroyTexture(GLuint img) = 0;
     virtual void destroyBuffer(GLuint buf) = 0;

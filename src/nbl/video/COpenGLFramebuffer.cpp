@@ -12,7 +12,7 @@ COpenGLFramebuffer::COpenGLFramebuffer(SCreationParams&& params, IOpenGL_Logical
 
 COpenGLFramebuffer::~COpenGLFramebuffer()
 {
-    m_device->destroyFramebuffer(this);
+    m_device->destroyFramebuffer(getHashValue());
 }
 
 }

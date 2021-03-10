@@ -31,6 +31,7 @@ class COpenGLSync final : public core::IReferenceCounted
         inline COpenGLSync(IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl) : device(_dev), cachedRetval(ES_TIMEOUT_EXPIRED)
         {
             sync = _gl->glSync.pglFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+            _gl->glGeneral.pglFlush();
         }
 
         E_STATUS waitCPU(IOpenGL_FunctionTable* _gl, uint64_t timeout)
