@@ -1,0 +1,29 @@
+#version 450
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 10)
+
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+
+layout (set = 0, binding = 0, std430) buffer inout_buffer
+{
+	uint inout_values[];
+};
+
+layout (set = 0, binding = 1, std430) buffer readonly increments_buffer
+{
+	uint increments[];
+};
+
+layout(push_constant) uniform pushConstants
+{
+    layout (offset = 0) uint total_element_count;
+} u_push_constants;
+
+#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
+
+void main()
+{
+	// Todo: no boundary checks, pad instead please
+	if (gl_GlobalInvocationID.x < u_push_constants.total_element_count)
+		inout_values[gl_GlobalInvocationID.x] = increments[gl_WorkGroupID.x] + nbl_glsl_workgroupExclusiveAdd(inout_values[gl_GlobalInvocationID.x]);
+}
