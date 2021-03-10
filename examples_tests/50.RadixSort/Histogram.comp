@@ -1,0 +1,62 @@
+#version 450
+
+#define VT (1 << 2)
+#define WG_DIM (1 << 9)
+#define BITS_PER_PASS 4
+#define NUM_BUCKETS (1 << BITS_PER_PASS)
+#define WG_COUNT (1 << 17)
+#define TOTAL_ELEMENTS (1 << 28)
+
+layout (local_size_x = WG_DIM) in;
+
+layout (set = 0, binding = 0, std430) readonly buffer in_buffer
+{
+	uvec2 in_values[];
+};
+
+layout (set = 0, binding = 1, std430) writeonly buffer out_buffer
+{
+	uint out_values[];
+};
+
+layout(push_constant) uniform pushConstants
+{
+    layout (offset = 0) uint shift;
+} u_push_constants;
+
+shared uint local_histogram[NUM_BUCKETS * WG_DIM];
+
+void main()
+{
+	for (int i = 0; i < NUM_BUCKETS; i++)
+		local_histogram[i * WG_DIM + gl_LocalInvocationID.x] = 0;
+
+	barrier();
+	memoryBarrier();
+
+	const int block_size = VT * WG_DIM;
+
+	// Start index for this thread
+	uint start_idx = block_size * gl_WorkGroupID.x + VT * gl_LocalInvocationID.x;
+
+	for (int i = 0; i < VT; ++i)
+	{
+		// Todo: I don't like this boundary checking, pad with identity instead
+		if (start_idx + i < TOTAL_ELEMENTS)
+		{
+			uint local_key = in_values[start_idx + i].x;
+			local_histogram[local_key * WG_DIM + gl_LocalInvocationID.x]++;
+		}
+	}
+
+	barrier();
+	memoryBarrier();
+
+	if (gl_LocalInvocationID.x < NUM_BUCKETS)
+	{
+		uint sum = 0;
+		for (int i = 0; i < WG_DIM; ++i)
+			sum += local_histogram[gl_LocalInvocationID.x * WG_DIM + (i + gl_LocalInvocationID.x) % WG_DIM];
+		out_values[gl_LocalInvocationID.x * WG_COUNT + gl_WorkGroupID.x] = sum;
+	}
+}
