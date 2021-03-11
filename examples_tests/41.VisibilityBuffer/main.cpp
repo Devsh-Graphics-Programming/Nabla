@@ -155,18 +155,25 @@ struct VTData
     float Ni;
     uint extra; //flags copied from MTL metadata
 };
+#define _NBL_FRAG_MATERIAL_PARAMETERS_STRUCT_DEFINED_
+#define nbl_glsl_MaterialParametersStruct VTData
 
 layout(set = 2, binding = 1, std430) readonly buffer VTDataBuffer
 {
     VTData vtData[];
 } vtDataBuffer;
 
-#define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
-
 layout (push_constant) uniform Block 
 {
     uint dataBufferOffset;
 } pc;
+#define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
+
+VTData nbl_glsl_getMaterialParameters()
+{
+    return vtDataBuffer.vtData[drawID + pc.dataBufferOffset];
+}
+#define _NBL_FRAG_GET_MATERIAL_PARAMETERS_FUNCTION_DEFINED_
 
 #ifndef _NO_UV
     uint nbl_glsl_VT_layer2pid(in uint layer)
@@ -193,20 +200,44 @@ layout (push_constant) uniform Block
 
 
 #ifndef _NO_UV
-    vec4 nbl_sample_Ka(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(vtDataBuffer.vtData[drawID + pc.dataBufferOffset].map_Ka_data, uv, dUV); }
+    vec4 nbl_sample_Ka(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(nbl_glsl_getMaterialParameters().map_Ka_data, uv, dUV); }
 
-    vec4 nbl_sample_Kd(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(vtDataBuffer.vtData[drawID + pc.dataBufferOffset].map_Kd_data, uv, dUV); }
+    vec4 nbl_sample_Kd(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(nbl_glsl_getMaterialParameters().map_Kd_data, uv, dUV); }
 
-    vec4 nbl_sample_Ks(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(vtDataBuffer.vtData[drawID + pc.dataBufferOffset].map_Ks_data, uv, dUV); }
+    vec4 nbl_sample_Ks(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(nbl_glsl_getMaterialParameters().map_Ks_data, uv, dUV); }
 
-    vec4 nbl_sample_Ns(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(vtDataBuffer.vtData[drawID + pc.dataBufferOffset].map_Ns_data, uv, dUV); }
+    vec4 nbl_sample_Ns(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(nbl_glsl_getMaterialParameters().map_Ns_data, uv, dUV); }
 
-    vec4 nbl_sample_d(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(vtDataBuffer.vtData[drawID + pc.dataBufferOffset].map_d_data, uv, dUV); }
+    vec4 nbl_sample_d(in vec2 uv, in mat2 dUV)    { return nbl_glsl_vTextureGrad(nbl_glsl_getMaterialParameters().map_d_data, uv, dUV); }
 
-    vec4 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(vtDataBuffer.vtData[drawID + pc.dataBufferOffset].map_bump_data, uv, dUV); }
+    vec4 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(nbl_glsl_getMaterialParameters().map_bump_data, uv, dUV); }
 #endif
 #define _NBL_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
 )";
+
+    constexpr uint32_t TEX_OF_INTEREST_CNT = 6u; 
+#include "nbl/nblpack.h"
+struct SPushConstants //TODO: rename
+{
+    //Ka
+    core::vector3df_SIMD ambient;
+    //Kd
+    core::vector3df_SIMD diffuse;
+    //Ks
+    core::vector3df_SIMD specular;
+    //Ke
+    core::vector3df_SIMD emissive;
+    uint64_t map_data[TEX_OF_INTEREST_CNT];
+    //Ns, specular exponent in phong model
+    float shininess = 32.f;
+    //d
+    float opacity = 1.f;
+    //Ni, index of refraction
+    float IoR = 1.6f;
+    uint32_t extra;
+} PACK_STRUCT;
+#include "nbl/nblunpack.h"
+static_assert(sizeof(SPushConstants) <= asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "doesnt fit in push constants");
 
 core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedVertexShader(const asset::ICPUSpecializedShader* _fs)
 {
@@ -313,6 +344,7 @@ struct DrawData
     core::vector<MbPipelineRange> ranges;
     core::vector<core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>> gpuPipelines;
     core::vector<DrawIndexedIndirectInput> drawIndirectInput;
+    core::smart_refctd_ptr<IGPUBuffer> vtDataSSBO;
     core::vector<uint32_t> pushConstantsData;
     std::array<core::smart_refctd_ptr<IGPUDescriptorSet>, 3> ds;
     core::smart_refctd_ptr<IGPUVirtualTexture> vt;
@@ -338,9 +370,12 @@ void packMeshBuffers(video::IVideoDriver* driver, DrawData& drawData)
     
     assert(!drawData.ranges.empty());
     
-    CCPUMeshPackerV2 mp(allocParams, 4096/*std::numeric_limits<uint16_t>::max() / 3u*/, 4096/*std::numeric_limits<uint16_t>::max() / 3u*/);
+    CCPUMeshPackerV2 mp(allocParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
 
-    const uint32_t mdiCntTotal = mp.calcMDIStructCount(drawData.ranges.begin()->second.begin(), (drawData.ranges.end() - 1)->second.end());
+    auto wholeMbRangeBegin = drawData.ranges.begin()->second.begin();
+    auto wholeMbRangeEnd = (drawData.ranges.end() - 1)->second.end();
+
+    const uint32_t mdiCntTotal = mp.calcMDIStructCount(wholeMbRangeBegin, wholeMbRangeEnd);
     auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntTotal);
 
     const uint32_t offsetTableSz = mdiCntTotal * 3u;
@@ -371,9 +406,9 @@ void packMeshBuffers(video::IVideoDriver* driver, DrawData& drawData)
 
     for (uint32_t i = 0u; i < drawData.ranges.size(); i++)
     {
-        auto mbRange = drawData.ranges[i];
-        auto mbRangeBegin = mbRange.second.begin();
-        auto mbRangeEnd = mbRange.second.end();
+        auto mbRange = drawData.ranges[i].second;
+        auto mbRangeBegin = mbRange.begin();
+        auto mbRangeEnd = mbRange.end();
 
         const uint32_t mdiCnt = mp.calcMDIStructCount(mbRangeBegin, mbRangeEnd);
 
@@ -388,7 +423,7 @@ void packMeshBuffers(video::IVideoDriver* driver, DrawData& drawData)
             _NBL_DEBUG_BREAK_IF(true);
         }
 
-        DrawIndexedIndirectInput mdiCallInput; //TODO: remove redundant objects
+        DrawIndexedIndirectInput mdiCallInput;
 
         mdiCallInput.maxCount = mdiCnt;
 
@@ -416,6 +451,22 @@ void packMeshBuffers(video::IVideoDriver* driver, DrawData& drawData)
             std::cout << "vtx: " << i << " idx: " << *(idxBuffPtr + i) << "    ";
             std::cout << *firstCoord << ' ' << *(firstCoord + 1u) << ' ' << *(firstCoord + 2u) << std::endl;
         }*/
+    }
+
+    //prepare data for (set = 2, binding = 1) frag shader ssbo
+    {
+        //TODO: this is shit and `calcMDIStructCount` should be cashed so it would't be called so often, rewrite it
+        core::vector<SPushConstants> vtData;
+        vtData.reserve(mdiCntTotal);
+
+        for (auto it = wholeMbRangeBegin; it != wholeMbRangeEnd; it++)
+        {
+            const uint32_t mdiCntForThisMb = mp.calcMDIStructCount(it, it + 1);
+            for (uint32_t i = 0u; i < mdiCntForThisMb; i++)
+                vtData.push_back(*reinterpret_cast<SPushConstants*>((*it)->getPushConstantsDataPtr()));
+        }
+
+        drawData.vtDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(vtData.size() * sizeof(SPushConstants), vtData.data());
     }
 
     drawData.vtxBindings[0] = { 0ull, driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.vertexBuffer->getSize(), packerDataStore.vertexBuffer->getPointer()) };
@@ -447,30 +498,6 @@ struct commit_t
     asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
     asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
 };
-
-constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
-#include "nbl/nblpack.h"
-struct SPushConstants
-{
-    //Ka
-    core::vector3df_SIMD ambient;
-    //Kd
-    core::vector3df_SIMD diffuse;
-    //Ks
-    core::vector3df_SIMD specular;
-    //Ke
-    core::vector3df_SIMD emissive;
-    uint64_t map_data[TEX_OF_INTEREST_CNT];
-    //Ns, specular exponent in phong model
-    float shininess = 32.f;
-    //d
-    float opacity = 1.f;
-    //Ni, index of refraction
-    float IoR = 1.6f;
-    uint32_t extra;
-} PACK_STRUCT;
-#include "nbl/nblunpack.h"
-static_assert(sizeof(SPushConstants) <= asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "doesnt fit in push constants");
 
 constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT]{
     asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT,
@@ -571,8 +598,6 @@ void createVirtualTexture(video::IVideoDriver* driver, core::vector<ICPUMeshBuff
         vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
     }
 
-    //TODO: fill `VTDataBuffer` SSBO 
-
     outputGPUvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
 }
 
@@ -590,8 +615,6 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
         auto vtSizes = drawData.vt->getDSlayoutBindings(nullptr, nullptr);
         auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout::SBinding>>(mpBindingsCnt + vtSizes.first);
         auto vtSamplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUSampler>>>(vtSizes.second);
-
-        //TODO: deal with vt bindings..
 
         IGPUDescriptorSetLayout::SBinding* b = bindings->data();
         b[0].binding = 0u; b[1].binding = 1u; b[2].binding = 2u; b[3].binding = 3u;
@@ -659,7 +682,7 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
         w[0].binding = 0u; w[1].binding = 0u; w[2].binding = 1u; w[3].binding = 2u; w[4].binding = 3u;
         w[0].descriptorType = w[1].descriptorType = w[2].descriptorType = w[3].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
         w[4].descriptorType = EDT_STORAGE_BUFFER;
-        w[0].dstSet = w[1].dstSet = w[2].dstSet = w[3].dstSet = w[4].dstSet = w[5].dstSet = drawData.ds[0].get();
+        w[0].dstSet = w[1].dstSet = w[2].dstSet = w[3].dstSet = w[4].dstSet = drawData.ds[0].get();
 
         IGPUDescriptorSet::SDescriptorInfo info[5];
 
@@ -729,15 +752,16 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
         w2[1].descriptorType = EDT_STORAGE_BUFFER;
         w2[1].dstSet = drawData.ds[2].get();
 
-        //TODO
+        core::smart_refctd_ptr<video::IGPUBuffer> buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(video::IGPUVirtualTexture::SPrecomputedData), &drawData.vt->getPrecomputedData());
+
         IGPUDescriptorSet::SDescriptorInfo info2[2];
         info2[0].buffer.offset = 0u;
-        info2[0].buffer.size = 0u;
-        info2[0].desc = nullptr;
+        info2[0].buffer.size = sizeof(video::IGPUVirtualTexture::SPrecomputedData);
+        info2[0].desc = buffer;
 
         info2[1].buffer.offset = 0u;
-        info2[1].buffer.size = 0u;
-        info2[1].desc = nullptr;
+        info2[1].buffer.size = drawData.vtDataSSBO->getSize();
+        info2[1].desc = drawData.vtDataSSBO;
 
         w2[0].info = &info2[0];
         w2[1].info = &info2[1];
@@ -753,7 +777,7 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
 
         drawData.gpuPipelines.emplace_back(
             driver->createGPURenderpassIndependentPipeline(
-                nullptr, std::move(pipelineLayout),
+                nullptr, core::smart_refctd_ptr(pipelineLayout),
                 shaders, shaders + 2u,
                 cpuPipeline->getVertexInputParams(),
                 cpuPipeline->getBlendParams(), 
@@ -815,7 +839,7 @@ int main()
 
     //TODO: change it to vector of smart pointers
     core::vector<ICPUMeshBuffer*> meshBuffers;
-    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferVector().size(); i++)
+    for (uint32_t i = 0u; i < 100; i++)
         meshBuffers.push_back(mesh_raw->getMeshBufferVector()[i].get());
 
     DrawData drawData;
