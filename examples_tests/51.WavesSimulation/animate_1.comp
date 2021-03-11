@@ -9,11 +9,8 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) i
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
 #include "nbl/builtin/glsl/ext/FFT/fft.glsl"
 
-
 #define G 9.8
 #define cvec3 mat3x2
-
-
 
 layout(set = 0, binding = 0, std430) buffer H0_DATA
 {
@@ -31,9 +28,6 @@ layout(set = 0, binding = 2, std430) buffer IFFT_X_OUT
 	vec2 data[];
 } ifft_x_out;
 
-//layout(location = 0, binding = 2, rgba8) uniform image2D out_tex;
-
-
 layout(push_constant) uniform PUSH_CONSTANTS
 {
 	nbl_glsl_ext_FFT_Parameters_t params;
@@ -44,7 +38,6 @@ layout(push_constant) uniform PUSH_CONSTANTS
 #define EI(x) vec2(cos(x), sin(x))
 void main()
 {
-	//if (all(lessThan(gl_GlobalInvocationID.xy, u_pc.IMG_SIZE)))
 	{
         uint ssbo_index = gl_GlobalInvocationID.y * u_pc.IMG_SIZE.x + gl_GlobalInvocationID.x;
 		vec2 h0k = primary_calculations.data[ssbo_index][0];
@@ -58,14 +51,8 @@ void main()
 				   nbl_glsl_complex_mul(h0_conj, EI(-wkt));
 
 		animated_spectrum.data[ssbo_index] = res;
-		//uint x_shift = (gl_GlobalInvocationID.x >=  u_pc.IMG_SIZE.x / 2) ? -u_pc.IMG_SIZE.x / 2 : u_pc.IMG_SIZE.x / 2;  
-        //uint y_shift = (gl_GlobalInvocationID.y >=  u_pc.IMG_SIZE.y / 2) ? -u_pc.IMG_SIZE.y / 2 : u_pc.IMG_SIZE.y / 2;  
-		//imageStore(out_tex, ivec2(gl_GlobalInvocationID.xy), vec4(1, 1, 0, 1));
 	}
-	barrier();
 	nbl_glsl_ext_FFT(true, 0);
-
-
 }
 
 nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters() {
@@ -76,24 +63,17 @@ nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters() {
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
-	nbl_glsl_complex retValue = nbl_glsl_complex(0, 0);
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
 	uint index = coordinate.y * dimension.x + coordinate.x;
-	retValue = animated_spectrum.data[index];
-	return retValue;
+	return animated_spectrum.data[index];
 }
 
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions();
-	uint index = coordinate.y * dimension.x + coordinate.x;//channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	//uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-
+	uint index = coordinate.y * dimension.x + coordinate.x;
 	ifft_x_out.data[index] = complex_value;
-//	ifft_x_out.data[index] = animated_spectrum.data[index];
-
-	//imageStore(ifft_x_out, ivec2(coordinate.xy), vec4(complex_value, 0, 1));
 }
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {

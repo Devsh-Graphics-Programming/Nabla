@@ -369,11 +369,9 @@ void WaveSimApp::PresentWaves(const textureView& tex)
 	}
 
 	{
-		//m_driver->beginScene(true, true);
 		m_driver->bindGraphicsPipeline(m_presenting_pipeline.get());
 		m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_presenting_pipeline->getLayout(), 3u, 1u, &sampler_descriptor_set.get(), nullptr);
 		m_driver->drawMeshBuffer(m_current_gpu_mesh_buffer.get());
-		//m_driver->endScene();
 	}
 }
 
@@ -475,12 +473,9 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_1->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_animating_pipeline_1.get());
 		m_driver->pushConstants(m_animating_pipeline_1->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
-		//while (m_device->run())
 		{
-			//m_driver->beginScene(true);
 			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
 			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-			//m_driver->endScene();
 		}
 	}
 
@@ -502,13 +497,6 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		write[1].info = info + 1;
 		info[1].desc = out;
 		info[1].image = { nullptr, EIL_UNDEFINED };
-
-		/*write[1] = write[0];
-		write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-		write[1].binding = 1u;
-		write[1].info = info + 1;
-		info[1].desc = animated_data_buffer;
-		info[1].buffer = { 0, OUT_SSBO_SIZE };*/
 
 		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
 	}
@@ -538,12 +526,9 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_animating_pipeline_2->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_animating_pipeline_2.get());
 		m_driver->pushConstants(m_animating_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(params), &params);
-		//while (m_device->run())
 		{
-			//m_driver->beginScene(true);
 			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
 			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-			//m_driver->endScene();
 		}
 
 	}
@@ -576,7 +561,6 @@ void WaveSimApp::Run()
 	while (m_device->run())
 	{
 		m_driver->beginScene(true);
-
 		GetAnimatedHeightMap(initial_values, animated_part, i+=0.01);
 		PresentWaves(animated_part);
 		m_driver->endScene();

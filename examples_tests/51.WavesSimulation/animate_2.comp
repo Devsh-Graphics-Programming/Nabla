@@ -16,11 +16,6 @@ layout(set = 0, binding = 0, std430) buffer IFFT_X_IN
 
 layout(set = 0, binding = 1, rgba8) uniform image2D heightmap;
 
-//layout(set = 0, binding = 1, std430) buffer ANIMATED_SPECTRUM
-//{
-//	vec2 data[];
-//} heightmap;
-
 layout(push_constant) uniform PUSH_CONSTANTS
 {
 	nbl_glsl_ext_FFT_Parameters_t params;
@@ -29,11 +24,6 @@ layout(push_constant) uniform PUSH_CONSTANTS
 void main()
 {
 	nbl_glsl_ext_FFT(true, 0);
-
-
-//	vec4 pix = vec4(1,0,0,1);
-//	imageStore(heightmap, ivec2(gl_GlobalInvocationID.xy), pix);
-
 }
 
 nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters() {
@@ -44,20 +34,13 @@ nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters() {
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
-	nbl_glsl_complex retValue = nbl_glsl_complex(0, 0);
 	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
 	uint index = coordinate.y * dimension.x + coordinate.x;
-//	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	retValue = ifft_x_in.data[index];
-	return retValue;
+	return ifft_x_in.data[index];
 }
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions();
-		uint index = coordinate.y * dimension.x + coordinate.x;
-
-//	imageStore(heightmap, ivec2(coordinate.xy), vec4( length(ifft_x_in.data[index]) == 0 ? vec2(1, 1) : ifft_x_in.data[index] , 0, 1));
 	imageStore(heightmap, ivec2(coordinate.xy), vec4(length(complex_value), 0, 0, 1));
 }
 
