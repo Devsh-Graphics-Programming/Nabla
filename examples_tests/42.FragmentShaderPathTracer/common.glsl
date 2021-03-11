@@ -315,7 +315,6 @@ struct ImmutableRay_t
     vec3 origin;
     float maxT;
     vec3 direction;
-    bool anyHit;
 #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
     vec3 normalAtOrigin;
     bool wasBSDFAtOrigin;
@@ -346,12 +345,6 @@ struct Ray_t
     MutableRay_t _mutable;
     Payload_t _payload;
 };
-
-
-bool anyHitProgram(in ImmutableRay_t _immutable)
-{
-    return true;
-}
 
 
 #define INTERSECTION_ERROR_BOUND_LOG2 (-8.0)
@@ -500,7 +493,7 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
     return retval;
 }
 
-bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable);
+void traceRay(in bool anyHit, in ImmutableRay_t _immutable, inout MutableRay_t _mutable);
 bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
@@ -548,7 +541,6 @@ void main()
             // for depth of field we could do another stochastic point-pick
             tmp = invMVP*tmp;
             ray._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
-            ray._immutable.anyHit = false;
 
             #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
                 ray._immutable.normalAtOrigin = vec3(0.0,0.0,0.0);
@@ -567,18 +559,15 @@ void main()
         for (int j=1; j<=MAX_DEPTH; j+=2)
         {
             const ImmutableRay_t _immutable = ray._immutable;
-            bool anyHitType = traceRay(_immutable,ray._mutable);
+            traceRay(false,_immutable,ray._mutable);
                 
             if (ray._mutable.intersectionT>=_immutable.maxT)
             {
                 missProgram(_immutable,ray._payload);
                 break;
             }
-            else if (!anyHitType)
-            {
-                if (closestHitProgram(j,i,ray,scramble_state))
-                    break;
-            }
+            else if (closestHitProgram(j,i,ray,scramble_state))
+                break;
         }
 
         vec3 accumulation = ray._payload.accumulation;

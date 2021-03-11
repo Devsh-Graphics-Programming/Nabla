@@ -10,10 +10,8 @@
 
 
 
-bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
+void traceRay(in bool anyHit, in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
 {
-    const bool anyHit = _immutable.anyHit;
-
 	int objectID = -1;
     float intersectionT = _immutable.maxT;
 	for (int i=0; i<SPHERE_COUNT; i++)
@@ -30,10 +28,9 @@ bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
     }
     _mutable.objectID = objectID;
     _mutable.intersectionT = intersectionT;
-    // hit
-    return anyHit;
 }
 
+#if 0
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
 vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
@@ -80,8 +77,93 @@ nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     
     return nbl_glsl_createLightSample(L,interaction);
 }
+#endif
 
+bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
+{
+    const MutableRay_t _mutable = ray._mutable;
 
+    Sphere sphere = spheres[_mutable.objectID];
+    const uint bsdfLightIDs = sphere.bsdfLightIDs;
+
+    vec3 throughput = ray._payload.throughput;
+    
+    // add emissive
+    const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
+    if (lightID!=INVALID_ID_16BIT) // has emissive
+        ray._payload.accumulation += throughput*Light_getRadiance(lights[lightID]);
+
+    // check if we even have a BSDF at all
+    uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
+    if (bsdfID!=INVALID_ID_16BIT)
+    {
+        BSDFNode bsdf = bsdfs[bsdfID];
+        #ifdef KILL_DIFFUSE_SPECULAR_PATHS
+        if (BSDFNode_isNotDiffuse(bsdf))
+        {
+            if (ray._payload.hasDiffuse)
+                return true;
+        }
+        else
+            ray._payload.hasDiffuse = true;
+        #endif
+
+        //rand
+        mat2x3 epsilon = rand3d(depth,_sample,scramble_state);
+
+        // intersection stuffs
+        const vec3 intersection = ray._immutable.origin+ray._immutable.direction*_mutable.intersectionT;
+    
+        nbl_glsl_AnisotropicViewSurfaceInteraction interaction;
+        {
+            nbl_glsl_IsotropicViewSurfaceInteraction isotropic;
+
+            isotropic.V.dir = -ray._immutable.direction;
+            //isotropic.V.dPosdScreen = screw that
+            isotropic.N = Sphere_getNormal(sphere,intersection);
+            isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
+            isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
+
+            interaction = nbl_glsl_calcAnisotropicInteraction(isotropic);
+        }
+        
+
+    
+
+        float maxT = FLT_MAX;
+        nbl_glsl_AnisotropicMicrofacetCache _cache;
+
+        // do I need this?
+        const vec3 throughputCIE_Y = transpose(nbl_glsl_sRGBtoXYZ)[1]*throughput;
+        const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
+            
+        // sample BSDF
+        float bsdfPdf; vec3 bsdfSampleL;
+        {
+            nbl_glsl_LightSample _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon[0],bsdf,monochromeEta,_cache);
+            // the value of the bsdf divided by the probability of the sample being generated
+            throughput *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
+            //
+            bsdfSampleL = _sample.L;
+        }
+
+        const float bsdfPdfThreshold = 0.0001;
+        // OETF smallest perceptible value
+        const float lumaThroughputThreshold = getLuma(nbl_glsl_eotf_sRGB(vec3(1.0)/255.0));
+        if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
+        {
+            ray._payload.throughput = throughput;
+                    
+            // trace new ray
+            ray._immutable.origin = intersection+bsdfSampleL*(1.0/*kSceneSize*/)*getStartTolerance(depth);
+            ray._immutable.maxT = maxT;
+            ray._immutable.direction = bsdfSampleL;
+            return false;
+        }
+    }
+    return true;
+}
+#if 0
 bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t _mutable = ray._mutable;
@@ -205,3 +287,4 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
     }
     return true;
 }
+#endif
