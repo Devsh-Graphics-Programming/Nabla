@@ -7,8 +7,8 @@ int main()
 		128,
 		{ 1.f, 1.f },
 		{ 1.f, 1.f },
-		7,
-		500
+		6,
+		50
 	};
 	WaveSimApp app(params);
 	app.Run();
