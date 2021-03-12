@@ -484,7 +484,7 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
     return retval;
 }
 
-int traceRay(inout float intersectionT, in ImmutableRay_t _immutable);
+int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction);
 bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
@@ -552,7 +552,7 @@ void main()
             for (int d=1; d<=MAX_DEPTH && hit && rayAlive; d+=2)
             {
                 ray._mutable.intersectionT = FLT_MAX;
-                ray._mutable.objectID = traceRay(ray._mutable.intersectionT,ray._immutable);
+                ray._mutable.objectID = traceRay(ray._mutable.intersectionT,ray._immutable.origin,ray._immutable.direction);
                 hit = ray._mutable.objectID!=-1;
                 if (hit)
                     rayAlive = closestHitProgram(3u, i, ray, scramble_state);
