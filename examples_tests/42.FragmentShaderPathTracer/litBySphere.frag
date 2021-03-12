@@ -137,9 +137,9 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
            
         // do NEE
-        const float neeProbability = BSDFNode_getMISWeight(bsdf);
+        const float neeSkipProbability = BSDFNode_getNEESkipProb(bsdf);
         float rcpChoiceProb;
-        if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb))
+        if (nbl_glsl_partitionRandVariable(neeSkipProbability,epsilon[0].z,rcpChoiceProb))
         {
             vec3 neeContrib; float lightPdf, t;
             nbl_glsl_LightSample _sample = nbl_glsl_light_generate_and_remainder_and_pdf(neeContrib,lightPdf,t,intersection,interaction,epsilon[0],depth);
@@ -175,7 +175,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
         {
             ray._payload.throughput = throughput;
-            ray._payload.otherTechniqueHeuristic = neeProbability/bsdfPdf; // numerically stable, don't touch
+            ray._payload.otherTechniqueHeuristic = (1.0-neeSkipProbability)/bsdfPdf; // numerically stable, don't touch
             ray._payload.otherTechniqueHeuristic *= ray._payload.otherTechniqueHeuristic;
                     
             // trace new ray

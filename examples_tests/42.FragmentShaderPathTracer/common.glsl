@@ -242,12 +242,14 @@ vec3 BSDFNode_getReflectance(in BSDFNode node, in float VdotH)
         return albedoOrRealIoR;
 }
 
-float BSDFNode_getMISWeight(in BSDFNode bsdf)
+float BSDFNode_getNEESkipProb(in BSDFNode bsdf)
 {
-    const float alpha = BSDFNode_getRoughness(bsdf);
-    const bool notDiffuse = BSDFNode_isNotDiffuse(bsdf);
-    const float DIFFUSE_MIS_NEE_PROB = 1.0;
-    return (notDiffuse ? (1.0-alpha*alpha):1.0)*DIFFUSE_MIS_NEE_PROB;
+    if (BSDFNode_isNotDiffuse(bsdf))
+    {
+        const float alpha = BSDFNode_getRoughness(bsdf);
+        return alpha*alpha;
+    }
+    return 0.0;
 }
 
 #include <nbl/builtin/glsl/colorspace/EOTF.glsl>
