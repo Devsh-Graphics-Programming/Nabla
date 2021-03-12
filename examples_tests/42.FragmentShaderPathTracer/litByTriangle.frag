@@ -14,40 +14,36 @@ Triangle triangles[TRIANGLE_COUNT] = {
     Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
 };
 
-bool traceRay(in ImmutableRay_t _immutable)
+int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
 {
-    const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
+    const bool anyHit = intersectionT!=FLT_MAX;
 
 	int objectID = -1;
-    float intersectionT = _immutable.maxT;
 	for (int i=0; i<SPHERE_COUNT; i++)
     {
-        float t = Sphere_intersect(spheres[i],_immutable.origin,_immutable.direction);
+        float t = Sphere_intersect(spheres[i],origin,direction);
         bool closerIntersection = t>0.0 && t<intersectionT;
 
 		objectID = closerIntersection ? i:objectID;
         intersectionT = closerIntersection ? t:intersectionT;
         
         // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection && anyHitProgram(_immutable))
+        //if (anyHit && closerIntersection)
            //break;
     }
 	for (int i=0; i<TRIANGLE_COUNT; i++)
     {
-        float t = Triangle_intersect(triangles[i],_immutable.origin,_immutable.direction);
+        float t = Triangle_intersect(triangles[i],origin,direction);
         bool closerIntersection = t>0.0 && t<intersectionT;
 
 		objectID = closerIntersection ? (i+SPHERE_COUNT):objectID;
         intersectionT = closerIntersection ? t:intersectionT;
         
         // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection && anyHitProgram(_immutable))
+        //if (anyHit && closerIntersection)
            //break;
     }
-    rayStack[stackPtr]._mutable.objectID = objectID;
-    rayStack[stackPtr]._mutable.intersectionT = intersectionT;
-    // hit
-    return anyHit;
+    return objectID;
 }
 
 
@@ -90,7 +86,7 @@ vec3 nbl_glsl_light_deferred_eval_and_prob(
 }
 
 
-nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 u, in int depth)
+nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 u, in uint depth)
 {
     // normally we'd pick from set of lights, using `u.z`
     const Light light = lights[0];
@@ -135,13 +131,17 @@ nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     return nbl_glsl_createLightSample(L,interaction);
 }
 
-void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
-{
-    const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
-    vec3 intersection = _immutable.origin+_immutable.direction*mutable.intersectionT;
-    const uint objectID = mutable.objectID;
-    
+bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
+{
+    const MutableRay_t _mutable = ray._mutable;
+
+    const uint objectID = _mutable.objectID;
+    Sphere sphere = spheres[_mutable.objectID];
+
+    // interaction stuffs
+    const ImmutableRay_t _immutable = ray._immutable;
+    const vec3 intersection = _immutable.origin+_immutable.direction*_mutable.intersectionT;
     uint bsdfLightIDs;
     nbl_glsl_AnisotropicViewSurfaceInteraction interaction;
     {
@@ -167,17 +167,18 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
         interaction = nbl_glsl_calcAnisotropicInteraction(isotropic);
     }
 
-    const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
+    //
+    vec3 throughput = ray._payload.throughput;
 
-    vec3 throughput = rayStack[stackPtr]._payload.throughput;
-    // finish MIS
+    // add emissive and finish MIS
+    const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
         vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(
             lightPdf,lights[lightID],_immutable.direction
         #if TRIANGLE_METHOD==0
-            ,mutable.intersectionT
+            ,_mutable.intersectionT
         #else
             ,_immutable.origin
         #if TRIANGLE_METHOD==2
@@ -185,101 +186,87 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64s
         #endif
         #endif
         );
-        rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
+        ray._payload.accumulation += lightVal*throughput/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
     }
-    
-    const int sampleIx = bitfieldExtract(_immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
-    const int depth = bitfieldExtract(_immutable.typeDepthSampleIx,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
     // check if we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
-    if (depth<MAX_DEPTH && bsdfID!=INVALID_ID_16BIT)
+    if (bsdfID!=INVALID_ID_16BIT)
     {
-        // common preload
         BSDFNode bsdf = bsdfs[bsdfID];
-        uint opType = BSDFNode_getType(bsdf);
-
         #ifdef KILL_DIFFUSE_SPECULAR_PATHS
         if (BSDFNode_isNotDiffuse(bsdf))
         {
-            if (rayStack[stackPtr]._payload.hasDiffuse)
-                return;
+            if (ray._payload.hasDiffuse)
+                return true;
         }
         else
-            rayStack[stackPtr]._payload.hasDiffuse = true;
+            ray._payload.hasDiffuse = true;
         #endif
-
-
-        const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);    
-        mat2x3 epsilon = rand3d(depth,sampleIx,scramble_state);
-    
-        float rcpChoiceProb;
-        const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon[0].z,rcpChoiceProb);
-    
-
-        float maxT;
-        // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
-        float lightPdf;
-        nbl_glsl_LightSample _sample;
-        nbl_glsl_AnisotropicMicrofacetCache _cache;
+        
         const bool isBSDF = BSDFNode_isBSDF(bsdf);
-        if (doNEE)
+        //rand
+        mat2x3 epsilon = rand3d(depth,_sample,scramble_state);
+        
+        // thresholds
+        const float bsdfPdfThreshold = 0.0001;
+        const float lumaContributionThreshold = getLuma(nbl_glsl_eotf_sRGB(vec3(1.0)/255.0)); // OETF smallest perceptible value
+        const vec3 throughputCIE_Y = transpose(nbl_glsl_sRGBtoXYZ)[1]*throughput;
+        const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
+           
+        // do NEE
+        const float neeSkipProbability = BSDFNode_getNEESkipProb(bsdf);
+        float rcpChoiceProb;
+        if (nbl_glsl_partitionRandVariable(neeSkipProbability,epsilon[0].z,rcpChoiceProb))
         {
-            vec3 lightRemainder;
-            _sample = nbl_glsl_light_generate_and_remainder_and_pdf(
-                lightRemainder,lightPdf,maxT,
+            vec3 neeContrib; float lightPdf, t;
+            nbl_glsl_LightSample nee_sample = nbl_glsl_light_generate_and_remainder_and_pdf(
+                neeContrib,lightPdf,t,
                 intersection,interaction,
                 isBSDF,epsilon[0],depth
             );
-            throughput *= lightRemainder;
+            // We don't allow non watertight transmitters in this renderer
+            bool validPath = nee_sample.NdotL>0.0;
+            // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
+            nbl_glsl_AnisotropicMicrofacetCache _cache;
+            validPath = validPath && nbl_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,nee_sample,monochromeEta);
+            if (validPath)
+            {
+                float bsdfPdf;
+                neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,nee_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
+                const float oc = bsdfPdf*rcpChoiceProb;
+                neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
+                if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
+                    ray._payload.accumulation += neeContrib;
+            }
+        }
+        
+        // sample BSDF
+        float bsdfPdf; vec3 bsdfSampleL;
+        {
+            nbl_glsl_AnisotropicMicrofacetCache _cache;
+            nbl_glsl_LightSample bsdf_sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon[1],bsdf,monochromeEta,_cache);
+            // the value of the bsdf divided by the probability of the sample being generated
+            throughput *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,bsdf_sample,interaction,bsdf,monochromeEta,_cache);
+            //
+            bsdfSampleL = bsdf_sample.L;
         }
 
-        bool validPath = true;
-        const vec3 throughputCIE_Y = transpose(nbl_glsl_sRGBtoXYZ)[1]*throughput;
-        const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
-        if (doNEE)
-        {
-            // if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line.
-            validPath = nbl_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
-            // but we don't allow non watertight transmitters in this renderer
-            validPath = validPath && _sample.NdotL>0.0;
-        }
-        else
-        {
-            maxT = FLT_MAX;
-            _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon[0],bsdf,monochromeEta,_cache);
-        }
-            
-        // do a cool trick and always compute the bsdf parts this way! (no divergence)
-        float bsdfPdf;
-        // the value of the bsdf divided by the probability of the sample being generated
-        if (validPath)
-			throughput *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
-        else
-            throughput = vec3(0.0);
-
-        // OETF smallest perceptible value
-        const float bsdfPdfThreshold = getLuma(nbl_glsl_eotf_sRGB(vec3(1.0)/255.0));
-        const float lumaThroughputThreshold = bsdfPdfThreshold;
+        // additional threshold
+        const float lumaThroughputThreshold = lumaContributionThreshold;
         if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
         {
-            rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
-
-            float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
-            heuristicFactor /= doNEE ? lightPdf:bsdfPdf; // weightNonGenerator/(weightGenerator*probGenerated)
-            heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
-            if (doNEE)
-                heuristicFactor = 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
-            rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
+            ray._payload.throughput = throughput;
+            ray._payload.otherTechniqueHeuristic = (1.0-neeSkipProbability)/bsdfPdf; // numerically stable, don't touch
+            ray._payload.otherTechniqueHeuristic *= ray._payload.otherTechniqueHeuristic;
                     
             // trace new ray
-            rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
-            rayStack[stackPtr]._immutable.maxT = maxT;
-            rayStack[stackPtr]._immutable.direction = _sample.L;
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+2,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
-            rayStack[stackPtr]._immutable.normalAtOrigin = interaction.isotropic.N;
-            rayStack[stackPtr]._immutable.wasBSDFAtOrigin = isBSDF;
-            stackPtr++;
+            ray._immutable.origin = intersection+bsdfSampleL*(1.0/*kSceneSize*/)*getStartTolerance(depth);
+            ray._immutable.direction = bsdfSampleL;
+            ray._immutable.normalAtOrigin = interaction.isotropic.N;
+            ray._immutable.wasBSDFAtOrigin = isBSDF;
+            return true;
         }
     }
+    return false;
 }

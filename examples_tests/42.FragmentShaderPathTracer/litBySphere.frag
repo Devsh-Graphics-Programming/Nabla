@@ -12,6 +12,8 @@
 
 int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
 {
+    const bool anyHit = intersectionT!=FLT_MAX;
+
 	int objectID = -1;
 	for (int i=0; i<SPHERE_COUNT; i++)
     {
@@ -22,7 +24,7 @@ int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
         intersectionT = closerIntersection ? t:intersectionT;
         
         // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection && anyHitProgram(_immutable))
+        //if (anyHit && closerIntersection)
            //break;
     }
     return objectID;
@@ -142,19 +144,19 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         if (nbl_glsl_partitionRandVariable(neeSkipProbability,epsilon[0].z,rcpChoiceProb))
         {
             vec3 neeContrib; float lightPdf, t;
-            nbl_glsl_LightSample _sample = nbl_glsl_light_generate_and_remainder_and_pdf(neeContrib,lightPdf,t,intersection,interaction,epsilon[0],depth);
+            nbl_glsl_LightSample nee_sample = nbl_glsl_light_generate_and_remainder_and_pdf(neeContrib,lightPdf,t,intersection,interaction,epsilon[0],depth);
             // We don't allow non watertight transmitters in this renderer
-            bool validPath = _sample.NdotL>0.0;
+            bool validPath = nee_sample.NdotL>0.0;
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
             nbl_glsl_AnisotropicMicrofacetCache _cache;
-            validPath = validPath && nbl_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
+            validPath = validPath && nbl_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,nee_sample,monochromeEta);
             if (validPath)
             {
                 float bsdfPdf;
-                neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
+                neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,nee_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
                 const float oc = bsdfPdf*rcpChoiceProb;
                 neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
-                if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+_sample.L*t*getStartTolerance(depth),_sample.L)==-1)
+                if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
             }
         }
@@ -163,11 +165,11 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         float bsdfPdf; vec3 bsdfSampleL;
         {
             nbl_glsl_AnisotropicMicrofacetCache _cache;
-            nbl_glsl_LightSample _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon[1],bsdf,monochromeEta,_cache);
+            nbl_glsl_LightSample bsdf_sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon[1],bsdf,monochromeEta,_cache);
             // the value of the bsdf divided by the probability of the sample being generated
-            throughput *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
+            throughput *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,bsdf_sample,interaction,bsdf,monochromeEta,_cache);
             //
-            bsdfSampleL = _sample.L;
+            bsdfSampleL = bsdf_sample.L;
         }
 
         // additional threshold
