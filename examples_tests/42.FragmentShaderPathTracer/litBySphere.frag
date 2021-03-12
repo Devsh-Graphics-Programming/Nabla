@@ -10,10 +10,9 @@
 
 
 
-void traceRay(in bool anyHit, in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
+int traceRay(inout float intersectionT, in ImmutableRay_t _immutable)
 {
 	int objectID = -1;
-    float intersectionT = _immutable.maxT;
 	for (int i=0; i<SPHERE_COUNT; i++)
     {
         float t = Sphere_intersect(spheres[i],_immutable.origin,_immutable.direction);
@@ -26,8 +25,7 @@ void traceRay(in bool anyHit, in ImmutableRay_t _immutable, inout MutableRay_t _
         //if (anyHit && closerIntersection && anyHitProgram(_immutable))
            //break;
     }
-    _mutable.objectID = objectID;
-    _mutable.intersectionT = intersectionT;
+    return objectID;
 }
 
 #if 0
@@ -87,12 +85,12 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
     const uint bsdfLightIDs = sphere.bsdfLightIDs;
 
     vec3 throughput = ray._payload.throughput;
-    
+#if 1
     // add emissive
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
     if (lightID!=INVALID_ID_16BIT) // has emissive
         ray._payload.accumulation += throughput*Light_getRadiance(lights[lightID]);
-
+#endif
     // check if we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
     if (bsdfID!=INVALID_ID_16BIT)
@@ -130,7 +128,6 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
 
     
 
-        float maxT = FLT_MAX;
         nbl_glsl_AnisotropicMicrofacetCache _cache;
 
         // do I need this?
@@ -156,12 +153,11 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
                     
             // trace new ray
             ray._immutable.origin = intersection+bsdfSampleL*(1.0/*kSceneSize*/)*getStartTolerance(depth);
-            ray._immutable.maxT = maxT;
             ray._immutable.direction = bsdfSampleL;
-            return false;
+            return true;
         }
     }
-    return true;
+    return false;
 }
 #if 0
 bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)

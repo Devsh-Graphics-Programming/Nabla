@@ -313,7 +313,6 @@ Light lights[LIGHT_COUNT] =
 struct ImmutableRay_t
 {
     vec3 origin;
-    float maxT;
     vec3 direction;
 #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
     vec3 normalAtOrigin;
@@ -375,21 +374,13 @@ void missProgram(in ImmutableRay_t _immutable, inout Payload_t _payload)
 {
     vec3 finalContribution = _payload.throughput; 
     //#define USE_ENVMAP
-    // true miss
-    if (_immutable.maxT>=FLT_MAX)
-    {
-        #ifdef USE_ENVMAP
-	        vec2 uv = SampleSphericalMap(_immutable.direction);
-            finalContribution *= textureLod(envMap, uv, 0.0).rgb;
-        #else
-        const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
-            finalContribution *= kConstantEnvLightRadiance;
-        #endif
-    }
-    else
-    {
-        finalContribution *= _payload.otherTechniqueHeuristic;
-    }
+#ifdef USE_ENVMAP
+	vec2 uv = SampleSphericalMap(_immutable.direction);
+    finalContribution *= textureLod(envMap, uv, 0.0).rgb;
+#else
+    const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
+    finalContribution *= kConstantEnvLightRadiance;
+#endif
     _payload.accumulation += finalContribution;
 }
 
@@ -493,7 +484,7 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
     return retval;
 }
 
-void traceRay(in bool anyHit, in ImmutableRay_t _immutable, inout MutableRay_t _mutable);
+int traceRay(inout float intersectionT, in ImmutableRay_t _immutable);
 bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
@@ -520,6 +511,7 @@ void main()
 
     vec3 color = vec3(0.0);
     float meanLumaSquared = 0.0;
+    // TODO: if we collapse the nested for loop, then all GPUs will get `MAX_DEPTH` factor speedup, not just NV with separate PC
     for (int i=0; i<SAMPLES; i++)
     {
         nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -528,7 +520,6 @@ void main()
         // raygen
         {
             ray._immutable.origin = camPos;
-            ray._immutable.maxT = FLT_MAX;
 
             vec4 tmp = NDC;
             // apply stochastic reconstruction filter
@@ -555,19 +546,20 @@ void main()
             #endif
         }
 
-        // trace
-        for (int j=1; j<=MAX_DEPTH; j+=2)
+        // bounces
         {
-            const ImmutableRay_t _immutable = ray._immutable;
-            traceRay(false,_immutable,ray._mutable);
-                
-            if (ray._mutable.intersectionT>=_immutable.maxT)
+            bool hit = true; bool rayAlive = true;
+            for (int d=1; d<=MAX_DEPTH && hit && rayAlive; d+=2)
             {
-                missProgram(_immutable,ray._payload);
-                break;
+                ray._mutable.intersectionT = FLT_MAX;
+                ray._mutable.objectID = traceRay(ray._mutable.intersectionT,ray._immutable);
+                hit = ray._mutable.objectID!=-1;
+                if (hit)
+                    rayAlive = closestHitProgram(3u, i, ray, scramble_state);
             }
-            else if (closestHitProgram(j,i,ray,scramble_state))
-                break;
+            // was last trace a miss?
+            if (!hit)
+                missProgram(ray._immutable,ray._payload);
         }
 
         vec3 accumulation = ray._payload.accumulation;
