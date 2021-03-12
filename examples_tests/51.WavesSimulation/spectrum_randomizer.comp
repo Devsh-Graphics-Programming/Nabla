@@ -49,7 +49,10 @@ float Ph(vec2 k)
     float cosine_factor = cosine_factor_sqrt  * cosine_factor_sqrt;
     float k2 = dot(k, k);
     float k4 = k2 * k2;
-    return u_pc.A * exp(-1 / (k2 * L * L)) / k4 * cosine_factor; 
+    float res =  u_pc.A * exp(-1 / (k2 * L * L)) / k4 * cosine_factor; 
+    if(cosine_factor_sqrt < 0)
+        res = 0;
+    return res;
 }
 
 vec2 h0(vec2 k)
