@@ -28,7 +28,7 @@ int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
     return objectID;
 }
 
-#if 0
+
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
 vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
@@ -36,7 +36,6 @@ vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in v
     pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
     return Light_getRadiance(light);
 }
-#endif
 
 nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in uint depth)
 {
@@ -82,15 +81,37 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
     const MutableRay_t _mutable = ray._mutable;
 
     Sphere sphere = spheres[_mutable.objectID];
+
+    // interaction stuffs
+    const vec3 intersection = ray._immutable.origin+ray._immutable.direction*_mutable.intersectionT;
+    nbl_glsl_AnisotropicViewSurfaceInteraction interaction;
+    {
+        nbl_glsl_IsotropicViewSurfaceInteraction isotropic;
+
+        isotropic.V.dir = -ray._immutable.direction;
+        //isotropic.V.dPosdScreen = screw that
+        isotropic.N = Sphere_getNormal(sphere,intersection);
+        isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
+        isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
+
+        interaction = nbl_glsl_calcAnisotropicInteraction(isotropic);
+    }
+    
+    //
     const uint bsdfLightIDs = sphere.bsdfLightIDs;
 
+    //
     vec3 throughput = ray._payload.throughput;
-#if 0
-    // add emissive
+
+    // add emissive and finish MIS
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
     if (lightID!=INVALID_ID_16BIT) // has emissive
-        ray._payload.accumulation += throughput*Light_getRadiance(lights[lightID]);
-#endif
+    {
+        float lightPdf;
+        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(lightPdf,sphere,ray._immutable.origin,interaction,lights[lightID]);
+        ray._payload.accumulation += lightVal*throughput/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
+    }
+
     // check if we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
     if (bsdfID!=INVALID_ID_16BIT)
@@ -108,21 +129,6 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
 
         //rand
         mat2x3 epsilon = rand3d(depth,_sample,scramble_state);
-
-        // interaction stuffs
-        const vec3 intersection = ray._immutable.origin+ray._immutable.direction*_mutable.intersectionT;
-        nbl_glsl_AnisotropicViewSurfaceInteraction interaction;
-        {
-            nbl_glsl_IsotropicViewSurfaceInteraction isotropic;
-
-            isotropic.V.dir = -ray._immutable.direction;
-            //isotropic.V.dPosdScreen = screw that
-            isotropic.N = Sphere_getNormal(sphere,intersection);
-            isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
-            isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
-
-            interaction = nbl_glsl_calcAnisotropicInteraction(isotropic);
-        }
         
         // thresholds
         const float bsdfPdfThreshold = 0.0001;
@@ -131,7 +137,8 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
            
         // do NEE
-        float rcpNEEProb = 1.0;
+        const float neeProbability = 1.0;//BSDFNode_getMISWeight(bsdf);
+        const float neeProbability2 = neeProbability*neeProbability;
         if (true)
         {
             vec3 neeContrib; float lightPdf, t;
@@ -145,8 +152,9 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
             {
                 float bsdfPdf;
                 neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
+                neeContrib /= bsdfPdf/(lightPdf*lightPdf)+neeProbability2/bsdfPdf; // MIS weight
                 if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+_sample.L*t*getStartTolerance(depth),_sample.L)==-1)
-                    ray._payload.accumulation += neeContrib*bsdfPdf;
+                    ray._payload.accumulation += neeContrib;
             }
         }
         
@@ -166,6 +174,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
         {
             ray._payload.throughput = throughput;
+            ray._payload.otherTechniqueHeuristic = neeProbability2/(bsdfPdf*bsdfPdf); // numerically stable, don't touch
                     
             // trace new ray
             ray._immutable.origin = intersection+bsdfSampleL*(1.0/*kSceneSize*/)*getStartTolerance(depth);
@@ -176,46 +185,5 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
     return false;
 }
 #if 0    
-    // finish MIS
-    if (lightID!=INVALID_ID_16BIT) // has emissive
-    {
-        float lightPdf;
-        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(lightPdf,sphere,ray._immutable.origin,interaction,lights[lightID]);
-        ray._payload.accumulation += ray._payload.throughput*lightVal/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
-    }
-
-
-
-
-
-        const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);
         const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon[0].z,rcpChoiceProb);
-
-        float maxT;
-        // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
-        float lightPdf;
-        nbl_glsl_LightSample _sample;
-            
-
-        // OETF smallest perceptible value
-        const float bsdfPdfThreshold = getLuma(nbl_glsl_eotf_sRGB(vec3(1.0)/255.0));
-        const float lumaThroughputThreshold = bsdfPdfThreshold;
-        if (bsdfPdf>bsdfPdfThreshold && (!doNEE || bsdfPdf<FLT_MAX) && getLuma(throughput)>lumaThroughputThreshold)
-        {
-            ray._payload.throughput = throughput*rcpChoiceProb;
-
-            float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
-            heuristicFactor /= doNEE ? lightPdf:bsdfPdf; // weightNonGenerator/(weightGenerator*probGenerated)
-            heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
-            if (doNEE)
-                heuristicFactor = 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
-            ray._payload.otherTechniqueHeuristic = heuristicFactor;
-                    
-            // trace new ray
-            ray._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
-            ray._immutable.maxT = maxT;
-            ray._immutable.direction = _sample.L;
-            ray._immutable.anyHit = doNEE;
-            return false;
-        }
 #endif
