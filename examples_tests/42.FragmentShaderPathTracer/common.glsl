@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 15
-#define SAMPLES 64
+#define SAMPLES 32
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -242,14 +242,10 @@ vec3 BSDFNode_getReflectance(in BSDFNode node, in float VdotH)
         return albedoOrRealIoR;
 }
 
-float BSDFNode_getNEESkipProb(in BSDFNode bsdf)
+float BSDFNode_getNEEProb(in BSDFNode bsdf)
 {
-    if (BSDFNode_isNotDiffuse(bsdf))
-    {
-        const float alpha = BSDFNode_getRoughness(bsdf);
-        return alpha*alpha;
-    }
-    return 0.0;
+    const float alpha = BSDFNode_isNotDiffuse(bsdf) ? BSDFNode_getRoughness(bsdf):1.0;
+    return min(8.0*alpha,1.0);
 }
 
 #include <nbl/builtin/glsl/colorspace/EOTF.glsl>
@@ -446,9 +442,10 @@ vec3 nbl_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in nbl_glsl_LightSample 
         const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
 
         //
-        const float a = max(BSDFNode_getRoughness(bsdf),0.01); // TODO: @Crisspl 0-roughness still doesn't work! Also Beckmann has a weird dark rim instead as fresnel!?
+        const float a = max(BSDFNode_getRoughness(bsdf),0.0001); // TODO: @Crisspl 0-roughness still doesn't work! Also Beckmann has a weird dark rim instead as fresnel!?
         const float a2 = a*a;
 
+        // TODO: refactor into Material Compiler-esque thing
         switch (BSDFNode_getType(bsdf))
         {
             case DIFFUSE_OP:
@@ -594,9 +591,9 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
 
         // do NEE
-        const float neeSkipProbability = BSDFNode_getNEESkipProb(bsdf);
+        const float neeProbability = BSDFNode_getNEEProb(bsdf);
         float rcpChoiceProb;
-        if (nbl_glsl_partitionRandVariable(neeSkipProbability, epsilon[0].z, rcpChoiceProb))
+        if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb))
         {
             vec3 neeContrib; float lightPdf, t;
             nbl_glsl_LightSample nee_sample = nbl_glsl_light_generate_and_remainder_and_pdf(
@@ -636,7 +633,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
         {
             ray._payload.throughput = throughput;
-            ray._payload.otherTechniqueHeuristic = (1.0-neeSkipProbability)/bsdfPdf; // numerically stable, don't touch
+            ray._payload.otherTechniqueHeuristic = neeProbability/bsdfPdf; // numerically stable, don't touch
             ray._payload.otherTechniqueHeuristic *= ray._payload.otherTechniqueHeuristic;
                     
             // trace new ray
