@@ -261,7 +261,7 @@ int main()
 		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	E_LIGHT_GEOMETRY lightGeom = ELG_TRIANGLE;
+	E_LIGHT_GEOMETRY lightGeom = ELG_SPHERE;
 	constexpr const char* shaderPaths[] = {"../litBySphere.frag","../litByTriangle.frag","../litByRectangle.frag"};
 	auto gpuEnvmapResources = createGpuResources(shaderPaths[lightGeom]);
 	auto gpuEnvmapPipeline = gpuEnvmapResources.first;
