@@ -28,25 +28,20 @@ layout (location = 0) out vec4 OutColor;
 
 #include <nbl/builtin/glsl/bxdf/common.glsl> // change to bxdf/common.glsl
 
-#ifndef _NBL_FRAG_MATERIAL_PARAMETERS_STRUCT_DEFINED_
-#define _NBL_FRAG_MATERIAL_PARAMETERS_STRUCT_DEFINED_
-
 #include <nbl/builtin/glsl/loader/mtl/common.glsl>
-#define nbl_glsl_MaterialParametersStruct nbl_glsl_MTLMaterialParameters
-#endif //_NBL_FRAG_MATERIAL_PARAMETERS_STRUCT_DEFINED_
 
 #ifndef _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
 #define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
 
 layout (push_constant) uniform Block {
-    nbl_glsl_MaterialParametersStruct params;
+    nbl_glsl_MTLMaterialParameters params;
 } PC;
 #endif //_NBL_FRAG_PUSH_CONSTANTS_DEFINED_
 
 #ifndef _NBL_FRAG_GET_MATERIAL_PARAMETERS_FUNCTION_DEFINED_
 #define _NBL_FRAG_GET_MATERIAL_PARAMETERS_FUNCTION_DEFINED_
 
-nbl_glsl_MaterialParametersStruct nbl_glsl_getMaterialParameters()
+nbl_glsl_MTLMaterialParameters nbl_glsl_getMaterialParameters()
 {
     return PC.params;
 }
@@ -99,7 +94,7 @@ vec4 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
 Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
-    nbl_glsl_MaterialParametersStruct mtParams = nbl_glsl_getMaterialParameters();
+    nbl_glsl_MTLMaterialParameters mtParams = nbl_glsl_getMaterialParameters();
 
     vec3 Kd;
 #ifndef _NO_UV
@@ -176,7 +171,7 @@ Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_Isotropi
 vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
     nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(vec3(0.0), ViewPos, Normal, mat2x3(dFdx(ViewPos),dFdy(ViewPos)));
-    nbl_glsl_MaterialParametersStruct mtParams = nbl_glsl_getMaterialParameters();
+    nbl_glsl_MTLMaterialParameters mtParams = nbl_glsl_getMaterialParameters();
 
 #ifndef _NO_UV
     if ((mtParams.extra&map_bump_MASK) == map_bump_MASK)
@@ -239,7 +234,7 @@ void main()
 #else
     mat2 dUV = mat2(vec2(0,0),vec2(0,0));    
 #endif
-    nbl_glsl_MaterialParametersStruct mtParams = nbl_glsl_getMaterialParameters();
+    nbl_glsl_MTLMaterialParameters mtParams = nbl_glsl_getMaterialParameters();
     nbl_glsl_IsotropicViewSurfaceInteraction interaction;
     vec3 color = nbl_computeLighting(interaction, dUV);
 
