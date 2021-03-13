@@ -9,74 +9,49 @@
 #include "common.glsl"
 
 
-
-int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
+void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 origin, in vec3 direction)
 {
-    const bool anyHit = intersectionT!=FLT_MAX;
-
-	int objectID = -1;
-	for (int i=0; i<SPHERE_COUNT; i++)
-    {
-        float t = Sphere_intersect(spheres[i],origin,direction);
-        bool closerIntersection = t>0.0 && t<intersectionT;
-
-		objectID = closerIntersection ? i:objectID;
-        intersectionT = closerIntersection ? t:intersectionT;
-        
-        // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection)
-           //break;
-    }
-    return objectID;
 }
 
-
-// the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
+float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
 {
-    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
-    pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
-    return Light_getRadiance(light);
+    const Sphere sphere = spheres[ray._mutable.objectID];
+    return 1.0/Sphere_getSolidAngle(sphere,ray._immutable.origin);
 }
 
-nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in uint depth)
+vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 xi, in uint objectID)
 {
-    // normally we'd pick from set of lights, using `u.z`
-    const Light light = lights[0];
-    const float choicePdf = scene_getLightChoicePdf(light);
-
-    const Sphere sphere = spheres[Light_getObjectID(light)];
+    const Sphere sphere = spheres[objectID];
 
     vec3 Z = sphere.position-origin;
     const float distanceSQ = dot(Z,Z);
     const float cosThetaMax2 = 1.0-sphere.radius2/distanceSQ;
-    const float rcpDistance = inversesqrt(distanceSQ);
+    if (cosThetaMax2>0.0)
+    {
+        const float rcpDistance = inversesqrt(distanceSQ);
+        Z *= rcpDistance;
+    
+        const float cosThetaMax = sqrt(cosThetaMax2);
+        const float cosTheta = mix(1.0,cosThetaMax,xi.x);
 
-    const bool possibilityOfLightVisibility = cosThetaMax2>0.0;
-    Z *= rcpDistance;
-    
-    // following only have valid values if `possibilityOfLightVisibility` is true
-    const float cosThetaMax = sqrt(cosThetaMax2);
-    const float cosTheta = mix(1.0,cosThetaMax,u.x);
+        vec3 L = Z*cosTheta;
 
-    vec3 L = Z*cosTheta;
-
-    const float cosTheta2 = cosTheta*cosTheta;
-    const float sinTheta = sqrt(1.0-cosTheta2);
-    float sinPhi,cosPhi;
-    nbl_glsl_sincos(2.0*nbl_glsl_PI*u.y-nbl_glsl_PI,sinPhi,cosPhi);
-    mat2x3 XY = nbl_glsl_frisvad(Z);
+        const float cosTheta2 = cosTheta*cosTheta;
+        const float sinTheta = sqrt(1.0-cosTheta2);
+        float sinPhi,cosPhi;
+        nbl_glsl_sincos(2.0*nbl_glsl_PI*xi.y-nbl_glsl_PI,sinPhi,cosPhi);
+        mat2x3 XY = nbl_glsl_frisvad(Z);
     
-    L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
+        L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
     
-    const float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax)/choicePdf;
-    remainder = Light_getRadiance(light)*(possibilityOfLightVisibility ? rcpPdf:0.0); // this ternary operator kills invalid rays
-    pdf = 1.0/rcpPdf;
-    
-    newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*getEndTolerance(depth);
-    
-    return nbl_glsl_createLightSample(L,interaction);
+        newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance;
+        pdf = 1.0/Sphere_getSolidAngle_impl(cosThetaMax);
+        return L;
+    }
+    pdf = 0.0;
+    return vec3(0.0,0.0,0.0);
 }
+
 
 bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
@@ -110,8 +85,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(lightPdf,sphere,ray._immutable.origin,interaction,lights[lightID]);
-        ray._payload.accumulation += lightVal*throughput/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
+        ray._payload.accumulation += nbl_glsl_light_deferred_eval_and_prob(lightPdf,lights[lightID],ray)*throughput/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
     }
 
     // check if we even have a BSDF at all
@@ -144,7 +118,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         if (nbl_glsl_partitionRandVariable(neeSkipProbability,epsilon[0].z,rcpChoiceProb))
         {
             vec3 neeContrib; float lightPdf, t;
-            nbl_glsl_LightSample nee_sample = nbl_glsl_light_generate_and_remainder_and_pdf(neeContrib,lightPdf,t,intersection,interaction,epsilon[0],depth);
+            nbl_glsl_LightSample nee_sample = nbl_glsl_light_generate_and_remainder_and_pdf(neeContrib,lightPdf,t,intersection,interaction,false,epsilon[0],depth);
             // We don't allow non watertight transmitters in this renderer
             bool validPath = nee_sample.NdotL>0.0;
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself

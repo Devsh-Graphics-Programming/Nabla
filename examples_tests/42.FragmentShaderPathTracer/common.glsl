@@ -299,7 +299,7 @@ Light lights[LIGHT_COUNT] =
 {
     {
         vec3(30.0,25.0,15.0),
-#if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
+#ifdef POLYGON_METHOD
         0u
 #else
         8u
@@ -316,7 +316,7 @@ struct ImmutableRay_t
 {
     vec3 origin;
     vec3 direction;
-#if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
+#if POLYGON_METHOD==2
     vec3 normalAtOrigin;
     bool wasBSDFAtOrigin;
 #endif
@@ -486,7 +486,54 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
     return retval;
 }
 
-int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction);
+
+void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 origin, in vec3 direction);
+int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
+{
+    const bool anyHit = intersectionT!=FLT_MAX;
+
+	int objectID = -1;
+	for (int i=0; i<SPHERE_COUNT; i++)
+    {
+        float t = Sphere_intersect(spheres[i],origin,direction);
+        bool closerIntersection = t>0.0 && t<intersectionT;
+
+        intersectionT = closerIntersection ? t : intersectionT;
+		objectID = closerIntersection ? i:objectID;
+        
+        // allowing early out results in a performance regression, WTF!?
+        //if (anyHit && closerIntersection)
+           //break;
+    }
+    traceRay_extraShape(objectID,intersectionT,origin,direction);
+    return objectID;
+}
+
+//
+float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray);
+vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Light light, in Ray_t ray)
+{
+    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced (because lights have no BSDFs here)
+    pdf = scene_getLightChoicePdf(light);
+    pdf *= nbl_glsl_light_deferred_pdf(light,ray);
+    return Light_getRadiance(light);
+}
+
+vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 xi, in uint objectID);
+nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 xi, in uint depth)
+{
+    // normally we'd pick from set of lights, using `xi.z`
+    const Light light = lights[0];
+    
+    vec3 L = nbl_glsl_light_generate_and_pdf(pdf,newRayMaxT,origin,interaction,isBSDF,xi,Light_getObjectID(light));
+
+    newRayMaxT *= getEndTolerance(depth);
+    pdf *= scene_getLightChoicePdf(light);
+    remainder = Light_getRadiance(light)/pdf;
+    return nbl_glsl_createLightSample(L,interaction);
+}
+
+
 bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
@@ -535,7 +582,7 @@ void main()
             tmp = invMVP*tmp;
             ray._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
 
-            #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
+            #if POLYGON_METHOD==2
                 ray._immutable.normalAtOrigin = vec3(0.0,0.0,0.0);
                 ray._immutable.wasBSDFAtOrigin = false;
             #endif

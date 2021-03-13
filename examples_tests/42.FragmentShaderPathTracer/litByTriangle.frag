@@ -6,7 +6,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #define SPHERE_COUNT 8
-#define TRIANGLE_METHOD 2 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
+#define POLYGON_METHOD 0 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
 #include "common.glsl"
 
 #define TRIANGLE_COUNT 1
@@ -14,23 +14,8 @@ Triangle triangles[TRIANGLE_COUNT] = {
     Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
 };
 
-int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
+void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 origin, in vec3 direction)
 {
-    const bool anyHit = intersectionT!=FLT_MAX;
-
-	int objectID = -1;
-	for (int i=0; i<SPHERE_COUNT; i++)
-    {
-        float t = Sphere_intersect(spheres[i],origin,direction);
-        bool closerIntersection = t>0.0 && t<intersectionT;
-
-		objectID = closerIntersection ? i:objectID;
-        intersectionT = closerIntersection ? t:intersectionT;
-        
-        // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection)
-           //break;
-    }
 	for (int i=0; i<TRIANGLE_COUNT; i++)
     {
         float t = Triangle_intersect(triangles[i],origin,direction);
@@ -38,97 +23,67 @@ int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
 
 		objectID = closerIntersection ? (i+SPHERE_COUNT):objectID;
         intersectionT = closerIntersection ? t:intersectionT;
-        
-        // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection)
-           //break;
     }
-    return objectID;
 }
 
 
 #include <nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl>
-
-
-// the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 nbl_glsl_light_deferred_eval_and_prob(
-    out float pdf, in Light light, in vec3 L
-#if TRIANGLE_METHOD==0
-    ,in float intersectionT
-#else
-    ,in vec3 origin
-#if TRIANGLE_METHOD==2
-    ,in vec3 normalAtOrigin, in bool wasBSDFAtOrigin
-#endif
-#endif
-)
+float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
 {
-    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
-    pdf = scene_getLightChoicePdf(light);
+    const Triangle tri = triangles[Light_getObjectID(light)];
 
-    Triangle tri = triangles[Light_getObjectID(light)];
-#if TRIANGLE_METHOD==0
-    pdf *= intersectionT*intersectionT/abs(dot(Triangle_getNormalTimesArea(tri),L));
+    const vec3 L = ray._immutable.direction;
+#if POLYGON_METHOD==0
+    const float dist = ray._mutable.intersectionT;
+    return dist*dist/abs(dot(Triangle_getNormalTimesArea(tri),L));
 #else
-    const mat3 sphericalVertices = nbl_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
-    Triangle tmpTri = Triangle_Triangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),0u,0u);
-    #if TRIANGLE_METHOD==1
-        float rcpProb = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
+    const ImmutableRay_t _immutable = ray._immutable;
+    const mat3 sphericalVertices = nbl_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),_immutable.origin);
+    #if POLYGON_METHOD==1
+        const float rcpProb = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
         // if `rcpProb` is NAN then the triangle's solid angle was close to 0.0 
-        pdf = rcpProb>FLT_MIN ? (pdf/rcpProb):FLT_MAX;
-    #elif TRIANGLE_METHOD==2
-        pdf *= nbl_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,normalAtOrigin,wasBSDFAtOrigin,L);
+        return rcpProb>FLT_MIN ? (1.0/rcpProb):FLT_MAX;
+    #elif POLYGON_METHOD==2
+        const float pdf = nbl_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,L);
         // if `pdf` is NAN then the triangle's projected solid angle was close to 0.0, if its close to INF then the triangle was very small
-        pdf = pdf<FLT_MAX ? pdf:0.0;
+        return pdf<FLT_MAX ? pdf:0.0;
     #endif
 #endif
-    return Light_getRadiance(light);
 }
 
-
-nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 u, in uint depth)
+vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 xi, in uint objectID)
 {
-    // normally we'd pick from set of lights, using `u.z`
-    const Light light = lights[0];
-    const float choicePdf = scene_getLightChoicePdf(light);
-
-    const Triangle tri = triangles[Light_getObjectID(light)];
+    const Triangle tri = triangles[objectID];
     
-#if TRIANGLE_METHOD==0
+#if POLYGON_METHOD==0
     const mat2x3 edges = mat2x3(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0);
-    const float sqrtU = sqrt(u.x);
-    vec3 point = tri.vertex0+edges[0]*(1.0-sqrtU)+edges[1]*sqrtU*u.y;
-    vec3 L = point-origin;
+    const float sqrtU = sqrt(xi.x);
+    vec3 point = tri.vertex0+edges[0]*(1.0-sqrtU)+edges[1]*sqrtU*xi.y;
+    const vec3 L = point-origin;
     
     const float distanceSq = dot(L,L);
     const float rcpDistance = inversesqrt(distanceSq);
-    L *= rcpDistance;
-
-    const float dist = 1.0/rcpDistance;
     
-    const float rcpPdf = abs(dot(Triangle_getNormalTimesArea_impl(edges),L))/(distanceSq*choicePdf);
+    pdf = distanceSq/abs(dot(Triangle_getNormalTimesArea_impl(edges),L));
+    newRayMaxT = 1.0/rcpDistance;
+    return L*rcpDistance;
 #else 
     float rcpPdf;
 
     const mat3 sphericalVertices = nbl_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
-#if TRIANGLE_METHOD==1
-    const vec3 L = nbl_glsl_sampling_generateSphericalTriangleSample(rcpPdf,sphericalVertices,u.xy);
-#elif TRIANGLE_METHOD==2
-    const vec3 L = nbl_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,sphericalVertices,interaction.isotropic.N,isBSDF,u.xy);
+#if POLYGON_METHOD==1
+    const vec3 L = nbl_glsl_sampling_generateSphericalTriangleSample(rcpPdf,sphericalVertices,xi.xy);
+#elif POLYGON_METHOD==2
+    const vec3 L = nbl_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,sphericalVertices,interaction.isotropic.N,isBSDF,xi.xy);
 #endif
+
     // if `rcpProb` is NAN or negative then the triangle's solidAngle or projectedSolidAngle was close to 0.0 
-    rcpPdf = rcpPdf>FLT_MIN ? rcpPdf:0.0;
+    pdf = rcpPdf>FLT_MIN ? (1.0/rcpPdf):0.0;
 
     const vec3 N = Triangle_getNormalTimesArea(tri);
-    const float dist = dot(N,tri.vertex0-origin)/dot(N,L);
+    newRayMaxT = dot(N,tri.vertex0-origin)/dot(N,L);
+    return L;
 #endif
-
-    remainder = Light_getRadiance(light)*rcpPdf;
-    pdf = 1.0/rcpPdf;
-
-    newRayMaxT = getEndTolerance(depth)*dist;
-    
-    return nbl_glsl_createLightSample(L,interaction);
 }
 
 
@@ -175,18 +130,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(
-            lightPdf,lights[lightID],_immutable.direction
-        #if TRIANGLE_METHOD==0
-            ,_mutable.intersectionT
-        #else
-            ,_immutable.origin
-        #if TRIANGLE_METHOD==2
-            ,_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin
-        #endif
-        #endif
-        );
-        ray._payload.accumulation += lightVal*throughput/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
+        ray._payload.accumulation += nbl_glsl_light_deferred_eval_and_prob(lightPdf,lights[lightID],ray)*throughput/(1.0+lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
     }
 
     // check if we even have a BSDF at all
@@ -263,8 +207,10 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
             // trace new ray
             ray._immutable.origin = intersection+bsdfSampleL*(1.0/*kSceneSize*/)*getStartTolerance(depth);
             ray._immutable.direction = bsdfSampleL;
+            #if POLYGON_METHOD==2
             ray._immutable.normalAtOrigin = interaction.isotropic.N;
             ray._immutable.wasBSDFAtOrigin = isBSDF;
+            #endif
             return true;
         }
     }
