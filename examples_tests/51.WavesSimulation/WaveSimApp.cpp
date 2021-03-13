@@ -352,7 +352,7 @@ void WaveSimApp::PresentWaves(const textureView& tex)
 	IGPUDescriptorSet::SDescriptorInfo info;
 	{
 		info.desc = tex;
-		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 		info.image.sampler = m_driver->createGPUSampler(samplerParams);
 		info.image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 	}

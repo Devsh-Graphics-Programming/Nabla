@@ -15,7 +15,8 @@ struct WaveSimParams
 	nbl::core::vector2df m_length_unit;
 	nbl::core::vector2df m_wind_dir;
 	float m_wind_speed;
-	float m_A; 
+	float m_amplitude; 
+	float m_wind_dependency;
 };
 
 class WaveSimApp

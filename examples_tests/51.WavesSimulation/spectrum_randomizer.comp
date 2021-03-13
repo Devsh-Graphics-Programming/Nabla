@@ -21,6 +21,7 @@ layout(push_constant) uniform pushConstants {
     vec2  WIND_DIR;
     float WIND_SPEED;
     float A;
+    float WIND_DEP;
 } u_pc;
 
 uint wang_hash(uint seed)
@@ -34,9 +35,10 @@ uint wang_hash(uint seed)
 }
 
 vec2 rand(vec2 co){
-    co = vec2(wang_hash(uint(co.x + 1)) / float(UINT_MAX), wang_hash(uint(co.y)) / float(UINT_MAX));
-    if(any(isinf(nbl_glsl_BoxMullerTransform(co, 1.0f)))) return vec2(1, 1);
-    return nbl_glsl_BoxMullerTransform(co, 1.0f);
+    co = vec2(wang_hash(uint(co.y)) / float(UINT_MAX), wang_hash(uint(co.x)) / float(UINT_MAX));
+    if(co.x < 0.00001) co.x = 0.001;
+    vec2 res = nbl_glsl_BoxMullerTransform(co, 1.0f);
+    return res;
 }
 
 
@@ -44,15 +46,17 @@ vec2 rand(vec2 co){
 float Ph(vec2 k)
 {
     float L = u_pc.WIND_SPEED * u_pc.WIND_SPEED / G;
+    float W = L / 1000;
     if(abs(length(k)) < 0.000001) return 0;
     float cosine_factor_sqrt = dot(normalize(k), u_pc.WIND_DIR);
     float cosine_factor = cosine_factor_sqrt  * cosine_factor_sqrt;
     float k2 = dot(k, k);
-    float k4 = k2 * k2;
-    float res =  u_pc.A * exp(-1 / (k2 * L * L)) / k4 * cosine_factor; 
+    float k6 = k2 * k2 * k2;
+    float res =  u_pc.A * exp(-1 / (k2 * L * L)) / k6 * cosine_factor; 
     if(cosine_factor_sqrt < 0)
-        res = 0;
-    return res;
+        res *= u_pc.WIND_DEP;
+
+    return res * exp(-k2 * W * W);
 }
 
 vec2 h0(vec2 k)
