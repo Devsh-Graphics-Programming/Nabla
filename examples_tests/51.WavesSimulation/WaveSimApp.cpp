@@ -13,7 +13,7 @@ bool WaveSimApp::Init()
 	params.Bits = 24;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
-	params.WindowSize = dimension2d<uint32_t>(1600, 900);
+	params.WindowSize = dimension2d<uint32_t>(900, 900);
 	params.Fullscreen = false;
 
 	m_device = createDeviceEx(params);
