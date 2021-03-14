@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 15
-#define SAMPLES 32
+#define SAMPLES 128
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -591,7 +591,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
 
         // do NEE
-        const float neeProbability = BSDFNode_getNEEProb(bsdf);
+        const float neeProbability = 1.0;// BSDFNode_getNEEProb(bsdf);
         float rcpChoiceProb;
         if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb))
         {
@@ -616,6 +616,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
                     ray._payload.accumulation += neeContrib;
             }
         }
+        return false;
 
         // sample BSDF
         float bsdfPdf; vec3 bsdfSampleL;
