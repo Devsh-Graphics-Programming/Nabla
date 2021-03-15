@@ -308,7 +308,7 @@ struct DrawIndexedIndirectInput
 
     static constexpr asset::E_PRIMITIVE_TOPOLOGY mode = asset::EPT_TRIANGLE_LIST;
     static constexpr asset::E_INDEX_TYPE indexType = asset::EIT_16BIT;
-    static constexpr size_t stride = sizeof(DrawElementsIndirectCommand_t);
+    static constexpr size_t stride = 0ull;
 };
 
 using Range_t = SRange<void, core::vector<ICPUMeshBuffer*>::iterator>;
@@ -373,7 +373,7 @@ void packMeshBuffers(video::IVideoDriver* driver, DrawData& drawData)
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 20000000u;
     allocParams.indexBufferMinAllocSize = 5000u;
-    allocParams.vertexBuffSupportedSize = 200000000u;
+    allocParams.vertexBuffSupportedSize = 80000000u;
     allocParams.vertexBufferMinAllocSize = 5000u;
     allocParams.MDIDataBuffSupportedCnt = 20000u;
     allocParams.MDIDataBuffMinAllocSize = 1u; //so structs are adjacent in memory
@@ -424,7 +424,7 @@ void packMeshBuffers(video::IVideoDriver* driver, DrawData& drawData)
 
         core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiCnt);
 
-        core::vector<MeshPacker::CombinedDataOffsetTable> cdot(offsetTableSz);
+        core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiCnt);
 
         bool commitSuccessfull = mp.commit(pmbd.data(), cdot.data(), allocData->data() + drawData.pushConstantsData[i], mbRangeBegin, mbRangeEnd);
         if (!commitSuccessfull)
@@ -436,15 +436,16 @@ void packMeshBuffers(video::IVideoDriver* driver, DrawData& drawData)
         DrawIndexedIndirectInput mdiCallInput;
 
         mdiCallInput.maxCount = mdiCnt;
+        mdiCallInput.offset = pmbd[0].mdiParameterOffset * sizeof(DrawElementsIndirectCommand_t);
 
-        drawData.drawIndirectInput.push_back(std::move(mdiCallInput));
+        drawData.drawIndirectInput.push_back(mdiCallInput);
 
         //auto glsl = mp.generateGLSLBufferDefinitions(0u);
 
         //setOffsetTables
-        for (uint32_t i = 0u; i < mdiCnt; i++)
+        for (uint32_t j = 0u; j < mdiCnt; j++)
         {
-            MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[i];
+            MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[j];
 
             offsetTableLocal.push_back(virtualAttribTable.attribInfo[0]);
             offsetTableLocal.push_back(virtualAttribTable.attribInfo[2]);
@@ -851,7 +852,7 @@ int main()
 
     //TODO: change it to vector of smart pointers
     core::vector<ICPUMeshBuffer*> meshBuffers;
-    for (uint32_t i = 0u; i < 100; i++)
+    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferVector().size(); i++)
         meshBuffers.push_back(mesh_raw->getMeshBufferVector()[i].get());
 
     DrawData drawData;
