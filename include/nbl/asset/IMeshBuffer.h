@@ -6,20 +6,13 @@
 #define __NBL_ASSET_I_MESH_BUFFER_H_INCLUDED__
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
+#include "nbl/asset/ECommonEnums.h"
 #include <algorithm>
 
 namespace nbl
 {
 namespace asset
 {
-
-//!
-enum E_INDEX_TYPE
-{
-    EIT_16BIT = 0,
-    EIT_32BIT,
-    EIT_UNKNOWN
-};
 
 enum E_MESH_BUFFER_TYPE
 {

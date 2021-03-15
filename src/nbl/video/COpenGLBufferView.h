@@ -18,13 +18,11 @@ namespace nbl
 namespace video
 {
 
-class IOpenGL_LogicalDevice;
-
 class COpenGLBufferView : public IGPUBufferView
 {
 	public:
-		COpenGLBufferView(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, core::smart_refctd_ptr<COpenGLBuffer>&& _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = COpenGLBufferView::whole_buffer) :
-			IGPUBufferView(dev, std::move(_buffer), _format, _offset, _size), m_device(dev), m_textureName(0u), m_GLformat(GL_INVALID_ENUM), m_textureSize(0u)
+		COpenGLBufferView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, core::smart_refctd_ptr<IGPUBuffer>&& _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = COpenGLBufferView::whole_buffer) :
+			IGPUBufferView(dev, std::move(_buffer), _format, _offset, _size), m_textureName(0u), m_GLformat(GL_INVALID_ENUM), m_textureSize(0u)
 		{
 			gl->extGlCreateTextures(GL_TEXTURE_BUFFER, 1, &m_textureName);
 
@@ -45,7 +43,6 @@ class COpenGLBufferView : public IGPUBufferView
 		virtual ~COpenGLBufferView();
 
 	private:
-		IOpenGL_LogicalDevice* m_device;
 		GLuint m_textureName;
 		GLenum m_GLformat;
 		uint32_t m_textureSize;

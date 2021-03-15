@@ -131,9 +131,12 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		}
 
 	public:
+		using disposal_func_t = typename base_t::disposal_func_t;
+		using assoc_t = typename base_t::list_value_t;
+
 		//Constructor
-		inline LRUCache(const uint32_t capacity, typename base_t::disposal_func_t && = typename base_t::disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
-			base_t(capacity,std::move(_hash),std::move(_equals)),
+		inline LRUCache(const uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
+			base_t(capacity,std::move(_hash),std::move(_equals),std::move(_df)),
 			m_shortcut_map(capacity>>2,WrapHash{this},WrapEquals{this}) // 4x less buckets than capacity seems reasonable
 		{
 			assert(capacity > 1);

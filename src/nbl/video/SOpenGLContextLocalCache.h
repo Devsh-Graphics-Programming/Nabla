@@ -45,16 +45,86 @@ struct SOpenGLContextLocalCache
         GLuint GLname;
     };
 
+    using vao_cache_t = core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash>;
+    using pipeline_cache_t = core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc>;
+    using fbo_cache_t = core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc>;
+
     static inline constexpr size_t maxVAOCacheSize = 0x1ull << 10; //make this cache configurable
     static inline constexpr size_t maxPipelineCacheSize = 0x1ull << 13;//8k
     static inline constexpr size_t maxFBOCacheSize = 0x1ull << 8; // 256
 
-    SOpenGLContextLocalCache(IOpenGL_FunctionTable* _gl) : VAOMap(maxVAOCacheSize, VAODisposalFunc(_gl)), GraphicsPipelineMap(maxPipelineCacheSize, PipelineDisposalFunc(_gl)), FBOCache(maxFBOCacheSize, FBODisposalFunc(_gl))
+    struct VAODisposalFunc
     {
-    }
-    ~SOpenGLContextLocalCache()
+        VAODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(vao_cache_t::assoc_t& x) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glVertex.pglDeleteVertexArrays(1, &x.second);
+        }
+    };
+    struct PipelineDisposalFunc
     {
-        // TODO destroy all GL names in the caches
+        PipelineDisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(pipeline_cache_t::assoc_t& x) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glShader.pglDeleteProgramPipelines(1, &x.second.GLname);
+        }
+    };
+    struct FBODisposalFunc
+    {
+        FBODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(fbo_cache_t::assoc_t& x) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glFramebuffer.pglDeleteFramebuffers(1, &x.second);
+        }
+    };
+
+    explicit SOpenGLContextLocalCache(IOpenGL_FunctionTable* _gl) : 
+        VAOMap(maxVAOCacheSize, vao_cache_t::disposal_func_t(VAODisposalFunc(_gl))),
+        GraphicsPipelineMap(maxPipelineCacheSize, pipeline_cache_t::disposal_func_t(PipelineDisposalFunc(_gl))),
+        FBOCache(maxFBOCacheSize, fbo_cache_t::disposal_func_t(FBODisposalFunc(_gl)))
+    {
     }
 
     SOpenGLState currentState;
@@ -81,75 +151,9 @@ struct SOpenGLContextLocalCache
             return nullptr;
     }
 
-    struct VAODisposalFunc
-    {
-        VAODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
-#ifdef _NBL_DEBUG
-            ,tid(std::this_thread::get_id()) 
-#endif
-        {}
-
-        IOpenGL_FunctionTable* gl;
-#ifdef _NBL_DEBUG
-        const std::thread::id tid;
-#endif
-
-        void operator()(GLuint& vao) const
-        {
-#ifdef _NBL_DEBUG
-            assert(std::this_thread::get_id() == tid);
-            if (std::this_thread::get_id() == tid)
-#endif
-                gl->glVertex.pglDeleteVertexArrays(1, &vao);
-        }
-    };
-    core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash> VAOMap;
-    struct PipelineDisposalFunc
-    {
-        PipelineDisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
-#ifdef _NBL_DEBUG
-            , tid(std::this_thread::get_id())
-#endif
-        {}
-
-        IOpenGL_FunctionTable* gl;
-#ifdef _NBL_DEBUG
-        const std::thread::id tid;
-#endif
-
-        void operator()(SPipelineCacheVal& val) const
-        {
-#ifdef _NBL_DEBUG
-            assert(std::this_thread::get_id() == tid);
-            if (std::this_thread::get_id() == tid)
-#endif
-                gl->glShader.pglDeleteProgramPipelines(1, &val.GLname);
-        }
-    };
-    core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc> GraphicsPipelineMap;
-    struct FBODisposalFunc
-    {
-        FBODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
-#ifdef _NBL_DEBUG
-            , tid(std::this_thread::get_id())
-#endif
-        {}
-
-        IOpenGL_FunctionTable* gl;
-#ifdef _NBL_DEBUG
-        const std::thread::id tid;
-#endif
-
-        void operator()(GLuint& val) const
-        {
-#ifdef _NBL_DEBUG
-            assert(std::this_thread::get_id() == tid);
-            if (std::this_thread::get_id() == tid)
-#endif
-                gl->glFramebuffer.pglDeleteFramebuffers(1, &val);
-        }
-    };
-    core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc> FBOCache;
+    vao_cache_t VAOMap;
+    pipeline_cache_t GraphicsPipelineMap;
+    fbo_cache_t FBOCache;
 
     inline void removePipelineEntry(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& key)
     {

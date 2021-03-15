@@ -6,7 +6,7 @@ namespace nbl {
 namespace video
 {
 
-COpenGLFramebuffer::COpenGLFramebuffer(SCreationParams&& params, IOpenGL_LogicalDevice* dev) : IGPUFramebuffer(dev, std::move(params)), m_device(dev)
+COpenGLFramebuffer::COpenGLFramebuffer(IOpenGL_LogicalDevice* dev, SCreationParams&& params) : IGPUFramebuffer(dev, std::move(params)), m_device(dev)
 {
 }
 

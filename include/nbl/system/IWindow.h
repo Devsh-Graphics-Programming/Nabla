@@ -24,7 +24,9 @@ public:
         ECF_INPUT_FOCUS = 1u<<7,
         //! Indicates whether mouse is hovering over the window even if the window is not active
         ECF_MOUSE_FOCUS = 1u<<8,
-        ECF_ALWAYS_ON_TOP = 1u<<9
+        ECF_ALWAYS_ON_TOP = 1u<<9,
+
+        ECF_NONE = 0
     };
 
     inline bool isFullscreen()      { return (m_flags & ECF_FULLSCREEN); }

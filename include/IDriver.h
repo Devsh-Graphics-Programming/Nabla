@@ -8,7 +8,7 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/video/asset_traits.h"
-#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+//#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 namespace nbl
 {
@@ -44,10 +44,11 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 {
     protected:
         asset::IAssetManager* m_assetMgr;
-		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
-		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
+		//core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
+		//core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
 
-        inline IDriver(asset::IAssetManager* assmgr) : IVideoCapabilityReporter(), m_assetMgr(assmgr), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr) {}
+        inline IDriver(asset::IAssetManager* assmgr) : IVideoCapabilityReporter(), m_assetMgr(assmgr)//, defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr) 
+        {}
 
         virtual ~IDriver()
         {
@@ -226,7 +227,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		{
 			auto retval = createDeviceLocalGPUBufferOnDedMem(size);
 
-			updateBufferRangeViaStagingBuffer(retval.get(), 0u, size, data);
+			//updateBufferRangeViaStagingBuffer(retval.get(), 0u, size, data);
 
 			return retval;
 		}
@@ -325,7 +326,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
-
+/*
         //!
         virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer.get();}
 
@@ -359,7 +360,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
             // TODO: for other threads to play nice.
             //glFlush();
         }
-
+*/
 
 		//! Fill out the descriptor sets with descriptors
 		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}

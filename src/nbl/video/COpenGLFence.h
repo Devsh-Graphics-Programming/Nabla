@@ -9,8 +9,6 @@ namespace nbl {
 namespace video
 {
 
-class IOpenGL_LogicalDevice;
-
 class COpenGLFence final : public IGPUFence, public IOpenGLSyncPrimitiveBase
 {
 protected:
@@ -18,12 +16,12 @@ protected:
 
 public:
     // signaled ctor
-    COpenGLFence(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl) : IGPUFence(dev, ECF_SIGNALED_BIT), IOpenGLSyncPrimitiveBase(dev)
+    COpenGLFence(IOpenGL_LogicalDevice* dev, ILogicalDevice* _dev, IOpenGL_FunctionTable* gl) : IGPUFence(_dev, ECF_SIGNALED_BIT), IOpenGLSyncPrimitiveBase(dev)
     {
         signal(gl);
     }
     // un-signaled ctor
-    explicit COpenGLFence(IOpenGL_LogicalDevice* dev) : IGPUFence(dev, static_cast<E_CREATE_FLAGS>(0)), IOpenGLSyncPrimitiveBase(dev)
+    explicit COpenGLFence(IOpenGL_LogicalDevice* dev, ILogicalDevice* _dev) : IGPUFence(_dev, static_cast<E_CREATE_FLAGS>(0)), IOpenGLSyncPrimitiveBase(dev)
     {
 
     }

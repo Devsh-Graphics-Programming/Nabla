@@ -47,14 +47,19 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
     }
 
 public:
+    using mutex_t = typename base_t::mutex_t;
+    using lock_t = typename base_t::lock_t;
+    using cvar_t = typename base_t::cvar_t;
+    using internal_state_t = typename base_t::internal_state_t;
+
     using request_t = RequestType;
 
     ///////
     // Required accessible methods of class being CRTP parameter:
 
-    //internal_state_t init(); // required only in case of custom internal state
+    //void init(internal_state_t* state); // required only in case of custom internal state
 
-    //void exit(internal_state_t& state); // optional, no `state` parameter in case of no internal state
+    //void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
 
     //void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request()
     //void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state

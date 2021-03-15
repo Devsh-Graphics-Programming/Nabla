@@ -34,6 +34,7 @@ private:
     \
         template <typename T>\
         static true_type& test(decltype(&T::member_func_name));\
+        template <typename T>\
         static false_type& test(...);\
     \
     public:\
@@ -72,7 +73,7 @@ protected:
 
     // Required accessible methods of class being CRTP parameter:
 
-    //internal_state_t init(); // required only in case of custom internal state
+    //void init(internal_state_t*); // required only in case of custom internal state, optional otherwise. Parameterless in case of no internal state
     //bool wakeupPredicate() const;
     //bool continuePredicate() const;
 
@@ -80,20 +81,24 @@ protected:
     // lock is locked at the beginning of this function and must be locked at the exit
     //void work(lock_t& lock, internal_state_t& state);
 
-    //void exit(internal_state_t& state); // optional, no `state` parameter in case of no internal state
+    //void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
 
 private:
-    inline internal_state_t init_impl()
+    internal_state_t* getInternalStatePtr() { return reinterpret_cast<internal_state_t*>(m_internal_state_storage); }
+
+    inline void init_impl()
     {
         static_assert(has_internal_state == has_init::value, "Custom internal state require implementation of init() method!");
 
+        internal_state_t* state_ptr = getInternalStatePtr();
+
         if constexpr (has_internal_state)
         {
-            return static_cast<CRTP*>(this)->init();
+            static_cast<CRTP*>(this)->init(state_ptr);
         }
-        else
+        else if (has_init::value)
         {
-            return 0;
+            static_cast<CRTP*>(this)->init();
         }
     }
 
@@ -119,18 +124,20 @@ public:
     {
         CRTP* this_ = static_cast<CRTP*>(this);
 
-        auto state = init_impl();
+        init_impl();
+        internal_state_t* state_ptr = getInternalStatePtr();
 
         auto lock = createLock();
 
         do {
-            m_cvar.wait(lock, [this_, &m_quit] { return this_->wakeupPredicate() || m_quit; });
+            m_cvar.wait(lock, [this,this_] { return this_->wakeupPredicate() || this->m_quit; });
 
             if (this_->continuePredicate() && !m_quit)
             {
                 if constexpr (has_internal_state)
                 {
-                    this_->work(lock, state);
+                    internal_state_t& internal_state = state_ptr[0];
+                    this_->work(lock, internal_state);
                 }
                 else
                 {
@@ -143,7 +150,7 @@ public:
         {
             if constexpr (has_internal_state)
             {
-                this_->exit(state);
+                this_->exit(state_ptr);
             }
             else
             {
@@ -154,13 +161,14 @@ public:
 
     ~IThreadHandler()
     {
-        terminate(m_thread);
+        terminate();
     }
 
 private:
     mutex_t m_mutex;
     cvar_t m_cvar;
     bool m_quit = false;
+    uint8_t m_internal_state_storage[sizeof(internal_state_t)];
 
     // Must be last member!
     std::thread m_thread;

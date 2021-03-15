@@ -170,6 +170,16 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 		}
 		~FixedCapacityDoublyLinkedList()
 		{
+			if (m_dispose_f && m_begin != invalid_iterator)
+			{
+				auto* begin = getBegin();
+				auto* back = getBack();
+				do 
+				{
+					m_dispose_f(begin->data);
+					begin = get(begin->next);
+				} while (begin != back);
+			}
 			_NBL_ALIGNED_FREE(m_reservedSpace);
 		}
 

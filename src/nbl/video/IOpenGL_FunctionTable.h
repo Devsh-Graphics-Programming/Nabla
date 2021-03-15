@@ -7,7 +7,8 @@
 #include "nbl/core/string/UniqueStringLiteralType.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/video/CEGL.h"
-#include "GLES3/gl32.h"
+#include "GL/glext.h"
+#include "GL/GL.h"
 
 namespace nbl {
 	namespace video {
@@ -18,40 +19,41 @@ namespace nbl {
 		{
 		public:
 			// tokens common for GL 4.6 and GLES 3.2 assuming presence of some extensions
-			static inline constexpr GLenum MAP_PERSISTENT_BIT				= 0x0040;
-			static inline constexpr GLenum MAP_COHERENT_BIT					= 0x0080;
-			static inline constexpr GLenum DYNAMIC_STORAGE_BIT				= 0x0100;
-			static inline constexpr GLenum CLIENT_STORAGE_BIT				= 0x0200;
-			static inline constexpr GLenum BUFFER_IMMUTABLE_STORAGE			= 0x821F;
-			static inline constexpr GLenum BUFFER_STORAGE_FLAGS				= 0x8220;
-			static inline constexpr GLbitfield CLIENT_MAPPED_BUFFER_BARRIER_BIT = 0x00004000;
-			static inline constexpr GLenum TEXTURE_MAX_ANISOTROPY			= 0x84FE;
-			static inline constexpr GLenum TEXTURE_LOD_BIAS					= 0x8501;
-			static inline constexpr GLenum DEPTH_CLAMP						= 0x864F;
-			static inline constexpr GLenum FRAMEBUFFER_SRGB					= 0x8DB9; // GL_EXT_sRGB_write_control GLES extension (i think we got to require this)
+			static inline constexpr GLenum MAP_PERSISTENT_BIT				= GL_MAP_PERSISTENT_BIT;
+			static inline constexpr GLenum MAP_COHERENT_BIT					= GL_MAP_COHERENT_BIT;
+			static inline constexpr GLenum DYNAMIC_STORAGE_BIT				= GL_DYNAMIC_STORAGE_BIT;
+			static inline constexpr GLenum CLIENT_STORAGE_BIT				= GL_CLIENT_STORAGE_BIT;
+			static inline constexpr GLenum BUFFER_IMMUTABLE_STORAGE			= GL_BUFFER_IMMUTABLE_STORAGE;
+			static inline constexpr GLenum BUFFER_STORAGE_FLAGS				= GL_BUFFER_STORAGE_FLAGS;
+			static inline constexpr GLbitfield CLIENT_MAPPED_BUFFER_BARRIER_BIT = GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
+			static inline constexpr GLenum TEXTURE_MAX_ANISOTROPY			= GL_TEXTURE_MAX_ANISOTROPY;
+			static inline constexpr GLenum TEXTURE_LOD_BIAS					= GL_TEXTURE_LOD_BIAS;
+			static inline constexpr GLenum DEPTH_CLAMP						= GL_DEPTH_CLAMP;
+			static inline constexpr GLenum FRAMEBUFFER_SRGB					= GL_FRAMEBUFFER_SRGB; // GL_EXT_sRGB_write_control GLES extension (i think we got to require this)
 			// clip control
-			static inline constexpr GLenum UPPER_LEFT						= 0x8CA2;
-			static inline constexpr GLenum ZERO_TO_ONE						= 0x935F;
+			static inline constexpr GLenum UPPER_LEFT						= GL_UPPER_LEFT;
+			static inline constexpr GLenum ZERO_TO_ONE						= GL_ZERO_TO_ONE;
 
 			//desktop GL only
-			static inline constexpr GLenum TEXTURE_1D						= 0x0de0;
-			static inline constexpr GLenum TEXTURE_1D_ARRAY					= 0x8c18;
-			static inline constexpr GLenum MIRROR_CLAMP_TO_EDGE				= 0x8743;
-			static inline constexpr GLenum MIRROR_CLAMP_TO_BORDER			= 0x8912;
-			static inline constexpr GLenum DOUBLE							= 0x140A;
-			static inline constexpr GLenum COLOR_LOGIC_OP					= 0x0BF2;
-			static inline constexpr GLenum PRIMITIVE_RESTART				= 0x8F9D;
-			static inline constexpr GLenum MULTISAMPLE						= 0x809D;
-			static inline constexpr GLenum POLYGON_OFFSET_POINT				= 0x2A01;
-			static inline constexpr GLenum POLYGON_OFFSET_LINE				= 0x2A02;
-			static inline constexpr GLenum TEXTURE_CUBE_MAP_SEAMLESS		= 0x884F;
+			static inline constexpr GLenum TEXTURE_1D						= GL_TEXTURE_1D;
+			static inline constexpr GLenum TEXTURE_1D_ARRAY					= GL_TEXTURE_1D_ARRAY;
+			static inline constexpr GLenum MIRROR_CLAMP_TO_EDGE				= GL_MIRROR_CLAMP_TO_EDGE;
+			static inline constexpr GLenum MIRROR_CLAMP_TO_BORDER			= GL_MIRROR_CLAMP_TO_BORDER_EXT;
+			static inline constexpr GLenum DOUBLE							= GL_DOUBLE;
+			static inline constexpr GLenum COLOR_LOGIC_OP					= GL_COLOR_LOGIC_OP;
+			static inline constexpr GLenum PRIMITIVE_RESTART				= GL_PRIMITIVE_RESTART;
+			static inline constexpr GLenum MULTISAMPLE						= GL_MULTISAMPLE;
+			static inline constexpr GLenum POLYGON_OFFSET_POINT				= GL_POLYGON_OFFSET_POINT;
+			static inline constexpr GLenum POLYGON_OFFSET_LINE				= GL_POLYGON_OFFSET_LINE;
+			static inline constexpr GLenum TEXTURE_CUBE_MAP_SEAMLESS		= GL_TEXTURE_CUBE_MAP_SEAMLESS;
 
 			class OpenGLFunctionLoader final : public system::FuncPtrLoader
 			{
-				egl::CEGL* egl;
+				const egl::CEGL* egl;
 
 			public:
-				explicit OpenGLFunctionLoader(egl::CEGL* _egl) : egl(_egl) {}
+				OpenGLFunctionLoader() : egl(nullptr) {}
+				explicit OpenGLFunctionLoader(const egl::CEGL* _egl) : egl(_egl) {}
 
 				inline bool isLibraryLoaded() override final
 				{
@@ -63,14 +65,6 @@ namespace nbl {
 					return static_cast<void*>(egl->call.peglGetProcAddress(funcname));
 				}
 			};
-
-			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL_sync, OpenGLFunctionLoader
-				, glFenceSync
-				, glDeleteSync
-				, glClientWaitSync
-				, glWaitSync
-				, glMemoryBarrier
-			);
 
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLframeBuffer, OpenGLFunctionLoader
 				, glBlitFramebuffer
@@ -87,6 +81,13 @@ namespace nbl {
 				, glClearBufferfi
 				, glDrawBuffers
 				, glReadBuffer
+			);
+			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL_sync, OpenGLFunctionLoader
+				, glFenceSync
+				, glDeleteSync
+				, glClientWaitSync
+				, glWaitSync
+				, glMemoryBarrier
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLbuffer, OpenGLFunctionLoader
 				, glBindBufferBase
@@ -274,8 +275,8 @@ namespace nbl {
 				, glDispatchComputeIndirect
 			);
 
-			GL_sync glSync;
 			GLframeBuffer glFramebuffer;
+			GL_sync glSync;
 			GLbuffer glBuffer;
 			GLtexture glTexture;
 			GLshader glShader;
@@ -319,7 +320,7 @@ namespace nbl {
 			virtual inline GLenum extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target);
 			virtual void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textureType) = 0;
 			virtual void extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLenum textureType, GLint level, GLint layer) = 0;
-			virtual inline void extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter) = 0;
+			virtual inline void extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
 			//inline void extGlActiveStencilFace(GLenum face);
 			virtual inline void extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode);
 			virtual void extGlNamedFramebufferDrawBuffer(GLuint framebuffer, GLenum buf) = 0;
@@ -400,7 +401,7 @@ namespace nbl {
 			}
 			virtual void extGlMinSampleShading(GLfloat value) = 0;
 			virtual inline void extGlSwapInterval(int interval);
-			virtual inline void extGlTextureParameteriv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
+			virtual inline void extGlTextureParameteriv(GLuint texture, GLenum target, GLenum pname, const GLint* params)
 			{
 				GLint bound;
 				switch (target)
@@ -1054,7 +1055,7 @@ namespace nbl {
 		}
 		inline void IOpenGL_FunctionTable::extGlSwapInterval(int interval)
 		{
-			m_egl->call.peglSwapInterval(interval);
+			m_egl->call.peglSwapInterval(m_egl->display, interval);
 		}
 
 

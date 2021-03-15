@@ -214,29 +214,35 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
-	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+	
+	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 
 # Junk to refactor
-${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
-${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
+#${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
+#${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
-${NBL_ROOT_PATH}/source/Nabla/CSkinnedMeshSceneNode.cpp
-${NBL_ROOT_PATH}/source/Nabla/CCameraSceneNode.cpp
-${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
+#${NBL_ROOT_PATH}/source/Nabla/CSkinnedMeshSceneNode.cpp
+#${NBL_ROOT_PATH}/source/Nabla/CCameraSceneNode.cpp
+#${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
 
 # Animators
-${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorDelete.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyCircle.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyStraight.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFollowSpline.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorRotation.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorDelete.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyCircle.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyStraight.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFollowSpline.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorRotation.cpp
+)
+set(NBL_SYSTEM_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
@@ -244,14 +250,15 @@ set(NABLA_SRCS_COMMON
 	${NBL_ASSET_SOURCES}
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
+	${NBL_SYSTEM_SOURCES}
 
 # Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceLinux.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceConsole.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceStub.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceWin32.cpp
-	${NBL_ROOT_PATH}/source/Nabla/Irrlicht.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceLinux.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceConsole.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceStub.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceWin32.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/Irrlicht.cpp
 )
 
 if (NBL_EMBED_BUILTIN_RESOURCES)
@@ -260,31 +267,24 @@ endif()
 
 
 set(NABLA_SRCS_NORMAL
-	# system
-	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
-
-	# video
-	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
-
 	# Vulkan
-	${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 
 	#opengl
-	${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
-	${NBL_ROOT_PATH}/source/Nabla/COpenGLDriver.cpp
-	${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
-	${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
-	${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
+	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
+	#${NBL_ROOT_PATH}/source/Nabla/COpenGLDriver.cpp
+	#${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
+	#${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
+	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp

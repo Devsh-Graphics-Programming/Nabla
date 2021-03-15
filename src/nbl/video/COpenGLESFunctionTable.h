@@ -3,7 +3,11 @@
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLFeatureMap.h"
+
 #define GL_GLEXT_PROTOTYPES
+#define GL_APICALL extern
+#define GL_APIENTRY __stdcall
+#undef GL_KHR_debug
 #include "GLES3/gl2ext.h"
 
 namespace nbl {
@@ -170,10 +174,16 @@ public:
 	}
 	void extGlTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizei length) override
 	{
+		GLint bound;
+		glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+
+		glTexture.pglBindTexture(GL_TEXTURE_BUFFER, texture);
 		if (features->Version >= 320)
-			glTexture.pglTexBufferRange(texture, internalformat, buffer);
+			glTexture.pglTexBufferRange(GL_TEXTURE_BUFFER, internalformat, buffer, offset, length);
 		else if (glesTexture.pglTexBufferRangeOES)
-			glesTexture.pglTexBufferRangeOES(texture, internalformat, buffer);
+			glesTexture.pglTexBufferRangeOES(GL_TEXTURE_BUFFER, internalformat, buffer, offset, length);
+
+		glTexture.pglBindTexture(GL_TEXTURE_BUFFER, bound);
 	}
 
 	void extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height) override
@@ -486,7 +496,7 @@ public:
 	void extGlDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint baseinstance) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
-			glesDrawing.pglDrawArraysInstancedBaseInstanceEXT(mode, count, type, indices, instancecount, baseinstance);
+			glesDrawing.pglDrawElementsInstancedBaseInstanceEXT(mode, count, type, indices, instancecount, baseinstance);
 		else
 			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseInstance(mode, count, type, indices, instancecount, baseinstance);
 	}

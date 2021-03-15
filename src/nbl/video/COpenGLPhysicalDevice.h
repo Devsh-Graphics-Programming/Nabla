@@ -13,7 +13,7 @@ class COpenGLPhysicalDevice final : public IOpenGL_PhysicalDeviceBase<COpenGLLog
     using base_t = IOpenGL_PhysicalDeviceBase<COpenGLLogicalDevice>;
 
 public:
-	static core::smart_refctd_ptr<COpenGLPhysicalDevice> create(const egl::CEGL* _egl)
+	static core::smart_refctd_ptr<COpenGLPhysicalDevice> create(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, const egl::CEGL* _egl)
 	{
 		constexpr EGLint OPENGL_MAJOR = 4;
 		constexpr EGLint OPENGL_MINOR_BEST	= 6;
@@ -23,7 +23,8 @@ public:
 		if (initRes.minor < OPENGL_MINOR_WORST)
 			return nullptr;
 
-		return core::make_smart_refctd_ptr<COpenGLPhysicalDevice>(_egl, initRes.config, initRes.ctx, initRes.major, initRes.minor);
+		auto* pdev = new COpenGLPhysicalDevice(std::move(fs), std::move(glslc), _egl, initRes.config, initRes.ctx, initRes.major, initRes.minor);
+		return core::smart_refctd_ptr<COpenGLPhysicalDevice>(pdev, core::dont_grab);
 	}
 
 	E_API_TYPE getAPIType() const override { return EAT_OPENGL; }
@@ -31,12 +32,12 @@ public:
 protected:
 	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
 	{
-		return core::make_smart_refctd_ptr<COpenGLLogicalDevice>(m_egl, &m_glfeatures, m_config, m_gl_major, m_gl_minor, params);
+		return core::make_smart_refctd_ptr<COpenGLLogicalDevice>(m_egl, &m_glfeatures, m_config, m_gl_major, m_gl_minor, params, core::smart_refctd_ptr(m_fs), core::smart_refctd_ptr(m_GLSLCompiler));
 	}
 
 private:
-    COpenGLPhysicalDevice(const egl::CEGL* _egl, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor) : 
-        base_t(_egl, config, ctx, major, minor)
+    COpenGLPhysicalDevice(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, const egl::CEGL* _egl, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor) :
+        base_t(std::move(fs), std::move(glslc), _egl, config, ctx, major, minor)
     {
 
     }

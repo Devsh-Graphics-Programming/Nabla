@@ -7,6 +7,8 @@
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/video/EApiType.h"
+#include "IFileSystem.h"
+#include "nbl/asset/IGLSLCompiler.h"
 #include <type_traits>
 
 namespace nbl {
@@ -87,7 +89,11 @@ public:
         asset::VkExtent3D minImageTransferGranularity;
     };
 
-    IPhysicalDevice() = default;
+    IPhysicalDevice(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+        m_fs(std::move(fs)), m_GLSLCompiler(std::move(glslc))
+    {
+
+    }
 
     const SLimits& getLimits() const { return m_limits; }
     const SFeatures& getFeatures() const { return m_features; }
@@ -144,6 +150,9 @@ protected:
     }
 
     virtual ~IPhysicalDevice() = default;
+
+    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
     SLimits m_limits;
     SFeatures m_features;

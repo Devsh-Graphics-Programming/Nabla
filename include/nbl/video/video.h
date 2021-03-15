@@ -12,19 +12,20 @@
 #include "nbl/ui/ui.h" // unsure yet
 
 // alloc
-#include "nbl/video/alloc/GPUMemoryAllocatorBase.h"
-#include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
-#include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
-#include "nbl/video/alloc/ResizableBufferingAllocator.h"
-#include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
-#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
-#include "nbl/video/alloc/SubAllocatedDataBuffer.h"
+//#include "nbl/video/alloc/GPUMemoryAllocatorBase.h"
+//#include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
+//#include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
+//#include "nbl/video/alloc/ResizableBufferingAllocator.h"
+//#include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
+//#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+//#include "nbl/video/alloc/SubAllocatedDataBuffer.h"
 
 // properties
-#include "nbl/video/CPropertyPool.h"
-#include "nbl/video/CPropertyPoolHandler.h"
+//#include "nbl/video/CPropertyPool.h"
+//#include "nbl/video/CPropertyPoolHandler.h"
 
 // think about foler name for those
+#include "nbl/video/IAPIConnection.h"
 #include "nbl/video/asset_traits.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
@@ -32,12 +33,12 @@
 #include "nbl/video/IGPUMesh.h"
 #include "nbl/video/IGPUSkinnedMesh.h"
 #include "nbl/video/CGPUMesh.h"
-#include "nbl/video/IGPUObjectFromAssetConverter.h"
+//#include "nbl/video/IGPUObjectFromAssetConverter.h"
 
 // kill/refactor
 #include "nbl/video/CGPUSkinnedMesh.h"
 
 //VT
-#include "nbl/video/IGPUVirtualTexture.h"
+//#include "nbl/video/IGPUVirtualTexture.h"
 
 #endif

@@ -15,14 +15,11 @@ namespace nbl
 namespace video
 {
 
-class IOpenGL_LogicalDevice;
-
 class COpenGLImageView final : public IGPUImageView
 {
 	protected:
 		virtual ~COpenGLImageView();
 
-		IOpenGL_LogicalDevice* m_device;
 		GLuint name;
 		GLenum target;
 		GLenum internalFormat;
@@ -33,7 +30,7 @@ class COpenGLImageView final : public IGPUImageView
 		};
 		_NBL_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 
-		COpenGLImageView(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(dev, std::move(_params)), m_device(dev), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
+		COpenGLImageView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(dev, std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
 			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
@@ -47,7 +44,7 @@ class COpenGLImageView final : public IGPUImageView
 														params.subresourceRange.baseMipLevel, params.subresourceRange.levelCount,
 														params.subresourceRange.baseArrayLayer, params.subresourceRange.layerCount);
 
-			GLuint swizzle[4u] = {GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
+			GLint swizzle[4u] = {GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 			for (auto i=0u; i<4u; i++)
 			{
 				auto currentMapping = (&params.components.r)[i];

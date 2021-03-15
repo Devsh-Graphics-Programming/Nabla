@@ -3,11 +3,10 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "COpenGLSpecializedShader.h"
-#include "COpenGLDriver.h"
 #include "nbl/asset/spvUtils.h"
-#include <algorithm>
 #include "spirv_cross/spirv_parser.hpp"
 #include "nbl/video/IOpenGL_FunctionTable.h"
+#include <algorithm>
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
@@ -139,13 +138,13 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 using namespace nbl;
 using namespace nbl::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
+COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _SLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
 	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(dev, _specInfo.shaderStage),
     m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
 	m_specInfo(_specInfo),//TODO make it move()
 	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))
 {
-	m_options.version = _GLSLversion;
+	m_options.version = _SLversion;
 	//vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
 	m_options.vulkan_semantics = false;
 	m_options.separate_shader_objects = true;

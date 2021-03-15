@@ -10,7 +10,8 @@ namespace video
 
 COpenGLBufferView::~COpenGLBufferView()
 {
-    m_device->destroyTexture(m_textureName);
+    auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
+    device->destroyTexture(m_textureName);
 }
 
 }

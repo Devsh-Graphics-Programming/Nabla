@@ -6,7 +6,7 @@
 #define __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
-#include "GLES3/gl32.h"
+#include "GL/glext.h"
 #include "nbl/asset/ECommonEnums.h"
 
 namespace nbl
@@ -17,7 +17,7 @@ namespace video
 inline GLbitfield pipelineStageFlagsToMemoryBarrierBits(asset::E_PIPELINE_STAGE_FLAGS srcflags, asset::E_PIPELINE_STAGE_FLAGS dstflags)
 {
     constexpr GLbitfield NonFramebufferTransferBits = GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT;
-    constexpr GLbitfield HostBits = IOpenGL_FunctionTable::CLIENT_MAPPED_BUFFER_BARRIER_BIT;
+    constexpr GLbitfield HostBits = GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
     constexpr GLbitfield VertexInputBits = GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT;
     constexpr GLbitfield AllBarrierBits = GL_ALL_BARRIER_BITS ^ GL_ATOMIC_COUNTER_BARRIER_BIT;
 
@@ -111,8 +111,8 @@ inline GLbitfield accessFlagsToMemoryBarrierBits(asset::E_ACCESS_FLAGS flags)
 		GL_FRAMEBUFFER_BARRIER_BIT,
 		TransferBits,
 		TransferBits,
-		IOpenGL_FunctionTable::CLIENT_MAPPED_BUFFER_BARRIER_BIT,
-		IOpenGL_FunctionTable::CLIENT_MAPPED_BUFFER_BARRIER_BIT,
+		GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT,
+		GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT,
 		AllBarrierBits,
 		AllBarrierBits
 	};

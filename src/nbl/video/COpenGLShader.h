@@ -20,6 +20,7 @@ class COpenGLShader : public IGPUShader
 		COpenGLShader(ILogicalDevice* dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl) : IGPUShader(dev), m_code(std::move(_glsl)), m_containsGLSL(true) {}
 
 		const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
+		const core::smart_refctd_ptr<asset::ICPUBuffer>& getSPVorGLSL_refctd() const { return m_code; };
 		bool containsGLSL() const { return m_containsGLSL; }
 
 		static inline void insertGLtoVKextensionsMapping(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
@@ -96,7 +97,6 @@ R"(
 		}
 
 	private:
-		friend class COpenGLDriver;
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<asset::ICPUBuffer>	m_code;
 		const bool									m_containsGLSL;

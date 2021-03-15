@@ -8,9 +8,12 @@ namespace nbl {
 namespace video
 {
 
+std::atomic_uint32_t COpenGLBuffer::s_reallocCounter = 0u;
+
 COpenGLBuffer::~COpenGLBuffer()
 {
-    m_device->destroyBuffer(BufferName);
+    auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
+    device->destroyBuffer(BufferName);
 }
 
 }

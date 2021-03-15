@@ -15,12 +15,10 @@ namespace nbl
 namespace video
 {
 
-class IOpenGL_LogicalDevice;
-
 class COpenGLSampler : public IGPUSampler
 {
 		//! Get native wrap mode value
-		inline static GLenum getTextureWrapMode(uint8_t clamp, IOpenGL_FunctionTable* gl, bool is_gles)
+		inline static GLenum getTextureWrapMode(uint8_t clamp, IOpenGL_FunctionTable* gl)
 		{
 			using namespace asset;
 			GLenum mode = GL_CLAMP_TO_EDGE;
@@ -33,7 +31,7 @@ class COpenGLSampler : public IGPUSampler
 				mode = GL_CLAMP_TO_EDGE;
 				break;
 			case ETC_CLAMP_TO_BORDER:
-				if (is_gles)
+				if (gl->isGLES())
 				{
 					if (gl->getFeatures()->Version >= 320 || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_border_clamp))
 						mode = GL_CLAMP_TO_BORDER;
@@ -47,13 +45,13 @@ class COpenGLSampler : public IGPUSampler
 				mode = GL_MIRRORED_REPEAT;
 				break;
 			case ETC_MIRROR_CLAMP_TO_EDGE:
-				if (!is_gles && gl->getFeatures()->Version >= 440 || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp) || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_ATI_texture_mirror_once))
+				if (!gl->isGLES() && gl->getFeatures()->Version >= 440 || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp) || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_ATI_texture_mirror_once))
 					mode = gl->MIRROR_CLAMP_TO_EDGE;
 				else
 					mode = GL_CLAMP_TO_EDGE;
 				break;
 			case ETC_MIRROR_CLAMP_TO_BORDER:
-				if (!is_gles && gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp))
+				if (!gl->isGLES() && gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp))
 					mode = gl->MIRROR_CLAMP_TO_BORDER;
 				else
 					mode = GL_CLAMP_TO_EDGE;
@@ -66,7 +64,7 @@ class COpenGLSampler : public IGPUSampler
 		~COpenGLSampler();
 
 	public:
-		COpenGLSampler(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, bool is_gles, const asset::ISampler::SParams& _params) : IGPUSampler(dev, _params), m_device(dev)
+		COpenGLSampler(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, const asset::ISampler::SParams& _params) : IGPUSampler(dev, _params)
 		{
 			gl->extGlCreateSamplers(1, &m_GLname);//TODO before we were using GlGenSamplers for some reason..
 
@@ -81,11 +79,11 @@ class COpenGLSampler : public IGPUSampler
 			if (m_params.AnisotropicFilter && gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_filter_anisotropic))
 				gl->glTexture.pglSamplerParameteri(m_GLname, gl->TEXTURE_MAX_ANISOTROPY, std::min(1u<<m_params.AnisotropicFilter, uint32_t(gl->getFeatures()->MaxAnisotropy)));
 
-			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_S, getTextureWrapMode(m_params.TextureWrapU, gl, is_gles));
-			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_T, getTextureWrapMode(m_params.TextureWrapV, gl, is_gles));
-			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_R, getTextureWrapMode(m_params.TextureWrapW, gl, is_gles));
+			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_S, getTextureWrapMode(m_params.TextureWrapU, gl));
+			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_T, getTextureWrapMode(m_params.TextureWrapV, gl));
+			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_R, getTextureWrapMode(m_params.TextureWrapW, gl));
 
-			if (!is_gles || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_lod_bias))
+			if (!gl->isGLES() || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_lod_bias))
 				gl->glTexture.pglSamplerParameterf(m_GLname, gl->TEXTURE_LOD_BIAS, m_params.LodBias);
 			gl->glTexture.pglSamplerParameterf(m_GLname, GL_TEXTURE_MIN_LOD, m_params.MinLod);
 			gl->glTexture.pglSamplerParameterf(m_GLname, GL_TEXTURE_MAX_LOD, m_params.MaxLod);
@@ -107,7 +105,7 @@ class COpenGLSampler : public IGPUSampler
                 gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_FUNC, compareFuncMap[m_params.CompareFunc]);
             }
 
-			if (!is_gles || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_border_clamp))
+			if (!gl->isGLES() || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_border_clamp))
 			{
 				constexpr GLfloat borderColorMap[3][4]{
 					{0.f, 0.f, 0.f, 0.f},
@@ -123,7 +121,6 @@ class COpenGLSampler : public IGPUSampler
 
 	private:
 		GLuint m_GLname;
-		IOpenGL_LogicalDevice* m_device;
 };
 
 }

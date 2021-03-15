@@ -100,8 +100,10 @@ protected:
 	}
 
 public:
-    IOpenGL_PhysicalDeviceBase(const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor) : 
-        m_egl(_egl), config(_config), m_gl_major(_major), m_gl_minor(_minor)
+    IOpenGL_PhysicalDeviceBase(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
+		const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor) :
+		IPhysicalDevice(std::move(fs), std::move(glslc)),
+        m_egl(_egl), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
     {
         // OpenGL backend emulates presence of just one queue with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
@@ -123,7 +125,7 @@ public:
 
 			EGL_NONE
 		};
-		EGLSurface pbuf = _egl->call.peglCreatePbufferSurface(_egl->display, config, pbuffer_attributes);
+		EGLSurface pbuf = _egl->call.peglCreatePbufferSurface(_egl->display, m_config, pbuffer_attributes);
 
 		_egl->call.peglMakeCurrent(_egl->display, pbuf, pbuf, ctx);
 
@@ -133,7 +135,7 @@ public:
 		auto GetInteger64v = reinterpret_cast<PFNGLGETINTEGER64VPROC>(_egl->call.peglGetProcAddress("glGetInteger64v"));
 		auto GetIntegeri_v = reinterpret_cast<PFNGLGETINTEGERI_VPROC>(_egl->call.peglGetProcAddress("glGetIntegeri_v"));
 		auto GetFloatv = reinterpret_cast<decltype(glGetFloatv)*>(_egl->call.peglGetProcAddress("glGetFloatv"));
-		auto GetBooleanv = reinterpret_cast<PFNGLGETBOOLEANVPROC>(_egl->call.peglGetProcAddress("glGetBooleanv"));
+		auto GetBooleanv = reinterpret_cast<decltype(glGetBooleanv)*>(_egl->call.peglGetProcAddress("glGetBooleanv"));
 
 		// initialize features
 		std::string vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
@@ -209,7 +211,7 @@ public:
 		GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
 		GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_glfeatures.MaxColorAttachments));
 
-		if constexpr (!isGLES)
+		if constexpr (!IsGLES)
 			GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &m_glfeatures.minMemoryMapAlignment);
 		else
 			m_glfeatures.minMemoryMapAlignment = 0;
@@ -238,7 +240,7 @@ public:
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
 			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);
 
-		if constexpr (!isGLES)
+		if constexpr (!IsGLES)
 		{
 			GetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
 			m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
@@ -251,27 +253,29 @@ public:
 		GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_glfeatures.DimAliasedLine);
 		GetFloatv(GL_ALIASED_POINT_SIZE_RANGE, m_glfeatures.DimAliasedPoint);
 
-		if constexpr (isGLES)
+		if constexpr (!IsGLES)
 		{
 			GetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, m_glfeatures.DimSmoothedLine);
 			GetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, m_glfeatures.DimSmoothedPoint);
 		}
 		else
 		{
-			m_glfeatures.DimSmoothedLine = 0;
-			m_glfeatures.DimSmoothedPoint = 0;
+			m_glfeatures.DimSmoothedLine[0] = 0;
+			m_glfeatures.DimSmoothedLine[1] = 0;
+			m_glfeatures.DimSmoothedPoint[0] = 0;
+			m_glfeatures.DimSmoothedPoint[1] = 0;
 		}
 
 		// physical device features
 		{
 			m_features.logicOp = !IsGLES;
-			m_features.multiViewport = IsGLES ? m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
-			m_features.multiDrawIndirect = ISGLES ? m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
+			m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
+			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.robustBufferAccess = false;
 			m_features.vertexAttributeDouble = !IsGLES;
 
-			if (m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
 				GetBooleanv(GL_SUBGROUP_QUAD_ALL_STAGES_KHR, &subgroupQuadAllStages);
@@ -339,7 +343,7 @@ public:
 			m_limits.subgroupSize = 0u;
 			m_limits.subgroupOpsShaderStages = 0u;
 
-			if (m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLint subgroupSize = 0;
 				GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);

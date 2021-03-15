@@ -1,5 +1,8 @@
 #include "nbl/video/IAPIConnection.h"
 
+#include "CFileSystem.h"
+#include "nbl/builtin/common.h"
+
 namespace nbl {
 namespace video
 {
@@ -24,6 +27,23 @@ core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(E_API_TYPE apiType
     default:
         return nullptr;
     }
+}
+
+IAPIConnection::IAPIConnection()
+{
+    //! This variable tells us where the directory holding "nbl/builtin/" is if the resources are not embedded
+    /** For shipping products to end-users we recommend embedding the built-in resources to avoid a plethora of
+    "works on my machine" problems, as this method is not 100% cross platform, i.e. if the engine's headers'
+    install directory is different between computers then it will surely not work.*/
+    std::string builtinResourceDirectoryPath =
+#ifdef _NBL_BUILTIN_PATH_AVAILABLE
+        builtin::getBuiltinResourcesDirectoryPath();
+#else
+        "";
+#endif
+    m_fs = core::make_smart_refctd_ptr<io::CFileSystem>(std::move(builtinResourceDirectoryPath));
+
+    m_GLSLCompiler = core::make_smart_refctd_ptr<asset::IGLSLCompiler>(m_fs.get());
 }
 
 }

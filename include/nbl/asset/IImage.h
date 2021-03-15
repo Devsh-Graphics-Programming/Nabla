@@ -11,6 +11,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/EImageLayout.h"
 #include "nbl/core/math/glslFunctions.tcc"
+#include "nbl/asset/ECommonEnums.h"
 
 namespace nbl
 {

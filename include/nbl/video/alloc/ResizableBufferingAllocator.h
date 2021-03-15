@@ -9,6 +9,7 @@
 #include "nbl/core/alloc/MultiBufferingAllocatorBase.h"
 #include "nbl/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
+#include "nbl/video/alloc/SubAllocatedDataBuffer.h"
 
 namespace nbl
 {
@@ -20,13 +21,13 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
                                                             protected SubAllocatedDataBuffer<core::ResizableHeterogenousMemoryAllocator<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> >,CustomDeferredFreeFunctor>,
                                                             public virtual core::IReferenceCounted
 {
-        typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                                                                                                                                                                          MultiBase;
-        typedef SubAllocatedDataBuffer<core::ResizableHeterogenousMemoryAllocator<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> > > Base;
+        using MultiBase = core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>;
+        using Base = SubAllocatedDataBuffer<core::ResizableHeterogenousMemoryAllocator<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> > >;
     protected:
         virtual ~ResizableBufferingAllocatorST() {}
     public:
-        typedef typename Base::size_type    size_type;
-        static constexpr size_type                  invalid_address = Base::invalid_address;
+        using size_type = typename Base::size_type;
+        static constexpr size_type invalid_address = Base::invalid_address;
 
         template<typename... Args>
         ResizableBufferingAllocatorST(IDriver* inDriver, const CPUAllocator& reservedMemAllocator, Args&&... args) :

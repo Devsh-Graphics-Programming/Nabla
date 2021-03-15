@@ -19,7 +19,7 @@ template <typename QueueType_, typename SwapchainType_>
 class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 {
     template <E_REQUEST_TYPE DestroyReqType>
-    SRequest& destroyGlObjects(uint32_t count, GLuint names[MaxGlNamesForSingleObject])
+    SRequest& destroyGlObjects(uint32_t count, const GLuint names[MaxGlNamesForSingleObject])
     {
         assert(count <= MaxGlNamesForSingleObject);
         using req_params_t = SRequest_Destroy<DestroyReqType>;
@@ -28,7 +28,7 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
         params.count = count;
         std::copy(names, names + count, params.glnames);
 
-        auto& req = m_threadHandler.request<req_params_t>(std::move(params));
+        auto& req = m_threadHandler.request(std::move(params));
         // dont need to wait on this
         //m_threadHandler.waitForRequestCompletion<req_params_t>(req);
         return req;
@@ -53,8 +53,8 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
-        IOpenGL_LogicalDevice(_egl, api_type, params),
+    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+        IOpenGL_LogicalDevice(_egl, api_type, params, std::move(fs), std::move(glslc)),
         m_threadHandler(this, _egl, _features, getTotalQueueCount(params), config, major, minor),
         m_glfeatures(_features)
     {
@@ -75,8 +75,37 @@ public:
 
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(_egl, _features, ctxid, master_ctx, config, famIx, flags, priority);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, master_ctx, config, major, minor, famIx, flags, priority);
             }
+        }
+
+        bool runningInRenderDoc = false;
+#ifdef _NBL_PLATFORM_WINDOWS_
+        if (GetModuleHandleA("renderdoc.dll"))
+#elif defined(_NBL_PLATFORM_ANDROID_)
+        if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
+#elif defined(_NBL_PLATFORM_LINUX_)
+        if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
+#else
+        if (false)
+#endif
+            runningInRenderDoc = true;
+
+        constexpr size_t GLSLcnt = std::extent<decltype(FeaturesType::m_GLSLExtensions)>::value;
+        if (!m_supportedGLSLExtsNames)
+        {
+            size_t cnt = 0ull;
+            for (size_t i = 0ull; i < GLSLcnt; ++i)
+                cnt += _features->isFeatureAvailable(_features->m_GLSLExtensions[i]);
+            if (runningInRenderDoc)
+                ++cnt;
+            m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
+            size_t i = 0ull;
+            for (size_t j = 0ull; j < GLSLcnt; ++j)
+                if (_features->isFeatureAvailable(_features->m_GLSLExtensions[j]))
+                    (*m_supportedGLSLExtsNames)[i++] = _features->OpenGLFeatureStrings[_features->m_GLSLExtensions[j]];
+            if (runningInRenderDoc)
+                (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
         }
     }
 
@@ -95,7 +124,7 @@ public:
 
         SRequestImageCreate req_params;
         req_params.params = std::move(params);
-        auto& req = m_threadHandler.request<SRequestImageCreate>(std::move(req_params), &retval);
+        auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.waitForRequestCompletion<SRequestImageCreate>(req);
 
         return retval;
@@ -117,17 +146,17 @@ public:
 
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override final
     {
-        auto source = _cpushader->getSPVorGLSL();
+        auto source = cpushader->getSPVorGLSL();
         auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
-        if (_cpushader->containsGLSL())
-            return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone), IGPUShader::buffer_contains_glsl);
+        if (cpushader->containsGLSL())
+            return core::make_smart_refctd_ptr<COpenGLShader>(this, std::move(clone), IGPUShader::buffer_contains_glsl);
         else
-            return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone));
+            return core::make_smart_refctd_ptr<COpenGLShader>(this, std::move(clone));
     }
 
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override final
     {
-        return core::make_smart_refctd_ptr<COpenGLRenderpass>(params);
+        return core::make_smart_refctd_ptr<COpenGLRenderpass>(this, params);
     }
 
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
@@ -160,6 +189,16 @@ public:
         return SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, master_ctx, fbconfig, glver.first, glver.second);
     }
 
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) override
+    {
+        return core::make_smart_refctd_ptr<COpenGLCommandPool>(this, flags, _familyIx);
+    }
+
+    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
+    {
+        return core::make_smart_refctd_ptr<IDescriptorPool>(this);
+    }
+
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
     {
         return core::make_smart_refctd_ptr<COpenGLSemaphore>(this);
@@ -190,12 +229,12 @@ public:
             SRequestFenceCreate params;
             params.flags = _flags;
             core::smart_refctd_ptr<IGPUFence> retval;
-            auto& req = m_threadHandler.request<SRequestFenceCreate>(std::move(params), &retval);
+            auto& req = m_threadHandler.request(std::move(params), &retval);
             m_threadHandler.waitForRequestCompletion<SRequestFenceCreate>(req);
 
             return retval;
         }
-        return core::make_smart_refctd_ptr<COpenGLFence>(this);
+        return core::make_smart_refctd_ptr<COpenGLFence>(this,this);
     }
 
     IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override final
@@ -212,12 +251,9 @@ public:
 
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override final
     {
-        SRequestWaitForFences params;
-        params.fences = core::SRange<IGPUFence*>(_fences, _fences + _count);
-        params.timeout = _timeout;
-        params.waitForAll = _waitAll;
+        SRequestWaitForFences params{ core::SRange<IGPUFence*>(_fences, _fences + _count) , _waitAll, _timeout };
         IGPUFence::E_STATUS retval;
-        auto& req = m_threadHandler.request<SRequestWaitForFences>(std::move(params), &retval);
+        auto& req = m_threadHandler.request(std::move(params), &retval);
         m_threadHandler.waitForRequestCompletion<SRequestWaitForFences>(req);
 
         return retval;
@@ -233,17 +269,15 @@ public:
 
     void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override final
     {
-        SRequestFlushMappedMemoryRanges req_params;
-        req_params.memoryRanges = ranges;
-        auto& req = m_threadHandler.request<SRequestFlushMappedMemoryRanges>(req_params);
+        SRequestFlushMappedMemoryRanges req_params{ ranges };
+        auto& req = m_threadHandler.request(std::move(req_params));
         m_threadHandler.waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
     }
 
     void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override final
     {
-        SRequestInvalidateMappedMemoryRanges req_params;
-        req_params.memoryRanges = ranges;
-        auto& req = m_threadHandler.request<SRequestInvalidateMappedMemoryRanges>(req_params);
+        SRequestInvalidateMappedMemoryRanges req_params{ ranges };
+        auto& req = m_threadHandler.request(std::move(req_params));
         m_threadHandler.waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
@@ -251,7 +285,7 @@ public:
     {
         SRequestRegenerateMipLevels req_params;
         req_params.imgview = imageview;
-        auto& req = m_threadHandler.request<SRequestRegenerateMipLevels>(req_params);
+        auto& req = m_threadHandler.request(std::move(req_params));
         m_threadHandler.waitForRequestCompletion<SRequestRegenerateMipLevels>(req);
     }
 
@@ -292,13 +326,13 @@ public:
     {
         SRequestSyncDestroy req_params;
         req_params.glsync = sync;
-        auto& req = m_threadHandler.request<SRequestSyncDestroy>(std::move(req_params));
+        auto& req = m_threadHandler.request(std::move(req_params));
         //dont need to wait on this
         //m_threadHandler.waitForRequestCompletion<SRequestSyncDestroy>(req);
     }
 
 protected:
-    bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _output) override final
+    bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
         if (_level != IGPUCommandBuffer::EL_PRIMARY)
             return false;
@@ -333,13 +367,13 @@ protected:
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
             std::string glsl(begin, end);
             COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
-            auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
+            auto glslShader_woIncludes = m_GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
             {
                 auto fl = fopen("shader.glsl", "w");
                 fwrite(glsl.c_str(), 1, glsl.size(), fl);
                 fclose(fl);
             }
-            spirv = GLSLCompiler->compileSPIRVFromGLSL(
+            spirv = m_GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
@@ -351,7 +385,7 @@ protected:
         }
         else
         {
-            spirv = glUnspec->m_code;
+            spirv = glUnspec->getSPVorGLSL_refctd();
         }
 
         if (_spvopt)
@@ -363,7 +397,7 @@ protected:
         core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv));
 
         asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint };
-        asset::CShaderIntrospector introspector(GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
+        asset::CShaderIntrospector introspector(m_GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
         const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
         if (!introspection)
         {
@@ -380,12 +414,7 @@ protected:
             return nullptr;
         }
 
-        bool needClipControlWorkaround = false;
-        if constexpr (IsGLES)
-        {
-            needClipControlWorkaround = !m_glfeatures->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
-        }
-        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
+        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this, m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
     }
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
     {
@@ -395,7 +424,7 @@ protected:
         req_params.offset = _offset;
         req_params.size = _size;
         core::smart_refctd_ptr<IGPUBufferView> retval;
-        auto& req = m_threadHandler.request<SRequestBufferViewCreate>(std::move(req_params), &retval);
+        auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.waitForRequestCompletion<SRequestBufferViewCreate>(req);
         return retval;
     }
@@ -403,7 +432,7 @@ protected:
     {
         if (!IGPUImageView::validateCreationParameters(params))
             return nullptr;
-        if constexpr (isGLES)
+        if constexpr (IsGLES)
         {
             if (params.viewType == IGPUImageView::ET_1D || params.viewType == IGPUImageView::ET_1D_ARRAY)
                 return nullptr;
@@ -415,7 +444,7 @@ protected:
 
         SRequestImageViewCreate req_params;
         req_params.params = std::move(params);
-        auto& req = m_threadHandler.request<SRequestImageViewCreate>(std::move(req_params), &retval);
+        auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.waitForRequestCompletion<SRequestImageViewCreate>(req);
 
         return retval;
@@ -427,7 +456,7 @@ protected:
     }
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override final
     {
-        return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(_begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
+        return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(this, _begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
     }
     core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
         const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
@@ -457,7 +486,7 @@ protected:
         req_params.params = &params;
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
-        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), &retval);
+        auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return retval;
@@ -472,7 +501,7 @@ protected:
         req_params.params = createInfos.begin();
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
-        auto& req = m_threadHandler.request<SRequestComputePipelineCreate>(std::move(req_params), output);
+        auto& req = m_threadHandler.request(std::move(req_params), output);
         m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return true;
@@ -505,7 +534,7 @@ protected:
         req_params.params = &params;
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
-        auto& req = m_threadHandler.request<SRequestRenderpassIndependentPipelineCreate>(std::move(req_params), &retval);
+        auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return retval;
@@ -520,7 +549,7 @@ protected:
         req_params.params = createInfos.begin();
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
-        auto& req = m_threadHandler.request<SRequestRenderpassIndependentPipelineCreate>(std::move(req_params), output);
+        auto& req = m_threadHandler.request(std::move(req_params), output);
         m_threadHandler.waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return true;
@@ -542,7 +571,7 @@ protected:
 
 private:
     CThreadHandler<FunctionTableType> m_threadHandler;
-    const FeaturesType* m_glfeatures;
+    FeaturesType* m_glfeatures;
 };
 
 }

@@ -28,6 +28,9 @@ public:
         return m_originDevice == device;
     }
 
+protected:
+    const ILogicalDevice* getOriginDevice() const { return m_originDevice; }
+
 private:
     const ILogicalDevice* const m_originDevice;
 };

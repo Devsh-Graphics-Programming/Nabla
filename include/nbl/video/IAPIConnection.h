@@ -6,6 +6,8 @@
 #include "nbl/video/EApiType.h"
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/system/IWindow.h"
+#include "IFileSystem.h"
+#include "nbl/asset/IGLSLCompiler.h"
 
 namespace nbl {
 namespace video
@@ -23,8 +25,12 @@ public:
     virtual core::smart_refctd_ptr<ISurface> createSurface(system::IWindow* window) const = 0;
 
 protected:
-    IAPIConnection() = default;
+    IAPIConnection();
     virtual ~IAPIConnection() = default;
+
+    // idk where to put those, so here they are for now
+    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 };
 
 }

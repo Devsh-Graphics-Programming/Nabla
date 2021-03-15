@@ -67,7 +67,8 @@ public:
                 return nullptr;
         }
 
-        return core::make_smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(std::move(params), dev, _egl, std::move(images), _features, _master, _config, _major, _minor);
+        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _master, _config, _major, _minor);
+        return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
     }
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
@@ -155,10 +156,10 @@ private:
         }
 
     protected:
-        using base_t = system::IThreadHandler<SThreadHandlerInternalState>;
+        using base_t = system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>;
         friend base_t;
 
-        SThreadHandlerInternalState init()
+        void init(SThreadHandlerInternalState* state_ptr)
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
@@ -184,7 +185,8 @@ private:
             egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
 
             const uint32_t fboCount = images.size();
-            auto gl = SThreadHandlerInternalState(egl, features);
+            new (state_ptr) SThreadHandlerInternalState(egl, features);
+            auto& gl = state_ptr[0];
 
             gl.glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
 
@@ -199,11 +201,9 @@ private:
                 GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
                 gl.extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
             }
-
-            return gl;
         }
 
-        void work(lock_t& lock, internal_state_t& gl) override
+        void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)
         {
             needToBlit = false;
 
@@ -223,9 +223,12 @@ private:
             gl.glGeneral.pglFlush();
         }
 
-        void exit(internal_state_t& gl)
+        void exit(SThreadHandlerInternalState* gl)
         {
-            gl.glFramebuffer.pglDeleteFramebuffers(images.size(), fbos);
+            gl->glFramebuffer.pglDeleteFramebuffers(images.size(), fbos);
+
+            gl->~SThreadHandlerInternalState();
+
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
             egl->call.peglDestroyContext(egl->display, thisCtx);
             egl->call.peglDestroySurface(egl->display, surface);

@@ -15,7 +15,7 @@
 #include "nbl/video/COpenGL_Swapchain.h"
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
-#include "nbl/core/memory/CMemoryPool.h"
+#include "nbl/core/containers/CMemoryPool.h"
 
 namespace nbl {
 namespace video
@@ -95,11 +95,10 @@ class COpenGL_Queue final : public IGPUQueue
 
             }
 
-        protected:
             using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>;
             friend base_t;
 
-            ThreadInternalStateType init()
+            void init(ThreadInternalStateType* state_ptr)
             {
                 egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
@@ -124,9 +123,9 @@ class COpenGL_Queue final : public IGPUQueue
 
                 egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
 
-                auto state = typename ThreadInternalStateType(egl, features);
-                auto& gl = state.gl;
-                auto& ctxlocal = state.ctxlocal;
+                new (state_ptr) typename ThreadInternalStateType(egl, features);
+                auto& gl = state_ptr->gl;
+                auto& ctxlocal = state_ptr->ctxlocal;
 
                 // defaults once set and not tracked by engine (should never change)
                 gl.glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
@@ -151,8 +150,6 @@ class COpenGL_Queue final : public IGPUQueue
                 ctxlocal.nextState.rasterParams.multisampleEnable = 0;
                 ctxlocal.nextState.rasterParams.depthFunc = GL_GEQUAL;
                 ctxlocal.nextState.rasterParams.frontFace = GL_CCW;
-
-                return state;
             }
 
             template <typename RequestParams>
@@ -172,8 +169,7 @@ class COpenGL_Queue final : public IGPUQueue
                 {
                 case ERT_SUBMIT:
                 {
-                    auto& p = std::get<SRequestParams_Submit>(req.params);
-                    auto& submit = p.submit;
+                    auto& submit = std::get<SRequestParams_Submit>(req.params);
 
                     // wait semaphores
                     GLbitfield barrierBits = 0;
@@ -185,7 +181,7 @@ class COpenGL_Queue final : public IGPUQueue
                         gl.glSync.pglMemoryBarrier(barrierBits);
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
-                        IGPUSemaphore* sem = submit.pWaitSemaphores[i];
+                        IGPUSemaphore* sem = submit.pWaitSemaphores[i].get();
                         COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
                         assert(glsem->isWaitable());
                         if (glsem->isWaitable())
@@ -195,7 +191,7 @@ class COpenGL_Queue final : public IGPUQueue
                     for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
                     {
                         //dynamic_cast because of virtual base
-                        auto* cmdbuf = dynamic_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i]);
+                        auto* cmdbuf = dynamic_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get());
                         cmdbuf->executeAll(&gl, &_state.ctxlocal, m_ctxid);
                     }
 
@@ -204,7 +200,7 @@ class COpenGL_Queue final : public IGPUQueue
                         auto sync = core::make_smart_refctd_ptr<COpenGLSync>(m_device, &gl);
                         for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
                         {
-                            IGPUSemaphore* sem = submit.pSignalSemaphores[i];
+                            IGPUSemaphore* sem = submit.pSignalSemaphores[i].get();
                             COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
                             glsem->signal(core::smart_refctd_ptr(sync));
                         }
@@ -235,8 +231,10 @@ class COpenGL_Queue final : public IGPUQueue
                 }
             }
 
-            void exit(internal_state_t& gl)
+            void exit(ThreadInternalStateType* state_ptr)
             {
+                state_ptr->~ThreadInternalStateType();
+
                 egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
                 egl->call.peglDestroyContext(egl->display, thisCtx);
                 egl->call.peglDestroySurface(egl->display, pbuffer);
@@ -252,14 +250,14 @@ class COpenGL_Queue final : public IGPUQueue
             EGLSurface pbuffer;
             FeaturesType* features;
             uint32_t m_ctxid;
-
-            mutable SOpenGLContextLocalCache m_ctxlocal;
         };
 
     public:
-        COpenGL_Queue(ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _masterCtx, EGLConfig _config, EGLint _gl_major, EGLint _gl_minor, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
+        COpenGL_Queue(IOpenGL_LogicalDevice* gldev, ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _masterCtx, EGLConfig _config, EGLint _gl_major, EGLint _gl_minor, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
             IGPUQueue(dev, _famIx, _flags, _priority),
-            threadHandler(_egl, _features, _masterCtx, _config, _gl_major, _gl_minor, _ctxid)
+            threadHandler(_egl, gldev, _features, _masterCtx, _config, _gl_major, _gl_minor, _ctxid),
+            m_mempool(1u<<20,1u),
+            m_ctxid(_ctxid)
         {
 
         }
@@ -329,13 +327,13 @@ class COpenGL_Queue final : public IGPUQueue
             for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
                 if (!this->isCompatibleDevicewise(info.waitSemaphores[i]))
                     return false;
-            if (uint32_t i = 0u; i < info.swapchainCount; ++i)
+            for (uint32_t i = 0u; i < info.swapchainCount; ++i)
                 if (!this->isCompatibleDevicewise(info.swapchains[i]))
                     return false;
 
             using swapchain_t = COpenGL_Swapchain<FunctionTableType_>;
             bool retval = true;
-            if (uint32_t i = 0u; i < info.swapchainCount; ++i)
+            for (uint32_t i = 0u; i < info.swapchainCount; ++i)
             {
                 swapchain_t* sc = static_cast<swapchain_t*>(info.swapchains[i]);
                 const uint32_t imgix = info.imgIndices[i];
@@ -356,7 +354,7 @@ class COpenGL_Queue final : public IGPUQueue
         void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline)
         {
             SRequestParams_DestroyPipeline params;
-            params.hash = pipeline->getPipelineHash();
+            params.hash = pipeline->getPipelineHash(m_ctxid);
 
             threadHandler.request(std::move(params));
         }
@@ -364,7 +362,7 @@ class COpenGL_Queue final : public IGPUQueue
     protected:
         ~COpenGL_Queue()
         {
-            threadHandler.terminate(thread);
+
         }
 
     private:
@@ -372,6 +370,7 @@ class COpenGL_Queue final : public IGPUQueue
         std::mutex m_mempoolMutex;
         using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::aligned_allocator>;
         memory_pool_t m_mempool;
+        uint32_t m_ctxid;
 };
 
 }}

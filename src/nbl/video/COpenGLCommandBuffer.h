@@ -402,6 +402,7 @@ protected:
         E_COMMAND_TYPE type;
         std::variant<
             NBL_FOREACH(_NBL_SCMD_TYPE_FOR_ECT, _NBL_COMMAND_TYPES_LIST)
+            int
         > variant;
 
         template <E_COMMAND_TYPE ECT>
@@ -661,7 +662,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyImageToBuffer(buffer_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyImageToBuffer(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;

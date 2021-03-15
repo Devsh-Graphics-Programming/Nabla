@@ -33,15 +33,13 @@ class IGLSLCompiler final : public core::IReferenceCounted
 		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
 		const io::IFileSystem* m_fs;
 
-	protected:
-		friend class video::COpenGLDriver;
-		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
-
 	public:
 		IGLSLCompiler(io::IFileSystem* _fs);
 
 		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
 		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
+
+		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
 		/**
 		If _stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:

@@ -31,7 +31,7 @@ private:
     }
 
 public:
-    COpenGLFramebuffer(SCreationParams&& params, IOpenGL_LogicalDevice* dev);
+    COpenGLFramebuffer(IOpenGL_LogicalDevice* dev, SCreationParams&& params);
 
     ~COpenGLFramebuffer();
 

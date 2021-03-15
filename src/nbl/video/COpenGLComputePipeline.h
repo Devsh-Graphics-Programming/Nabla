@@ -21,11 +21,11 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
 {
     public:
         COpenGLComputePipeline(
-            IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl,
+            ILogicalDevice* device, IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs,
             uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLname, const COpenGLSpecializedShader::SProgramBinary& _binary
-        ) : IGPUComputePipeline(_dev, std::move(_layout), std::move(_cs)), 
+        ) : IGPUComputePipeline(device, std::move(_layout), std::move(_cs)), 
             IOpenGLPipeline(_dev, _gl, _ctxCount, _ctxID, &_GLname, &_binary),
             m_lastUpdateStamp(0u)
         {

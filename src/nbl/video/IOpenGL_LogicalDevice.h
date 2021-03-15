@@ -202,13 +202,13 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_RESET_FENCES;
             using retval_t = void;
-            core::SRange<core::smart_refctd_ptr<IGPUFence>> fences;
+            core::SRange<core::smart_refctd_ptr<IGPUFence>> fences = { nullptr, nullptr };
         };
         struct SRequestWaitForFences
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_FOR_FENCES;
             using retval_t = IGPUFence::E_STATUS;
-            core::SRange<IGPUFence*> fences;
+            core::SRange<IGPUFence*> fences = { nullptr, nullptr };
             bool waitForAll;
             uint64_t timeout;
         };
@@ -216,13 +216,13 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_FLUSH_MAPPED_MEMORY_RANGES;
             using retval_t = void;
-            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges;
+            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
         };
         struct SRequestInvalidateMappedMemoryRanges
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_INVALIDATE_MAPPED_MEMORY_RANGES;
             using retval_t = void;
-            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges;
+            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
         };
         struct SRequestRegenerateMipLevels
         {
@@ -357,8 +357,8 @@ protected:
             return config;
         }
 
-    protected:
-        FunctionTableType init()
+    public:
+        void init(FunctionTableType* state_ptr)
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
@@ -383,7 +383,7 @@ protected:
 
             egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
 
-            return FunctionTableType(&egl->call, features);
+            new (state_ptr) typename FunctionTableType(egl, features);
         }
 
         // RequestParams must be one of request parameter structs
@@ -496,9 +496,9 @@ protected:
                 auto& p = std::get<SRequestFenceCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUFence>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUFence>*>(req.pretval);
                 if (p.flags & IGPUFence::ECF_SIGNALED_BIT)
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, &gl);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device, &gl);
                 else
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device);
             }
                 break;
 
@@ -532,7 +532,7 @@ protected:
                 uint64_t _timeout = p.timeout;
 
                 IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
-                retval[0] = waitForFences(&gl, _count, _fences, _waitAll, _timeout);
+                retval[0] = waitForFences(gl, _count, _fences, _waitAll, _timeout);
             }
                 break;
             }
@@ -543,8 +543,10 @@ protected:
                 gl.glGeneral.pglFinish();
         }
 
-        void exit(FunctionTableType& gl)
+        void exit(FunctionTableType* gl)
         {
+            gl->~FunctionTableType();
+
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
             egl->call.peglDestroyContext(egl->display, thisCtx);
             egl->call.peglDestroySurface(egl->display, pbuffer);
@@ -571,7 +573,7 @@ protected:
             asset::ISpecializedShader::E_SHADER_STAGE lastVertexLikeStage = asset::ISpecializedShader::ESS_VERTEX;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
             {
-                auto stage = shaders.begin()[shaders.size()-1u-i];
+                auto stage = shaders.begin()[shaders.size()-1u-i]->getStage();
                 if (stage != asset::ISpecializedShader::ESS_FRAGMENT)
                 {
                     lastVertexLikeStage = stage;
@@ -586,8 +588,14 @@ protected:
             GLuint GLnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
             COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT];
 
+            bool needClipControlWorkaround = false;
+            if (gl.isGLES())
+            {
+                needClipControlWorkaround = !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
+            }
+
             COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
-            COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(layout.get());
+            COpenGLPipelineLayout* gllayout = static_cast<COpenGLPipelineLayout*>(layout.get());
             for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
             {
                 COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
@@ -607,7 +615,7 @@ protected:
 
                     continue;
                 }
-                std::tie(GLnames[ix], bin) = glshdr->compile(&gl, (stage == lastVertexLikeStage), layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
+                std::tie(GLnames[ix], bin) = glshdr->compile(&gl, needClipControlWorkaround && (stage == lastVertexLikeStage), gllayout, cache ? cache->findParsedSpirv(key.hash) : nullptr);
                 binaries[ix] = bin;
 
                 if (cache)
@@ -620,7 +628,7 @@ protected:
             }
 
             return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
-                device, &gl,
+                device, device, &gl,
                 std::move(layout),
                 shaders.begin(), shaders.end(),
                 params.vertexInput, params.blend, params.primitiveAssembly, params.rasterization,
@@ -651,7 +659,7 @@ protected:
             }
             else
             {
-                std::tie(GLname, bin) = glshdr->compile(&gl, layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
+                std::tie(GLname, bin) = glshdr->compile(&gl, false, layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
                 binary = bin;
 
                 if (cache)
@@ -663,7 +671,7 @@ protected:
                 }
             }
 
-            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
+            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
         IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout)
         {
@@ -731,11 +739,17 @@ protected:
 
 protected:
     const egl::CEGL* m_egl;
+    core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
-    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params) : ILogicalDevice(api_type, params), m_egl(_egl)
+    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : ILogicalDevice(api_type, params, std::move(fs), std::move(glslc)), m_egl(_egl)
     {
 
+    }
+
+    const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const
+    {
+        return m_supportedGLSLExtsNames;
     }
 
     virtual void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) = 0;

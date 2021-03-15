@@ -2,7 +2,7 @@
 #define __NBL_C_OPENGL_COMMAND_POOL_H_INCLUDED__
 
 #include "nbl/video/IGPUCommandPool.h"
-#include "nbl/core/memory/CMemoryPool.h"
+#include "nbl/core/containers/CMemoryPool.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include <mutex>
 
@@ -29,7 +29,7 @@ public:
     void free_n(const T* ptr, uint32_t n)
     {
         std::unique_lock<std::mutex> lk(mutex);
-        mempool.free_n<T>(const_cast<void*>(ptr), n);
+        mempool.free_n<T>(const_cast<T*>(ptr), n);
     }
 
 private:

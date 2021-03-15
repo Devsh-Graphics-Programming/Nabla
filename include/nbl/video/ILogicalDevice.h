@@ -60,7 +60,7 @@ public:
         size_t offset;
     };
 
-    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params) : m_apiType(api_type)
+    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_apiType(api_type), m_fs(std::move(fs)), m_GLSLCompiler(std::move(glslc))
     {
         uint32_t qcnt = 0u;
         uint32_t greatestFamNum = 0u;
@@ -108,7 +108,7 @@ public:
     virtual void resetFences(uint32_t _count, IGPUFence** _fences) = 0;
     virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
 
-    bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _outCmdBufs)
+    bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
     {
         if (!_cmdPool->wasCreatedBy(this))
             return false;
@@ -364,7 +364,7 @@ public:
         uint32_t i = 0u;
         for (const IGPUDescriptorSetLayout* layout_ : layouts)
         {
-            auto layout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(layout_);
+            auto layout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layout_);
             output[i++] = createGPUDescriptorSet(pool, std::move(layout));
         }
     }
@@ -550,7 +550,7 @@ public:
     //vkCreateShaderModule //????
 
 protected:
-    virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _outCmdBufs) = 0;
+    virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
     virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
     virtual core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
     virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
@@ -589,6 +589,9 @@ protected:
     ) = 0;
     virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
     virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+
+    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
     using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUQueue>>;
     queues_array_t m_queues;

@@ -42,14 +42,14 @@ class DynamicLibraryFunctionPointer
 		inline FuncT* operator&() const { return p; }
 	
 
-		template<typename... T>
+		/*template<typename... T>
 		inline result_type operator()(std::function<result_type(const char*)> error, T&& ... args) const
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
 			assert(error);
 			return error(name);
-		}
+		}*/
 
 		template<typename... T>
 		inline result_type operator()(std::function<void(const char*)> error, T&& ... args) const

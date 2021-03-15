@@ -10,17 +10,14 @@
 
 #include "FW_Mutex.h"
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-#include "CNullDriver.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include <assert.h>
+#include <atomic>
 
 namespace nbl
 {
 namespace video
 {
-
-class IOpenGL_LogicalDevice;
 
 class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 {
@@ -28,7 +25,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         virtual ~COpenGLBuffer();
 
     public:
-        COpenGLBuffer(IOpenGL_LogicalDevice* dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(dev, mreqs), m_device(dev), BufferName(0), cachedFlags(0)
+        COpenGLBuffer(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(dev, mreqs), BufferName(0), cachedFlags(0)
         {
 			lastTimeReallocated = 0;
             gl->extGlCreateBuffers(1,&BufferName);
@@ -128,8 +125,66 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         }
         */
 
+        // TODO this whole method
+        inline bool pseudoMoveAssign(IGPUBuffer* other) override
+        {
+            COpenGLBuffer* otherAsGL = static_cast<COpenGLBuffer*>(other);
+            if (!otherAsGL || otherAsGL == this || otherAsGL->cachedFlags != cachedFlags || otherAsGL->BufferName == 0)
+                return false;
+
+#ifdef _DEBUG
+            if (otherAsGL->getReferenceCount() != 1)
+                os::Printer::log("What are you doing!? You should only swap internals with an IGPUBuffer that is unused yet!", ELL_ERROR);
+#endif // _DEBUG
+
+#ifdef OPENGL_LEAK_DEBUG
+            assert(otherAsGL->concurrentAccessGuard == 0);
+            FW_AtomicCounterIncr(otherAsGL->concurrentAccessGuard);
+            assert(concurrentAccessGuard == 0);
+            FW_AtomicCounterIncr(concurrentAccessGuard);
+#endif // OPENGL_LEAK_DEBUG
+
+            assert(false);
+            // TODO
+            //if (BufferName)
+            //    COpenGLExtensionHandler::extGlDeleteBuffers(1, &BufferName);
+
+            cachedMemoryReqs = otherAsGL->cachedMemoryReqs;
+
+            //mappedPtr = otherAsGL->mappedPtr;
+            //mappedRange = otherAsGL->mappedRange;
+            currentMappingAccess = otherAsGL->currentMappingAccess;
+
+            cachedFlags = otherAsGL->cachedFlags;
+            BufferName = otherAsGL->BufferName;
+
+            lastTimeReallocated = s_reallocCounter++;
+
+
+            otherAsGL->cachedMemoryReqs = { {0,0,0},0,0,0,0 };
+
+            //otherAsGL->mappedPtr = nullptr;
+            //otherAsGL->mappedRange = MemoryRange(0, 0);
+            otherAsGL->currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
+
+            otherAsGL->cachedFlags = 0;
+            otherAsGL->BufferName = 0;
+
+            otherAsGL->lastTimeReallocated = s_reallocCounter++;
+
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard == 1);
+            FW_AtomicCounterDecr(concurrentAccessGuard);
+            assert(otherAsGL->concurrentAccessGuard == 1);
+            FW_AtomicCounterDecr(otherAsGL->concurrentAccessGuard);
+#endif // OPENGL_LEAK_DEBUG
+
+            return true;
+        }
+
     protected:
-        IOpenGL_LogicalDevice* m_device;
+        static std::atomic_uint32_t s_reallocCounter;
+
         GLbitfield cachedFlags;
         GLuint BufferName;
 };
@@ -137,5 +192,4 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 } // end namespace video
 } // end namespace nbl
 
-#endif
 #endif

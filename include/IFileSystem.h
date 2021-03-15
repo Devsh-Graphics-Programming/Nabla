@@ -16,10 +16,7 @@
 #endif
 namespace nbl
 {
-namespace video
-{
-	class IVideoDriver;
-} // end namespace video
+
 namespace io
 {
 

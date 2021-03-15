@@ -14,8 +14,8 @@ class COpenGLLogicalDevice final : public COpenGL_LogicalDevice<COpenGLQueue, CO
     using base_t = COpenGL_LogicalDevice<COpenGLQueue, COpenGLSwapchain>;
 
 public:
-    COpenGLLogicalDevice(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
-        base_t(_egl, EAT_OPENGL, _features, config, major, minor, params)
+    COpenGLLogicalDevice(const egl::CEGL* _egl, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+        base_t(_egl, EAT_OPENGL, _features, config, major, minor, params, std::move(fs), std::move(glslc))
     {
 
     }

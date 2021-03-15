@@ -34,7 +34,8 @@ public:
 		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
 
-		return core::make_smart_refctd_ptr<CWindowWin32>(_w, _h, _flags);
+		CWindowWin32* win = new CWindowWin32(_w, _h, _flags);
+		return core::smart_refctd_ptr<CWindowWin32>(win, core::dont_grab);
 	}
 
 private:

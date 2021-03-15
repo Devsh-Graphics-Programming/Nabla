@@ -8,8 +8,6 @@
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/IGPUMeshBuffer.h"//for IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-
 #include "nbl/video/IOpenGL_FunctionTable.h"
 
 namespace nbl
@@ -64,7 +62,7 @@ class IOpenGLPipeline
                     if (!bin.binary)
                         continue;
                     const GLuint GLname = gl->glShader.pglCreateProgram();
-                    gl->glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), static_cast<uint32_t>(bin.binary->size()))
+                    gl->glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), static_cast<GLsizei>(bin.binary->size()));
                     (*m_GLprograms)[i*_STAGE_COUNT+j].GLname = GLname;
                 }
 
@@ -224,6 +222,5 @@ class IOpenGLPipeline
 
 }
 }
-#endif
 
 #endif

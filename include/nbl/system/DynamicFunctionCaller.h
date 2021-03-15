@@ -22,7 +22,7 @@ class DynamicFunctionCallerBase : public core::Unmovable
 		static_assert(std::is_base_of<FuncPtrLoader,FuncPtrLoaderT>::value, "Need a function pointer loader derived from `FuncPtrLoader`");
 		FuncPtrLoaderT loader;
 	public:
-		DynamicFunctionCallerBase() : loader() {}
+		//DynamicFunctionCallerBase() : loader() {}
 		DynamicFunctionCallerBase(DynamicFunctionCallerBase&& other) : DynamicFunctionCallerBase()
 		{
 			operator=(std::move(other));
@@ -53,9 +53,6 @@ class CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER
 	public:\
 		using Base = nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>;\
 \
-		CLASS_NAME() : Base()\
-		{\
-		}\
 		template<typename... T>\
 		CLASS_NAME(T&& ... args) : Base(std::forward<T>(args)...)\
 			NBL_FOREACH(NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR,__VA_ARGS__)\

@@ -6,7 +6,6 @@
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
 #endif
-#include "GL/glext.h"
 #include "GL/gl.h"
 
 namespace nbl {
@@ -21,10 +20,6 @@ public:
 	using features_t = COpenGLFeatureMap;
 	constexpr static inline auto EGL_API_TYPE = EGL_OPENGL_API;
 
-	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4sync, OpenGLFunctionLoader
-		, glTextureBarrier
-		, glTextureBarrierNV
-	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4frameBuffer, OpenGLFunctionLoader
 		, glBlitNamedFramebuffer
 		, glCreateFramebuffers
@@ -239,7 +234,7 @@ public:
 		, glDepthRange
 		, glViewportArrayv
 	);
-	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4sync, OpenGLFunctionLoader
+	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4_sync, OpenGLFunctionLoader
 		, glTextureBarrier
 		, glTextureBarrierNV
 	);
@@ -259,7 +254,7 @@ public:
 	GL4drawing gl4Drawing;
 	GL4query gl4Query;
 	GL4general gl4General;
-	GL4sync gl4Sync;
+	GL4_sync gl4Sync;
 	GL4debug gl4Debug;
 
     COpenGLFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
@@ -283,10 +278,10 @@ public:
 
 	void extGlDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) override
 	{
-		if (gl4Debug.pglDebugMessageCallback)
-			gl4Debug.pglDebugMessageCallback(source, type, severity, count, ids, enabled);
-		else if (gl4Debug.pglDebugMessageCallbackARB)
-			gl4Debug.pglDebugMessageCallbackARB(source, type, severity, count, ids, enabled);
+		if (gl4Debug.pglDebugMessageControl)
+			gl4Debug.pglDebugMessageControl(source, type, severity, count, ids, enabled);
+		else if (gl4Debug.pglDebugMessageControlARB)
+			gl4Debug.pglDebugMessageControlARB(source, type, severity, count, ids, enabled);
 	}
 	void extGlDebugMessageCallback(GLDebugCallbackType callback, const void* userParam) override
 	{
@@ -1269,7 +1264,7 @@ public:
 		}
 	}
 
-	void extGlTextureParameteriv(GLuint texture, GLenum target, GLenum pname, const GLuint* params) override
+	void extGlTextureParameteriv(GLuint texture, GLenum target, GLenum pname, const GLint* params) override
 	{
 		if (gl4Texture.pglTextureParameteriv)
 		{

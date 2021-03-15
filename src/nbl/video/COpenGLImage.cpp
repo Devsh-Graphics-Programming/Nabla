@@ -8,14 +8,15 @@ namespace video
 
 COpenGLImage::~COpenGLImage()
 {
-    m_device->destroyTexture(name);
+    auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
+    device->destroyTexture(name);
     // temporary fbos are created in the background to perform blits and color clears
     COpenGLFramebuffer::hash_t fbohash;
     if (asset::isDepthOrStencilFormat(params.format))
         fbohash = COpenGLFramebuffer::getHashDepthStencilImage(this);
     else
         fbohash = COpenGLFramebuffer::getHashColorImage(this);
-    m_device->destroyFramebuffer(fbohash);
+    device->destroyFramebuffer(fbohash);
 }
 
 }
