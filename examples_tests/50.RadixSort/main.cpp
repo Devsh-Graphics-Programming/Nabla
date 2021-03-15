@@ -14,6 +14,48 @@ struct SortElement { uint32_t key, data; };
 // Todo: There's a lot of room for optimization here, especially creating all the gpu resources again
 // and again when they can be created once and reused
 
+template <typename T>
+static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download, size_t buffer_size, IVideoDriver* driver)
+{
+	constexpr uint64_t timeout_ns = 15000000000u;
+	const uint32_t alignment = uint32_t(sizeof(T));
+	auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
+	auto downBuffer = downloadStagingArea->getBuffer();
+
+	bool success = false;
+
+	uint32_t array_size_32 = uint32_t(buffer_size);
+	uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
+	auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &array_size_32, &alignment);
+	if (unallocatedSize)
+	{
+		os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
+		exit(420);
+	}
+
+	driver->copyBuffer(buffer_to_download.get(), downBuffer, 0, address, array_size_32);
+
+	auto downloadFence = driver->placeFence(true);
+	auto result = downloadFence->waitCPU(timeout_ns, true);
+
+	T* dataFromBuffer = nullptr;
+	if (result != video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED && result != video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+	{
+		if (downloadStagingArea->needsManualFlushOrInvalidate())
+			driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,array_size_32} });
+
+		dataFromBuffer = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
+	}
+	else
+	{
+		os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+	}
+
+	downloadStagingArea->multi_free(1u, &address, &array_size_32, nullptr);
+
+	return dataFromBuffer;
+}
+
 // Works for every POT in [2^0, 2^24], should even work for higher powers but for some
 // reason I can't download the array to the CPU with the current code, to check
 
@@ -244,312 +286,436 @@ int main()
 	video::COpenGLExtensionHandler::extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &max_wg_dim);
 	std::cout << "Max WG dim: " << max_wg_dim << std::endl;
 
-	const size_t in_count = 1 << 28; // > 64 MB, this param is tied to macros in Histogram.comp for now
-	const size_t in_size = in_count * sizeof(SortElement);
-	
-	SortElement* in_array = new SortElement[in_count];
-	srand(666);
-	for (size_t i = 0u; i < in_count; ++i)
+	unsigned int seed = 0;
+
+#define STRESS_TEST 1
+
+#if STRESS_TEST
+	while (true)
 	{
-		in_array[i].key = (rand() % 16);
-		in_array[i].data = rand();
-	}
-	
-	auto in_array_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in_array);
-	auto out_array_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_size);
+#endif
 
-	// Begin Radix Sort
+#if 1
+		// I think you cannot download more than 64 MB of data currently though
+		const size_t in_count = 1 << 24; // > 64 MB, this param is tied to macros in Histogram.comp for now
+		// const size_t in_size = in_count * sizeof(SortElement);
+		const size_t in_size = in_count * sizeof(uint32_t);
 
-	const int bits_per_pass = 4;
-	const int buckets_count = 1 << bits_per_pass;
-	const int values_per_thread = 4;
-	const int workgroup_dim = 1 << 9; // limited by shared memory
-	const int workgroup_count = in_count / (workgroup_dim * values_per_thread);
-
-	const size_t histogram_count = workgroup_count * buckets_count;
-	const size_t histogram_size = histogram_count * sizeof(uint32_t);
-	auto histogram_gpu = driver->createDeviceLocalGPUBufferOnDedMem(histogram_size);
-
-	smart_refctd_ptr<IGPUComputePipeline> histogram_pipeline = nullptr;
-	smart_refctd_ptr<IGPUDescriptorSet> ds_histogram = nullptr;
-	{
-		const uint32_t count = 2u;
-		IGPUDescriptorSetLayout::SBinding binding[count];
-		for (uint32_t i = 0; i < count; ++i)
-			binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-		
-		auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-		ds_histogram = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
-
-		auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
-
-		smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
+		// SortElement* in_array = new SortElement[in_count];
+		uint32_t* in_array = new uint32_t[in_count];
+		srand(seed++);
+		for (size_t i = 0u; i < in_count; ++i)
 		{
-			auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Histogram.comp"));
-
-			asset::IAssetLoader::SAssetLoadParams lp;
-			auto cs_bundle = am->getAsset("../Histogram.comp", lp);
-			auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-			auto cs_rawptr = cs.get();
-
-			shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+			in_array[i] = rand() % 16;
+			// in_array[i].key = (rand() % 16);
+			// in_array[i].data = rand();
 		}
 
-		histogram_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
-	}
+		auto in_array_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in_array);
+		auto out_array_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_size);
 
-	smart_refctd_ptr<IGPUComputePipeline> sort_and_scatter_pipeline = nullptr;
-	smart_refctd_ptr<IGPUDescriptorSet> ds_sort_and_scatter = nullptr;
-	{
-		const uint32_t count = 3u;
-		IGPUDescriptorSetLayout::SBinding binding[count];
-		for (uint32_t i = 0; i < count; ++i)
-			binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
+		// Begin Radix Sort
 
-		auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-		ds_sort_and_scatter = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
+		const int bits_per_pass = 4;
+		const int buckets_count = 1 << bits_per_pass;
+		const int wg_dim = 1 << 8; // limited by number of threads in the hardware for current bits_per_pass == 4
+		const int wg_count = in_count / wg_dim;
 
-		auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
+		const size_t histogram_count = wg_count * buckets_count;
+		const size_t histogram_size = histogram_count * sizeof(uint32_t);
+		auto histogram_gpu = driver->createDeviceLocalGPUBufferOnDedMem(histogram_size);
 
-		smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
+		smart_refctd_ptr<IGPUComputePipeline> histogram_pipeline = nullptr;
+		smart_refctd_ptr<IGPUDescriptorSet> ds_histogram = nullptr;
 		{
-			auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../SortAndScatter.comp"));
-
-			asset::IAssetLoader::SAssetLoadParams lp;
-			auto cs_bundle = am->getAsset("../SortAndScatter.comp", lp);
-			auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-			auto cs_rawptr = cs.get();
-
-			shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-		}
-
-		sort_and_scatter_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
-	}
-
-	driver->beginScene(true);
-
-	const uint32_t pass_count = 1u;
-
-	for (uint32_t pass = 0; pass < pass_count; ++pass)
-	{
-		{
-			const uint32_t count = 2;
-			IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-			ds_info[0].desc = (pass % 2) ? histogram_gpu : in_array_gpu;
-			ds_info[0].buffer = { 0u, in_size };
-
-			ds_info[1].desc = (pass % 2) ? in_array_gpu : histogram_gpu;
-			ds_info[1].buffer = { 0u, histogram_size };
-
-			IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+			const uint32_t count = 2u;
+			IGPUDescriptorSetLayout::SBinding binding[count];
 			for (uint32_t i = 0; i < count; ++i)
-				writes[i] = { ds_histogram.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
 
-			driver->updateDescriptorSets(count, writes, 0u, nullptr);
-		}
+			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
+			ds_histogram = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
 
-		driver->bindComputePipeline(histogram_pipeline.get());
-		driver->bindDescriptorSets(video::EPBP_COMPUTE, histogram_pipeline->getLayout(), 0u, 1u, &ds_histogram.get(), nullptr);
+			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
 
-		driver->pushConstants(histogram_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &pass);
-		driver->dispatch(workgroup_count, 1, 1);
-
-		// Todo: Do I need this barrier?
-		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
-
-		ExclusiveSumScanGPU(histogram_gpu, histogram_count, device);
-
-		// {
-		// 	const uint32_t count = 3;
-		// 	IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-		// 	ds_info[0].desc = in_array_gpu;
-		// 	ds_info[0].buffer = { 0u, in_size };
-		// 
-		// 	ds_info[1].desc = out_array_gpu;
-		// 	ds_info[1].buffer = { 0u, in_size };
-		// 
-		// 	ds_info[2].desc = histogram_gpu;
-		// 	ds_info[2].buffer = { 0u, histogram_size };
-		// 
-		// 	IGPUDescriptorSet::SWriteDescriptorSet writes[count];
-		// 	for (uint32_t i = 0; i < count; ++i)
-		// 		writes[i] = { ds_sort_and_scatter.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-		// 
-		// 	driver->updateDescriptorSets(count, writes, 0u, nullptr);
-		// }
-		// 
-		// driver->bindComputePipeline(sort_and_scatter_pipeline.get());
-		// driver->bindDescriptorSets(video::EPBP_COMPUTE, sort_and_scatter_pipeline->getLayout(), 0u, 1u, &ds_sort_and_scatter.get(), nullptr);
-		// 
-		// driver->dispatch(in_count/workgroup_dim, 1, 1);
-		
-		// std::cout << "Pass #" << pass << std::endl;
-		// std::cout << "---------------------------" << std::endl;
-
-		constexpr uint64_t timeout_ns = 15000000000u;
-		const uint32_t alignment = sizeof(SortElement); // sizeof(uint32_t);
-		auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
-		auto downBuffer = downloadStagingArea->getBuffer();
-		
-		bool success = false;
-		
-		uint32_t array_size_32 = uint32_t(histogram_size);
-		uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
-		auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &array_size_32, &alignment);
-		if (unallocatedSize)
-		{
-			os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
-			return false;
-		}
-
-		// (pass % 2) ? driver->copyBuffer(in_array_gpu.get(), downBuffer, 0, address, array_size_32)
-		// 	: driver->copyBuffer(histogram_gpu.get(), downBuffer, 0, address, array_size_32);
-
-		// driver->copyBuffer(out_array_gpu.get(), downBuffer, 0, address, array_size_32);
-		driver->copyBuffer(histogram_gpu.get(), downBuffer, 0, address, array_size_32);
-		
-		auto downloadFence = driver->placeFence(true);
-		auto result = downloadFence->waitCPU(timeout_ns, true);
-		
-		uint32_t* dataFromBuffer = nullptr;
-		// SortElement* dataFromBuffer = nullptr;
-		if (result != video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED && result != video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
-		{
-			if (downloadStagingArea->needsManualFlushOrInvalidate())
-				driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,array_size_32} });
-		
-			dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
-			// dataFromBuffer = reinterpret_cast<SortElement*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
-		}
-		else
-		{
-			os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
-		}
-		
-		downloadStagingArea->multi_free(1u, &address, &array_size_32, nullptr);
-		
-		if (dataFromBuffer)
-		{
-			bool success = true;
-
-			// Generate histogram
-
-			uint32_t* histogram = new uint32_t[histogram_count];
-			memset(histogram, 0, histogram_size);
-			
-			const uint32_t values_per_group = values_per_thread * workgroup_dim;
-			for (uint32_t wg = 0; wg < workgroup_count; ++wg)
+			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
 			{
-				for (uint32_t i = wg * values_per_group; i < (wg + 1) * values_per_group; ++i)
-					++histogram[wg * buckets_count + in_array[i].key];
+				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Histogram.comp"));
+
+				asset::IAssetLoader::SAssetLoadParams lp;
+				auto cs_bundle = am->getAsset("../Histogram.comp", lp);
+				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+				auto cs_rawptr = cs.get();
+
+				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
 			}
 
-			// Remap histogram
+			histogram_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+		}
+#endif
 
-			uint32_t* histogram_remap = new uint32_t[histogram_count];
-			memset(histogram_remap, 0, histogram_size);
+		smart_refctd_ptr<IGPUComputePipeline> sort_and_scatter_pipeline = nullptr;
+		smart_refctd_ptr<IGPUDescriptorSet> ds_sort_and_scatter = nullptr;
+		{
+			const uint32_t count = 3u;
+			IGPUDescriptorSetLayout::SBinding binding[count];
+			for (uint32_t i = 0; i < count; ++i)
+				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
+
+			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
+			ds_sort_and_scatter = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
+
+			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
+
+			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
+			{
+				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../SortAndScatter.comp"));
+
+				asset::IAssetLoader::SAssetLoadParams lp;
+				auto cs_bundle = am->getAsset("../SortAndScatter.comp", lp);
+				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+				auto cs_rawptr = cs.get();
+
+				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+			}
+
+			sort_and_scatter_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+		}
+
+		driver->beginScene(true);
+
+		const uint32_t pass_count = 1u;
+
+		for (uint32_t pass = 0; pass < pass_count; ++pass)
+		{
+			{
+				const uint32_t count = 2;
+				IGPUDescriptorSet::SDescriptorInfo ds_info[count];
+				ds_info[0].desc = in_array_gpu;
+				ds_info[0].buffer = { 0u, in_size };
+
+				ds_info[1].desc = histogram_gpu;
+				ds_info[1].buffer = { 0u, histogram_size };
+
+				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+				for (uint32_t i = 0; i < count; ++i)
+					writes[i] = { ds_histogram.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+
+				driver->updateDescriptorSets(count, writes, 0u, nullptr);
+			}
+
+			driver->bindComputePipeline(histogram_pipeline.get());
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, histogram_pipeline->getLayout(), 0u, 1u, &ds_histogram.get(), nullptr);
+
+			driver->pushConstants(histogram_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &pass);
+			driver->dispatch(wg_count, 1, 1);
+
+			// Todo: Do I need GL_BUFFER_UPDATE_BARRIER_BIT? Do I need this barrier at all?
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+			ExclusiveSumScanGPU(histogram_gpu, histogram_count, device);
 
 			{
-				int k = 0;
-				for (uint32_t i = 0; i < buckets_count; ++i)
+				const uint32_t count = 3;
+				IGPUDescriptorSet::SDescriptorInfo ds_info[count];
+				ds_info[0].desc = in_array_gpu;
+				ds_info[0].buffer = { 0u, in_size };
+
+				ds_info[1].desc = out_array_gpu;
+				ds_info[1].buffer = { 0u, in_size };
+
+				ds_info[2].desc = histogram_gpu;
+				ds_info[2].buffer = { 0u, histogram_size };
+
+				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+				for (uint32_t i = 0; i < count; ++i)
+					writes[i] = { ds_sort_and_scatter.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+
+				driver->updateDescriptorSets(count, writes, 0u, nullptr);
+			}
+
+			driver->bindComputePipeline(sort_and_scatter_pipeline.get());
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, sort_and_scatter_pipeline->getLayout(), 0u, 1u, &ds_sort_and_scatter.get(), nullptr);
+
+			driver->dispatch(wg_count, 1, 1);
+
+			// Testing
+
+			uint32_t* dataFromBuffer = DebugGPUBufferDownload<uint32_t>(out_array_gpu, in_size, driver);
+
+			if (dataFromBuffer)
+			{
+#if 0
+				const size_t histogram_count = buckets_count * wg_count;
+				uint32_t* histogram = new uint32_t[histogram_count];
+				memset(histogram, 0, histogram_size);
+
+				for (uint32_t wg = 0; wg < wg_count; ++wg)
 				{
-					for (uint32_t wg = 0; wg < workgroup_count; ++wg)
+					for (uint32_t i = wg * wg_dim; i < (wg + 1) * wg_dim; ++i)
+						// ++histogram[wg * buckets_count + in_array[i].key];
+						++histogram[wg * buckets_count + in_array[i]];
+				}
+
+				// Remap histogram
+
+				uint32_t* histogram_remap = new uint32_t[histogram_count];
+				memset(histogram_remap, 0, histogram_size);
+
+				{
+					int k = 0;
+					for (uint32_t i = 0; i < buckets_count; ++i)
 					{
-						histogram_remap[k++] = histogram[i + wg * buckets_count];
+						for (uint32_t wg = 0; wg < wg_count; ++wg)
+						{
+							histogram_remap[k++] = histogram[i + wg * buckets_count];
+						}
 					}
 				}
+
+				// Now do the actual prefix sum
+
+				uint32_t* prefix_sum_scan = new uint32_t[histogram_count];
+				memset(prefix_sum_scan, 0, histogram_size);
+
+				{
+					uint32_t sum = 0;
+					for (uint32_t i = 0; i < histogram_count; ++i)
+					{
+						prefix_sum_scan[i] = sum;
+						sum += histogram_remap[i];
+					}
+				}
+
+				for (int wg = 0; wg < wg_count; ++wg)
+				{
+					size_t begin = wg * wg_dim;
+					size_t end = (wg + 1) * wg_dim;
+					std::sort(in_array + begin, in_array + end);
+
+					for (int i = begin; i < end; ++i)
+					{
+						int digit = in_array[i];
+						int global_offset = prefix_sum_scan[digit * wg_count + wg];
+						if (global_offset != dataFromBuffer[i])
+						{
+							__debugbreak();
+						}
+					}
+				}
+
+				// Validate prefix sum scan of histogram
+
+				// int k = 0;
+				// for (uint32_t i = 0; i < histogram_count; ++i)
+				// {
+				// 	if (prefix_sum_scan[i] != dataFromBuffer[i])
+				// 	{
+				// 		__debugbreak();
+				// 		break;
+				// 	}
+				// }
+
+				// Todo: remap again --for multiple wgs
+
+				delete[] histogram_remap;
+				delete[] prefix_sum_scan;
+#endif
+				
+				// for (int wg = 0; wg < wg_count; ++wg)
+				// {
+				// 	size_t begin = wg * wg_dim;
+				// 	size_t end = (wg + 1) * wg_dim;
+				// 
+				// 	// Generate a local histogram and take prefix sum scan of that to index from
+				// 
+				// 	uint32_t* local_histogram = new uint32_t[buckets_count];
+				// 	memset(local_histogram, 0, buckets_count * sizeof(uint32_t));
+				// 
+				// 	for (size_t i = begin; i < end; ++i)
+				// 		++local_histogram[in_array[i]];
+				// 
+				// 	uint32_t* local_offsets = new uint32_t[buckets_count];
+				// 
+				// 	uint32_t sum = 0;
+				// 	for (size_t i = 0; i < buckets_count; ++i)
+				// 	{
+				// 		local_offsets[i] = sum;
+				// 		sum += local_histogram[i];
+				// 	}
+				// 
+				// 	std::sort(in_array + begin, in_array + end);
+				// 
+				// 	for (int i = begin; i < end; ++i)
+				// 	{
+				// 		int digit = in_array[i];
+				// 		int local_offset = local_offsets[digit];
+				// 
+				// 		// if (wg == 1)
+				// 		// 	std::cout << i << ":\t" << dataFromBuffer[i] << std::endl;
+				// 
+				// 		if (local_offset != dataFromBuffer[i])
+				// 		{
+				// 			__debugbreak();
+				// 		}
+				// 	}
+				// 
+				// 	delete[] local_offsets;
+				// 	delete[] local_histogram;
+				// }
+
+				std::sort(in_array, in_array + in_count);
+
+				for (int i = 0; i < in_count; ++i)
+				{
+					if (in_array[i] != dataFromBuffer[i])
+						__debugbreak();
+				}
+
+				std::cout << "--------------------" << std::endl;
+				std::cout << "PASS" << std::endl;
 			}
 
-			// Now do the actual prefix sum
+#if 0
 
-			uint32_t* prefix_sum_scan = new uint32_t[histogram_count];
-			memset(prefix_sum_scan, 0, histogram_size);
+			if (dataFromBuffer)
 			{
+				bool success = true;
+
+				// // Remap histogram
+				// 
+				// uint32_t* histogram_remap = new uint32_t[histogram_count];
+				// memset(histogram_remap, 0, histogram_size);
+				// 
+				// {
+				// 	int k = 0;
+				// 	for (uint32_t i = 0; i < buckets_count; ++i)
+				// 	{
+				// 		for (uint32_t wg = 0; wg < wg_count; ++wg)
+				// 		{
+				// 			histogram_remap[k++] = histogram[i + wg * buckets_count];
+				// 		}
+				// 	}
+				// }
+				// 
+				// // Now do the actual prefix sum
+				// 
+				// uint32_t* prefix_sum_scan = new uint32_t[histogram_count];
+				// memset(prefix_sum_scan, 0, histogram_size);
+				// {
+				// 	uint32_t sum = 0;
+				// 	for (uint32_t i = 0; i < histogram_count; ++i)
+				// 	{
+				// 		prefix_sum_scan[i] = sum;
+				// 		sum += histogram_remap[i];
+				// 	}
+				// }
+				// 
+				// // Validate prefix sum scan of histogram
+				// int k = 0;
+				// for (uint32_t i = 0; i < histogram_count; ++i)
+				// {
+				// 	if (prefix_sum_scan[i] != dataFromBuffer[i])
+				// 	{
+				// 		success = false;
+				// 		__debugbreak();
+				// 		break;
+				// 	}
+				// }
+				// 
+				// delete[] histogram_remap;
+				// delete[] prefix_sum_scan;
+
+				// Validate sort and scatter
+				// std::sort(in_array, in_array + in_count);
+
+				// Validate
+				// i == 1051235
+				// i == 1051340
+				// i == 1051354
+				// i == 1048858
+				// i == 1049666
+				// i == 2097169
+				// i == 2097207
+				// i == 2097207
+				// i == 2097169
+				// i == 2097532
+
+				uint32_t* h = new uint32_t[histogram_count];
+				memset(h, 0, histogram_size);
+
+				for (uint32_t i = 0; i < in_count; ++i)
+					++h[in_array[i]];
+
+				uint32_t* psh = new uint32_t[histogram_count];
+
 				uint32_t sum = 0;
 				for (uint32_t i = 0; i < histogram_count; ++i)
 				{
-					prefix_sum_scan[i] = sum;
-					sum += histogram_remap[i];
+					psh[i] = sum;
+					sum += h[i];
 				}
-			}
 
-			// Validate sort and scatter
-			// for (uint32_t i = 0; i < in_count; ++i)
-			// {
-			// 	if ((dataFromBuffer[i].key != in_array[i].key) || (dataFromBuffer[i].data != in_array[i].data))
-			// 	{
-			// 		__debugbreak();
-			// 	}
-			// }
-
-			// Validate prefix sum scan of histogram
-			int k = 0;
-			for (uint32_t i = 0; i < histogram_count; ++i)
-			{
-				if (prefix_sum_scan[i] != dataFromBuffer[i])
+				std::cout << "(Me, Ref)" << std::endl;
+				// for (uint32_t i = 2097160; i <= 2097207; ++i)
+				for (uint32_t i = 0; i < histogram_count; ++i)
 				{
-					success = false;
-					__debugbreak();
-					break;
+					if (dataFromBuffer[i] != psh[i])
+					{
+						__debugbreak();
+					}
+
+					// std::cout << i << " : \t(" << dataFromBuffer[i] << ",\t" << in_array[i] << ")" << std::endl;
 				}
+
+				delete[] psh;
+				delete[] h;
+
+				std::cout << std::endl;
+
+
+				// const size_t wg_dim = 1 << 10;
+				// const size_t wg_count = in_count / wg_dim;
+				// uint32_t* partial_red_cpu = new uint32_t[wg_count];
+				// for (uint32_t wg = 0; wg < wg_count; ++wg)
+				// {
+				// 	uint32_t sum = 0;
+				// 	for (uint32_t i = 0; i < wg_dim; ++i)
+				// 	{
+				// 		// prefix_sum_scan[workgroup_dim * wg + i] = sum;
+				// 		sum += in_array[wg_dim * wg + i];
+				// 	}
+				// 
+				// 	partial_red_cpu[wg] = sum;
+				// }
+
+				// uint32_t* increments = new uint32_t[workgroup_dim];
+				// {
+				// 	uint32_t sum = 0;
+				// 	for (uint32_t i = 0; i < workgroup_dim; ++i)
+				// 	{
+				// 		increments[i] = sum;
+				// 		sum += partial_red_cpu[i];
+				// 	}
+				// }
+
+				// delete[] partial_red_cpu;
+				// delete[] increments;
+
+				std::cout << "---------------------------\n" << std::endl;
+
+				std::cout << "PASS" << std::endl;
 			}
-			
-			// Validate histogram
-			// int k = 0;
-			// for (uint32_t i = 0; i < buckets_count; ++i)
-			// {
-			// 	for (uint32_t wg = 0; wg < workgroup_count; ++wg)
-			// 	{
-			// 		if (dataFromBuffer[k++] != histogram[i + wg * buckets_count])
-			// 		{
-			// 			success = false;
-			// 			__debugbreak();
-			// 			break;
-			// 		}
-			// 	}
-			// }
-			
-			delete[] histogram;
-			delete[] histogram_remap;
-			delete[] prefix_sum_scan;
-
-			// const size_t wg_dim = 1 << 10;
-			// const size_t wg_count = in_count / wg_dim;
-			// uint32_t* partial_red_cpu = new uint32_t[wg_count];
-			// for (uint32_t wg = 0; wg < wg_count; ++wg)
-			// {
-			// 	uint32_t sum = 0;
-			// 	for (uint32_t i = 0; i < wg_dim; ++i)
-			// 	{
-			// 		// prefix_sum_scan[workgroup_dim * wg + i] = sum;
-			// 		sum += in_array[wg_dim * wg + i];
-			// 	}
-			// 
-			// 	partial_red_cpu[wg] = sum;
-			// }
-
-			// uint32_t* increments = new uint32_t[workgroup_dim];
-			// {
-			// 	uint32_t sum = 0;
-			// 	for (uint32_t i = 0; i < workgroup_dim; ++i)
-			// 	{
-			// 		increments[i] = sum;
-			// 		sum += partial_red_cpu[i];
-			// 	}
-			// }
-
-			// delete[] partial_red_cpu;
-			// delete[] increments;
-
-			std::cout << "---------------------------\n" << std::endl;
-
-			std::cout << "PASS" << std::endl;
+#endif
 		}
-	}
-	
-	driver->endScene();
 
-	delete[] in_array;
+		driver->endScene();
+
+		delete[] in_array;
+
+#if STRESS_TEST
+	}
+#endif
 
 	return 0;
 }
