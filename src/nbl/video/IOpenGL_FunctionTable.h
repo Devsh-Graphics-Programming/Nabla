@@ -7,8 +7,12 @@
 #include "nbl/core/string/UniqueStringLiteralType.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/video/CEGL.h"
+#define GL_GLEXT_LEGACY 1
+#include "GL/gl.h"
+#undef GL_GLEXT_LEGACY
+#define GL_GLEXT_PROTOTYPES
 #include "GL/glext.h"
-#include "GL/GL.h"
+#undef GL_GLEXT_PROTOTYPES
 
 namespace nbl {
 	namespace video {
@@ -439,7 +443,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawArraysInstancedBaseInstance unsupported!", ESS_ERROR);
+					os::Printer::log("GlDrawArraysInstancedBaseInstance unsupported!", ELL_ERROR);
 				}
 #endif
 			}
@@ -451,7 +455,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawElementsInstancedBaseInstance unsupported!", ESS_ERROR);
+					os::Printer::log("GlDrawElementsInstancedBaseInstance unsupported!", ELL_ERROR);
 				}
 #endif
 			}
@@ -463,7 +467,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawElementsInstancedBaseVertex unsupported!", ESS_ERROR);
+					os::Printer::log("GlDrawElementsInstancedBaseVertex unsupported!", ELL_ERROR);
 				}
 #endif
 			}
@@ -477,7 +481,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawElementsInstancedBaseVertexBaseInstance unsupported!", ESS_ERROR);
+					os::Printer::log("GlDrawElementsInstancedBaseVertexBaseInstance unsupported!", ELL_ERROR);
 				}
 #endif
 			}

@@ -90,7 +90,7 @@ public:
 
     explicit IRenderpass(const SCreationParams& params) : 
         m_params(params),
-        m_attachments(m_params.attachmentCount ? core::make_refctd_dynamic_array<attachments_array_t>(params.attachmentCount):nullptr),
+        m_attachments(params.attachmentCount ? core::make_refctd_dynamic_array<attachments_array_t>(params.attachmentCount):nullptr),
         m_subpasses(params.subpassCount ? core::make_refctd_dynamic_array<subpasses_array_t>(params.subpassCount):nullptr),
         m_dependencies(params.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(params.dependencyCount):nullptr)
     {
@@ -192,7 +192,7 @@ public:
     const SCreationParams& getCreationParameters() const { return m_params; }
 
 protected:
-    virtual ~IRenderpass() = 0;
+    virtual ~IRenderpass() {}
 
     SCreationParams m_params;
     using attachments_array_t = core::smart_refctd_dynamic_array<SCreationParams::SAttachmentDescription>;

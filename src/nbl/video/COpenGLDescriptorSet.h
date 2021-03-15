@@ -7,14 +7,12 @@
 
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/macros.h"
-#include "COpenGLExtensionHandler.h"
 #include "COpenGLBuffer.h"
 #include "COpenGLBufferView.h"
 #include "COpenGLImage.h"
 #include "COpenGLImageView.h"
 #include "nbl/video/COpenGLSampler.h"
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace nbl
 {
 namespace video
@@ -337,6 +335,5 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 }
 }
-#endif
 
 #endif

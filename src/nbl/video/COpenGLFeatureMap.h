@@ -1193,13 +1193,13 @@ public:
 	//! Gives the upper and lower bound on warp/wavefront/SIMD-lane size
 	uint32_t InvocationSubGroupSize[2];
 	//! Minimal and maximal supported thickness for lines without smoothing
-	GLfloat DimAliasedLine[2];
+	float DimAliasedLine[2];
 	//! Minimal and maximal supported thickness for points without smoothing
-	GLfloat DimAliasedPoint[2];
+	float DimAliasedPoint[2];
 	//! Minimal and maximal supported thickness for lines with smoothing
-	GLfloat DimSmoothedLine[2];
+	float DimSmoothedLine[2];
 	//! Minimal and maximal supported thickness for points with smoothing
-	GLfloat DimSmoothedPoint[2];
+	float DimSmoothedPoint[2];
 	//!
 	uint32_t MaxColorAttachments;
 

@@ -77,6 +77,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 	nbl_adjust_flags() # macro defined in root CMakeLists
 	nbl_adjust_definitions() # macro defined in root CMakeLists
+	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
 
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdi)

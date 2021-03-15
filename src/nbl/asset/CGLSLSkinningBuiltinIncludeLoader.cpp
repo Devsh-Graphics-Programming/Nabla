@@ -7,8 +7,6 @@
 #include <cctype>
 #include <regex>
 
-#include "COpenGLExtensionHandler.h"
-
 using namespace nbl;
 using namespace asset;
 

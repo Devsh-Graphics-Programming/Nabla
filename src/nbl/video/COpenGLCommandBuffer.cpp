@@ -110,7 +110,7 @@ namespace video
         auto dstImageGL = static_cast<COpenGLImage*>(dstImage);
         GLuint dst = dstImageGL->getOpenGLName();
         GLenum glfmt, gltype;
-        getOpenGLFormatAndParametersFromColorFormat(format, glfmt, gltype);
+        getOpenGLFormatAndParametersFromColorFormat(gl, format, glfmt, gltype);
 
         const auto bpp = asset::getBytesPerPixel(format);
         const auto blockDims = asset::getBlockDimensions(format);
@@ -204,7 +204,7 @@ namespace video
         const bool compressed = asset::isBlockCompressionFormat(format);
         GLuint src = static_cast<COpenGLImage*>(srcImage)->getOpenGLName();
         GLenum glfmt, gltype;
-        getOpenGLFormatAndParametersFromColorFormat(format, glfmt, gltype);
+        getOpenGLFormatAndParametersFromColorFormat(gl, format, glfmt, gltype);
 
         const auto bpp = asset::getBytesPerPixel(format);
         const auto blockDims = asset::getBlockDimensions(format);

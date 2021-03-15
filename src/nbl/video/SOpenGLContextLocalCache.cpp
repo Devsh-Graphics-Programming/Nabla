@@ -618,9 +618,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                     if (!gl->isGLES() && isFloatingPointFormat(format) && getTexelOrBlockBytesize(format) == getFormatChannelCount(format) * sizeof(double))//DOUBLE
                         gl->extGlVertexArrayAttribLFormat(vao, attr, getFormatChannelCount(format), IOpenGL_FunctionTable::DOUBLE, hashVal.getRelativeOffsetForAttrib(attr));
                     else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
-                        gl->extGlVertexArrayAttribFormat(vao, attr, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, hashVal.getRelativeOffsetForAttrib(attr));
+                        gl->extGlVertexArrayAttribFormat(vao, attr, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(gl, format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, hashVal.getRelativeOffsetForAttrib(attr));
                     else if (isIntegerFormat(format))//INTEGERS
-                        gl->extGlVertexArrayAttribIFormat(vao, attr, getFormatChannelCount(format), formatEnumToGLenum(format), hashVal.getRelativeOffsetForAttrib(attr));
+                        gl->extGlVertexArrayAttribIFormat(vao, attr, getFormatChannelCount(format), formatEnumToGLenum(gl, format), hashVal.getRelativeOffsetForAttrib(attr));
 
                     if (!updatedBindings[bnd]) {
                         gl->extGlVertexArrayBindingDivisor(vao, bnd, hashVal.getDivisorForBinding(bnd));

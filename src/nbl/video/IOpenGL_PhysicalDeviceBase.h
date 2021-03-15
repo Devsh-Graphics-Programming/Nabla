@@ -164,7 +164,7 @@ public:
 
 				for (uint32_t j = 0; j < m_glfeatures.NBL_OpenGL_Feature_Count; ++j)
 				{
-					if (!strcmp(OpenGLFeatureStrings[j], extensionName))
+					if (!strcmp(m_glfeatures.OpenGLFeatureStrings[j], extensionName))
 					{
 						m_glfeatures.FeatureAvailable[j] = true;
 						break;
@@ -181,7 +181,7 @@ public:
 			{
 				for (uint32_t j = 0; j < m_glfeatures.NBL_OpenGL_Feature_Count; ++j)
 				{
-					if (extname == OpenGLFeatureStrings[j])
+					if (extname == m_glfeatures.OpenGLFeatureStrings[j])
 					{
 						m_glfeatures.FeatureAvailable[j] = true;
 						break;
@@ -193,11 +193,11 @@ public:
 		GLint num = 0;
 
 		GetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqUBOAlignment);
-		assert(core::is_alignment(reqUBOAlignment));
+		assert(core::is_alignment(m_glfeatures.reqUBOAlignment));
 		GetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqSSBOAlignment);
-		assert(core::is_alignment(reqSSBOAlignment));
+		assert(core::is_alignment(m_glfeatures.reqSSBOAlignment));
 		GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqTBOAlignment);
-		assert(core::is_alignment(reqTBOAlignment));
+		assert(core::is_alignment(m_glfeatures.reqTBOAlignment));
 
 		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
 		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));

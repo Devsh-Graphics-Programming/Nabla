@@ -6,9 +6,8 @@
 #define __NBL_VIDEO_C_OPENGL_PIPELINE_LAYOUT_H_INCLUDED__
 
 #include "nbl/video/IGPUPipelineLayout.h"
-#include "COpenGLExtensionHandler.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace nbl
 {
 namespace video
@@ -80,6 +79,5 @@ private:
 
 }
 }
-#endif
 
 #endif

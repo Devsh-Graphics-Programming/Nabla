@@ -8,6 +8,7 @@
 #include "nbl/asset/asset.h"
 
 // private headers (would be useful to cleanup the folders a bit)
+#ifndef _NBL_PCH_IGNORE_PRIVATE_HEADERS
 
 	// buffers
 		// loaders
@@ -56,5 +57,6 @@
 	#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 	#include "nbl/asset/CBAWMeshFileLoader.h"
 	#include "nbl/asset/CBAWMeshWriter.h"
+#endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
 
 #endif

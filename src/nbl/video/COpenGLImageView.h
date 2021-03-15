@@ -33,7 +33,7 @@ class COpenGLImageView final : public IGPUImageView
 		COpenGLImageView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(dev, std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
-			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
+			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
             assert(internalFormat != GL_INVALID_ENUM);
 
 			//glTextureView spec:

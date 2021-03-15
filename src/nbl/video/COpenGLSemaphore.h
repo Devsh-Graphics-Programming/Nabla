@@ -16,13 +16,13 @@ class COpenGLSemaphore : public IGPUSemaphore, public IOpenGLSyncPrimitiveBase
 protected:
     ~COpenGLSemaphore()
     {
-#ifdef _NBL_DEBUG
+/*#ifdef _NBL_DEBUG
         if (m_sync)
         {
             auto status = m_sync->waitCPU(0);
             assert(status == COpenGLSync::ES_CONDITION_SATISFIED || status == COpenGLSync::ES_ALREADY_SIGNALED);
         }
-#endif
+#endif*/
     }
 
 public:

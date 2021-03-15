@@ -26,7 +26,7 @@ class COpenGLBufferView : public IGPUBufferView
 		{
 			gl->extGlCreateTextures(GL_TEXTURE_BUFFER, 1, &m_textureName);
 
-			m_GLformat = getSizedOpenGLFormatFromOurFormat(m_format);
+			m_GLformat = getSizedOpenGLFormatFromOurFormat(gl, m_format);
 
 			if (m_offset==0u && m_size==m_buffer->getSize())
 				gl->extGlTextureBuffer(m_textureName, m_GLformat, static_cast<COpenGLBuffer*>(m_buffer.get())->getOpenGLName());

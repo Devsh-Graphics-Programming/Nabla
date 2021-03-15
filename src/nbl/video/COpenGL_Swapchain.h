@@ -201,6 +201,8 @@ private:
                 GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
                 gl.extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
             }
+            for (uint32_t i = 0u; i < fboCount; ++i)
+                syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>(m_device, &gl);
         }
 
         void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)

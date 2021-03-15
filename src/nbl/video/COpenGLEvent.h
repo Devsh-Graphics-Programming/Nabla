@@ -2,7 +2,6 @@
 #define __NBL_C_OPENGL_EVENT_H_INCLUDED__
 
 #include "nbl/video/IGPUEvent.h"
-#include "COpenGLExtensionHandler.h"
 #include "nbl/video/COpenGLSync.h"
 
 namespace nbl {

@@ -6,8 +6,9 @@
 #define __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
-#include "GL/glext.h"
 #include "nbl/asset/ECommonEnums.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/asset/format/EFormat.h"
 
 namespace nbl
 {
@@ -124,7 +125,7 @@ inline GLbitfield accessFlagsToMemoryBarrierBits(asset::E_ACCESS_FLAGS flags)
 	return barrier;
 }
 
-inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
+inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format)
 {
 	using namespace asset;
 	switch (format)
@@ -166,14 +167,14 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 			return GL_R8;
 			break;
 		case EF_R8_SRGB:
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
+			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				return GL_SR8_EXT;
 			break;
 		case EF_R8G8_UNORM:
 			return GL_RG8;
 			break;
 		case EF_R8G8_SRGB:
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
+			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				return GL_SRG8_EXT;
 			break;
 		case EF_R8G8B8_UNORM:
@@ -795,7 +796,7 @@ inline asset::E_FORMAT	getOurFormatFromSizedOpenGLFormat(GLenum sizedFormat)
 	return asset::EF_UNKNOWN;
 }
 #endif
-static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
+static GLenum formatEnumToGLenum(IOpenGL_FunctionTable* gl, asset::E_FORMAT fmt)
 {
     using namespace asset;
     switch (fmt)
@@ -825,11 +826,11 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 		case EF_B8G8R8A8_UNORM:
 			return GL_UNSIGNED_BYTE;
 		case EF_R8_SRGB:
-			if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
+			if (gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				return GL_UNSIGNED_BYTE;
 			break;
 		case EF_R8G8_SRGB:
-			if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
+			if (gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				return GL_UNSIGNED_BYTE;
 			break;
 		case EF_R8_SNORM:
@@ -924,7 +925,7 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 
 
 //! Get opengl values for the GPU texture storage
-inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
+inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
 {
 	using namespace asset;
 	// default
@@ -987,7 +988,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 		break;
 		case asset::EF_R8_SRGB:
 		{
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
+			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				break;
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
@@ -1019,7 +1020,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 		break;
 		case asset::EF_R8G8_SRGB:
 		{
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
+			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				break;
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;

@@ -132,6 +132,8 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/source/Nabla/CLogger.cpp
 	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
 	${NBL_ROOT_PATH}/source/Nabla/os.cpp
+	
+	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -240,9 +242,6 @@ set(NBL_SCENE_SOURCES
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyStraight.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFollowSpline.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorRotation.cpp
-)
-set(NBL_SYSTEM_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}

@@ -181,6 +181,16 @@ public:
 
     virtual E_LEVEL getLevel() const = 0;
 
+    //! `_flags` takes bits from E_USAGE
+    virtual void begin(uint32_t _flags)
+    {
+        assert(m_state != ES_PENDING);
+        assert(m_state != ES_RECORDING);
+
+        m_state = ES_RECORDING;
+        m_recordingFlags = _flags;
+    }
+
     //! `_flags` takes bits from E_RESET_FLAGS
     virtual void reset(uint32_t _flags)
     {
@@ -281,16 +291,6 @@ public:
 
 protected:
     virtual ~ICommandBuffer() = default;
-
-    //! `_flags` takes bits from E_USAGE
-    virtual void begin(uint32_t _flags)
-    {
-        assert(m_state!=ES_PENDING);
-        assert(m_state!=ES_RECORDING);
-
-        m_state = ES_RECORDING;
-        m_recordingFlags = _flags;
-    }
 
     void setState(E_STATE _state)
     {

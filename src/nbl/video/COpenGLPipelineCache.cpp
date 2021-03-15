@@ -77,22 +77,22 @@ bool COpenGLPipelineCache::SCacheKey::operator<(const COpenGLPipelineCache::SCac
 	return true;
 }
 
-core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertToCPUCache() const
+core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertToCPUCache(IOpenGL_FunctionTable* gl) const
 {
 	asset::ICPUPipelineCache::entries_map_t out_entries;
 
 	std::string uuid;
 	{
-		uuid = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
-		uuid += reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+		uuid = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_VENDOR));
+		uuid += reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_RENDERER));
 
-		uuid += std::to_string(COpenGLExtensionHandler::Version);
+		uuid += std::to_string(gl->getFeatures()->Version);
 
 		std::string exts;
-		for (uint32_t k = 0u; k < COpenGLExtensionHandler::NBL_OpenGL_Feature_Count; ++k)
+		for (uint32_t k = 0u; k < COpenGLFeatureMap::NBL_OpenGL_Feature_Count; ++k)
 		{
-			if (COpenGLExtensionHandler::FeatureAvailable[k])
-				exts += OpenGLFeatureStrings[k];
+			if (gl->getFeatures()->isFeatureAvailable(static_cast<COpenGLFeatureMap::EOpenGLFeatures>(k)))
+				exts += COpenGLFeatureMap::OpenGLFeatureStrings[k];
 		}
 		uuid += exts;
 	}
