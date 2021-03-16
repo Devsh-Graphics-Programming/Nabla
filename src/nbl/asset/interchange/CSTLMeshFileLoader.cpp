@@ -143,7 +143,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
 	auto meshbuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 	meshbuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
-	meshbuffer->setNormalnAttributeIx(NORMAL_ATTRIBUTE);
+	meshbuffer->setNormalAttributeIx(NORMAL_ATTRIBUTE);
 
 	bool binary = false;
 	core::stringc token;

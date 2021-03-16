@@ -24,8 +24,6 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
 
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
-
         #define DUMMY_DEFAULT_CONSTRUCTOR StackAddressAllocator() : minimumAllocSize(invalid_address), allocStackPtr(invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
@@ -35,7 +33,7 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
         StackAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz, size_type minAllocSize) noexcept :
                     Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz), minimumAllocSize(minAllocSize), allocStackPtr(0u) {}
 
-        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
         StackAddressAllocator(size_type newBuffSz, StackAddressAllocator&& other, Args&&... args) :
                     Base(newBuffSz,std::move(other),std::forward<Args>(args)...),  minimumAllocSize(invalid_address), allocStackPtr(invalid_address)

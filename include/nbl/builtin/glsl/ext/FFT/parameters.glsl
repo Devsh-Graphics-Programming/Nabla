@@ -5,10 +5,42 @@
 #ifndef _NBL_GLSL_EXT_FFT_PARAMETERS_INCLUDED_
 #define _NBL_GLSL_EXT_FFT_PARAMETERS_INCLUDED_
 
-struct nbl_glsl_ext_FFT_Parameters_t
-{
-    uvec4   dimension; // settings packed into the w component : (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
-    uvec4   padded_dimension; // num channels in the last channel (again the previous reasoning) 
-};
+#include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
+
+#ifndef _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DECLARED_
+#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DECLARED_
+nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters();
+#endif
+
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.padded_dimension.xyz);
+}
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.dimension.xyz);
+}  
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.dimension.w >> 16) & 0x000000ff;
+}
+
+uint nbl_glsl_ext_FFT_Parameters_t_getFFTLength() {
+    const uint direction = nbl_glsl_ext_FFT_Parameters_t_getDirection();
+    return nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions()[direction];
+}
+
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return bool((params.dimension.w >> 8) & 0x000000ff);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.dimension.w) & 0x000000ff;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getNumChannels() {
+    nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
+    return (params.padded_dimension.w);
+}
 
 #endif

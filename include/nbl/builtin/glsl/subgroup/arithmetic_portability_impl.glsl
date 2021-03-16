@@ -2,22 +2,6 @@
 #define _NBL_BUILTIN_GLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPLEMENTATION_INCLUDED_
 
 
-/* TODO: @Hazardu or someone finish the definitions as soon as Nabla can report Vulkan GLSL equivalent caps
-#ifdef GL_KHR_subgroup_basic
-
-	#define SUBGROUP_BARRIERS subgroupBarrier(); \
-	subgroupBarrierShared()
-
-#else
-*/
-
-#define SUBGROUP_BARRIERS memoryBarrierShared()
-
-//#endif
-
-
-
-
 /*
 How to avoid bank conflicts:
 read:	00,01,02,03,    08,09,10,11,	16,17,18,19,    24,25,26,27,    04,05,06,07,    12,13,14,15,    20,21,22,23,    28,29,30,31
@@ -87,35 +71,44 @@ uint nbl_glsl_subgroup_getSubgroupEmulationMemoryStoreOffset(in uint loMask, in 
 #define NBL_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) SUBGROUP_SCRATCH_OFFSETS_AND_MASKS; \
 	if (INITIALIZE) \
 	{ \
-		SUBGROUP_BARRIERS; \
+		nbl_glsl_subgroupBarrier(); \
+		nbl_glsl_subgroupMemoryBarrierShared(); \
 		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset] = INVCONV (VALUE); \
 		if (pseudoSubgroupInvocation<nbl_glsl_HalfSubgroupSize) \
 			_NBL_GLSL_SCRATCH_SHARED_DEFINED_[lastLoadOffset] = INVCONV (IDENTITY); \
 	} \
-	SUBGROUP_BARRIERS; \
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared(); \
 	VALUE = OP (VALUE,CONV (_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset-1u])); \
-	for (uint stp=nbl_glsl_MinSubgroupSize; stp<nbl_glsl_HalfSubgroupSize; stp<<=1u) \
+	for (uint stp=2u; stp<nbl_glsl_HalfSubgroupSize; stp<<=1u) \
 	{ \
-		SUBGROUP_BARRIERS; \
+		nbl_glsl_subgroupBarrier(); \
+		nbl_glsl_subgroupMemoryBarrierShared(); \
 		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset] = INVCONV (VALUE); \
-		SUBGROUP_BARRIERS; \
+		nbl_glsl_subgroupBarrier(); \
+		nbl_glsl_subgroupMemoryBarrierShared(); \
 		VALUE = OP (VALUE,CONV (_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset-stp])); \
 	} \
-	SUBGROUP_BARRIERS; \
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared(); \
 	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset] = INVCONV (VALUE); \
-	SUBGROUP_BARRIERS; \
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared(); \
 	VALUE = OP (VALUE,CONV (_NBL_GLSL_SCRATCH_SHARED_DEFINED_[lastLoadOffset])); \
-	SUBGROUP_BARRIERS;
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared();
 
 
 #define NBL_GLSL_SUBGROUP_REDUCE(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) NBL_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) \
 	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset] = INVCONV (VALUE); \
-	SUBGROUP_BARRIERS; \
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared(); \
 	uint lastSubgroupInvocation = loMask; \
 	if (pseudoSubgroupElectedInvocation==nbl_glsl_subgroup_impl_pseudoSubgroupElectedInvocation(loMask,_NBL_GLSL_WORKGROUP_SIZE_-1u)) \
 		lastSubgroupInvocation &= _NBL_GLSL_WORKGROUP_SIZE_-1u;\
 	const uint lastItem = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[nbl_glsl_subgroup_impl_getSubgroupEmulationMemoryStoreOffset(subgroupMemoryStart,lastSubgroupInvocation)]; \
-	SUBGROUP_BARRIERS; \
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared(); \
 	return CONV (lastItem);
 
 
@@ -220,9 +213,11 @@ float nbl_glsl_subgroupMax_impl(in bool clearScratchToIdentity, float value)
 
 #define NBL_GLSL_SUBGROUP_EXCLUSIVE_SCAN(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) NBL_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) \
 	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset] = INVCONV (VALUE); \
-	SUBGROUP_BARRIERS; \
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared(); \
 	const uint prevItem = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset-1u]; \
-	SUBGROUP_BARRIERS; \
+	nbl_glsl_subgroupBarrier(); \
+	nbl_glsl_subgroupMemoryBarrierShared(); \
 	return CONV (prevItem);
 
 
@@ -407,10 +402,6 @@ float nbl_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, float v
 
 
 #undef NBL_GLSL_SUBGROUP_ARITHMETIC_IMPL
-
-
-
-#undef SUBGROUP_BARRIERS
 
 
 

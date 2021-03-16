@@ -10,55 +10,9 @@ namespace nbl
 namespace asset
 {
 
-class MeshPackerBase
+class IMeshPackerBase
 {
 public:
-    struct AllocationParams
-    {
-        size_t indexBuffSupportedCnt                   = 1073741824ull;      /*   2GB*/
-        size_t vertexBuffSupportedCnt                  = 107374182ull;       /*   2GB assuming vertex size is 20B*/
-        size_t perInstanceVertexBuffSupportedCnt       = 3355443ull;         /*  32MB assuming per instance vertex attrib size is 10B*/
-        size_t MDIDataBuffSupportedCnt                 = 16777216ull;        /*  16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
-        size_t vertexBufferMinAllocSize                = 32ull;
-        size_t indexBufferMinAllocSize                 = 256ull;
-        size_t perInstanceVertexBufferMinAllocSize     = 32ull;
-        size_t MDIDataBuffMinAllocSize                 = 32ull;
-    };
-
-    template <typename BufferType>
-    struct PackedMeshBuffer
-    {
-        //or output should look more like `return_type` from geometry creator?
-        //TODO: add parameters of the 
-        core::smart_refctd_ptr<BufferType> MDIDataBuffer;
-        SBufferBinding<BufferType> vertexBufferBindings[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT] = {};
-        SBufferBinding<BufferType> indexBuffer;
-
-        SVertexInputParams vertexInputParams;
-
-        inline bool isValid()
-        {
-            return this->MDIDataBuffer->getPointer() != nullptr;
-        }
-    };
-
-    struct ReservedAllocationMeshBuffers
-    {
-        uint32_t mdiAllocationOffset;
-        uint32_t mdiAllocationReservedSize;
-        uint32_t instanceAllocationOffset;
-        uint32_t instanceAllocationReservedSize;
-        uint32_t indexAllocationOffset;
-        uint32_t indexAllocationReservedSize;
-        uint32_t vertexAllocationOffset;
-        uint32_t vertexAllocationReservedSize;
-
-        inline bool isValid()
-        {
-            return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-        }
-    };
-
     struct PackedMeshBufferData
     {
         uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
@@ -70,44 +24,78 @@ public:
         }
     };
 
-    template <typename MeshIterator>
-    struct MeshPackerConfigParams
+protected:
+    IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+        :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
+         m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
+         m_MDIDataAlctrResSpc(nullptr),
+         m_idxBuffAlctrResSpc(nullptr),
+         m_vtxBuffAlctrResSpc(nullptr)
     {
-        SVertexInputParams vertexInputParams;
-        core::SRange<void, MeshIterator> belongingMeshes; // pointers to sections of `sortedMeshBuffersOut`
+        assert(minTriangleCountPerMDIData <= 21845);
+        assert(maxTriangleCountPerMDIData <= 21845);
     };
 
-protected:
-    MeshPackerBase(const AllocationParams& allocParams)
-        :m_allocParams(allocParams) {};
-
-    static bool cmpVtxInputParams(const SVertexInputParams& lhs, const SVertexInputParams& rhs)
+    virtual ~IMeshPackerBase()
     {
-        if (lhs.enabledAttribFlags != rhs.enabledAttribFlags)
-            return false;
+        _NBL_ALIGNED_FREE(m_MDIDataAlctrResSpc);
+        _NBL_ALIGNED_FREE(m_idxBuffAlctrResSpc);
+        _NBL_ALIGNED_FREE(m_vtxBuffAlctrResSpc);
+    }
 
-        for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+    struct AllocationParamsCommon
+    {
+        size_t indexBuffSupportedCnt = 1073741824ull;                  /*   2GB*/
+        size_t vertexBuffSupportedSize = 1ull << 31ull;                /*   2GB*/
+        size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
+        size_t indexBufferMinAllocSize = 256ull;
+        size_t vertexBufferMinAllocSize = 32ull;
+        size_t MDIDataBuffMinAllocSize = 32ull;
+    };
+
+    void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
+    {
+        if (allocParams.indexBuffSupportedCnt)
         {
-            if (!(attrBit & lhs.enabledAttribFlags))
-                continue;
-
-            if (lhs.attributes[location].format != rhs.attributes[location].format ||
-                lhs.bindings[lhs.attributes[location].binding].inputRate != rhs.bindings[rhs.attributes[location].binding].inputRate)
-                return false;
+            m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
+            assert(m_idxBuffAlctrResSpc != nullptr);
+            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize);
         }
 
-        return true;
+        if (allocParams.vertexBuffSupportedSize)
+        {
+            m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            //for now mesh packer will not allow mesh buffers without any per vertex attributes
+            _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
+            assert(m_vtxBuffAlctrResSpc != nullptr);
+            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize);
+        }
+
+        if (allocParams.MDIDataBuffSupportedCnt)
+        {
+            m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
+            assert(m_MDIDataAlctrResSpc != nullptr);
+            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize);
+        }
     }
 
 protected:
-    const AllocationParams m_allocParams;
+    void* m_MDIDataAlctrResSpc;
+    void* m_idxBuffAlctrResSpc;
+    void* m_vtxBuffAlctrResSpc;
+    core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
+    core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
+    core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
+
+    const uint16_t m_minTriangleCountPerMDIData;
+    const uint16_t m_maxTriangleCountPerMDIData;
 
 };
 
-//TODO: allow mesh buffers with only per instance attributes
-
 template <typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
-class IMeshPacker : public MeshPackerBase
+class IMeshPacker : public IMeshPackerBase
 {
     static_assert(std::is_base_of<DrawElementsIndirectCommand_t, MDIStructType>::value);
 
@@ -116,170 +104,13 @@ public:
     @param minTriangleCountPerMDIData must be <= 21845
     @param maxTriangleCountPerMDIData must be <= 21845
     */
-    IMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-        :MeshPackerBase(allocParams),
-         m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
-         m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
-         m_MDIDataAlctrResSpc(nullptr), m_idxBuffAlctrResSpc(nullptr),
-         m_vtxBuffAlctrResSpc(nullptr), m_perInsVtxBuffAlctrResSpc(nullptr)
+    IMeshPacker(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+        :IMeshPackerBase(minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
     {
-        assert(minTriangleCountPerMDIData <= 21845);
-        assert(maxTriangleCountPerMDIData <= 21845);
-
-        m_outVtxInputParams.enabledAttribFlags  = preDefinedLayout.enabledAttribFlags;
-        m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledAttribFlags;
-
-        memcpy(m_outVtxInputParams.attributes, preDefinedLayout.attributes, sizeof(m_outVtxInputParams.attributes));
-
-        m_vtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX);
-        assert(m_vtxSize);
-        if (m_vtxSize)
-        {
-            m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.vertexBuffSupportedCnt, allocParams.vertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
-            //for now mesh packer will not allow mesh buffers without any per vertex attributes
-            _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
-            assert(m_vtxBuffAlctrResSpc != nullptr);
-            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.vertexBuffSupportedCnt, allocParams.vertexBufferMinAllocSize);
-        }
-        
-        m_perInstVtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
-        if (m_perInstVtxSize)
-        {
-            m_perInsVtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
-            _NBL_DEBUG_BREAK_IF(m_perInsVtxBuffAlctrResSpc == nullptr);
-            assert(m_perInsVtxBuffAlctrResSpc != nullptr);
-            m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize);
-        }
-
-        m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
-        _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
-        assert(m_idxBuffAlctrResSpc != nullptr);
-        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize);
-
-        m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(MDIStructType), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize), _NBL_SIMD_ALIGNMENT);
-        _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
-        assert(m_MDIDataAlctrResSpc != nullptr);
-        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(MDIStructType), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize);
-
-        //1 attrib enabled == 1 binding
-        for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
-        {
-            if (m_outVtxInputParams.enabledAttribFlags & attrBit)
-            {
-                m_outVtxInputParams.attributes[location].binding = location;
-                m_outVtxInputParams.attributes[location].relativeOffset = 0u;
-                m_outVtxInputParams.bindings[location].stride = getTexelOrBlockBytesize(static_cast<E_FORMAT>(m_outVtxInputParams.attributes[location].format));
-                m_outVtxInputParams.bindings[location].inputRate = preDefinedLayout.bindings[preDefinedLayout.attributes[location].binding].inputRate;
-            }
-        }
     }
 
-    //TODO: update comment
-    // returns number of distinct mesh packers needed to pack the meshes and a sorted list of meshes by the meshpacker ID they should be packed into, as well as the parameters for the packers
-    // `packerParamsOut` should be big enough to fit `std::distance(begin,end)` entries, the return value will tell you how many were actually written
-    template<typename MeshIterator>
-    static uint32_t getPackerCreationParamsFromMeshBufferRange(const MeshIterator begin, const MeshIterator end, MeshIterator sortedMeshBuffersOut,
-        MeshPackerBase::MeshPackerConfigParams<MeshIterator>* packerParamsOut)
-    {
-        assert(begin <= end);
-        if (begin == end)
-            return 0;
-
-        uint32_t packersNeeded = 1u;
-
-        MeshPackerBase::MeshPackerConfigParams<MeshIterator> firstInpuParams
-        {
-            (*begin)->getPipeline()->getVertexInputParams(),
-            SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
-        };
-        memcpy(packerParamsOut, &firstInpuParams, sizeof(SVertexInputParams));
-
-        //fill array
-        auto test1 = std::distance(begin, end);
-        auto* packerParamsOutEnd = packerParamsOut + 1u;
-        for (MeshIterator it = begin + 1; it != end; it++)
-        {
-            auto& currMeshVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
-
-            bool alreadyInserted = false;
-            for (auto* packerParamsIt = packerParamsOut; packerParamsIt != packerParamsOutEnd; packerParamsIt++)
-            {
-                alreadyInserted = cmpVtxInputParams(packerParamsIt->vertexInputParams, currMeshVtxInputParams);
-
-                if (alreadyInserted)
-                    break;
-            }
-
-            if (!alreadyInserted)
-            {
-                packersNeeded++;
-
-                MeshPackerBase::MeshPackerConfigParams<MeshIterator> configParams
-                {
-                    currMeshVtxInputParams,
-                    SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
-                };
-                memcpy(packerParamsOutEnd, &configParams, sizeof(SVertexInputParams));
-                packerParamsOutEnd++;
-            }
-        }
-
-        auto getIndexOfArrayElement = [&](const SVertexInputParams& vtxInputParams) -> int32_t
-        {
-            int32_t offset = 0u;
-            for (auto* it = packerParamsOut; it != packerParamsOutEnd; it++, offset++)
-            {
-                if (cmpVtxInputParams(vtxInputParams, it->vertexInputParams))
-                    return offset;
-
-                if (it == packerParamsOut - 1)
-                    return -1;
-            }
-        };
-
-        //sort meshes by SVertexInputParams
-        const MeshIterator sortedMeshBuffersOutEnd = sortedMeshBuffersOut + std::distance(begin, end);
-
-        std::copy(begin, end, sortedMeshBuffersOut);
-        std::sort(sortedMeshBuffersOut, sortedMeshBuffersOutEnd,
-            [&](const MeshBufferType* lhs, const MeshBufferType* rhs)
-            {
-                return getIndexOfArrayElement(lhs->getPipeline()->getVertexInputParams()) < getIndexOfArrayElement(rhs->getPipeline()->getVertexInputParams());
-            }
-        );
-
-        //set ranges
-        MeshIterator sortedMeshBuffersIt = sortedMeshBuffersOut;
-        for (auto* inputParamsIt = packerParamsOut; inputParamsIt != packerParamsOutEnd; inputParamsIt++)
-        {
-            MeshIterator firstMBForThisRange = sortedMeshBuffersIt;
-            MeshIterator lastMBForThisRange = sortedMeshBuffersIt;
-            for (MeshIterator it = firstMBForThisRange; it != sortedMeshBuffersOutEnd; it++)
-            {
-                if (!cmpVtxInputParams(inputParamsIt->vertexInputParams, (*it)->getPipeline()->getVertexInputParams()))
-                {
-                    lastMBForThisRange = it;
-                    break;
-                }
-            }
-
-            if (inputParamsIt == packerParamsOutEnd - 1)
-                lastMBForThisRange = sortedMeshBuffersOutEnd;
-
-            inputParamsIt->belongingMeshes = SRange<void, MeshIterator>(firstMBForThisRange, lastMBForThisRange);
-            sortedMeshBuffersIt = lastMBForThisRange;
-        }
-
-        return packersNeeded;
-    }
 protected:
-    virtual ~IMeshPacker() 
-    {
-        _NBL_ALIGNED_FREE(m_MDIDataAlctrResSpc);
-        _NBL_ALIGNED_FREE(m_idxBuffAlctrResSpc);
-        _NBL_ALIGNED_FREE(m_vtxBuffAlctrResSpc);
-        _NBL_ALIGNED_FREE(m_perInsVtxBuffAlctrResSpc);
-    }
+    virtual ~IMeshPacker() {}
 
     inline size_t calcVertexSize(const SVertexInputParams& vtxInputParams, const E_VERTEX_INPUT_RATE inputRate) const
     {
@@ -294,7 +125,8 @@ protected:
         return size;
     }
 
-public:
+    inline constexpr uint32_t calcBatchCount(uint32_t triCnt) { return (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData; }
+
     struct Triangle
     {
         uint32_t oldIndices[3];
@@ -305,29 +137,132 @@ public:
         core::vector<Triangle> triangles;
     };
 
-    virtual core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType& meshBuffer) = 0;
+    core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType* meshBuffer)
+    {
+        const size_t idxCnt = meshBuffer->getIndexCount();
+        const uint32_t triCnt = idxCnt / 3;
+        assert(idxCnt % 3 == 0);
+
+        const uint32_t batchCount = calcBatchCount(triCnt);
+
+        core::vector<TriangleBatch> output(batchCount);
+
+        for (uint32_t i = 0u; i < batchCount; i++)
+        {
+            if (i == (batchCount - 1))
+            {
+                if (triCnt % m_maxTriangleCountPerMDIData)
+                {
+                    output[i].triangles = core::vector<Triangle>(triCnt % m_maxTriangleCountPerMDIData);
+                    continue;
+                }
+            }
+
+            output[i].triangles = core::vector<Triangle>(m_maxTriangleCountPerMDIData);
+        }
+
+        //struct TriangleMortonCodePair
+        //{
+        //	Triangle triangle;
+        //	//uint64_t mortonCode; TODO after benchmarks
+        //};
+
+        //TODO: triangle reordering
+
+        const auto& srcIdxBuffer = meshBuffer->getIndexBufferBinding();
+        auto idxBufferPtr32Bit = static_cast<const uint32_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint32_t)); //will be changed after benchmarks
+        auto idxBufferPtr16Bit = static_cast<const uint16_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint16_t));
+        for (TriangleBatch& batch : output)
+        {
+            for (Triangle& tri : batch.triangles)
+            {
+                if (meshBuffer->getIndexType() == EIT_32BIT)
+                {
+                    tri.oldIndices[0] = *idxBufferPtr32Bit;
+                    tri.oldIndices[1] = *(++idxBufferPtr32Bit);
+                    tri.oldIndices[2] = *(++idxBufferPtr32Bit);
+                    idxBufferPtr32Bit++;
+                }
+                else if (meshBuffer->getIndexType() == EIT_16BIT)
+                {
+
+                    tri.oldIndices[0] = *idxBufferPtr16Bit;
+                    tri.oldIndices[1] = *(++idxBufferPtr16Bit);
+                    tri.oldIndices[2] = *(++idxBufferPtr16Bit);
+                    idxBufferPtr16Bit++;
+                }
+            }
+        }
+
+        return output;
+    }
+
+    core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatch(TriangleBatch& batch, uint16_t*& indexBuffPtr)
+    {
+        core::unordered_map<uint32_t, uint16_t> usedVertices;
+        core::vector<Triangle> newIdxTris = batch.triangles;
+
+        uint32_t newIdx = 0u;
+        for (uint32_t i = 0u; i < batch.triangles.size(); i++)
+        {
+            const Triangle& triangle = batch.triangles[i];
+            for (int32_t j = 0; j < 3; j++)
+            {
+                const uint32_t oldIndex = triangle.oldIndices[j];
+                auto result = usedVertices.insert(std::make_pair(oldIndex, newIdx));
+
+                newIdxTris[i].oldIndices[j] = result.second ? newIdx++ : result.first->second;
+            }
+        }
+
+        //TODO: cache optimization
+
+        //copy indices into unified index buffer
+        for (size_t i = 0; i < batch.triangles.size(); i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                *indexBuffPtr = newIdxTris[i].oldIndices[j];
+                indexBuffPtr++;
+            }
+        }
+
+        return usedVertices;
+    }
+
+    void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr)
+    {
+        uint8_t* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
+        SVertexInputParams& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
+        SVertexInputAttribParams MBAttrib = mbVtxInputParams.attributes[attrLocation];
+        SVertexInputBindingParams attribBinding = mbVtxInputParams.bindings[MBAttrib.binding];
+        const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(MBAttrib.format));
+        const size_t stride = (attribBinding.stride) == 0 ? attrSize : attribBinding.stride;
+
+        for (auto index : usedVertices)
+        {
+            const uint8_t* attrSrc = srcAttrPtr + (index.first * stride);
+            uint8_t* attrDest = dstAttrPtr + (index.second * attrSize);
+            memcpy(attrDest, attrSrc, attrSize);
+        }
+    }
 
 protected:
-    //output mesh buffers data
-    SVertexInputParams m_outVtxInputParams;
+    template <typename BufferType>
+    struct PackerDataStoreCommon
+    {
+        static_assert(std::is_base_of<core::IBuffer, BufferType>::value);
 
-    void* m_MDIDataAlctrResSpc;
-    void* m_idxBuffAlctrResSpc;
-    void* m_vtxBuffAlctrResSpc;
-    void* m_perInsVtxBuffAlctrResSpc;
-    core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
-    core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
-    core::GeneralpurposeAddressAllocator<uint32_t> m_perInsVtxBuffAlctr;
-    core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
+        core::smart_refctd_ptr<BufferType> MDIDataBuffer;
 
-    const uint16_t m_minTriangleCountPerMDIData;
-    const uint16_t m_maxTriangleCountPerMDIData;
-
-    uint32_t m_vtxSize;
-    uint32_t m_perInstVtxSize;
+        inline bool isValid()
+        {
+            return this->MDIDataBuffer->getPointer() != nullptr;
+        }
+    };
 
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-    _NBL_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
+
 };
 
 }

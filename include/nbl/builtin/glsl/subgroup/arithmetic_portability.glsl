@@ -5,9 +5,7 @@
 #include <nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl>
 
 
-/*
-#ifdef GL_KHR_subgroup_arithmetic
-
+#ifdef NBL_GL_KHR_shader_subgroup_arithmetic
 
 
 #define nbl_glsl_subgroupAdd subgroupAnd
@@ -50,7 +48,6 @@
 
 
 #else
-*/
 
 
 // If you're planning to use the emulated `nbl_glsl_subgroup` with workgroup sizes not divisible by subgroup size, you should clear the _NBL_GLSL_SCRATCH_SHARED_DEFINED_ to the identity value yourself.
@@ -110,7 +107,7 @@
 #include <nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl>
 
 
-//#endif // GL_KHR_subgroup_arithmetic
+#endif // NBL_GL_KHR_shader_subgroup_arithmetic
 
 
 
