@@ -12,15 +12,20 @@ struct WaveSimParams
 		};
 		nbl::core::dimension2du size;
 	};
-	nbl::core::vector2df m_length_unit;
-	nbl::core::vector2df m_wind_dir;
-	float m_wind_speed;
-	float m_amplitude; 
-	float m_wind_dependency;
+	nbl::core::vector2df length_unit;
+	nbl::core::vector2df wind_dir;
+	float wind_speed;
+	float amplitude; 
+	float wind_dependency;
 };
 
 class WaveSimApp
 {
+	struct MeshData
+	{
+		nbl::asset::SVertexInputParams input_params;
+		uint32_t index_count;
+	};
 	using computePipeline = nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline>;
 	using graphicsPipeline = nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>;
 	using textureView = nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView>;
@@ -29,9 +34,12 @@ private:
 	[[nodiscard]] bool CreatePresentingPipeline();
 	[[nodiscard]] bool CreateComputePipelines();
 	textureView CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format = nbl::asset::E_FORMAT::EF_R8G8B8A8_UNORM) const;
-	void PresentWaves(const textureView& tex);
+	void PresentWaves2D(const textureView& tex);
+	void PresentWaves3D(const textureView& tex);
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> RandomizeWaveSpectrum();
-	void GetAnimatedHeightMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
+	void GenerateHeightMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
+	void GenerateNormalMap(const textureView& heightmap, textureView& normalmap);
+	MeshData CreateRectangularWavesMesh();
 public:
 	WaveSimApp(const WaveSimParams& params);
 	void Run();
@@ -48,10 +56,12 @@ private:
 	computePipeline m_spectrum_randomizing_pipeline;
 	computePipeline m_animating_pipeline_1;
 	computePipeline m_animating_pipeline_2;
+	computePipeline m_normalmap_generating_pipeline;
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_randomizer_descriptor_set;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_animating_1_descriptor_set;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_animating_2_descriptor_set;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_normalmap_descriptor_set;
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> m_current_gpu_mesh_buffer;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout;

@@ -100,13 +100,26 @@ bool WaveSimApp::CreateComputePipelines()
 	{
 		SPECTRUM_RANDOMIZE,
 		ANIMATE_STAGE_1,
-		ANIMATE_STAGE_2
+		ANIMATE_STAGE_2,
+		GENERATE_NORMALMAP
 	};
 
 	auto createShader = [&](EPipeline type)
 	{
 		switch (type)
 		{
+		case EPipeline::GENERATE_NORMALMAP:
+		{
+			std::string filepath = "../generate_normalmap.comp";
+			auto f = core::smart_refctd_ptr<io::IReadFile>(m_filesystem->createAndOpenFile(filepath.c_str()));
+
+			asset::IAssetLoader::SAssetLoadParams lp;
+			auto cs_bundle = m_asset_manager->getAsset(filepath.c_str(), lp);
+			auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+
+			auto cs_rawptr = cs.get();
+			return m_driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+		}
 		case EPipeline::SPECTRUM_RANDOMIZE:
 		{
 			std::string filepath = "../spectrum_randomizer.comp";
@@ -191,12 +204,14 @@ bool WaveSimApp::CreateComputePipelines()
 
 			return gpuSpecializedShader;
 		}
+		
 		}
 	};
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> init_ds_layout;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ift_x_ds_layout;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ift_y_ds_layout;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> normalmap_ds_layout;
 	{
 		IGPUDescriptorSetLayout::SBinding texture_bindings[1];
 		texture_bindings[0].binding = 0;
@@ -247,6 +262,23 @@ bool WaveSimApp::CreateComputePipelines()
 
 		ift_y_ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 2);
 		m_animating_2_descriptor_set = m_driver->createGPUDescriptorSet(ift_y_ds_layout);
+	}
+	{
+		IGPUDescriptorSetLayout::SBinding texture_bindings[2];
+		texture_bindings[0].binding = 0;
+		texture_bindings[0].type = EDT_COMBINED_IMAGE_SAMPLER;
+		texture_bindings[0].count = 1u;
+		texture_bindings[0].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
+		texture_bindings[0].samplers = nullptr;
+
+		texture_bindings[1].binding = 1;
+		texture_bindings[1].type = EDT_STORAGE_IMAGE;
+		texture_bindings[1].count = 1u;
+		texture_bindings[1].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
+		texture_bindings[1].samplers = nullptr;
+
+		normalmap_ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 2);
+		m_normalmap_descriptor_set = m_driver->createGPUDescriptorSet(normalmap_ds_layout);
 	}
 
 	auto createComputePipeline = [&](EPipeline pipeline_type)
@@ -304,6 +336,21 @@ bool WaveSimApp::CreateComputePipelines()
 						nullptr);
 				}
 				break;
+				case EPipeline::GENERATE_NORMALMAP:
+				{
+					ds_layout = normalmap_ds_layout;
+					asset::SPushConstantRange range;
+					range.size = sizeof(dimension2du);
+					range.offset = 0u;
+					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+					layout = m_driver->createGPUPipelineLayout(&range,
+						&range + 1,
+						std::move(ds_layout),
+						nullptr,
+						nullptr,
+						nullptr);
+				}
+				break;
 				}
 
 			}
@@ -318,9 +365,11 @@ bool WaveSimApp::CreateComputePipelines()
 	m_spectrum_randomizing_pipeline = createComputePipeline(EPipeline::SPECTRUM_RANDOMIZE);
 	m_animating_pipeline_1 = createComputePipeline(EPipeline::ANIMATE_STAGE_1);
 	m_animating_pipeline_2 = createComputePipeline(EPipeline::ANIMATE_STAGE_2);
+	m_normalmap_generating_pipeline = createComputePipeline(EPipeline::GENERATE_NORMALMAP);
 	return m_spectrum_randomizing_pipeline.get() != nullptr &&
 		m_animating_pipeline_1.get() != nullptr &&
-		m_animating_pipeline_2.get() != nullptr;
+		m_animating_pipeline_2.get() != nullptr &&
+		m_normalmap_generating_pipeline.get() != nullptr;
 }
 
 WaveSimApp::textureView WaveSimApp::CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format) const
@@ -345,7 +394,7 @@ WaveSimApp::textureView WaveSimApp::CreateTexture(nbl::core::dimension2du size, 
 	return image_view;
 }
 
-void WaveSimApp::PresentWaves(const textureView& tex)
+void WaveSimApp::PresentWaves2D(const textureView& tex)
 {
 	auto sampler_descriptor_set = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_gpu_descriptor_set_layout));
 
@@ -372,6 +421,8 @@ void WaveSimApp::PresentWaves(const textureView& tex)
 		m_driver->bindGraphicsPipeline(m_presenting_pipeline.get());
 		m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_presenting_pipeline->getLayout(), 3u, 1u, &sampler_descriptor_set.get(), nullptr);
 		m_driver->drawMeshBuffer(m_current_gpu_mesh_buffer.get());
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+
 	}
 }
 
@@ -406,7 +457,7 @@ smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::RandomizeWaveSpectrum()
 	return initial_buffer;
 }
 
-void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time)
+void WaveSimApp::GenerateHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time)
 {
 	using namespace ext::FFT;
 	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
@@ -517,7 +568,7 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		params.padded_dimension.y = params.dimension.y;
 		params.padded_dimension.z = params.dimension.z;
 		params.padded_dimension.w = 1;
-										
+
 		auto dispatch_info = FFT::buildParameters({ params.dimension.x,
 													params.dimension.y,
 													params.dimension.z }, FFT::Direction::X);
@@ -528,11 +579,49 @@ void WaveSimApp::GetAnimatedHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuf
 		m_driver->pushConstants(m_animating_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(params), &params);
 		{
 			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
-			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		}
 
 	}
 }
+
+void WaveSimApp::GenerateNormalMap(const textureView& heightmap, textureView& normalmap)
+{
+	{
+		video::IGPUDescriptorSet::SWriteDescriptorSet write[2];
+		video::IGPUDescriptorSet::SDescriptorInfo info[2];
+		write[0].dstSet = m_normalmap_descriptor_set.get();
+		write[0].binding = 0u;
+		write[0].count = 1;
+		write[0].arrayElement = 0u;
+		write[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		write[0].info = info;
+		info[0].desc = heightmap;
+		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		info[0].image.sampler = m_driver->createGPUSampler(samplerParams);
+		info[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+
+		write[1] = write[0];
+		write[1].descriptorType = asset::EDT_STORAGE_IMAGE;
+		write[1].binding = 1u;
+		write[1].info = info + 1;
+		info[1].desc = normalmap;
+		info[1].image = { nullptr, EIL_UNDEFINED };
+
+		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
+	}
+	{
+		auto ds = m_normalmap_descriptor_set.get();
+		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_normalmap_generating_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
+		m_driver->bindComputePipeline(m_normalmap_generating_pipeline.get());
+		m_driver->pushConstants(m_normalmap_generating_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(m_params.size), &m_params.size);
+		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.height + 15u) / 16u, 1u);
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	}
+
+}
+
+
 
 WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 {
@@ -543,7 +632,7 @@ WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 		float length = sqrt(vec.X * vec.X + vec.Y * vec.Y);
 		return vec / length;
 	};
-	m_params.m_wind_dir = normalize(m_params.m_wind_dir);
+	m_params.wind_dir = normalize(m_params.wind_dir);
 
 	bool initialized = Init();
 	initialized &= CreatePresentingPipeline();
@@ -553,16 +642,17 @@ WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 
 void WaveSimApp::Run()
 {
-	
 	float i = 1;
 
 	auto initial_values = RandomizeWaveSpectrum();
-	auto animated_part = CreateTexture(m_params.size, EF_R8G8_UNORM);
+	auto heightmap = CreateTexture(m_params.size, EF_R8_UNORM);
+	auto normalmap = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
 	while (m_device->run())
 	{
 		m_driver->beginScene(true);
-		GetAnimatedHeightMap(initial_values, animated_part, i+=0.01);
-		PresentWaves(animated_part);
+		GenerateHeightMap(initial_values, heightmap, i += 0.01);
+		GenerateNormalMap(heightmap, normalmap);
+		PresentWaves2D(normalmap);
 		m_driver->endScene();
 
 	}

@@ -1,0 +1,39 @@
+#version 450 
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 0, binding = 0) uniform sampler2D heightmap;
+layout (set = 0, binding = 1, rgba8) uniform writeonly image2D normalmap;
+
+layout(push_constant) uniform PUSH_CONSTANTS
+{
+	uvec2 IMAGE_SIZE;
+} u_pc;
+
+void main()
+{
+	if(all(lessThan(gl_GlobalInvocationID.xy, u_pc.IMAGE_SIZE)))
+	{
+        ivec2 x = ivec2(gl_GlobalInvocationID.xy);
+        vec2  tex_coord = gl_GlobalInvocationID.xy / float(u_pc.IMAGE_SIZE.x);
+
+        vec2 texel_size = 1.0 / u_pc.IMAGE_SIZE;
+        float neighbors[9];
+
+        neighbors[0] = texture(heightmap, tex_coord + vec2(-texel_size.x, texel_size.y)).r;
+        neighbors[1] = texture(heightmap, tex_coord + vec2(0, texel_size.y)).r;
+        neighbors[2] = texture(heightmap, tex_coord + vec2(texel_size.x, texel_size.y)).r;
+        neighbors[3] = texture(heightmap, tex_coord + vec2(-texel_size.x, 0)).r;
+        neighbors[5] = texture(heightmap, tex_coord + vec2(texel_size.x, 0)).r;
+        neighbors[6] = texture(heightmap, tex_coord + vec2(-texel_size.x, -texel_size.y)).r;
+        neighbors[7] = texture(heightmap, tex_coord + vec2(0, -texel_size.y)).r;
+        neighbors[8] = texture(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y)).r;
+
+        vec3 normal;
+
+        normal.x = -(neighbors[2]-neighbors[0]+2*(neighbors[5]-neighbors[3])+neighbors[8]-neighbors[6]);
+        normal.y = -(neighbors[6]-neighbors[0]+2*(neighbors[7]-neighbors[1])+neighbors[8]-neighbors[2]);
+        normal.z = 1.0;
+	    imageStore(normalmap, ivec2(gl_GlobalInvocationID.xy), vec4(normalize(normal), 1));
+	}
+}
