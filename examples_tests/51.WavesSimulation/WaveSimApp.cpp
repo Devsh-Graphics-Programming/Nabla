@@ -106,38 +106,31 @@ bool WaveSimApp::CreateComputePipelines()
 		IFFT_STAGE_2,
 		GENERATE_NORMALMAP
 	};
-
+	auto getFilePath = [](EPipeline type)
+	{
+		switch (type)
+		{
+		case EPipeline::RANDOMIZE_SPECTRUM:
+			return "../initial_spectrum.comp";
+		case EPipeline::ANIMATE_SPECTRUM:
+			return "../spectrum_animation.comp";
+		case EPipeline::GENERATE_NORMALMAP:
+			return "../normalmap_generation.comp";
+		case EPipeline::IFFT_STAGE_1:
+			return "../ifft_x.comp";
+		case EPipeline::IFFT_STAGE_2:
+			return "../ifft_y.comp";
+		}
+	};
 	auto createShader = [&](EPipeline type)
 	{
 		switch (type)
 		{
 		case EPipeline::GENERATE_NORMALMAP:
-		{
-			std::string filepath = "../generate_normalmap.comp";
-			auto f = core::smart_refctd_ptr<io::IReadFile>(m_filesystem->createAndOpenFile(filepath.c_str()));
-
-			asset::IAssetLoader::SAssetLoadParams lp;
-			auto cs_bundle = m_asset_manager->getAsset(filepath.c_str(), lp);
-			auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-
-			auto cs_rawptr = cs.get();
-			return m_driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-		}
 		case EPipeline::ANIMATE_SPECTRUM:
-		{
-			std::string filepath = "../spectrum_animation.comp";
-			auto f = core::smart_refctd_ptr<io::IReadFile>(m_filesystem->createAndOpenFile(filepath.c_str()));
-
-			asset::IAssetLoader::SAssetLoadParams lp;
-			auto cs_bundle = m_asset_manager->getAsset(filepath.c_str(), lp);
-			auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-
-			auto cs_rawptr = cs.get();
-			return m_driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-		}
 		case EPipeline::RANDOMIZE_SPECTRUM:
 		{
-			std::string filepath = "../spectrum_randomizer.comp";
+			std::string filepath = getFilePath(type);
 			auto f = core::smart_refctd_ptr<io::IReadFile>(m_filesystem->createAndOpenFile(filepath.c_str()));
 
 			asset::IAssetLoader::SAssetLoadParams lp;
@@ -157,7 +150,7 @@ bool WaveSimApp::CreateComputePipelines()
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
  
-#include "../animate_1.comp"
+#include "../ifft_x.comp"
 
 )===";
 			const size_t extraSize = 128;
@@ -193,7 +186,7 @@ bool WaveSimApp::CreateComputePipelines()
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
  
-#include "../animate_2.comp"
+#include "../ifft_y.comp"
 
 )===";
 			const size_t extraSize = 128;
