@@ -1,3 +1,5 @@
+#include <chrono> 
+
 #include "WaveSimApp.h"
 #include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
 #include "nbl/ext/FFT/FFT.h"
@@ -720,10 +722,12 @@ void WaveSimApp::Run()
 	auto initial_values = RandomizeWaveSpectrum();
 	auto heightmap = CreateTexture(m_params.size, EF_R8_UNORM);
 	auto normalmap = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
+	auto start_time = std::chrono::system_clock::now();
 	while (m_device->run())
 	{
+		std::chrono::duration<double> time_passed = std::chrono::system_clock::now() - start_time;
 		m_driver->beginScene(true);
-		GenerateHeightMap(initial_values, heightmap, i += 0.01);
+		GenerateHeightMap(initial_values, heightmap, std::chrono::duration_cast<std::chrono::milliseconds>(time_passed).count() / 1000.f);
 		GenerateNormalMap(heightmap, normalmap);
 		PresentWaves2D(normalmap);
 		m_driver->endScene();
