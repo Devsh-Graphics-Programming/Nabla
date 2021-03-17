@@ -672,7 +672,7 @@ void WaveSimApp::GenerateNormalMap(const textureView& heightmap, textureView& no
 		write[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
 		write[0].info = info;
 		info[0].desc = heightmap;
-		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 		info[0].image.sampler = m_driver->createGPUSampler(samplerParams);
 		info[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 

@@ -18,22 +18,17 @@ void main()
         vec2  tex_coord = gl_GlobalInvocationID.xy / float(u_pc.IMAGE_SIZE.x);
 
         vec2 texel_size = 1.0 / u_pc.IMAGE_SIZE;
-        float neighbors[9];
 
-        neighbors[0] = texture(heightmap, tex_coord + vec2(-texel_size.x, texel_size.y)).r;
-        neighbors[1] = texture(heightmap, tex_coord + vec2(0, texel_size.y)).r;
-        neighbors[2] = texture(heightmap, tex_coord + vec2(texel_size.x, texel_size.y)).r;
-        neighbors[3] = texture(heightmap, tex_coord + vec2(-texel_size.x, 0)).r;
-        neighbors[5] = texture(heightmap, tex_coord + vec2(texel_size.x, 0)).r;
-        neighbors[6] = texture(heightmap, tex_coord + vec2(-texel_size.x, -texel_size.y)).r;
-        neighbors[7] = texture(heightmap, tex_coord + vec2(0, -texel_size.y)).r;
-        neighbors[8] = texture(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y)).r;
-
+        vec4 l_u = textureGather(heightmap, tex_coord + vec2(-texel_size.x, texel_size.y) / 2);
+        vec4 l_d = textureGather(heightmap, tex_coord + vec2(-texel_size.x, -texel_size.y) / 2);
+        vec4 r_u = textureGather(heightmap, tex_coord + vec2(texel_size.x, texel_size.y) / 2);
+        vec4 r_d = textureGather(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y) / 2);
+        
         vec3 normal;
-
-        normal.x = -(neighbors[2]-neighbors[0]+2*(neighbors[5]-neighbors[3])+neighbors[8]-neighbors[6]);
-        normal.y = -(neighbors[6]-neighbors[0]+2*(neighbors[7]-neighbors[1])+neighbors[8]-neighbors[2]);
+        normal.x = -(r_u[1] - l_u[0] + 2 * (r_u[2] -l_u[3]) + r_d[2] - l_d[3]);
+        normal.y = -(l_d[3] - l_u[0] + 2 * (l_d[2] -l_u[1]) + r_d[2] - r_u[1]);
         normal.z = 1.0;
+
 	    imageStore(normalmap, ivec2(gl_GlobalInvocationID.xy), vec4(normalize(normal), 1));
 	}
 }
