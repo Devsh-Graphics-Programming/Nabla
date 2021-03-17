@@ -12,18 +12,12 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) i
 #define G 9.8
 #define cvec3 mat3x2
 
-layout(set = 0, binding = 0, std430) buffer H0_DATA
-{
-	cvec3 data[];
-} primary_calculations;
-
-layout(set = 0, binding = 1, std430) buffer ANIMATED_SPECTRUM
+layout(set = 0, binding = 0, std430) buffer ANIMATED_SPECTRUM
 {
 	vec2 data[];
 } animated_spectrum;
 
-
-layout(set = 0, binding = 2, std430) buffer IFFT_X_OUT
+layout(set = 0, binding = 1, std430) buffer IFFT_X_OUT
 {
 	vec2 data[];
 } ifft_x_out;
@@ -38,20 +32,6 @@ layout(push_constant) uniform PUSH_CONSTANTS
 #define EI(x) vec2(cos(x), sin(x))
 void main()
 {
-	{
-        uint ssbo_index = gl_GlobalInvocationID.y * u_pc.IMG_SIZE.x + gl_GlobalInvocationID.x;
-		vec2 h0k = primary_calculations.data[ssbo_index][0];
-		vec2 h0_conj = primary_calculations.data[ssbo_index][1];
-		vec2 k = primary_calculations.data[ssbo_index][2];
-
-		float wk = sqrt(length(k) * G); 
-		float wkt = wk * u_pc.TIME;
-
-		vec2 res = nbl_glsl_complex_mul(h0k, EI(wkt)) + 
-				   nbl_glsl_complex_mul(h0_conj, EI(-wkt));
-
-		animated_spectrum.data[ssbo_index] = res;
-	}
 	nbl_glsl_ext_FFT(true, 0);
 }
 

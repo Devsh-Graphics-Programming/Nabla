@@ -37,6 +37,7 @@ private:
 	void PresentWaves2D(const textureView& tex);
 	void PresentWaves3D(const textureView& tex);
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> RandomizeWaveSpectrum();
+	void AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time);
 	void GenerateHeightMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
 	void GenerateNormalMap(const textureView& heightmap, textureView& normalmap);
 	MeshData CreateRectangularWavesMesh();
@@ -54,13 +55,15 @@ private:
 
 	graphicsPipeline m_presenting_pipeline;
 	computePipeline m_spectrum_randomizing_pipeline;
-	computePipeline m_animating_pipeline_1;
-	computePipeline m_animating_pipeline_2;
+	computePipeline m_spectrum_animating_pipeline;
+	computePipeline m_ifft_pipeline_1;
+	computePipeline m_ifft_pipeline_2;
 	computePipeline m_normalmap_generating_pipeline;
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_randomizer_descriptor_set;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_animating_1_descriptor_set;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_animating_2_descriptor_set;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_spectrum_animating_descriptor_set;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_ifft_1_descriptor_set;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_ifft_2_descriptor_set;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_normalmap_descriptor_set;
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> m_current_gpu_mesh_buffer;
