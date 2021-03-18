@@ -115,7 +115,7 @@ public:
 protected:
     virtual ~IMeshPacker() {}
 
-    inline size_t calcVertexSize(const SVertexInputParams& vtxInputParams, const E_VERTEX_INPUT_RATE inputRate) const
+    static inline size_t calcVertexSize(const SVertexInputParams& vtxInputParams, const E_VERTEX_INPUT_RATE inputRate)
     {
         size_t size = 0ull;
         for (size_t i = 0; i < SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++i)
@@ -128,12 +128,15 @@ protected:
         return size;
     }
 
-    inline constexpr uint32_t calcVertexCountBoundWithBatchDuplication(uint32_t triCnt)
+    static inline uint32_t calcVertexCountBoundWithBatchDuplication(const MeshBufferType* meshBuffer)
     {
-        return triCnt*3u;
+        uint32_t triCnt;
+        if (IMeshManipulator::getPolyCount(triCnt,meshBuffer))
+            return triCnt*3u;
+        return 0u;
     }
 
-    inline constexpr uint32_t calcBatchCountBound(uint32_t triCnt)
+    inline uint32_t calcBatchCountBound(uint32_t triCnt) const
     {
         if (triCnt!=0u)
             return (triCnt-1u)/m_minTriangleCountPerMDIData+1u;
@@ -150,10 +153,10 @@ protected:
         core::vector<Triangle> triangles;
     };
 
-    core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType* meshBuffer)
+    core::vector<TriangleBatch> constructTriangleBatches(const MeshBufferType* meshBuffer) const
     {
         uint32_t triCnt;
-        const bool success = IMeshManipulator::getPolyCount(meshBuffer);
+        const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
         assert(success);
 
         const uint32_t batchCount = calcBatchCountBound(triCnt);
@@ -191,9 +194,10 @@ protected:
         {
             if (i == (batchCount - 1))
             {
-                if (triCnt % m_maxTriangleCountPerMDIData)
+                const auto lastBatchLen = triCnt % uint32_t(m_maxTriangleCountPerMDIData);
+                if (lastBatchLen)
                 {
-                    output[i].triangles = core::vector<Triangle>(triCnt % m_maxTriangleCountPerMDIData);
+                    output[i].triangles = core::vector<Triangle>(lastBatchLen);
                     continue;
                 }
             }
@@ -231,7 +235,7 @@ protected:
         return output;
     }
 
-    core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatch(TriangleBatch& batch, uint16_t*& indexBuffPtr)
+    static core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatch(TriangleBatch& batch, uint16_t*& indexBuffPtr)
     {
         core::unordered_map<uint32_t, uint16_t> usedVertices;
         core::vector<Triangle> newIdxTris = batch.triangles;
@@ -264,7 +268,7 @@ protected:
         return usedVertices;
     }
 
-    void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr)
+    static void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr)
     {
         uint8_t* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
         SVertexInputParams& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
