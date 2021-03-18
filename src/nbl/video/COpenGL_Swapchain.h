@@ -111,6 +111,7 @@ protected:
         m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config)
     {
         m_images = std::move(images);
+        m_threadHandler.waitForCtxCreation();
     }
 
 private:
@@ -138,9 +139,9 @@ private:
             surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, _window, surface_attributes);
             assert(surface != EGL_NO_SURFACE);
 
-            EGLBoolean mcres = _egl->call.peglMakeCurrent(_egl->display, surface, surface, thisCtx);
-            assert(mcres == EGL_TRUE);
-            _egl->call.peglMakeCurrent(_egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            //EGLBoolean mcres = _egl->call.peglMakeCurrent(_egl->display, surface, surface, thisCtx);
+            //assert(mcres == EGL_TRUE);
+            //_egl->call.peglMakeCurrent(_egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 
             start();
         }
@@ -169,6 +170,12 @@ private:
             return syncs[imgix];
         }
 
+        void waitForCtxCreation()
+        {
+            auto lk = createLock();
+            m_ctxCreatedCvar.wait(lk, [this]() {return static_cast<bool>(m_makeCurrentRes); });
+        }
+
     protected:
         using base_t = system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>;
         friend base_t;
@@ -177,7 +184,10 @@ private:
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-            egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
+            EGLBoolean mcres = m_makeCurrentRes = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
+            assert(mcres == EGL_TRUE);
+
+            m_ctxCreatedCvar.notify_one();
 
             const uint32_t fboCount = images.size();
             new (state_ptr) SThreadHandlerInternalState(egl, features);
@@ -253,6 +263,9 @@ private:
         } request;
 
         bool needToBlit = false;
+
+        EGLBoolean m_makeCurrentRes = EGL_FALSE;
+        std::condition_variable m_ctxCreatedCvar;
     };
 
     CThreadHandler m_threadHandler;

@@ -61,6 +61,8 @@ public:
         m_gl_ver(major, minor)
     {
         EGLContext master_ctx = m_threadHandler.getContext();
+        //EGLSurface master_pbuf = m_threadHandler.getSurface();
+        //_egl->call.peglMakeCurrent(_egl->display, master_ctx, master_pbuf, master_pbuf);
         uint32_t totalQCount = getTotalQueueCount(params);
         assert(totalQCount <= MaxQueueCount);
 

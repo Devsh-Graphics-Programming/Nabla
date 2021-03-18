@@ -325,8 +325,10 @@ protected:
         assert(retval.pbuffer != EGL_NO_SURFACE);
 
         // this actually make wgl/glx createContext calls in spoof egl
-        egl->call.peglMakeCurrent(egl->display, retval.pbuffer, retval.pbuffer, retval.ctx);
-        egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        //EGLBoolean mcres =  egl->call.peglMakeCurrent(egl->display, retval.pbuffer, retval.pbuffer, retval.ctx);
+        //assert(mcres == EGL_TRUE);
+        //mcres = egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        //assert(mcres == EGL_TRUE);
 
         return retval;
     }
@@ -386,12 +388,17 @@ protected:
             features(_features),
             device(dev)
         {
-            start();
+            //start();
         }
 
         EGLContext getContext() const
         {
             return thisCtx;
+        }
+
+        EGLSurface getSurface() const
+        {
+            return pbuffer;
         }
 
         uint32_t getQueueCount() const

@@ -108,7 +108,7 @@ public:
         // OpenGL backend emulates presence of just one queue with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
         qprops.queueFlags = EQF_GRAPHICS_BIT | EQF_COMPUTE_BIT | EQF_TRANSFER_BIT;
-        qprops.queueCount = 1u;
+        qprops.queueCount = 8u;
         qprops.timestampValidBits = 64u; // ??? TODO
         qprops.minImageTransferGranularity = { 1u,1u,1u }; // ??? TODO
 
