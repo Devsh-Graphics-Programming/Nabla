@@ -258,7 +258,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	{
 		ICPUMeshBuffer* mb = *it;
 		idxCnt += mb->getIndexCount();
-		vtxCnt += IMeshManipulator::upperBoundVertexID(mb);
+		vtxCnt += calcVertexCountBoundWithBatchDuplication(IMeshManipulator::getPolyCount(mb));
 	}
 
 	const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;

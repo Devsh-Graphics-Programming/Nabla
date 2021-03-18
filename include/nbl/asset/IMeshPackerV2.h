@@ -249,7 +249,8 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
     {
         ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
         const size_t idxCnt = (*it)->getIndexCount();
-        const size_t maxVtxCnt = IMeshManipulator::upperBoundVertexID(*it); //ahsdfjkasdfgasdklfhasdf TODO: deal with vertex duplication, same for v1
+        // TODO: deal with per-instance attributes!!
+        const size_t maxVtxCnt = calcVertexCountBoundWithBatchDuplication(IMeshManipulator::getPolyCount(*it));
 
         //allocate indices
         ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
