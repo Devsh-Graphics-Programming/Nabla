@@ -10,7 +10,7 @@ using namespace nbl;
 using namespace asset;
 using namespace core;
 
-CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false), assetManager(am)
+CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am, nbl::io::IFileSystem* fs) : status(false), assetManager(am)
 {
 	auto startEntireTime = std::chrono::steady_clock::now();
 
@@ -28,6 +28,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs);
 	mitsubaLoader->initialize();
 	am->addAssetLoader(std::move(mitsubaLoader));
+
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
 	auto pushArgvList = [&](auto argvStream, auto variableCount)
@@ -343,20 +344,19 @@ nbl::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 		assert(!meshes_bundle.isEmpty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
 		auto endTime = std::chrono::steady_clock::now();
 		elapsedTimeXmls += (endTime - startTime);
-
+		
 		auto mesh = meshes_bundle.getContents().begin()[0];
 		auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
-		const auto mitsubaMetadata = static_cast<const ext::MitsubaLoader::CMitsubaMetadata*>(mesh_raw->getMetadata());
-		const auto data = mitsubaMetadata->getMitsubaMetadata();
+		const auto mitsubaMetadata = static_cast<const ext::MitsubaLoader::CMitsubaMetadata*>(meshes_bundle.getMetadata());
 
-		bool validateFlag = data->sensors.empty();
+		bool validateFlag = mitsubaMetadata->m_global.m_sensors.empty();
 		if (validateFlag)
 		{
 			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): The is no transform matrix in " + filePath + " ! Id of input stride: " + std::to_string(id), ELL_ERROR);
 			assert(validateFlag);
 		}
 
-		auto transformReference = data->sensors[0].transform.matrix.extractSub3x4();
+		auto transformReference = mitsubaMetadata->m_global.m_sensors[0].transform.matrix.extractSub3x4();
 		transformReference.setTranslation(core::vectorSIMDf(0, 0, 0, 0));
 
 		return transformReference;
