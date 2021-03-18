@@ -375,7 +375,7 @@ bool WaveSimApp::CreateComputePipelines()
 				{
 					ds_layout = animating_ds_layout;
 					asset::SPushConstantRange range;
-					range.size = sizeof(dimension2du) + sizeof(float);
+					range.size = sizeof(dimension2du) + sizeof(float) + sizeof(m_params.length_unit);
 					range.offset = 0u;
 					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 					layout = m_driver->createGPUPipelineLayout(&range,
@@ -496,7 +496,7 @@ smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::RandomizeWaveSpectrum()
 
 void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time)
 {
-	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
+	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.height * 4 * sizeof(float);
 	const uint32_t OUT_SSBO_SIZE = m_params.width * m_params.height * 2 * sizeof(float);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write[3];
@@ -520,8 +520,8 @@ void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::I
 		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
 	}
 	auto pc = [this, time]() {
-		struct PC { dimension2du size; float time; };
-		return PC{ m_params.size, time };
+		struct PC { dimension2du size; float time; vector2df length_unit; };
+		return PC{ m_params.size, time, m_params.length_unit };
 	} ();
 	auto ds = m_spectrum_animating_descriptor_set.get();
 	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_spectrum_animating_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
