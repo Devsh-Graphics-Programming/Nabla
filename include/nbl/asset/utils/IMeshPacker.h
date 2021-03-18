@@ -125,7 +125,12 @@ protected:
         return size;
     }
 
-    inline constexpr uint32_t calcBatchCount(uint32_t triCnt) { return (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData; }
+    inline constexpr uint32_t calcBatchCount(uint32_t triCnt)
+    {
+        if (triCnt!=0u)
+            return (triCnt-1u)/m_minTriangleCountPerMDIData+1u;
+        return 0u;
+    }
 
     struct Triangle
     {
