@@ -47,7 +47,7 @@ R"(
 #endif
 #define _NBL_FRAG_SET3_BINDINGS_DEFINED_
 
-struct PCstruct
+struct MaterialParams
 {
     vec3 Ka;
     vec3 Kd;
@@ -64,13 +64,28 @@ struct PCstruct
     float Ni;
     uint extra; //flags copied from MTL metadata
 };
-#define nbl_glsl_MaterialParametersStruct PCstruct
-#define _NBL_FRAG_MATERIAL_PARAMETERS_STRUCT_DEFINED_
-
 layout (push_constant) uniform Block {
-    nbl_glsl_MaterialParametersStruct params;
+    MaterialParams params;
 } PC;
 #define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
+
+#include <nbl/builtin/glsl/loader/mtl/common.glsl>
+nbl_glsl_MTLMaterialParameters nbl_glsl_getMaterialParameters() // this function is for MTL's shader only
+{
+    MaterialParams params = PC.params;
+
+    nbl_glsl_MTLMaterialParameters mtl_params;
+    mtl_params.Ka = params.Ka;
+    mtl_params.Kd = params.Kd;
+    mtl_params.Ks = params.Ks;
+    mtl_params.Ke = params.Ke;
+    mtl_params.Ns = params.Ns;
+    mtl_params.d = params.d;
+    mtl_params.Ni = params.Ni;
+    mtl_params.extra = params.extra;
+    return mtl_params;
+}
+#define _NBL_FRAG_GET_MATERIAL_PARAMETERS_FUNCTION_DEFINED_
 
 #ifndef _NO_UV
     uint nbl_glsl_VT_layer2pid(in uint layer)
