@@ -42,7 +42,7 @@ public:
         return true;
     }
 
-    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor)
+    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config)
     {
         if (!images || !images->size())
             return nullptr;
@@ -67,7 +67,7 @@ public:
                 return nullptr;
         }
 
-        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _master, _config, _major, _minor);
+        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _ctx, _config);
         return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
     }
 
@@ -106,9 +106,9 @@ public:
 
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
-    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
+    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config) :
         ISwapchain(dev, std::move(params)),
-        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _master, _config, _major, _minor)
+        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config)
     {
         m_images = std::move(images);
     }
@@ -118,17 +118,31 @@ private:
     class CThreadHandler final : public system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>
     {
     public:
-        CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
+        CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config) :
             m_device(dev),
             egl(_egl),
-            masterCtx(_master), config(_config),
-            major(_major), minor(_minor),
-            window(_window),
-            thisCtx(EGL_NO_CONTEXT), surface(EGL_NO_SURFACE),
+            thisCtx(_ctx), surface(EGL_NO_SURFACE),
             features(_features),
             images(_images)
         {
             assert(images.size() <= MaxImages);
+
+            _egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
+
+            const EGLint surface_attributes[] = {
+                EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SRGB,
+                EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
+
+                EGL_NONE
+            };
+            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, _window, surface_attributes);
+            assert(surface != EGL_NO_SURFACE);
+
+            EGLBoolean mcres = _egl->call.peglMakeCurrent(_egl->display, surface, surface, thisCtx);
+            assert(mcres == EGL_TRUE);
+            _egl->call.peglMakeCurrent(_egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+            start();
         }
 
         void requestBlit(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore** sems)
@@ -162,25 +176,6 @@ private:
         void init(SThreadHandlerInternalState* state_ptr)
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
-
-            const EGLint ctx_attributes[] = {
-                EGL_CONTEXT_MAJOR_VERSION, major,
-                EGL_CONTEXT_MINOR_VERSION, minor,
-                //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core is default for GL api (and would be wrong param in case of es)
-
-                EGL_NONE
-            };
-
-            thisCtx = egl->call.peglCreateContext(egl->display, config, masterCtx, ctx_attributes);
-
-            const EGLint surface_attributes[] = {
-                EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SRGB,
-                EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
-
-                EGL_NONE
-            };
-            surface = egl->call.peglCreateWindowSurface(egl->display, config, window, surface_attributes);
-
 
             egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
 
@@ -243,10 +238,6 @@ private:
         IOpenGL_LogicalDevice* m_device;
 
 		const egl::CEGL* egl;
-        EGLContext masterCtx;
-        EGLConfig config;
-        EGLint major, minor;
-        EGLNativeWindowType window;
 		EGLContext thisCtx;
 		EGLSurface surface;
 		COpenGLFeatureMap* features;

@@ -77,8 +77,10 @@ namespace impl
             ERT_WAIT_FOR_FENCES,
             ERT_FLUSH_MAPPED_MEMORY_RANGES,
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
-            ERT_REGENERATE_MIP_LEVELS
-            //BIND_BUFFER_MEMORY
+            ERT_REGENERATE_MIP_LEVELS,
+            //BIND_BUFFER_MEMORY,
+
+            ERT_CTX_MAKE_CURRENT
         };
 
         constexpr static inline bool isDestroyRequest(E_REQUEST_TYPE rt)
@@ -230,6 +232,12 @@ namespace impl
             using retval_t = void;
             IGPUImageView* imgview = nullptr;
         };
+        struct SRequestMakeCurrent
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_CTX_MAKE_CURRENT;
+            using retval_t = void;
+            bool bind = true; // bind/unbind context flag
+        };
     };
 
 /*
@@ -274,6 +282,55 @@ namespace impl
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
 protected:
+    struct SGLContext
+    {
+        EGLContext ctx = EGL_NO_CONTEXT;
+        EGLSurface pbuffer = EGL_NO_SURFACE;
+    };
+
+    static EGLContext createGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
+    {
+        egl->call.peglBindAPI(apiType);
+
+        const EGLint ctx_attributes[] = {
+            EGL_CONTEXT_MAJOR_VERSION, major,
+            EGL_CONTEXT_MINOR_VERSION, minor,
+#ifdef _NBL_DEBUG
+            EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+#endif
+            //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
+
+            EGL_NONE
+        };
+
+        EGLContext ctx = egl->call.peglCreateContext(egl->display, config, master, ctx_attributes);
+        assert(ctx != EGL_NO_CONTEXT);
+
+        return ctx;
+    }
+    static SGLContext createWindowlessGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
+    {
+        SGLContext retval;
+
+        retval.ctx = createGLContext(apiType, egl, major, minor, config, master);
+
+        // why not 1x1?
+        const EGLint pbuffer_attributes[] = {
+            EGL_WIDTH, 128,
+            EGL_HEIGHT, 128,
+
+            EGL_NONE
+        };
+        retval.pbuffer = egl->call.peglCreatePbufferSurface(egl->display, config, pbuffer_attributes);
+        assert(retval.pbuffer != EGL_NO_SURFACE);
+
+        // this actually make wgl/glx createContext calls in spoof egl
+        egl->call.peglMakeCurrent(egl->display, retval.pbuffer, retval.pbuffer, retval.ctx);
+        egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+        return retval;
+    }
+
     struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t
     {
         using params_variant_t = std::variant<
@@ -302,7 +359,9 @@ protected:
             SRequestWaitForFences,
             SRequestFlushMappedMemoryRanges,
             SRequestInvalidateMappedMemoryRanges,
-            SRequestRegenerateMipLevels
+            SRequestRegenerateMipLevels,
+
+            SRequestMakeCurrent
         >;
 
         E_REQUEST_TYPE type;
@@ -320,23 +379,24 @@ protected:
         using FeaturesType = typename FunctionTableType::features_t;
 
     public:
-        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, EGLConfig _config, EGLint _major, EGLint _minor) :
+        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, const SGLContext& glctx) :
             m_queueCount(_qcount),
             egl(_egl),
-            config(_config),
-            major(_major), minor(_minor),
-            thisCtx(EGL_NO_CONTEXT), pbuffer(EGL_NO_SURFACE),
+            thisCtx(glctx.ctx), pbuffer(glctx.pbuffer),
             features(_features),
             device(dev)
         {
-
+            start();
         }
 
-        EGLContext getContext()
+        EGLContext getContext() const
         {
-            auto lk = createLock();
-
             return thisCtx;
+        }
+
+        uint32_t getQueueCount() const
+        {
+            return m_queueCount;
         }
 
         template <typename RequestParams>
@@ -348,38 +408,9 @@ protected:
             std::get<RequestParams>(req.params_variant) = RequestParams{};
         }
 
-        auto getGL_APIversion() const
-        {
-            return std::make_pair(major, minor);
-        }
-        EGLConfig getFBConfig() const
-        {
-            return config;
-        }
-
-    public:
         void init(FunctionTableType* state_ptr)
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
-
-            const EGLint ctx_attributes[] = {
-                EGL_CONTEXT_MAJOR_VERSION, major,
-                EGL_CONTEXT_MINOR_VERSION, minor,
-                //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
-
-                EGL_NONE
-            };
-
-            thisCtx = egl->call.peglCreateContext(egl->display, config, EGL_NO_CONTEXT, ctx_attributes);
-
-            // why not 1x1?
-            const EGLint pbuffer_attributes[] = {
-                EGL_WIDTH, 128,
-                EGL_HEIGHT, 128,
-
-                EGL_NONE
-            };
-            pbuffer = egl->call.peglCreatePbufferSurface(egl->display, config, pbuffer_attributes);
 
             egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
 
@@ -534,6 +565,17 @@ protected:
                 IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
                 retval[0] = waitForFences(gl, _count, _fences, _waitAll, _timeout);
             }
+                break;
+            case ERT_CTX_MAKE_CURRENT:
+            {
+                auto& p = std::get<SRequestMakeCurrent>(req.params_variant);
+                if (p.bind)
+                    egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+                else
+                    egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            }
+                break;
+            default: 
                 break;
             }
             gl.glGeneral.pglFlush();
@@ -728,8 +770,6 @@ protected:
         uint32_t m_queueCount;
 
         const egl::CEGL* egl;
-        EGLConfig config;
-        const EGLint major, minor;
         EGLContext thisCtx;
         EGLSurface pbuffer;
         FeaturesType* features;

@@ -4,6 +4,11 @@ namespace nbl {
 namespace video
 {
 
+    void debugcallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+    {
+        std::cout << message << std::endl;
+    }
+
 void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline, uint32_t ctxid)
 {
     nextState.pipeline.graphics.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
@@ -303,7 +308,8 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                 else
                 {
                     GLname = nextState.framebuffer.fbo->createGLFBO(gl);
-                    FBOCache.insert(nextState.framebuffer.hash, GLname);
+                    if (GLname)
+                        FBOCache.insert(nextState.framebuffer.hash, GLname);
                 }
 
                 assert(GLname != 0u);

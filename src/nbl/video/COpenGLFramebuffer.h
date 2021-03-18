@@ -10,6 +10,8 @@ namespace nbl {
 namespace video
 {
 
+    void debugcallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
+
 class IOpenGL_LogicalDevice;
 
 class COpenGLFramebuffer final : public IGPUFramebuffer
@@ -107,6 +109,8 @@ public:
         const auto* descriptions = m_params.renderpass->getAttachments().begin();
         const auto* attachments = m_params.attachments;
 
+        gl->extGlDebugMessageCallback(&debugcallback, 0);
+
         GLuint fbo = 0u;
         gl->extGlCreateFramebuffers(1u, &fbo);
         if (!fbo)
@@ -123,9 +127,11 @@ public:
 
                 auto* glatt = static_cast<COpenGLImageView*>(att.get());
                 const GLuint glname = glatt->getOpenGLName();
+                gl->glTexture.pglBindTexture(GL_TEXTURE_2D, glname);
                 const GLenum textarget = COpenGLImageView::ViewTypeToGLenumTarget[glatt->getCreationParameters().viewType];
 
                 gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0 + i, glname, 0, textarget);
+                //gl->glTexture.pglBindTexture(GL_TEXTURE_2D, 0);
             }
 
             drawbuffers[i] = (a != IGPURenderpass::ATTACHMENT_UNUSED) ?  (GL_COLOR_ATTACHMENT0 + i) : GL_NONE;
@@ -157,11 +163,13 @@ public:
         gl->extGlNamedFramebufferDrawBuffers(fbo, sub.colorAttachmentCount, drawbuffers);
 
         GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
+        //gl->extGlDebugMessageCallback(nullptr, 0);
         if (status != GL_FRAMEBUFFER_COMPLETE)
         {
             gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);
             return 0u;
         }
+        gl->glGeneral.pglFlush();
 
         return fbo;
     }

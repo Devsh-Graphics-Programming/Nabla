@@ -68,6 +68,8 @@ public:
     template <typename... Args>
     request_t& request(Args&&... args)
     {
+        //auto lk = createLock();
+        //raii_dispatch_handler_t raii_handler(std::move(lk), m_cvar);
         auto raii_handler = createRAIIDispatchHandler();
 
         const uint32_t r_id = cb_end;

@@ -8,11 +8,24 @@
 #include <nabla.h>
 #include <nbl/system/CWindowWin32.h>
 
+#include <nbl/video/renderdoc_app.h>
+
 using namespace nbl;
 using namespace core;
 
+RENDERDOC_API_1_1_2* rdoc_api = NULL;
+
 int main()
 {
+	if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
+	{
+		pRENDERDOC_GetAPI RENDERDOC_GetAPI =
+			(pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
+		int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void**)&rdoc_api);
+		assert(ret == 1);
+	}
+	if (rdoc_api) rdoc_api->StartFrameCapture(NULL, NULL);
+
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -74,7 +87,7 @@ void main()
 		sc_params.minImageCount = SC_IMG_COUNT;
 		sc_params.presentMode = video::ISurface::EPM_FIFO_RELAXED;
 		sc_params.surface = surface;
-		sc_params.surfaceFormat.format = asset::EF_R8G8B8_SRGB;
+		sc_params.surfaceFormat.format = asset::EF_R8G8B8A8_SRGB;
 		sc_params.surfaceFormat.colorSpace.eotf = asset::EOTF_sRGB;
 		sc_params.surfaceFormat.colorSpace.primary = asset::ECP_SRGB;
 
@@ -87,7 +100,7 @@ void main()
 		video::IGPURenderpass::SCreationParams::SAttachmentDescription a;
 		a.initialLayout = asset::EIL_UNDEFINED;
 		a.finalLayout = asset::EIL_UNDEFINED;
-		a.format = asset::EF_R8G8B8_SRGB;
+		a.format = asset::EF_R8G8B8A8_SRGB;
 		a.samples = asset::IImage::ESCF_1_BIT;
 		a.loadOp = video::IGPURenderpass::ELO_CLEAR;
 		a.storeOp = video::IGPURenderpass::ESO_STORE;
@@ -324,6 +337,8 @@ void main()
 
 			queue->present(present);
 		}
+
+		if (i==0u && rdoc_api) rdoc_api->EndFrameCapture(NULL, NULL);
 	}
 
 	return 0;

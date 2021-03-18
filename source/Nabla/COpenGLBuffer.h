@@ -32,14 +32,14 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             if (BufferName==0)
                 return;
 
-            cachedFlags =   (canModifySubData ? IOpenGL_FunctionTable::DYNAMIC_STORAGE_BIT:0)|
-                            (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? IOpenGL_FunctionTable::CLIENT_STORAGE_BIT:0);
+            cachedFlags =   (canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|
+                            (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? GL_CLIENT_STORAGE_BIT:0);
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)
-                cachedFlags |= IOpenGL_FunctionTable::MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
+                cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)
-                cachedFlags |= IOpenGL_FunctionTable::MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
+                cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)
-                cachedFlags |= IOpenGL_FunctionTable::MAP_COHERENT_BIT;
+                cachedFlags |= GL_MAP_COHERENT_BIT;
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
         }
 

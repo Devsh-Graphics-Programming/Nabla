@@ -53,13 +53,13 @@ class COpenGL_Queue final : public IGPUQueue
         };
         struct SRequestParams_Submit : SRequestParamsBase<ERT_SUBMIT>
         {
-            uint32_t waitSemaphoreCount;
-            core::smart_refctd_ptr<IGPUSemaphore>* pWaitSemaphores;
-            const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask;
-            uint32_t signalSemaphoreCount;
-            core::smart_refctd_ptr<IGPUSemaphore>* pSignalSemaphores;
-            uint32_t commandBufferCount;
-            core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>* commandBuffers;
+            uint32_t waitSemaphoreCount = 0u;
+            core::smart_refctd_ptr<IGPUSemaphore>* pWaitSemaphores = nullptr;
+            const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask = nullptr;
+            uint32_t signalSemaphoreCount = 0u;
+            core::smart_refctd_ptr<IGPUSemaphore>* pSignalSemaphores = nullptr;
+            uint32_t commandBufferCount = 0u;
+            core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>* commandBuffers = nullptr;
         };
         struct SRequestParams_Fence : SRequestParamsBase<ERT_SIGNAL_FENCE>
         {
@@ -83,45 +83,25 @@ class COpenGL_Queue final : public IGPUQueue
         struct CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>
         {
         public:
-            CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, FeaturesType* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor, uint32_t _ctxid) :
+            using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>;
+            friend base_t;
+
+            CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid) :
                 egl(_egl),
                 m_device(dev),
-                masterCtx(_master), config(_config),
-                major(_major), minor(_minor),
-                thisCtx(EGL_NO_CONTEXT), pbuffer(EGL_NO_SURFACE),
+                thisCtx(_ctx), pbuffer(_pbuf),
                 features(_features),
                 m_ctxid(_ctxid)
             {
-
+                this->start();
             }
-
-            using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>;
-            friend base_t;
 
             void init(ThreadInternalStateType* state_ptr)
             {
                 egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-                const EGLint ctx_attributes[] = {
-                    EGL_CONTEXT_MAJOR_VERSION, major,
-                    EGL_CONTEXT_MINOR_VERSION, minor,
-                    //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
-
-                    EGL_NONE
-                };
-
-                thisCtx = egl->call.peglCreateContext(egl->display, config, masterCtx, ctx_attributes);
-
-                // why not 1x1?
-                const EGLint pbuffer_attributes[] = {
-                    EGL_WIDTH, 128,
-                    EGL_HEIGHT, 128,
-
-                    EGL_NONE
-                };
-                pbuffer = egl->call.peglCreatePbufferSurface(egl->display, config, pbuffer_attributes);
-
-                egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+                EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+                assert(mcres == EGL_TRUE);
 
                 new (state_ptr) typename ThreadInternalStateType(egl, features);
                 auto& gl = state_ptr->gl;
@@ -243,9 +223,6 @@ class COpenGL_Queue final : public IGPUQueue
         private:
             const egl::CEGL* egl;
             IOpenGL_LogicalDevice* m_device;
-            EGLContext masterCtx;
-            EGLConfig config;
-            EGLint major, minor;
             EGLContext thisCtx;
             EGLSurface pbuffer;
             FeaturesType* features;
@@ -253,9 +230,9 @@ class COpenGL_Queue final : public IGPUQueue
         };
 
     public:
-        COpenGL_Queue(IOpenGL_LogicalDevice* gldev, ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _masterCtx, EGLConfig _config, EGLint _gl_major, EGLint _gl_minor, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
+        COpenGL_Queue(IOpenGL_LogicalDevice* gldev, ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _ctx, EGLSurface _surface, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
             IGPUQueue(dev, _famIx, _flags, _priority),
-            threadHandler(_egl, gldev, _features, _masterCtx, _config, _gl_major, _gl_minor, _ctxid),
+            threadHandler(_egl, gldev, _features, _ctx, _surface, _ctxid),
             m_mempool(1u<<20,1u),
             m_ctxid(_ctxid)
         {
@@ -273,6 +250,9 @@ class COpenGL_Queue final : public IGPUQueue
 
                 SRequestParams_Submit params;
                 const SSubmitInfo& submit = _submits[i];
+                params.waitSemaphoreCount = submit.waitSemaphoreCount;
+                params.signalSemaphoreCount = submit.signalSemaphoreCount;
+                params.commandBufferCount = submit.commandBufferCount;
                 for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
                 {
                     COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(submit.pSignalSemaphores[i]);
@@ -280,32 +260,35 @@ class COpenGL_Queue final : public IGPUQueue
                 }
                 core::smart_refctd_ptr<IGPUSemaphore>* waitSems = nullptr;
                 asset::E_PIPELINE_STAGE_FLAGS* dstStageMask = nullptr;
-                if (_submits[i].waitSemaphoreCount)
+                if (submit.waitSemaphoreCount)
                 {
-                    waitSems = params.pWaitSemaphores = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUSemaphore>>(_submits[i].waitSemaphoreCount);
-                    params.pWaitDstStageMask = dstStageMask = m_mempool.emplace_n<asset::E_PIPELINE_STAGE_FLAGS>(_submits[i].waitSemaphoreCount);
+                    waitSems = params.pWaitSemaphores = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUSemaphore>>(submit.waitSemaphoreCount);
+                    params.pWaitDstStageMask = dstStageMask = m_mempool.emplace_n<asset::E_PIPELINE_STAGE_FLAGS>(submit.waitSemaphoreCount);
                 }
                 core::smart_refctd_ptr<IGPUSemaphore>* signalSems = nullptr;
-                if (_submits[i].signalSemaphoreCount)
-                    signalSems = params.pSignalSemaphores = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUSemaphore>>(_submits[i].signalSemaphoreCount);
-                auto* cmdBufs = params.commandBuffers = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>>(_submits[i].commandBufferCount);
-                for (uint32_t j = 0u; j < _submits[i].waitSemaphoreCount; ++j)
-                    params.pWaitSemaphores[j] = core::smart_refctd_ptr<IGPUSemaphore>(_submits[i].pWaitSemaphores[j]);
-                for (uint32_t j = 0u; j < _submits[i].signalSemaphoreCount; ++j)
-                    params.pSignalSemaphores[j] = core::smart_refctd_ptr<IGPUSemaphore>(_submits[i].pSignalSemaphores[j]);
-                for (uint32_t j = 0u; j < _submits[i].commandBufferCount; ++j)
-                    params.commandBuffers[j] = core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>(_submits[i].commandBuffers[j]);
+                if (submit.signalSemaphoreCount)
+                    signalSems = params.pSignalSemaphores = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUSemaphore>>(submit.signalSemaphoreCount);
+                auto* cmdBufs = params.commandBuffers = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>>(submit.commandBufferCount);
+                for (uint32_t j = 0u; j < submit.waitSemaphoreCount; ++j)
+                {
+                    params.pWaitSemaphores[j] = core::smart_refctd_ptr<IGPUSemaphore>(submit.pWaitSemaphores[j]);
+                    dstStageMask[j] = submit.pWaitDstStageMask[j];
+                }
+                for (uint32_t j = 0u; j < submit.signalSemaphoreCount; ++j)
+                    params.pSignalSemaphores[j] = core::smart_refctd_ptr<IGPUSemaphore>(submit.pSignalSemaphores[j]);
+                for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
+                    params.commandBuffers[j] = core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>(submit.commandBuffers[j]);
 
                 auto& req = threadHandler.request(std::move(params));
                 threadHandler.waitForRequestCompletion(req);
 
                 if (waitSems)
-                    m_mempool.free_n<core::smart_refctd_ptr<IGPUSemaphore>>(waitSems, _submits[i].waitSemaphoreCount);
+                    m_mempool.free_n<core::smart_refctd_ptr<IGPUSemaphore>>(waitSems, submit.waitSemaphoreCount);
                 if (dstStageMask)
-                    m_mempool.free_n<asset::E_PIPELINE_STAGE_FLAGS>(dstStageMask, _submits[i].waitSemaphoreCount);
+                    m_mempool.free_n<asset::E_PIPELINE_STAGE_FLAGS>(dstStageMask, submit.waitSemaphoreCount);
                 if (signalSems)
-                    m_mempool.free_n<core::smart_refctd_ptr<IGPUSemaphore>>(signalSems, _submits[i].signalSemaphoreCount);
-                m_mempool.free_n<core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>>(cmdBufs, _submits[i].commandBufferCount);
+                    m_mempool.free_n<core::smart_refctd_ptr<IGPUSemaphore>>(signalSems, submit.signalSemaphoreCount);
+                m_mempool.free_n<core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>>(cmdBufs, submit.commandBufferCount);
             }
 
             m_mempoolMutex.unlock();

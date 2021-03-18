@@ -270,7 +270,7 @@ namespace video
 
                     asset::E_FORMAT fmt = descriptions[a].format;
 
-                    if (asset::isFloatingPointFormat(fmt))
+                    if (asset::isFloatingPointFormat(fmt) || asset::isNormalizedFormat(fmt))
                     {
                         gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, colorf);
                     }
@@ -353,7 +353,7 @@ namespace video
                 {
                     asset::E_FORMAT fmt = descriptions[a].format;
 
-                    if (asset::isFloatingPointFormat(fmt))
+                    if (asset::isFloatingPointFormat(fmt) || asset::isNormalizedFormat(fmt))
                     {
                         gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + num, attachment.clearValue.color.float32);
                     }
@@ -797,7 +797,10 @@ namespace video
             {
                 auto& c = cmd.get<ECT_BIND_GRAPHICS_PIPELINE>();
 
-                ctxlocal->updateNextState_pipelineAndRaster(c.pipeline->getRenderpassIndependentPipeline(), ctxid);
+                auto* rpindependent = c.pipeline->getRenderpassIndependentPipeline();
+                ctxlocal->updateNextState_pipelineAndRaster(rpindependent, ctxid);
+                auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
+                ctxlocal->nextState.vertexInputParams.vaokey = glppln->getVAOHash();
             }
             break;
             case ECT_BIND_COMPUTE_PIPELINE:

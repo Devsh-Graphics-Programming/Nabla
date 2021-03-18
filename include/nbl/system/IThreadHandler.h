@@ -56,7 +56,7 @@ protected:
 
     struct raii_dispatch_handler_t
     {
-        raii_dispatch_handler_t(lock_t&& _lk, cvar_t& _cv) : lk(std::move(lk)), cv(_cv) {}
+        raii_dispatch_handler_t(mutex_t& _mtx, cvar_t& _cv) : lk(_mtx), cv(_cv) {}
         ~raii_dispatch_handler_t()
         {
             lk.unlock();
@@ -69,7 +69,7 @@ protected:
     };
 
     inline lock_t createLock() { return lock_t{ m_mutex }; }
-    inline raii_dispatch_handler_t createRAIIDispatchHandler() { return raii_dispatch_handler_t(createLock(), m_cvar); }
+    inline raii_dispatch_handler_t createRAIIDispatchHandler() { return raii_dispatch_handler_t(m_mutex, m_cvar); }
 
     // Required accessible methods of class being CRTP parameter:
 
@@ -114,10 +114,25 @@ private:
     }
 
 public:
-    IThreadHandler() :
+    struct start_on_construction_t {};
+    constexpr inline static start_on_construction_t start_on_construction;
+
+    IThreadHandler() : m_thread() {}
+    IThreadHandler(start_on_construction_t) :
         m_thread(&IThreadHandler<CRTP, InternalStateType>::thread, this)
     {
 
+    }
+
+    //! Has no effect if thread is already running
+    bool start()
+    {
+        if (m_thread.get_id() == std::thread::id())
+        {
+            m_thread = std::thread(&IThreadHandler<CRTP, InternalStateType>::thread, this);
+            return true;
+        }
+        return false;
     }
 
     void thread()
@@ -164,7 +179,7 @@ public:
         terminate();
     }
 
-private:
+protected:
     mutex_t m_mutex;
     cvar_t m_cvar;
     bool m_quit = false;

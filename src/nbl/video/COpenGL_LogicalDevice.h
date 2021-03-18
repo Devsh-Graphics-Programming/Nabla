@@ -55,8 +55,10 @@ public:
 
     COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
         IOpenGL_LogicalDevice(_egl, api_type, params, std::move(fs), std::move(glslc)),
-        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), config, major, minor),
-        m_glfeatures(_features)
+        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config)),
+        m_glfeatures(_features),
+        m_config(config),
+        m_gl_ver(major, minor)
     {
         EGLContext master_ctx = m_threadHandler.getContext();
         uint32_t totalQCount = getTotalQueueCount(params);
@@ -73,11 +75,15 @@ public:
             {
                 const float priority = qci.priorities[j];
 
+                SGLContext glctx = createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config, master_ctx);
+
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, master_ctx, config, major, minor, famIx, flags, priority);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority);
             }
         }
+
+        m_threadHandler.start();
 
         bool runningInRenderDoc = false;
 #ifdef _NBL_PLATFORM_WINDOWS_
@@ -183,10 +189,15 @@ public:
         }
 
         EGLContext master_ctx = m_threadHandler.getContext();
-        EGLConfig fbconfig = m_threadHandler.getFBConfig();
-        auto glver = m_threadHandler.getGL_APIversion();
+        EGLConfig fbconfig = m_config;
+        auto glver = m_gl_ver;
 
-        return SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, master_ctx, fbconfig, glver.first, glver.second);
+        unbindMasterContext();
+        EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, master_ctx);
+        auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig);
+        bindMasterContext();
+
+        return sc;
     }
 
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) override
@@ -197,6 +208,18 @@ public:
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
     {
         return core::make_smart_refctd_ptr<IDescriptorPool>(this);
+    }
+
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    {
+        SRequestBufferCreate params;
+        params.mreqs = initialMreqs;
+        params.canModifySubdata = canModifySubData;
+        core::smart_refctd_ptr<IGPUBuffer> output;
+        auto& req = m_threadHandler.request(std::move(params), &output);
+        m_threadHandler.waitForRequestCompletion<SRequestBufferCreate>(req);
+
+        return output;
     }
 
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
@@ -332,6 +355,21 @@ public:
     }
 
 protected:
+    void bindMasterContext()
+    {
+        SRequestMakeCurrent req_params;
+        req_params.bind = true;
+        auto& req = m_threadHandler.request(std::move(req_params));
+        m_threadHandler.waitForRequestCompletion<SRequestMakeCurrent>(req);
+    }
+    void unbindMasterContext()
+    {
+        SRequestMakeCurrent req_params;
+        req_params.bind = false;
+        auto& req = m_threadHandler.request(std::move(req_params));
+        m_threadHandler.waitForRequestCompletion<SRequestMakeCurrent>(req);
+    }
+
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
         if (_level != IGPUCommandBuffer::EL_PRIMARY)
@@ -572,6 +610,8 @@ protected:
 private:
     CThreadHandler<FunctionTableType> m_threadHandler;
     FeaturesType* m_glfeatures;
+    EGLConfig m_config;
+    std::pair<EGLint, EGLint> m_gl_ver;
 };
 
 }
