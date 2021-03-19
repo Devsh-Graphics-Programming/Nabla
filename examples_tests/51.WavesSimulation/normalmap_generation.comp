@@ -19,10 +19,10 @@ void main()
 
         vec2 texel_size = 1.0 / u_pc.IMAGE_SIZE;
 
-        vec4 l_u = textureGather(heightmap, tex_coord + vec2(-texel_size.x, texel_size.y) / 2);
-        vec4 l_d = textureGather(heightmap, tex_coord + vec2(-texel_size.x, -texel_size.y) / 2);
-        vec4 r_u = textureGather(heightmap, tex_coord + vec2(texel_size.x, texel_size.y) / 2);
-        vec4 r_d = textureGather(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y) / 2);
+        vec4 l_u = textureGather(heightmap, tex_coord + vec2(-texel_size.x, texel_size.y) / 2, 2);
+        vec4 l_d = textureGather(heightmap, tex_coord + vec2(-texel_size.x, -texel_size.y) / 2, 2);
+        vec4 r_u = textureGather(heightmap, tex_coord + vec2(texel_size.x, texel_size.y) / 2, 2);
+        vec4 r_d = textureGather(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y) / 2, 2);
         
         vec3 normal;
         normal.x = -(r_u[1] - l_u[0] + 2 * (r_u[2] -l_u[3]) + r_d[2] - l_d[3]);

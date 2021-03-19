@@ -497,7 +497,7 @@ smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::RandomizeWaveSpectrum()
 void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time)
 {
 	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.height * 4 * sizeof(float);
-	const uint32_t OUT_SSBO_SIZE = m_params.width * m_params.height * 2 * sizeof(float);
+	const uint32_t OUT_SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write[3];
 		video::IGPUDescriptorSet::SDescriptorInfo info[3];
@@ -520,8 +520,8 @@ void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::I
 		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
 	}
 	auto pc = [this, time]() {
-		struct PC { dimension2du size; float time; vector2df length_unit; };
-		return PC{ m_params.size, time, m_params.length_unit };
+		struct PC { dimension2du size; vector2df length_unit; float time; };
+		return PC{ m_params.size, m_params.length_unit, time };
 	} ();
 	auto ds = m_spectrum_animating_descriptor_set.get();
 	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_spectrum_animating_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
@@ -533,10 +533,10 @@ void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::I
 	}
 }
 
-void WaveSimApp::GenerateHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time)
+void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time)
 {
 	using namespace ext::FFT;
-	const uint32_t SSBO_SIZE = m_params.width * m_params.height * 2 * sizeof(float);
+	const uint32_t SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
 	auto animated_data_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
 	AnimateSpectrum(h0, animated_data_buffer, time);
 	auto ifft_x_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
@@ -653,7 +653,7 @@ void WaveSimApp::GenerateHeightMap(const smart_refctd_ptr<nbl::video::IGPUBuffer
 	}
 }
 
-void WaveSimApp::GenerateNormalMap(const textureView& heightmap, textureView& normalmap)
+void WaveSimApp::GenerateNormalMap(const textureView& displacement_map, textureView& normalmap)
 {
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write[2];
@@ -664,7 +664,7 @@ void WaveSimApp::GenerateNormalMap(const textureView& heightmap, textureView& no
 		write[0].arrayElement = 0u;
 		write[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
 		write[0].info = info;
-		info[0].desc = heightmap;
+		info[0].desc = displacement_map;
 		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 		info[0].image.sampler = m_driver->createGPUSampler(samplerParams);
 		info[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
@@ -713,16 +713,16 @@ void WaveSimApp::Run()
 	float i = 1;
 
 	auto initial_values = RandomizeWaveSpectrum();
-	auto heightmap = CreateTexture(m_params.size, EF_R8_UNORM);
-	auto normalmap = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
+	auto displacement_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
+	auto normal_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
 	auto start_time = std::chrono::system_clock::now();
 	while (m_device->run())
 	{
 		std::chrono::duration<double> time_passed = std::chrono::system_clock::now() - start_time;
 		m_driver->beginScene(true);
-		GenerateHeightMap(initial_values, heightmap, std::chrono::duration_cast<std::chrono::milliseconds>(time_passed).count() / 1000.f);
-		GenerateNormalMap(heightmap, normalmap);
-		PresentWaves2D(normalmap);
+		GenerateDisplacementMap(initial_values, displacement_map, std::chrono::duration_cast<std::chrono::milliseconds>(time_passed).count() / 1000.f);
+		GenerateNormalMap(displacement_map, normal_map);
+		PresentWaves2D(normal_map);
 		m_driver->endScene();
 
 	}

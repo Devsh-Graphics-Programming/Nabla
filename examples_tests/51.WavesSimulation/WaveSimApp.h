@@ -38,8 +38,8 @@ private:
 	void PresentWaves3D(const textureView& tex);
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> RandomizeWaveSpectrum();
 	void AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time);
-	void GenerateHeightMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
-	void GenerateNormalMap(const textureView& heightmap, textureView& normalmap);
+	void GenerateDisplacementMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
+	void GenerateNormalMap(const textureView& displacement_map, textureView& normalmap);
 	MeshData CreateRectangularWavesMesh();
 public:
 	WaveSimApp(const WaveSimParams& params);

@@ -1,17 +1,12 @@
 #version 450
-#include <nbl/builtin/glsl/math/complex.glsl>
-#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
-#define PI 3.1415926538
-#define G 9.8
-#define cvec2 mat2x2
-#define UINT_MAX 4294967295u
+
+#include "waves_common.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-// [0] - h0(k), [1] - h0(-k) conjugate, [2] - k
 layout(set = 0, binding = 0, std430) buffer H0_DATA
 {
-	cvec2 data[];
+	mat2 data[];
 } primary_calculations;
 
 

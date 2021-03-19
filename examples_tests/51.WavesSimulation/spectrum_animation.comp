@@ -1,46 +1,46 @@
 #version 450
-#define G 9.8
-#define cvec2 mat2x2
-#define PI 3.1415926538
-#include <nbl/builtin/glsl/math/complex.glsl>
+
+#include "waves_common.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 0, binding = 0, std430) buffer H0_DATA
 {
-	cvec2 data[];
+	mat2 data[];
 } primary_calculations;
 
 layout(set = 0, binding = 1, std430) buffer ANIMATED_SPECTRUM
 {
-	vec2 data[];
+	displacement_spectrum data[];
 } animated_spectrum;
 
 layout(push_constant) uniform PUSH_CONSTANTS
 {
 	uvec2 IMG_SIZE;
-	float TIME;
 	vec2  LENGTH_UNIT;
+	float TIME;
 } u_pc;
-
-float wkt()
-{
-	vec2 coord = ivec2(gl_GlobalInvocationID.xy) - ivec2(u_pc.IMG_SIZE) / 2;
-    vec2 k = 2 * PI * coord / u_pc.LENGTH_UNIT;
-	float wkt = sqrt(length(k) * G) * u_pc.TIME; 
-	return wkt;
-}
 
 void main()
 {
     uint ssbo_index = gl_GlobalInvocationID.y * u_pc.IMG_SIZE.x + gl_GlobalInvocationID.x;
-	vec2 h0k = primary_calculations.data[ssbo_index][0];
-	vec2 h0_conj = primary_calculations.data[ssbo_index][1];
+	mat2 h0_data = primary_calculations.data[ssbo_index];
+	vec2 h0k = h0_data[0];
+	vec2 h0_conj = h0_data[1];
 
-	float wkt = wkt();
+	vec2 coord = ivec2(gl_GlobalInvocationID.xy) - ivec2(u_pc.IMG_SIZE) / 2;
+    vec2 k = 2 * PI * coord / u_pc.LENGTH_UNIT;
+	float wkt = sqrt(length(k) * G) * u_pc.TIME; 
+	
+	float k2 = dot(k, k);
+	float k2_r = k2 > 1e-12 ? 1 / sqrt(k2) : 0;
+	k *= k2_r;
 
-	vec2 res = nbl_glsl_complex_mul(h0k, nbl_glsl_expImaginary(wkt)) + 
+	displacement_spectrum anim;
+	anim.d[2] = nbl_glsl_complex_mul(h0k, nbl_glsl_expImaginary(wkt)) + 
 			   nbl_glsl_complex_mul(h0_conj, nbl_glsl_expImaginary(-wkt));
+	anim.d[0] = nbl_glsl_complex_conjugate(anim.d[2] * k.x);
+	anim.d[1] = nbl_glsl_complex_conjugate(anim.d[2] * k.y);
 
-	animated_spectrum.data[ssbo_index] = res;
+	animated_spectrum.data[ssbo_index] = anim;
 }
