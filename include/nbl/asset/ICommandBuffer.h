@@ -179,7 +179,7 @@ public:
         const SClearValue* clearValues;
     };
 
-    virtual E_LEVEL getLevel() const = 0;
+    E_LEVEL getLevel() const { return m_level; }
 
     //! `_flags` takes bits from E_USAGE
     virtual void begin(uint32_t _flags)
@@ -290,6 +290,7 @@ public:
     }
 
 protected:
+    ICommandBuffer(E_LEVEL lvl) : m_level(lvl) {}
     virtual ~ICommandBuffer() = default;
 
     void setState(E_STATE _state)
@@ -297,6 +298,7 @@ protected:
         m_state = _state;
     }
 
+    E_LEVEL m_level;
     // Flags from E_USAGE
     uint32_t m_recordingFlags = 0u;
     E_STATE m_state = ES_INITIAL;

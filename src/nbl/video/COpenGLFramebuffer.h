@@ -10,8 +10,6 @@ namespace nbl {
 namespace video
 {
 
-    void debugcallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
-
 class IOpenGL_LogicalDevice;
 
 class COpenGLFramebuffer final : public IGPUFramebuffer
@@ -108,8 +106,6 @@ public:
         const auto& sub = m_params.renderpass->getSubpasses().begin()[0];
         const auto* descriptions = m_params.renderpass->getAttachments().begin();
         const auto* attachments = m_params.attachments;
-
-        gl->extGlDebugMessageCallback(&debugcallback, 0);
 
         GLuint fbo = 0u;
         gl->extGlCreateFramebuffers(1u, &fbo);

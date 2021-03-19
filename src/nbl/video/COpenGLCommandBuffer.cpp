@@ -272,17 +272,17 @@ namespace video
 
                     if (asset::isFloatingPointFormat(fmt) || asset::isNormalizedFormat(fmt))
                     {
-                        gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, colorf);
+                        gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, i, colorf);
                     }
                     else if (asset::isIntegerFormat(fmt))
                     {
                         if (asset::isSignedFormat(fmt))
                         {
-                            gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, colori);
+                            gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, i, colori);
                         }
                         else
                         {
-                            gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + i, coloru);
+                            gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, i, coloru);
                         }
                     }
                 }
@@ -355,17 +355,17 @@ namespace video
 
                     if (asset::isFloatingPointFormat(fmt) || asset::isNormalizedFormat(fmt))
                     {
-                        gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + num, attachment.clearValue.color.float32);
+                        gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, num, attachment.clearValue.color.float32);
                     }
                     else if (asset::isIntegerFormat(fmt))
                     {
                         if (asset::isSignedFormat(fmt))
                         {
-                            gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + num, attachment.clearValue.color.int32);
+                            gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, num, attachment.clearValue.color.int32);
                         }
                         else
                         {
-                            gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0 + num, attachment.clearValue.color.uint32);
+                            gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, num, attachment.clearValue.color.uint32);
                         }
                     }
                 }
@@ -896,17 +896,17 @@ namespace video
                 // eeeeh ignoring subresource ranges for now (TODO) -- would have to dynamically create texture views....
                 if (asset::isFloatingPointFormat(format))
                 {
-                    gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0, c.color.float32);
+                    gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, 0, c.color.float32);
                 }
                 else if (asset::isIntegerFormat(format))
                 {
                     if (asset::isSignedFormat(format))
                     {
-                        gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0, c.color.int32);
+                        gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, 0, c.color.int32);
                     }
                     else
                     {
-                        gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, GL_COLOR_ATTACHMENT0, c.color.uint32);
+                        gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, 0, c.color.uint32);
                     }
                 }
             }
@@ -950,6 +950,7 @@ namespace video
                 auto& c = cmd.get<ECT_UPDATE_BUFFER>();
 
                 GLuint buf = static_cast<const COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
+                const float* ptr = reinterpret_cast<const float*>(c.data);
                 gl->extGlNamedBufferSubData(buf, c.dstOffset, c.dataSize, c.data);
             }
             break;
@@ -957,8 +958,7 @@ namespace video
             {
                 auto& c = cmd.get<ECT_EXECUTE_COMMANDS>();
 
-                // sadly have to use dynamic_cast here because of virtual base
-                dynamic_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, ctxlocal, ctxid);
+                static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, ctxlocal, ctxid);
             }
             break;
             }

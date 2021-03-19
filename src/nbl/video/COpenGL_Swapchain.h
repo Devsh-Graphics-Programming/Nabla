@@ -104,6 +104,11 @@ public:
         return EAIR_SUCCESS;
     }
 
+    void waitForContextCreation()
+    {
+        m_threadHandler.waitForCtxCreation();
+    }
+
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
     COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config) :
@@ -111,7 +116,6 @@ protected:
         m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config)
     {
         m_images = std::move(images);
-        m_threadHandler.waitForCtxCreation();
     }
 
 private:
@@ -233,6 +237,7 @@ private:
         void exit(SThreadHandlerInternalState* gl)
         {
             gl->glFramebuffer.pglDeleteFramebuffers(images.size(), fbos);
+            gl->glGeneral.pglFinish();
 
             gl->~SThreadHandlerInternalState();
 

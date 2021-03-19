@@ -31,7 +31,6 @@
 #include "nbl/video/COpenGLSwapchain.h"
 #include "nbl/video/COpenGLESSwapchain.h"
 #include "nbl/video/COpenGLCommandBuffer.h"
-#include "nbl/video/COpenGLPrimaryCommandBuffer.h"
 #include "nbl/video/COpenGLCommandPool.h"
 #include "nbl/video/COpenGLSemaphore.h"
 #include "nbl/video/COpenGLEvent.h"

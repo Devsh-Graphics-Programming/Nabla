@@ -18,7 +18,6 @@
 #include "nbl/video/COpenGLImage.h"
 #include "nbl/video/COpenGLImageView.h"
 #include "nbl/video/COpenGLFramebuffer.h"
-//#include "nbl/video/COpenGLFramebuffer.h"
 #include "COpenGLSync.h"
 #include "COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLSampler.h"
@@ -80,7 +79,9 @@ namespace impl
             ERT_REGENERATE_MIP_LEVELS,
             //BIND_BUFFER_MEMORY,
 
-            ERT_CTX_MAKE_CURRENT
+            ERT_CTX_MAKE_CURRENT,
+
+            ERT_WAIT_IDLE
         };
 
         constexpr static inline bool isDestroyRequest(E_REQUEST_TYPE rt)
@@ -172,12 +173,6 @@ namespace impl
             uint32_t count;
             IGPUPipelineCache* pipelineCache;
         };
-        struct SRequestSwapchainCreate
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_SWAPCHAIN_CREATE;
-            using retval_t = core::smart_refctd_ptr<ISwapchain>;
-            ISwapchain::SCreationParams params;
-        };
 
         //
         // Non-create requests:
@@ -238,6 +233,12 @@ namespace impl
             using retval_t = void;
             bool bind = true; // bind/unbind context flag
         };
+
+        struct SRequestWaitIdle
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_IDLE;
+            using retval_t = void;
+        };
     };
 
 /*
@@ -277,7 +278,7 @@ namespace impl
 }
 
 // Common base for GL and GLES logical devices
-// All COpenGL* objects (buffers, images, views...) will keep pointer of this type (just to be able to request destruction in destructor though)
+// All COpenGL* objects (buffers, images, views...) will keep pointer of this type
 // Implementation of both GL and GLES is the same code (see COpenGL_LogicalDevice) thanks to IOpenGL_FunctionTable abstraction layer
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
@@ -324,12 +325,6 @@ protected:
         retval.pbuffer = egl->call.peglCreatePbufferSurface(egl->display, config, pbuffer_attributes);
         assert(retval.pbuffer != EGL_NO_SURFACE);
 
-        // this actually make wgl/glx createContext calls in spoof egl
-        //EGLBoolean mcres =  egl->call.peglMakeCurrent(egl->display, retval.pbuffer, retval.pbuffer, retval.ctx);
-        //assert(mcres == EGL_TRUE);
-        //mcres = egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        //assert(mcres == EGL_TRUE);
-
         return retval;
     }
 
@@ -345,7 +340,6 @@ protected:
             SRequestSamplerCreate,
             SRequestRenderpassIndependentPipelineCreate,
             SRequestComputePipelineCreate,
-            SRequestSwapchainCreate,
 
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
@@ -363,7 +357,9 @@ protected:
             SRequestInvalidateMappedMemoryRanges,
             SRequestRegenerateMipLevels,
 
-            SRequestMakeCurrent
+            SRequestMakeCurrent,
+
+            SRequestWaitIdle
         >;
 
         E_REQUEST_TYPE type;
@@ -388,7 +384,6 @@ protected:
             features(_features),
             device(dev)
         {
-            //start();
         }
 
         EGLContext getContext() const
@@ -419,7 +414,8 @@ protected:
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-            egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+            assert(mcres == EGL_TRUE);
 
             new (state_ptr) typename FunctionTableType(egl, features);
         }
@@ -582,6 +578,11 @@ protected:
                     egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
             }
                 break;
+            case ERT_WAIT_IDLE:
+            {
+                gl.glGeneral.pglFinish();
+            }
+                break;
             default: 
                 break;
             }
@@ -594,6 +595,7 @@ protected:
 
         void exit(FunctionTableType* gl)
         {
+            gl->glGeneral.pglFinish();
             gl->~FunctionTableType();
 
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread

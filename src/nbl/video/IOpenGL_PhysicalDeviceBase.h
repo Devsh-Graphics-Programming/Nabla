@@ -21,6 +21,8 @@ class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
     static inline constexpr EGLint EGL_API_TYPE = LogicalDeviceType::FunctionTableType::EGL_API_TYPE;
     static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
 
+	static inline constexpr uint32_t MaxQueues = 8u;
+
 protected:
 	struct SInitResult
 	{
@@ -75,6 +77,9 @@ protected:
 		EGLint ctx_attributes[] = {
 			EGL_CONTEXT_MAJOR_VERSION, bestApiVer.first,
 			EGL_CONTEXT_MINOR_VERSION, bestApiVer.second,
+#ifdef _NBL_DEBUG
+			EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+#endif
 			//EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
 
 			EGL_NONE
@@ -105,17 +110,14 @@ public:
 		IPhysicalDevice(std::move(fs), std::move(glslc)),
         m_egl(_egl), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
     {
-        // OpenGL backend emulates presence of just one queue with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
+        // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
         qprops.queueFlags = EQF_GRAPHICS_BIT | EQF_COMPUTE_BIT | EQF_TRANSFER_BIT;
-        qprops.queueCount = 8u;
+        qprops.queueCount = MaxQueues;
         qprops.timestampValidBits = 64u; // ??? TODO
         qprops.minImageTransferGranularity = { 1u,1u,1u }; // ??? TODO
 
         m_qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(1u, qprops);
-
-        // TODO fill m_properties and m_features (possibly should be done in derivative classes' ctors, not sure yet)
-
 
 		_egl->call.peglBindAPI(EGL_API_TYPE);
 
@@ -229,6 +231,7 @@ public:
 			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
 			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
 		}
+		else m_glfeatures.MaxAnisotropy = 0u;
 
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
@@ -375,7 +378,6 @@ public:
 protected:
     virtual ~IOpenGL_PhysicalDeviceBase() = default;
 
-protected:
     const egl::CEGL* m_egl;
     EGLConfig m_config;
     EGLint m_gl_major, m_gl_minor;

@@ -2,7 +2,7 @@
 #define __IRR_I_GPU_QUEUE_H_INCLUDED__
 
 #include <nbl/core/IReferenceCounted.h>
-#include <nbl/video/IGPUPrimaryCommandBuffer.h>
+#include <nbl/video/IGPUCommandBuffer.h>
 #include <nbl/video/IGPUSemaphore.h>
 #include <nbl/video/IGPUFence.h>
 #include <nbl/asset/IRenderpass.h>
@@ -29,7 +29,7 @@ public:
         uint32_t signalSemaphoreCount;
         IGPUSemaphore** pSignalSemaphores;
         uint32_t commandBufferCount;
-        IGPUPrimaryCommandBuffer** commandBuffers;
+        IGPUCommandBuffer** commandBuffers;
     };
     struct SPresentInfo
     {
@@ -47,7 +47,7 @@ public:
 
     }
 
-    virtual void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
+    virtual inline bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
 
     virtual bool present(const SPresentInfo& info) = 0;
 
@@ -60,6 +60,18 @@ protected:
     const E_CREATE_FLAGS m_flags;
     const float m_priority;
 };
+
+inline bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
+{
+    for (uint32_t i = 0u; i < _count; ++i)
+    {
+        auto& submit = _submits[i];
+        for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
+            if (submit.commandBuffers[j]->getLevel() != IGPUCommandBuffer::EL_PRIMARY)
+                return false;
+    }
+    return true;
+}
 
 }}
 

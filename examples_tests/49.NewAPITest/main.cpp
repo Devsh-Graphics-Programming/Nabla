@@ -8,24 +8,10 @@
 #include <nabla.h>
 #include <nbl/system/CWindowWin32.h>
 
-#include <nbl/video/renderdoc_app.h>
-
 using namespace nbl;
-using namespace core;
-
-RENDERDOC_API_1_1_2* rdoc_api = NULL;
 
 int main()
 {
-	if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
-	{
-		pRENDERDOC_GetAPI RENDERDOC_GetAPI =
-			(pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
-		int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void**)&rdoc_api);
-		assert(ret == 1);
-	}
-	if (rdoc_api) rdoc_api->StartFrameCapture(NULL, NULL);
-
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -241,7 +227,9 @@ void main()
 
 		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
 		
-		buffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(vertices));
+		auto mreqs = device->getDeviceLocalGPUMemoryReqs();
+		mreqs.vulkanReqs.size = sizeof(vertices);
+		buffer = device->createGPUBufferOnDedMem(mreqs, true);
 		assert(buffer);
 
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
@@ -249,11 +237,32 @@ void main()
 		assert(cb);
 
 		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+
+		asset::SViewport vp;
+		vp.minDepth = 1.f;
+		vp.maxDepth = 0.f;
+		vp.x = 0u;
+		vp.y = 0u;
+		vp.width = WIN_W;
+		vp.height = WIN_H;
+		cb->setViewport(0u, 1u, &vp);
+
 		cb->updateBuffer(buffer.get(), 0u, sizeof(vertices), vertices);
+
+		video::IGPUCommandBuffer::SBufferMemoryBarrier bufMemBarrier;
+		bufMemBarrier.srcQueueFamilyIndex = 0u;
+		bufMemBarrier.dstQueueFamilyIndex = 0u;
+		bufMemBarrier.offset = 0u;
+		bufMemBarrier.size = buffer->getSize();
+		bufMemBarrier.buffer = buffer;
+		bufMemBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+		bufMemBarrier.barrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
+		cb->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 0u, nullptr, 1u, &bufMemBarrier, 0u, nullptr);
+
 		cb->end();
 		
 		video::IGPUQueue::SSubmitInfo info;
-		auto* cb_ = dynamic_cast<video::IGPUPrimaryCommandBuffer*>(cb.get());
+		auto* cb_ = cb.get();
 		info.commandBufferCount = 1u;
 		info.commandBuffers = &cb_;
 		info.pSignalSemaphores = nullptr;
@@ -282,10 +291,10 @@ void main()
 		asset::VkRect2D area;
 		area.offset = { 0, 0 };
 		area.extent = { WIN_W, WIN_H };
-		clear.color.float32[0] = 1.f;
+		clear.color.float32[0] = 0.f;
 		clear.color.float32[1] = 0.f;
 		clear.color.float32[2] = 0.f;
-		clear.color.float32[0] = 1.f;
+		clear.color.float32[3] = 1.f;
 		info.renderpass = renderpass;
 		info.framebuffer = fb;
 		info.clearValueCount = 1u;
@@ -310,7 +319,7 @@ void main()
 
 		video::IGPUQueue::SSubmitInfo submit;
 		{
-			auto* cb = dynamic_cast<video::IGPUPrimaryCommandBuffer*>(cmdbuf[imgnum].get());
+			auto* cb = cmdbuf[imgnum].get();
 			submit.commandBufferCount = 1u;
 			submit.commandBuffers = &cb;
 			video::IGPUSemaphore* signalsem = render_finished_sem.get();
@@ -337,9 +346,9 @@ void main()
 
 			queue->present(present);
 		}
-
-		if (i==0u && rdoc_api) rdoc_api->EndFrameCapture(NULL, NULL);
 	}
+
+	device->waitIdle();
 
 	return 0;
 }

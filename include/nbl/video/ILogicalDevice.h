@@ -537,6 +537,8 @@ public:
 
     virtual core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) = 0;
 
+    virtual void waitIdle() = 0;
+
     // Not implemented stuff:
     //vkCreateGraphicsPipelines //no graphics pipelines yet (just renderpass independent)
     //vkGetBufferMemoryRequirements

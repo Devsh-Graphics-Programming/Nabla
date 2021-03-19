@@ -6,7 +6,7 @@
 #include "nbl/video/COpenGLFramebuffer.h"
 #include "nbl/video/COpenGLRenderpass.h"
 #include "nbl/video/COpenGLDescriptorSet.h"
-#include "nbl/video/COpenGLPrimaryCommandBuffer.h"
+#include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLEvent.h"
 
 #include <chrono>
@@ -194,9 +194,13 @@ public:
         EGLConfig fbconfig = m_config;
         auto glver = m_gl_ver;
 
+        // master context must not be current while creating a context with whom it will be sharing
         unbindMasterContext();
         EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, master_ctx);
         auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig);
+        // wait until swapchain's internal thread finish context creation
+        sc->waitForContextCreation();
+        // make master context (in logical device internal thread) again
         bindMasterContext();
 
         return sc;
@@ -314,6 +318,12 @@ public:
         m_threadHandler.waitForRequestCompletion<SRequestRegenerateMipLevels>(req);
     }
 
+    void waitIdle() override
+    {
+        SRequestWaitIdle params;
+        auto& req = m_threadHandler.request(std::move(params));
+        m_threadHandler.waitForRequestCompletion<SRequestWaitIdle>(req);
+    }
 
     void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) override final
     {
@@ -374,10 +384,8 @@ protected:
 
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
-        if (_level != IGPUCommandBuffer::EL_PRIMARY)
-            return false;
         for (uint32_t i = 0u; i < _count; ++i)
-            _output[i] = core::make_smart_refctd_ptr<COpenGLPrimaryCommandBuffer>(this, _cmdPool);
+            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(this, _level, _cmdPool);
         return true;
     }
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override final

@@ -59,7 +59,7 @@ class COpenGL_Queue final : public IGPUQueue
             uint32_t signalSemaphoreCount = 0u;
             core::smart_refctd_ptr<IGPUSemaphore>* pSignalSemaphores = nullptr;
             uint32_t commandBufferCount = 0u;
-            core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>* commandBuffers = nullptr;
+            core::smart_refctd_ptr<IGPUCommandBuffer>* commandBuffers = nullptr;
         };
         struct SRequestParams_Fence : SRequestParamsBase<ERT_SIGNAL_FENCE>
         {
@@ -107,23 +107,25 @@ class COpenGL_Queue final : public IGPUQueue
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
 
+                //gl.extGlDebugMessageCallback(&debugcallback, 0);
+
                 // defaults once set and not tracked by engine (should never change)
-                gl.glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
+                gl.glGeneral.pglEnable(GL_FRAMEBUFFER_SRGB);
                 gl.glFragment.pglDepthRangef(1.f, 0.f);
                 if constexpr (IsGLES)
                 {
                     if (gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control)) // if not supported, modifications to spir-v will be applied to emulate this
-                        gl.extGlClipControl(IOpenGL_FunctionTable::UPPER_LEFT, IOpenGL_FunctionTable::ZERO_TO_ONE);
+                        gl.extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
                 }
                 else
                 {
                     // on desktop GL clip control is assumed to be always supported
-                    gl.extGlClipControl(IOpenGL_FunctionTable::UPPER_LEFT, IOpenGL_FunctionTable::ZERO_TO_ONE);
+                    gl.extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
                 }
 
                 if constexpr (!IsGLES)
                 {
-                    gl.glGeneral.pglEnable(IOpenGL_FunctionTable::TEXTURE_CUBE_MAP_SEAMLESS);
+                    gl.glGeneral.pglEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
                 }
 
                 // default values tracked by engine
@@ -141,9 +143,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             void process_request(SRequest& req, ThreadInternalStateType& _state)
             {
-                //static_assert(std::is_same_v<ThreadInternalStateType, FunctionTableType>);
-                // a cast to common base so that intellisense knows function set (can and should be removed after code gets written)
-                IOpenGL_FunctionTable& gl = static_cast<IOpenGL_FunctionTable&>(_state.gl);
+                auto& gl = _state.gl;
 
                 switch (req.type)
                 {
@@ -170,8 +170,7 @@ class COpenGL_Queue final : public IGPUQueue
 
                     for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
                     {
-                        //dynamic_cast because of virtual base
-                        auto* cmdbuf = dynamic_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get());
+                        auto* cmdbuf = static_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get());
                         cmdbuf->executeAll(&gl, &_state.ctxlocal, m_ctxid);
                     }
 
@@ -213,6 +212,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             void exit(ThreadInternalStateType* state_ptr)
             {
+                state_ptr->gl.glGeneral.pglFinish();
                 state_ptr->~ThreadInternalStateType();
 
                 egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
@@ -239,8 +239,11 @@ class COpenGL_Queue final : public IGPUQueue
 
         }
 
-        void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
+        bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
         {
+            if (!IGPUQueue::submit(_count, _submits, _fence))
+                return false;
+
             m_mempoolMutex.lock();
 
             for (uint32_t i = 0u; i < _count; ++i)
@@ -268,7 +271,7 @@ class COpenGL_Queue final : public IGPUQueue
                 core::smart_refctd_ptr<IGPUSemaphore>* signalSems = nullptr;
                 if (submit.signalSemaphoreCount)
                     signalSems = params.pSignalSemaphores = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUSemaphore>>(submit.signalSemaphoreCount);
-                auto* cmdBufs = params.commandBuffers = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>>(submit.commandBufferCount);
+                auto* cmdBufs = params.commandBuffers = m_mempool.emplace_n<core::smart_refctd_ptr<IGPUCommandBuffer>>(submit.commandBufferCount);
                 for (uint32_t j = 0u; j < submit.waitSemaphoreCount; ++j)
                 {
                     params.pWaitSemaphores[j] = core::smart_refctd_ptr<IGPUSemaphore>(submit.pWaitSemaphores[j]);
@@ -277,7 +280,7 @@ class COpenGL_Queue final : public IGPUQueue
                 for (uint32_t j = 0u; j < submit.signalSemaphoreCount; ++j)
                     params.pSignalSemaphores[j] = core::smart_refctd_ptr<IGPUSemaphore>(submit.pSignalSemaphores[j]);
                 for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
-                    params.commandBuffers[j] = core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>(submit.commandBuffers[j]);
+                    params.commandBuffers[j] = core::smart_refctd_ptr<IGPUCommandBuffer>(submit.commandBuffers[j]);
 
                 auto& req = threadHandler.request(std::move(params));
                 threadHandler.waitForRequestCompletion(req);
@@ -288,7 +291,7 @@ class COpenGL_Queue final : public IGPUQueue
                     m_mempool.free_n<asset::E_PIPELINE_STAGE_FLAGS>(dstStageMask, submit.waitSemaphoreCount);
                 if (signalSems)
                     m_mempool.free_n<core::smart_refctd_ptr<IGPUSemaphore>>(signalSems, submit.signalSemaphoreCount);
-                m_mempool.free_n<core::smart_refctd_ptr<IGPUPrimaryCommandBuffer>>(cmdBufs, submit.commandBufferCount);
+                m_mempool.free_n<core::smart_refctd_ptr<IGPUCommandBuffer>>(cmdBufs, submit.commandBufferCount);
             }
 
             m_mempoolMutex.unlock();

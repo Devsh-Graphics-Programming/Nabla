@@ -34,19 +34,30 @@ class IGPUCommandBuffer :
     >,
     public IBackendObject
 {
-public:
-    // TODO impl commands
+    using base_t = asset::ICommandBuffer<
+        IGPUBuffer,
+        IGPUImage,
+        IGPURenderpass,
+        IGPUFramebuffer,
+        IGPUGraphicsPipeline,
+        IGPUComputePipeline,
+        IGPUDescriptorSet,
+        IGPUPipelineLayout,
+        IGPUEvent,
+        IGPUCommandBuffer
+    >;
 
+public:
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
 protected:
-    explicit IGPUCommandBuffer(ILogicalDevice* dev, IGPUCommandPool* _cmdpool) : IBackendObject(dev), m_cmdpool(_cmdpool)
+    IGPUCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(dev), m_cmdpool(_cmdpool)
     {
 
     }
     virtual ~IGPUCommandBuffer() = default;
 
-    IGPUCommandPool* m_cmdpool; // not owning
+    core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
 
 
 

@@ -33,6 +33,12 @@
 #include "nbl/video/IGPUMesh.h"
 #include "nbl/video/IGPUSkinnedMesh.h"
 #include "nbl/video/CGPUMesh.h"
+#include "nbl/video/IGPUQueue.h"
+#include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/IGPUGraphicsPipeline.h"
+#include "nbl/video/IGPUComputePipeline.h"
+#include "nbl/video/IGPUFramebuffer.h"
+#include "nbl/video/IGPURenderpass.h"
 //#include "nbl/video/IGPUObjectFromAssetConverter.h"
 
 // kill/refactor

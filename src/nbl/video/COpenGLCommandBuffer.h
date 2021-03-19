@@ -13,7 +13,7 @@ namespace nbl {
 namespace video
 {
 
-class COpenGLCommandBuffer : public virtual IGPUCommandBuffer
+class COpenGLCommandBuffer final : public IGPUCommandBuffer
 {
 protected:
     ~COpenGLCommandBuffer();
@@ -486,7 +486,7 @@ protected:
         }
     }
 
-    COpenGLCommandPool* getGLCommandPool() const { return static_cast<COpenGLCommandPool*>(m_cmdpool); }
+    COpenGLCommandPool* getGLCommandPool() const { return static_cast<COpenGLCommandPool*>(m_cmdpool.get()); }
 
     template <E_COMMAND_TYPE ECT>
     void pushCommand(SCmd<ECT>&& cmd)
@@ -499,8 +499,7 @@ public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
 
 
-    // this init of IGPUCommandBuffer will be always ignored by compiler since COpenGLCommandBuffer will never be most derived class
-    COpenGLCommandBuffer() : IGPUCommandBuffer(nullptr, nullptr) {}
+    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
 
 
     bool bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
