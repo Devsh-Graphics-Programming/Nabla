@@ -71,6 +71,7 @@ R"===(#version 430 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
  
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
 )===";
