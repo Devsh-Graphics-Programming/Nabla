@@ -1,6 +1,3 @@
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
-#endif
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
  
 #define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_

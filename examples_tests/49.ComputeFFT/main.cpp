@@ -29,59 +29,10 @@ struct DispatchInfo_t
 
 constexpr uint32_t channelCountOverride = 3u;
 
-inline smart_refctd_ptr<IGPUPipelineLayout> getPipelineLayout_Convolution(IVideoDriver* driver)
-{
-	IGPUSampler::SParams params =
-	{
-		{
-			ISampler::ETC_REPEAT,
-			ISampler::ETC_REPEAT,
-			ISampler::ETC_REPEAT,
-			ISampler::ETBC_FLOAT_OPAQUE_BLACK,
-			ISampler::ETF_LINEAR, // is it needed?
-			ISampler::ETF_LINEAR,
-			ISampler::ESMM_NEAREST,
-			0u,
-			0u,
-			ISampler::ECO_ALWAYS
-		}
-	};
-	auto sampler = driver->createGPUSampler(std::move(params));
-	smart_refctd_ptr<IGPUSampler> samplers[channelCountOverride];
-	std::fill_n(samplers,channelCountOverride,sampler);
-
-	IGPUDescriptorSetLayout::SBinding bnd[] =
-	{
-		{
-			0u,
-			EDT_STORAGE_BUFFER,
-			1u,
-			ISpecializedShader::ESS_COMPUTE,
-			nullptr
-		},
-		{
-			1u,
-			EDT_COMBINED_IMAGE_SAMPLER,
-			channelCountOverride,
-			ISpecializedShader::ESS_COMPUTE,
-			samplers
-		}
-	};
-	
-	using FFTClass = ext::FFT::FFT;
-	core::SRange<const asset::SPushConstantRange> pcRange = FFTClass::getDefaultPushConstantRanges();
-	core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
-
-	return driver->createGPUPipelineLayout(
-		pcRange.begin(),pcRange.end(),
-		driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
-	);
-}
-
-inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_Convolution(
+inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(
 	video::IVideoDriver* driver,
-	IAssetManager* am,
-	uint32_t maxDimensionSize) 
+	uint32_t maxDimensionSize,
+	const char* includeMainName)
 {
 	const uint32_t maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
 
@@ -91,18 +42,19 @@ R"===(#version 430 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
  
-#include "../fft_convolve_ifft.comp"
+#include "%s"
 
 )===";
 
-	const size_t extraSize = 32 + 32 + 32 + 32;
+	const size_t extraSize = 4u+8u+128u;
 	
 	constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
-		maxPaddedDimensionSize
+		maxPaddedDimensionSize,
+		includeMainName
 	);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -187,45 +139,7 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 		driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 	);
 }
-static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_LastFFT(
-	video::IVideoDriver* driver,
-	IAssetManager* am,
-	uint32_t maxDimensionSize) {
-	
-uint32_t const maxPaddedDimensionSize = core::roundUpToPoT(maxDimensionSize);
-
-	const char* sourceFmt =
-R"===(#version 430 core
-
-#define _NBL_GLSL_WORKGROUP_SIZE_ %u
-#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
-
-#include "../last_fft.comp"
-
-)===";
-
-	const size_t extraSize = 32 + 32 + 32 + 32;
-	
-	constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
-	snprintf(
-		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
-		DEFAULT_WORK_GROUP_SIZE,
-		maxPaddedDimensionSize
-	);
-
-	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
-		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
-	);
-	
-	auto gpuShader = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
-	
-	auto gpuSpecializedShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
-
-	return gpuSpecializedShader;
-}
-static inline void updateDescriptorSet_LastFFT (
+inline void updateDescriptorSet_LastFFT (
 	video::IVideoDriver * driver,
 	video::IGPUDescriptorSet * set,
 	core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
@@ -351,12 +265,105 @@ int main()
 	}
 
 	// input pipeline
-	auto fftPipeline_ImageInput = FFTClass::getDefaultPipeline(driver,FFTClass::DataType::TEXTURE2D,srcDim.width);
+	auto imageFirstFFTPipelineLayout = [driver]() -> auto
+	{
+		IGPUSampler::SParams params =
+		{
+			{
+				ISampler::ETC_REPEAT,
+				ISampler::ETC_REPEAT,
+				ISampler::ETC_REPEAT,
+				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+				ISampler::ETF_LINEAR, // is it needed?
+				ISampler::ETF_LINEAR,
+				ISampler::ESMM_NEAREST,
+				0u,
+				0u,
+				ISampler::ECO_ALWAYS
+			}
+		};
+		auto sampler = driver->createGPUSampler(std::move(params));
+
+		IGPUDescriptorSetLayout::SBinding bnd[] =
+		{
+			{
+				0u,
+				EDT_COMBINED_IMAGE_SAMPLER,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				&sampler
+			},
+			{
+				1u,
+				EDT_STORAGE_BUFFER,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr
+			}
+		};
+	
+		using FFTClass = ext::FFT::FFT;
+		core::SRange<const asset::SPushConstantRange> pcRange = FFTClass::getDefaultPushConstantRanges();
+		core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
+
+		return driver->createGPUPipelineLayout(
+			pcRange.begin(),pcRange.end(),
+			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+		);
+	}();
+	auto convolvePipelineLayout = [driver]() -> auto
+	{
+		IGPUSampler::SParams params =
+		{
+			{
+				ISampler::ETC_REPEAT,
+				ISampler::ETC_REPEAT,
+				ISampler::ETC_REPEAT,
+				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+				ISampler::ETF_LINEAR, // is it needed?
+				ISampler::ETF_LINEAR,
+				ISampler::ESMM_NEAREST,
+				0u,
+				0u,
+				ISampler::ECO_ALWAYS
+			}
+		};
+		auto sampler = driver->createGPUSampler(std::move(params));
+		smart_refctd_ptr<IGPUSampler> samplers[channelCountOverride];
+		std::fill_n(samplers,channelCountOverride,sampler);
+
+		IGPUDescriptorSetLayout::SBinding bnd[] =
+		{
+			{
+				0u,
+				EDT_STORAGE_BUFFER,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr
+			},
+			{
+				1u,
+				EDT_COMBINED_IMAGE_SAMPLER,
+				channelCountOverride,
+				ISpecializedShader::ESS_COMPUTE,
+				samplers
+			}
+		};
+	
+		using FFTClass = ext::FFT::FFT;
+		core::SRange<const asset::SPushConstantRange> pcRange = FFTClass::getDefaultPushConstantRanges();
+		core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
+
+		return driver->createGPUPipelineLayout(
+			pcRange.begin(),pcRange.end(),
+			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+		);
+	}();
 
 	const VkExtent3D paddedDim = FFTClass::padDimensionToNextPOT(srcDim);
-	auto convolvePipelineLayout = getPipelineLayout_Convolution(driver);
-	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), createShader_Convolution(driver, am, paddedDim.height));
-	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, getPipelineLayout_LastFFT(driver), createShader_LastFFT(driver,am,paddedDim.width));
+	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver, paddedDim.height, "../image_first_fft.comp"));
+	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), createShader(driver, paddedDim.height, "../fft_convolve_ifft.comp"));
+	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, getPipelineLayout_LastFFT(driver), createShader(driver, paddedDim.width, "../last_fft.comp"));
 
 	// Allocate Output Buffer
 	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(paddedDim, srcNumChannels)); // result of: srcFFTX and kerFFTX and Convolution and IFFTY
@@ -395,11 +402,11 @@ int main()
 			kernelNormalizedSpectrums[i] = createKernelSpectrum();
 
 		// Ker FFT X 
-		auto fftDescriptorSet_Ker_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipeline_ImageInput->getLayout()->getDescriptorSetLayout(0u)));
+		auto fftDescriptorSet_Ker_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
 		FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_X.get(), kerImageView, fftOutputBuffer_0, ISampler::ETC_CLAMP_TO_BORDER);
 
 		// Ker FFT Y
-		auto fftPipeline_SSBOInput = FFTClass::getDefaultPipeline(driver,FFTClass::DataType::SSBO,kerDim.height);
+		auto fftPipeline_SSBOInput = FFTClass::getDefaultPipeline(driver,kerDim.height);
 		auto fftDescriptorSet_Ker_FFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipeline_SSBOInput->getLayout()->getDescriptorSetLayout(0u)));
 		FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
 		
@@ -481,8 +488,8 @@ int main()
 
 		// Ker Image FFT X
 		driver->bindComputePipeline(fftPipeline_ImageInput.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipeline_ImageInput->getLayout(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
-		FFTClass::pushConstants(driver, fftPipeline_ImageInput->getLayout(), kerDim, paddedKerDim, FFTClass::Direction::X, false, srcNumChannels, FFTClass::PaddingType::FILL_WITH_ZERO);
+		driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
+		FFTClass::pushConstants(driver, imageFirstFFTPipelineLayout.get(), kerDim, paddedKerDim, FFTClass::Direction::X, false, srcNumChannels, FFTClass::PaddingType::FILL_WITH_ZERO);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
 
 		// Ker Image FFT Y
@@ -520,7 +527,7 @@ int main()
 	}
 
 	// Src FFT X 
-	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipeline_ImageInput->getLayout()->getDescriptorSetLayout(0u)));
+	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
 	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Src_FFT_X.get(), srcImageView, fftOutputBuffer_0, ISampler::ETC_MIRROR);
 
 	// Convolution
@@ -549,8 +556,8 @@ int main()
 
 		// Src Image FFT X
 		driver->bindComputePipeline(fftPipeline_ImageInput.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipeline_ImageInput->getLayout(), 0u, 1u, &fftDescriptorSet_Src_FFT_X.get(), nullptr);
-		FFTClass::pushConstants(driver, fftPipeline_ImageInput->getLayout(), srcDim, paddedDim, FFTClass::Direction::X, false, srcNumChannels, FFTClass::PaddingType::CLAMP_TO_EDGE);
+		driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Src_FFT_X.get(), nullptr);
+		FFTClass::pushConstants(driver, imageFirstFFTPipelineLayout.get(), srcDim, paddedDim, FFTClass::Direction::X, false, srcNumChannels, FFTClass::PaddingType::CLAMP_TO_EDGE);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
 
 		// Src Image FFT Y + Convolution + Convolved IFFT Y

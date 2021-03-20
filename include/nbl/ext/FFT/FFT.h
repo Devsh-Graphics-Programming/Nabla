@@ -44,11 +44,6 @@ class FFT : public core::TotalInterface
 			// TODO: mirror?
 		};
 
-		enum class DataType {
-			SSBO,
-			TEXTURE2D
-		};
-
 		struct DispatchInfo_t
 		{
 			uint32_t workGroupDims[3];
@@ -111,10 +106,10 @@ class FFT : public core::TotalInterface
 		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
 		//
-		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultDescriptorSetLayout(video::IVideoDriver* driver, DataType inputType);
+		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultDescriptorSetLayout(video::IVideoDriver* driver);
 		
 		//
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, DataType inputType);
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver);
 		
 		//
 		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t numChannels)
@@ -123,7 +118,7 @@ class FFT : public core::TotalInterface
 			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
 		}
 		
-		static core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultPipeline(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
+		static core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultPipeline(video::IVideoDriver* driver, uint32_t maxDimensionSize);
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
 		static inline void updateDescriptorSet(
