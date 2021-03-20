@@ -29,16 +29,19 @@ struct alignas(16) uvec4 {
 class FFT : public core::TotalInterface
 {
 	public:
-		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t {
+		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t
+		{
 		};
 
-		enum class Direction : uint8_t {
+		enum class Direction : uint8_t
+		{
 			X = 0,
 			Y = 1,
 			Z = 2,
 		};
 		
-		enum class PaddingType : uint8_t {
+		enum class PaddingType : uint8_t
+		{
 			CLAMP_TO_EDGE = 0,
 			FILL_WITH_ZERO = 1,
 			// TODO: mirror?

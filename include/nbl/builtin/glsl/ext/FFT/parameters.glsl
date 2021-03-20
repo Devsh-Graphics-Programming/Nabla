@@ -25,10 +25,21 @@ uvec3 nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions() {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     return (params.padded_dimension.xyz);
 }
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getOutputStrides()
+{
+    uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions(); 
+    return uvec4(1u,dimension.x*uvec3(1u,dimension.y*uvec2(1u,dimension.z)));
+}
+
 uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions() {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     return (params.dimension.xyz);
 }  
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getInputStrides()
+{
+    uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
+    return uvec4(1u,dimension.x*uvec3(1u,dimension.y*uvec2(1u,dimension.z)));
+}
 uint nbl_glsl_ext_FFT_Parameters_t_getDirection() {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     return (params.dimension.w >> 16) & 0x000000ff;
