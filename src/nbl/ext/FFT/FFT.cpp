@@ -25,27 +25,6 @@ core::SRange<const SPushConstantRange> FFT::getDefaultPushConstantRanges()
 	return {ranges, ranges+1};
 }
 
-core::smart_refctd_ptr<IGPUSampler> FFT::getSampler(IVideoDriver* driver,ISampler::E_TEXTURE_CLAMP textureWrap)
-{
-	IGPUSampler::SParams params =
-	{
-		{
-			textureWrap,
-			textureWrap,
-			textureWrap,
-			ISampler::ETBC_FLOAT_TRANSPARENT_BLACK,
-			ISampler::ETF_NEAREST,
-			ISampler::ETF_NEAREST,
-			ISampler::ESMM_NEAREST,
-			0u,
-			0u,
-			ISampler::ECO_ALWAYS
-		}
-	};
-	// TODO: cache using the asset manager's caches
-	return driver->createGPUSampler(params);
-}
-
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> FFT::getDefaultDescriptorSetLayout(IVideoDriver* driver)
 {
 	static IGPUDescriptorSetLayout::SBinding bnd[] =

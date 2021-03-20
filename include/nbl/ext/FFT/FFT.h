@@ -157,45 +157,6 @@ class FFT : public core::TotalInterface
 			driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
 		}
 
-		static inline void updateDescriptorSet(
-			video::IVideoDriver * driver,
-			video::IGPUDescriptorSet * set,
-			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
-			asset::ISampler::E_TEXTURE_CLAMP textureWrap)
-		{
-			auto sampler = getSampler(driver,textureWrap);
-
-			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
-			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
-
-			for (auto i = 0; i < MAX_DESCRIPTOR_COUNT; i++)
-			{
-				pWrites[i].dstSet = set;
-				pWrites[i].arrayElement = 0u;
-				pWrites[i].count = 1u;
-				pWrites[i].info = pInfos+i;
-			}
-
-			// Input Buffer 
-			pWrites[0].binding = 0;
-			pWrites[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
-			pWrites[0].count = 1;
-			pInfos[0].desc = inputImageDescriptor;
-			pInfos[0].image.sampler = sampler;
-			pInfos[0].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
-
-			// Output Buffer 
-			pWrites[1].binding = 1;
-			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[1].count = 1;
-			pInfos[1].desc = outputBufferDescriptor;
-			pInfos[1].buffer.size = outputBufferDescriptor->getSize();
-			pInfos[1].buffer.offset = 0u;
-
-			driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
-		}
-
 		static inline void dispatchHelper(
 			video::IVideoDriver* driver,
 			const DispatchInfo_t& dispatchInfo,
@@ -242,8 +203,6 @@ class FFT : public core::TotalInterface
 	private:
 		FFT() = delete;
 		//~FFT() = delete;
-
-		static core::smart_refctd_ptr<video::IGPUSampler> getSampler(video::IVideoDriver* driver, asset::ISampler::E_TEXTURE_CLAMP textureWrap);
 };
 
 
