@@ -68,6 +68,9 @@ R"===(#version 430 core
 
 	return gpuSpecializedShader;
 }
+
+
+
 inline void updateDescriptorSet_Convolution (
 	video::IVideoDriver * driver,
 	video::IGPUDescriptorSet * set,
@@ -174,6 +177,8 @@ inline void updateDescriptorSet_LastFFT (
 
 	driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
 }
+
+
 
 int main()
 {
