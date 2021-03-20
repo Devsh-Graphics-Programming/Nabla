@@ -38,6 +38,10 @@ uint nbl_glsl_ext_FFT_Parameters_t_getFFTLength() {
     const uint direction = nbl_glsl_ext_FFT_Parameters_t_getDirection();
     return nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions()[direction];
 }
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return findMSB(nbl_glsl_ext_FFT_Parameters_t_getFFTLength());
+}
 
 bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse() {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
