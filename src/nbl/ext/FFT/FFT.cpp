@@ -68,7 +68,6 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> FFT::getDefaultPipeline(video
 	const char* sourceFmt =
 R"===(#version 430 core
 
-#define USE_SSBO_FOR_INPUT 1
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
  
