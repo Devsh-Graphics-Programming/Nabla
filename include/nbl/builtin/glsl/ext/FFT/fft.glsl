@@ -24,11 +24,6 @@
 #define _NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ 1
 
 
-#ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
-#define _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
-vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel);
-#endif
-
 #ifndef _NBL_GLSL_EXT_FFT_SET_DATA_DECLARED_
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DECLARED_
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value);
@@ -41,9 +36,6 @@ vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel);
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
 #error "You need to define `nbl_glsl_ext_FFT_getParameters` and mark `_NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_`!"
-#endif
-#ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
-#error "You need to define `nbl_glsl_ext_FFT_getData` and mark `_NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_`!"
 #endif
 #ifndef _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 #error "You need to define `nbl_glsl_ext_FFT_setData` and mark `_NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_`!"
