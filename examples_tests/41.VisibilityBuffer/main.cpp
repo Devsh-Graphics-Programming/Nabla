@@ -27,17 +27,18 @@ layout(location = 4) flat out uint drawID; //TODO: override main
 
 vec4 nbl_glsl_decodeRGB10A2_UNORM(in uint x)
 {
-	const uvec3 rgbMask = uvec3(0x3ffu);
 	const uvec4 shifted = uvec4(x,uvec3(x)>>uvec3(10,20,30));
-	return vec4(vec3(shifted.rgb&rgbMask),shifted.a)/vec4(vec3(rgbMask),3.0);
+	const uvec4 rgbaMask = uvec4(uvec3(0x3ffu),0x3u);
+	return vec4(shifted&rgbaMask)/vec4(rgbaMask);
 }
 
 vec4 nbl_glsl_decodeRGB10A2_SNORM(in uint x)
 {
-    uvec4 shifted = uvec4(x,uvec3(x)>>uvec3(10,20,30));
-    const uvec3 rgbMask = uvec3(0x3ffu);
-    const uvec3 rgbBias = uvec3(0x200u);
-    return max(vec4(vec3(shifted.rgb&rgbMask)-rgbBias,float(shifted.a)-2.0)/vec4(vec3(rgbBias-uvec3(1u)),1.0),vec4(-1.0));
+    const ivec4 shifted = ivec4(x,uvec3(x)>>uvec3(10u,20u,30u));
+	const ivec4 rgbaBias = ivec4(ivec3(0x200u),0x2u);
+	const ivec4 halfMask = rgbaBias-ivec4(1);
+	const ivec4 signed = (-(shifted&rgbaBias))|(shifted&halfMask);
+    return max(vec4(signed)/vec4(halfMask),vec4(-1.0));
 }
 
 //pos
@@ -702,7 +703,16 @@ int main()
                 return {};
 
             // sort meshbuffers by pipeline
-            std::sort(meshBuffers.begin(),meshBuffers.end(),[](const auto& lhs, const auto& rhs){return lhs->getPipeline()<rhs->getPipeline();});
+            std::sort(meshBuffers.begin(),meshBuffers.end(),[](const auto& lhs, const auto& rhs)
+                {
+                    auto lPpln = lhs->getPipeline();
+                    auto rPpln = rhs->getPipeline();
+                    // render non-transparent things first
+                    if (lPpln->getBlendParams().blendParams[0].blendEnable<rPpln->getBlendParams().blendParams[0].blendEnable)
+                        return true;
+                    return lPpln<rPpln;
+                }
+            );
 
             core::vector<MbPipelineRange> output;
             core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> mbPipeline = nullptr;
