@@ -5,6 +5,8 @@
 #ifndef __NBL_ASSET_I_MESH_PACKER_H_INCLUDED__
 #define __NBL_ASSET_I_MESH_PACKER_H_INCLUDED__
 
+#include "nbl/asset/utils/IMeshManipulator.h"
+
 namespace nbl
 {
 namespace asset
@@ -45,6 +47,7 @@ protected:
 
     struct AllocationParamsCommon
     {
+        // TODO: review all names and documnetation!
         size_t indexBuffSupportedCnt = 1073741824ull;                  /*   2GB*/
         size_t vertexBuffSupportedSize = 1ull << 31ull;                /*   2GB*/
         size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
@@ -112,7 +115,7 @@ public:
 protected:
     virtual ~IMeshPacker() {}
 
-    inline size_t calcVertexSize(const SVertexInputParams& vtxInputParams, const E_VERTEX_INPUT_RATE inputRate) const
+    static inline size_t calcVertexSize(const SVertexInputParams& vtxInputParams, const E_VERTEX_INPUT_RATE inputRate)
     {
         size_t size = 0ull;
         for (size_t i = 0; i < SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++i)
@@ -125,7 +128,20 @@ protected:
         return size;
     }
 
-    inline constexpr uint32_t calcBatchCount(uint32_t triCnt) { return (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData; }
+    static inline uint32_t calcVertexCountBoundWithBatchDuplication(const MeshBufferType* meshBuffer)
+    {
+        uint32_t triCnt;
+        if (IMeshManipulator::getPolyCount(triCnt,meshBuffer))
+            return triCnt*3u;
+        return 0u;
+    }
+
+    inline uint32_t calcBatchCountBound(uint32_t triCnt) const
+    {
+        if (triCnt!=0u)
+            return (triCnt-1u)/m_minTriangleCountPerMDIData+1u;
+        return 0u;
+    }
 
     struct Triangle
     {
@@ -137,35 +153,57 @@ protected:
         core::vector<Triangle> triangles;
     };
 
-    core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType* meshBuffer)
+    core::vector<TriangleBatch> constructTriangleBatches(const MeshBufferType* meshBuffer) const
     {
-        const size_t idxCnt = meshBuffer->getIndexCount();
-        const uint32_t triCnt = idxCnt / 3;
-        assert(idxCnt % 3 == 0);
+        uint32_t triCnt;
+        const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
+        assert(success);
 
-        const uint32_t batchCount = calcBatchCount(triCnt);
-
-        core::vector<TriangleBatch> output(batchCount);
-
-        for (uint32_t i = 0u; i < batchCount; i++)
-        {
-            if (i == (batchCount - 1))
-            {
-                if (triCnt % m_maxTriangleCountPerMDIData)
-                {
-                    output[i].triangles = core::vector<Triangle>(triCnt % m_maxTriangleCountPerMDIData);
-                    continue;
-                }
-            }
-
-            output[i].triangles = core::vector<Triangle>(m_maxTriangleCountPerMDIData);
-        }
+        const uint32_t batchCount = calcBatchCountBound(triCnt);
+        /*
+        TODO:
 
         //struct TriangleMortonCodePair
         //{
         //	Triangle triangle;
         //	//uint64_t mortonCode; TODO after benchmarks
         //};
+        
+        core::vector<TriangleMortonCodePair> triangles(triCnt);
+        uint32_t ix=0u;
+        for (auto it=triangles.begin(); it!=triangles.end(); it++)
+        {
+            *it = IMeshManipulator::getTriangleIndices(meshbuffer,ix++);
+        }
+
+        std::sort(triangles.begin(),triangles.end(),[]()->bool{return lhs.mortonCode<rhs.mortonCode;}); // maybe use our new core::radix_sort?
+
+        // do batch splitting
+        core::vector<const TriangleMortonCodePair*> batches;
+        batches.reserve(calcBatchCountBound(triCnt)+1u); // actual batch count will be different
+        {
+            // use batches.push_back();
+        }
+        batches.push_back(triangles.data()+triangles.size());
+
+        return {std::move(triangles),std::move(batches)};
+        */
+        core::vector<TriangleBatch> output(batchCount); // nested vectors are evil
+
+        for (uint32_t i = 0u; i < batchCount; i++)
+        {
+            if (i == (batchCount - 1))
+            {
+                const auto lastBatchLen = triCnt % uint32_t(m_maxTriangleCountPerMDIData);
+                if (lastBatchLen)
+                {
+                    output[i].triangles = core::vector<Triangle>(lastBatchLen);
+                    continue;
+                }
+            }
+
+            output[i].triangles = core::vector<Triangle>(m_maxTriangleCountPerMDIData);
+        }
 
         //TODO: triangle reordering
 
@@ -197,7 +235,7 @@ protected:
         return output;
     }
 
-    core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatch(TriangleBatch& batch, uint16_t*& indexBuffPtr)
+    static core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatch(TriangleBatch& batch, uint16_t*& indexBuffPtr)
     {
         core::unordered_map<uint32_t, uint16_t> usedVertices;
         core::vector<Triangle> newIdxTris = batch.triangles;
@@ -230,7 +268,7 @@ protected:
         return usedVertices;
     }
 
-    void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr)
+    static void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr)
     {
         uint8_t* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
         SVertexInputParams& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
