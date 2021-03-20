@@ -14,15 +14,6 @@
 
 #include "nbl/builtin/glsl/workgroup/shared_fft.glsl"
 
-// Push Constants
-
-#define _NBL_GLSL_EXT_FFT_DIRECTION_X_ 0
-#define _NBL_GLSL_EXT_FFT_DIRECTION_Y_ 1
-#define _NBL_GLSL_EXT_FFT_DIRECTION_Z_ 2
-
-#define _NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ 0
-#define _NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ 1
-
 
 #ifndef _NBL_GLSL_EXT_FFT_SET_DATA_DECLARED_
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DECLARED_

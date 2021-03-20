@@ -7,6 +7,15 @@
 
 #include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
 
+
+#define _NBL_GLSL_EXT_FFT_DIRECTION_X_ 0
+#define _NBL_GLSL_EXT_FFT_DIRECTION_Y_ 1
+#define _NBL_GLSL_EXT_FFT_DIRECTION_Z_ 2
+
+#define _NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ 0
+#define _NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ 1
+
+
 #ifndef _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DECLARED_
 #define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DECLARED_
 nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters();
