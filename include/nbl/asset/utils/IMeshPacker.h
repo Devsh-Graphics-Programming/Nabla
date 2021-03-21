@@ -270,7 +270,7 @@ protected:
 
     static void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr)
     {
-        uint8_t* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
+        const uint8_t const* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
         SVertexInputParams& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
         SVertexInputAttribParams MBAttrib = mbVtxInputParams.attributes[attrLocation];
         SVertexInputBindingParams attribBinding = mbVtxInputParams.bindings[MBAttrib.binding];
@@ -281,6 +281,25 @@ protected:
         {
             const uint8_t* attrSrc = srcAttrPtr + (index.first * stride);
             uint8_t* attrDest = dstAttrPtr + (index.second * attrSize);
+            memcpy(attrDest, attrSrc, attrSize);
+        }
+    }
+
+    //is it too much of DRY violation?
+    static void deinterleaveAndCopyPerInstanceAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, uint8_t* dstAttrPtr)
+    {
+        const uint8_t const* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
+        SVertexInputParams& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
+        SVertexInputAttribParams MBAttrib = mbVtxInputParams.attributes[attrLocation];
+        SVertexInputBindingParams attribBinding = mbVtxInputParams.bindings[MBAttrib.binding];
+        const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(MBAttrib.format));
+        const size_t stride = (attribBinding.stride) == 0 ? attrSize : attribBinding.stride;
+
+        const uint32_t insCnt = meshBuffer->getInstanceCount();
+        for (uint32_t i = 0u; i < insCnt; i++)
+        {
+            const uint8_t* attrSrc = srcAttrPtr + (i * stride);
+            uint8_t* attrDest = dstAttrPtr + (i * attrSize);
             memcpy(attrDest, attrSrc, attrSize);
         }
     }

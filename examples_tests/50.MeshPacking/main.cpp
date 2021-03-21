@@ -159,10 +159,10 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>&
     allocParams.vertexBufferMinAllocSize = 5000u;
     allocParams.MDIDataBuffSupportedCnt = 20000u;
     allocParams.MDIDataBuffMinAllocSize = 1u; //so structs are adjacent in memory
-    allocParams.perInstanceVertexBuffSupportedSize = 0u;
-    allocParams.perInstanceVertexBufferMinAllocSize = 0u;
 
-    CCPUMeshPackerV1 mp(meshBuffers[0]->getPipeline()->getVertexInputParams(), allocParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
+    assert(!meshBuffers.empty());
+
+    CCPUMeshPackerV1 mp((*(meshBuffers.end() - 1u))->getPipeline()->getVertexInputParams(), allocParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
 
     //TODO: test for multiple alloc
     //TODO: test mp.getPackerCreationParamsFromMeshBufferRange()
@@ -178,10 +178,15 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>&
     assert(pmb.isValid());
 
     auto& cpuVtxBuff = pmb.vertexBufferBindings[0].buffer;
+    auto& cpuPerInsVtxBuffer = pmb.vertexBufferBindings[15].buffer;
     auto gpuVtxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
+    auto gpuPerInsVtxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuPerInsVtxBuffer->getSize(), cpuPerInsVtxBuffer->getPointer());
 
-    for (uint32_t i = 0u; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+    for (uint32_t i = 0u; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT - 1; i++)
         output.vtxBindings[i] = { pmb.vertexBufferBindings[i].offset, gpuVtxBuff };
+
+    output.vtxBindings[15] = { pmb.vertexBufferBindings[15].offset,  gpuPerInsVtxBuff };
+
     output.idxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(pmb.indexBuffer.buffer->getSize(), pmb.indexBuffer.buffer->getPointer());
     output.indirectDrawBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(pmb.MDIDataBuffer->getSize(), pmb.MDIDataBuffer->getPointer());
     output.maxCount = pmbd.mdiParameterCount;
@@ -214,7 +219,7 @@ void packMeshBuffersV2(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*
 
     core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(meshBuffers.size());
     
-    const uint32_t offsetTableSz = mp.calcDataTableNeededSize(meshBuffers.begin(), meshBuffers.end());
+    const uint32_t offsetTableSz = mp.calcMDIStructCount(meshBuffers.begin(), meshBuffers.end());
     core::vector<MeshPacker::CombinedDataOffsetTable> cdot(offsetTableSz);
 
     std::cout << offsetTableSz;
@@ -242,25 +247,25 @@ void packMeshBuffersV2(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*
 
     //setOffsetTables
 
-    core::vector<uint32_t> offsetTableLocal(offsetTableSz);
+    core::vector<MeshPacker::VirtualAttribute> offsetTableLocal(offsetTableSz);
 
     for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
-        offsetTableLocal[i] = cdot[i].attribOffset[0];
+        offsetTableLocal[i] = cdot[i].attribInfo[0];
 
     offsetTable[0].offsetBuffer.offset = 0u;
-    offsetTable[0].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
+    offsetTable[0].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(MeshPacker::VirtualAttribute) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
 
     for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
-        offsetTableLocal[i] = cdot[i].attribOffset[2];
+        offsetTableLocal[i] = cdot[i].attribInfo[2];
 
     offsetTable[1].offsetBuffer.offset = sizeof(uint32_t) * offsetTableLocal.size();
-    offsetTable[1].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
+    offsetTable[1].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(MeshPacker::VirtualAttribute) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
 
     for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
-        offsetTableLocal[i] = cdot[i].attribOffset[3];
+        offsetTableLocal[i] = cdot[i].attribInfo[3];
 
     offsetTable[2].offsetBuffer.offset = 2u * sizeof(uint32_t) * offsetTableLocal.size();
-    offsetTable[2].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
+    offsetTable[2].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(MeshPacker::VirtualAttribute) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
 }
 
 void setPipeline(IVideoDriver* driver, IAssetManager* am, SVertexInputParams& vtxInputParams,
@@ -363,6 +368,57 @@ void setPipelineV2(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpeciali
         asset::SBlendParams(), asset::SPrimitiveAssemblyParams(), SRasterizationParams());
 }
 
+core::smart_refctd_ptr<ICPUMeshBuffer> createInstancedMeshBuffer(IGeometryCreator const* geometryCreator)
+{
+    auto cylinder = geometryCreator->createCylinderMesh(10.0f,10.0f, 128u);
+
+    //create per instance attribute (position)
+    constexpr uint32_t insCnt = 100u;
+    constexpr size_t perInsAttribSize = insCnt * sizeof(vector3df);
+
+    core::smart_refctd_ptr<ICPUBuffer> perInsAttribBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(perInsAttribSize);
+    auto* perInsAttribBufferBegin = static_cast<vector3df*>(perInsAttribBuffer->getPointer());
+    auto* perInsAttribBufferEnd = perInsAttribBufferBegin + insCnt;
+    std::generate(perInsAttribBufferBegin, perInsAttribBufferEnd, [n = 10u]() mutable { return vector3df(n += 10); });
+
+    cylinder.inputParams.enabledAttribFlags = 0x800D;
+    cylinder.inputParams.enabledBindingFlags |= 0x8000;
+
+    cylinder.inputParams.attributes[1] = SVertexInputAttribParams(); //ignore color attribute
+
+    cylinder.bindings[15] = { 0ull, std::move(perInsAttribBuffer) };
+
+    cylinder.inputParams.attributes[15].binding = 15;
+    cylinder.inputParams.attributes[15].format = asset::EF_R32G32B32_SFLOAT;
+    cylinder.inputParams.attributes[15].relativeOffset = 0u;
+
+    cylinder.inputParams.bindings[15].inputRate = EVIR_PER_INSTANCE;
+    cylinder.inputParams.bindings[15].stride = 0u;
+
+    core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+        nullptr,
+        nullptr,
+        nullptr,
+        cylinder.inputParams,
+        SBlendParams(),
+        SPrimitiveAssemblyParams(),
+        SRasterizationParams()
+        );
+
+    core::smart_refctd_ptr<ICPUMeshBuffer> output = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
+        std::move(pipeline),
+        nullptr,
+        cylinder.bindings,
+        std::move(cylinder.indexBuffer)
+        );
+
+    output->setInstanceCount(insCnt);
+    output->setIndexCount(cylinder.indexCount);
+    output->setIndexType(cylinder.indexType);
+
+    return output;
+}
+
 int main()
 {
     // create device with full flexibility over creation parameters
@@ -399,24 +455,27 @@ int main()
     //
     auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
     //loading cache from file
-    qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+    qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse", true);
 
     // register the zip
-    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
+    //fs->addFileArchive("../../media/sponza.zip");
 
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("sponza.obj", lp);
-    //assert(!meshes_bundle.isEmpty());
-    auto mesh = meshes_bundle.getContents().begin()[0];
-    auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+    //auto meshes_bundle = am->getAsset("sponza.obj", lp);
+    ////assert(!meshes_bundle.isEmpty());
+    //auto mesh = meshes_bundle.getContents().begin()[0];
+    //auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
     //saving cache to file
-    qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+    qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 
     //TODO: change it to vector of smart pointers
     core::vector<ICPUMeshBuffer*> meshBuffers;
-    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferVector().size(); i++)
-        meshBuffers.push_back(mesh_raw->getMeshBufferVector()[i].get());
+    /*for (uint32_t i = 0u; i < mesh_raw->getMeshBufferVector().size(); i++)
+        meshBuffers.push_back(mesh_raw->getMeshBufferVector()[i].get());*/
+
+    auto instancedMeshBuffer = createInstancedMeshBuffer(am->getGeometryCreator());
+    meshBuffers.push_back(instancedMeshBuffer.get());
 
     //pack mesh buffers
     DrawIndexedIndirectInput mdiCallParams;
@@ -426,7 +485,7 @@ int main()
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline;
     setPipeline(driver, am, vtxInputParams, gpuPipeline);
 
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline2;
+    /*core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline2;
     core::smart_refctd_ptr<IGPUDescriptorSet> ds;
     DrawIndexedIndirectInputV2 mdiCallParamsV2;
     {
@@ -440,7 +499,7 @@ int main()
         packMeshBuffersV2(driver, meshBuffers, mdiCallParamsV2, offsetTable);
 
         setPipelineV2(driver, vs.get(), fs, mdiCallParamsV2.vtxBuffer.buffer, offsetTable, ds, gpuPipeline2);
-    }
+    }*/
 
     //! we want to move around the scene and view it from different angles
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.5f);
@@ -454,12 +513,13 @@ int main()
 
     uint64_t lastFPSTime = 0;
 
-#define USE_MPV2
+#define USE_MPV1
 
 #ifdef USE_MPV1
     while (device->run() && receiver.keepOpen())
     {
         driver->bindGraphicsPipeline(gpuPipeline.get());
+        driver->bindDescriptorSets(EPBP_GRAPHICS, gpuPipeline->getLayout(), 0u, 0u, nullptr, nullptr);
 
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
@@ -467,9 +527,9 @@ int main()
         camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
         camera->render();
 
+
         driver->pushConstants(gpuPipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
         driver->drawIndexedIndirect(mdiCallParams.vtxBindings, mdiCallParams.mode, mdiCallParams.indexType, mdiCallParams.idxBuff.get(), mdiCallParams.indirectDrawBuff.get(), mdiCallParams.offset, mdiCallParams.maxCount, mdiCallParams.stride);
-
 
         driver->endScene();
     }
