@@ -23,7 +23,7 @@ R"(
 
 #define nbl_glsl_VirtualAttribute_t uint
 
-layout(location = 4) flat out uint drawID; //TODO: override main
+layout(location = 4) flat out uint drawID;
 
 #include "nbl/builtin/glsl/format/decode.glsl"
 
@@ -40,17 +40,6 @@ layout(set = 0, binding = 3) readonly buffer VirtualAttributes
 {
     nbl_glsl_VirtualAttribute_t vAttr[][3];
 } virtualAttribTable;
-
-#define _NBL_BASIC_VTX_ATTRIB_FETCH_FUCTIONS_DEFINED_
-#define _NBL_POS_FETCH_FUNCTION_DEFINED
-#define _NBL_UV_FETCH_FUNCTION_DEFINED
-#define _NBL_NORMAL_FETCH_FUNCTION_DEFINED
-
-//vec4 nbl_glsl_readAttrib(uint offset)
-//ivec4 nbl_glsl_readAttrib(uint offset)
-//uvec4 nbl_glsl_readAttrib(uint offset)
-//vec3 nbl_glsl_readAttrib(uint offset) 
-//..
 
 struct VirtualAttribute
 {
@@ -89,6 +78,11 @@ vec3 nbl_glsl_fetchVtxNormal(in uint vtxID)
     VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[gl_DrawID + pc.dataBufferOffset][2]);
     return nbl_glsl_decodeRGB10A2_SNORM(texelFetch(MeshPackedDataUint[va.binding], va.offset + int(vtxID)).x).xyz;
 }
+
+#define _NBL_BASIC_VTX_ATTRIB_FETCH_FUCTIONS_DEFINED_
+#define _NBL_POS_FETCH_FUNCTION_DEFINED
+#define _NBL_UV_FETCH_FUNCTION_DEFINED
+#define _NBL_NORMAL_FETCH_FUNCTION_DEFINED
 
 )";
 
@@ -276,11 +270,11 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipelineRange>&
 
     MeshPacker::AllocationParams allocParams; // TODO: review all variable names MAKE IT FUCKING CLEAR IF THINGS ARE BYTESIZES OR COUNTS!
     allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
-    allocParams.indexBufferMinAllocSize = minTrisBatch*3u;
+    allocParams.indexBufferMinAllocCnt = minTrisBatch*3u;
     allocParams.vertexBuffSupportedSize = 128u*1024u*1024u; // TODO: this is VERTEX COUNT or BYTE COUNT?
     allocParams.vertexBufferMinAllocSize = minTrisBatch;
     allocParams.MDIDataBuffSupportedCnt = 8192u;
-    allocParams.MDIDataBuffMinAllocSize = 1u; //so structs are adjacent in memory (TODO: WTF NO!)
+    allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory (TODO: WTF NO!)
     
     CCPUMeshPackerV2 mp(allocParams,minTrisBatch,maxTrisBatch);
 

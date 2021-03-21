@@ -21,11 +21,11 @@
 	 clue: vertices from some buffers are being used by previous buffers (buffer with index 4 use vertices of buffer with index 5 for example)
 	 {
 		allocationParams.indexBuffSupportedCnt = 20000000u;
-		allocationParams.indexBufferMinAllocSize = 1u;			//#1
+		allocationParams.indexBufferMinAllocCnt = 1u;			//#1
 		allocationParams.vertexBuffSupportedCnt = 20000000u;
 		allocationParams.vertexBufferMinAllocSize = 1u;         //#2
 		allocationParams.MDIDataBuffSupportedCnt = 20000u;
-		allocationParams.MDIDataBuffMinAllocSize = 1u;
+		allocationParams.MDIDataBuffMinAllocCnt = 1u;
 		allocationParams.perInstanceVertexBuffSupportedCnt = 0u;
 		allocationParams.perInstanceVertexBufferMinAllocSize = 0u;
 
@@ -74,7 +74,10 @@ class CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 public:
 	struct AllocationParams : IMeshPackerBase::AllocationParamsCommon
 	{
+		// Maximum byte size of per instance vertex data allocation
 		size_t perInstanceVertexBuffSupportedSize = 33554432ull;         /*  32MB*/
+
+		// Minimum bytes of per instance vertex data allocated per allocation
 		size_t perInstanceVertexBufferMinAllocSize = 32ull;
 	};
 
@@ -177,8 +180,6 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 	}
 
 	m_vtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX);
-	//TODO: allow for mesh buffers with only per instance parameters
-	assert(m_vtxSize);
 
 	m_perInsVtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
 	if (m_perInsVtxSize)
@@ -193,9 +194,9 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 			allocParams.indexBuffSupportedCnt,
 			m_vtxSize ? allocParams.vertexBuffSupportedSize / m_vtxSize : 0ull,
 			allocParams.MDIDataBuffSupportedCnt,
-			allocParams.indexBufferMinAllocSize,
+			allocParams.indexBufferMinAllocCnt,
 			allocParams.vertexBufferMinAllocSize,
-			allocParams.MDIDataBuffMinAllocSize
+			allocParams.MDIDataBuffMinAllocCnt
 		}
 	);
 }
@@ -347,10 +348,10 @@ void CCPUMeshPackerV1<MDIStructType>::instantiateDataStorage()
 	std::array<uint32_t, SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT> attrSizeArray;
 
 	uint32_t vtxBufferOffset = 0u;
-	const uint32_t maxVtxCnt = m_allocParams.vertexBuffSupportedSize / m_vtxSize;
+	const uint32_t maxVtxCnt = m_vtxSize == 0u ? 0u : m_allocParams.vertexBuffSupportedSize / m_vtxSize;
 
 	uint32_t perInsBuffOffset = 0u;
-	const uint32_t maxPerInsVtxCnt = m_allocParams.perInstanceVertexBuffSupportedSize / m_perInsVtxSize;
+	const uint32_t maxPerInsVtxCnt = m_perInsVtxSize == 0u ? 0u : m_allocParams.perInstanceVertexBuffSupportedSize / m_perInsVtxSize;
 
 	for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
 	{
@@ -394,8 +395,6 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
-		//TODO: test if per instance attributes are being copied correctly
-
 		for (TriangleBatch& batch : triangleBatches)
 		{
 			core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);
@@ -419,7 +418,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 				}
 				else if (inputRate == EVIR_PER_INSTANCE)
 				{
-					dstAttrPtr += (ramb.vertexAllocationOffset + instancesAddedCnt) * attrSize;
+					dstAttrPtr += (ramb.instanceAllocationOffset + instancesAddedCnt) * attrSize;
 					deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
 				}
 			}

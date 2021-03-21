@@ -48,28 +48,39 @@ protected:
     struct AllocationParamsCommon
     {
         // TODO: review all names and documnetation!
-        size_t indexBuffSupportedCnt = 1073741824ull;                  /*   2GB*/
-        size_t vertexBuffSupportedSize = 1ull << 31ull;                /*   2GB*/
+        
+        // Maximum number of 16 bit indicies that may be allocated
+        size_t indexBuffSupportedCnt = 67108864ull;                    /*   128MB*/
+
+        // Maximum byte size for vertex data allocation
+        size_t vertexBuffSupportedSize = 134217728ull;                 /*   128MB*/
+
+        // Maximum number of MDI structs that may be allocated
         size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
-        size_t indexBufferMinAllocSize = 256ull;
+
+        // Minimum count of 16 bit indicies allocated per allocation
+        size_t indexBufferMinAllocCnt = 256ull;
+
+        // Minimum bytes of vertex data allocated per allocation
         size_t vertexBufferMinAllocSize = 32ull;
-        size_t MDIDataBuffMinAllocSize = 32ull;
+
+        // Minimum count of MDI structs allocated per allocation
+        size_t MDIDataBuffMinAllocCnt = 32ull;
     };
 
     void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
     {
         if (allocParams.indexBuffSupportedCnt)
         {
-            m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt), _NBL_SIMD_ALIGNMENT);
             _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
             assert(m_idxBuffAlctrResSpc != nullptr);
-            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize);
+            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
         }
 
         if (allocParams.vertexBuffSupportedSize)
         {
             m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
-            //for now mesh packer will not allow mesh buffers without any per vertex attributes
             _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
             assert(m_vtxBuffAlctrResSpc != nullptr);
             m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize);
@@ -77,10 +88,10 @@ protected:
 
         if (allocParams.MDIDataBuffSupportedCnt)
         {
-            m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt), _NBL_SIMD_ALIGNMENT);
             _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
             assert(m_MDIDataAlctrResSpc != nullptr);
-            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize);
+            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt);
         }
     }
 

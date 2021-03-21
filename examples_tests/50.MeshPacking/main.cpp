@@ -154,11 +154,11 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>&
 
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 20000000u;
-    allocParams.indexBufferMinAllocSize = 5000u;
+    allocParams.indexBufferMinAllocCnt = 5000u;
     allocParams.vertexBuffSupportedSize = 20000000u;
     allocParams.vertexBufferMinAllocSize = 5000u;
     allocParams.MDIDataBuffSupportedCnt = 20000u;
-    allocParams.MDIDataBuffMinAllocSize = 1u; //so structs are adjacent in memory
+    allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory
 
     assert(!meshBuffers.empty());
 
@@ -200,11 +200,11 @@ void packMeshBuffersV2(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*
 
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 20000000u;
-    allocParams.indexBufferMinAllocSize = 5000u;
+    allocParams.indexBufferMinAllocCnt = 5000u;
     allocParams.vertexBuffSupportedSize = 200000000u;
     allocParams.vertexBufferMinAllocSize = 5000u;
     allocParams.MDIDataBuffSupportedCnt = 20000u;
-    allocParams.MDIDataBuffMinAllocSize = 1u; //so structs are adjacent in memory
+    allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory
 
     CCPUMeshPackerV2 mp(allocParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
 
