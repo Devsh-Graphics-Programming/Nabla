@@ -315,6 +315,85 @@ protected:
         }
     }
 
+    uint32_t calcIdxCntAfterConversionToTriangleList(MeshBufferType* meshBuffer)
+    {
+        const auto& params = meshBuffer->getPipeline()->getPrimitiveAssemblyParams();
+        uint32_t idxCnt = meshBuffer->getIndexCount();
+
+        switch (params.primitiveType)
+        {
+            case EPT_TRIANGLE_LIST: 
+                return idxCnt;
+            case EPT_TRIANGLE_STRIP:
+            case EPT_TRIANGLE_FAN:
+                return (idxCnt - 2) * 3;
+                //TODO: packer should return when there is mesh buffer with one of following:
+            case EPT_POINT_LIST:
+            case EPT_LINE_LIST:
+            case EPT_LINE_STRIP:
+            case EPT_LINE_LIST_WITH_ADJACENCY:
+            case EPT_LINE_STRIP_WITH_ADJACENCY:
+            case EPT_TRIANGLE_LIST_WITH_ADJACENCY:
+            case EPT_TRIANGLE_STRIP_WITH_ADJACENCY:
+            case EPT_PATCH_LIST:
+            default:
+                assert(false);
+                return 0u;
+        }
+    }
+
+    std::pair<uint32_t, core::smart_refctd_ptr<ICPUBuffer>> convertIdxBufferToTriangles(MeshBufferType* meshBuffer)
+    {
+        const auto mbIdxBuffer = meshBuffer->getIndexBufferBinding().buffer;
+        E_INDEX_TYPE idxType = meshBuffer->getIndexType();
+        const uint32_t idxCount = meshBuffer->getIndexCount();
+        if (idxCount == 0)
+            return { 0u, nullptr };
+
+        const bool iota = idxType == EIT_UNKNOWN || !mbIdxBuffer;
+        core::smart_refctd_ptr<ICPUBuffer> idxBufferToProcess;
+        if (iota)
+        {
+            idxBufferToProcess = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t) * idxCount);
+            auto ptr = reinterpret_cast<uint32_t*>(idxBufferToProcess->getPointer());
+            std::iota(ptr, ptr + idxCount, 0u);
+            idxType = EIT_32BIT;
+        }
+        else
+        {
+            idxBufferToProcess = mbIdxBuffer;
+        }
+        
+        std::pair<uint32_t, core::smart_refctd_ptr<ICPUBuffer>> output;
+        output.first = meshBuffer->getIndexCount();
+
+        const auto& params = meshBuffer->getPipeline()->getPrimitiveAssemblyParams();
+        switch (params.primitiveType)
+        {
+            case EPT_TRIANGLE_STRIP:
+                output.second = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(mbIdxBuffer->getPointer(), output.first, idxType, idxType);
+                return output;
+
+            case EPT_TRIANGLE_FAN:
+                output.second = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(mbIdxBuffer->getPointer(), output.first, idxType, idxType);
+                return output;
+
+                //TODO: packer should return when there is mesh buffer with one of following:
+            case EPT_TRIANGLE_LIST:
+            case EPT_POINT_LIST:
+            case EPT_LINE_LIST:
+            case EPT_LINE_STRIP:
+            case EPT_LINE_LIST_WITH_ADJACENCY:
+            case EPT_LINE_STRIP_WITH_ADJACENCY:
+            case EPT_TRIANGLE_LIST_WITH_ADJACENCY:
+            case EPT_TRIANGLE_STRIP_WITH_ADJACENCY:
+            case EPT_PATCH_LIST:
+            default:
+                assert(false);
+                return { 0u, nullptr };
+        }
+    }
+
 protected:
     template <typename BufferType>
     struct PackerDataStoreCommon

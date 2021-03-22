@@ -209,24 +209,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	/*
 	Requirements for input mesh buffers:
 		- attributes bound to the same binding must have identical format
-		- all meshbufers have indexed triangle list (temporary)
 	*/
-
-	//validation
-	//TODO: remove this condition
-	for(auto it = mbBegin; it != mbEnd; it++)
-	{
-		//assert(!(*it == nullptr));
-
-		auto* pipeline = (*it)->getPipeline();
-
-		if ((*it)->getIndexBufferBinding().buffer.get() == nullptr ||
-			pipeline->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
-		{
-			_NBL_DEBUG_BREAK_IF(true);
-			return invalidReservedAllocationMeshBuffers;
-		}
-	}
 
 	//TODO: test (try to pack mesh buffers with too much and too little attribs):
 	//allocation should be happening even if processed mesh buffer doesn't have attribute that was declared in pre defined `SVertexInputParams`, if mesh buffer has any attributes that are not declared in pre defined `SVertexInputParams` then these should be always ignored
@@ -241,12 +224,10 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 			if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
 				continue;
 
-			//assert((attrBit & m_output.vertexInputParams.enabledAttribFlags));
-
 			if (mbVtxInputParams.attributes[location].format != m_output.vertexInputParams.attributes[location].format ||
 				mbVtxInputParams.bindings[mbVtxInputParams.attributes[location].binding].inputRate != m_output.vertexInputParams.bindings[location].inputRate)
 			{
-				_NBL_DEBUG_BREAK_IF(true);
+				assert(false);
 				return invalidReservedAllocationMeshBuffers;
 			}
 		}
@@ -258,7 +239,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	for (auto it = mbBegin; it != mbEnd; it++)
 	{
 		ICPUMeshBuffer* mb = *it;
-		idxCnt += mb->getIndexCount();
+		idxCnt += calcIdxCntAfterConversionToTriangleList(mb);
 		vtxCnt += calcVertexCountBoundWithBatchDuplication(mb);
 		perInsVtxCnt += mb->getInstanceCount();
 	}
@@ -391,9 +372,24 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 
 	for (auto it = mbBegin; it != mbEnd; it++)
 	{
-		const size_t idxCnt = (*it)->getIndexCount();
 		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+
+		const auto mbPrimitiveType = (*it)->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
+
+		SBufferBinding<ICPUBuffer> idxBuffer; //TODO: fix, this should be shared by `constructNewIndicesFromTriangleBatch` and `deinterleaveAndCopyAttribute` functions
+		uint32_t idxCnt = 0u;
+		if (mbPrimitiveType == EPT_TRIANGLE_LIST) 
+		{
+			idxCnt = (*it)->getIndexCount();
+			idxBuffer = (*it)->getIndexBufferBinding();
+		}
+		else
+		{
+			auto newIdxBuffer = convertIdxBufferToTriangles(*it);
+			idxCnt = newIdxBuffer.first;
+			idxBuffer.buffer = newIdxBuffer.second;
+		}
 
 		for (TriangleBatch& batch : triangleBatches)
 		{
