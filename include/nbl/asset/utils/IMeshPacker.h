@@ -52,7 +52,10 @@ protected:
         // Maximum number of 16 bit indicies that may be allocated
         size_t indexBuffSupportedCnt = 67108864ull;                    /*   128MB*/
 
-        // Maximum byte size for vertex data allocation
+        /* Maximum byte size for vertex data allocation
+           For `CCPUMeshPackerV1` this will be maximum byte size of buffer containing only attributes with EVIR_PER_VERTEX input rate.
+           For `CCPUMeshPackerV2` this will be maximum byte size of buffer containing attributes with both EVIR_PER_VERTEX and EVIR_PER_INSTANCE input rate.
+        */
         size_t vertexBuffSupportedSize = 134217728ull;                 /*   128MB*/
 
         // Maximum number of MDI structs that may be allocated
@@ -164,9 +167,16 @@ protected:
         core::vector<Triangle> triangles;
     };
 
+    struct IdxBufferParams
+    {
+        SBufferBinding<ICPUBuffer> idxBuffer;
+        uint32_t idxCnt = 0u; //TODO: if you will be sure that it will not be used anywhere, delete this and modify `convertIdxBufferToTriangles` to return only idx buffer
+        E_INDEX_TYPE indexType = EIT_UNKNOWN;
+    };
+
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
-    core::vector<TriangleBatch> constructTriangleBatches(const MeshBufferType* meshBuffer, const SBufferBinding<ICPUBuffer/*TODO*/>& srcIdxBuffer, const E_INDEX_TYPE indexType) const
+    core::vector<TriangleBatch> constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
@@ -220,20 +230,20 @@ protected:
 
         //TODO: triangle reordering
 
-        auto idxBufferPtr32Bit = static_cast<const uint32_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint32_t)); //will be changed after benchmarks
-        auto idxBufferPtr16Bit = static_cast<const uint16_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint16_t));
+        auto idxBufferPtr32Bit = static_cast<const uint32_t*>(idxBufferParams.idxBuffer.buffer->getPointer()) + (idxBufferParams.idxBuffer.offset / sizeof(uint32_t)); //will be changed after benchmarks
+        auto idxBufferPtr16Bit = static_cast<const uint16_t*>(idxBufferParams.idxBuffer.buffer->getPointer()) + (idxBufferParams.idxBuffer.offset / sizeof(uint16_t));
         for (TriangleBatch& batch : output)
         {
             for (Triangle& tri : batch.triangles)
             {
-                if (indexType == EIT_32BIT)
+                if (idxBufferParams.indexType == EIT_32BIT)
                 {
                     tri.oldIndices[0] = *idxBufferPtr32Bit;
                     tri.oldIndices[1] = *(++idxBufferPtr32Bit);
                     tri.oldIndices[2] = *(++idxBufferPtr32Bit);
                     idxBufferPtr32Bit++;
                 }
-                else if (indexType == EIT_16BIT)
+                else if (idxBufferParams.indexType == EIT_16BIT)
                 {
 
                     tri.oldIndices[0] = *idxBufferPtr16Bit;
@@ -393,6 +403,29 @@ protected:
                 assert(false);
                 return { 0u, nullptr };
         }
+    }
+
+    IdxBufferParams retriveOrCreateNewIdxBufferParams(MeshBufferType* meshBuffer)
+    {
+        IdxBufferParams output;
+
+        const auto mbPrimitiveType = meshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
+        if (mbPrimitiveType == EPT_TRIANGLE_LIST)
+        {
+            output.idxCnt = meshBuffer->getIndexCount();
+            output.idxBuffer = meshBuffer->getIndexBufferBinding();
+            output.indexType = meshBuffer->getIndexType();
+        }
+        else
+        {
+            auto newIdxBuffer = convertIdxBufferToTriangles(meshBuffer);
+            output.idxCnt = newIdxBuffer.first;
+            output.idxBuffer.offset = 0u;
+            output.idxBuffer.buffer = newIdxBuffer.second;
+            output.indexType = EIT_32BIT;
+        }
+
+        return output;
     }
 
 protected:

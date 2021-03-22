@@ -70,6 +70,7 @@ class CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 	using base_t = IMeshPacker<ICPUMeshBuffer, MDIStructType>;
 	using Triangle = typename base_t::Triangle;
 	using TriangleBatch = typename base_t::TriangleBatch;
+	using IdxBufferParams = typename base_t::IdxBufferParams;
 
 public:
 	struct AllocationParams : IMeshPackerBase::AllocationParamsCommon
@@ -380,25 +381,9 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 	{
 		const auto mbPrimitiveType = (*it)->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 
-		SBufferBinding<ICPUBuffer> idxBuffer;
-		uint32_t idxCnt = 0u;
-		E_INDEX_TYPE indexType;
-		if (mbPrimitiveType == EPT_TRIANGLE_LIST) 
-		{
-			idxCnt = (*it)->getIndexCount();
-			idxBuffer = (*it)->getIndexBufferBinding();
-			indexType = (*it)->getIndexType();
-		}
-		else
-		{
-			auto newIdxBuffer = convertIdxBufferToTriangles(*it);
-			idxCnt = newIdxBuffer.first;
-			idxBuffer.offset = 0u;
-			idxBuffer.buffer = newIdxBuffer.second;
-			indexType = EIT_32BIT;
-		}
+		IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
 
-		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it, idxBuffer, indexType);
+		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it, idxBufferParams);
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
 		for (TriangleBatch& batch : triangleBatches)

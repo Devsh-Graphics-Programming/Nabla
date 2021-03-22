@@ -248,9 +248,11 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
     for (auto it = mbBegin; it != mbEnd; it++)
     {
         ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
-        const size_t idxCnt = (*it)->getIndexCount();
-        // TODO: deal with per-instance attributes!!
+        const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(*it);
         const size_t maxVtxCnt = calcVertexCountBoundWithBatchDuplication(*it);
+
+        //TODO: in this mesh packer there is only one buffer for both per instance and per vertex attribs
+        //modify alloc and commit so these functions act accrodingly to attribute they are wokring on
 
         //allocate indices
         ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);

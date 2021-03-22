@@ -19,6 +19,7 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, 
     using base_t = IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>;
     using Triangle = typename base_t::Triangle;
     using TriangleBatch = typename base_t::TriangleBatch;
+    using IdxBufferParams = typename base_t::base_t::IdxBufferParams;
 
 public:
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
@@ -64,7 +65,9 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
-        core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
+        IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
+
+        core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it, idxBufferParams);
 
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
