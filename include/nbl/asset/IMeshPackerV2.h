@@ -250,6 +250,7 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
         ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
         const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(*it);
         const size_t maxVtxCnt = calcVertexCountBoundWithBatchDuplication(*it);
+        const uint32_t insCnt = (*it)->getInstanceCount();
 
         //TODO: in this mesh packer there is only one buffer for both per instance and per vertex attribs
         //modify alloc and commit so these functions act accrodingly to attribute they are wokring on
@@ -270,13 +271,23 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
             const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
             const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
             const uint32_t binding = mbVtxInputParams.attributes[location].binding;
+            const E_VERTEX_INPUT_RATE inputRate = mbVtxInputParams.bindings[binding].inputRate;
 
-            ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(maxVtxCnt * attribSize, attribSize);
+            if (inputRate == EVIR_PER_VERTEX)
+            {
+                const uint32_t allocByteSize = maxVtxCnt * attribSize;
+                ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
+                ramb.attribAllocParams[location].size = allocByteSize;
+            }
+            else if (inputRate == EVIR_PER_INSTANCE)
+            {
+                const uint32_t allocByteSize = insCnt * attribSize;
+                ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
+                ramb.attribAllocParams[location].size = allocByteSize;
+            }
 
             if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                 return false;
-
-            ramb.attribAllocParams[location].size = maxVtxCnt * attribSize;
 
             virtualAttribConfig.insertAttribFormat(attribFormat);
 

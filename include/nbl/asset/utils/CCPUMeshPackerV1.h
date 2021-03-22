@@ -218,7 +218,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 		- attributes bound to the same binding must have identical format
 	*/
 
-	//TODO: test (try to pack mesh buffers with too much and too little attribs):
+	//TODO:
 	//allocation should be happening even if processed mesh buffer doesn't have attribute that was declared in pre defined `SVertexInputParams`, if mesh buffer has any attributes that are not declared in pre defined `SVertexInputParams` then these should be always ignored
 	//also this behavior should be included in the documentation i guess? 
 
@@ -398,7 +398,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 
 				SVertexInputAttribParams attrib = m_output.vertexInputParams.attributes[location];
 				SBufferBinding<ICPUBuffer>& vtxBuffBind = m_output.vertexBufferBindings[location];
-				E_VERTEX_INPUT_RATE inputRate = m_output.vertexInputParams.bindings[attrib.binding].inputRate;
+				const E_VERTEX_INPUT_RATE inputRate = m_output.vertexInputParams.bindings[attrib.binding].inputRate;
 				uint8_t* dstAttrPtr = static_cast<uint8_t*>(vtxBuffBind.buffer->getPointer()) + vtxBuffBind.offset;
 				const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(attrib.format));
 
@@ -413,8 +413,6 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 					deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
 				}
 			}
-
-			verticesAddedToUnifiedBufferCnt += usedVertices.size();
 
 			//construct mdi data
 			MDIStructType MDIData;
@@ -431,6 +429,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 			batchFirstIdx += 3 * batch.triangles.size();
 			batchBaseVtx += usedVertices.size();
 
+			verticesAddedToUnifiedBufferCnt += usedVertices.size();
 			instancesAddedCnt += (*it)->getInstanceCount();
 		}
 	}

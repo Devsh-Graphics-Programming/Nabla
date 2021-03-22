@@ -64,6 +64,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
         uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_packerDataStore.indexBuffer->getPointer()) + ramb.indexAllocationOffset;
 
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+        const uint32_t insCnt = (*it)->getInstanceCount();
 
         IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
 
@@ -71,6 +72,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
+        size_t instancesAddedCnt = 0u;
 
         for (TriangleBatch& batch : triangleBatches)
         {
@@ -88,10 +90,23 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                 const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
                 //should I cashe it?
                 const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
-                const uint32_t currBatchOffset = verticesAddedCnt * attribSize;
+                const uint32_t binding = mbVtxInputParams.attributes[location].binding;
+                const E_VERTEX_INPUT_RATE inputRate = mbVtxInputParams.bindings[binding].inputRate;
 
-                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset + currBatchOffset;
-                deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
+                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset;
+                
+                if (inputRate == EVIR_PER_VERTEX)
+                {
+                    const uint32_t currBatchOffsetForPerVtxAttribs = verticesAddedCnt * attribSize;
+                    dstAttrPtr += currBatchOffsetForPerVtxAttribs;
+                    deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
+                }
+                if (inputRate == EVIR_PER_INSTANCE)
+                {
+                    const uint32_t currBatchOffsetForPerInstanceAttribs = instancesAddedCnt * attribSize;
+                    dstAttrPtr += currBatchOffsetForPerInstanceAttribs;
+                    deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
+                }
 
                 auto vtxFormatInfo = virtualAttribConfig.map.find(attribFormat);
 
@@ -99,10 +114,16 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                     return false;
 
                 cdotOut->attribInfo[location].arrayElement = vtxFormatInfo->second.second;
-                cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
+
+                if (inputRate == EVIR_PER_VERTEX)
+                    cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
+                if (inputRate == EVIR_PER_INSTANCE)
+                    cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt;
+
             }
 
             verticesAddedCnt += usedVertices.size();
+            instancesAddedCnt += insCnt;
             cdotOut++;
 
             //construct mdi data
