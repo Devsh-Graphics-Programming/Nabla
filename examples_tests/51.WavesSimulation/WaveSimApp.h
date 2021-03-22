@@ -1,6 +1,8 @@
 #pragma once
 #include <nabla.h>
 
+#include "../common/QToQuitEventReceiver.h"
+
 struct WaveSimParams
 {
 	//Both width and height MUST be powers of 2
@@ -8,7 +10,7 @@ struct WaveSimParams
 	{
 		struct
 		{
-			uint32_t width, height;
+			uint32_t width, length;
 		};
 		nbl::core::dimension2du size;
 	};
@@ -21,26 +23,21 @@ struct WaveSimParams
 
 class WaveSimApp
 {
-	struct MeshData
-	{
-		nbl::asset::SVertexInputParams input_params;
-		uint32_t index_count;
-	};
 	using computePipeline = nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline>;
 	using graphicsPipeline = nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>;
 	using textureView = nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView>;
 private:
 	[[nodiscard]] bool Init();
-	[[nodiscard]] bool CreatePresentingPipeline();
+	[[nodiscard]] bool CreatePresenting2DPipeline();
+	[[nodiscard]] bool CreatePresenting3DPipeline();
 	[[nodiscard]] bool CreateComputePipelines();
 	textureView CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format = nbl::asset::E_FORMAT::EF_R8G8B8A8_UNORM) const;
 	void PresentWaves2D(const textureView& tex);
-	void PresentWaves3D(const textureView& tex);
+	void PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const nbl::core::matrix4SIMD& mvp);
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> RandomizeWaveSpectrum();
 	void AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time);
 	void GenerateDisplacementMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
 	void GenerateNormalMap(const textureView& displacement_map, textureView& normalmap);
-	MeshData CreateRectangularWavesMesh();
 public:
 	WaveSimApp(const WaveSimParams& params);
 	void Run();
@@ -65,7 +62,12 @@ private:
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_ifft_1_descriptor_set;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_ifft_2_descriptor_set;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_normalmap_descriptor_set;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_presenting_3d_descriptor_set;
 
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> m_current_gpu_mesh_buffer;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> m_2d_mesh_buffer;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> m_3d_mesh_buffer;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout_2d;
+
+	QToQuitEventReceiver m_receiver;
+
 };

@@ -3,6 +3,7 @@
 #include "WaveSimApp.h"
 #include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
 #include "nbl/ext/FFT/FFT.h"
+#include "../common/QToQuitEventReceiver.h"
 
 using namespace nbl;
 using namespace core;
@@ -21,21 +22,25 @@ bool WaveSimApp::Init()
 	m_device = createDeviceEx(params);
 	if (!m_device)
 		return false;
+	
+	m_device->getCursorControl()->setVisible(false);
+	m_device->setEventReceiver(&m_receiver);
 
 	m_driver = m_device->getVideoDriver();
 	m_filesystem = m_device->getFileSystem();
 	m_asset_manager = m_device->getAssetManager();
 	m_device->setWindowCaption(L"Tessendorf Waves Simulation");
 
-	IGPUDescriptorSetLayout::SBinding binding{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
-	m_gpu_descriptor_set_layout = m_driver->createGPUDescriptorSetLayout(&binding, &binding + 1u);
+
 	return true;
 }
 
-bool WaveSimApp::CreatePresentingPipeline()
+bool WaveSimApp::CreatePresenting2DPipeline()
 {
 	const char* fragment_shader_path = "../waves_display.frag";
 	auto full_screen_triangle = ext::FullScreenTriangle::createFullScreenTriangle(m_device->getAssetManager(), m_device->getVideoDriver());
+	IGPUDescriptorSetLayout::SBinding binding{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
+	m_gpu_descriptor_set_layout_2d = m_driver->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 
 	auto createGPUPipeline = [&](IImageView<ICPUImage>::E_TYPE type) -> graphicsPipeline
 	{
@@ -58,7 +63,6 @@ bool WaveSimApp::CreatePresentingPipeline()
 		auto fs_contents = fs_bundle.getContents();
 		if (fs_contents.begin() == fs_contents.end())
 			return false;
-
 		ICPUSpecializedShader* fs = static_cast<ICPUSpecializedShader*>(fs_contents.begin()->get());
 
 		auto frag_shader = m_driver->getGPUObjectsFromAssets(&fs, &fs + 1)->front();
@@ -78,7 +82,7 @@ bool WaveSimApp::CreatePresentingPipeline()
 		raster_params.depthWriteEnable = false;
 		raster_params.depthTestEnable = false;
 
-		auto gpu_pipeline_layout = m_driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(m_gpu_descriptor_set_layout));
+		auto gpu_pipeline_layout = m_driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(m_gpu_descriptor_set_layout_2d));
 
 		return m_driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpu_pipeline_layout), shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
 			std::get<SVertexInputParams>(full_screen_triangle), blend_params,
@@ -89,11 +93,143 @@ bool WaveSimApp::CreatePresentingPipeline()
 	assert(m_presenting_pipeline.get());
 	{
 		SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
-		m_current_gpu_mesh_buffer = core::make_smart_refctd_ptr<IGPUMeshBuffer>(nullptr, nullptr, nullptr, std::move(idxBinding));
-		m_current_gpu_mesh_buffer->setIndexCount(3u);
-		m_current_gpu_mesh_buffer->setInstanceCount(1u);
+		m_2d_mesh_buffer = core::make_smart_refctd_ptr<IGPUMeshBuffer>(nullptr, nullptr, nullptr, std::move(idxBinding));
+		m_2d_mesh_buffer->setIndexCount(3u);
+		m_2d_mesh_buffer->setInstanceCount(1u);
 	}
 	return true;
+}
+
+bool WaveSimApp::CreatePresenting3DPipeline()
+{
+	struct VertexData
+	{
+		vector3df world_position;
+		vector2df texture_position;
+	};
+	constexpr uint32_t INDICES_PER_QUAD = 6;
+	const size_t INDEX_COUNT = m_params.length * m_params.width * 2 * 3;
+	const size_t VERTEX_COUNT = m_params.length * m_params.width;
+
+	std::vector<uint32_t> indices(INDEX_COUNT);
+	std::vector<VertexData> vertices(VERTEX_COUNT);
+	for (int y = 0; y < m_params.length - 1; y++)
+	{
+		const size_t y_pos = y * m_params.width;
+		const size_t y_plus_one_pos = (y + 1) * m_params.width;
+		for (int x = 0; x < m_params.width - 1; x++)
+		{
+			const size_t current_pos = (y_pos + x) * INDICES_PER_QUAD;
+			indices[current_pos] = y_pos + x;
+			indices[current_pos + 1] = y_plus_one_pos + x;
+			indices[current_pos + 2] = y_plus_one_pos + x + 1;
+			indices[current_pos + 3] = y_pos + x;
+			indices[current_pos + 4] = y_plus_one_pos + x + 1;
+			indices[current_pos + 5] = y_pos + x + 1;
+		}
+
+	}
+	for (int z = 0; z < m_params.length; z++)
+	{
+		float z_world = z - m_params.length / 2.f;
+		size_t z_pos = z * m_params.width;
+		for (int x = 0; x < m_params.width; x++)
+		{
+			float x_world = x - m_params.width / 2.f;
+			vertices[z_pos + x] = { vector3df{x_world / m_params.width * 2, 0.f, z_world / m_params.length * 2}, vector2df{float(x) / m_params.width, float(z) / m_params.length } };
+		}
+	}
+	auto up_stream_buff = m_driver->getDefaultUpStreamingBuffer();
+	core::smart_refctd_ptr<video::IGPUBuffer> up_stream_ref(up_stream_buff->getBuffer());
+	const void* data_to_place[2] = { vertices.data(), indices.data() };
+	uint32_t offsets[2] = { video::StreamingTransientDataBufferMT<>::invalid_address,video::StreamingTransientDataBufferMT<>::invalid_address };
+	uint32_t alignments[2] = { sizeof(decltype(vertices[0u])),sizeof(decltype(indices[0u])) };
+	uint32_t sizes[2] = { VERTEX_COUNT * sizeof(VertexData), INDEX_COUNT * sizeof(uint32_t) };
+	up_stream_buff->multi_place(2u, (const void* const*)data_to_place, (uint32_t*)offsets, (uint32_t*)sizes, (uint32_t*)alignments);
+	if (up_stream_buff->needsManualFlushOrInvalidate())
+	{
+		auto up_stream_mem = up_stream_buff->getBuffer()->getBoundMemory();
+		m_driver->flushMappedMemoryRanges({ video::IDriverMemoryAllocation::MappedMemoryRange(up_stream_mem,offsets[0],sizes[0]),video::IDriverMemoryAllocation::MappedMemoryRange(up_stream_mem,offsets[1],sizes[1]) });
+	}
+
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> presenting_layout;
+	{
+		IGPUDescriptorSetLayout::SBinding texture_bindings[2];
+		texture_bindings[0].binding = 0;
+		texture_bindings[0].type = EDT_COMBINED_IMAGE_SAMPLER;
+		texture_bindings[0].count = 1u;
+		texture_bindings[0].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_VERTEX);
+		texture_bindings[0].samplers = nullptr;
+
+		texture_bindings[1].binding = 1;
+		texture_bindings[1].type = EDT_COMBINED_IMAGE_SAMPLER;
+		texture_bindings[1].count = 1u;
+		texture_bindings[1].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_FRAGMENT);
+		texture_bindings[1].samplers = nullptr;
+
+		presenting_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 2);
+		m_presenting_3d_descriptor_set = m_driver->createGPUDescriptorSet(presenting_layout);
+	}
+
+	const char* vertex_shader_path = "../waves_display_3d.vert";
+	const char* fragment_shader_path = "../waves_display_3d.frag";
+
+
+	asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+
+	auto createGPUSpecializedShaderFromFile = [this](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage)
+	{
+		auto file = m_filesystem->createAndOpenFile(filepath);
+		auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(file, stage, "main", "runtimeID");
+		auto unspec = m_driver->createGPUShader(std::move(spirv));
+		return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
+	};
+
+
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
+	{
+ 		createGPUSpecializedShaderFromFile(vertex_shader_path, asset::ISpecializedShader::ESS_VERTEX),
+		createGPUSpecializedShaderFromFile(fragment_shader_path, asset::ISpecializedShader::ESS_FRAGMENT)
+	};
+	auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);
+
+	asset::SVertexInputParams inputParams;
+	inputParams.enabledAttribFlags = 0b11u;
+	inputParams.enabledBindingFlags = 0b1u;
+	inputParams.attributes[0].binding = 0u;
+	inputParams.attributes[0].format = asset::EF_R32G32B32_SFLOAT;
+	inputParams.attributes[0].relativeOffset = offsetof(VertexData, world_position);
+	inputParams.attributes[1].binding = 0u;
+	inputParams.attributes[1].format = asset::EF_R32G32_SFLOAT;
+	inputParams.attributes[1].relativeOffset = offsetof(VertexData, texture_position);
+	inputParams.bindings[0].stride = sizeof(VertexData);
+	inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
+
+	asset::SBlendParams blendParams; 
+
+	asset::SPrimitiveAssemblyParams assemblyParams = { asset::EPT_TRIANGLE_LIST,false,1u };
+
+	asset::SStencilOpParams defaultStencil;
+	asset::SRasterizationParams rasterParams;
+	rasterParams.faceCullingMode = asset::EFCM_NONE;
+
+	auto pipeline_layout = m_driver->createGPUPipelineLayout(range, range + 1u, std::move(presenting_layout), nullptr, nullptr, nullptr);
+	auto pipeline = m_driver->createGPURenderpassIndependentPipeline(nullptr, std::move(pipeline_layout),
+		shadersPtr, shadersPtr + sizeof(shaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
+		inputParams, blendParams, assemblyParams, rasterParams);
+
+	asset::SBufferBinding<video::IGPUBuffer> bindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+	bindings[0u] = { offsets[0],up_stream_ref };
+	auto mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(pipeline), nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{offsets[1], up_stream_ref});
+	{
+		mb->setIndexType(asset::EIT_32BIT);
+		mb->setIndexCount(INDEX_COUNT);
+	}
+
+	m_3d_mesh_buffer = std::move(mb);
+	up_stream_buff->multi_free(2u, (uint32_t*)&offsets, (uint32_t*)&sizes, m_driver->placeFence());
+	return m_3d_mesh_buffer.get() != nullptr;
+
 }
 
 bool WaveSimApp::CreateComputePipelines()
@@ -155,7 +291,7 @@ bool WaveSimApp::CreateComputePipelines()
 )===";
 			const size_t extraSize = 128;
 			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-			uint32_t maxPaddedDimensionSize = std::max(m_params.height, m_params.width);
+			uint32_t maxPaddedDimensionSize = std::max(m_params.length, m_params.width);
 			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
 			auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
 			snprintf(
@@ -191,7 +327,7 @@ bool WaveSimApp::CreateComputePipelines()
 )===";
 			const size_t extraSize = 128;
 			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-			uint32_t maxPaddedDimensionSize = std::max(m_params.height, m_params.width);
+			uint32_t maxPaddedDimensionSize = std::max(m_params.length, m_params.width);
 			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
 			auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
 			snprintf(
@@ -212,7 +348,7 @@ bool WaveSimApp::CreateComputePipelines()
 
 			return gpuSpecializedShader;
 		}
-		
+
 		}
 	};
 
@@ -398,7 +534,7 @@ bool WaveSimApp::CreateComputePipelines()
 		return comp_pipeline;
 	};
 	m_normalmap_generating_pipeline = createComputePipeline(EPipeline::GENERATE_NORMALMAP);
-	m_spectrum_animating_pipeline = createComputePipeline(EPipeline::ANIMATE_SPECTRUM); 
+	m_spectrum_animating_pipeline = createComputePipeline(EPipeline::ANIMATE_SPECTRUM);
 	m_spectrum_randomizing_pipeline = createComputePipeline(EPipeline::RANDOMIZE_SPECTRUM);
 	m_ifft_pipeline_1 = createComputePipeline(EPipeline::IFFT_STAGE_1);
 	m_ifft_pipeline_2 = createComputePipeline(EPipeline::IFFT_STAGE_2);
@@ -433,7 +569,7 @@ WaveSimApp::textureView WaveSimApp::CreateTexture(nbl::core::dimension2du size, 
 
 void WaveSimApp::PresentWaves2D(const textureView& tex)
 {
-	auto sampler_descriptor_set = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_gpu_descriptor_set_layout));
+	auto sampler_descriptor_set = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_gpu_descriptor_set_layout_2d));
 
 	IGPUDescriptorSet::SDescriptorInfo info;
 	{
@@ -457,16 +593,46 @@ void WaveSimApp::PresentWaves2D(const textureView& tex)
 	{
 		m_driver->bindGraphicsPipeline(m_presenting_pipeline.get());
 		m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_presenting_pipeline->getLayout(), 3u, 1u, &sampler_descriptor_set.get(), nullptr);
-		m_driver->drawMeshBuffer(m_current_gpu_mesh_buffer.get());
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
-
+		m_driver->drawMeshBuffer(m_2d_mesh_buffer.get());
 	}
+}
+
+void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const core::matrix4SIMD& mvp)
+{
+	IGPUDescriptorSet::SDescriptorInfo info[2];
+	{
+		ISampler::SParams samplerParams_nearest = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		ISampler::SParams samplerParams_linear = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		info[0].desc = displacement_map;
+		info[0].image.sampler = m_driver->createGPUSampler(samplerParams_nearest);
+		info[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		info[1].desc = normal_map;
+		info[1].image.sampler = m_driver->createGPUSampler(samplerParams_linear);
+		info[1].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+	}
+	{
+		IGPUDescriptorSet::SWriteDescriptorSet write[2];
+		write[0].dstSet = m_presenting_3d_descriptor_set.get();
+		write[0].binding = 0u;
+		write[0].arrayElement = 0u;
+		write[0].count = 1u;
+		write[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		write[0].info = info;
+		write[1] = write[0];
+		write[1].binding = 1u;
+
+		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
+	}
+
+	m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_3d_mesh_buffer->getPipeline()->getLayout(), 0, 2, &m_presenting_3d_descriptor_set.get(), nullptr);
+	m_driver->bindGraphicsPipeline(m_3d_mesh_buffer->getPipeline());
+	m_driver->pushConstants(m_3d_mesh_buffer->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+	m_driver->drawMeshBuffer(m_3d_mesh_buffer.get());
 }
 
 smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::RandomizeWaveSpectrum()
 {
-	os::Printer::log("Randomizing waves spectrum");
-	const uint32_t SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
+	const uint32_t SSBO_SIZE = m_params.width * m_params.length * 6 * sizeof(float);
 
 	auto initial_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
 
@@ -489,15 +655,15 @@ smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::RandomizeWaveSpectrum()
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_spectrum_randomizing_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_spectrum_randomizing_pipeline.get());
 		m_driver->pushConstants(m_spectrum_randomizing_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(m_params), &m_params);
-		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.height + 15u) / 16u, 1u);
+		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.length + 15u) / 16u, 1u);
 	}
 	return initial_buffer;
 }
 
 void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time)
 {
-	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.height * 4 * sizeof(float);
-	const uint32_t OUT_SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
+	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.length * 4 * sizeof(float);
+	const uint32_t OUT_SSBO_SIZE = m_params.width * m_params.length * 6 * sizeof(float);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write[3];
 		video::IGPUDescriptorSet::SDescriptorInfo info[3];
@@ -528,7 +694,7 @@ void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::I
 	m_driver->bindComputePipeline(m_spectrum_animating_pipeline.get());
 	m_driver->pushConstants(m_spectrum_animating_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
 	{
-		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.height + 15u) / 16u, 1u);
+		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.length + 15u) / 16u, 1u);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 	}
 }
@@ -536,7 +702,7 @@ void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::I
 void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time)
 {
 	using namespace ext::FFT;
-	const uint32_t SSBO_SIZE = m_params.width * m_params.height * 6 * sizeof(float);
+	const uint32_t SSBO_SIZE = m_params.width * m_params.length * 6 * sizeof(float);
 	auto animated_data_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
 	AnimateSpectrum(h0, animated_data_buffer, time);
 	auto ifft_x_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
@@ -577,7 +743,7 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
 
 		pc.params.dimension.x = m_params.width;
-		pc.params.dimension.y = m_params.height;
+		pc.params.dimension.y = m_params.length;
 		pc.params.dimension.z = 1;
 		pc.params.dimension.w = packed;
 		pc.params.padded_dimension.x = pc.params.dimension.x;
@@ -629,7 +795,7 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
 
 		params.dimension.x = m_params.width;
-		params.dimension.y = m_params.height;
+		params.dimension.y = m_params.length;
 		params.dimension.z = 1;
 		params.dimension.w = packed;
 		params.padded_dimension.x = params.dimension.x;
@@ -683,17 +849,16 @@ void WaveSimApp::GenerateNormalMap(const textureView& displacement_map, textureV
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_normalmap_generating_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_normalmap_generating_pipeline.get());
 		m_driver->pushConstants(m_normalmap_generating_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(m_params.size), &m_params.size);
-		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.height + 15u) / 16u, 1u);
+		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.length + 15u) / 16u, 1u);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	}
 
 }
 
 
-
 WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 {
-	assert(isPoT(params.width) && isPoT(params.height));
+	assert(isPoT(params.width) && isPoT(params.length));
 	// For some reason cannot call nbl::core::normalize
 	auto normalize = [](vector2df vec)
 	{
@@ -703,14 +868,23 @@ WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 	m_params.wind_dir = normalize(m_params.wind_dir);
 
 	bool initialized = Init();
-	initialized &= CreatePresentingPipeline();
+	initialized &= CreatePresenting2DPipeline();
+	initialized &= CreatePresenting3DPipeline();
 	initialized &= CreateComputePipelines();
 	assert(initialized);
 }
 
 void WaveSimApp::Run()
 {
-	float i = 1;
+
+	scene::ICameraSceneNode* camera = m_device->getSceneManager()->addCameraSceneNodeFPS(0, 100.0f, 0.001f);
+
+	camera->setPosition(core::vector3df(-4, 1, 0));
+	camera->setTarget(core::vector3df(0, 0, 0));
+	camera->setNearValue(0.01f);
+	camera->setFarValue(10.0f);
+
+	m_device->getSceneManager()->setActiveCamera(camera);
 
 	auto initial_values = RandomizeWaveSpectrum();
 	auto displacement_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
@@ -722,7 +896,12 @@ void WaveSimApp::Run()
 		m_driver->beginScene(true);
 		GenerateDisplacementMap(initial_values, displacement_map, std::chrono::duration_cast<std::chrono::milliseconds>(time_passed).count() / 1000.f);
 		GenerateNormalMap(displacement_map, normal_map);
-		PresentWaves2D(normal_map);
+
+		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(m_device->getTimer()->getTime()).count());
+		camera->render();
+		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
+
+		PresentWaves3D(displacement_map, normal_map, mvp);
 		m_driver->endScene();
 
 	}
