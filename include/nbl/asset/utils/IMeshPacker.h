@@ -164,7 +164,9 @@ protected:
         core::vector<Triangle> triangles;
     };
 
-    core::vector<TriangleBatch> constructTriangleBatches(const MeshBufferType* meshBuffer) const
+    //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
+
+    core::vector<TriangleBatch> constructTriangleBatches(const MeshBufferType* meshBuffer, const SBufferBinding<ICPUBuffer/*TODO*/>& srcIdxBuffer, const E_INDEX_TYPE indexType) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
@@ -218,21 +220,20 @@ protected:
 
         //TODO: triangle reordering
 
-        const auto& srcIdxBuffer = meshBuffer->getIndexBufferBinding();
         auto idxBufferPtr32Bit = static_cast<const uint32_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint32_t)); //will be changed after benchmarks
         auto idxBufferPtr16Bit = static_cast<const uint16_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint16_t));
         for (TriangleBatch& batch : output)
         {
             for (Triangle& tri : batch.triangles)
             {
-                if (meshBuffer->getIndexType() == EIT_32BIT)
+                if (indexType == EIT_32BIT)
                 {
                     tri.oldIndices[0] = *idxBufferPtr32Bit;
                     tri.oldIndices[1] = *(++idxBufferPtr32Bit);
                     tri.oldIndices[2] = *(++idxBufferPtr32Bit);
                     idxBufferPtr32Bit++;
                 }
-                else if (meshBuffer->getIndexType() == EIT_16BIT)
+                else if (indexType == EIT_16BIT)
                 {
 
                     tri.oldIndices[0] = *idxBufferPtr16Bit;
@@ -371,11 +372,11 @@ protected:
         switch (params.primitiveType)
         {
             case EPT_TRIANGLE_STRIP:
-                output.second = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(mbIdxBuffer->getPointer(), output.first, idxType, idxType);
+                output.second = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(idxBufferToProcess->getPointer(), output.first, idxType, idxType);
                 return output;
 
             case EPT_TRIANGLE_FAN:
-                output.second = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(mbIdxBuffer->getPointer(), output.first, idxType, idxType);
+                output.second = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(idxBufferToProcess->getPointer(), output.first, idxType, idxType);
                 return output;
 
                 //TODO: packer should return when there is mesh buffer with one of following:

@@ -149,6 +149,7 @@ private:
 	uint32_t m_perInsVtxSize;
 	const AllocationParams m_allocParams;
 
+	bool isInstancingEnabled;
 	void* m_perInsVtxBuffAlctrResSpc;
 	core::GeneralpurposeAddressAllocator<uint32_t> m_perInsVtxBuffAlctr;
 
@@ -184,9 +185,14 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 	m_perInsVtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
 	if (m_perInsVtxSize)
 	{
+		isInstancingEnabled = true;
 		m_perInsVtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize / m_perInsVtxSize, allocParams.perInstanceVertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
 		assert(m_perInsVtxBuffAlctrResSpc != nullptr);
 		m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize / m_perInsVtxSize, allocParams.perInstanceVertexBufferMinAllocSize);
+	}
+	else
+	{
+		isInstancingEnabled = false;
 	}
 
 	initializeCommonAllocators(
@@ -221,7 +227,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 		for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
 		{
-			if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
+			if (!(m_output.vertexInputParams.enabledAttribFlags & mbVtxInputParams.enabledAttribFlags & attrBit))
 				continue;
 
 			if (mbVtxInputParams.attributes[location].format != m_output.vertexInputParams.attributes[location].format ||
@@ -372,24 +378,28 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 
 	for (auto it = mbBegin; it != mbEnd; it++)
 	{
-		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
-		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
-
 		const auto mbPrimitiveType = (*it)->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 
-		SBufferBinding<ICPUBuffer> idxBuffer; //TODO: fix, this should be shared by `constructNewIndicesFromTriangleBatch` and `deinterleaveAndCopyAttribute` functions
+		SBufferBinding<ICPUBuffer> idxBuffer;
 		uint32_t idxCnt = 0u;
+		E_INDEX_TYPE indexType;
 		if (mbPrimitiveType == EPT_TRIANGLE_LIST) 
 		{
 			idxCnt = (*it)->getIndexCount();
 			idxBuffer = (*it)->getIndexBufferBinding();
+			indexType = (*it)->getIndexType();
 		}
 		else
 		{
 			auto newIdxBuffer = convertIdxBufferToTriangles(*it);
 			idxCnt = newIdxBuffer.first;
+			idxBuffer.offset = 0u;
 			idxBuffer.buffer = newIdxBuffer.second;
+			indexType = EIT_32BIT;
 		}
+
+		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it, idxBuffer, indexType);
+		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
 		for (TriangleBatch& batch : triangleBatches)
 		{
@@ -424,10 +434,10 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 			//construct mdi data
 			MDIStructType MDIData;
 			MDIData.count = batch.triangles.size() * 3;
-			MDIData.instanceCount = (*it)->getInstanceCount();
+			MDIData.instanceCount = isInstancingEnabled ? (*it)->getInstanceCount() : 1u;
 			MDIData.firstIndex = batchFirstIdx;
 			MDIData.baseVertex = batchBaseVtx; //possible overflow?
-			MDIData.baseInstance = instancesAddedCnt;
+			MDIData.baseInstance = isInstancingEnabled ? instancesAddedCnt : 0u;
 
 			*mdiBuffPtr = MDIData;
 			mdiBuffPtr++;
