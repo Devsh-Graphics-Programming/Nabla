@@ -1,6 +1,6 @@
 #version 450
 
-#define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 10)
+#define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 8)
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 

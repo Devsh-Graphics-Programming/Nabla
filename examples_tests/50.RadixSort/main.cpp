@@ -9,9 +9,6 @@ using namespace video;
 
 struct SortElement { uint32_t key, data; };
 
-// Todo: There's a lot of room for optimization here, especially creating all the gpu resources again
-// and again when they can be created once and reused
-
 template <typename T>
 static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download, size_t buffer_size, IVideoDriver* driver)
 {
@@ -54,6 +51,9 @@ static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download
 	return dataFromBuffer;
 }
 
+// Todo: There's a lot of room for optimization here, especially creating all the gpu resources again
+// and again when they can be created once and reused
+
 // Works for every POT in [2^0, 2^24], should even work for higher powers but for some
 // reason I can't download the array to the CPU with the current code, to check
 
@@ -65,7 +65,7 @@ void ExclusiveSumScanGPU(smart_refctd_ptr<IGPUBuffer> in, const size_t in_count,
 	io::IFileSystem* filesystem = device->getFileSystem();
 	asset::IAssetManager* am = device->getAssetManager();
 
-	const uint32_t wg_dim = 1 << 10;
+	const uint32_t wg_dim = 1 << 8;
 	const uint32_t wg_count = (in_count + wg_dim - 1) / wg_dim;
 	const size_t in_size = in_count * sizeof(uint32_t);
 
@@ -117,7 +117,7 @@ void ExclusiveSumScanGPU(smart_refctd_ptr<IGPUBuffer> in, const size_t in_count,
 			driver->bindDescriptorSets(video::EPBP_COMPUTE, local_prefix_sum_pipeline->getLayout(), 0u, 1u, &ds_local_prefix_sum.get(), nullptr);
 
 			driver->pushConstants(local_prefix_sum_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &in_count);
-			driver->dispatch(wg_count, 1, 1);	// Todo: This could be faster if you don't launch 1024 threads for every input length
+			driver->dispatch(wg_count, 1, 1);
 
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
@@ -250,6 +250,13 @@ void ExclusiveSumScanGPU(smart_refctd_ptr<IGPUBuffer> in, const size_t in_count,
 	}
 }
 
+//
+// Nothing important here!! Just global scan test bed. Gonna remove it before merging and fix the indentation.
+// Look at the next `main`.
+//
+
+#if 0
+
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -273,23 +280,212 @@ int main()
 	io::IFileSystem* filesystem = device->getFileSystem();
 	asset::IAssetManager* am = device->getAssetManager();
 
-	GLint64 max_ssbo_size;
-	video::COpenGLExtensionHandler::extGlGetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &max_ssbo_size);
-
-	std::cout << "\nMax SSBO size: " << max_ssbo_size << " bytes" << std::endl;
-
-	GLint max_wg_count;
-	video::COpenGLExtensionHandler::extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &max_wg_count);
-
-	std::cout << "Max WG count: " << max_wg_count << std::endl;
-
-	GLint max_wg_dim;
-	video::COpenGLExtensionHandler::extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &max_wg_dim);
-	std::cout << "Max WG dim: " << max_wg_dim << std::endl;
-
 	unsigned int seed = 0;
 
 #if 0
+	while (true)
+	{
+#endif
+		const size_t in_count = 1 << 10;
+		const size_t in_size = in_count * sizeof(uint32_t);
+		const size_t wg_dim = 1 << 8;
+
+		uint32_t* in = new uint32_t[in_count];
+		srand(seed++);
+		for (size_t i = 0u; i < in_count; ++i)
+			in[i] = rand();
+
+		auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+
+		smart_refctd_ptr<IGPUDescriptorSet> ds_prefix_sum = nullptr;
+		smart_refctd_ptr<IGPUComputePipeline> prefix_sum_pipeline = nullptr;
+		{
+			const uint32_t count = 1u;
+			IGPUDescriptorSetLayout::SBinding binding[count];
+			for (uint32_t i = 0; i < count; ++i)
+				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
+
+			auto ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
+			ds_prefix_sum = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
+			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout));
+
+			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
+			{
+				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../PrefixSum.comp"));
+
+				asset::IAssetLoader::SAssetLoadParams lp;
+				auto cs_bundle = am->getAsset("../PrefixSum.comp", lp);
+				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+				auto cs_rawptr = cs.get();
+
+				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+			}
+
+			prefix_sum_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+		}
+
+		driver->beginScene(true);
+
+
+		{
+			const uint32_t count = 1;
+			IGPUDescriptorSet::SDescriptorInfo ds_info[count];
+			ds_info[0].desc = in_gpu;
+			ds_info[0].buffer = { 0u, in_size };
+
+			IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+			for (uint32_t i = 0; i < count; ++i)
+				writes[i] = { ds_prefix_sum.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+
+			driver->updateDescriptorSets(count, writes, 0u, nullptr);
+		}
+
+		driver->bindComputePipeline(prefix_sum_pipeline.get());
+		driver->bindDescriptorSets(video::EPBP_COMPUTE, prefix_sum_pipeline->getLayout(), 0u, 1u, &ds_prefix_sum.get(), nullptr);
+
+		// Do all the upsweep passes
+		// Lets say we have 256 * 256 * 256 == 2^24 or 256^3 elements
+		// all in all pass_count = log_wg_dim(n) - 1  <-- `-1` is there is because I'm doing a top of hierarchy pass separately
+		// pass_count = log_wg_dim(n) = log_256(256^2) = 2
+		// pass 0: will take in 256^2 elements and spit out 256 elements
+		// pass 1: will take in those 256 elements and do a top of hierarchy pass
+
+		size_t wg_count = (in_count + wg_dim - 1) / wg_dim;
+		uint32_t pass_count = (log(in_count) / log(wg_dim)) - 1;
+		for (uint32_t pass = 0; pass < pass_count; ++pass)
+		{
+			// For each pass the memory access pattern is going to be different
+			// For pass 0: each value gets a thread
+			//	==> 0, 1, 2, 3, 4, 5, 6, ...
+			// For pass 1: only the last element of each wg, from the previous set of wgs gets a thread
+			//	==> 255, 511, 767, 1023, ...
+			//		it is very possible that some of the above elements won't exist, but I'm not dealing with those cases right now
+			//		which would require padding with identity
+			// For pass 2: only the last element of each wg, from the previous set of wgs gets a thread
+			//	==> 255, 511, 767, 1023, ... 256 elements like that will get bunched together in the same wg
+			// 255 + (256-1)*256 = 256th element
+			// 255 + 255 * 256
+			// 
+			// pass0: start at 0 and have a difference of 1, so 0, 1, 2, 3, ..
+			// pass1: start at 255 and have a difference of 256, so, 255, 511, 767, 1023, ..
+			// pass2: start at 255 + 255 * 256 and have a difference of 256*256, soooooo
+
+			// So the memory access pattern should be like:
+			// a = 256^(pass) - 1, d = 256^(pass)
+
+			driver->dispatch(wg_count, 1, 1);
+
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		}
+
+		// To test the result of the passes just check if the last value is the reduction of the elements
+
+
+
+		// Here you do the next pass
+
+		wg_count = (wg_count + wg_dim - 1) / wg_dim;
+		
+		driver->dispatch(wg_count, 1, 1);
+
+		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+
+
+		// Testing
+
+		uint32_t* data_from_buffer = DebugGPUBufferDownload<uint32_t>(in_gpu, in_size, driver);
+		if (data_from_buffer)
+		{
+			uint32_t reductions[4] = { 0 };
+			for (int wg = 0; wg < 4; ++wg)
+			{
+				size_t begin = wg * wg_dim;
+				size_t end = (wg + 1) * wg_dim;
+
+				for (size_t i = begin; i < end; ++i)
+					reductions[wg] += in[i];
+			}
+
+			uint32_t ps_reductions[4] = { 0 };
+			
+			uint32_t sum = 0;
+			for (int i = 0; i < 4; ++i)
+			{
+				ps_reductions[i] = sum;
+				sum += reductions[i];
+			}
+			
+			for (int i = 0; i < 4; ++i)
+			{
+				if (ps_reductions[i] != data_from_buffer[wg_dim * (i + 1) - 1])
+					__debugbreak();
+			
+				// std::cout << i << ":\t" << data_from_buffer[wg_dim * i - 1] << std::endl;
+			}
+				// uint32_t ref[wg_dim] = {};
+				// 
+				// uint32_t k = 0;
+				// uint32_t sum = 0;
+				// for (int i = begin; i < end; ++i)
+				// {
+				// 	sum += in[i];
+				// 	ref[k++] = sum;
+				// }
+				// 
+				// k = 0;
+				// for (int i = begin; i < end; ++i)
+				// {
+				// 	if (ref[k++] != data_from_buffer[i])
+				// 		__debugbreak();
+				// }
+			// }
+
+			std::cout << "PASS" << std::endl;
+		}
+
+
+		driver->endScene();
+
+		delete[] in;
+#if 0
+	}
+#endif
+
+	return 0;
+}
+#endif
+
+#if 1
+
+int main()
+{
+	// create device with full flexibility over creation parameters
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
+	params.Bits = 24; //may have to set to 32bit for some platforms
+	params.ZBufferBits = 24; //we'd like 32bit here
+	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+	params.WindowSize = dimension2d<uint32_t>(512, 512);
+	params.Fullscreen = false;
+	params.Vsync = true; //! If supported by target platform
+	params.Doublebuffer = true;
+	params.Stencilbuffer = false; //! This will not even be a choice soon
+	auto device = createDeviceEx(params);
+
+	if (!device)
+		return 1; // could not create selected driver.
+
+	IVideoDriver* driver = device->getVideoDriver();
+
+	io::IFileSystem* filesystem = device->getFileSystem();
+	asset::IAssetManager* am = device->getAssetManager();
+
+	unsigned int seed = 0;
+
+	// Stress Test
+	// Note: This stupid thing will be removed before merging
+#if 1
 	while (true)
 	{
 #endif
@@ -303,7 +499,7 @@ int main()
 			in_array[i].key = rand();
 			in_array[i].data = i;
 		}
-
+		
 		auto in_array_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in_array);
 		auto out_array_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_size);
 
@@ -404,36 +600,36 @@ int main()
 			driver->dispatch(wg_count, 1, 1);
 
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
+			
 			ExclusiveSumScanGPU(histogram_gpu, histogram_count, device);
-
+			
 			{
 				const uint32_t count = 3;
 				IGPUDescriptorSet::SDescriptorInfo ds_info[count];
 				ds_info[0].desc = ((pass % 2) ? out_array_gpu : in_array_gpu);
 				ds_info[0].buffer = { 0u, in_size };
-
+			
 				ds_info[1].desc = ((pass % 2) ? in_array_gpu : out_array_gpu);
 				ds_info[1].buffer = { 0u, in_size };
-
+			
 				ds_info[2].desc = histogram_gpu;
 				ds_info[2].buffer = { 0u, histogram_size };
-
+			
 				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
 				for (uint32_t i = 0; i < count; ++i)
 					writes[i] = { ds_sort_and_scatter.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
+			
 				driver->updateDescriptorSets(count, writes, 0u, nullptr);
 			}
-
+			
 			driver->bindComputePipeline(sort_and_scatter_pipeline.get());
 			driver->bindDescriptorSets(video::EPBP_COMPUTE, sort_and_scatter_pipeline->getLayout(), 0u, 1u, &ds_sort_and_scatter.get(),
 				nullptr);
-
+			
 			driver->pushConstants(sort_and_scatter_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
 				&shift);
 			driver->dispatch(wg_count, 1, 1);
-
+			
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
 
@@ -447,7 +643,7 @@ int main()
 		{
 			for (int i = 0; i < in_count; ++i)
 			{
-				if ((dataFromBuffer[i].key != in_array[i].key) && (dataFromBuffer[i].data != in_array[i].data))
+				if ((dataFromBuffer[i].key != in_array[i].key) || (dataFromBuffer[i].data != in_array[i].data))
 					__debugbreak();
 			}
 			
@@ -456,9 +652,10 @@ int main()
 		driver->endScene();
 
 		delete[] in_array;
-#if 0
+#if 1
 	}
 #endif
 
 	return 0;
 }
+#endif
