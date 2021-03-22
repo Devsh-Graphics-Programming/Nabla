@@ -620,6 +620,7 @@ void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textu
 		write[0].info = info;
 		write[1] = write[0];
 		write[1].binding = 1u;
+		write[1].info = info + 1;
 
 		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
 	}
