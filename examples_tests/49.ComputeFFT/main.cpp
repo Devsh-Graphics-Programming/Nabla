@@ -35,6 +35,7 @@ R"===(#version 430 core
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
+#define _NBL_GLSL_EXT_FFT_HALF_STORAGE_ %u
  
 #include "%s"
 
@@ -48,6 +49,7 @@ R"===(#version 430 core
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
 		maxPaddedDimensionSize,
+		0u,
 		includeMainName
 	);
 
@@ -596,10 +598,12 @@ int main()
 	const FFTClass::PaddingType fftPadding[2] = {FFTClass::PaddingType::CLAMP_TO_EDGE,FFTClass::PaddingType::CLAMP_TO_EDGE}; // TODO
 	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding);
 	{
+		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides;
 		fftPushConstants[2] = fftPushConstants[0];
 		{
 			fftPushConstants[2].input_dimensions.w ^= 0x80000000u;
 			fftPushConstants[2].input_dimensions.w &= 0xfffffffdu;
+			fftPushConstants[2].input_strides = fftPushConstants[1].output_strides;
 		}
 		fftDispatchInfo[2] = fftDispatchInfo[0];
 	}

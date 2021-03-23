@@ -70,19 +70,21 @@ R"===(#version 430 core
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
+#define _NBL_GLSL_EXT_FFT_HALF_STORAGE_ %u
  
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
 )===";
 
-	constexpr size_t extraSize = 8u*2u;
+	constexpr size_t extraSize = 8u*2u+1u;
 
 	auto source = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(source->getPointer()),source->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
-		maxPaddedDimensionSize
+		maxPaddedDimensionSize,
+		0u
 	);
 
 	auto shader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(std::move(source),asset::ICPUShader::buffer_contains_glsl));
