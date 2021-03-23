@@ -175,7 +175,8 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 	const char* fragment_shader_path = "../waves_display_3d.frag";
 
 
-	asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+	asset::SPushConstantRange ranges[2] = { { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) },
+										    { asset::ISpecializedShader::ESS_FRAGMENT, sizeof(core::matrix4SIMD), sizeof(core::vector3df) } };
 
 	auto createGPUSpecializedShaderFromFile = [this](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage)
 	{
@@ -213,7 +214,7 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 	asset::SRasterizationParams rasterParams;
 	rasterParams.faceCullingMode = asset::EFCM_NONE;
 
-	auto pipeline_layout = m_driver->createGPUPipelineLayout(range, range + 1u, std::move(presenting_layout), nullptr, nullptr, nullptr);
+	auto pipeline_layout = m_driver->createGPUPipelineLayout(ranges, ranges + 2u, std::move(presenting_layout), nullptr, nullptr, nullptr);
 	auto pipeline = m_driver->createGPURenderpassIndependentPipeline(nullptr, std::move(pipeline_layout),
 		shadersPtr, shadersPtr + sizeof(shaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
 		inputParams, blendParams, assemblyParams, rasterParams);
@@ -597,7 +598,7 @@ void WaveSimApp::PresentWaves2D(const textureView& tex)
 	}
 }
 
-void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const core::matrix4SIMD& mvp)
+void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const core::matrix4SIMD& mvp, const nbl::core::vector3df& camera)
 {
 	IGPUDescriptorSet::SDescriptorInfo info[2];
 	{
@@ -628,6 +629,7 @@ void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textu
 	m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_3d_mesh_buffer->getPipeline()->getLayout(), 0, 2, &m_presenting_3d_descriptor_set.get(), nullptr);
 	m_driver->bindGraphicsPipeline(m_3d_mesh_buffer->getPipeline());
 	m_driver->pushConstants(m_3d_mesh_buffer->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+	m_driver->pushConstants(m_3d_mesh_buffer->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_FRAGMENT, sizeof(core::matrix4SIMD), sizeof(core::vector3df), &camera);
 	m_driver->drawMeshBuffer(m_3d_mesh_buffer.get());
 }
 
@@ -901,8 +903,9 @@ void WaveSimApp::Run()
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(m_device->getTimer()->getTime()).count());
 		camera->render();
 		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-
-		PresentWaves3D(displacement_map, normal_map, mvp);
+				
+		PresentWaves3D(displacement_map, normal_map, mvp, camera->getAbsolutePosition());
+		//PresentWaves2D(normal_map);
 		m_driver->endScene();
 
 	}

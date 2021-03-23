@@ -25,8 +25,8 @@ void main()
         vec4 r_d = textureGather(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y) / 2, 2);
         
         vec3 normal;
-        normal.x = -(r_u[1] - l_u[0] + 2 * (r_u[2] -l_u[3]) + r_d[2] - l_d[3]);
-        normal.y = -(l_d[3] - l_u[0] + 2 * (l_d[2] -l_u[1]) + r_d[2] - r_u[1]);
+        normal.x = 20 * -(r_u[1] - l_u[0] + 2 * (r_u[2] -l_u[3]) + r_d[2] - l_d[3]);
+        normal.y = 20 * -(l_d[3] - l_u[0] + 2 * (l_d[2] -l_u[1]) + r_d[2] - r_u[1]);
         normal.z = 1.0;
 
 	    imageStore(normalmap, ivec2(gl_GlobalInvocationID.xy), vec4(normalize(normal), 1));

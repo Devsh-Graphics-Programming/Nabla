@@ -37,10 +37,10 @@ void main()
 	k *= k2_r;
 
 	displacement_spectrum anim;
-	anim.d[1] = nbl_glsl_complex_mul(h0k, nbl_glsl_expImaginary(wkt)) + 
+	anim.d[2] = nbl_glsl_complex_mul(h0k, nbl_glsl_expImaginary(wkt)) + 
 			   nbl_glsl_complex_mul(h0_conj, nbl_glsl_expImaginary(-wkt));
-	anim.d[0] = nbl_glsl_complex_conjugate(anim.d[1] * k.x);
-	anim.d[2] = nbl_glsl_complex_conjugate(anim.d[1] * k.y);
+	anim.d[0] = nbl_glsl_complex_conjugate(anim.d[2] * k.x);
+	anim.d[1] = nbl_glsl_complex_conjugate(anim.d[2] * k.y);
 
 	animated_spectrum.data[ssbo_index] = anim;
 }

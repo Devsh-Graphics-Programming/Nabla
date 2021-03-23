@@ -33,7 +33,7 @@ private:
 	[[nodiscard]] bool CreateComputePipelines();
 	textureView CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format = nbl::asset::E_FORMAT::EF_R8G8B8A8_UNORM) const;
 	void PresentWaves2D(const textureView& tex);
-	void PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const nbl::core::matrix4SIMD& mvp);
+	void PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const nbl::core::matrix4SIMD& mvp, const nbl::core::vector3df& camera);
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> RandomizeWaveSpectrum();
 	void AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time);
 	void GenerateDisplacementMap(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time);
