@@ -12,7 +12,6 @@
 #include "vector3d.h"
 #include "dimension2d.h"
 #include "SColor.h"
-#include "ESceneNodeAnimatorTypes.h"
 #include "nbl/asset/ICPUMesh.h"
 
 namespace nbl
@@ -32,9 +31,7 @@ namespace scene
 {
 	class ICameraSceneNode;
 	class IDummyTransformationSceneNode;
-	class IMeshLoader;
 	class IMeshSceneNode;
-	class IMeshWriter;
 	class ISceneNode;
 	class ISceneNodeAnimator;
 

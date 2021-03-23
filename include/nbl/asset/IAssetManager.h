@@ -528,7 +528,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
         //TODO change key
-        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by assets key instead
+        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by asset's key instead
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
             return m_assetCache[ix]->removeObject(_asset, _asset.getCacheKey());

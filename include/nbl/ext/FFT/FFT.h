@@ -24,7 +24,7 @@ struct alignas(16) uvec3 {
 struct alignas(16) uvec4 {
 	uint x,y,z,w;
 };
-#include "nbl/builtin/glsl/ext/FFT/parameters.glsl";
+#include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl";
 
 class FFT : public core::TotalInterface
 {
@@ -41,11 +41,12 @@ class FFT : public core::TotalInterface
 		enum class PaddingType : uint8_t {
 			CLAMP_TO_EDGE = 0,
 			FILL_WITH_ZERO = 1,
+			// TODO: mirror?
 		};
 
 		enum class DataType {
 			SSBO,
-			TEXTURE2D,
+			TEXTURE2D
 		};
 
 		struct DispatchInfo_t
@@ -54,10 +55,7 @@ class FFT : public core::TotalInterface
 			uint32_t workGroupCount[3];
 		};
 
-		struct alignas(16) Uniforms_t 
-		{
-			uint32_t dims[3];
-		};
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 
 		// returns dispatch size and fills the uniform data
 		static inline DispatchInfo_t buildParameters(
@@ -93,43 +91,30 @@ class FFT : public core::TotalInterface
 		}
 
 		
-		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D const & dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 0, 0, 0 }) {
-			asset::VkExtent3D ret = {};
-			asset::VkExtent3D extendedDim = dimension;
+		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 1, 1, 1 })
+		{
+			if(dimension.width < minimum_dimension.width)
+				dimension.width = minimum_dimension.width;
+			if(dimension.height < minimum_dimension.height)
+				dimension.height = minimum_dimension.height;
+			if(dimension.depth < minimum_dimension.depth)
+				dimension.depth = minimum_dimension.depth;
 
-			if(dimension.width < minimum_dimension.width) {
-				extendedDim.width = minimum_dimension.width;
-			}
-			if(dimension.height < minimum_dimension.height) {
-				extendedDim.height = minimum_dimension.height;
-			}
-			if(dimension.depth < minimum_dimension.depth) {
-				extendedDim.depth = minimum_dimension.depth;
-			}
+			dimension.width = core::roundUpToPoT(dimension.width);
+			dimension.height = core::roundUpToPoT(dimension.height);
+			dimension.depth = core::roundUpToPoT(dimension.depth);
 
-			ret.width = core::roundUpToPoT(extendedDim.width);
-			ret.height = core::roundUpToPoT(extendedDim.height);
-			ret.depth = core::roundUpToPoT(extendedDim.depth);
-
-			return ret;
+			return dimension;
 		}
 
 		//
 		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
 		//
-		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, DataType inputType);
+		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultDescriptorSetLayout(video::IVideoDriver* driver, DataType inputType);
 		
 		//
-		static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, DataType inputType)
-		{
-			auto pcRange = getDefaultPushConstantRanges();
-			auto bindings = getDefaultBindings(driver, inputType);
-			return driver->createGPUPipelineLayout(
-				pcRange.begin(),pcRange.end(),
-				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
-			);
-		}
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, DataType inputType);
 		
 		//
 		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t numChannels)
@@ -138,7 +123,7 @@ class FFT : public core::TotalInterface
 			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
 		}
 		
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
+		static core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultPipeline(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
 		static inline void updateDescriptorSet(
@@ -184,29 +169,7 @@ class FFT : public core::TotalInterface
 			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
 			asset::ISampler::E_TEXTURE_CLAMP textureWrap)
 		{
-			using nbl::asset::ISampler;
-
-			static core::smart_refctd_ptr<video::IGPUSampler> samplers[ISampler::E_TEXTURE_CLAMP::ETC_COUNT];
-			auto & sampler = samplers[(uint32_t)textureWrap];
-			if (!sampler)
-			{
-				video::IGPUSampler::SParams params =
-				{
-					{
-						textureWrap,
-						textureWrap,
-						textureWrap,
-						ISampler::ETBC_FLOAT_TRANSPARENT_BLACK,
-						ISampler::ETF_NEAREST,
-						ISampler::ETF_NEAREST,
-						ISampler::ESMM_NEAREST,
-						0u,
-						0u,
-						ISampler::ECO_ALWAYS
-					}
-				};
-				sampler = driver->createGPUSampler(params);
-			}
+			auto sampler = getSampler(driver,textureWrap);
 
 			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
 			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
@@ -251,7 +214,7 @@ class FFT : public core::TotalInterface
 
 		static inline void pushConstants(
 			video::IVideoDriver* driver,
-			video::IGPUPipelineLayout * pipelineLayout,
+			const video::IGPUPipelineLayout * pipelineLayout,
 			asset::VkExtent3D const & inputDimension,
 			asset::VkExtent3D const & paddedInputDimension,
 			Direction direction,
@@ -279,27 +242,13 @@ class FFT : public core::TotalInterface
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		}
 
-		// Kernel Normalization
-				
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createKernelNormalizationShader(video::IVideoDriver* driver, asset::IAssetManager* am);
-		
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_KernelNormalization(video::IVideoDriver* driver);
-		
-		static void updateDescriptorSet_KernelNormalization(
-			video::IVideoDriver * driver,
-			video::IGPUDescriptorSet * set,
-			core::smart_refctd_ptr<video::IGPUBuffer> kernelBufferDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> normalizedKernelBufferDescriptor);
-
-		static void dispatchKernelNormalization(video::IVideoDriver* driver, asset::VkExtent3D const & paddedDimension, uint32_t numChannels);
+		static void defaultBarrier();
 
 	private:
 		FFT() = delete;
 		//~FFT() = delete;
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-
-		static void defaultBarrier();
+		static core::smart_refctd_ptr<video::IGPUSampler> getSampler(video::IVideoDriver* driver, asset::ISampler::E_TEXTURE_CLAMP textureWrap);
 };
 
 

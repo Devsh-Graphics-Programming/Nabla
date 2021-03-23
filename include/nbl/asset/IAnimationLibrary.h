@@ -23,7 +23,10 @@ template <class BufferType>
 class IAnimationLibrary : public virtual core::IReferenceCounted
 {
 	public:
+		using keyframe_t = uint32_t;
+		using animation_t = uint32_t;
 		using timestamp_t = uint32_t;
+
 		struct alignas(8) Keyframe
 		{
 				Keyframe() : scale(0ull) // TODO: initialize scale to 1.f
@@ -71,14 +74,14 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 				{
 					data[0] = data[1] = 0xffffffffu;
 				}
-				inline Animation(const uint32_t keyframeOffset, const uint32_t keyframeCount, const E_INTERPOLATION_MODE interpolation)
+				inline Animation(const keyframe_t keyframeOffset, const uint32_t keyframeCount, const E_INTERPOLATION_MODE interpolation)
 				{
 					data[0] = keyframeOffset;
 					assert(keyframeCount<0x4fffffffu);
 					data[1] = keyframeCount|interpolation;
 				}
 
-				inline uint32_t getKeyframeOffset() const
+				inline keyframe_t getKeyframeOffset() const
 				{
 					return data[0];
 				}
@@ -121,7 +124,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 			return m_animationStorageRange.size/sizeof(Animation);
 		}
 
-		inline uint32_t getAnimationOffsetFromName(const char* animationName) const
+		inline animation_t getAnimationOffsetFromName(const char* animationName) const
 		{
 			m_temporaryString = animationName;
 			auto found = m_nameToAnimation.find(0xffffffffu);
@@ -217,7 +220,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 		};
 		core::vector<char> m_stringPool;
 		mutable const char* m_temporaryString;
-		core::map<uint32_t,uint32_t,StringComparator> m_nameToAnimation;
+		core::map<uint32_t,animation_t,StringComparator> m_nameToAnimation;
 
 		SBufferBinding<BufferType> m_keyframeStorageBinding,m_timestampStorageBinding;
 		SBufferRange<BufferType> m_animationStorageRange;

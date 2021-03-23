@@ -146,7 +146,7 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 
 struct ShaderParameters
 {
-	const uint32_t MaxDepthLog2 = 3; //5
+	const uint32_t MaxDepthLog2 = 4; //5
 	const uint32_t MaxSamplesLog2 = 10; //18
 } kShaderParameters;
 
