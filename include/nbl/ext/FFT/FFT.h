@@ -26,7 +26,7 @@ struct alignas(16) uvec4 {
 };
 #include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl";
 
-class FFT : public core::TotalInterface
+class FFT final : public core::IReferenceCounted
 {
 	public:
 		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t
@@ -46,6 +46,7 @@ class FFT : public core::TotalInterface
 		};
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
+		FFT(video::IDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage = false);
 
 		// returns how many dispatches necessary for computing the FFT and fills the uniform data
 		static inline uint32_t buildParameters(bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, Parameters_t* outParams, DispatchInfo_t* outInfos, const PaddingType* paddingType)
@@ -54,7 +55,7 @@ class FFT : public core::TotalInterface
 
 			if (numChannels)
 			{
-				const auto paddedInputDimensions = padDimensionToNextPOT(inputDimensions);
+				const auto paddedInputDimensions = padDimensions(inputDimensions);
 				for (uint32_t i=0u; i<3u; i++)
 				if ((&inputDimensions.width)[i]>1u)
 				{
@@ -70,8 +71,7 @@ class FFT : public core::TotalInterface
 					params.input_dimensions.y = inputDimensions.height;
 					params.input_dimensions.z = inputDimensions.depth;
 					{
-						// round up to workgroup size if too small
-						const uint32_t fftSize = core::max(DEFAULT_WORK_GROUP_SIZE,(&paddedInputDimensions.width)[i]);
+						const uint32_t fftSize = (&paddedInputDimensions.width)[i];
 
 						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
 													(i<<28u)| // direction
@@ -95,20 +95,16 @@ class FFT : public core::TotalInterface
 			return passesRequired;
 		}
 
-		// TODO: remove?
-		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 1, 1, 1 })
+		static inline asset::VkExtent3D padDimensions(asset::VkExtent3D dimension)
 		{
-			if(dimension.width < minimum_dimension.width)
-				dimension.width = minimum_dimension.width;
-			if(dimension.height < minimum_dimension.height)
-				dimension.height = minimum_dimension.height;
-			if(dimension.depth < minimum_dimension.depth)
-				dimension.depth = minimum_dimension.depth;
-
-			dimension.width = core::roundUpToPoT(dimension.width);
-			dimension.height = core::roundUpToPoT(dimension.height);
-			dimension.depth = core::roundUpToPoT(dimension.depth);
-
+			static_assert(core::isPoT(MINIMUM_FFT_SIZE),"MINIMUM_FFT_SIZE needs to be Power of Two!");
+			for (auto i=0u; i<3u; i++)
+			{
+				auto& coord = (&dimension.width)[i];
+				if (coord<=1u)
+					continue;
+				coord = core::max(core::roundUpToPoT(coord),MINIMUM_FFT_SIZE);
+			}
 			return dimension;
 		}
 
@@ -116,56 +112,36 @@ class FFT : public core::TotalInterface
 		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
 		//
-		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultDescriptorSetLayout(video::IVideoDriver* driver);
+		inline auto getDefaultDescriptorSetLayout() const {return m_dsLayout.get();}
 		
 		//
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver);
-		
-		// TODO: rework?
-		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t numChannels)
-		{
-			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
-			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
-		}
-		
-		static core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultPipeline(video::IVideoDriver* driver, uint32_t maxDimensionSize);
+		inline auto getDefaultPipelineLayout() const {return m_pplnLayout.get();}
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
-		static inline void updateDescriptorSet(
-			video::IVideoDriver * driver,
-			video::IGPUDescriptorSet * set,
+		//
+		inline auto getDefaultPipeline() const {return m_ppln.get();}
+
+		//
+		inline uint32_t getMaxFFTLength() const { return m_maxFFTLen; }
+		inline bool usesHalfFloatStorage() const { return m_halfFloatStorage; }
+		
+		//
+		static inline size_t getOutputBufferSize(bool _halfFloatStorage, const asset::VkExtent3D& inputDimensions, uint32_t numChannels, bool realInput=false)
+		{
+			size_t retval = getOutputBufferSize_impl(inputDimensions,numChannels);
+			if (!realInput)
+				retval <<= 1u;
+			return retval*(_halfFloatStorage ? sizeof(uint16_t):sizeof(uint32_t));
+		}
+		inline size_t getOutputBufferSize(const asset::VkExtent3D& inputDimensions, uint32_t numChannels, bool realInput = false)
+		{
+			return getOutputBufferSize(m_halfFloatStorage,inputDimensions,numChannels,realInput);
+		}
+
+		static void updateDescriptorSet(
+			video::IVideoDriver* driver,
+			video::IGPUDescriptorSet* set,
 			core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor)
-		{
-			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
-			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
-
-			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
-			{
-				pWrites[i].dstSet = set;
-				pWrites[i].arrayElement = 0u;
-				pWrites[i].count = 1u;
-				pWrites[i].info = pInfos+i;
-			}
-
-			// Input Buffer 
-			pWrites[0].binding = 0;
-			pWrites[0].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[0].count = 1;
-			pInfos[0].desc = inputBufferDescriptor;
-			pInfos[0].buffer.size = inputBufferDescriptor->getSize();
-			pInfos[0].buffer.offset = 0u;
-
-			// Output Buffer 
-			pWrites[1].binding = 1;
-			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[1].count = 1;
-			pInfos[1].desc = outputBufferDescriptor;
-			pInfos[1].buffer.size = outputBufferDescriptor->getSize();
-			pInfos[1].buffer.offset = 0u;
-
-			driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
-		}
+			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor);
 
 		static inline void dispatchHelper(
 			video::IVideoDriver* driver,
@@ -184,8 +160,21 @@ class FFT : public core::TotalInterface
 		static void defaultBarrier();
 
 	private:
-		FFT() = delete;
-		//~FFT() = delete;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MINIMUM_FFT_SIZE = DEFAULT_WORK_GROUP_SIZE<<1u;
+		~FFT() {}
+
+		//
+		static inline size_t getOutputBufferSize_impl(const asset::VkExtent3D& inputDimensions, uint32_t numChannels)
+		{
+			const auto paddedInputDimensions = padDimensions(inputDimensions);
+			return paddedInputDimensions.width*paddedInputDimensions.height*paddedInputDimensions.depth*numChannels;
+		}
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dsLayout;
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_pplnLayout;
+		core::smart_refctd_ptr<video::IGPUComputePipeline> m_ppln;
+		uint32_t m_maxFFTLen;
+		bool m_halfFloatStorage;
 };
 
 
