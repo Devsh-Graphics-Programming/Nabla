@@ -21,12 +21,6 @@ using namespace nbl::video;
 #include "nbl/core/math/intutil.h"
 #include "nbl/core/math/glslFunctions.h"
 
-struct DispatchInfo_t
-{
-	uint32_t workGroupDims[3];
-	uint32_t workGroupCount[3];
-};
-
 constexpr uint32_t channelCountOverride = 3u;
 
 inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(
@@ -517,23 +511,24 @@ int main()
 			return dset;
 		}();
 
-		auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(paddedKerDim, FFTClass::Direction::X);
-		auto fftDispatchInfo_Vertical = FFTClass::buildParameters(paddedKerDim, FFTClass::Direction::Y);
+		FFTClass::Parameters_t fftPushConstants[2];
+		FFTClass::DispatchInfo_t fftDispatchInfo[2];
+		const FFTClass::PaddingType fftPadding[2] = {FFTClass::PaddingType::FILL_WITH_ZERO,FFTClass::PaddingType::FILL_WITH_ZERO};
+		const auto passes = FFTClass::buildParameters(false,srcNumChannels,kerDim,fftPushConstants,fftDispatchInfo,fftPadding);
+		assert(passes==2u);
 
 		// Ker Image FFT X
 		{
 			auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver, paddedKerDim.width, "../image_first_fft.comp"));
 			driver->bindComputePipeline(fftPipeline_ImageInput.get());
 			driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
-			FFTClass::pushConstants(driver, imageFirstFFTPipelineLayout.get(), kerDim, paddedKerDim, FFTClass::Direction::X, false, srcNumChannels, FFTClass::PaddingType::FILL_WITH_ZERO);
-			FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
+			FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
 		}
 
 		// Ker Image FFT Y
 		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipeline_SSBOInput->getLayout(), 0u, 1u, &fftDescriptorSet_Ker_FFT_Y.get(), nullptr);
-		FFTClass::pushConstants(driver, fftPipeline_SSBOInput->getLayout(), paddedKerDim, paddedKerDim, FFTClass::Direction::Y, false, srcNumChannels);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
+		FFTClass::dispatchHelper(driver, fftPipeline_SSBOInput->getLayout(), fftPushConstants[1], fftDispatchInfo[1]);
 		
 		// Ker Normalization
 		auto fftPipeline_KernelNormalization = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization),
@@ -549,7 +544,7 @@ int main()
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_KernelNormalization.get(), 0u, 1u, &fftDescriptorSet_KernelNormalization.get(), nullptr);
 		{
 			NormalizationPushConstants normalizationPC;
-			normalizationPC.stride = {1u,paddedKerDim.width,paddedKerDim.width*paddedKerDim.height,paddedKerDim.width*paddedKerDim.height}; // TODO: take from the Y FFT pass
+			normalizationPC.stride = fftPushConstants[1].output_strides;
 			normalizationPC.bitreverse_shift.x = 32-core::findMSB(paddedKerDim.width);
 			normalizationPC.bitreverse_shift.y = 32-core::findMSB(paddedKerDim.height);
 			normalizationPC.bitreverse_shift.z = 0;
@@ -590,8 +585,20 @@ int main()
 	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
 
 
-	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(paddedDim, FFTClass::Direction::X);
-	auto fftDispatchInfo_Vertical = FFTClass::buildParameters(paddedDim, FFTClass::Direction::Y);
+	FFTClass::Parameters_t fftPushConstants[3];
+	FFTClass::DispatchInfo_t fftDispatchInfo[3];
+	const FFTClass::PaddingType fftPadding[2] = {FFTClass::PaddingType::CLAMP_TO_EDGE,FFTClass::PaddingType::CLAMP_TO_EDGE}; // TODO
+	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding);
+	{
+		fftPushConstants[2] = fftPushConstants[0];
+		{
+			fftPushConstants[2].input_dimensions.w ^= 0x80000000u;
+			fftPushConstants[2].input_dimensions.w &= 0xfffffffdu;
+		}
+		fftDispatchInfo[2] = fftDispatchInfo[0];
+	}
+	assert(passes==2);
+
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
@@ -599,22 +606,20 @@ int main()
 		// Src Image FFT X
 		driver->bindComputePipeline(fftPipeline_ImageInput.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Src_FFT_X.get(), nullptr);
-		FFTClass::pushConstants(driver, imageFirstFFTPipelineLayout.get(), srcDim, paddedDim, FFTClass::Direction::X, false, srcNumChannels, FFTClass::PaddingType::CLAMP_TO_EDGE);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
+		FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
 
 		// Src Image FFT Y + Convolution + Convolved IFFT Y
 		driver->bindComputePipeline(convolvePipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, convolvePipeline->getLayout(), 0u, 1u, &convolveDescriptorSet.get(), nullptr);
-		FFTClass::pushConstants(driver, convolvePipeline->getLayout(), paddedDim, paddedDim, FFTClass::Direction::Y, false, srcNumChannels);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
+		FFTClass::dispatchHelper(driver, convolvePipeline->getLayout(), fftPushConstants[1], fftDispatchInfo[1]);
 
 		// Last FFT Padding and Copy to GPU Image
 		driver->bindComputePipeline(lastFFTPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, lastFFTPipeline->getLayout(), 0u, 1u, &lastFFTDescriptorSet.get(), nullptr);
-		FFTClass::pushConstants(driver, lastFFTPipeline->getLayout(), paddedDim, paddedDim, FFTClass::Direction::X, true, srcNumChannels);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
+		FFTClass::dispatchHelper(driver, lastFFTPipeline->getLayout(), fftPushConstants[2], fftDispatchInfo[2]);
 		
-		if(false == savedToFile) {
+		if(!savedToFile) 
+		{
 			savedToFile = true;
 			
 			core::smart_refctd_ptr<ICPUImageView> imageView;

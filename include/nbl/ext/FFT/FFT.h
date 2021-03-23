@@ -32,13 +32,6 @@ class FFT : public core::TotalInterface
 		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t
 		{
 		};
-
-		enum class Direction : uint8_t
-		{
-			X = 0,
-			Y = 1,
-			Z = 2,
-		};
 		
 		enum class PaddingType : uint8_t
 		{
@@ -49,46 +42,60 @@ class FFT : public core::TotalInterface
 
 		struct DispatchInfo_t
 		{
-			uint32_t workGroupDims[3];
 			uint32_t workGroupCount[3];
 		};
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 
-		// returns dispatch size and fills the uniform data
-		static inline DispatchInfo_t buildParameters(
-			asset::VkExtent3D const & paddedInputDimensions,
-			Direction direction)
+		// returns how many dispatches necessary for computing the FFT and fills the uniform data
+		static inline uint32_t buildParameters(bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, Parameters_t* outParams, DispatchInfo_t* outInfos, const PaddingType* paddingType)
 		{
-			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
-			DispatchInfo_t ret = {};
+			uint32_t passesRequired = 0u;
 
-			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_SIZE;
-			ret.workGroupDims[1] = 1;
-			ret.workGroupDims[2] = 1;
-
-			if(direction == Direction::X)
+			if (numChannels)
 			{
-				ret.workGroupCount[0] = 1;
-				ret.workGroupCount[1] = paddedInputDimensions.height;
-				ret.workGroupCount[2] = paddedInputDimensions.depth;
-			}
-			else if(direction == Direction::Y) {
-				ret.workGroupCount[0] = paddedInputDimensions.width;
-				ret.workGroupCount[1] = 1;
-				ret.workGroupCount[2] = paddedInputDimensions.depth;
-			}
-			else if(direction == Direction::Z)
-			{
-				ret.workGroupCount[0] = paddedInputDimensions.width;
-				ret.workGroupCount[1] = paddedInputDimensions.height;
-				ret.workGroupCount[2] = 1;
+				const auto paddedInputDimensions = padDimensionToNextPOT(inputDimensions);
+				for (uint32_t i=0u; i<3u; i++)
+				if ((&inputDimensions.width)[i]>1u)
+				{
+					// TODO: rework
+					auto& dispatch = outInfos[passesRequired];
+					dispatch.workGroupCount[0] = paddedInputDimensions.width;
+					dispatch.workGroupCount[1] = paddedInputDimensions.height;
+					dispatch.workGroupCount[2] = paddedInputDimensions.depth;
+					dispatch.workGroupCount[i] = 1u;
+
+					auto& params = outParams[passesRequired];
+					params.input_dimensions.x = inputDimensions.width;
+					params.input_dimensions.y = inputDimensions.height;
+					params.input_dimensions.z = inputDimensions.depth;
+					{
+						// round up to workgroup size if too small
+						const uint32_t fftSize = core::max(DEFAULT_WORK_GROUP_SIZE,(&paddedInputDimensions.width)[i]);
+
+						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
+													(i<<28u)| // direction
+													((numChannels-1u)<<26u)| // max channel
+													(core::findMSB(fftSize)<<3u)| // log2(fftSize)
+													uint32_t(paddingType[i]);
+					}
+					params.input_strides.x = 1u;
+					params.input_strides.y = paddedInputDimensions.width;
+					params.input_strides.z = params.input_strides.y*paddedInputDimensions.height;
+					params.input_strides.w = params.input_strides.z*paddedInputDimensions.depth;
+					params.output_strides = params.input_strides;
+
+					passesRequired++;
+				}
 			}
 
-			return ret;
+			if (passesRequired)
+				outParams[passesRequired-1u].output_strides = outParams[0].input_strides;
+
+			return passesRequired;
 		}
 
-		
+		// TODO: remove?
 		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 1, 1, 1 })
 		{
 			if(dimension.width < minimum_dimension.width)
@@ -114,7 +121,7 @@ class FFT : public core::TotalInterface
 		//
 		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver);
 		
-		//
+		// TODO: rework?
 		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t numChannels)
 		{
 			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
@@ -162,43 +169,16 @@ class FFT : public core::TotalInterface
 
 		static inline void dispatchHelper(
 			video::IVideoDriver* driver,
+			const video::IGPUPipelineLayout* pipelineLayout,
+			const Parameters_t& params,
 			const DispatchInfo_t& dispatchInfo,
 			bool issueDefaultBarrier=true)
 		{
+			driver->pushConstants(pipelineLayout,video::IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(Parameters_t),&params);
 			driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
 
 			if (issueDefaultBarrier)
 				defaultBarrier();
-		}
-
-		static inline void pushConstants(
-			video::IVideoDriver* driver,
-			const video::IGPUPipelineLayout * pipelineLayout,
-			asset::VkExtent3D const & inputDimension,
-			asset::VkExtent3D const & paddedInputDimension,
-			Direction direction,
-			bool isInverse, 
-			uint32_t numChannels,
-			PaddingType paddingType = PaddingType::CLAMP_TO_EDGE)
-		{
-
-			uint8_t isInverse_u8 = isInverse;
-			uint8_t direction_u8 = static_cast<uint8_t>(direction);
-			uint8_t paddingType_u8 = static_cast<uint8_t>(paddingType);
-			
-			uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
-
-			Parameters_t params = {};
-			params.dimension.x = inputDimension.width;
-			params.dimension.y = inputDimension.height;
-			params.dimension.z = inputDimension.depth;
-			params.dimension.w = packed;
-			params.padded_dimension.x = paddedInputDimension.width;
-			params.padded_dimension.y = paddedInputDimension.height;
-			params.padded_dimension.z = paddedInputDimension.depth;
-			params.padded_dimension.w = numChannels;
-
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		}
 
 		static void defaultBarrier();
