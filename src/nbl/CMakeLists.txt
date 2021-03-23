@@ -444,10 +444,13 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 nbl_target_include_parallel_hashmap(Nabla)
 nbl_target_link_spirv_tools(Nabla)
-nbl_target_link_SDL2(Nabla)
+if (NBL_COMPILE_WITH_SDL2)
+	nbl_target_link_SDL2(Nabla)
+endif()
 nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 
+# dont link statically, x11, xrandr, xxf
 target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
