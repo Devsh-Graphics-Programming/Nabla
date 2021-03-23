@@ -8,6 +8,7 @@
 #include "nbl/system/IWindow.h"
 #include "IFileSystem.h"
 #include "nbl/asset/IGLSLCompiler.h"
+#include "nbl/video/debug/debug.h"
 
 namespace nbl {
 namespace video
@@ -16,7 +17,7 @@ namespace video
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
-    static core::smart_refctd_ptr<IAPIConnection> create(E_API_TYPE apiType, uint32_t appVer, const char* appName);
+    static core::smart_refctd_ptr<IAPIConnection> create(E_API_TYPE apiType, uint32_t appVer, const char* appName, SDebugCallback* dbgCb = nullptr);
 
     virtual E_API_TYPE getAPIType() const = 0;
 

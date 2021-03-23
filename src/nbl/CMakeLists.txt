@@ -298,6 +298,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLESConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLDebug.cpp
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp

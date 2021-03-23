@@ -9,6 +9,7 @@
 #include "nbl/video/COpenGLSync.h"
 #include "nbl/video/COpenGLFence.h"
 #include "nbl/video/COpenGLSemaphore.h"
+#include "nbl/video/debug/debug.h"
 
 namespace nbl {
 namespace video
@@ -42,7 +43,7 @@ public:
         return true;
     }
 
-    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config)
+    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb)
     {
         if (!images || !images->size())
             return nullptr;
@@ -67,7 +68,7 @@ public:
                 return nullptr;
         }
 
-        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _ctx, _config);
+        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _ctx, _config, _dbgCb);
         return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
     }
 
@@ -111,9 +112,9 @@ public:
 
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
-    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config) :
+    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb) :
         ISwapchain(dev, std::move(params)),
-        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config)
+        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config, _dbgCb)
     {
         m_images = std::move(images);
     }
@@ -123,12 +124,13 @@ private:
     class CThreadHandler final : public system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>
     {
     public:
-        CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config) :
+        CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb) :
             m_device(dev),
             egl(_egl),
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
             features(_features),
-            images(_images)
+            images(_images),
+            m_dbgCb(_dbgCb)
         {
             assert(images.size() <= MaxImages);
 
@@ -142,10 +144,6 @@ private:
             };
             surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, _window, surface_attributes);
             assert(surface != EGL_NO_SURFACE);
-
-            //EGLBoolean mcres = _egl->call.peglMakeCurrent(_egl->display, surface, surface, thisCtx);
-            //assert(mcres == EGL_TRUE);
-            //_egl->call.peglMakeCurrent(_egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 
             start();
         }
@@ -196,6 +194,9 @@ private:
             const uint32_t fboCount = images.size();
             new (state_ptr) SThreadHandlerInternalState(egl, features);
             auto& gl = state_ptr[0];
+
+            if (m_dbgCb)
+                gl.extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
 
             gl.glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
 
@@ -271,6 +272,8 @@ private:
 
         EGLBoolean m_makeCurrentRes = EGL_FALSE;
         std::condition_variable m_ctxCreatedCvar;
+
+        SDebugCallback* m_dbgCb;
     };
 
     CThreadHandler m_threadHandler;

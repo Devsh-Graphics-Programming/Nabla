@@ -184,6 +184,8 @@ endmacro()
 
 if(WIN32)
 	set(_NBL_PLATFORM_WINDOWS_ 1)
+elseif(ANDROID)
+	set(_NBL_PLATFORM_ANDROID_ 1)
 elseif(UNIX)
 	set(_NBL_PLATFORM_LINUX_ 1)
 endif()

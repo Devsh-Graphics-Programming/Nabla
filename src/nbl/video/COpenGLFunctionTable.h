@@ -672,7 +672,7 @@ public:
 			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				return gl4Framebuffer.pglCheckNamedFramebufferStatusEXT(framebuffer, target);
 		}
-		else return base_t::extGlCheckNamedFramebufferStatus(framebuffer, target);
+		return base_t::extGlCheckNamedFramebufferStatus(framebuffer, target);
 	}
 
 	void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textureType) override
@@ -963,7 +963,7 @@ public:
 			if (gl4Buffer.pglMapNamedBufferRangeEXT)
 				return gl4Buffer.pglMapNamedBufferRangeEXT(buffer, offset, length, access);
 		}
-		else return base_t::extGlMapNamedBufferRange(buffer, offset, length, access);
+		return base_t::extGlMapNamedBufferRange(buffer, offset, length, access);
 	}
 
 	void extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length) override
@@ -993,7 +993,7 @@ public:
 			if (gl4Buffer.pglUnmapNamedBufferEXT)
 				return gl4Buffer.pglUnmapNamedBufferEXT(buffer);
 		}
-		//else return base_t::extGlUnmapNamedBuffer(buffer);
+		return GL_FALSE;
 	}
 
 	void extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void* data) override

@@ -3,12 +3,7 @@
 namespace nbl {
 namespace video
 {
-/*
-    void debugcallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
-    {
-        std::cout << message << std::endl;
-    }
-*/
+
 void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline, uint32_t ctxid)
 {
     nextState.pipeline.graphics.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
@@ -622,7 +617,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                     const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(hashVal.attribFormatAndComponentCount[attr]);
 
                     if (!gl->isGLES() && isFloatingPointFormat(format) && getTexelOrBlockBytesize(format) == getFormatChannelCount(format) * sizeof(double))//DOUBLE
-                        gl->extGlVertexArrayAttribLFormat(vao, attr, getFormatChannelCount(format), IOpenGL_FunctionTable::DOUBLE, hashVal.getRelativeOffsetForAttrib(attr));
+                        gl->extGlVertexArrayAttribLFormat(vao, attr, getFormatChannelCount(format), GL_DOUBLE, hashVal.getRelativeOffsetForAttrib(attr));
                     else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
                         gl->extGlVertexArrayAttribFormat(vao, attr, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(gl, format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, hashVal.getRelativeOffsetForAttrib(attr));
                     else if (isIntegerFormat(format))//INTEGERS

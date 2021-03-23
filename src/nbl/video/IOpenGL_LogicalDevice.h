@@ -23,6 +23,7 @@
 #include "nbl/video/COpenGLSampler.h"
 #include "nbl/video/COpenGLPipelineCache.h"
 #include "nbl/video/COpenGLFence.h"
+#include "nbl/video/COpenGLDebug.h"
 
 namespace nbl {
 namespace video
@@ -377,12 +378,13 @@ protected:
         using FeaturesType = typename FunctionTableType::features_t;
 
     public:
-        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, const SGLContext& glctx) :
+        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, const SGLContext& glctx, SDebugCallback* _dbgCb) :
             m_queueCount(_qcount),
             egl(_egl),
             thisCtx(glctx.ctx), pbuffer(glctx.pbuffer),
             features(_features),
-            device(dev)
+            device(dev),
+            m_dbgCb(_dbgCb)
         {
         }
 
@@ -418,6 +420,9 @@ protected:
             assert(mcres == EGL_TRUE);
 
             new (state_ptr) typename FunctionTableType(egl, features);
+            auto* gl = state_ptr;
+            if (m_dbgCb)
+                gl->extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
         }
 
         // RequestParams must be one of request parameter structs
@@ -784,6 +789,7 @@ protected:
         FeaturesType* features;
 
         IOpenGL_LogicalDevice* device;
+        SDebugCallback* m_dbgCb;
     };
 
 protected:
