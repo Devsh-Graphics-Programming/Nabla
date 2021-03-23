@@ -3,6 +3,14 @@
 
 #include "../common/QToQuitEventReceiver.h"
 
+enum class PresentingMode
+{
+	PM_2D,
+	PM_3D
+};
+
+constexpr PresentingMode CURRENT_PRESENTING_MODE = PresentingMode::PM_3D;
+
 struct WaveSimParams
 {
 	//Both width and height MUST be powers of 2

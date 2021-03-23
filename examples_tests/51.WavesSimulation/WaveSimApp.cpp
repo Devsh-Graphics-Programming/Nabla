@@ -871,8 +871,14 @@ WaveSimApp::WaveSimApp(const WaveSimParams& params) : m_params{ params }
 	m_params.wind_dir = normalize(m_params.wind_dir);
 
 	bool initialized = Init();
-	initialized &= CreatePresenting2DPipeline();
-	initialized &= CreatePresenting3DPipeline();
+	if constexpr (CURRENT_PRESENTING_MODE == PresentingMode::PM_2D)
+	{
+		initialized &= CreatePresenting2DPipeline();
+	}
+	else if constexpr (CURRENT_PRESENTING_MODE == PresentingMode::PM_3D)
+	{
+		initialized &= CreatePresenting3DPipeline();
+	}
 	initialized &= CreateComputePipelines();
 	assert(initialized);
 }
@@ -903,9 +909,15 @@ void WaveSimApp::Run()
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(m_device->getTimer()->getTime()).count());
 		camera->render();
 		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-				
-		PresentWaves3D(displacement_map, normal_map, mvp, camera->getAbsolutePosition());
-		//PresentWaves2D(normal_map);
+		
+		if constexpr (CURRENT_PRESENTING_MODE == PresentingMode::PM_2D)
+		{
+			PresentWaves2D(normal_map);
+		}
+		else if constexpr(CURRENT_PRESENTING_MODE == PresentingMode::PM_3D)
+		{
+			PresentWaves3D(displacement_map, normal_map, mvp, camera->getAbsolutePosition());
+		}
 		m_driver->endScene();
 
 	}
