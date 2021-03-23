@@ -339,12 +339,11 @@ int main()
 			}
 		};
 	
-		using FFTClass = ext::FFT::FFT;
-		core::SRange<const asset::SPushConstantRange> pcRange = FFTClass::getDefaultPushConstantRanges();
+		const asset::SPushConstantRange pcRange = {ISpecializedShader::ESS_COMPUTE,0u,sizeof(convolve_parameters_t)};
 		core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 
 		return driver->createGPUPipelineLayout(
-			pcRange.begin(),pcRange.end(),
+			&pcRange,&pcRange+1,
 			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 		);
 	}();
@@ -618,6 +617,13 @@ int main()
 		// Src Image FFT Y + Convolution + Convolved IFFT Y
 		driver->bindComputePipeline(convolvePipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, convolvePipeline->getLayout(), 0u, 1u, &convolveDescriptorSet.get(), nullptr);
+		{
+			const auto& kernelImgExtent = kernelNormalizedSpectrums[0]->getCreationParameters().image->getCreationParameters().extent;
+			vec2 kernel_half_pixel_size{0.5f,0.5f};
+			kernel_half_pixel_size.x /= kernelImgExtent.width;
+			kernel_half_pixel_size.y /= kernelImgExtent.height;
+			driver->pushConstants(convolvePipeline->getLayout(),ISpecializedShader::ESS_COMPUTE,offsetof(convolve_parameters_t,kernel_half_pixel_size),sizeof(convolve_parameters_t::kernel_half_pixel_size),&kernel_half_pixel_size);
+		}
 		FFTClass::dispatchHelper(driver, convolvePipeline->getLayout(), fftPushConstants[1], fftDispatchInfo[1]);
 
 		// Last FFT Padding and Copy to GPU Image
