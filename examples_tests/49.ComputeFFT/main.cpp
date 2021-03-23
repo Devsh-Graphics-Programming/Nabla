@@ -172,6 +172,13 @@ inline void updateDescriptorSet_LastFFT (
 	driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
 }
 
+using nbl_glsl_ext_FFT_Parameters_t = ext::FFT::FFT::Parameters_t;
+struct vec2
+{
+	float x;
+	float y;
+};
+#include "convolve_parameters.glsl"
 
 
 int main()
@@ -560,7 +567,7 @@ int main()
 	
 	// pipelines
 	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver, paddedDim.width, "../image_first_fft.comp"));
-	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), createShader(driver, paddedDim.height, "../fft_convolve_ifft.comp"));
+	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, std::move(convolvePipelineLayout), createShader(driver, paddedDim.height, "../fft_convolve_ifft.comp"));
 	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, getPipelineLayout_LastFFT(driver), createShader(driver, paddedDim.width, "../last_fft.comp"));
 
 	// Src FFT X 

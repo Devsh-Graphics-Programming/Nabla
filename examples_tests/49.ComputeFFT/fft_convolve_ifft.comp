@@ -12,52 +12,31 @@ layout(set=0, binding=0) buffer restrict InputOutputBuffer
 
 layout(set=0, binding=1) uniform sampler2D NormalizedKernel[3];
 
+#include "convolve_parameters.glsl"
 
 #define inData inoutData
 #define outData inoutData
 #define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
-shared vec2 scratch[1024];
-
 void convolve(in uint item_per_thread_count, in uint ch) 
 {
 	// TODO: decouple kernel size from image size (can't get the math to work in my head)
-	const uint i = bitfieldReverse(gl_WorkGroupID.x)>>(32u-11u);
-	const float u = float(i)/2048.f+0.5f/512.f;
-
-	// compile time constants
-	const uint HALF_SIZE = _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_>>1u;
-	const uint ITEMS_PER_STEP = HALF_SIZE>>_NBL_GLSL_WORKGROUP_SIZE_LOG2_;
-	const uint ITEM_MASK = (item_per_thread_count-1u)>>findMSB(ITEMS_PER_STEP);
-	//
-	const uint hiInvocation = gl_LocalInvocationIndex&(~ITEM_MASK);
-	const uint loInvocation = gl_LocalInvocationIndex&ITEM_MASK;
-	uint base = 0;
-	for(uint i=0u; i<=ITEM_MASK; i++,base+=_NBL_GLSL_WORKGROUP_SIZE_*ITEMS_PER_STEP)
+	for(uint t=0u; t<item_per_thread_count; t++)
 	{
-		const float base_v = float(base)/1024.f+0.5f/512.f;
-		barrier();
-		for (uint j=0u; j<ITEMS_PER_STEP; j++)
-		{
-			const uint tid = _NBL_GLSL_WORKGROUP_SIZE_*j+gl_LocalInvocationIndex;
-			float v = float(tid)/1024.f+base_v;
-			nbl_glsl_complex tmp = textureLod(NormalizedKernel[ch],vec2(u,v),0).xy;
-			_NBL_GLSL_SCRATCH_SHARED_DEFINED_[tid] = floatBitsToUint(tmp.x);
-			_NBL_GLSL_SCRATCH_SHARED_DEFINED_[HALF_SIZE+tid] = floatBitsToUint(tmp.y);
-		}
-		barrier();
-		if(loInvocation==i)
-		for(uint t=0u; t<item_per_thread_count; t++)
-		{
-			const uint j = bitfieldReverse(_NBL_GLSL_WORKGROUP_SIZE_*t+hiInvocation)>>(32u-10u);
-			nbl_glsl_complex sourceSpectrum = nbl_glsl_ext_FFT_impl_values[t];
-			nbl_glsl_complex convSpectrum = nbl_glsl_complex(
-				uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[j]),
-				uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[HALF_SIZE+j])
-			);
-			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
-		}
+		const uint tid = _NBL_GLSL_WORKGROUP_SIZE_*t+gl_LocalInvocationIndex;
+
+		// TODO: do push constants here
+		uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
+		const uvec3 log2_size = uvec3(11u, 10u, 0u);
+        coords = bitfieldReverse(coords)>>(uvec3(32u)-log2_size); // reverse_shifts
+
+		nbl_glsl_complex sourceSpectrum = nbl_glsl_ext_FFT_impl_values[t];
+
+        vec2 uv = (vec2(coords.xy))/vec2(uvec2(1u)<<log2_size.xy)+vec2(0.5f)/vec2(textureSize(NormalizedKernel[ch],0)); //kernel_half_pixel_size
+		//
+		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
+		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
 	}
 }
 
@@ -75,6 +54,7 @@ void main()
 			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),ch);
 		}
 		nbl_glsl_ext_FFT_preloaded(false,log2FFTSize);
+		barrier();
 
 		convolve(item_per_thread_count,ch);
 	
