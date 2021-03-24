@@ -419,7 +419,7 @@ protected:
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            new (state_ptr) typename FunctionTableType(egl, features);
+            new (state_ptr) FunctionTableType(egl, features);
             auto* gl = state_ptr;
             if (m_dbgCb)
                 gl->extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);

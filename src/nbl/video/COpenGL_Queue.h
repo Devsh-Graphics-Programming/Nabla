@@ -106,7 +106,7 @@ class COpenGL_Queue final : public IGPUQueue
                 EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
                 assert(mcres == EGL_TRUE);
 
-                new (state_ptr) typename ThreadInternalStateType(egl, features);
+                new (state_ptr) ThreadInternalStateType(egl, features);
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
 

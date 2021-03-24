@@ -130,7 +130,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CLogger.cpp
-	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
+#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
 	${NBL_ROOT_PATH}/source/Nabla/os.cpp
 	
 	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
@@ -162,23 +162,23 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 
 # Mesh loaders
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
 
 # Mesh writers
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 
 # BaW Format
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWLegacy.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWLegacy.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp
 
 # Images
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp

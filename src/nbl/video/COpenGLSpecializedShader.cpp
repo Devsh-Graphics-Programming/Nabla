@@ -8,7 +8,7 @@
 #include "nbl/asset/utils/spvUtils.h"
 
 #include "COpenGLSpecializedShader.h"
-#include "nbl/asset/spvUtils.h"
+#include "nbl/asset/utils/spvUtils.h"
 #include "spirv_cross/spirv_parser.hpp"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include <algorithm>

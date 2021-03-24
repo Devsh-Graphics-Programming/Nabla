@@ -123,6 +123,9 @@ private:
     using SThreadHandlerInternalState = FunctionTableType;
     class CThreadHandler final : public system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>
     {
+        using base_t = system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>;
+        friend base_t;
+
     public:
         CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb) :
             m_device(dev),
@@ -145,12 +148,12 @@ private:
             surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, _window, surface_attributes);
             assert(surface != EGL_NO_SURFACE);
 
-            start();
+            base_t::start();
         }
 
         void requestBlit(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore** sems)
         {
-            auto raii_handler = createRAIIDispatchHandler();
+            auto raii_handler = base_t::createRAIIDispatchHandler();
 
             needToBlit = true;
             request.imgIx = _imgIx;
@@ -167,20 +170,18 @@ private:
 
         core::smart_refctd_ptr<COpenGLSync> getSyncForImgIx(uint32_t imgix)
         {
-            auto lk = createLock();
+            auto lk = base_t::createLock();
 
             return syncs[imgix];
         }
 
         void waitForCtxCreation()
         {
-            auto lk = createLock();
+            auto lk = base_t::createLock();
             m_ctxCreatedCvar.wait(lk, [this]() {return static_cast<bool>(m_makeCurrentRes); });
         }
 
     protected:
-        using base_t = system::IThreadHandler<CThreadHandler, SThreadHandlerInternalState>;
-        friend base_t;
 
         void init(SThreadHandlerInternalState* state_ptr)
         {

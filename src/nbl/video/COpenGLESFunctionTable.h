@@ -6,7 +6,7 @@
 
 #define GL_GLEXT_PROTOTYPES
 #define GL_APICALL extern
-#define GL_APIENTRY __stdcall
+#define GL_APIENTRY // im not sure about calling convention...
 #undef GL_KHR_debug
 #include "GLES3/gl2ext.h"
 

@@ -12,82 +12,82 @@ namespace video
         {
             switch (cmd.type)
             {
-            case ECT_SET_VIEWPORT:
+            case impl::ECT_SET_VIEWPORT:
             {
-                auto& c = cmd.get<ECT_SET_VIEWPORT>();
+                auto& c = cmd.get<impl::ECT_SET_VIEWPORT>();
                 pool->free_n<asset::SViewport>(c.viewports, c.viewportCount);
             }
             break;
-            case ECT_COPY_BUFFER:
+            case impl::ECT_COPY_BUFFER:
             {
-                auto& c = cmd.get<ECT_COPY_BUFFER>();
+                auto& c = cmd.get<impl::ECT_COPY_BUFFER>();
                 pool->free_n<asset::SBufferCopy>(c.regions, c.regionCount);
             }
             break;
-            case ECT_COPY_IMAGE:
+            case impl::ECT_COPY_IMAGE:
             {
-                auto& c = cmd.get<ECT_COPY_IMAGE>();
+                auto& c = cmd.get<impl::ECT_COPY_IMAGE>();
                 pool->free_n<asset::IImage::SImageCopy>(c.regions, c.regionCount);
             }
             break;
-            case ECT_COPY_BUFFER_TO_IMAGE:
+            case impl::ECT_COPY_BUFFER_TO_IMAGE:
             {
-                auto& c = cmd.get<ECT_COPY_BUFFER_TO_IMAGE>();
+                auto& c = cmd.get<impl::ECT_COPY_BUFFER_TO_IMAGE>();
                 pool->free_n<asset::IImage::SBufferCopy>(c.regions, c.regionCount);
             }
             break;
-            case ECT_COPY_IMAGE_TO_BUFFER:
+            case impl::ECT_COPY_IMAGE_TO_BUFFER:
             {
-                auto& c = cmd.get<ECT_COPY_IMAGE_TO_BUFFER>();
+                auto& c = cmd.get<impl::ECT_COPY_IMAGE_TO_BUFFER>();
                 pool->free_n<asset::IImage::SBufferCopy>(c.regions, c.regionCount);
             }
             break;
-            case ECT_BLIT_IMAGE:
+            case impl::ECT_BLIT_IMAGE:
             {
-                auto& c = cmd.get<ECT_BLIT_IMAGE>();
+                auto& c = cmd.get<impl::ECT_BLIT_IMAGE>();
                 pool->free_n<asset::SImageBlit>(c.regions, c.regionCount);
             }
             break;
-            case ECT_RESOLVE_IMAGE:
+            case impl::ECT_RESOLVE_IMAGE:
             {
-                auto& c = cmd.get<ECT_RESOLVE_IMAGE>();
+                auto& c = cmd.get<impl::ECT_RESOLVE_IMAGE>();
                 pool->free_n<asset::SImageResolve>(c.regions, c.regionCount);
             }
             break;
-            case ECT_SET_SCISSORS:
+            case impl::ECT_SET_SCISSORS:
             {
-                auto& c = cmd.get<ECT_SET_SCISSORS>();
+                auto& c = cmd.get<impl::ECT_SET_SCISSORS>();
                 pool->free_n<asset::VkRect2D>(c.scissors, c.scissorCount);
             }
             break;
-            case ECT_WAIT_EVENTS:
+            case impl::ECT_WAIT_EVENTS:
             {
-                auto& c = cmd.get<ECT_WAIT_EVENTS>();
+                auto& c = cmd.get<impl::ECT_WAIT_EVENTS>();
                 pool->free_n<core::smart_refctd_ptr<event_t>>(c.events, c.eventCount);
             }
             break;
-            case ECT_CLEAR_COLOR_IMAGE:
+            case impl::ECT_CLEAR_COLOR_IMAGE:
             {
-                auto& c = cmd.get<ECT_CLEAR_COLOR_IMAGE>();
+                auto& c = cmd.get<impl::ECT_CLEAR_COLOR_IMAGE>();
                 pool->free_n<asset::IImage::SSubresourceRange>(c.ranges, c.rangeCount);
             }
             break;
-            case ECT_CLEAR_DEPTH_STENCIL_IMAGE:
+            case impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE:
             {
-                auto& c = cmd.get<ECT_CLEAR_DEPTH_STENCIL_IMAGE>();
+                auto& c = cmd.get<impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE>();
                 pool->free_n<asset::IImage::SSubresourceRange>(c.ranges, c.rangeCount);
             }
             break;
-            case ECT_CLEAR_ATTACHMENTS:
+            case impl::ECT_CLEAR_ATTACHMENTS:
             {
-                auto& c = cmd.get<ECT_CLEAR_ATTACHMENTS>();
+                auto& c = cmd.get<impl::ECT_CLEAR_ATTACHMENTS>();
                 pool->free_n<asset::SClearAttachment>(c.attachments, c.attachmentCount);
                 pool->free_n<asset::SClearRect>(c.rects, c.rectCount);
             }
             break;
-            case ECT_UPDATE_BUFFER:
+            case impl::ECT_UPDATE_BUFFER:
             {
-                auto& c = cmd.get<ECT_UPDATE_BUFFER>();
+                auto& c = cmd.get<impl::ECT_UPDATE_BUFFER>();
                 pool->free_n<uint8_t>(reinterpret_cast<const uint8_t*>(c.data), c.dataSize);
             }
             break;
@@ -96,7 +96,7 @@ namespace video
         }
     }
 
-    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
+    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
     {
         IGPUImage* dstImage = c.dstImage.get();
         IGPUBuffer* srcBuffer = c.srcBuffer.get();
@@ -191,7 +191,7 @@ namespace video
         }
     }
 
-    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
+    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
     {
         auto* srcImage = c.srcImage.get();
         auto* dstBuffer = c.dstBuffer.get();
@@ -430,17 +430,17 @@ namespace video
         {
             switch (cmd.type)
             {
-            case ECT_BIND_INDEX_BUFFER:
+            case impl::ECT_BIND_INDEX_BUFFER:
             {
-                auto& c = cmd.get<ECT_BIND_INDEX_BUFFER>();
+                auto& c = cmd.get<impl::ECT_BIND_INDEX_BUFFER>();
                 auto* buffer = static_cast<COpenGLBuffer*>(c.buffer.get());
                 ctxlocal->nextState.vertexInputParams.vaoval.idxBinding = { c.offset, core::smart_refctd_ptr<const COpenGLBuffer>(buffer) };
                 ctxlocal->nextState.vertexInputParams.vaoval.idxType = c.indexType;
             }
             break;
-            case ECT_DRAW:
+            case impl::ECT_DRAW:
             {
-                auto& c = cmd.get<ECT_DRAW>();
+                auto& c = cmd.get<impl::ECT_DRAW>();
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
@@ -450,9 +450,9 @@ namespace video
                 gl->extGlDrawArraysInstancedBaseInstance(glpt, c.firstVertex, c.vertexCount, c.instanceCount, c.firstInstance);
             }
             break;
-            case ECT_DRAW_INDEXED:
+            case impl::ECT_DRAW_INDEXED:
             {
-                auto& c = cmd.get<ECT_DRAW_INDEXED>();
+                auto& c = cmd.get<impl::ECT_DRAW_INDEXED>();
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
@@ -478,9 +478,9 @@ namespace video
                 }
             }
             break;
-            case ECT_DRAW_INDIRECT:
+            case impl::ECT_DRAW_INDIRECT:
             {
-                auto& c = cmd.get<ECT_DRAW_INDIRECT>();
+                auto& c = cmd.get<impl::ECT_DRAW_INDIRECT>();
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
@@ -496,9 +496,9 @@ namespace video
                 }
             }
             break;
-            case ECT_DRAW_INDEXED_INDIRECT:
+            case impl::ECT_DRAW_INDEXED_INDIRECT:
             {
-                auto& c = cmd.get<ECT_DRAW_INDEXED_INDIRECT>();
+                auto& c = cmd.get<impl::ECT_DRAW_INDEXED_INDIRECT>();
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
 
@@ -527,9 +527,9 @@ namespace video
                 }
             }
             break;
-            case ECT_SET_VIEWPORT:
+            case impl::ECT_SET_VIEWPORT:
             {
-                auto& c = cmd.get<ECT_SET_VIEWPORT>();
+                auto& c = cmd.get<impl::ECT_SET_VIEWPORT>();
                 if (c.firstViewport < SOpenGLState::MAX_VIEWPORT_COUNT)
                 {
                     uint32_t count = std::min(c.viewportCount, SOpenGLState::MAX_VIEWPORT_COUNT);
@@ -552,29 +552,29 @@ namespace video
                 }
             }
             break;
-            case ECT_SET_LINE_WIDTH:
+            case impl::ECT_SET_LINE_WIDTH:
             {
-                auto& c = cmd.get<ECT_SET_LINE_WIDTH>();
+                auto& c = cmd.get<impl::ECT_SET_LINE_WIDTH>();
                 ctxlocal->nextState.rasterParams.lineWidth = c.lineWidth;
             }
             break;
-            case ECT_SET_DEPTH_BIAS:
+            case impl::ECT_SET_DEPTH_BIAS:
             {
-                auto& c = cmd.get<ECT_SET_DEPTH_BIAS>();
+                auto& c = cmd.get<impl::ECT_SET_DEPTH_BIAS>();
                 // TODO what about c.depthBiasClamp
                 ctxlocal->nextState.rasterParams.polygonOffset.factor = c.depthBiasSlopeFactor;
                 ctxlocal->nextState.rasterParams.polygonOffset.units = c.depthBiasConstantFactor;
             }
             break;
-            case ECT_SET_BLEND_CONSTANTS:
+            case impl::ECT_SET_BLEND_CONSTANTS:
             {
-                auto& c = cmd.get<ECT_SET_BLEND_CONSTANTS>();
+                auto& c = cmd.get<impl::ECT_SET_BLEND_CONSTANTS>();
                 // TODO, cant see such thing in opengl
             }
             break;
-            case ECT_COPY_BUFFER:
+            case impl::ECT_COPY_BUFFER:
             {
-                auto& c = cmd.get<ECT_COPY_BUFFER>();
+                auto& c = cmd.get<impl::ECT_COPY_BUFFER>();
                 // TODO flush some state? -- not needed i think
                 GLuint readb = static_cast<COpenGLBuffer*>(c.srcBuffer.get())->getOpenGLName();
                 GLuint writeb = static_cast<COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
@@ -585,9 +585,9 @@ namespace video
                 }
             }
             break;
-            case ECT_COPY_IMAGE:
+            case impl::ECT_COPY_IMAGE:
             {
-                auto& c = cmd.get<ECT_COPY_IMAGE>();
+                auto& c = cmd.get<impl::ECT_COPY_IMAGE>();
                 // TODO flush some state? -- not needed i think
                 IGPUImage* dstImage = c.dstImage.get();
                 IGPUImage* srcImage = c.srcImage.get();
@@ -609,23 +609,23 @@ namespace video
                 }
             }
             break;
-            case ECT_COPY_BUFFER_TO_IMAGE:
+            case impl::ECT_COPY_BUFFER_TO_IMAGE:
             {
-                auto& c = cmd.get<ECT_COPY_BUFFER_TO_IMAGE>();
+                auto& c = cmd.get<impl::ECT_COPY_BUFFER_TO_IMAGE>();
 
                 copyBufferToImage(c, gl, ctxlocal, ctxid);
             }
             break;
-            case ECT_COPY_IMAGE_TO_BUFFER:
+            case impl::ECT_COPY_IMAGE_TO_BUFFER:
             {
-                auto& c = cmd.get<ECT_COPY_IMAGE_TO_BUFFER>();
+                auto& c = cmd.get<impl::ECT_COPY_IMAGE_TO_BUFFER>();
 
                 copyImageToBuffer(c, gl, ctxlocal, ctxid);
             }
             break;
-            case ECT_BLIT_IMAGE:
+            case impl::ECT_BLIT_IMAGE:
             {
-                auto& c = cmd.get<ECT_BLIT_IMAGE>();
+                auto& c = cmd.get<impl::ECT_BLIT_IMAGE>();
 
                 GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get());
                 GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get());
@@ -636,9 +636,9 @@ namespace video
                 }
             }
             break;
-            case ECT_RESOLVE_IMAGE:
+            case impl::ECT_RESOLVE_IMAGE:
             {
-                auto& c = cmd.get<ECT_RESOLVE_IMAGE>();
+                auto& c = cmd.get<impl::ECT_RESOLVE_IMAGE>();
 
                 GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get());
                 GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get());
@@ -657,9 +657,9 @@ namespace video
                 }
             }
             break;
-            case ECT_BIND_VERTEX_BUFFERS:
+            case impl::ECT_BIND_VERTEX_BUFFERS:
             {
-                auto& c = cmd.get<ECT_BIND_VERTEX_BUFFERS>();
+                auto& c = cmd.get<impl::ECT_BIND_VERTEX_BUFFERS>();
 
                 for (uint32_t i = 0u; i < c.count; ++i)
                 {
@@ -669,57 +669,57 @@ namespace video
                 }
             }
             break;
-            case ECT_SET_SCISSORS:
+            case impl::ECT_SET_SCISSORS:
             {
-                auto& c = cmd.get<ECT_SET_SCISSORS>();
+                auto& c = cmd.get<impl::ECT_SET_SCISSORS>();
                 // TODO ?
             }
             break;
-            case ECT_SET_DEPTH_BOUNDS:
+            case impl::ECT_SET_DEPTH_BOUNDS:
             {
-                auto& c = cmd.get<ECT_SET_DEPTH_BOUNDS>();
+                auto& c = cmd.get<impl::ECT_SET_DEPTH_BOUNDS>();
                 // TODO ?
             }
             break;
-            case ECT_SET_STENCIL_COMPARE_MASK:
+            case impl::ECT_SET_STENCIL_COMPARE_MASK:
             {
-                auto& c = cmd.get<ECT_SET_STENCIL_COMPARE_MASK>();
+                auto& c = cmd.get<impl::ECT_SET_STENCIL_COMPARE_MASK>();
                 if (c.faceMask & asset::ESFF_FRONT_BIT)
                     ctxlocal->nextState.rasterParams.stencilFunc_front.mask = c.cmpMask;
                 if (c.faceMask & asset::ESFF_BACK_BIT)
                     ctxlocal->nextState.rasterParams.stencilFunc_back.mask = c.cmpMask;;
             }
             break;
-            case ECT_SET_STENCIL_WRITE_MASK:
+            case impl::ECT_SET_STENCIL_WRITE_MASK:
             {
-                auto& c = cmd.get<ECT_SET_STENCIL_WRITE_MASK>();
+                auto& c = cmd.get<impl::ECT_SET_STENCIL_WRITE_MASK>();
                 if (c.faceMask & asset::ESFF_FRONT_BIT)
                     ctxlocal->nextState.rasterParams.stencilWriteMask_front = c.writeMask;
                 if (c.faceMask & asset::ESFF_BACK_BIT)
                     ctxlocal->nextState.rasterParams.stencilWriteMask_back = c.writeMask;
             }
             break;
-            case ECT_SET_STENCIL_REFERENCE:
+            case impl::ECT_SET_STENCIL_REFERENCE:
             {
-                auto& c = cmd.get<ECT_SET_STENCIL_REFERENCE>();
+                auto& c = cmd.get<impl::ECT_SET_STENCIL_REFERENCE>();
                 if (c.faceMask & asset::ESFF_FRONT_BIT)
                     ctxlocal->nextState.rasterParams.stencilFunc_front.ref = c.reference;
                 if (c.faceMask & asset::ESFF_BACK_BIT)
                     ctxlocal->nextState.rasterParams.stencilFunc_back.ref = c.reference;
             }
             break;
-            case ECT_DISPATCH:
+            case impl::ECT_DISPATCH:
             {
-                auto& c = cmd.get<ECT_DISPATCH>();
+                auto& c = cmd.get<impl::ECT_DISPATCH>();
                 
                 ctxlocal->flushStateCompute(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
                 gl->glCompute.pglDispatchCompute(c.groupCountX, c.groupCountY, c.groupCountZ);
             }
             break;
-            case ECT_DISPATCH_INDIRECT:
+            case impl::ECT_DISPATCH_INDIRECT:
             {
-                auto& c = cmd.get<ECT_DISPATCH_INDIRECT>();
+                auto& c = cmd.get<impl::ECT_DISPATCH_INDIRECT>();
                 ctxlocal->nextState.dispatchIndirect.buffer = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
                 
                 ctxlocal->flushStateCompute(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
@@ -727,40 +727,40 @@ namespace video
                 gl->glCompute.pglDispatchComputeIndirect(static_cast<GLintptr>(c.offset));
             }
             break;
-            case ECT_DISPATCH_BASE:
+            case impl::ECT_DISPATCH_BASE:
             {
-                auto& c = cmd.get<ECT_DISPATCH_BASE>();
+                auto& c = cmd.get<impl::ECT_DISPATCH_BASE>();
                 // no such thing in opengl (easy to emulate tho)
                 // maybe spirv-cross emits some uniforms for this?
             }
             break;
-            case ECT_SET_EVENT:
+            case impl::ECT_SET_EVENT:
             {
-                auto& c = cmd.get<ECT_SET_EVENT>();
+                auto& c = cmd.get<impl::ECT_SET_EVENT>();
                 // TODO
             }
             break;
-            case ECT_RESET_EVENT:
+            case impl::ECT_RESET_EVENT:
             {
-                auto& c = cmd.get<ECT_RESET_EVENT>();
+                auto& c = cmd.get<impl::ECT_RESET_EVENT>();
                 // TODO
             }
             break;
-            case ECT_WAIT_EVENTS:
+            case impl::ECT_WAIT_EVENTS:
             {
-                auto& c = cmd.get<ECT_WAIT_EVENTS>();
+                auto& c = cmd.get<impl::ECT_WAIT_EVENTS>();
                 // TODO
             }
             break;
-            case ECT_PIPELINE_BARRIER:
+            case impl::ECT_PIPELINE_BARRIER:
             {
-                auto& c = cmd.get<ECT_PIPELINE_BARRIER>();
+                auto& c = cmd.get<impl::ECT_PIPELINE_BARRIER>();
                 gl->glSync.pglMemoryBarrier(c.barrier);
             }
             break;
-            case ECT_BEGIN_RENDERPASS:
+            case impl::ECT_BEGIN_RENDERPASS:
             {
-                auto& c = cmd.get<ECT_BEGIN_RENDERPASS>();
+                auto& c = cmd.get<impl::ECT_BEGIN_RENDERPASS>();
                 auto framebuf = core::smart_refctd_ptr_static_cast<const COpenGLFramebuffer>(c.renderpassBegin.framebuffer);
 
                 ctxlocal->nextState.framebuffer.hash = framebuf->getHashValue();
@@ -772,30 +772,30 @@ namespace video
                     beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo);
             }
             break;
-            case ECT_NEXT_SUBPASS:
+            case impl::ECT_NEXT_SUBPASS:
             {
-                auto& c = cmd.get<ECT_NEXT_SUBPASS>();
+                auto& c = cmd.get<impl::ECT_NEXT_SUBPASS>();
                 // TODO (when we support subpasses) some barriers based on subpass dependencies?
                 // not needed now tho, we dont support multiple subpasses yet
             }
             break;
-            case ECT_END_RENDERPASS:
+            case impl::ECT_END_RENDERPASS:
             {
-                auto& c = cmd.get<ECT_END_RENDERPASS>();
+                auto& c = cmd.get<impl::ECT_END_RENDERPASS>();
                 ctxlocal->nextState.framebuffer.hash = SOpenGLState::NULL_FBO_HASH;
                 ctxlocal->nextState.framebuffer.GLname = 0u;
                 ctxlocal->nextState.framebuffer.fbo = nullptr;
             }
             break;
-            case ECT_SET_DEVICE_MASK:
+            case impl::ECT_SET_DEVICE_MASK:
             {
-                auto& c = cmd.get<ECT_SET_DEVICE_MASK>();
+                auto& c = cmd.get<impl::ECT_SET_DEVICE_MASK>();
                 // no-op
             }
             break;
-            case ECT_BIND_GRAPHICS_PIPELINE:
+            case impl::ECT_BIND_GRAPHICS_PIPELINE:
             {
-                auto& c = cmd.get<ECT_BIND_GRAPHICS_PIPELINE>();
+                auto& c = cmd.get<impl::ECT_BIND_GRAPHICS_PIPELINE>();
 
                 auto* rpindependent = c.pipeline->getRenderpassIndependentPipeline();
                 ctxlocal->updateNextState_pipelineAndRaster(rpindependent, ctxid);
@@ -803,48 +803,48 @@ namespace video
                 ctxlocal->nextState.vertexInputParams.vaokey = glppln->getVAOHash();
             }
             break;
-            case ECT_BIND_COMPUTE_PIPELINE:
+            case impl::ECT_BIND_COMPUTE_PIPELINE:
             {
-                auto& c = cmd.get<ECT_BIND_COMPUTE_PIPELINE>();
+                auto& c = cmd.get<impl::ECT_BIND_COMPUTE_PIPELINE>();
 
                 const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(c.pipeline.get());
                 ctxlocal->nextState.pipeline.compute.usedShader = glppln ? glppln->getShaderGLnameForCtx(0u, ctxid) : 0u;
                 ctxlocal->nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
             }
             break;
-            case ECT_RESET_QUERY_POOL:
+            case impl::ECT_RESET_QUERY_POOL:
             {
-                auto& c = cmd.get<ECT_RESET_QUERY_POOL>();
+                auto& c = cmd.get<impl::ECT_RESET_QUERY_POOL>();
                 _NBL_TODO();
             }
             break;
-            case ECT_BEGIN_QUERY:
+            case impl::ECT_BEGIN_QUERY:
             {
-                auto& c = cmd.get<ECT_BEGIN_QUERY>();
+                auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
                 _NBL_TODO();
             }
             break;
-            case ECT_END_QUERY:
+            case impl::ECT_END_QUERY:
             {
-                auto& c = cmd.get<ECT_END_QUERY>();
+                auto& c = cmd.get<impl::ECT_END_QUERY>();
                 _NBL_TODO();
             }
             break;
-            case ECT_COPY_QUERY_POOL_RESULTS:
+            case impl::ECT_COPY_QUERY_POOL_RESULTS:
             {
-                auto& c = cmd.get<ECT_COPY_QUERY_POOL_RESULTS>();
+                auto& c = cmd.get<impl::ECT_COPY_QUERY_POOL_RESULTS>();
                 _NBL_TODO();
             }
             break;
-            case ECT_WRITE_TIMESTAMP:
+            case impl::ECT_WRITE_TIMESTAMP:
             {
-                auto& c = cmd.get<ECT_WRITE_TIMESTAMP>();
+                auto& c = cmd.get<impl::ECT_WRITE_TIMESTAMP>();
                 _NBL_TODO();
             }
             break;
-            case ECT_BIND_DESCRIPTOR_SETS:
+            case impl::ECT_BIND_DESCRIPTOR_SETS:
             {
-                auto& c = cmd.get<ECT_BIND_DESCRIPTOR_SETS>();
+                auto& c = cmd.get<impl::ECT_BIND_DESCRIPTOR_SETS>();
 
                 asset::E_PIPELINE_BIND_POINT pbp = c.pipelineBindPoint;
 
@@ -871,9 +871,9 @@ namespace video
                 }
             }
             break;
-            case ECT_PUSH_CONSTANTS:
+            case impl::ECT_PUSH_CONSTANTS:
             {
-                auto& c = cmd.get<ECT_PUSH_CONSTANTS>();
+                auto& c = cmd.get<impl::ECT_PUSH_CONSTANTS>();
 
                 if (pushConstants_validate(c.layout.get(), c.stageFlags, c.offset, c.size, c.values))
                 {
@@ -888,9 +888,9 @@ namespace video
                 }
             }
             break;
-            case ECT_CLEAR_COLOR_IMAGE:
+            case impl::ECT_CLEAR_COLOR_IMAGE:
             {
-                auto& c = cmd.get<ECT_CLEAR_COLOR_IMAGE>();
+                auto& c = cmd.get<impl::ECT_CLEAR_COLOR_IMAGE>();
                 GLuint fbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.image.get());
                 auto format = c.image->getCreationParameters().format;
                 // eeeeh ignoring subresource ranges for now (TODO) -- would have to dynamically create texture views....
@@ -911,9 +911,9 @@ namespace video
                 }
             }
             break;
-            case ECT_CLEAR_DEPTH_STENCIL_IMAGE:
+            case impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE:
             {
-                auto& c = cmd.get<ECT_CLEAR_DEPTH_STENCIL_IMAGE>();
+                auto& c = cmd.get<impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE>();
                 GLuint fbo = ctxlocal->getDepthStencilAttachmentFBO(gl, c.image.get());
                 auto fmt = c.image->getCreationParameters().format;
                 if (asset::isDepthOnlyFormat(fmt))
@@ -931,32 +931,32 @@ namespace video
                 }
             }
             break;
-            case ECT_CLEAR_ATTACHMENTS:
+            case impl::ECT_CLEAR_ATTACHMENTS:
             {
-                auto& c = cmd.get<ECT_CLEAR_ATTACHMENTS>();
+                auto& c = cmd.get<impl::ECT_CLEAR_ATTACHMENTS>();
                 clearAttachments(gl, ctxlocal, c.attachmentCount, c.attachments);
             }
             break;
-            case ECT_FILL_BUFFER:
+            case impl::ECT_FILL_BUFFER:
             {
-                auto& c = cmd.get<ECT_FILL_BUFFER>();
+                auto& c = cmd.get<impl::ECT_FILL_BUFFER>();
 
                 GLuint buf = static_cast<const COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
                 gl->extGlClearNamedBufferSubData(buf, GL_R32UI, c.dstOffset, c.size, GL_RED, GL_UNSIGNED_INT, &c.data);
             }
             break;
-            case ECT_UPDATE_BUFFER:
+            case impl::ECT_UPDATE_BUFFER:
             {
-                auto& c = cmd.get<ECT_UPDATE_BUFFER>();
+                auto& c = cmd.get<impl::ECT_UPDATE_BUFFER>();
 
                 GLuint buf = static_cast<const COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
                 const float* ptr = reinterpret_cast<const float*>(c.data);
                 gl->extGlNamedBufferSubData(buf, c.dstOffset, c.dataSize, c.data);
             }
             break;
-            case ECT_EXECUTE_COMMANDS:
+            case impl::ECT_EXECUTE_COMMANDS:
             {
-                auto& c = cmd.get<ECT_EXECUTE_COMMANDS>();
+                auto& c = cmd.get<impl::ECT_EXECUTE_COMMANDS>();
 
                 static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, ctxlocal, ctxid);
             }

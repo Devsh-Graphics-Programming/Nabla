@@ -8,6 +8,7 @@
 #include "nbl/video/COpenGLDescriptorSet.h"
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLEvent.h"
+#include "nbl/video/COpenGLSemaphore.h"
 #include "nbl/video/debug/debug.h"
 
 #include <chrono>
@@ -50,7 +51,7 @@ public:
     using QueueType = QueueType_;
     using SwapchainType = SwapchainType_;
     using FunctionTableType = typename QueueType::FunctionTableType;
-    using FeaturesType = typename COpenGLFeatureMap;
+    using FeaturesType = COpenGLFeatureMap;
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
@@ -133,7 +134,7 @@ public:
         SRequestImageCreate req_params;
         req_params.params = std::move(params);
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestImageCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
 
         return retval;
     }
@@ -146,8 +147,8 @@ public:
         SRequestSamplerCreate req_params;
         req_params.params = _params;
         req_params.is_gles = IsGLES;
-        auto& req = m_threadHandler.request<SRequestSamplerCreate>(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestSamplerCreate>(req);
+        auto& req = m_threadHandler.template request<SRequestSamplerCreate>(std::move(req_params), &retval);
+        m_threadHandler.template waitForRequestCompletion<SRequestSamplerCreate>(req);
 
         return retval;
     }
@@ -223,7 +224,7 @@ public:
         params.canModifySubdata = canModifySubData;
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(params), &output);
-        m_threadHandler.waitForRequestCompletion<SRequestBufferCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate>(req);
 
         return output;
     }
@@ -259,7 +260,7 @@ public:
             params.flags = _flags;
             core::smart_refctd_ptr<IGPUFence> retval;
             auto& req = m_threadHandler.request(std::move(params), &retval);
-            m_threadHandler.waitForRequestCompletion<SRequestFenceCreate>(req);
+            m_threadHandler.template waitForRequestCompletion<SRequestFenceCreate>(req);
 
             return retval;
         }
@@ -283,7 +284,7 @@ public:
         SRequestWaitForFences params{ core::SRange<IGPUFence*>(_fences, _fences + _count) , _waitAll, _timeout };
         IGPUFence::E_STATUS retval;
         auto& req = m_threadHandler.request(std::move(params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestWaitForFences>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
 
         return retval;
     }
@@ -300,14 +301,14 @@ public:
     {
         SRequestFlushMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
     }
 
     void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override final
     {
         SRequestInvalidateMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
     void regenerateMipLevels(IGPUImageView* imageview) override final
@@ -315,14 +316,14 @@ public:
         SRequestRegenerateMipLevels req_params;
         req_params.imgview = imageview;
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.waitForRequestCompletion<SRequestRegenerateMipLevels>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestRegenerateMipLevels>(req);
     }
 
     void waitIdle() override
     {
         SRequestWaitIdle params;
         auto& req = m_threadHandler.request(std::move(params));
-        m_threadHandler.waitForRequestCompletion<SRequestWaitIdle>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestWaitIdle>(req);
     }
 
     void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) override final
@@ -355,7 +356,7 @@ public:
     {
         auto& req = destroyGlObjects<ERT_PROGRAM_DESTROY>(count, programs);
         // actually wait for this to complete because `programs` is most likely stack array or something owned exclusively by the object (which is being destroyed)
-        m_threadHandler.waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
     }
     void destroySync(GLsync sync) override final
     {
@@ -363,7 +364,7 @@ public:
         req_params.glsync = sync;
         auto& req = m_threadHandler.request(std::move(req_params));
         //dont need to wait on this
-        //m_threadHandler.waitForRequestCompletion<SRequestSyncDestroy>(req);
+        //m_threadHandler.template waitForRequestCompletion<SRequestSyncDestroy>(req);
     }
 
 protected:
@@ -372,14 +373,14 @@ protected:
         SRequestMakeCurrent req_params;
         req_params.bind = true;
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.waitForRequestCompletion<SRequestMakeCurrent>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
     void unbindMasterContext()
     {
         SRequestMakeCurrent req_params;
         req_params.bind = false;
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.waitForRequestCompletion<SRequestMakeCurrent>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
 
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
@@ -473,7 +474,7 @@ protected:
         req_params.size = _size;
         core::smart_refctd_ptr<IGPUBufferView> retval;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestBufferViewCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestBufferViewCreate>(req);
         return retval;
     }
     core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override final
@@ -493,7 +494,7 @@ protected:
         SRequestImageViewCreate req_params;
         req_params.params = std::move(params);
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestImageViewCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestImageViewCreate>(req);
 
         return retval;
     }
@@ -535,7 +536,7 @@ protected:
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return retval;
     }
@@ -550,7 +551,7 @@ protected:
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), output);
-        m_threadHandler.waitForRequestCompletion<SRequestComputePipelineCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return true;
     }
@@ -583,7 +584,7 @@ protected:
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
-        m_threadHandler.waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return retval;
     }
@@ -598,7 +599,7 @@ protected:
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), output);
-        m_threadHandler.waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return true;
     }

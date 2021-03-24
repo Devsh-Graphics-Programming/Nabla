@@ -70,7 +70,7 @@ public:
     {
         //auto lk = createLock();
         //raii_dispatch_handler_t raii_handler(std::move(lk), m_cvar);
-        auto raii_handler = createRAIIDispatchHandler();
+        auto raii_handler = base_t::createRAIIDispatchHandler();
 
         const uint32_t r_id = cb_end;
         cb_end = incAndWrapAround(cb_end);
@@ -84,7 +84,7 @@ public:
 
     void waitForRequestCompletion(request_t& req)
     {
-        auto lk = createLock();
+        auto lk = base_t::createLock();
         req.cvar.wait(lk, [&req]() -> bool { return req.ready; });
 
         assert(req.ready);

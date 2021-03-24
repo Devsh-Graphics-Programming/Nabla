@@ -66,7 +66,7 @@ namespace nbl {
 
 				inline void* loadFuncPtr(const char* funcname) override final
 				{
-					return static_cast<void*>(egl->call.peglGetProcAddress(funcname));
+					return reinterpret_cast<void*>(egl->call.peglGetProcAddress(funcname));
 				}
 			};
 

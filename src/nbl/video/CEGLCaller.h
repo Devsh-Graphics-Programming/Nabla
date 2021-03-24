@@ -75,15 +75,15 @@ class CEGLCaller final : public system::DynamicFunctionCallerBase<impl::CEGLFunc
 #ifdef _NBL_PLATFORM_WINDOWS_
 #define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) &::FUNC_NAME
 #else
-#define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) [] () -> void* { \
+#define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) [this] () -> void* { \
     if (auto fptr = Base::loader.loadFuncPtr( #FUNC_NAME ))\
         return fptr;\
-    return &::FUNC_NAME;\
+    return reinterpret_cast<void*>(&::FUNC_NAME);\
 }()
 #endif
 
 #define _INDIRECTION1(X) (X)
-#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## _INDIRECTION1(NBL_IMPL_GET_FUNC_PTR(FUNC_NAME))
+#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ( NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) )
 
 #define NBL_IMPL_INIT_EGL_FUNC_PTRS(...)\
     NBL_FOREACH(NBL_IMPL_INIT_EGL_FUNCPTR,__VA_ARGS__)

@@ -115,7 +115,7 @@ private:
 
 public:
     struct start_on_construction_t {};
-    constexpr inline static start_on_construction_t start_on_construction;
+    constexpr inline static start_on_construction_t start_on_construction {};
 
     IThreadHandler() : m_thread() {}
     IThreadHandler(start_on_construction_t) :
