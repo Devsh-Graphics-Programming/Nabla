@@ -7,7 +7,7 @@
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/system/IWindow.h"
 #include "IFileSystem.h"
-#include "nbl/asset/IGLSLCompiler.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
 
 namespace nbl {
 namespace video

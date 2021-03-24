@@ -12,7 +12,7 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/IGPUShader.h"
-#include "nbl/asset/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "COpenGLBuffer.h"
 #include "nbl/video/COpenGLBufferView.h"
 #include "nbl/video/COpenGLImage.h"

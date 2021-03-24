@@ -11,7 +11,7 @@
 #include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/ISwapchain.h"
 #include "nbl/asset/ICPUShader.h"
-#include "nbl/asset/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/EApiType.h"
@@ -524,7 +524,7 @@ public:
             if (!ci.renderpassIndependent->wasCreatedBy(this))
                 return false;
             if (!IGPUGraphicsPipeline::validate(ci))
-                return nullptr;
+                return false;
         }
         return createGPUGraphicsPipelines_impl(pipelineCache, params, output);
     }

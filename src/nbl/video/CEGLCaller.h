@@ -82,7 +82,8 @@ class CEGLCaller final : public system::DynamicFunctionCallerBase<impl::CEGLFunc
 }()
 #endif
 
-#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (NBL_IMPL_GET_FUNC_PTR(FUNC_NAME))
+#define _INDIRECTION1(X) (X)
+#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## _INDIRECTION1(NBL_IMPL_GET_FUNC_PTR(FUNC_NAME))
 
 #define NBL_IMPL_INIT_EGL_FUNC_PTRS(...)\
     NBL_FOREACH(NBL_IMPL_INIT_EGL_FUNCPTR,__VA_ARGS__)

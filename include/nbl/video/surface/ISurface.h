@@ -2,7 +2,7 @@
 #define __NBL_I_SURFACE_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl/asset/EColorSpace.h"
+#include "nbl/asset/format/EColorSpace.h"
 #include "nbl/asset/format/EFormat.h"
 
 namespace nbl {

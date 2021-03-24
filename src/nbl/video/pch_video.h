@@ -10,8 +10,6 @@
 // private headers
 #ifndef _NBL_PCH_IGNORE_PRIVATE_HEADERS
 
-#include "nbl/video/CGPUSkinnedMesh.h"
-
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLBufferView.h"

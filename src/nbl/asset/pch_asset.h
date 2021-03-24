@@ -58,4 +58,6 @@
 #include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
 #include "nbl/asset/bawformat/CBAWMeshWriter.h"
 
+#endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
+
 #endif

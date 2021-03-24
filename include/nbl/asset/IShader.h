@@ -65,7 +65,7 @@ protected:
 	}
 	static inline void insertAfterVersionAndPragmaShaderStage(std::string& _glsl, const std::string& _ins)
 	{
-		auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl]
+		auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl] () -> size_t
 		{
 			size_t hashPos = _glsl.find_first_of('#');
 			if (hashPos >= _glsl.length())

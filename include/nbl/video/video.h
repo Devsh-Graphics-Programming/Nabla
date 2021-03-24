@@ -31,8 +31,6 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/IGPUMesh.h"
-#include "nbl/video/IGPUSkinnedMesh.h"
-#include "nbl/video/CGPUMesh.h"
 #include "nbl/video/IGPUQueue.h"
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"

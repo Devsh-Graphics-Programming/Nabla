@@ -8,7 +8,7 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/video/EApiType.h"
 #include "IFileSystem.h"
-#include "nbl/asset/IGLSLCompiler.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
 #include <type_traits>
 
 namespace nbl {
