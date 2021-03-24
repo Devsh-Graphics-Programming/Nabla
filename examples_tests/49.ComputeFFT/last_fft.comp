@@ -7,11 +7,16 @@ layout(set=0, binding=1, rgba16f) uniform image2D outImage;
 #include <nbl/builtin/glsl/math/complex.glsl>
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-	const ivec2 coords = ivec2(coordinate.xy);
+// TODO PC
+    const ivec2 padding = imageSize(outImage).x!=512u ? ivec2(384,152):ivec2(0);
+	const ivec2 coords = ivec2(coordinate.xy)-padding;
 
-    vec4 color_value = imageLoad(outImage, coords);
-    color_value[channel] = complex_value.x;
-    imageStore(outImage, coords, color_value);
+    if (all(lessThanEqual(ivec2(0),coords))&&all(greaterThan(imageSize(outImage),coords)))
+    {
+        vec4 color_value = imageLoad(outImage, coords);
+        color_value[channel] = complex_value.x;
+        imageStore(outImage, coords, color_value);
+    }
 }
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 

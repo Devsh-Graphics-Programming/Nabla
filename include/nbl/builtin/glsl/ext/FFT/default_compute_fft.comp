@@ -1,3 +1,5 @@
+#extension GL_EXT_shader_integer_mix : require
+
 #ifndef _NBL_GLSL_WORKGROUP_SIZE_
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
@@ -70,19 +72,34 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
-nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) 
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
 {
-	uvec3 max_coord = nbl_glsl_ext_FFT_Parameters_t_getDimensions() - uvec3(1u);
-	uvec3 clamped_coord = min(coordinate, max_coord);
+	const ivec3 dimensions = ivec3(nbl_glsl_ext_FFT_Parameters_t_getDimensions());
+	const ivec3 max_coord = dimensions-ivec3(1u);
 	
-	bool is_out_of_range = any(bvec3(coordinate!=clamped_coord));
+	const ivec3 clamped_coord = clamp(coordinate,ivec3(0),max_coord);
 
-	uint paddingType = nbl_glsl_ext_FFT_Parameters_t_getPaddingType();
-
-	if (_NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ == paddingType && is_out_of_range) {
-		return nbl_glsl_complex(0, 0);
+	const uint paddingType = nbl_glsl_ext_FFT_Parameters_t_getPaddingType();
+	switch (paddingType)
+	{
+		case _NBL_GLSL_EXT_FFT_PAD_CLAMP_TO_EDGE_:
+			coordinate = clamped_coord;
+			break;
+		case _NBL_GLSL_EXT_FFT_PAD_CLAMP_TO_BORDER_:
+			if (any(bvec3(coordinate!=clamped_coord)))
+				return nbl_glsl_complex(0,0);
+			coordinate = clamped_coord;
+			break;
+		case _NBL_GLSL_EXT_FFT_PAD_MIRROR_:
+			const bvec3 flip = bvec3((coordinate/dimensions)&0x1u);
+			coordinate %= dimensions;
+			coordinate = mix(coordinate,max_coord-coordinate,flip);
+			break;
+		default:
+			coordinate %= dimensions;
+			break;
 	}
-	
+
 	const uint index = nbl_glsl_dot(uvec4(coordinate,channel),nbl_glsl_ext_FFT_Parameters_t_getInputStrides());
 	return nbl_glsl_ext_FFT_storage_t_get(inData[index]);
 }

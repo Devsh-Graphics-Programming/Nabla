@@ -514,7 +514,7 @@ int main()
 
 		FFTClass::Parameters_t fftPushConstants[2];
 		FFTClass::DispatchInfo_t fftDispatchInfo[2];
-		const FFTClass::PaddingType fftPadding[2] = {FFTClass::PaddingType::FILL_WITH_ZERO,FFTClass::PaddingType::FILL_WITH_ZERO};
+		const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_CLAMP_TO_BORDER,ISampler::ETC_CLAMP_TO_BORDER};
 		const auto passes = FFTClass::buildParameters(false,srcNumChannels,kerDim,fftPushConstants,fftDispatchInfo,fftPadding);
 		assert(passes==2u);
 
@@ -583,11 +583,14 @@ int main()
 
 	FFTClass::Parameters_t fftPushConstants[3];
 	FFTClass::DispatchInfo_t fftDispatchInfo[3];
-	const FFTClass::PaddingType fftPadding[2] = {FFTClass::PaddingType::CLAMP_TO_EDGE,FFTClass::PaddingType::CLAMP_TO_EDGE}; // TODO
+	const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
 	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding);
 	{
+		fftPushConstants[1].input_dimensions.x = 2048u;
 		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides;
 		fftPushConstants[2] = fftPushConstants[0];
+		fftPushConstants[2].input_dimensions.x = 2048u;
+		fftPushConstants[2].input_dimensions.y = 1024u;
 		{
 			fftPushConstants[2].input_dimensions.w ^= 0x80000000u;
 			fftPushConstants[2].input_dimensions.w &= 0xfffffffdu;

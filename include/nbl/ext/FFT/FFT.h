@@ -32,13 +32,6 @@ class FFT final : public core::IReferenceCounted
 		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t
 		{
 		};
-		
-		enum class PaddingType : uint8_t
-		{
-			CLAMP_TO_EDGE = 0,
-			FILL_WITH_ZERO = 1,
-			// TODO: mirror?
-		};
 
 		struct DispatchInfo_t
 		{
@@ -49,7 +42,7 @@ class FFT final : public core::IReferenceCounted
 		FFT(video::IDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage = false);
 
 		// returns how many dispatches necessary for computing the FFT and fills the uniform data
-		static inline uint32_t buildParameters(bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, Parameters_t* outParams, DispatchInfo_t* outInfos, const PaddingType* paddingType)
+		static inline uint32_t buildParameters(bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType)
 		{
 			uint32_t passesRequired = 0u;
 
@@ -72,7 +65,7 @@ class FFT final : public core::IReferenceCounted
 					params.input_dimensions.z = inputDimensions.depth;
 					{
 						const uint32_t fftSize = (&paddedInputDimensions.width)[i];
-
+						assert(paddingType[i]<=asset::ISampler::ETC_MIRROR);
 						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
 													(i<<28u)| // direction
 													((numChannels-1u)<<26u)| // max channel

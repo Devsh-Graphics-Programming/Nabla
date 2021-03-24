@@ -22,7 +22,7 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 comp
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DECLARED_
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DECLARED_
-vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel);
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel);
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
@@ -41,6 +41,11 @@ uvec3 nbl_glsl_ext_FFT_getCoordinates(in uint tidx)
     uvec3 tmp = gl_WorkGroupID;
     tmp[direction] = tidx;
     return tmp;
+}
+ivec3 nbl_glsl_ext_FFT_getPaddedCoordinates(in uint tidx, in uint log2FFTSize, in uint trueDimension)
+{
+    const uint padding = ((0x1u<<log2FFTSize)-trueDimension)>>1u;
+    return ivec3(nbl_glsl_ext_FFT_getCoordinates(tidx-padding));
 }
 
 
@@ -106,7 +111,8 @@ void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
     for(uint t=0u; t<item_per_thread_count; t++)
     {
         const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-        nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),channel);
+        const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+        nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
     }
     // do FFT
     nbl_glsl_ext_FFT_preloaded(is_inverse,log2FFTSize);

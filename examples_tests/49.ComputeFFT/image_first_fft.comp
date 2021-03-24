@@ -5,7 +5,7 @@ layout(set=0, binding=0) uniform sampler2D inputImage;
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 
 #include <nbl/builtin/glsl/math/complex.glsl>
-nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) 
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel) 
 {
 	ivec2 inputImageSize = textureSize(inputImage, 0);
 	vec2 normalizedCoords = (vec2(coordinate.xy) + vec2(0.5f)) / vec2(inputImageSize);
