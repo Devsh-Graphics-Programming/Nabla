@@ -216,8 +216,8 @@ protected:
             {
                 key = core::Float16Compressor::compress(area);
                 key <<= 48ull;
-                for (auto i = 0u; i < 3u; i++);
-                    //TODO: key |= morton_3d(fixedPointPos[i]) << i;
+                
+                core::morton3d_encode(fixedPointPos[0], fixedPointPos[1], fixedPointPos[2]);
             }
 
             void complete(float maxArea)
@@ -327,6 +327,7 @@ protected:
 
         const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
         //TODO: create array of idxInBatchCnt in the `TriangleBatches` struct
+        //actually don't, here this value is computed for the second time, but caching would not improve performance in any way
         const uint32_t idxInBatchCnt = 3u * triangleInBatchCnt;
 
         uint32_t newIdx = 0u;
