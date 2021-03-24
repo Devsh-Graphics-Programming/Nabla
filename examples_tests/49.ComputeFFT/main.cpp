@@ -25,7 +25,8 @@ constexpr uint32_t channelCountOverride = 3u;
 inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(
 	video::IVideoDriver* driver,
 	const FFTClass* fft,
-	const char* includeMainName)
+	const char* includeMainName,
+	float kernelScale = 1.f)
 {
 	const char* sourceFmt =
 R"===(#version 430 core
@@ -33,12 +34,14 @@ R"===(#version 430 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_HALF_STORAGE_ %u
+
+#define KERNEL_SCALE %f
  
 #include "%s"
 
 )===";
 
-	const size_t extraSize = 4u+8u+128u;
+	const size_t extraSize = 4u+8u+8u+128u;
 	
 	constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
@@ -47,6 +50,7 @@ R"===(#version 430 core
 		DEFAULT_WORK_GROUP_SIZE,
 		fft->getMaxFFTLength(),
 		fft->usesHalfFloatStorage() ? 1u:0u,
+		kernelScale,
 		includeMainName
 	);
 
@@ -235,7 +239,7 @@ int main()
 		kerImgViewInfo.format = kerImgViewInfo.image->getCreationParameters().format;
 		kerImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
 		kerImgViewInfo.subresourceRange.baseMipLevel = 0;
-		kerImgViewInfo.subresourceRange.levelCount = 1;
+		kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
 		kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
 		kerImgViewInfo.subresourceRange.layerCount = 1;
 		kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
@@ -342,15 +346,17 @@ int main()
 		);
 	}();
 
+	float bloomScale = 1.f;
 	const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
-	const auto paddedSrcDim = [srcDim,kerDim]() -> auto
+	const auto paddedSrcDim = [srcDim,kerDim,bloomScale]() -> auto
 	{
 		auto tmp = srcDim;
-		tmp.width += kerDim.width-1u;
-		tmp.height += kerDim.height-1u;
-		tmp.depth += kerDim.depth-1u;
+		tmp.width += kerDim.width*bloomScale-1u;
+		tmp.height += kerDim.height*bloomScale-1u;
+		tmp.depth += kerDim.depth*bloomScale-1u;
 		return tmp;
 	}();
+	bloomScale = 0.5;
 	constexpr bool useHalfFloats = true;
 	// Allocate Output Buffer
 	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,paddedSrcDim,srcNumChannels));
@@ -529,7 +535,7 @@ int main()
 		// Ker Image FFT X
 		auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver, kerDim.height, useHalfFloats);
 		{
-			auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,fft_x.get(),"../image_first_fft.comp"));
+			auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,fft_x.get(),"../image_first_fft.comp",bloomScale));
 			driver->bindComputePipeline(fftPipeline_ImageInput.get());
 			driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
 			FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);

@@ -8,8 +8,8 @@ layout(set=0, binding=0) uniform sampler2D inputImage;
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel) 
 {
 	ivec2 inputImageSize = textureSize(inputImage, 0);
-	vec2 normalizedCoords = (vec2(coordinate.xy) + vec2(0.5f)) / vec2(inputImageSize);
-	vec4 texelValue= textureLod(inputImage, normalizedCoords, 0);
+	vec2 normalizedCoords = (vec2(coordinate.xy)+vec2(0.5f))/(vec2(inputImageSize)*KERNEL_SCALE);
+	vec4 texelValue = textureLod(inputImage, normalizedCoords+vec2(0.5-0.5/KERNEL_SCALE), -log2(KERNEL_SCALE));
 	return nbl_glsl_complex(texelValue[channel], 0.0f);
 }
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
