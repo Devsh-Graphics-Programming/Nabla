@@ -342,10 +342,19 @@ int main()
 		);
 	}();
 
+	const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
+	const auto paddedSrcDim = [srcDim,kerDim]() -> auto
+	{
+		auto tmp = srcDim;
+		tmp.width += kerDim.width-1u;
+		tmp.height += kerDim.height-1u;
+		tmp.depth += kerDim.depth-1u;
+		return tmp;
+	}();
 	constexpr bool useHalfFloats = true;
 	// Allocate Output Buffer
-	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,srcDim,srcNumChannels));
-	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,srcDim,srcNumChannels));
+	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,paddedSrcDim,srcNumChannels));
+	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,paddedSrcDim,srcNumChannels));
 	core::smart_refctd_ptr<IGPUImageView> kernelNormalizedSpectrums[channelCountOverride];
 
 	auto updateDescriptorSet = [driver](video::IGPUDescriptorSet* set, core::smart_refctd_ptr<IGPUImageView> inputImageDescriptor, asset::ISampler::E_TEXTURE_CLAMP textureWrap, core::smart_refctd_ptr<IGPUBuffer> outputBufferDescriptor) -> void
@@ -400,7 +409,6 @@ int main()
 
 	// Precompute Kernel FFT
 	{
-		const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
 		const VkExtent3D paddedKerDim = FFTClass::padDimensions(kerDim);
 
 		// create kernel spectrums
@@ -553,8 +561,8 @@ int main()
 	}
 	
 	// pipelines
-	auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver,srcDim.width,useHalfFloats);
-	auto fft_y = core::make_smart_refctd_ptr<FFTClass>(driver,srcDim.height,useHalfFloats);
+	auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver,paddedSrcDim.width,useHalfFloats);
+	auto fft_y = core::make_smart_refctd_ptr<FFTClass>(driver,paddedSrcDim.height,useHalfFloats);
 	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,fft_x.get(), "../image_first_fft.comp"));
 	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, std::move(convolvePipelineLayout), createShader(driver,fft_y.get(), "../fft_convolve_ifft.comp"));
 	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, getPipelineLayout_LastFFT(driver), createShader(driver,fft_x.get(), "../last_fft.comp"));
@@ -584,13 +592,13 @@ int main()
 	FFTClass::Parameters_t fftPushConstants[3];
 	FFTClass::DispatchInfo_t fftDispatchInfo[3];
 	const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
-	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding);
+	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,paddedSrcDim);
 	{
 		fftPushConstants[1].input_dimensions.x = 2048u;
 		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides;
 		fftPushConstants[2] = fftPushConstants[0];
 		fftPushConstants[2].input_dimensions.x = 2048u;
-		fftPushConstants[2].input_dimensions.y = 1024u;
+		fftPushConstants[2].input_dimensions.y = 2048u;
 		{
 			fftPushConstants[2].input_dimensions.w ^= 0x80000000u;
 			fftPushConstants[2].input_dimensions.w &= 0xfffffffdu;

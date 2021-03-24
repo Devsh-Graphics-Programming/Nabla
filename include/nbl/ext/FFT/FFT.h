@@ -42,13 +42,17 @@ class FFT final : public core::IReferenceCounted
 		FFT(video::IDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage = false);
 
 		// returns how many dispatches necessary for computing the FFT and fills the uniform data
-		static inline uint32_t buildParameters(bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType)
+		static inline uint32_t buildParameters(
+			bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, 
+			Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType,
+			const asset::VkExtent3D& extraPaddedInputDimensions
+		)
 		{
 			uint32_t passesRequired = 0u;
 
 			if (numChannels)
 			{
-				const auto paddedInputDimensions = padDimensions(inputDimensions);
+				const auto paddedInputDimensions = padDimensions(extraPaddedInputDimensions);
 				for (uint32_t i=0u; i<3u; i++)
 				if ((&inputDimensions.width)[i]>1u)
 				{
@@ -86,6 +90,13 @@ class FFT final : public core::IReferenceCounted
 				outParams[passesRequired-1u].output_strides = outParams[0].input_strides;
 
 			return passesRequired;
+		}
+		static inline uint32_t buildParameters(
+			bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions,
+			Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType
+		)
+		{
+			return buildParameters(isInverse,numChannels,inputDimensions,outParams,outInfos,paddingType,inputDimensions);
 		}
 
 		static inline asset::VkExtent3D padDimensions(asset::VkExtent3D dimension)
