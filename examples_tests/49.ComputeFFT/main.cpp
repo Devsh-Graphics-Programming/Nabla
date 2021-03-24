@@ -342,7 +342,7 @@ int main()
 		);
 	}();
 
-	constexpr bool useHalfFloats = false;
+	constexpr bool useHalfFloats = true;
 	// Allocate Output Buffer
 	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,srcDim,srcNumChannels));
 	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,srcDim,srcNumChannels));
@@ -519,8 +519,8 @@ int main()
 		assert(passes==2u);
 
 		// Ker Image FFT X
+		auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver, kerDim.height, useHalfFloats);
 		{
-			auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver,kerDim.height,useHalfFloats);
 			auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,fft_x.get(),"../image_first_fft.comp"));
 			driver->bindComputePipeline(fftPipeline_ImageInput.get());
 			driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
@@ -533,15 +533,7 @@ int main()
 		FFTClass::dispatchHelper(driver, fftPipeline_SSBOInput->getLayout(), fftPushConstants[1], fftDispatchInfo[1]);
 		
 		// Ker Normalization
-		auto fftPipeline_KernelNormalization = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization),
-			[&]() -> auto
-			{
-				IAssetLoader::SAssetLoadParams lp;
-				auto shaderAsset = am->getAsset("../normalization.comp", lp);
-				auto stuff = driver->getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(shaderAsset.getContents(),nullptr);
-				return *stuff->begin();
-			}()
-		);
+		auto fftPipeline_KernelNormalization = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization),createShader(driver,fft_x.get(),"../normalization.comp"));
 		driver->bindComputePipeline(fftPipeline_KernelNormalization.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_KernelNormalization.get(), 0u, 1u, &fftDescriptorSet_KernelNormalization.get(), nullptr);
 		{
