@@ -61,21 +61,21 @@ layout (push_constant) uniform Block
     uint dataBufferOffset;
 } pc;
 
-vec3 nbl_glsl_fetchVtxPos(in uint vtxID)
+vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in uint drawID)
 {
-    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[gl_DrawID + pc.dataBufferOffset][0]);
+    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][0]);
     return texelFetch(MeshPackedDataFloat[va.binding], va.offset + int(vtxID)).xyz;
 }
 
-vec2 nbl_glsl_fetchVtxUV(in uint vtxID)
+vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawID)
 {
-    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[gl_DrawID + pc.dataBufferOffset][1]);
+    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][1]);
     return texelFetch(MeshPackedDataFloat[va.binding], va.offset + int(vtxID)).xy;
 }
 
-vec3 nbl_glsl_fetchVtxNormal(in uint vtxID)
+vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawID)
 {
-    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[gl_DrawID + pc.dataBufferOffset][2]);
+    VirtualAttribute va = unpackVirtualAttribute(virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][2]);
     return nbl_glsl_decodeRGB10A2_SNORM(texelFetch(MeshPackedDataUint[va.binding], va.offset + int(vtxID)).x).xyz;
 }
 
