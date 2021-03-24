@@ -69,7 +69,7 @@ class CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 {
 	using base_t = IMeshPacker<ICPUMeshBuffer, MDIStructType>;
 	using Triangle = typename base_t::Triangle;
-	using TriangleBatch = typename base_t::TriangleBatch;
+	using TriangleBatches = typename base_t::TriangleBatches;
 	using IdxBufferParams = typename base_t::IdxBufferParams;
 
 public:
@@ -383,12 +383,19 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 
 		IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
 
-		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it, idxBufferParams);
+		TriangleBatches triangleBatches = constructTriangleBatches(*it, idxBufferParams);
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
-		for (TriangleBatch& batch : triangleBatches)
+		const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
+		for (uint32_t i = 0u; i < batchCnt; i++)
 		{
-			core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);
+			auto batchBegin = triangleBatches.ranges[i];
+			auto batchEnd = triangleBatches.ranges[i + 1];
+
+			const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
+			const uint32_t idxInBatchCnt = 3 * triangleInBatchCnt;
+
+			core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatchAndUpdateUnifiedIndexBuffer(triangleBatches, i, indexBuffPtr);
 
 			//copy deinterleaved vertices into unified vertex buffer
 			for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
@@ -416,7 +423,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 
 			//construct mdi data
 			MDIStructType MDIData;
-			MDIData.count = batch.triangles.size() * 3;
+			MDIData.count = idxInBatchCnt;
 			MDIData.instanceCount = isInstancingEnabled ? (*it)->getInstanceCount() : 1u;
 			MDIData.firstIndex = batchFirstIdx;
 			MDIData.baseVertex = batchBaseVtx; //possible overflow?
@@ -426,7 +433,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 			mdiBuffPtr++;
 			MDIStructsAddedCnt++;
 
-			batchFirstIdx += 3 * batch.triangles.size();
+			batchFirstIdx += idxInBatchCnt;
 			batchBaseVtx += usedVertices.size();
 
 			verticesAddedToUnifiedBufferCnt += usedVertices.size();

@@ -18,7 +18,7 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, 
 {
     using base_t = IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>;
     using Triangle = typename base_t::Triangle;
-    using TriangleBatch = typename base_t::TriangleBatch;
+    using TriangleBatches = typename base_t::TriangleBatches;
     using IdxBufferParams = typename base_t::base_t::IdxBufferParams;
 
 public:
@@ -68,15 +68,21 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 
         IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
 
-        core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it, idxBufferParams);
+        TriangleBatches triangleBatches = constructTriangleBatches(*it, idxBufferParams);
 
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
         size_t instancesAddedCnt = 0u;
 
-        for (TriangleBatch& batch : triangleBatches)
+        const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
+        for (uint32_t i = 0u; i < batchCnt; i++)
         {
-            core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);
+            auto batchBegin = triangleBatches.ranges[i];
+            auto batchEnd = triangleBatches.ranges[i + 1];
+            const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
+            const uint32_t idxInBatchCnt = 3 * triangleInBatchCnt;
+
+            core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatchAndUpdateUnifiedIndexBuffer(triangleBatches, i, indexBuffPtr);
 
             //copy deinterleaved vertices into unified vertex buffer
             for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
@@ -128,7 +134,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 
             //construct mdi data
             MDIStructType MDIData;
-            MDIData.count = batch.triangles.size() * 3u;
+            MDIData.count = idxInBatchCnt;
             MDIData.instanceCount = (*it)->getInstanceCount();
             MDIData.firstIndex = batchFirstIdx;
             MDIData.baseVertex = 0u;
@@ -137,10 +143,10 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
             *mdiBuffPtr = MDIData;
             mdiBuffPtr++;
 
-            batchFirstIdx += 3u * batch.triangles.size();
+            batchFirstIdx += idxInBatchCnt;
         }
 
-        pmbd = { ramb.mdiAllocationOffset, static_cast<uint32_t>(triangleBatches.size()) };
+        pmbd = { ramb.mdiAllocationOffset, static_cast<uint32_t>(batchCnt) };
 
         i++;
     }

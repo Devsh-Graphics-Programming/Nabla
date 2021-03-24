@@ -162,9 +162,16 @@ protected:
         uint32_t oldIndices[3];
     };
 
-    struct TriangleBatch
+    struct TriangleBatches
     {
+        TriangleBatches(uint32_t triCnt, uint32_t batchCount)
+        {
+            triangles = core::vector<Triangle>(triCnt);
+            ranges = core::vector<Triangle*>(batchCount + 1u);
+        }
+
         core::vector<Triangle> triangles;
+        core::vector<Triangle*> ranges;
     };
 
     struct IdxBufferParams
@@ -176,30 +183,19 @@ protected:
 
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
-    core::vector<TriangleBatch> constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams) const
+    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
         assert(success);
 
-        const uint32_t batchCount = calcBatchCountBound(triCnt);
+        const uint32_t batchCnt = calcBatchCountBound(triCnt);
+        assert(batchCnt != 0u);
+
         /*
         TODO:
 
-        //struct TriangleMortonCodePair
-        //{
-        //	Triangle triangle;
-        //	//uint64_t mortonCode; TODO after benchmarks
-        //};
-        
-        core::vector<TriangleMortonCodePair> triangles(triCnt);
-        uint32_t ix=0u;
-        for (auto it=triangles.begin(); it!=triangles.end(); it++)
-        {
-            *it = IMeshManipulator::getTriangleIndices(meshbuffer,ix++);
-        }
-
-        std::sort(triangles.begin(),triangles.end(),[]()->bool{return lhs.mortonCode<rhs.mortonCode;}); // maybe use our new core::radix_sort?
+        //morton code generation (almost done)
 
         // do batch splitting
         core::vector<const TriangleMortonCodePair*> batches;
@@ -211,74 +207,143 @@ protected:
 
         return {std::move(triangles),std::move(batches)};
         */
-        core::vector<TriangleBatch> output(batchCount); // nested vectors are evil
 
-        for (uint32_t i = 0u; i < batchCount; i++)
+        struct MortonTriangle
         {
-            if (i == (batchCount - 1))
+            MortonTriangle() = default;
+
+            MortonTriangle(uint16_t fixedPointPos[3], float area)
             {
-                const auto lastBatchLen = triCnt % uint32_t(m_maxTriangleCountPerMDIData);
-                if (lastBatchLen)
-                {
-                    output[i].triangles = core::vector<Triangle>(lastBatchLen);
-                    continue;
-                }
+                key = core::Float16Compressor::compress(area);
+                key <<= 48ull;
+                for (auto i = 0u; i < 3u; i++);
+                    //TODO: key |= morton_3d(fixedPointPos[i]) << i;
             }
 
-            output[i].triangles = core::vector<Triangle>(m_maxTriangleCountPerMDIData);
-        }
-
-        //TODO: triangle reordering
-
-        auto idxBufferPtr32Bit = static_cast<const uint32_t*>(idxBufferParams.idxBuffer.buffer->getPointer()) + (idxBufferParams.idxBuffer.offset / sizeof(uint32_t)); //will be changed after benchmarks
-        auto idxBufferPtr16Bit = static_cast<const uint16_t*>(idxBufferParams.idxBuffer.buffer->getPointer()) + (idxBufferParams.idxBuffer.offset / sizeof(uint16_t));
-        for (TriangleBatch& batch : output)
-        {
-            for (Triangle& tri : batch.triangles)
+            void complete(float maxArea)
             {
-                if (idxBufferParams.indexType == EIT_32BIT)
-                {
-                    tri.oldIndices[0] = *idxBufferPtr32Bit;
-                    tri.oldIndices[1] = *(++idxBufferPtr32Bit);
-                    tri.oldIndices[2] = *(++idxBufferPtr32Bit);
-                    idxBufferPtr32Bit++;
-                }
-                else if (idxBufferParams.indexType == EIT_16BIT)
-                {
-
-                    tri.oldIndices[0] = *idxBufferPtr16Bit;
-                    tri.oldIndices[1] = *(++idxBufferPtr16Bit);
-                    tri.oldIndices[2] = *(++idxBufferPtr16Bit);
-                    idxBufferPtr16Bit++;
-                }
+                const float area = core::Float16Compressor::decompress(key >> 48ull);
+                key &= 0x0000ffffFFFFffffu;
+                const float scale = -0.5f; // square root
+                uint64_t logRelArea = uint64_t(65535.5f - core::clamp(scale * std::log2f(area / maxArea), 0.f, 65535.5f));
+                key |= logRelArea << 48ull;
             }
+
+            uint64_t key;
+        };
+        
+
+        //TODO: use SoA instead (with core::radix_sort):
+        //core::vector<Triangle> triangles;
+        //core::vector<MortonTriangle> triangleMortonCodes;
+        //where `triangles` is member of `TriangleBatch` struct
+        struct TriangleMortonCodePair
+        {
+            Triangle triangle;
+            MortonTriangle mortonCode;
+
+            inline bool operator<(const TriangleMortonCodePair& other)
+            {
+                return this->mortonCode.key < other.mortonCode.key;
+            }
+        };
+
+        TriangleBatches triangleBatches(triCnt, batchCnt);
+        core::vector<TriangleMortonCodePair> triangles(triCnt); //#1
+
+        //triangle reordering
+        {
+            //this is needed for mesh buffers with no index buffer (triangle strips and triagnle fans)
+            //TODO: fix
+            //bool wasTmpIdxBufferSet = false;
+            //if (meshBuffer->getIndexBufferBinding().buffer == nullptr)
+            //{
+            //    //temporary use generated index buffer
+            //    wasTmpIdxBufferSet = true;
+            //    meshBuffer->setIndexBufferBinding(idxBufferParams.idxBuffer);
+            //}
+
+            const core::aabbox3df aabb = IMeshManipulator::calculateBoundingBox(meshBuffer);
+
+            uint32_t ix = 0u;
+            float maxTriangleArea = 0.0f;
+            for (auto it = triangles.begin(); it != triangles.end(); it++)
+            {
+                auto triangleIndices = IMeshManipulator::getTriangleIndices(meshBuffer, ix++);
+                //have to copy there
+                std::copy(triangleIndices.begin(), triangleIndices.end(), it->triangle.oldIndices);
+
+                core::vectorSIMDf trianglePos[3];
+                trianglePos[0] = meshBuffer->getPosition(it->triangle.oldIndices[0]);
+                trianglePos[1] = meshBuffer->getPosition(it->triangle.oldIndices[1]);
+                trianglePos[2] = meshBuffer->getPosition(it->triangle.oldIndices[2]);
+
+                const core::vectorSIMDf centroid = ((trianglePos[0] + trianglePos[1] + trianglePos[2]) / 3.0f) - core::vectorSIMDf(aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z);
+                uint16_t fixedPointPos[3];
+                fixedPointPos[0] = uint16_t(centroid.x * 65535.5f / aabb.getExtent().X);
+                fixedPointPos[1] = uint16_t(centroid.y * 65535.5f / aabb.getExtent().Y);
+                fixedPointPos[2] = uint16_t(centroid.z * 65535.5f / aabb.getExtent().Z);
+
+                float area = core::cross(trianglePos[1] - trianglePos[0], trianglePos[2] - trianglePos[0]).x;
+                it->mortonCode = MortonTriangle(fixedPointPos, area);
+
+                if (area > maxTriangleArea)
+                    maxTriangleArea = area;
+            }
+
+            /*if (wasTmpIdxBufferSet)
+                meshBuffer->setIndexBufferBinding(nullptr);*/
+
+            //complete morton code
+            for (auto it = triangles.begin(); it != triangles.end(); it++)
+                it->mortonCode.complete(maxTriangleArea);
+
+            std::sort(triangles.begin(), triangles.end());
         }
 
-        return output;
+        //copying, after radix_sort this will be removed
+        //TODO durning radix_sort integration:
+        //since there will be distinct arrays for triangles and their morton code use `triangleBatches.triangles` instead of #1
+        for (uint32_t i = 0u; i < triCnt; i++)
+            triangleBatches.triangles[i] = triangles[i].triangle;
+
+        //set ranges
+        Triangle* triangleArrayBegin = triangleBatches.triangles.data();
+        Triangle* triangleArrayEnd = triangleArrayBegin + triangleBatches.triangles.size();
+        for (uint32_t i = 0u; i < batchCnt; i++)
+            triangleBatches.ranges[i] = triangleArrayBegin + (m_maxTriangleCountPerMDIData * i);
+        triangleBatches.ranges[batchCnt] = triangleArrayEnd;
+
+        return triangleBatches;
     }
 
-    static core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatch(TriangleBatch& batch, uint16_t*& indexBuffPtr)
+    static core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatchAndUpdateUnifiedIndexBuffer(TriangleBatches& batches, uint32_t batchIdx, uint16_t*& indexBuffPtr)
     {
         core::unordered_map<uint32_t, uint16_t> usedVertices;
-        core::vector<Triangle> newIdxTris = batch.triangles;
+        core::vector<Triangle> newIdxTris = batches.triangles;
+
+        auto batchBegin = batches.ranges[batchIdx];
+        auto batchEnd = batches.ranges[batchIdx + 1];
+
+        const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
+        //TODO: create array of idxInBatchCnt in the `TriangleBatches` struct
+        const uint32_t idxInBatchCnt = 3u * triangleInBatchCnt;
 
         uint32_t newIdx = 0u;
-        for (uint32_t i = 0u; i < batch.triangles.size(); i++)
+        for (uint32_t i = 0u; i < triangleInBatchCnt; i++)
         {
-            const Triangle& triangle = batch.triangles[i];
+            const Triangle const* triangle = batchBegin + i;
             for (int32_t j = 0; j < 3; j++)
             {
-                const uint32_t oldIndex = triangle.oldIndices[j];
+                const uint32_t oldIndex = triangle->oldIndices[j];
                 auto result = usedVertices.insert(std::make_pair(oldIndex, newIdx));
 
                 newIdxTris[i].oldIndices[j] = result.second ? newIdx++ : result.first->second;
             }
         }
 
-        //TODO: cache optimization
-
         //copy indices into unified index buffer
-        for (size_t i = 0; i < batch.triangles.size(); i++)
+        for (size_t i = 0; i < idxInBatchCnt; i++)
         {
             for (int j = 0; j < 3; j++)
             {
