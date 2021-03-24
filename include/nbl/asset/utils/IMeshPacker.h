@@ -343,7 +343,7 @@ protected:
         }
 
         //copy indices into unified index buffer
-        for (size_t i = 0; i < idxInBatchCnt; i++)
+        for (size_t i = 0; i < triangleInBatchCnt; i++)
         {
             for (int j = 0; j < 3; j++)
             {
