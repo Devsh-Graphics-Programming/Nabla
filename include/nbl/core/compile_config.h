@@ -26,7 +26,8 @@
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   define _NBL_WINDOWS_API_
-#   define _NBL_COMPILE_WITH_WINDOWS_DEVICE_
+#elif defined(_NBL_PLATFORM_ANDROID_)
+#   define _NBL_ANDROID_API_
 #endif
 
 #ifdef _NBL_TARGET_ARCH_ARM_

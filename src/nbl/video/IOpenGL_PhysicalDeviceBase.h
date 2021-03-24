@@ -4,6 +4,7 @@
 #include "nbl/video/CEGL.h"
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/COpenGLFeatureMap.h"
+#include "nbl/video/COpenGLDebug.h"
 #ifndef GL_GLEXT_LEGACY
 #define GL_GLEXT_LEGACY 1
 #endif
@@ -106,9 +107,9 @@ protected:
 
 public:
     IOpenGL_PhysicalDeviceBase(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
-		const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor) :
+		const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor, SDebugCallback* dbgCb) :
 		IPhysicalDevice(std::move(fs), std::move(glslc)),
-        m_egl(_egl), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
+        m_egl(_egl), m_config(_config), m_gl_major(_major), m_gl_minor(_minor), m_dbgCb(dbgCb)
     {
         // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
@@ -138,6 +139,30 @@ public:
 		auto GetIntegeri_v = reinterpret_cast<PFNGLGETINTEGERI_VPROC>(_egl->call.peglGetProcAddress("glGetIntegeri_v"));
 		auto GetFloatv = reinterpret_cast<decltype(glGetFloatv)*>(_egl->call.peglGetProcAddress("glGetFloatv"));
 		auto GetBooleanv = reinterpret_cast<decltype(glGetBooleanv)*>(_egl->call.peglGetProcAddress("glGetBooleanv"));
+
+#ifdef _NBL_DEBUG
+		if (dbgCb)
+		{
+			if constexpr (IsGLES)
+			{
+				PFNGLDEBUGMESSAGECALLBACKPROC DebugMessageCallback = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallback"));
+				PFNGLDEBUGMESSAGECALLBACKKHRPROC DebugMessageCallbackKHR = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKKHRPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallbackKHR"));
+				if (DebugMessageCallback)
+					DebugMessageCallback(&opengl_debug_callback, dbgCb);
+				else if (DebugMessageCallbackKHR)
+					DebugMessageCallbackKHR(&opengl_debug_callback, dbgCb);
+			}
+			else
+			{
+				PFNGLDEBUGMESSAGECALLBACKPROC DebugMessageCallback = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallback"));
+				PFNGLDEBUGMESSAGECALLBACKARBPROC DebugMessageCallbackARB = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKARBPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallbackARB"));
+				if (DebugMessageCallback)
+					DebugMessageCallback(&opengl_debug_callback, dbgCb);
+				else if (DebugMessageCallbackARB)
+					DebugMessageCallbackARB(&opengl_debug_callback, dbgCb);
+			}
+		}
+#endif
 
 		// initialize features
 		std::string vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
@@ -383,6 +408,8 @@ protected:
     EGLint m_gl_major, m_gl_minor;
 
 	COpenGLFeatureMap m_glfeatures;
+
+	SDebugCallback* m_dbgCb;
 };
 
 }

@@ -8,6 +8,7 @@
 #include "nbl/video/COpenGLDescriptorSet.h"
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLEvent.h"
+#include "nbl/video/debug/debug.h"
 
 #include <chrono>
 
@@ -53,16 +54,15 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
         IOpenGL_LogicalDevice(_egl, api_type, params, std::move(fs), std::move(glslc)),
-        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config)),
+        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config), _dbgCb),
         m_glfeatures(_features),
         m_config(config),
         m_gl_ver(major, minor)
     {
         EGLContext master_ctx = m_threadHandler.getContext();
-        //EGLSurface master_pbuf = m_threadHandler.getSurface();
-        //_egl->call.peglMakeCurrent(_egl->display, master_ctx, master_pbuf, master_pbuf);
+
         uint32_t totalQCount = getTotalQueueCount(params);
         assert(totalQCount <= MaxQueueCount);
 
@@ -81,7 +81,7 @@ public:
 
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority, _dbgCb);
             }
         }
 
@@ -197,7 +197,7 @@ public:
         // master context must not be current while creating a context with whom it will be sharing
         unbindMasterContext();
         EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, master_ctx);
-        auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig);
+        auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig, m_dbgCb);
         // wait until swapchain's internal thread finish context creation
         sc->waitForContextCreation();
         // make master context (in logical device internal thread) again
@@ -622,6 +622,8 @@ private:
     FeaturesType* m_glfeatures;
     EGLConfig m_config;
     std::pair<EGLint, EGLint> m_gl_ver;
+
+    SDebugCallback* m_dbgCb;
 };
 
 }

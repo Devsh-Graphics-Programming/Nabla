@@ -57,7 +57,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
                 m_vaoHashval.attribFormatAndComponentCount[i] = m_vertexInputParams.attributes[i].format;
                 m_vaoHashval.setRelativeOffsetForAttrib(i, m_vertexInputParams.attributes[i].relativeOffset);
 
-                const uint32_t bnd = m_vertexInputParams.attributes[i].binding;
+                const uint64_t bnd = m_vertexInputParams.attributes[i].binding;
                 m_vaoHashval.mapAttrToBinding |= (bnd<<(i*4));
                 m_vaoHashval.setStrideForBinding(bnd, m_vertexInputParams.bindings[bnd].stride);
                 m_vaoHashval.divisors |= ((m_vertexInputParams.bindings[bnd].inputRate==asset::EVIR_PER_VERTEX ? 0u : 1u) << bnd);
