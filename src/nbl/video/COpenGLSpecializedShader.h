@@ -5,15 +5,21 @@
 #ifndef __NBL_VIDEO_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
 
-#include "spirv_cross/spirv_glsl.hpp"
+
+#include <algorithm>
+
+#include "nbl/core/containers/refctd_dynamic_array.h"
+
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
 #include "nbl/video/COpenGLShader.h"
-#include "nbl/asset/CShaderIntrospector.h"
-#include "nbl/core/containers/refctd_dynamic_array.h"
-#include "nbl/video/IGPUMeshBuffer.h"
+#include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
-#include <algorithm>
+#include "COpenGLExtensionHandler.h"
+
+#include "spirv_cross/spirv_glsl.hpp"
+
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 

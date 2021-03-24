@@ -5,7 +5,6 @@
 #ifndef __NBL_I_SKINNING_STATE_MANAGER_H_INCLUDED__
 #define __NBL_I_SKINNING_STATE_MANAGER_H_INCLUDED__
 
-#include "CFinalBoneHierarchy.h"
 #include "IDummyTransformationSceneNode.h"
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 #include "nbl/video/alloc/ResizableBufferingAllocator.h"

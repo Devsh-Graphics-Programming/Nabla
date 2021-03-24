@@ -89,8 +89,8 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 				assert(blockDims.w==1u);
 			#endif
 
-			typedef std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
-			typedef std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
+			typedef typename std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
+			typedef typename std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
 			
 			auto perOutputRegion = [&blockDims,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
@@ -111,8 +111,8 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						decodeBufferType decodeBuffer[maxChannels] = {};
 						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -170,8 +170,8 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Normalize,Clam
 						double decodeBuffer[maxChannels] = {};
 						double encodeBuffer[maxChannels] = {};
 
-						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+						impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -218,7 +218,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Normalize,Clamp
 			assert(blockDims.w == 1u);
 			#endif
 
-			typedef std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
+			typedef typename std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
 
 			auto perOutputRegion = [&blockDims,inFormat,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
@@ -239,8 +239,8 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Normalize,Clamp
 							double decodeBuffer[maxChannels] = {};
 							encodeBufferType encodeBuffer[maxChannels] = {};
 
-							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -288,7 +288,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Normalize,Clamp,
 			assert(blockDims.w == 1u);
 			#endif
 
-			typedef std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
+			typedef typename std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
 
 			auto perOutputRegion = [&blockDims,&outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
@@ -309,8 +309,8 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Normalize,Clamp,
 							decodeBufferType decodeBuffer[maxChannels] = {};
 							double encodeBuffer[maxChannels] = {};
 
-							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+							impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::template onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);

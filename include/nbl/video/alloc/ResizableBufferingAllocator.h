@@ -85,6 +85,15 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
             MultiBase::resetPushRange();
             return true;
         }
+        static inline void* operator new(size_t size)                noexcept {return (Base::operator new(size));}
+        static inline void* operator new[](size_t size)              noexcept {return Base::operator new[](size);}
+        static inline void* operator new(size_t size, void* where)   noexcept {return (Base::operator new(size,where));}
+        static inline void* operator new[](size_t size, void* where) noexcept {return Base::operator new[](size,where);}
+        static inline void operator delete(void* ptr)                noexcept {Base::operator delete(ptr);}
+        static inline void operator delete[](void* ptr)              noexcept {Base::operator delete[](ptr);}
+        static inline void operator delete(void* ptr, size_t size)   noexcept {Base::operator delete(ptr,size);}
+        static inline void operator delete[](void* ptr, size_t size) noexcept {Base::operator delete[](ptr,size);}
+
 };
 
 }

@@ -5,7 +5,7 @@
 #ifndef __NBL_VIDEO_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include <nbl/asset/ICPUVirtualTexture.h>
+#include <nbl/asset/utils/ICPUVirtualTexture.h>
 #include <nbl/video/IGPUImageView.h>
 #include "IVideoDriver.h"
 #include <nbl/asset/IAssetManager.h>
@@ -40,12 +40,12 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<video::IGPUImageV
 protected:
     class IGPUVTResidentStorage final : public base_t::IVTResidentStorage
     {
-        using base_t = base_t::IVTResidentStorage;
+        using storage_base_t = base_t::IVTResidentStorage;
         using cpu_counterpart_t = asset::ICPUVirtualTexture::ICPUVTResidentStorage;
 
     public:
         IGPUVTResidentStorage(IVideoDriver* _driver, const cpu_counterpart_t* _cpuStorage) :
-            base_t(
+            storage_base_t(
                 impl::createGPUImageFromCPU(_driver, _cpuStorage->image.get()),
                 _cpuStorage->tileAlctr,
                 _cpuStorage->m_alctrReservedSpace,
@@ -58,14 +58,14 @@ protected:
         }
 
         IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tilesPerDim) :
-            base_t(_format, _tilesPerDim),
+            storage_base_t(_format, _tilesPerDim),
             m_driver(_driver)
         {
 
         }
 
         IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) :
-            base_t(_format, _layers, _tilesPerDim),
+            storage_base_t(_format, _layers, _tilesPerDim),
             m_driver(_driver)
         {
             deferredInitialization(_tileExtent, _layers);
@@ -73,7 +73,7 @@ protected:
 
         void deferredInitialization(uint32_t tileExtent, uint32_t _layers) override
         {
-            base_t::deferredInitialization(tileExtent, _layers);
+            storage_base_t::deferredInitialization(tileExtent, _layers);
 
             if (image)
                 return;

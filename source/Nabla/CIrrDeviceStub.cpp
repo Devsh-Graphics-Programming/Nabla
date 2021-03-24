@@ -3,15 +3,18 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "CIrrDeviceStub.h"
-#include "CSceneManager.h"
-#include "IEventReceiver.h"
-#include "IFileSystem.h"
 #include "os.h"
 #include "CLogger.h"
-#include "nbl/asset/CIncludeHandler.h"
-
+#include "IFileSystem.h"
 #include "CFileSystem.h"
+
+#include "nbl/asset/utils/CIncludeHandler.h"
+
+#include "IEventReceiver.h"
+
+#include "CIrrDeviceStub.h"
+
+#include "CSceneManager.h"
 
 namespace nbl
 {

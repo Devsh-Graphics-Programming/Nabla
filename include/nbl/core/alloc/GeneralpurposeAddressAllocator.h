@@ -330,7 +330,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
             size_type bestWastedSpace = ~size_type(0u);
-            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,freeListCount};
+            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,Base::freeListCount};
 
             auto perBlockFunctional = [&bestWastedSpace,&bestBlock](Block hypotheticallyAllocatedBlock, Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
@@ -423,7 +423,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 // we've found our block, we can quit now
                 return true;
             };
-            findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
+            Base::findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
             return retval;
         }
 };
@@ -442,9 +442,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
         static constexpr bool supportsNullBuffer = true;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-        #undef DUMMY_DEFAULT_CONSTRUCTOR
+        GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
 
         virtual ~GeneralpurposeAddressAllocator() {}
 

@@ -48,6 +48,8 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 {
 	public:
 		using value_type = typename CFloatingPointOnlyImageFilterKernelBase::value_type;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
+
 	private:
 		using StaticPolymorphicBase = CImageFilterKernel<CRTP,value_type>;
 
@@ -76,7 +78,7 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 		template<class PreFilter, class PostFilter>
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			return sample_functor_t(static_cast<const CRTP*>(this),preFilter,postFilter);
+			return sample_functor_t<PreFilter,PostFilter>(static_cast<const CRTP*>(this),preFilter,postFilter);
 		}
 
 		// derived classes must declare this
@@ -89,7 +91,7 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 		// utility function so we dont evaluate `weight` function in children outside the support and just are able to return 0.f
 		inline bool inDomain(float x) const
 		{
-			return (-x)<negative_support.x && x<positive_support.x;
+			return (-x)<StaticPolymorphicBase::negative_support.x && x<StaticPolymorphicBase::positive_support.x;
 		}
 };
 
@@ -110,7 +112,10 @@ template<class CRTP,class Support=std::ratio<1,1> >
 class CFloatingPointIsotropicSeparableImageFilterKernelBase :	public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>,
 																public CIsotropicImageFilterKernelBase<Support>
 {
-		using Base = CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>;
+		using Base =  CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>;
+		using Base2 = CIsotropicImageFilterKernelBase<Support>;
+	protected:
+		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = Base2::isotropic_support;
 
 	public:
 		CFloatingPointIsotropicSeparableImageFilterKernelBase() : Base(isotropic_support,isotropic_support) {}

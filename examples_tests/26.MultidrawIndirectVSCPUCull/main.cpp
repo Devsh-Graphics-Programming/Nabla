@@ -101,7 +101,7 @@ int main()
     
     auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
     //loading cache from file
-    if (!qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true))
+    if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse"))
         os::Printer::log("Failed to load cache.");
 
     constexpr auto kInstanceCount = 8192;
@@ -202,7 +202,7 @@ int main()
         }
         
         //! cache results -- speeds up mesh generation on second run
-        qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+        qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
         
         //
         gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);

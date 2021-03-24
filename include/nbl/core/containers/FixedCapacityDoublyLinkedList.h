@@ -16,11 +16,29 @@ namespace nbl
 namespace core
 {
 
+namespace impl
+{
+	class FixedCapacityDoublyLinkedListBase
+	{
+		public:
+			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
+		protected:
+
+			template<typename T>
+			FixedCapacityDoublyLinkedListBase(const uint32_t capacity, void*& _reservedSpace, T*& _array)
+			{
+				const auto firstPart = core::alignUp(PoolAddressAllocator<uint32_t>::reserved_size(1u,capacity,1u),alignof(T));
+				_reservedSpace = _NBL_ALIGNED_MALLOC(firstPart+capacity*sizeof(T),alignof(T));
+				_array = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(_reservedSpace)+firstPart);
+			}
+	};
+}
+
 //Struct for use in a doubly linked list. Stores data and pointers to next and previous elements the list, or invalid iterator if it is first/last
 template<typename Value>
 struct alignas(void*) SDoublyLinkedNode
 {
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = FixedCapacityDoublyLinkedList<Value>::invalid_iterator;
+	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;
 
 	Value data;
 	uint32_t prev;
@@ -62,26 +80,11 @@ struct alignas(void*) SDoublyLinkedNode
 	}
 };
 
-namespace impl
-{
-	class FixedCapacityDoublyLinkedListBase
-	{
-		protected:
-			template<typename T>
-			FixedCapacityDoublyLinkedListBase(const uint32_t capacity, void*& _reservedSpace, T*& _array)
-			{
-				const auto firstPart = core::alignUp(PoolAddressAllocator<uint32_t>::reserved_size(1u,capacity,1u),alignof(T));
-				_reservedSpace = _NBL_ALIGNED_MALLOC(firstPart+capacity*sizeof(T),alignof(T));
-				_array = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(_reservedSpace)+firstPart);
-			}
-	};
-}
-
 template<typename Value>
 class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedListBase
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;
 
 		using disposal_func_t = std::function<void(Value&)>;
 

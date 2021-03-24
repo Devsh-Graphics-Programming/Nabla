@@ -4,7 +4,14 @@
 
 #ifndef __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
 #define __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
-
+#define NBL_NEW_OPERATOR_PASSTHTHROUGH  static inline void* operator new(size_t size)                noexcept {return (Base::operator new(size));}\
+        static inline void* operator new[](size_t size)              noexcept {return Base::operator new[](size);}\
+        static inline void* operator new(size_t size, void* where)   noexcept {return (Base::operator new(size,where));}\
+        static inline void* operator new[](size_t size, void* where) noexcept {return Base::operator new[](size,where);}\
+        static inline void operator delete(void* ptr)                noexcept {Base::operator delete(ptr);}\
+        static inline void operator delete[](void* ptr)              noexcept {Base::operator delete[](ptr);}\
+        static inline void operator delete(void* ptr, size_t size)   noexcept {Base::operator delete(ptr,size);}\
+        static inline void operator delete[](void* ptr, size_t size) noexcept {Base::operator delete[](ptr,size);}
 #include <cstring>
 
 #include "nbl/core/IReferenceCounted.h"
@@ -93,6 +100,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         {
             Base::multi_free(std::forward<Args>(args)...);
         }
+       NBL_NEW_OPERATOR_PASSTHTHROUGH
 };
 
 
@@ -180,6 +188,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         {
             return lock;
         }
+        NBL_NEW_OPERATOR_PASSTHTHROUGH
 };
 
 

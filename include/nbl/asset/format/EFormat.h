@@ -321,7 +321,7 @@ namespace asset
     }
 
     template<E_FORMAT_CLASS _fclass>
-    constexpr const core::vector3du32_SIMD getBlockDimensions()
+    const core::vector3du32_SIMD getBlockDimensions()
     {
         switch (_fclass)
         {
@@ -1684,7 +1684,7 @@ namespace asset
     }
 
     template<asset::E_FORMAT _fmt>
-    constexpr const core::vector3du32_SIMD getBlockDimensions()
+    const core::vector3du32_SIMD getBlockDimensions()
     {
         switch (_fmt)
         {

@@ -5,8 +5,8 @@
 #ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
+#include "nbl/core/IReferenceCounted.h"
 #include <string>
-#include "nbl/asset/IAssetMetadata.h"
 
 namespace nbl
 {
@@ -77,7 +77,6 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_MESH_DATA_DESCRIPTOR represents
 			ET_GRAPHICS_PIPELINE represents
 			ET_SCENE represents
-			ET_IMPLEMENTATION_SPECIFIC_METADATA represents a special value used for things like terminating lists of this enum
 
 			Pay attention that an Asset type represents one single bit, so there is a limit to 64 bits.
 
@@ -92,8 +91,8 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_IMAGE_VIEW = 1ull<<4,			                //!< asset::ICPUImageView
 			ET_DESCRIPTOR_SET = 1ull<<5,                        //!< asset::ICPUDescriptorSet
 			ET_DESCRIPTOR_SET_LAYOUT = 1ull<<6,                 //!< asset::ICPUDescriptorSetLayout
-			ET_SKELETON = 1ull<<7,							    //!< asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
-			ET_KEYFRAME_ANIMATION = 1ull<<8,					//!< asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
+			ET_SKELETON = 1ull<<7,							    //!< asset::ICPUSkeleton
+			ET_KEYFRAME_ANIMATION = 1ull<<8,					//!< asset::ICPUKeyframeAnimation
 			ET_PIPELINE_LAYOUT = 1ull<<9,						//!< asset::ICPUPipelineLayout
 			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
 			ET_SPECIALIZED_SHADER = 1ull<<11,					//!< asset::ICPUSpecializedShader
@@ -135,10 +134,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 			It will perform assert if the attempt fails.
 		*/
-		template<typename T>
-		using asset_cv_t = typename std::conditional<std::is_const<T>::value,const IAsset,IAsset>::type;
 		template<typename assetType>
-		static assetType* castDown(asset_cv_t<assetType>* rootAsset)
+		static assetType* castDown(core::add_const_if_const_t<assetType,IAsset>* rootAsset) // maybe call it something else and not make static?
 		{
 			if (!rootAsset)
 				return nullptr;
@@ -150,12 +147,12 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 		//! Smart pointer variant
 		template<typename assetType>
-		static inline core::smart_refctd_ptr<assetType> castDown(const core::smart_refctd_ptr<asset_cv_t<assetType> >& rootAsset)
+		static inline core::smart_refctd_ptr<assetType> castDown(const core::smart_refctd_ptr<core::add_const_if_const_t<assetType,IAsset> >& rootAsset)
 		{
 			return core::smart_refctd_ptr<assetType>(castDown<assetType>(rootAsset.get()));
 		}
 		template<typename assetType>
-		static inline core::smart_refctd_ptr<assetType> castDown(core::smart_refctd_ptr<asset_cv_t<assetType> >&& rootAsset)
+		static inline core::smart_refctd_ptr<assetType> castDown(core::smart_refctd_ptr<core::add_const_if_const_t<assetType,IAsset> >&& rootAsset)
 		{
 			if (!castDown<assetType>(rootAsset.get()))
 				return nullptr;
@@ -163,7 +160,7 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 
 		//!
-		IAsset() : m_metadata{nullptr}, isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
+		IAsset() : isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
 
 		//! Returns correct size reserved associated with an Asset and its data
 		/**
@@ -176,12 +173,7 @@ class IAsset : virtual public core::IReferenceCounted
 		*/
 		virtual size_t conservativeSizeEstimate() const = 0;
 
-		//! Returns Asset's metadata. @see IAssetMetadata
-		IAssetMetadata* getMetadata() { return m_metadata.get(); }
-
-		//! Returns Asset's metadata. @see IAssetMetadata
-		const IAssetMetadata* getMetadata() const { return m_metadata.get(); }
-
+		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
 		bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
@@ -192,6 +184,7 @@ class IAsset : virtual public core::IReferenceCounted
 				return false;
 
 			restoreFromDummy_impl(_other, _levelsBelow);
+			isDummyObjectForCacheAliasing = false;
 			return true;
 		}
 
@@ -218,6 +211,15 @@ class IAsset : virtual public core::IReferenceCounted
 
 		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
+		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
+		bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
+		{
+			if (isADummyObjectForCache())
+				return true;
+
+			return _levelsBelow ? isAnyDependencyDummy_impl(_levelsBelow) : false;
+		}
+
     protected:
 		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
 		{
@@ -226,9 +228,11 @@ class IAsset : virtual public core::IReferenceCounted
 
 		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
 
+		// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
+		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }
+
         inline void clone_common(IAsset* _clone) const
         {
-            _clone->m_metadata = m_metadata;
             assert(!isDummyObjectForCacheAliasing);
             _clone->isDummyObjectForCacheAliasing = false;
             _clone->m_mutability = EM_MUTABLE;
@@ -242,16 +246,6 @@ class IAsset : virtual public core::IReferenceCounted
 
 	private:
 		friend IAssetManager;
-		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
-
-		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) 
-		{
-			//we have to talk about it (TODO)
-			//TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/14
-			//if (isImmutable_debug())
-			//	return;
-			m_metadata = std::move(_metadata);
-		}
 
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
@@ -295,97 +289,6 @@ class IAsset : virtual public core::IReferenceCounted
 
 		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
 		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
-};
-
-//! A class storing Assets with the same type
-class SAssetBundle
-{
-		inline bool allSameTypeAndNotNull()
-		{
-			if (m_contents->size() == 0ull)
-				return true;
-			if (!*m_contents->begin())
-				return false;
-			IAsset::E_TYPE t = (*m_contents->begin())->getAssetType();
-			for (auto it=m_contents->cbegin(); it!=m_contents->cend(); it++)
-				if (!(*it) || (*it)->getAssetType()!=t)
-					return false;
-			return true;
-		}
-	public:
-		using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
-    
-		SAssetBundle(const std::string& _initKey = {}) : m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab) {}
-		SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents, const std::string& _initKey = {}) : 
-			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
-		{
-			assert(allSameTypeAndNotNull());
-		}
-		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(const container_t& _contents, const std::string& _initKey = {}) :
-			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(_contents), core::dont_grab)
-		{
-			assert(allSameTypeAndNotNull());
-		}
-		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(container_t&& _contents, const std::string& _initKey = {}) : 
-			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(std::move(_contents)), core::dont_grab)
-		{
-			assert(allSameTypeAndNotNull());
-		}
-
-		//! Returning a type associated with current stored Assets
-		/**
-			An Asset type is specified in E_TYPE enum.
-			@see E_TYPE
-		*/
-		inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
-
-		//! Getting beginning and end of an Asset stored by m_contents
-		inline core::SRange<const core::smart_refctd_ptr<IAsset>> getContents() const
-		{
-			return core::SRange<const core::smart_refctd_ptr<IAsset>>(m_contents->begin(),m_contents->end());
-		}
-
-		//! Whether this asset bundle is in a cache and should be removed from cache to destroy
-		inline bool isInAResourceCache() const { return m_isCached; }
-
-		//! Only valid if isInAResourceCache() returns true
-		std::string getCacheKey() const { return m_cacheKey; }
-
-		//! Getting size of a collection of Assets stored by m_contents
-		size_t getSize() const { return m_contents->size(); }
-
-		//! Checking if a collection of Assets stored by m_contents is empty
-		bool isEmpty() const { return getSize()==0ull; }
-
-		//! Overloaded operator checking if both collections of Assets\b are\b the same arrays in memory
-		bool operator==(const SAssetBundle& _other) const
-		{
-            if (m_contents->size() != _other.m_contents->size())
-                return false;
-            for (size_t i = 0ull; i < m_contents->size(); ++i)
-                if ((*m_contents)[i] != (*_other.m_contents)[i])
-                    return false;
-            return true;
-		}
-
-		//! Overloaded operator checking if both collections of Assets\b aren't\b the same arrays in memory
-		bool operator!=(const SAssetBundle& _other) const
-		{
-			return !((*this) != _other);
-		}
-
-	private:
-		friend class IAssetManager;
-
-		inline void setNewCacheKey(const std::string& newKey) { m_cacheKey = newKey; }
-		inline void setNewCacheKey(std::string&& newKey) { m_cacheKey = std::move(newKey); }
-		inline void setCached(bool val) { m_isCached = val; }
-
-		std::string m_cacheKey;
-		bool m_isCached = false;
-		core::smart_refctd_ptr<contents_container_t> m_contents;
 };
 
 }

@@ -46,7 +46,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			core::SRange<uint32_t> outIndices;
 			const void* const* data; 
 		};
-		transfer_result_t addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
+		transfer_result_t addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
 
         //
 		struct TransferRequest
@@ -66,7 +66,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				void* writeData;
 			};
 		};
-		transfer_result_t transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
+		transfer_result_t transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
 		
 		// only public because GPUDeferredEventHandlerST needs to know about it
 		class DeferredDescriptorSetReclaimer

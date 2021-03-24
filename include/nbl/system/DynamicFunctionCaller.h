@@ -44,8 +44,8 @@ class DynamicFunctionCallerBase : public core::Unmovable
 }
 
 
-#define NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (Base::loader.loadFuncPtr( #FUNC_NAME ))
-#define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(p ## FUNC_NAME,other.p ## FUNC_NAME);
+#define NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,NBL_CONCATENATE(p , FUNC_NAME)(Base::loader.loadFuncPtr( #FUNC_NAME ))
+#define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(NBL_CONCATENATE(p, FUNC_NAME),other.NBL_CONCATENATE(p, FUNC_NAME));
 
 #define NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
 class CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\

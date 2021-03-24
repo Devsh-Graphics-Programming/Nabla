@@ -16,7 +16,6 @@ namespace ext
 namespace MitsubaLoader
 {
 
-class CGlobalMitsubaMetadata;
 
 class CElementFilm : public IElement
 {
@@ -101,7 +100,7 @@ class CElementFilm : public IElement
 		}
 
 		bool addProperty(SNamedPropertyElement&& _property) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::FILM; }
 		std::string getLogName() const override { return "film"; }
 

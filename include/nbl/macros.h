@@ -10,7 +10,6 @@
 
 // basics
 #define NBL_EVAL(...) __VA_ARGS__
-
 #define NBL_CONCAT_IMPL2(X,Y) X ## Y
 #define NBL_CONCAT_IMPL(X,Y) NBL_CONCAT_IMPL2(X,Y)
 #define NBL_CONCATENATE(X,Y) NBL_CONCAT_IMPL(NBL_EVAL(X) , NBL_EVAL(Y))

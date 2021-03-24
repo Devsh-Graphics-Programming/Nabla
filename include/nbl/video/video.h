@@ -41,9 +41,6 @@
 #include "nbl/video/IGPURenderpass.h"
 //#include "nbl/video/IGPUObjectFromAssetConverter.h"
 
-// kill/refactor
-#include "nbl/video/CGPUSkinnedMesh.h"
-
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"
 

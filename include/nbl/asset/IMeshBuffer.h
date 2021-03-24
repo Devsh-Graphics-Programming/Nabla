@@ -117,18 +117,25 @@ public:
         const auto& vtxInputParams = ppln->getVertexInputParams();
         return vtxInputParams.attributes[attrId].relativeOffset;
     }
-    inline const SBufferBinding<BufferType>& getAttribBoundBuffer(uint32_t attrId) const
+    inline const SBufferBinding<const BufferType>& getAttribBoundBuffer(uint32_t attrId) const
     {
         const uint32_t bnd = getBindingNumForAttribute(attrId);
-        return m_vertexBufferBindings[bnd];
+        return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_vertexBufferBindings[bnd]);
     }
-    inline const SBufferBinding<BufferType>* getVertexBufferBindings() const
+    inline uint64_t getAttribCombinedOffset(uint32_t attrId) const
     {
-        return m_vertexBufferBindings;
+        const auto& buf = getAttribBoundBuffer(attrId);
+        return buf.offset+static_cast<uint64_t>(getAttribOffset(attrId));
     }
-    inline const SBufferBinding<BufferType>& getIndexBufferBinding() const
+
+    //
+    inline const SBufferBinding<const BufferType>* getVertexBufferBindings() const
     {
-        return m_indexBufferBinding;
+        return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_vertexBufferBindings);
+    }
+    inline const SBufferBinding<const BufferType>& getIndexBufferBinding() const
+    {
+        return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_indexBufferBinding);
     }
     inline const PipelineType* getPipeline() const
     {
@@ -189,13 +196,13 @@ public:
         baseVertex = baseVx;
     }
 
-	inline const size_t& getInstanceCount() const {return instanceCount;}
+	inline size_t getInstanceCount() const {return instanceCount;}
 	inline void setInstanceCount(const size_t& count)
 	{
 		instanceCount = count;
 	}
 
-	inline const uint32_t& getBaseInstance() const {return baseInstance;}
+	inline uint32_t getBaseInstance() const {return baseInstance;}
 	inline void setBaseInstance(const uint32_t& base)
 	{
 		baseInstance = base;
@@ -209,7 +216,7 @@ public:
 	//! Set axis aligned bounding box
 	/** \param box User defined axis aligned bounding box to use
 	for this buffer. */
-	inline void setBoundingBox(const core::aabbox3df& box)
+	inline virtual void setBoundingBox(const core::aabbox3df& box)
 	{
 		boundingBox = box;
 	}

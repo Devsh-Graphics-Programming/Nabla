@@ -83,14 +83,10 @@ macro(nbl_adjust_flags)
 	option(NBL_GCC_SANITIZE_THREAD OFF) # @Anastazluk did MSVC finally include the thread sanitizer?
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		if (NOT NBL_BUILD_CEGUI)
-			add_compile_options(-fno-exceptions)
-		endif()
-
+		
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
-			-Wno-unused-but-set-parameter
 			-fno-strict-aliasing
 			-msse4.2
 			-mfpmath=sse
@@ -107,11 +103,23 @@ macro(nbl_adjust_flags)
 			"$<$<CONFIG:DEBUG>:-Wall>"
 			"$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>"
 			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
-			#"$<$<CONFIG:RELEASE>:-O3>" # added by default and apparently cmake is not clever enough to filter duplicates for this one
-			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
 		)
+		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+			if (NOT NBL_BUILD_CEGUI)
+				add_compile_options(-fno-exceptions)
+			endif()
+
+			add_compile_options(
+			-Wno-unused-but-set-parameter	
+			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
+			)
+		else()
+			add_compile_options( 
+				"$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>"
+			)	
+		endif()
 		if (NBL_SANITIZE_ADDRESS)
-			add_compile_options(-fsanitize=address)
+			add_compile_options(-fsanitize=address) 
 		endif()
 		if (NBL_GCC_SANITIZE_THREAD)
 			add_compile_options(-fsanitize=thread)
@@ -187,6 +195,7 @@ if(WIN32)
 	set(_NBL_PLATFORM_WINDOWS_ 1)
 elseif(UNIX)
 	set(_NBL_PLATFORM_LINUX_ 1)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
 endif()
 
 #uncomment in the future

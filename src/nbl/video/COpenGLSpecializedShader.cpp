@@ -2,11 +2,17 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+
+#include <algorithm>
+
+#include "nbl/asset/utils/spvUtils.h"
+
 #include "COpenGLSpecializedShader.h"
 #include "nbl/asset/spvUtils.h"
 #include "spirv_cross/spirv_parser.hpp"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include <algorithm>
+
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 

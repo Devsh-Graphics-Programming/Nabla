@@ -23,7 +23,13 @@ else:
 
     outp = open(outputFilename,"w+")
   
-    outp.write("#include \"nbl/builtin/builtinResources.h\"\n\n")
+    outp.write("#include <stdlib.h>\n")
+    outp.write("#include <cstdint>\n")
+    outp.write("#include <string>\n")
+    outp.write("#include <unordered_map>\n")
+    outp.write("#include <utility>\n")
+    outp.write("#include <nbl/core/string/UniqueStringLiteralType.h>\n")
+    outp.write("#include <nbl/builtin/common.h>\n")
     outp.write("using namespace nbl;\n")
     outp.write("using namespace nbl::builtin;\n\n")
     outp.write("namespace nbl {\n")

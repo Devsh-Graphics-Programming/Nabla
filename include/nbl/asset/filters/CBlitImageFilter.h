@@ -68,7 +68,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<No
 				// no mul by channel count because we're only after alpha
 				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z;
 			}
-			return retval*sizeof(typename value_type);
+			return retval*sizeof(value_type);
 		}
 
 		// nothing to validate here really
@@ -410,7 +410,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 					// x y z output along z
 					const int loopCoordID[2] = {axis!=IImage::ET_3D ? 2:0,axis!=IImage::ET_2D ? 1:0/*,axis*/};
 
-					core::vectorSIMDi32 localTexCoord;
+					core::vectorSIMDi32 localTexCoord(0);
 					for (auto& k=(localTexCoord[loopCoordID[0]]=0); k<intermediateExtent[axis][loopCoordID[0]]; k++)
 					for (auto& j=(localTexCoord[loopCoordID[1]]=0); j<intermediateExtent[axis][loopCoordID[1]]; j++)
 					{
@@ -427,7 +427,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
-								core::vectorSIMDu32 inBlockCoord;
+								core::vectorSIMDu32 inBlockCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
 									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),inBlockCoord),
 									nullptr,
@@ -478,7 +478,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							// do the filtering 
 							core::vectorSIMDf tmp;
 							tmp[axis] = float(i)+0.5f;
-							core::vectorSIMDi32 windowCoord;
+							core::vectorSIMDi32 windowCoord(0);
 							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
 							auto relativePos = tmp[axis]-float(windowCoord[axis]);
 							for (auto h=0; h<windowSize; h++)
@@ -492,7 +492,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							}
 							if (!coverageSemantic && lastPass) // store to image, we're done
 							{
-								core::vectorSIMDu32 dummy;
+								core::vectorSIMDu32 dummy(0u);
 								const core::vectorSIMDu32 localOutPos = localTexCoord + outOffsetBaseLayer;
 								storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localOutPos,dummy),localOutPos);
 							}

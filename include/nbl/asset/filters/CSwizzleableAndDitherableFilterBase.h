@@ -172,7 +172,7 @@ namespace nbl
 					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
 						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+						static_cast<Swizzle&>(*state).template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*
@@ -185,7 +185,7 @@ namespace nbl
 					static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
 						asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+						static_cast<Swizzle&>(*state).template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*
@@ -304,7 +304,7 @@ namespace nbl
 					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
 						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+						static_cast<Swizzle&>(*state).template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*
@@ -317,7 +317,7 @@ namespace nbl
 					static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
 						asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+						static_cast<Swizzle&>(*state).template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*
@@ -431,7 +431,7 @@ namespace nbl
 					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
 						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-						state->swizzle->operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+						state->swizzle->template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*
@@ -444,7 +444,7 @@ namespace nbl
 					static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
 						asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-						state->swizzle->operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+						state->swizzle->template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*

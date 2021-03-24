@@ -11,8 +11,7 @@
 
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
-#include "nbl/video/CGPUMesh.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
+#include "nbl/video/IGPUMesh.h"
 #include "CLogger.h"
 #include "nbl/video/asset_traits.h"
 #include "nbl/core/alloc/LinearAddressAllocator.h"
@@ -101,7 +100,7 @@ class IGPUObjectFromAssetConverter
         //! iterator_type is always either `[const] core::smart_refctd_ptr<AssetType>*[const]*` or `[const] AssetType*[const]*`
 		template<typename AssetType, typename iterator_type>
         std::enable_if_t<!impl::is_const_iterator_v<iterator_type>, created_gpu_object_array<AssetType>>
-        getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end, const SParams& _params = {})
+        getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end, const SParams& _params = {nullptr})
 		{
 			const auto assetCount = _end-_begin;
 			auto res = core::make_refctd_dynamic_array<created_gpu_object_array<AssetType> >(assetCount);
@@ -145,7 +144,7 @@ class IGPUObjectFromAssetConverter
 		}
         template<typename AssetType, typename const_iterator_type>
         std::enable_if_t<impl::is_const_iterator_v<const_iterator_type>, created_gpu_object_array<AssetType>>
-            getGPUObjectsFromAssets(const_iterator_type _begin, const_iterator_type _end, const SParams& _params = {})
+            getGPUObjectsFromAssets(const_iterator_type _begin, const_iterator_type _end, const SParams& _params = {nullptr})
         {
             if constexpr (std::is_pointer_v<const_iterator_type>)
             {
@@ -351,10 +350,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 
         for (size_t b = 0ull; b < asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
-            if (asset::ICPUBuffer* buf = cpumb->getVertexBufferBindings()[b].buffer.get())
+            if (const asset::ICPUBuffer* buf = cpumb->getVertexBufferBindings()[b].buffer.get())
                 cpuBuffers.push_back(buf);
         }
-        if (const asset::ICPUBuffer* buf = cpumb->getIndexBufferBinding()->buffer.get())
+        if (const asset::ICPUBuffer* buf = cpumb->getIndexBufferBinding().buffer.get())
             cpuBuffers.push_back(buf);
     }
 
@@ -393,9 +392,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         }
 
 		asset::SBufferBinding<IGPUBuffer> idxBinding;
-        if (cpumb->getIndexBufferBinding()->buffer)
+        if (cpumb->getIndexBufferBinding().buffer)
         {
-            idxBinding.offset = cpumb->getIndexBufferBinding()->offset;
+            idxBinding.offset = cpumb->getIndexBufferBinding().offset;
             auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
             idxBinding.offset += gpubuf->getOffset();
             idxBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
@@ -429,20 +428,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
 	for (auto i=0u; i<assetCount; i++)
 	{
 		auto* _asset = _begin[i];
-        for (uint32_t i = 0u; i <_asset->getMeshBufferCount(); ++i)
-            cpuDeps.push_back(_asset->getMeshBuffer(i));
-
-		auto& output = res->operator[](i);
-		switch (_asset->getMeshType())
-		{
-			case asset::EMT_ANIMATED_SKINNED:
-				output = core::make_smart_refctd_ptr<video::CGPUSkinnedMesh>(core::smart_refctd_ptr<asset::CFinalBoneHierarchy>(static_cast<const asset::ICPUSkinnedMesh*>(_asset)->getBoneReferenceHierarchy()));
-				break;
-			default:
-				output = core::make_smart_refctd_ptr<video::CGPUMesh>();
-				break;
-        }
-        output->setBoundingBox(_asset->getBoundingBox());
+        for (auto mesh : _asset->getMeshBuffers())
+            cpuDeps.emplace_back(mesh);
     }
 
     core::vector<size_t> redir = eliminateDuplicatesAndGenRedirs(cpuDeps);
@@ -450,26 +437,18 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
     for (size_t i=0u, j=0u; i<assetCount; ++i)
     {
 		auto* _asset = _begin[i];
+        auto cpuMeshBuffers = _asset->getMeshBuffers();
 
 		auto& output = res->operator[](i);
-        switch (output->getMeshType())
-        {
-			case asset::EMT_ANIMATED_SKINNED:
-				for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
-				{
-                    assert(false); // TODO: when we remake the skinning API
-					//static_cast<video::CGPUSkinnedMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr_static_cast<video::CGPUSkinnedMeshBuffer>(gpuDeps->operator[](redir[j])), static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
-					++j;
-				}
-				break;
-			default:
-				for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
-				{
-					static_cast<video::CGPUMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr(gpuDeps->operator[](redir[j])));
-					++j;
-				}
-				break;
-        }
+        output = core::make_smart_refctd_ptr<video::IGPUMesh>(cpuMeshBuffers.size());
+        output->setBoundingBox(_asset->getBoundingBox());
+
+        auto gpuMeshBuffersIt = output->getMeshBufferIterator();
+        for (auto mesh : cpuMeshBuffers)
+		{
+			*(gpuMeshBuffersIt++) = core::smart_refctd_ptr(gpuDeps->operator[](redir[j]));
+			++j;
+		}
     }
 
     return res;

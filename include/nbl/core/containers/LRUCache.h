@@ -60,8 +60,10 @@ template<typename Key, typename Value, typename MapHash=std::hash<Key>, typename
 class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 {
 		// typedefs
-		typedef LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
+		typedef impl::LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
 		typedef LRUCache<Key,Value,MapHash,MapEquals> this_t;
+
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = base_t::invalid_iterator;
 
 		// wrappers
 		struct WrapHash
@@ -88,7 +90,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		using shortcut_iterator_t = typename unordered_set<uint32_t,WrapHash,WrapEquals>::const_iterator;
 		inline shortcut_iterator_t common_find(const Key& key) const
 		{
-			searchedKey = &key;
+			base_t::searchedKey = &key;
 			return m_shortcut_map.find(invalid_iterator);
 		}
 		inline shortcut_iterator_t common_find(const Key& key, bool& success) const
@@ -114,19 +116,19 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			if (success)
 			{
 				const auto nodeAddr = *iterator;
-				m_list.get(nodeAddr)->data.second = std::forward<V>(v);
-				m_list.moveToFront(nodeAddr);
+				base_t::m_list.get(nodeAddr)->data.second = std::forward<V>(v);
+				base_t::m_list.moveToFront(nodeAddr);
 			}
 			else
 			{
-				const bool overflow = m_shortcut_map.size()>=m_list.getCapacity();
+				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
 				if (overflow)
 				{
-					m_shortcut_map.erase(m_list.getLastAddress());
-					m_list.popBack();
+					m_shortcut_map.erase(base_t::m_list.getLastAddress());
+					base_t::m_list.popBack();
 				}
-				m_list.pushFront(std::make_pair(std::forward<K>(k),std::forward<V>(v)));
-				m_shortcut_map.insert(m_list.getFirstAddress());
+				base_t::m_list.pushFront(std::make_pair(std::forward<K>(k),std::forward<V>(v)));
+				m_shortcut_map.insert(base_t::m_list.getFirstAddress());
 			}
 		}
 
@@ -146,13 +148,13 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 	#ifdef _NBL_DEBUG
 		inline void print()
 		{
-			auto node = m_list.getBegin();
+			auto node = base_t::m_list.getBegin();
 			while (true)
 			{
 				std::cout <<"k:" << node->data.first << "    v:" << node->data.second << std::endl;
 				if (node->next == invalid_iterator)
 					break;
-				node = m_list.get(node->next);
+				node = base_t::m_list.get(node->next);
 			}
 		}
 	#endif // _NBL_DEBUG
@@ -169,8 +171,8 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			auto i = common_peek(key);
 			if (i!=invalid_iterator)
 			{
-				m_list.moveToFront(i);
-				return &(m_list.get(i)->data.second);
+				base_t::m_list.moveToFront(i);
+				return &(base_t::m_list.get(i)->data.second);
 			}
 			else
 				return nullptr;
@@ -181,7 +183,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		{
 			uint32_t i = common_peek(key);
 			if (i!=invalid_iterator)
-				return &(m_list.get(i)->data.second);
+				return &(base_t::m_list.get(i)->data.second);
 			else
 				return nullptr;
 		}
@@ -189,7 +191,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		{
 			uint32_t i = common_peek(key);
 			if (i != invalid_iterator)
-				return &(m_list.get(i)->data.second);
+				return &(base_t::m_list.get(i)->data.second);
 			else
 				return nullptr;
 		}
@@ -201,7 +203,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			shortcut_iterator_t iterator = common_find(key,success);
 			if (success)
 			{
-				m_list.erase(*iterator);
+				base_t::m_list.erase(*iterator);
 				m_shortcut_map.erase(iterator);
 			}
 		}

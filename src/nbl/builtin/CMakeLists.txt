@@ -3,12 +3,10 @@ function(nbl_add_builtin_resources)
   foreach(X IN LISTS ARGV0)
     list(APPEND builtin_dependencies_list  ${CMAKE_SOURCE_DIR}/include/${X})
   endforeach()
-  list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py)
 
   add_custom_command(
-	OUTPUT "${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
+	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
     COMMENT "Generated built-in resources"
     DEPENDS ${builtin_dependencies_list}
@@ -17,19 +15,19 @@ function(nbl_add_builtin_resources)
 endfunction()
 
 set(nbl_resources_to_embed
-  "nbl/builtin/shaders/loaders/mtl/vertex_impl.glsl"
-  "nbl/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
-  "nbl/builtin/shaders/loaders/mtl/vertex_uv.vert"
-  "nbl/builtin/shaders/loaders/mtl/fragment_impl.glsl"
-  "nbl/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
-  "nbl/builtin/shaders/loaders/mtl/fragment_uv.frag"
-  "nbl/builtin/specializedshaders/fullscreentriangle.vert"
-  "nbl/builtin/materials/lambertian/singletexture/specializedshader.vert"
-  "nbl/builtin/materials/lambertian/singletexture/specializedshader.frag"
-  "nbl/builtin/materials/debug/vertex_color/specializedshader.vert"
-  "nbl/builtin/materials/debug/vertex_normal/specializedshader.vert"
-  "nbl/builtin/materials/debug/vertex_normal/specializedshader.frag"
-  "nbl/builtin/materials/debug/vertex_uv/specializedshader.frag"
+  "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
+  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
+  "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
+  "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
+  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
+  "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
+  "nbl/builtin/specialized_shader/fullscreentriangle.vert"
+  "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"
+  "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
+  "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
+  "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"
+  "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag"
+  "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
@@ -69,7 +67,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/format/encode.glsl"
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
-  "nbl/builtin/glsl/loaders/mtl/common.glsl"
+  "nbl/builtin/glsl/loader/mtl/common.glsl"
   # math and limits
   "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/constants.glsl"
@@ -92,6 +90,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
+  # scene
+  "nbl/builtin/glsl/scene/keyframe.glsl"
+  "nbl/builtin/glsl/scene/node.glsl"
   # shapes
   #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"

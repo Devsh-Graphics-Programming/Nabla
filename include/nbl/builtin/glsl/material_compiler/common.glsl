@@ -227,9 +227,9 @@ void nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(in nbl_glsl_LightSample 
 
 vec3 nbl_glsl_MC_textureOrRGBconst(in uvec2 data, in bool texPresenceFlag)
 {
-	return 
+	return
 #ifdef TEX_PREFETCH_STREAM
-	texPresenceFlag ? 
+	texPresenceFlag ?
 		uintBitsToFloat(uvec3(registers[data.x],registers[data.x+1u],registers[data.x+2u])) :
 #endif
 		nbl_glsl_decodeRGB19E7(data);

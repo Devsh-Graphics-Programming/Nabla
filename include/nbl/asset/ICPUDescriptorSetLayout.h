@@ -23,6 +23,8 @@ namespace asset
 class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
 	public:
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u;
+
 		using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
@@ -102,6 +104,16 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             if (m_samplers)
             for (uint32_t i = 0u; i < m_samplers->size(); ++i)
                 restoreFromDummy_impl_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get(), _levelsBelow);
+        }
+
+        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+        {
+            --_levelsBelow;
+            if (m_samplers)
+                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
+                    if ((*m_samplers)[i]->isAnyDependencyDummy(_levelsBelow))
+                        return true;
+            return false;
         }
 
 		virtual ~ICPUDescriptorSetLayout() = default;

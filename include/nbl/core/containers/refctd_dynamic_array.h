@@ -51,7 +51,9 @@ class NBL_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 		static_assert(sizeof(base_t) == sizeof(meta_base_t), "non-CRTP and CRTP base class definitions differ in size");
 		static_assert(sizeof(meta_base_t) == sizeof(impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>), "memory has been added to dynamic_array"); // TODO: fix
 
-		class NBL_FORCE_EBO fake_size_class : public IReferenceCounted, meta_base_t {};
+		class NBL_FORCE_EBO fake_size_class : public IReferenceCounted, meta_base_t {
+			using meta_base_t::operator delete;
+		};
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(fake_size_class)+sizeof(T)-1ull)/sizeof(T);
 

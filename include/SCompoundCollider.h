@@ -154,9 +154,9 @@ class SCompoundCollider : public IReferenceCounted
                 absoluteTransform.pseudoMulWith4x1(origin);
                 absoluteTransform.mulSub3x3WithNx1(direction); /// Actually a 3x3 submatrix multiply
 
+#ifdef OLD_SHADERS
                 switch (colliderData.attachedNode->getType())
                 {
-#ifdef OLD_SHADERS
                     case scene::ESNT_MESH_INSTANCED:
                         {
 							matrix3x4SIMD instanceTform = static_cast<scene::IMeshSceneNodeInstanced*>(colliderData.attachedNode)->getInstanceTransform(colliderData.instanceID);
@@ -169,10 +169,10 @@ class SCompoundCollider : public IReferenceCounted
                         }
                         break;
                     ///case ESNT_INSTANCED_ANIMATED_MESH:
-#endif
                     default:
                         break;
                 }
+#endif
             }
 
             vectorSIMDf direction_reciprocal = reciprocal_approxim(direction);

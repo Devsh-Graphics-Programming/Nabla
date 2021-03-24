@@ -23,7 +23,7 @@ class CElementTransform : public IElement
 		virtual ~CElementTransform() {}
 
 		bool addProperty(SNamedPropertyElement&& _property) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override { return true; }
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override { return true; }
 		IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
 		std::string getLogName() const override { return "transform"; }
 		/*
