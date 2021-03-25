@@ -1,0 +1,87 @@
+#version 450
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 8)
+
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+
+layout (set = 0, binding = 0, std430) buffer inout_buffer
+{
+	uint inout_values[];
+};
+
+layout(push_constant) uniform pushConstants
+{
+    layout (offset = 0) uint stride;
+} u_push_constants;
+
+// Todo: Rename this to STRIDED_IDX
+#define GLOBAL_IDX(i) ((i + 1)*u_push_constants.stride-1)
+
+#include <nbl/builtin/glsl/workgroup/shuffle.glsl>
+
+shared uint global_offset;
+
+void main()
+{
+	uint idx = GLOBAL_IDX(gl_GlobalInvocationID.x);
+
+	// Todo: Since `global_offset` needs to be added to the `data` value of each thread we need it either in each thread's private memory
+	// or the workgroup's shared memory, I chose the latter.
+	// Would it be better to do the former ie reading from the global memory for each thread?
+
+	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ -1u))
+		global_offset = inout_values[idx];
+	barrier();
+
+	// Lets just try shifting by 1 place first
+	uint temp;
+	if (gl_LocalInvocationIndex != 0u)
+		temp = inout_values[GLOBAL_IDX(gl_GlobalInvocationID.x - 1u)];
+	barrier();
+
+	if (gl_LocalInvocationIndex == 0u)
+		inout_values[idx] = -1;
+	else
+		inout_values[idx] = temp;
+
+	// // Now do your shifting and adding and what not
+	// uint temp;
+	// if (gl_LocalInvocationIndex != 0u)
+	// 	// 255
+	// 	temp = inout_values[GLOBAL_IDX(gl_GlobalInvocationID.x - 1u)];
+	// 
+	// barrier();
+	// 
+	// if (gl_LocalInvocationIndex == 0u)
+	// 	inout_values[idx] = global_offset;
+	// else
+	// 	inout_values[idx] = global_offset + temp;
+
+
+	// uint data = global_offset;
+	// if (gl_LocalInvocationIndex != 0u)
+	// 	data += inout_values[GLOBAL_IDX(gl_GlobalInvocationID.x - 1u)];
+	// 
+	// barrier();
+	// 
+	// inout_values[idx] = data;
+	// uint data = global_offset;
+	// if (gl_LocalInvocationIndex != 0u)
+	// 	data += inout_values[GLOBAL_IDX(gl_GlobalInvocationID.x - 1u)];
+	// 
+	// // data: [global_offset, global_offset + , global_offset + , ]
+	// inout_values[idx] = data;
+
+	// uint data = inout_values[idx];
+	// data = nbl_glsl_workgroupShuffle(data, (gl_LocalInvocationIndex - 1u) & (_NBL_GLSL_WORKGROUP_SIZE_ - 1u));
+	// 
+	// 
+	// if (gl_LocalInvocationIndex == 0u);
+	// 	global_offset = data;
+	// barrier();
+	// 
+	// if (gl_LocalInvocationIndex != 0u)
+	// 	data += global_offset;
+	// 
+	// inout_values[idx] = data;
+}
