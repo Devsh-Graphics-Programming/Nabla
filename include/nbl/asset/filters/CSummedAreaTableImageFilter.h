@@ -104,7 +104,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 			return true;
 		}
-
+		 
 		static inline bool execute(state_type* state)
 		{
 			if (!validate(state))

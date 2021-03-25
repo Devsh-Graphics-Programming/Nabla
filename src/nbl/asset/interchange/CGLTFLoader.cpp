@@ -1467,7 +1467,7 @@ namespace nbl
 								auto newImageParams = referenceImageParams;
 								core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer;
 
-								newImageParams.format = EF_R8G8_SNORM;
+								newImageParams.format = EF_R32G32_SFLOAT;
 
 								auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
 
@@ -1488,7 +1488,7 @@ namespace nbl
 								newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
 								newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
 
-								using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter;
+								using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle>;
 								DerivativeNormalMapFilter derivativeNormalFilter;
 								DerivativeNormalMapFilter::state_type state;
 
@@ -1501,7 +1501,7 @@ namespace nbl
 								state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
 								state.layerCount = newDerivativeNormalMapImage->getCreationParameters().arrayLayers;
 
-								state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.extent);
+								state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.layerCount, state.extent);
 								state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
 
 								state.inMipLevel = 0;
@@ -1513,14 +1513,14 @@ namespace nbl
 								_NBL_ALIGNED_FREE(state.scratchMemory);
 
 								ICPUImageView::SCreationParams imageViewInfo;
-								imageViewInfo.image = std::move(newDerivativeNormalMapImage);
+								imageViewInfo.image = core::smart_refctd_ptr(newDerivativeNormalMapImage);
 								imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
 								imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;
 								imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-								imageViewInfo.subresourceRange.baseArrayLayer = 0u;
+								imageViewInfo.subresourceRange.baseArrayLayer = 0u; 
 								imageViewInfo.subresourceRange.baseMipLevel = 0u;
-								imageViewInfo.subresourceRange.layerCount = newDerivativeNormalMapImage->getCreationParameters().arrayLayers;
-								imageViewInfo.subresourceRange.levelCount = newDerivativeNormalMapImage->getCreationParameters().mipLevels;
+								imageViewInfo.subresourceRange.layerCount = imageViewInfo.image->getCreationParameters().arrayLayers;
+								imageViewInfo.subresourceRange.levelCount = imageViewInfo.image->getCreationParameters().mipLevels;
 
 								auto imageView = ICPUImageView::create(std::move(imageViewInfo));
 
@@ -1536,7 +1536,7 @@ namespace nbl
 									Such asset should also store info about `scale` from state for derivatives in a geometry shader
 								*/
 
-								cpuNormalTexture = std::move(imageView);
+								IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE] = std::move(imageView);
 
 								// const auto& absLayerScaleValues = state.getAbsoluteLayerScaleValue(0);
 							}
