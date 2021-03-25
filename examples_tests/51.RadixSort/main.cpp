@@ -7,6 +7,9 @@ using namespace nbl;
 using namespace core;
 using namespace video;
 
+// Note: Just a debug thing. Assumes there's something called `stride`.
+#define STRIDED_IDX(i) (((i) + 1)*stride-1)
+
 struct SortElement { uint32_t key, data; };
 
 template <typename T>
@@ -460,19 +463,7 @@ int main()
 			driver->dispatch(wg_count, 1, 1);
 			
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-			
-			// uint32_t* dataFromBuffer = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-			// if (!dataFromBuffer) __debugbreak();
-			// 
-			// uint32_t* ps_histogram_cpu = new uint32_t[histogram_count];
-			// 
-			// uint32_t sum = 0;
-			// for (size_t i = 0; i < histogram_count; ++i)
-			// {
-			// 	ps_histogram_cpu[i] = sum;
-			// 	sum += dataFromBuffer[i];
-			// }
-			
+
 			// ExclusiveSumScanGPU(histogram_gpu, histogram_count, device);
 			
 			// For in_count = 2^23
@@ -491,9 +482,17 @@ int main()
 			// Seems like I've conceptualized `stride` for reading not writning, probably because I directly use
 			// a tailored number of threads for writing
 
-
 			uint32_t* histogram_cpu = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
 			if (!histogram_cpu) __debugbreak();
+
+			uint32_t* scan_histogram_cpu = new uint32_t[histogram_count];
+			
+			uint32_t sum = 0;
+			for (size_t i = 0; i < histogram_count; ++i)
+			{
+				scan_histogram_cpu[i] = sum;
+				sum += histogram_cpu[i];
+			}
 			
 			const uint32_t scan_wg_dim = 1 << 8;
 			const uint32_t scan_in_count_total = histogram_count;
@@ -557,7 +556,7 @@ int main()
 					uint32_t sum = 0;
 					for (size_t i = begin; i < end; ++i)
 					{
-						size_t idx = (i + 1) * stride - 1;
+						size_t idx = STRIDED_IDX(i);
 						sum += cpu_scan[idx];
 						local_prefix_sum[k++] = sum;
 					}
@@ -565,7 +564,7 @@ int main()
 					k = 0;
 					for (size_t i = begin; i < end; ++i)
 					{
-						size_t idx = (i + 1) * stride - 1;
+						size_t idx = STRIDED_IDX(i);
 						cpu_scan[idx] = local_prefix_sum[k++];
 					}
 
@@ -643,7 +642,7 @@ int main()
 				uint32_t sum = 0;
 				for (size_t i = 0; i < scan_in_count; ++i)
 				{
-					size_t idx = (i + 1) * stride - 1;
+					size_t idx = STRIDED_IDX(i);
 					local_prefix_sum[k++] = sum;
 					sum += cpu_scan[idx];
 				}
@@ -651,7 +650,7 @@ int main()
 				k = 0;
 				for (size_t i = 0; i < scan_in_count; ++i)
 				{
-					size_t idx = (i + 1) * stride - 1;
+					size_t idx = STRIDED_IDX(i);
 					cpu_scan[idx] = local_prefix_sum[k++];
 				}
 
@@ -731,20 +730,20 @@ int main()
 			
 					uint32_t* downsweep_result = new uint32_t[scan_wg_dim];
 			
-					size_t idx = ((end - 1) + 1) * stride - 1;
+					size_t idx = STRIDED_IDX(end - 1);
 					downsweep_result[0] = cpu_scan[idx];
 			
 					uint32_t k = 1;
 					for (size_t i = begin + 1; i < end; ++i)
 					{
-						size_t idx = (i + 1) * stride - 1;
-						downsweep_result[k++] = cpu_scan[i - 1] + downsweep_result[0];
+						// size_t idx = STRIDED_IDX(i);
+						downsweep_result[k++] = cpu_scan[STRIDED_IDX(i - 1)] + downsweep_result[0];
 					}
 			
 					k = 0;
 					for (size_t i = begin; i < end; ++i)
 					{
-						size_t idx = (i + 1) * stride - 1;
+						size_t idx = STRIDED_IDX(i);
 						cpu_scan[idx] = downsweep_result[k++];
 					}
 			
@@ -771,30 +770,19 @@ int main()
 			}
 
 #endif
+			uint32_t* gpu_scan_result = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
+			if (!gpu_scan_result) __debugbreak();
 
+			for (size_t i = 0; i < histogram_count; ++i)
+			{
+				if (scan_histogram_cpu[i] != gpu_scan_result[i])
+					__debugbreak();
+			}
+
+			std::cout << "GPU Scan Passed!!" << std::endl;
+
+			delete[] scan_histogram_cpu;
 			delete[] cpu_scan;
-
-
-
-
-
-
-
-			// uint32_t* down_histo_scan = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-			// 
-			// if (down_histo_scan)
-			// {
-			// 	for (uint32_t i = 0; i < histogram_count; ++i)
-			// 	{
-			// 		if (down_histo_scan[i] != ps_histogram_cpu[i])
-			// 			__debugbreak();
-			// 	}
-			// 
-			// 	std::cout << "PASS" << std::endl;
-			// 
-			// 	delete[] ps_histogram_cpu;
-			// }
-
 			
 			// {
 			// 	const uint32_t count = 3;

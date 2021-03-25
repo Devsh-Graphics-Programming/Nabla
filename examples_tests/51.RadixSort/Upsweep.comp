@@ -15,13 +15,15 @@ layout(push_constant) uniform pushConstants
 	layout (offset = 4) uint total_elements;
 } u_push_constants;
 
+#define STRIDED_IDX(i) (((i) + 1)*u_push_constants.stride-1)
+
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 
 void main()
 {
 	if (gl_NumWorkGroups.x == 1)
 	{
-		uint idx = (gl_GlobalInvocationID.x + 1) * u_push_constants.stride - 1;
+		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
 
 		uint data = 0u;
 		if (idx < u_push_constants.total_elements)
@@ -35,7 +37,7 @@ void main()
 	}
 	else
 	{
-		uint idx = (gl_GlobalInvocationID.x + 1) * u_push_constants.stride - 1;
+		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
 		uint data = inout_values[idx];
 
 		// Todo: just trying to be extra sure here, try to replace scan_result with data itself later
