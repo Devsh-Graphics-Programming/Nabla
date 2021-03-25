@@ -279,9 +279,6 @@ int main()
 	asset::IAssetManager* am = device->getAssetManager();
 
 	unsigned int seed = 128;
-	std::random_device dev;
-	std::mt19937 rng(dev());
-	std::uniform_int_distribution<std::mt19937::result_type> dist(1, 1 << 10);
 
 	// Stress Test
 	// Todo: Remove this stupid thing before merging
@@ -292,10 +289,8 @@ int main()
 #endif
 		const size_t in_count = 1 << 23; // this param is tied to macros in Histogram.comp for now
 		const size_t in_size = in_count * sizeof(SortElement);
-		// const size_t in_size = in_count * sizeof(uint32_t);
 
 		SortElement* in_array = new SortElement[in_count];
-		// uint32_t* in_array = new uint32_t[in_count];
 		srand(seed++);
 		for (size_t i = 0u; i < in_count; ++i)
 		{
@@ -437,7 +432,7 @@ int main()
 
 		const uint32_t pass_count = 32 / bits_per_pass;
 
-		for (uint32_t pass = 0; pass < 1; ++pass)
+		for (uint32_t pass = 0; pass < pass_count; ++pass)
 		{
 			{
 				const uint32_t count = 2;
@@ -473,11 +468,11 @@ int main()
 			// pass 0: 2^19 ==> 2^11 (stride = 1)
 			// pass 1: 2^11 ==> 2^3  (stride = 256)
 			//
-			// Top-of-hierarchy pass: 2^3 ==> 2^3  (stride = )
+			// Top-of-hierarchy pass: 2^3 ==> 2^3  (stride = 256 * 256)
 			//
 			// Downsweep stage:
-			// pass 0: 2^3 ==> 2^11  (stride = )
-			// pass 1: 2^11 ==> 2^19 (stride = )
+			// pass 0: 2^3 ==> 2^11  (stride = 256)
+			// pass 1: 2^11 ==> 2^19 (stride = 1)
 			//
 			// Seems like I've conceptualized `stride` for reading not writning, probably because I directly use
 			// a tailored number of threads for writing
@@ -495,24 +490,25 @@ int main()
 			}
 			
 			const uint32_t scan_wg_dim = 1 << 8;
-			const uint32_t scan_in_count_total = histogram_count;
+			const uint32_t scan_in_count = histogram_count;
+			// assert(scan_in_count != 1u);
 			const size_t scan_in_size = histogram_size;
 
-			// 1. Upsweeps
+			// Upsweeps
 
-			uint32_t upsweep_pass_count = std::ceil(log(scan_in_count_total) / log(wg_dim)) - 1;
+			uint32_t upsweep_pass_count = std::ceil(log(scan_in_count) / log(wg_dim));
 
-			uint32_t* cpu_scan = new uint32_t[scan_in_count_total];
+			uint32_t* cpu_scan = new uint32_t[scan_in_count];
 			memcpy(cpu_scan, histogram_cpu, scan_in_size);
 			
+			// Initial conditions
+
 			uint32_t stride = 1u;
-			uint32_t scan_in_count = scan_in_count_total;
+			uint32_t pass_in_count = scan_in_count;
+
 			for (uint32_t upsweep_pass = 0; upsweep_pass < upsweep_pass_count; ++upsweep_pass)
 			{
-				uint32_t scan_wg_count = (scan_in_count + scan_wg_dim - 1) / scan_wg_dim;
-
-				// Todo: Do repeated multiplication instead
-				stride = std::pow(scan_wg_dim, upsweep_pass);
+				uint32_t scan_wg_count = (pass_in_count + scan_wg_dim - 1) / scan_wg_dim;
 			
 				{
 					const uint32_t count = 1;
@@ -534,164 +530,120 @@ int main()
 				driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
 					&stride);
 				driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
-					&scan_in_count_total);
+					&scan_in_count);
 				driver->dispatch(scan_wg_count, 1, 1);
 
 				video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 				// Check the result for this pass
 
-				std::cout << "=========================" << std::endl;
-				std::cout << "Upsweep Pass #" << upsweep_pass << std::endl;
-				std::cout << "=========================" << std::endl;
-
-				for (uint32_t wg = 0; wg < scan_wg_count; ++wg)
+				if (upsweep_pass < upsweep_pass_count - 1)
 				{
-					size_t begin = wg * scan_wg_dim;
-					size_t end = (wg + 1) * scan_wg_dim;
+					std::cout << "=========================" << std::endl;
+					std::cout << "Upsweep Pass #" << upsweep_pass << std::endl;
+					std::cout << "=========================" << std::endl;
 
-					uint32_t* local_prefix_sum = new uint32_t[scan_wg_dim];
+					for (uint32_t wg = 0; wg < scan_wg_count; ++wg)
+					{
+						size_t begin = wg * scan_wg_dim;
+						size_t end = (wg + 1) * scan_wg_dim;
+
+						uint32_t* local_prefix_sum = new uint32_t[scan_wg_dim];
+
+						uint32_t k = 0;
+						uint32_t sum = 0;
+						for (size_t i = begin; i < end; ++i)
+						{
+							size_t idx = STRIDED_IDX(i);
+							sum += cpu_scan[idx];
+							local_prefix_sum[k++] = sum;
+						}
+
+						k = 0;
+						for (size_t i = begin; i < end; ++i)
+						{
+							size_t idx = STRIDED_IDX(i);
+							cpu_scan[idx] = local_prefix_sum[k++];
+						}
+
+						delete[] local_prefix_sum;
+					}
+
+					// Test CPU vs GPU: 1-to-1 check the entire array
+
+					uint32_t* upsweep_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
+					if (upsweep_downloaded)
+					{
+						for (uint32_t i = 0; i < scan_in_count; ++i)
+						{
+							if (upsweep_downloaded[i] != cpu_scan[i])
+								__debugbreak();
+						}
+					}
+
+					std::cout << "PASS" << std::endl;
+				}
+				else
+				{
+					std::cout << "=========================" << std::endl;
+					std::cout << "Top-of-Hierarchy Pass" << std::endl;
+					std::cout << "=========================" << std::endl;
+
+					uint32_t* local_prefix_sum = new uint32_t[pass_in_count];
 
 					uint32_t k = 0;
 					uint32_t sum = 0;
-					for (size_t i = begin; i < end; ++i)
+					for (size_t i = 0; i < pass_in_count; ++i)
 					{
 						size_t idx = STRIDED_IDX(i);
-						sum += cpu_scan[idx];
 						local_prefix_sum[k++] = sum;
+						sum += cpu_scan[idx];
 					}
 
 					k = 0;
-					for (size_t i = begin; i < end; ++i)
+					for (size_t i = 0; i < pass_in_count; ++i)
 					{
 						size_t idx = STRIDED_IDX(i);
 						cpu_scan[idx] = local_prefix_sum[k++];
 					}
 
 					delete[] local_prefix_sum;
-				}
 
-				// Test CPU vs GPU: 1-to-1 check the entire array
+					// Test CPU vs GPU: 1-to-1 check the entire array
 
-				uint32_t* upsweep_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-				if (upsweep_downloaded)
-				{
-					for (uint32_t i = 0; i < scan_in_count_total; ++i)
+					uint32_t* top_pass_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
+					if (top_pass_downloaded)
 					{
-						if (upsweep_downloaded[i] != cpu_scan[i])
-							__debugbreak();
+						for (uint32_t i = 0; i < scan_in_count; ++i)
+						{
+							if (top_pass_downloaded[i] != cpu_scan[i])
+								__debugbreak();
+						}
 					}
-				}
 
-				std::cout << "PASS" << std::endl;
+					std::cout << "PASS" << std::endl;
+				}
 
 				// Prepare for next pass
 
-				scan_in_count = scan_wg_count;
+				if (upsweep_pass != upsweep_pass_count - 1u)
+				{
+					stride *= scan_wg_dim;
+					pass_in_count = scan_wg_count;
+				}
+				else
+				{
+					stride /= scan_wg_dim;
+				}
 			}
-
-#if 1
-			// 2. Top-of-Hierarchy pass
 			
-			// Check what are you supplying for scan_in_count, scan_wg_count, and stride
-			// scan_in_count = 8
-			// scan_wg_count = 1
-			// stride = 
-
-			{
-				// Todo: Probably you don't have to update the descriptor sets again
-
-				// Todo: With the requirement of this statement I'm beginning to think that maybe I should merge this pass
-				// back in with the upsweeps
-				stride *= 256;
-
-				{
-					const uint32_t count = 1;
-					IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-
-					ds_info[0].desc = histogram_gpu;
-					ds_info[0].buffer = { 0u, histogram_size };
-
-					IGPUDescriptorSet::SWriteDescriptorSet writes[count];
-					for (uint32_t i = 0; i < count; ++i)
-						writes[i] = { ds_upsweep.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
-					driver->updateDescriptorSets(count, writes, 0u, nullptr);
-				}
-
-				driver->bindComputePipeline(upsweep_pipeline.get());
-				driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_upsweep.get(), nullptr);
-
-				driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
-					&stride);
-				driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
-					&scan_in_count_total);
-				driver->dispatch(1, 1, 1);
-
-				video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-				// Check the result for this pass
-
-				std::cout << "=========================" << std::endl;
-				std::cout << "Top-of-Hierarchy Pass" << std::endl;
-				std::cout << "=========================" << std::endl;
-
-				uint32_t* local_prefix_sum = new uint32_t[scan_in_count];
-
-				uint32_t k = 0;
-				uint32_t sum = 0;
-				for (size_t i = 0; i < scan_in_count; ++i)
-				{
-					size_t idx = STRIDED_IDX(i);
-					local_prefix_sum[k++] = sum;
-					sum += cpu_scan[idx];
-				}
-
-				k = 0;
-				for (size_t i = 0; i < scan_in_count; ++i)
-				{
-					size_t idx = STRIDED_IDX(i);
-					cpu_scan[idx] = local_prefix_sum[k++];
-				}
-
-				delete[] local_prefix_sum;
-
-				// Test CPU vs GPU: 1-to-1 check the entire array
-
-				uint32_t* top_pass_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-				if (top_pass_downloaded)
-				{
-					for (uint32_t i = 0; i < scan_in_count_total; ++i)
-					{
-						if (top_pass_downloaded[i] != cpu_scan[i])
-							__debugbreak();
-					}
-				}
-
-				std::cout << "PASS" << std::endl;
-			}
-#endif
-
-#if 1
-			
-			// 3. Downsweep passes
-			// downsweep pass 0: scan_wg_count = 2^3, stride = 256
-			// downsweep pass 1: scan_wg_count = 2^11, stride = 1
-
-			stride = 256 * 256; // Todo: this is the current value of stride anyway, also don't hardcode like that
-			
-			uint32_t pass_in_count = 1 << 3; // scan_in_count = 1 << 11; // Todo: dont hardcode
-			
-			// assert(upsweep_pass_count != 0u); // Todo: remove
-			uint32_t downsweep_pass_count = upsweep_pass_count;
+			// Downsweep passes
+			uint32_t downsweep_pass_count = upsweep_pass_count - 1;
 			
 			for (uint32_t downsweep_pass = 0; downsweep_pass < downsweep_pass_count; ++downsweep_pass)
 			{
 				uint32_t pass_out_count = pass_in_count * scan_wg_dim;
 				uint32_t scan_wg_count = (pass_out_count + scan_wg_dim - 1) / scan_wg_dim;
-			
-				// Todo: Modify stride or your code will shit volcanoes
-				stride /= 256;
 				
 				{
 					const uint32_t count = 1;
@@ -735,10 +687,7 @@ int main()
 			
 					uint32_t k = 1;
 					for (size_t i = begin + 1; i < end; ++i)
-					{
-						// size_t idx = STRIDED_IDX(i);
 						downsweep_result[k++] = cpu_scan[STRIDED_IDX(i - 1)] + downsweep_result[0];
-					}
 			
 					k = 0;
 					for (size_t i = begin; i < end; ++i)
@@ -755,7 +704,7 @@ int main()
 				uint32_t* downsweep_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
 				if (downsweep_downloaded)
 				{
-					for (uint32_t i = 0; i < scan_in_count_total; ++i)
+					for (uint32_t i = 0; i < scan_in_count; ++i)
 					{
 						if (downsweep_downloaded[i] != cpu_scan[i])
 							__debugbreak();
@@ -767,53 +716,51 @@ int main()
 				// Prepare for the next pass
 			
 				pass_in_count = pass_out_count;
+				stride /= scan_wg_dim;
 			}
 
-#endif
-			uint32_t* gpu_scan_result = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-			if (!gpu_scan_result) __debugbreak();
-
-			for (size_t i = 0; i < histogram_count; ++i)
-			{
-				if (scan_histogram_cpu[i] != gpu_scan_result[i])
-					__debugbreak();
-			}
-
-			std::cout << "GPU Scan Passed!!" << std::endl;
+			// uint32_t* gpu_scan_result = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
+			// if (!gpu_scan_result) __debugbreak();
+			// 
+			// for (size_t i = 0; i < histogram_count; ++i)
+			// {
+			// 	if (scan_histogram_cpu[i] != gpu_scan_result[i])
+			// 		__debugbreak();
+			// }
+			// 
+			// std::cout << "GPU Scan Passed!!" << std::endl;
 
 			delete[] scan_histogram_cpu;
 			delete[] cpu_scan;
 			
-			// {
-			// 	const uint32_t count = 3;
-			// 	IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-			// 	ds_info[0].desc = ((pass % 2) ? out_array_gpu : in_array_gpu);
-			// 	ds_info[0].buffer = { 0u, in_size };
-			// 
-			// 	ds_info[1].desc = ((pass % 2) ? in_array_gpu : out_array_gpu);
-			// 	ds_info[1].buffer = { 0u, in_size };
-			// 
-			// 	// ds_info[2].desc = histogram_gpu;
-			// 	// ds_info[2].buffer = { 0u, histogram_size };
-			// 	ds_info[2].desc = exc_scan_global_histo;
-			// 	ds_info[2].buffer = { 0u, histogram_size };
-			// 
-			// 	IGPUDescriptorSet::SWriteDescriptorSet writes[count];
-			// 	for (uint32_t i = 0; i < count; ++i)
-			// 		writes[i] = { ds_sort_and_scatter.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-			// 
-			// 	driver->updateDescriptorSets(count, writes, 0u, nullptr);
-			// }
-			// 
-			// driver->bindComputePipeline(sort_and_scatter_pipeline.get());
-			// driver->bindDescriptorSets(video::EPBP_COMPUTE, sort_and_scatter_pipeline->getLayout(), 0u, 1u, &ds_sort_and_scatter.get(),
-			// 	nullptr);
-			// 
-			// driver->pushConstants(sort_and_scatter_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
-			// 	&shift);
-			// driver->dispatch(wg_count, 1, 1);
-			// 
-			// video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			{
+				const uint32_t count = 3;
+				IGPUDescriptorSet::SDescriptorInfo ds_info[count];
+				ds_info[0].desc = ((pass % 2) ? out_array_gpu : in_array_gpu);
+				ds_info[0].buffer = { 0u, in_size };
+			
+				ds_info[1].desc = ((pass % 2) ? in_array_gpu : out_array_gpu);
+				ds_info[1].buffer = { 0u, in_size };
+			
+				ds_info[2].desc = histogram_gpu;
+				ds_info[2].buffer = { 0u, histogram_size };
+			
+				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+				for (uint32_t i = 0; i < count; ++i)
+					writes[i] = { ds_sort_and_scatter.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+			
+				driver->updateDescriptorSets(count, writes, 0u, nullptr);
+			}
+			
+			driver->bindComputePipeline(sort_and_scatter_pipeline.get());
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, sort_and_scatter_pipeline->getLayout(), 0u, 1u, &ds_sort_and_scatter.get(),
+				nullptr);
+			
+			driver->pushConstants(sort_and_scatter_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
+				&shift);
+			driver->dispatch(wg_count, 1, 1);
+			
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
 
 		// Testing
@@ -900,22 +847,23 @@ int main()
 		// 
 		// 	delete[] histogram_cpu;
 		// }
+
+		std::cout << "CPU Sort begins" << std::endl;
+		std::stable_sort(in_array, in_array + in_count, [](const SortElement& a, const SortElement& b) { return a.key < b.key; });
+		std::cout << "CPU Sort ends" << std::endl;
 		
-		// std::stable_sort(in_array, in_array + in_count, [](const SortElement& a, const SortElement& b) { return (a.key & 0xf) < (b.key & 0xf); });
-		// std::stable_sort(in_array, in_array + in_count, [](const SortElement& a, const SortElement& b) { return a.key < b.key; });
-		// 
-		// SortElement* dataFromBuffer = DebugGPUBufferDownload<SortElement>(in_array_gpu, in_size, driver);
-		// 
-		// if (dataFromBuffer)
-		// {
-		// 	for (int i = 0; i < in_count; ++i)
-		// 	{
-		// 		if ((dataFromBuffer[i].key != in_array[i].key) || (dataFromBuffer[i].data != in_array[i].data))
-		// 			__debugbreak();
-		// 	}
-		// 
-		// 	std::cout << "PASS" << std::endl;
-		// }
+		SortElement* dataFromBuffer = DebugGPUBufferDownload<SortElement>(in_array_gpu, in_size, driver);
+		
+		if (dataFromBuffer)
+		{
+			for (int i = 0; i < in_count; ++i)
+			{
+				if ((dataFromBuffer[i].key != in_array[i].key) || (dataFromBuffer[i].data != in_array[i].data))
+					__debugbreak();
+			}
+		
+			std::cout << "PASS" << std::endl;
+		}
 
 		driver->endScene();
 
