@@ -71,35 +71,42 @@ R"===(#version 430 core
 inline void updateDescriptorSet_Convolution (
 	video::IVideoDriver * driver,
 	video::IGPUDescriptorSet * set,
-	core::smart_refctd_ptr<video::IGPUBuffer> inputOutputBufferDescriptor,
+	core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
+	core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
 	const core::smart_refctd_ptr<video::IGPUImageView>* kernelNormalizedSpectrumImageDescriptors)
 {
-	constexpr uint32_t descCount = 2u;
-	video::IGPUDescriptorSet::SDescriptorInfo pInfos[1u+channelCountOverride];
+	constexpr uint32_t descCount = 3u;
+	video::IGPUDescriptorSet::SDescriptorInfo pInfos[descCount-1u+channelCountOverride];
 	video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[descCount];
 
 	for (auto i = 0; i < descCount; i++)
 	{
+		pWrites[i].binding = i;
 		pWrites[i].dstSet = set;
 		pWrites[i].arrayElement = 0u;
 		pWrites[i].info = pInfos+i;
 	}
 
-	// InputOutput Buffer 
-	pWrites[0].binding = 0;
+	// Input Buffer 
 	pWrites[0].descriptorType = asset::EDT_STORAGE_BUFFER;
 	pWrites[0].count = 1;
-	pInfos[0].desc = inputOutputBufferDescriptor;
-	pInfos[0].buffer.size = inputOutputBufferDescriptor->getSize();
+	pInfos[0].desc = inputBufferDescriptor;
+	pInfos[0].buffer.size = inputBufferDescriptor->getSize();
 	pInfos[0].buffer.offset = 0u;
+	
+	//
+	pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+	pWrites[1].count = 1;
+	pInfos[1].desc = outputBufferDescriptor;
+	pInfos[1].buffer.size = outputBufferDescriptor->getSize();
+	pInfos[1].buffer.offset = 0u;
 
 	// Kernel Buffer 
-	pWrites[1].binding = 1;
-	pWrites[1].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
-	pWrites[1].count = channelCountOverride;
+	pWrites[2].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+	pWrites[2].count = channelCountOverride;
 	for (uint32_t i=0u; i<channelCountOverride; i++)
 	{
-		auto& info = pInfos[1u+i];
+		auto& info = pInfos[2u+i];
 		info.desc = kernelNormalizedSpectrumImageDescriptors[i];
 		//info.image.imageLayout = ;
 		info.image.sampler = nullptr;
@@ -330,6 +337,13 @@ int main()
 			},
 			{
 				1u,
+				EDT_STORAGE_BUFFER,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr
+			},
+			{
+				2u,
 				EDT_COMBINED_IMAGE_SAMPLER,
 				channelCountOverride,
 				ISpecializedShader::ESS_COMPUTE,
@@ -579,11 +593,11 @@ int main()
 
 	// Convolution
 	auto convolveDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipeline->getLayout()->getDescriptorSetLayout(0u)));
-	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_0, kernelNormalizedSpectrums);
+	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_0, fftOutputBuffer_1, kernelNormalizedSpectrums);
 
 	// Last IFFTX 
 	auto lastFFTDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(lastFFTPipeline->getLayout()->getDescriptorSetLayout(0u)));
-	updateDescriptorSet_LastFFT(driver, lastFFTDescriptorSet.get(), fftOutputBuffer_0, outImgView);
+	updateDescriptorSet_LastFFT(driver, lastFFTDescriptorSet.get(), fftOutputBuffer_1, outImgView);
 
 	uint32_t outBufferIx = 0u;
 	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
@@ -601,7 +615,9 @@ int main()
 	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,paddedSrcDim);
 	{
 		fftPushConstants[1].input_dimensions.x = 2048u;
-		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides;
+		fftPushConstants[1].input_strides = fftPushConstants[0].output_strides;
+		fftPushConstants[1].output_strides.x = 2048u;
+		fftPushConstants[1].output_strides.y = 1u;
 		fftPushConstants[2] = fftPushConstants[0];
 		fftPushConstants[2].input_dimensions.x = 2048u;
 		fftPushConstants[2].input_dimensions.y = 2048u;
