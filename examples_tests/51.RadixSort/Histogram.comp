@@ -5,7 +5,6 @@
 #define TOTAL_ELEMENTS (1 << 23)
 #define BITS_PER_PASS 4
 #define NUM_BUCKETS (1 << BITS_PER_PASS)
-#define WG_COUNT (TOTAL_ELEMENTS/_NBL_GLSL_WORKGROUP_SIZE_)
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
@@ -43,7 +42,7 @@ void main()
 		nbl_glsl_workgroupBallot(predicate);
 		local_histogram[i] = nbl_glsl_workgroupBallotInclusiveBitCount();
 
-		// Todo: What is the problem with dynamically indexing local variables?
+		// Question: What is the problem with dynamically indexing local variables?
 
 		if (predicate)
 			local_scatter_idx = local_histogram[i] - 1;
@@ -52,7 +51,7 @@ void main()
 	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
 	{
 		for (int i = 0; i < NUM_BUCKETS; ++i)
-			out_values[i * WG_COUNT + gl_WorkGroupID.x] = local_histogram[i];
+			out_values[i * gl_NumWorkGroups.x + gl_WorkGroupID.x] = local_histogram[i];
 
 		uint sum = 0;
 		scratch_shared[0] = sum;

@@ -10,7 +10,15 @@ using namespace video;
 // Note: Just a debug thing. Assumes there's something called `stride`.
 #define STRIDED_IDX(i) (((i) + 1)*stride-1)
 
-struct SortElement { uint32_t key, data; };
+struct SortElement
+{
+	uint32_t key, data;
+
+	bool operator!= (const SortElement& other)
+	{
+		return (key != other.key) || (data != other.data);
+	}
+};
 
 template <typename T>
 static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download, size_t buffer_size, IVideoDriver* driver)
@@ -54,206 +62,24 @@ static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download
 	return dataFromBuffer;
 }
 
-// Todo: There's a lot of room for optimization here, especially creating all the gpu resources again
-// and again when they can be created once and reused
-
-// Works for every POT in [2^0, 2^24], should even work for higher powers but for some
-// reason I can't download the array to the CPU with the current code, to check
-
-void ExclusiveSumScanGPU(smart_refctd_ptr<IGPUBuffer> in, const size_t in_count, core::smart_refctd_ptr<IrrlichtDevice> device)
+template <typename T>
+static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu_buffer, size_t buffer_size, IVideoDriver* driver)
 {
-	assert(in_count != 0);
+	T* downloaded_buffer = DebugGPUBufferDownload<T>(gpu_buffer, buffer_size, driver);
 
-	IVideoDriver* driver = device->getVideoDriver();
-	io::IFileSystem* filesystem = device->getFileSystem();
-	asset::IAssetManager* am = device->getAssetManager();
+	size_t buffer_count = buffer_size / sizeof(T);
 
-	const uint32_t wg_dim = 1 << 8;
-	const uint32_t wg_count = (in_count + wg_dim - 1) / wg_dim;
-	const size_t in_size = in_count * sizeof(uint32_t);
-
-	if (wg_count == 1)
+	if (downloaded_buffer)
 	{
-		smart_refctd_ptr<IGPUDescriptorSet> ds_local_prefix_sum = nullptr;
-		smart_refctd_ptr<IGPUComputePipeline> local_prefix_sum_pipeline = nullptr;
+		for (int i = 0; i < buffer_count; ++i)
 		{
-			const uint32_t count = 1u;
-			IGPUDescriptorSetLayout::SBinding binding[count];
-			for (uint32_t i = 0; i < count; ++i)
-				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-
-			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-			ds_local_prefix_sum = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
-
-			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
-
-			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
-			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../PrefixSumLocal.comp"));
-
-				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../PrefixSumLocal.comp", lp);
-				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-				auto cs_rawptr = cs.get();
-
-				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-			}
-
-			local_prefix_sum_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+			if (downloaded_buffer[i] != cpu_buffer[i])
+				assert(false);
 		}
 
-		{
-			const uint32_t count = 1;
-			IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-
-			// Todo: You probably don't need it to update every iteration
-			ds_info[0].desc = in;
-			ds_info[0].buffer = { 0u, in_size };
-
-			IGPUDescriptorSet::SWriteDescriptorSet writes[count];
-			for (uint32_t i = 0; i < count; ++i)
-				writes[i] = { ds_local_prefix_sum.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
-			driver->updateDescriptorSets(count, writes, 0u, nullptr);
-
-			driver->bindComputePipeline(local_prefix_sum_pipeline.get());
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, local_prefix_sum_pipeline->getLayout(), 0u, 1u, &ds_local_prefix_sum.get(), nullptr);
-
-			driver->pushConstants(local_prefix_sum_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &in_count);
-			driver->dispatch(wg_count, 1, 1);
-
-			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		}
-	}
-	else
-	{	
-		//! Todo: Based on the number of elements in histogram figure out how big you want this partial reductions
-		//! array to be
-		
-		const size_t partial_reductions_count = wg_count;
-		const size_t partial_reductions_size = wg_count * sizeof(uint32_t);
-		auto partial_reductions_gpu = driver->createDeviceLocalGPUBufferOnDedMem(partial_reductions_size);
-		
-		smart_refctd_ptr<IGPUComputePipeline> partial_reductions_pipeline = nullptr;
-		smart_refctd_ptr<IGPUDescriptorSet> ds_partial_reductions = nullptr;
-		{
-			const uint32_t count = 2u;
-			IGPUDescriptorSetLayout::SBinding binding[count];
-			for (uint32_t i = 0; i < count; ++i)
-				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-
-			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-			ds_partial_reductions = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
-
-			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
-
-			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
-			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../PrefixSumPartialReductions.comp"));
-
-				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../PrefixSumPartialReductions.comp", lp);
-				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-				auto cs_rawptr = cs.get();
-
-				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-			}
-
-			partial_reductions_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
-		}
-
-		// Dispatch for computing partial reductions
-
-		{
-			const uint32_t count = 2;
-			IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-			ds_info[0].desc = in;
-			ds_info[0].buffer = { 0u, in_size };
-
-			// Todo: You probably don't need it to update every iteration
-			ds_info[1].desc = partial_reductions_gpu;
-			ds_info[1].buffer = { 0u, partial_reductions_size };
-
-			IGPUDescriptorSet::SWriteDescriptorSet writes[count];
-			for (uint32_t i = 0; i < count; ++i)
-				writes[i] = { ds_partial_reductions.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
-			driver->updateDescriptorSets(count, writes, 0u, nullptr);
-
-			driver->bindComputePipeline(partial_reductions_pipeline.get());
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, partial_reductions_pipeline->getLayout(), 0u, 1u, &ds_partial_reductions.get(), nullptr);
-
-			driver->pushConstants(partial_reductions_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &in_count);
-			driver->dispatch(wg_count, 1, 1);
-
-			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		}
-
-		ExclusiveSumScanGPU(partial_reductions_gpu, partial_reductions_count, device);
-
-		// Note: PrefixSumLocal.comp and PrefixSumGlobal.comp are extremely similar. I tried to use the same shader
-		// source for both, differentiating them based on the number of workgroups called, but it seems like the unused
-		// interface block (for increments array) in case of the local prefix sum is causing some errors with the glsl
-		// compiler. Maybe I can separate them at shader compile time?
-
-		smart_refctd_ptr<IGPUComputePipeline> global_prefix_sum_pipeline = nullptr;
-		smart_refctd_ptr<IGPUDescriptorSet> ds_global_prefix_sum = nullptr;
-		{
-			const uint32_t count = 2u;
-			IGPUDescriptorSetLayout::SBinding binding[count];
-			for (uint32_t i = 0; i < count; ++i)
-				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-		
-			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-			ds_global_prefix_sum = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
-		
-			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
-		
-			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
-			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../PrefixSumGlobal.comp"));
-		
-				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../PrefixSumGlobal.comp", lp);
-				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-				auto cs_rawptr = cs.get();
-		
-				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-			}
-		
-			global_prefix_sum_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
-		}
-
-		// Dispatch for the final global scan array
-
-		{
-			const uint32_t count = 2;
-			IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-			ds_info[0].desc = in;
-			ds_info[0].buffer = { 0u, in_size };
-
-			// Todo: You probably don't need it to update every iteration
-			ds_info[1].desc = partial_reductions_gpu;
-			ds_info[1].buffer = { 0u, partial_reductions_size };
-
-			IGPUDescriptorSet::SWriteDescriptorSet writes[count];
-			for (uint32_t i = 0; i < count; ++i)
-				writes[i] = { ds_global_prefix_sum.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
-			driver->updateDescriptorSets(count, writes, 0u, nullptr);
-
-			driver->bindComputePipeline(global_prefix_sum_pipeline.get());
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, global_prefix_sum_pipeline->getLayout(), 0u, 1u, &ds_global_prefix_sum.get(), nullptr);
-
-			driver->pushConstants(global_prefix_sum_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &in_count);
-			driver->dispatch(wg_count, 1, 1);
-
-			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		}
+		std::cout << "PASS" << std::endl;
 	}
 }
-
-#if 1
 
 int main()
 {
@@ -306,7 +132,7 @@ int main()
 		const int bits_per_pass = 4;
 		const int buckets_count = 1 << bits_per_pass;
 		const int wg_dim = 1 << 8; // limited by number of threads in the hardware for current bits_per_pass == 4
-		int wg_count = in_count / wg_dim;
+		int wg_count = (in_count + wg_dim - 1) / wg_dim;
 
 		const size_t histogram_count = wg_count * buckets_count;
 		const size_t histogram_size = histogram_count * sizeof(uint32_t);
@@ -340,8 +166,8 @@ int main()
 			histogram_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
 		}
 
-		smart_refctd_ptr<IGPUComputePipeline> sort_and_scatter_pipeline = nullptr;
-		smart_refctd_ptr<IGPUDescriptorSet> ds_sort_and_scatter = nullptr;
+		smart_refctd_ptr<IGPUComputePipeline> scatter_pipeline = nullptr;
+		smart_refctd_ptr<IGPUDescriptorSet> ds_scatter = nullptr;
 		{
 			const uint32_t count = 3u;
 			IGPUDescriptorSetLayout::SBinding binding[count];
@@ -349,23 +175,23 @@ int main()
 				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
 
 			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-			ds_sort_and_scatter = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
+			ds_scatter = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
 
 			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
 
 			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
 			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../SortAndScatter.comp"));
+				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Scatter.comp"));
 
 				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../SortAndScatter.comp", lp);
+				auto cs_bundle = am->getAsset("../Scatter.comp", lp);
 				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
 				auto cs_rawptr = cs.get();
 
 				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
 			}
 
-			sort_and_scatter_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+			scatter_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
 		}
 
 		// Upsweep pipeline and ds
@@ -459,35 +285,8 @@ int main()
 			
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-			// ExclusiveSumScanGPU(histogram_gpu, histogram_count, device);
-			
-			// For in_count = 2^23
-			// scan_in_count_total = 2^19
-			//
-			// Upsweep stage: 
-			// pass 0: 2^19 ==> 2^11 (stride = 1)
-			// pass 1: 2^11 ==> 2^3  (stride = 256)
-			//
-			// Top-of-hierarchy pass: 2^3 ==> 2^3  (stride = 256 * 256)
-			//
-			// Downsweep stage:
-			// pass 0: 2^3 ==> 2^11  (stride = 256)
-			// pass 1: 2^11 ==> 2^19 (stride = 1)
-			//
-			// Seems like I've conceptualized `stride` for reading not writning, probably because I directly use
-			// a tailored number of threads for writing
-
 			uint32_t* histogram_cpu = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
 			if (!histogram_cpu) __debugbreak();
-
-			uint32_t* scan_histogram_cpu = new uint32_t[histogram_count];
-			
-			uint32_t sum = 0;
-			for (size_t i = 0; i < histogram_count; ++i)
-			{
-				scan_histogram_cpu[i] = sum;
-				sum += histogram_cpu[i];
-			}
 			
 			const uint32_t scan_wg_dim = 1 << 8;
 			const uint32_t scan_in_count = histogram_count;
@@ -569,19 +368,7 @@ int main()
 						delete[] local_prefix_sum;
 					}
 
-					// Test CPU vs GPU: 1-to-1 check the entire array
-
-					uint32_t* upsweep_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-					if (upsweep_downloaded)
-					{
-						for (uint32_t i = 0; i < scan_in_count; ++i)
-						{
-							if (upsweep_downloaded[i] != cpu_scan[i])
-								__debugbreak();
-						}
-					}
-
-					std::cout << "PASS" << std::endl;
+					DebugCompareGPUvsCPU<uint32_t>(histogram_gpu, cpu_scan, histogram_size, driver);
 				}
 				else
 				{
@@ -609,19 +396,7 @@ int main()
 
 					delete[] local_prefix_sum;
 
-					// Test CPU vs GPU: 1-to-1 check the entire array
-
-					uint32_t* top_pass_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-					if (top_pass_downloaded)
-					{
-						for (uint32_t i = 0; i < scan_in_count; ++i)
-						{
-							if (top_pass_downloaded[i] != cpu_scan[i])
-								__debugbreak();
-						}
-					}
-
-					std::cout << "PASS" << std::endl;
+					DebugCompareGPUvsCPU<uint32_t>(histogram_gpu, cpu_scan, histogram_size, driver);
 				}
 
 				// Prepare for next pass
@@ -699,19 +474,7 @@ int main()
 					delete[] downsweep_result;
 				}
 			
-				// Test CPU vs GPU: 1-to-1 check the entire array
-			
-				uint32_t* downsweep_downloaded = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-				if (downsweep_downloaded)
-				{
-					for (uint32_t i = 0; i < scan_in_count; ++i)
-					{
-						if (downsweep_downloaded[i] != cpu_scan[i])
-							__debugbreak();
-					}
-				}
-			
-				std::cout << "PASS" << std::endl;
+				DebugCompareGPUvsCPU<uint32_t>(histogram_gpu, cpu_scan, histogram_size, driver);
 			
 				// Prepare for the next pass
 			
@@ -719,18 +482,6 @@ int main()
 				stride /= scan_wg_dim;
 			}
 
-			// uint32_t* gpu_scan_result = DebugGPUBufferDownload<uint32_t>(histogram_gpu, histogram_size, driver);
-			// if (!gpu_scan_result) __debugbreak();
-			// 
-			// for (size_t i = 0; i < histogram_count; ++i)
-			// {
-			// 	if (scan_histogram_cpu[i] != gpu_scan_result[i])
-			// 		__debugbreak();
-			// }
-			// 
-			// std::cout << "GPU Scan Passed!!" << std::endl;
-
-			delete[] scan_histogram_cpu;
 			delete[] cpu_scan;
 			
 			{
@@ -747,16 +498,16 @@ int main()
 			
 				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
 				for (uint32_t i = 0; i < count; ++i)
-					writes[i] = { ds_sort_and_scatter.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+					writes[i] = { ds_scatter.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
 			
 				driver->updateDescriptorSets(count, writes, 0u, nullptr);
 			}
 			
-			driver->bindComputePipeline(sort_and_scatter_pipeline.get());
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, sort_and_scatter_pipeline->getLayout(), 0u, 1u, &ds_sort_and_scatter.get(),
+			driver->bindComputePipeline(scatter_pipeline.get());
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, scatter_pipeline->getLayout(), 0u, 1u, &ds_scatter.get(),
 				nullptr);
 			
-			driver->pushConstants(sort_and_scatter_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
+			driver->pushConstants(scatter_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
 				&shift);
 			driver->dispatch(wg_count, 1, 1);
 			
@@ -851,19 +602,8 @@ int main()
 		std::cout << "CPU Sort begins" << std::endl;
 		std::stable_sort(in_array, in_array + in_count, [](const SortElement& a, const SortElement& b) { return a.key < b.key; });
 		std::cout << "CPU Sort ends" << std::endl;
-		
-		SortElement* dataFromBuffer = DebugGPUBufferDownload<SortElement>(in_array_gpu, in_size, driver);
-		
-		if (dataFromBuffer)
-		{
-			for (int i = 0; i < in_count; ++i)
-			{
-				if ((dataFromBuffer[i].key != in_array[i].key) || (dataFromBuffer[i].data != in_array[i].data))
-					__debugbreak();
-			}
-		
-			std::cout << "PASS" << std::endl;
-		}
+
+		DebugCompareGPUvsCPU<SortElement>(in_array_gpu, in_array, in_size, driver);
 
 		driver->endScene();
 
@@ -874,4 +614,3 @@ int main()
 
 	return 0;
 }
-#endif
