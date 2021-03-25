@@ -142,10 +142,6 @@ public:
 		MeshPackerConfigParams<Iterator>* packerParamsOut);
 
 	//! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
-	/*
-	\param rambArrayBegin: pointer to the beggining of an array, which should contain all outputs (that was not dealocated with the `free` function) of `alloc` function called by this instance of `CCPUMeshPackerV1` 
-	\param rambArrayEnd: pointer to the end of array described above
-	*/
 	void shrinkOutputBuffersSize()
 	{
 		m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
