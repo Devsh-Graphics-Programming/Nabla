@@ -47,7 +47,7 @@ void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
     m_packerDataStore.MDIDataBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
     m_packerDataStore.indexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
-    m_packerDataStore.vertexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.vertexBuffSupportedSize);
+    m_packerDataStore.vertexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.vertexBuffSupportedByteSize);
 }
 
 template <typename MDIStructType>

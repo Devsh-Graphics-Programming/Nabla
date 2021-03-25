@@ -155,20 +155,23 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>&
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 20000000u;
     allocParams.indexBufferMinAllocCnt = 5000u;
-    allocParams.vertexBuffSupportedSize = 20000000u;
-    allocParams.vertexBufferMinAllocSize = 5000u;
+    allocParams.vertexBuffSupportedByteSize = 2147483648u; //2GB
+    allocParams.vertexBufferMinAllocByteSize = 5000u;
     allocParams.MDIDataBuffSupportedCnt = 20000u;
-    allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory
+    allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory //TODO: increase this value and delete this comment from all examples
+    allocParams.perInstanceVertexBufferMinAllocByteSize = 2147483648u / 4u; // 0.5GB
+    allocParams.perInstanceVertexBufferMinAllocByteSize = 5000u; // 0.5GB
 
     assert(!meshBuffers.empty());
 
-    CCPUMeshPackerV1 mp((*(meshBuffers.end() - 1u))->getPipeline()->getVertexInputParams(), allocParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
+    CCPUMeshPackerV1 mp((*(meshBuffers.end() - 1u))->getPipeline()->getVertexInputParams(), allocParams, 256u, 256u/*std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u*/);
 
     //TODO: test for multiple alloc
     //TODO: test mp.getPackerCreationParamsFromMeshBufferRange()
     MeshPacker::ReservedAllocationMeshBuffers ramb = mp.alloc(meshBuffers.begin(), meshBuffers.end());
     assert(ramb.isValid());
 
+    mp.shrinkOutputBuffersSize();
     mp.instantiateDataStorage();
 
     IMeshPackerBase::PackedMeshBufferData pmbd =  mp.commit(meshBuffers.begin(), meshBuffers.end(), ramb);
@@ -176,7 +179,7 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>&
 
     MeshPacker::PackerDataStore pmb = mp.getPackerDataStore();
     assert(pmb.isValid());
-
+    
     auto& cpuVtxBuff = pmb.vertexBufferBindings[0].buffer;
     auto& cpuPerInsVtxBuffer = pmb.vertexBufferBindings[15].buffer;
     auto gpuVtxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
@@ -201,8 +204,8 @@ void packMeshBuffersV2(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 20000000u;
     allocParams.indexBufferMinAllocCnt = 5000u;
-    allocParams.vertexBuffSupportedSize = 200000000u;
-    allocParams.vertexBufferMinAllocSize = 5000u;
+    allocParams.vertexBuffSupportedByteSize = 200000000u;
+    allocParams.vertexBufferMinAllocByteSize = 5000u;
     allocParams.MDIDataBuffSupportedCnt = 20000u;
     allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory
 
@@ -370,10 +373,10 @@ void setPipelineV2(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpeciali
 
 core::smart_refctd_ptr<ICPUMeshBuffer> createInstancedMeshBuffer(IGeometryCreator const* geometryCreator)
 {
-    auto cylinder = geometryCreator->createCylinderMesh(10.0f,10.0f, 128u);
+    auto cylinder = geometryCreator->createCylinderMesh(10.0f,10.0f, 1024u);
 
     //create per instance attribute (position)
-    constexpr uint32_t insCnt = 100u;
+    constexpr uint32_t insCnt = 10u;
     constexpr size_t perInsAttribSize = insCnt * sizeof(vector3df);
 
     core::smart_refctd_ptr<ICPUBuffer> perInsAttribBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(perInsAttribSize);
@@ -415,6 +418,36 @@ core::smart_refctd_ptr<ICPUMeshBuffer> createInstancedMeshBuffer(IGeometryCreato
     output->setInstanceCount(insCnt);
     output->setIndexCount(cylinder.indexCount);
     output->setIndexType(cylinder.indexType);
+
+    return output;
+}
+
+core::smart_refctd_ptr<ICPUMeshBuffer> createTriangleFanMeshBuffer(IGeometryCreator const* geometryCreator)
+{
+    auto disk = geometryCreator->createDiskMesh(10.0f, 128u);
+
+    disk.inputParams.enabledAttribFlags = 0b1; //only position;
+
+    core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+        nullptr,
+        nullptr,
+        nullptr,
+        disk.inputParams,
+        SBlendParams(),
+        disk.assemblyParams,
+        SRasterizationParams()
+        );
+
+    core::smart_refctd_ptr<ICPUMeshBuffer> output = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
+        std::move(pipeline),
+        nullptr,
+        disk.bindings,
+        std::move(disk.indexBuffer)
+        );
+
+    output->setInstanceCount(1);
+    output->setIndexCount(disk.indexCount);
+    output->setIndexType(disk.indexType);
 
     return output;
 }
@@ -476,6 +509,9 @@ int main()
 
     auto instancedMeshBuffer = createInstancedMeshBuffer(am->getGeometryCreator());
     meshBuffers.push_back(instancedMeshBuffer.get());
+
+    /*auto diskMeshBuffer = createTriangleFanMeshBuffer(am->getGeometryCreator());
+    meshBuffers.push_back(diskMeshBuffer.get());*/
 
     //pack mesh buffers
     DrawIndexedIndirectInput mdiCallParams;

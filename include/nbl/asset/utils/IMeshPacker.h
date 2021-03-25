@@ -47,8 +47,6 @@ protected:
 
     struct AllocationParamsCommon
     {
-        // TODO: review all names and documnetation!
-        
         // Maximum number of 16 bit indicies that may be allocated
         size_t indexBuffSupportedCnt = 67108864ull;                    /*   128MB*/
 
@@ -56,7 +54,7 @@ protected:
            For `CCPUMeshPackerV1` this will be maximum byte size of buffer containing only attributes with EVIR_PER_VERTEX input rate.
            For `CCPUMeshPackerV2` this will be maximum byte size of buffer containing attributes with both EVIR_PER_VERTEX and EVIR_PER_INSTANCE input rate.
         */
-        size_t vertexBuffSupportedSize = 134217728ull;                 /*   128MB*/
+        size_t vertexBuffSupportedByteSize = 134217728ull;                 /*   128MB*/
 
         // Maximum number of MDI structs that may be allocated
         size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
@@ -65,7 +63,7 @@ protected:
         size_t indexBufferMinAllocCnt = 256ull;
 
         // Minimum bytes of vertex data allocated per allocation
-        size_t vertexBufferMinAllocSize = 32ull;
+        size_t vertexBufferMinAllocByteSize = 32ull;
 
         // Minimum count of MDI structs allocated per allocation
         size_t MDIDataBuffMinAllocCnt = 32ull;
@@ -81,12 +79,12 @@ protected:
             m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
         }
 
-        if (allocParams.vertexBuffSupportedSize)
+        if (allocParams.vertexBuffSupportedByteSize)
         {
-            m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
             _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
             assert(m_vtxBuffAlctrResSpc != nullptr);
-            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize);
+            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize);
         }
 
         if (allocParams.MDIDataBuffSupportedCnt)
@@ -181,7 +179,8 @@ protected:
         E_INDEX_TYPE indexType = EIT_UNKNOWN;
     };
 
-    //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
+    //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute
+    //will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
     TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams) const
     {
@@ -192,22 +191,6 @@ protected:
         const uint32_t batchCnt = calcBatchCountBound(triCnt);
         assert(batchCnt != 0u);
 
-        /*
-        TODO:
-
-        //morton code generation (almost done)
-
-        // do batch splitting
-        core::vector<const TriangleMortonCodePair*> batches;
-        batches.reserve(calcBatchCountBound(triCnt)+1u); // actual batch count will be different
-        {
-            // use batches.push_back();
-        }
-        batches.push_back(triangles.data()+triangles.size());
-
-        return {std::move(triangles),std::move(batches)};
-        */
-
         struct MortonTriangle
         {
             MortonTriangle() = default;
@@ -217,9 +200,10 @@ protected:
                 key = core::Float16Compressor::compress(area);
                 key <<= 48ull;
                 
-                core::morton3d_encode(fixedPointPos[0], fixedPointPos[1], fixedPointPos[2]);
+                key |= core::morton3d_encode(fixedPointPos[0], fixedPointPos[1], fixedPointPos[2]);
             }
 
+            //TODO: maybe investigate morton 4d, where `logRelArea` is "4th" coord
             void complete(float maxArea)
             {
                 const float area = core::Float16Compressor::decompress(key >> 48ull);
@@ -395,16 +379,13 @@ protected:
     uint32_t calcIdxCntAfterConversionToTriangleList(MeshBufferType* meshBuffer)
     {
         const auto& params = meshBuffer->getPipeline()->getPrimitiveAssemblyParams();
-        uint32_t idxCnt = meshBuffer->getIndexCount();
 
         switch (params.primitiveType)
         {
             case EPT_TRIANGLE_LIST: 
-                return idxCnt;
             case EPT_TRIANGLE_STRIP:
             case EPT_TRIANGLE_FAN:
-                return (idxCnt - 2) * 3;
-                //TODO: packer should return when there is mesh buffer with one of following:
+                break;
             case EPT_POINT_LIST:
             case EPT_LINE_LIST:
             case EPT_LINE_STRIP:
@@ -415,8 +396,14 @@ protected:
             case EPT_PATCH_LIST:
             default:
                 assert(false);
-                return 0u;
+                break;
         }
+
+        uint32_t output;
+        const bool success = IMeshManipulator::getPolyCount(output, meshBuffer);
+        assert(success);
+
+        return output * 3;
     }
 
     std::pair<uint32_t, core::smart_refctd_ptr<ICPUBuffer>> convertIdxBufferToTriangles(MeshBufferType* meshBuffer)

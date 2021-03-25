@@ -23,11 +23,11 @@
 		allocationParams.indexBuffSupportedCnt = 20000000u;
 		allocationParams.indexBufferMinAllocCnt = 1u;			//#1
 		allocationParams.vertexBuffSupportedCnt = 20000000u;
-		allocationParams.vertexBufferMinAllocSize = 1u;         //#2
+		allocationParams.vertexBufferMinAllocByteSize = 1u;         //#2
 		allocationParams.MDIDataBuffSupportedCnt = 20000u;
 		allocationParams.MDIDataBuffMinAllocCnt = 1u;
 		allocationParams.perInstanceVertexBuffSupportedCnt = 0u;
-		allocationParams.perInstanceVertexBufferMinAllocSize = 0u;
+		allocationParams.perInstanceVertexBufferMinAllocByteSize = 0u;
 
 		asset::CCPUMeshPackerV1 packer(inputParams, allocationParams, std::numeric_limits<uint16_t>::max(), std::numeric_limits<uint16_t>::max());
 
@@ -76,12 +76,13 @@ public:
 	struct AllocationParams : IMeshPackerBase::AllocationParamsCommon
 	{
 		// Maximum byte size of per instance vertex data allocation
-		size_t perInstanceVertexBuffSupportedSize = 33554432ull;         /*  32MB*/
+		size_t perInstanceVertexBuffSupportedByteSize = 33554432ull;         /*  32MB*/
 
 		// Minimum bytes of per instance vertex data allocated per allocation
-		size_t perInstanceVertexBufferMinAllocSize = 32ull;
+		size_t perInstanceVertexBufferMinAllocByteSize = 32ull;
 	};
 
+	//TODO: names
 	struct ReservedAllocationMeshBuffers
 	{
 		uint32_t mdiAllocationOffset;
@@ -140,6 +141,19 @@ public:
 	static uint32_t getPackerCreationParamsFromMeshBufferRange(const Iterator begin, const Iterator end, Iterator sortedMeshBuffersOut,
 		MeshPackerConfigParams<Iterator>* packerParamsOut);
 
+	//! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
+	/*
+	\param rambArrayBegin: pointer to the beggining of an array, which should contain all outputs (that was not dealocated with the `free` function) of `alloc` function called by this instance of `CCPUMeshPackerV1` 
+	\param rambArrayEnd: pointer to the end of array described above
+	*/
+	void shrinkOutputBuffersSize()
+	{
+		m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
+		m_allocParams.perInstanceVertexBuffSupportedByteSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, 1u);
+		m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u, 1u);
+		m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
+	}
+
 private:
 	static bool cmpVtxInputParams(const SVertexInputParams& lhs, const SVertexInputParams& rhs);
 
@@ -148,7 +162,7 @@ private:
 
 	uint32_t m_vtxSize;
 	uint32_t m_perInsVtxSize;
-	const AllocationParams m_allocParams;
+	AllocationParams m_allocParams;
 
 	bool isInstancingEnabled;
 	void* m_perInsVtxBuffAlctrResSpc;
@@ -187,9 +201,9 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 	if (m_perInsVtxSize)
 	{
 		isInstancingEnabled = true;
-		m_perInsVtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize / m_perInsVtxSize, allocParams.perInstanceVertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+		m_perInsVtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedByteSize / m_perInsVtxSize, allocParams.perInstanceVertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
 		assert(m_perInsVtxBuffAlctrResSpc != nullptr);
-		m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize / m_perInsVtxSize, allocParams.perInstanceVertexBufferMinAllocSize);
+		m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedByteSize / m_perInsVtxSize, allocParams.perInstanceVertexBufferMinAllocByteSize);
 	}
 	else
 	{
@@ -199,10 +213,10 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 	initializeCommonAllocators(
 		{
 			allocParams.indexBuffSupportedCnt,
-			m_vtxSize ? allocParams.vertexBuffSupportedSize / m_vtxSize : 0ull,
+			m_vtxSize ? allocParams.vertexBuffSupportedByteSize / m_vtxSize : 0ull,
 			allocParams.MDIDataBuffSupportedCnt,
 			allocParams.indexBufferMinAllocCnt,
-			allocParams.vertexBufferMinAllocSize,
+			allocParams.vertexBufferMinAllocByteSize,
 			allocParams.MDIDataBuffMinAllocCnt
 		}
 	);
@@ -220,7 +234,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 
 	//TODO:
 	//allocation should be happening even if processed mesh buffer doesn't have attribute that was declared in pre defined `SVertexInputParams`, if mesh buffer has any attributes that are not declared in pre defined `SVertexInputParams` then these should be always ignored
-	//also this behavior should be included in the documentation i guess? 
+	//include it in the ducumentation? 
 
 	//validation
 	for (auto it = mbBegin; it != mbEnd; it++)
@@ -281,7 +295,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	
 	if (m_vtxBuffAlctrResSpc)
 	{
-		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr((idxCnt + 1u) / 2u, 1u);
+		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr(vtxCnt * m_vtxSize, 1u);
 		if (vtxAllocAddr == INVALID_ADDRESS)
 		{
 			_NBL_DEBUG_BREAK_IF(true);
@@ -295,14 +309,14 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	
 	if (m_perInsVtxBuffAlctrResSpc)
 	{
-		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr(perInsVtxCnt, 1u);
+		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr(perInsVtxCnt * m_perInsVtxSize, 1u);
 		if (perInsVtxAllocAddr == INVALID_ADDRESS)
 		{
 			_NBL_DEBUG_BREAK_IF(true);
 
 			m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
 			m_idxBuffAlctr.free_addr(idxAllocAddr, idxCnt);
-			m_vtxBuffAlctr.free_addr(vtxAllocAddr, (idxCnt + 1u) / 2u);
+			m_vtxBuffAlctr.free_addr(vtxAllocAddr, vtxCnt * m_vtxSize);
 
 			return invalidReservedAllocationMeshBuffers;
 		}
@@ -312,11 +326,11 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 		MDIAllocAddr,
 		possibleMDIStructsNeededCnt,
 		perInsVtxAllocAddr,
-		perInsVtxAllocAddr == INVALID_ADDRESS ? 0u : perInsVtxCnt, 
+		perInsVtxAllocAddr == INVALID_ADDRESS ? 0u : perInsVtxCnt * m_perInsVtxSize,
 		idxAllocAddr,
 		idxCnt,
 		vtxAllocAddr,
-		vtxAllocAddr == INVALID_ADDRESS ? 0u : (idxCnt + 1u) / 2u
+		vtxAllocAddr == INVALID_ADDRESS ? 0u : vtxCnt * m_vtxSize
 	};
 	return result;
 }
@@ -328,18 +342,18 @@ void CCPUMeshPackerV1<MDIStructType>::instantiateDataStorage()
 	m_output.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
 	m_output.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
 
-	core::smart_refctd_ptr<ICPUBuffer> unifiedVtxBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSize);
-	core::smart_refctd_ptr<ICPUBuffer> unifiedInsBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.perInstanceVertexBuffSupportedSize);
+	core::smart_refctd_ptr<ICPUBuffer> unifiedVtxBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedByteSize);
+	core::smart_refctd_ptr<ICPUBuffer> unifiedInsBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.perInstanceVertexBuffSupportedByteSize);
 
 	//divide unified vtx buffers
 	//proportions: sizeOfAttr1 : sizeOfAttr2 : ... : sizeOfAttrN
 	std::array<uint32_t, SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT> attrSizeArray;
 
 	uint32_t vtxBufferOffset = 0u;
-	const uint32_t maxVtxCnt = m_vtxSize == 0u ? 0u : m_allocParams.vertexBuffSupportedSize / m_vtxSize;
+	const uint32_t maxVtxCnt = m_vtxSize == 0u ? 0u : m_allocParams.vertexBuffSupportedByteSize / m_vtxSize;
 
 	uint32_t perInsBuffOffset = 0u;
-	const uint32_t maxPerInsVtxCnt = m_perInsVtxSize == 0u ? 0u : m_allocParams.perInstanceVertexBuffSupportedSize / m_perInsVtxSize;
+	const uint32_t maxPerInsVtxCnt = m_perInsVtxSize == 0u ? 0u : m_allocParams.perInstanceVertexBuffSupportedByteSize / m_perInsVtxSize;
 
 	for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
 	{
