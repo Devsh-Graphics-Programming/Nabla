@@ -8,5 +8,5 @@ layout(location = 0) out vec4 pixelColor;
 void main()
 {
     vec2 tex_coord = vec2(TexCoord.x, 1 - TexCoord.y); 
-    pixelColor = textureLod(tex0, tex_coord, 0.0);
+    pixelColor = vec4(textureLod(tex0, tex_coord, 0.0).rgb, 1);
 }

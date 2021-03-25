@@ -108,9 +108,10 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 		vector2df texture_position;
 	};
 	constexpr uint32_t INDICES_PER_QUAD = 6;
-	const size_t INDEX_COUNT = m_params.length * m_params.width * 2 * 3;
+	const size_t INDEX_COUNT = (m_params.length - 1) * (m_params.width - 1) * 2 * 3;
 	const size_t VERTEX_COUNT = m_params.length * m_params.width;
 
+	uint32_t idx = 0;
 	std::vector<uint32_t> indices(INDEX_COUNT);
 	std::vector<VertexData> vertices(VERTEX_COUNT);
 	for (int y = 0; y < m_params.length - 1; y++)
@@ -119,24 +120,23 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 		const size_t y_plus_one_pos = (y + 1) * m_params.width;
 		for (int x = 0; x < m_params.width - 1; x++)
 		{
-			const size_t current_pos = (y_pos + x) * INDICES_PER_QUAD;
-			indices[current_pos] = y_pos + x;
-			indices[current_pos + 1] = y_plus_one_pos + x;
-			indices[current_pos + 2] = y_plus_one_pos + x + 1;
-			indices[current_pos + 3] = y_pos + x;
-			indices[current_pos + 4] = y_plus_one_pos + x + 1;
-			indices[current_pos + 5] = y_pos + x + 1;
+			indices[idx++] = y_pos + x;
+			indices[idx++] = y_plus_one_pos + x;
+			indices[idx++] = y_plus_one_pos + x + 1;
+			indices[idx++] = y_pos + x;
+			indices[idx++] = y_plus_one_pos + x + 1;
+			indices[idx++] = y_pos + x + 1;
 		}
 
 	}
 	for (int z = 0; z < m_params.length; z++)
 	{
-		float z_world = z - m_params.length / 2.f;
+		float z_world = z ;
 		size_t z_pos = z * m_params.width;
 		for (int x = 0; x < m_params.width; x++)
 		{
-			float x_world = x - m_params.width / 2.f;
-			vertices[z_pos + x] = { vector3df{x_world / m_params.width * 2, 0.f, z_world / m_params.length * 2}, vector2df{float(x) / m_params.width, float(z) / m_params.length } };
+			float x_world = x ;
+			vertices[z_pos + x] = { vector3df{x_world / m_params.width, 0.f, z_world / m_params.length}, vector2df{float(x) / m_params.width, float(z) / m_params.length } };
 		}
 	}
 	auto up_stream_buff = m_driver->getDefaultUpStreamingBuffer();
@@ -891,10 +891,9 @@ void WaveSimApp::Run()
 	camera->setPosition(core::vector3df(-4, 1, 0));
 	camera->setTarget(core::vector3df(0, 0, 0));
 	camera->setNearValue(0.01f);
-	camera->setFarValue(10.0f);
+	camera->setFarValue(100.0f);
 
 	m_device->getSceneManager()->setActiveCamera(camera);
-
 	auto initial_values = RandomizeWaveSpectrum();
 	auto displacement_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
 	auto normal_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
