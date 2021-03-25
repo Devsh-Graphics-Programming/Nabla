@@ -614,17 +614,11 @@ int main()
 	const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
 	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,paddedSrcDim);
 	{
-		fftPushConstants[1].input_dimensions.x = 2048u;
-		fftPushConstants[1].input_strides = fftPushConstants[0].output_strides;
-		fftPushConstants[1].output_strides.x = 2048u;
-		fftPushConstants[1].output_strides.y = 1u;
-		fftPushConstants[2] = fftPushConstants[0];
-		fftPushConstants[2].input_dimensions.x = 2048u;
-		fftPushConstants[2].input_dimensions.y = 2048u;
+		fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
 		{
-			fftPushConstants[2].input_dimensions.w ^= 0x80000000u;
-			fftPushConstants[2].input_dimensions.w &= 0xfffffffdu;
+			fftPushConstants[2].input_dimensions.w = fftPushConstants[0].input_dimensions.w^0x80000000u;
 			fftPushConstants[2].input_strides = fftPushConstants[1].output_strides;
+			fftPushConstants[2].output_strides = fftPushConstants[0].input_strides;
 		}
 		fftDispatchInfo[2] = fftDispatchInfo[0];
 	}

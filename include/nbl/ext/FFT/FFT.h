@@ -18,7 +18,8 @@ namespace FFT
 {
 
 typedef uint32_t uint;
-struct alignas(16) uvec3 {
+struct alignas(16) uvec3
+{
 	uint x,y,z;
 };
 struct alignas(16) uvec4 {
@@ -50,44 +51,84 @@ class FFT final : public core::IReferenceCounted
 		{
 			uint32_t passesRequired = 0u;
 
+			const auto paddedInputDimensions = padDimensions(extraPaddedInputDimensions);
+
+			using SizeAxisPair = std::tuple<uint32_t,uint8_t,uint8_t>;
+			std::array<SizeAxisPair,3u> passes;
 			if (numChannels)
 			{
-				const auto paddedInputDimensions = padDimensions(extraPaddedInputDimensions);
 				for (uint32_t i=0u; i<3u; i++)
-				if ((&inputDimensions.width)[i]>1u)
 				{
-					// TODO: rework
-					auto& dispatch = outInfos[passesRequired];
-					dispatch.workGroupCount[0] = paddedInputDimensions.width;
-					dispatch.workGroupCount[1] = paddedInputDimensions.height;
-					dispatch.workGroupCount[2] = paddedInputDimensions.depth;
-					dispatch.workGroupCount[i] = 1u;
+					auto dim = (&paddedInputDimensions.width)[i];
+					if (dim<2u)
+						continue;
+					passes[passesRequired++] = {dim,i,paddingType[i]};
+				}
+				std::sort(passes.begin(),passes.begin()+passesRequired,[](const auto& lhs, const auto& rhs)->bool{return std::get<0u>(lhs)>std::get<0u>(rhs);});
+			}
 
-					auto& params = outParams[passesRequired];
-					params.input_dimensions.x = inputDimensions.width;
-					params.input_dimensions.y = inputDimensions.height;
-					params.input_dimensions.z = inputDimensions.depth;
+			auto computeOutputStride = [](const uvec3& output_dimensions, const auto axis, const auto nextAxis) -> uvec4
+			{
+				// coord[axis] = 1u
+				// coord[nextAxis] = fftLen;
+				// coord[otherAxis] = fftLen*dimension[nextAxis];
+				uvec4 stride; 
+				stride.w = output_dimensions.x*output_dimensions.y*output_dimensions.z;
+				for (auto i=0u; i<3u; i++)
+				{
+					auto& coord = (&stride.x)[i];
+					if (i!=axis)
 					{
-						const uint32_t fftSize = (&paddedInputDimensions.width)[i];
+						coord = (&output_dimensions.x)[axis];
+						if (i!=nextAxis)
+							coord *= (&output_dimensions.x)[nextAxis];
+					}
+					else
+						coord = 1u;
+				}
+				return stride;
+			};
+
+			if (passesRequired)
+			{
+				uvec3 output_dimensions = {inputDimensions.width,inputDimensions.height,inputDimensions.depth};
+				for (uint32_t i=0u; i<passesRequired; i++)
+				{
+					auto& params = outParams[i];
+					params.input_dimensions.x = output_dimensions.x;
+					params.input_dimensions.y = output_dimensions.y;
+					params.input_dimensions.z = output_dimensions.z;
+
+					const auto paddedAxisLen = std::get<0u>(passes[i]);
+					{
 						assert(paddingType[i]<=asset::ISampler::ETC_MIRROR);
 						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
 													(i<<28u)| // direction
 													((numChannels-1u)<<26u)| // max channel
-													(core::findMSB(fftSize)<<3u)| // log2(fftSize)
-													uint32_t(paddingType[i]);
+													(core::findMSB(paddedAxisLen)<<3u)| // log2(fftSize)
+													uint32_t(std::get<2u>(passes[i]));
 					}
-					params.input_strides.x = 1u;
-					params.input_strides.y = paddedInputDimensions.width;
-					params.input_strides.z = params.input_strides.y*paddedInputDimensions.height;
-					params.input_strides.w = params.input_strides.z*paddedInputDimensions.depth;
-					params.output_strides = params.input_strides;
 
-					passesRequired++;
+					const auto passAxis = std::get<1u>(passes[i]);
+					(&output_dimensions.x)[passAxis] = paddedAxisLen;
+					if (i)
+						params.input_strides = outParams[i-1u].output_strides;
+					else // TODO provide an override for input strides
+					{
+						params.input_strides.x = 1u;
+						params.input_strides.y = inputDimensions.width;
+						params.input_strides.z = params.input_strides.y * inputDimensions.height;
+						params.input_strides.w = params.input_strides.z * inputDimensions.depth;
+					}
+					params.output_strides = computeOutputStride(output_dimensions,passAxis,std::get<1u>(passes[(i+1u)%passesRequired]));
+
+					auto& dispatch = outInfos[i];
+					dispatch.workGroupCount[0] = output_dimensions.x;
+					dispatch.workGroupCount[1] = output_dimensions.y;
+					dispatch.workGroupCount[2] = output_dimensions.z;
+					dispatch.workGroupCount[passAxis] = 1u;
 				}
 			}
-
-			if (passesRequired)
-				outParams[passesRequired-1u].output_strides = outParams[0].input_strides;
 
 			return passesRequired;
 		}
