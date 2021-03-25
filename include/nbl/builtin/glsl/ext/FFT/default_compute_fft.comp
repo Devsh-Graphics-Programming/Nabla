@@ -78,25 +78,33 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	const ivec3 max_coord = dimensions-ivec3(1u);
 	
 	const ivec3 clamped_coord = clamp(coordinate,ivec3(0),max_coord);
-
+	
 	const uint paddingType = nbl_glsl_ext_FFT_Parameters_t_getPaddingType();
 	switch (paddingType)
 	{
-		case _NBL_GLSL_EXT_FFT_PAD_CLAMP_TO_EDGE_:
-			coordinate = clamped_coord;
-			break;
 		case _NBL_GLSL_EXT_FFT_PAD_CLAMP_TO_BORDER_:
 			if (any(bvec3(coordinate!=clamped_coord)))
 				return nbl_glsl_complex(0,0);
 			coordinate = clamped_coord;
 			break;
-		case _NBL_GLSL_EXT_FFT_PAD_MIRROR_:
-			const bvec3 flip = bvec3((coordinate/dimensions)&0x1u);
-			coordinate %= dimensions;
-			coordinate = mix(coordinate,max_coord-coordinate,flip);
+		case _NBL_GLSL_EXT_FFT_PAD_CLAMP_TO_EDGE_:
+			coordinate = clamped_coord;
 			break;
-		default:
-			coordinate %= dimensions;
+		case _NBL_GLSL_EXT_FFT_PAD_REPEAT_:
+			{
+				const ivec3 negMask = coordinate>>31u;
+				const ivec3 d = ((coordinate^negMask)/dimensions)^negMask;
+				coordinate = coordinate-d*dimensions;
+			}
+			break;
+		case _NBL_GLSL_EXT_FFT_PAD_MIRROR_:
+			{
+				const ivec3 negMask = coordinate>>31u;
+				const ivec3 d = ((coordinate^negMask)/dimensions)^negMask;
+				coordinate = coordinate-d*dimensions;
+				const bvec3 flip = bvec3(d&0x1);
+				coordinate = mix(coordinate,max_coord-coordinate,flip);
+			}
 			break;
 	}
 

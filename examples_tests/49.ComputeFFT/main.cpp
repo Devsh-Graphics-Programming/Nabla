@@ -615,12 +615,14 @@ int main()
 	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,paddedSrcDim);
 	{
 		fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
+		fftPushConstants[2].input_dimensions.y = 2048u;
 		{
 			fftPushConstants[2].input_dimensions.w = fftPushConstants[0].input_dimensions.w^0x80000000u;
 			fftPushConstants[2].input_strides = fftPushConstants[1].output_strides;
 			fftPushConstants[2].output_strides = fftPushConstants[0].input_strides;
 		}
 		fftDispatchInfo[2] = fftDispatchInfo[0];
+		fftDispatchInfo[2].workGroupCount[1] = 2048;
 	}
 	assert(passes==2);
 
