@@ -190,7 +190,7 @@ int main()
 
 	IAssetLoader::SAssetLoadParams lp;
 	auto srcImageBundle = am->getAsset("../../media/colorexr.exr", lp);
-	auto kerImageBundle = am->getAsset("../../media/kernels/physical_flare_512.exr", lp);
+	auto kerImageBundle = am->getAsset("../../media/kernels/physical_flare_256.exr", lp);
 
 	// get GPU image views
 	smart_refctd_ptr<IGPUImageView> srcImageView;
@@ -234,8 +234,6 @@ int main()
 	srcNumChannels = channelCountOverride;
 	kerNumChannels = channelCountOverride;
 	assert(srcNumChannels == kerNumChannels); // Just to make sure, because the other case is not handled in this example
-	
-	const auto srcDim = srcImageView->getCreationParameters().image->getCreationParameters().extent;
 
 	// Create Out Image
 	smart_refctd_ptr<IGPUImage> outImg;
@@ -362,14 +360,21 @@ int main()
 		);
 	}();
 
-	float bloomScale = 0.125f;
+	const float bloomRelativeScale = 0.25f;
 	const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
+	const auto srcDim = srcImageView->getCreationParameters().image->getCreationParameters().extent;
+	const float bloomScale = core::min(float(srcDim.width)/float(kerDim.width),float(srcDim.height)/float(kerDim.height))*bloomRelativeScale;
+	if (bloomScale>1.f)
+		std::cout << "WARNING: Bloom Kernel will Clip and loose sharpness, increase resolution of bloom kernel!" << std::endl;
 	const auto marginSrcDim = [srcDim,kerDim,bloomScale]() -> auto
 	{
 		auto tmp = srcDim;
-		tmp.width += core::max(kerDim.width*bloomScale,1u)-1u;
-		tmp.height += core::max(kerDim.height*bloomScale,1u)-1u;
-		tmp.depth += core::max(kerDim.depth*bloomScale,1u)-1u;
+		for (auto i=0u; i<3u; i++)
+		{
+			const auto coord = (&kerDim.width)[i];
+			if (coord>1u)
+				(&tmp.width)[i] += core::max(coord*bloomScale,1u)-1u;
+		}
 		return tmp;
 	}();
 	constexpr bool useHalfFloats = true;
