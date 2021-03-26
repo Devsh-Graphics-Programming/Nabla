@@ -362,7 +362,7 @@ int main()
 		);
 	}();
 
-	float bloomScale = 0.5f;
+	float bloomScale = 0.125f;
 	const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
 	const auto marginSrcDim = [srcDim,kerDim,bloomScale]() -> auto
 	{
