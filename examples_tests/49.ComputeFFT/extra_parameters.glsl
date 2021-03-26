@@ -8,3 +8,9 @@ struct convolve_parameters_t
     nbl_glsl_ext_FFT_Parameters_t fft;
     vec2    kernel_half_pixel_size;
 };
+
+struct image_store_parameters_t
+{
+    nbl_glsl_ext_FFT_Parameters_t fft;
+    ivec2   unpad_offset;
+};

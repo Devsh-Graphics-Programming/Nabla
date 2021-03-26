@@ -4,7 +4,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) i
 
 layout(set=0, binding=2) uniform sampler2D NormalizedKernel[3];
 
-#include "convolve_parameters.glsl"
+#include "extra_parameters.glsl"
 layout(push_constant) uniform PushConstants
 {
 	convolve_parameters_t params;

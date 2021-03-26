@@ -114,36 +114,6 @@ inline void updateDescriptorSet_Convolution (
 
 	driver->updateDescriptorSets(descCount, pWrites, 0u, nullptr);
 }
-
-static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_LastFFT(video::IVideoDriver* driver)
-{
-	static IGPUDescriptorSetLayout::SBinding bnd[] =
-	{
-		{
-			0u,
-			EDT_STORAGE_BUFFER,
-			1u,
-			ISpecializedShader::ESS_COMPUTE,
-			nullptr
-		},
-		{
-			1u,
-			EDT_STORAGE_IMAGE,
-			1u,
-			ISpecializedShader::ESS_COMPUTE,
-			nullptr
-		},
-	};
-
-	using FFTClass = ext::FFT::FFT;
-	core::SRange<const asset::SPushConstantRange> pcRange = FFTClass::getDefaultPushConstantRanges();
-	core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};;
-
-	return driver->createGPUPipelineLayout(
-		pcRange.begin(),pcRange.end(),
-		driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
-	);
-}
 inline void updateDescriptorSet_LastFFT (
 	video::IVideoDriver * driver,
 	video::IGPUDescriptorSet * set,
@@ -183,10 +153,13 @@ inline void updateDescriptorSet_LastFFT (
 using nbl_glsl_ext_FFT_Parameters_t = ext::FFT::FFT::Parameters_t;
 struct vec2
 {
-	float x;
-	float y;
+	float x,y;
 };
-#include "convolve_parameters.glsl"
+struct ivec2
+{
+	int32_t x,y;
+};
+#include "extra_parameters.glsl"
 
 
 int main()
@@ -359,10 +332,38 @@ int main()
 			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 		);
 	}();
+	auto lastFFTPipelineLayout = [driver]() -> auto
+	{
+		IGPUDescriptorSetLayout::SBinding bnd[] =
+		{
+			{
+				0u,
+				EDT_STORAGE_BUFFER,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr
+			},
+			{
+				1u,
+				EDT_STORAGE_IMAGE,
+				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr
+			},
+		};
+		
+		const asset::SPushConstantRange pcRange = {ISpecializedShader::ESS_COMPUTE,0u,sizeof(image_store_parameters_t)};
+		core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};;
+
+		return driver->createGPUPipelineLayout(
+			&pcRange,&pcRange+1,
+			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+		);
+	}();
 
 	float bloomScale = 1.f;
 	const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
-	const auto paddedSrcDim = [srcDim,kerDim,bloomScale]() -> auto
+	const auto marginSrcDim = [srcDim,kerDim,bloomScale]() -> auto
 	{
 		auto tmp = srcDim;
 		tmp.width += kerDim.width*bloomScale-1u;
@@ -373,8 +374,8 @@ int main()
 	bloomScale = 0.5;
 	constexpr bool useHalfFloats = true;
 	// Allocate Output Buffer
-	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,paddedSrcDim,srcNumChannels));
-	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,paddedSrcDim,srcNumChannels));
+	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,marginSrcDim,srcNumChannels));
+	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,marginSrcDim,srcNumChannels));
 	core::smart_refctd_ptr<IGPUImageView> kernelNormalizedSpectrums[channelCountOverride];
 
 	auto updateDescriptorSet = [driver](video::IGPUDescriptorSet* set, core::smart_refctd_ptr<IGPUImageView> inputImageDescriptor, asset::ISampler::E_TEXTURE_CLAMP textureWrap, core::smart_refctd_ptr<IGPUBuffer> outputBufferDescriptor) -> void
@@ -581,11 +582,11 @@ int main()
 	}
 	
 	// pipelines
-	auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver,paddedSrcDim.width,useHalfFloats);
-	auto fft_y = core::make_smart_refctd_ptr<FFTClass>(driver,paddedSrcDim.height,useHalfFloats);
+	auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver,marginSrcDim.width,useHalfFloats);
+	auto fft_y = core::make_smart_refctd_ptr<FFTClass>(driver,marginSrcDim.height,useHalfFloats);
 	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,fft_x.get(), "../image_first_fft.comp"));
 	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, std::move(convolvePipelineLayout), createShader(driver,fft_y.get(), "../fft_convolve_ifft.comp"));
-	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, getPipelineLayout_LastFFT(driver), createShader(driver,fft_x.get(), "../last_fft.comp"));
+	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, std::move(lastFFTPipelineLayout), createShader(driver,fft_x.get(), "../last_fft.comp"));
 
 	// Src FFT X 
 	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
@@ -612,7 +613,7 @@ int main()
 	FFTClass::Parameters_t fftPushConstants[3];
 	FFTClass::DispatchInfo_t fftDispatchInfo[3];
 	const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
-	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,paddedSrcDim);
+	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
 	{
 		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides; // override for less work and storage (dont need to store the extra Y-slices after iFFT)
 		fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
@@ -649,6 +650,14 @@ int main()
 		// Last FFT Padding and Copy to GPU Image
 		driver->bindComputePipeline(lastFFTPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, lastFFTPipeline->getLayout(), 0u, 1u, &lastFFTDescriptorSet.get(), nullptr);
+		{
+			const auto paddedSrcDim = FFTClass::padDimensions(marginSrcDim);
+			ivec2 unpad_offset = { 0,0 };
+			for (auto i=0u; i<2u; i++)
+			if (fftDispatchInfo[3].workGroupCount[i]>1u)
+				(&unpad_offset.x)[i] = ((&paddedSrcDim.width)[i]-(&srcDim.width)[i])>>1u;
+			driver->pushConstants(lastFFTPipeline->getLayout(),ISpecializedShader::ESS_COMPUTE,offsetof(image_store_parameters_t,unpad_offset),sizeof(image_store_parameters_t::unpad_offset),&unpad_offset);
+		}
 		FFTClass::dispatchHelper(driver, lastFFTPipeline->getLayout(), fftPushConstants[2], fftDispatchInfo[2]);
 		
 		if(!savedToFile) 
