@@ -361,17 +361,16 @@ int main()
 		);
 	}();
 
-	float bloomScale = 1.f;
+	float bloomScale = 0.5f;
 	const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
 	const auto marginSrcDim = [srcDim,kerDim,bloomScale]() -> auto
 	{
 		auto tmp = srcDim;
-		tmp.width += kerDim.width*bloomScale-1u;
-		tmp.height += kerDim.height*bloomScale-1u;
-		tmp.depth += kerDim.depth*bloomScale-1u;
+		tmp.width += core::max(kerDim.width*bloomScale,1u)-1u;
+		tmp.height += core::max(kerDim.height*bloomScale,1u)-1u;
+		tmp.depth += core::max(kerDim.depth*bloomScale,1u)-1u;
 		return tmp;
 	}();
-	bloomScale = 0.5;
 	constexpr bool useHalfFloats = true;
 	// Allocate Output Buffer
 	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(useHalfFloats,marginSrcDim,srcNumChannels));
@@ -654,7 +653,7 @@ int main()
 			const auto paddedSrcDim = FFTClass::padDimensions(marginSrcDim);
 			ivec2 unpad_offset = { 0,0 };
 			for (auto i=0u; i<2u; i++)
-			if (fftDispatchInfo[3].workGroupCount[i]>1u)
+			if (fftDispatchInfo[2].workGroupCount[i]==1u)
 				(&unpad_offset.x)[i] = ((&paddedSrcDim.width)[i]-(&srcDim.width)[i])>>1u;
 			driver->pushConstants(lastFFTPipeline->getLayout(),ISpecializedShader::ESS_COMPUTE,offsetof(image_store_parameters_t,unpad_offset),sizeof(image_store_parameters_t::unpad_offset),&unpad_offset);
 		}
