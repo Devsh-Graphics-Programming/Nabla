@@ -234,7 +234,7 @@ protected:
     VirtualAttribConfig virtualAttribConfig;
 
     PackerDataStore m_packerDataStore;
-    const AllocationParams m_allocParams;
+    AllocationParams m_allocParams;
 
 };
 

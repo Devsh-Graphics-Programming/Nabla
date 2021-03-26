@@ -264,15 +264,19 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipelineRange>&
 {
     assert(ranges.size()>=2u);
     
-    constexpr uint16_t minTrisBatch = 21000u;// TODO: CRASHES WITH 256u;
-    constexpr uint16_t maxTrisBatch = std::numeric_limits<uint16_t>::max()/3u;
+    //constexpr uint16_t minTrisBatch = 256u;// TODO: CRASHES WITH 256u for `minTrisBatch` and std::numeric_limits<uint16_t>::max()/3u for maxTrisBatch
+    //constexpr uint16_t maxTrisBatch = std::numeric_limits<uint16_t>::max()/3u;
+
+    constexpr uint16_t minTrisBatch = 256u;
+    constexpr uint16_t maxTrisBatch = 256u;
+
     using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 
-    MeshPacker::AllocationParams allocParams; // TODO: review all variable names MAKE IT FUCKING CLEAR IF THINGS ARE BYTESIZES OR COUNTS!
+    MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
     allocParams.indexBufferMinAllocCnt = minTrisBatch*3u;
-    allocParams.vertexBuffSupportedSize = 128u*1024u*1024u; // TODO: this is VERTEX COUNT or BYTE COUNT?
-    allocParams.vertexBufferMinAllocSize = minTrisBatch;
+    allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
+    allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
     allocParams.MDIDataBuffSupportedCnt = 8192u;
     allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory (TODO: WTF NO!)
     
@@ -305,7 +309,8 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipelineRange>&
         drawData.pushConstantsData.push_back(offsetForDrawCall); // FOUND THE FUCKUP!
         offsetForDrawCall += mdiCnt;
     }
-
+    
+    mp.shrinkOutputBuffersSize();
     mp.instantiateDataStorage();
     MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
     

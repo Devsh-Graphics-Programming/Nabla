@@ -35,6 +35,14 @@ public:
 
     void instantiateDataStorage();
 
+    //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
+    void shrinkOutputBuffersSize()
+    {
+        m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
+        m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u, 1u);
+        m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
+    }
+
     template <typename MeshBufferIterator>
     bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
@@ -129,7 +137,6 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
             }
 
             verticesAddedCnt += usedVertices.size();
-            instancesAddedCnt += insCnt;
             cdotOut++;
 
             //construct mdi data
@@ -145,6 +152,8 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 
             batchFirstIdx += idxInBatchCnt;
         }
+
+        instancesAddedCnt += insCnt;
 
         pmbd = { ramb.mdiAllocationOffset, static_cast<uint32_t>(batchCnt) };
 
