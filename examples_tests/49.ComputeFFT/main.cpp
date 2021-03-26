@@ -24,7 +24,8 @@ constexpr uint32_t channelCountOverride = 3u;
 
 inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(
 	video::IVideoDriver* driver,
-	const FFTClass* fft,
+	const uint32_t maxFFTlen,
+	const bool useHalfStorage,
 	const char* includeMainName,
 	float kernelScale = 1.f)
 {
@@ -48,8 +49,8 @@ R"===(#version 430 core
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,
-		fft->getMaxFFTLength(),
-		fft->usesHalfFloatStorage() ? 1u:0u,
+		maxFFTlen,
+		useHalfStorage ? 1u:0u,
 		kernelScale,
 		includeMainName
 	);
@@ -456,18 +457,26 @@ int main()
 		};
 		for (uint32_t i=0u; i<channelCountOverride; i++)
 			kernelNormalizedSpectrums[i] = createKernelSpectrum();
-
-		// Ker FFT X 
-		auto fftDescriptorSet_Ker_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
-		updateDescriptorSet(fftDescriptorSet_Ker_FFT_X.get(), kerImageView, ISampler::ETC_CLAMP_TO_BORDER, fftOutputBuffer_0);
-
-		// Ker FFT Y
-		auto fft_y = core::make_smart_refctd_ptr<FFTClass>(driver,kerDim.height,useHalfFloats);
-		auto fftPipeline_SSBOInput = fft_y->getDefaultPipeline();
-		auto fftDescriptorSet_Ker_FFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipeline_SSBOInput->getLayout()->getDescriptorSetLayout(0u)));
-		FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
 		
-		// Normalization of FFT Y result
+
+		FFTClass::Parameters_t fftPushConstants[2];
+		FFTClass::DispatchInfo_t fftDispatchInfo[2];
+		const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_CLAMP_TO_BORDER,ISampler::ETC_CLAMP_TO_BORDER};
+		const auto passes = FFTClass::buildParameters(false,srcNumChannels,kerDim,fftPushConstants,fftDispatchInfo,fftPadding);
+		assert(passes==2u);
+		// last FFT pipeline
+		core::smart_refctd_ptr<IGPUComputePipeline> fftPipeline_SSBOInput(core::make_smart_refctd_ptr<FFTClass>(driver,0x1u<<fftPushConstants[1].getLog2FFTSize(),useHalfFloats)->getDefaultPipeline());
+
+		// descriptor sets
+		core::smart_refctd_ptr<IGPUDescriptorSet> fftDescriptorSet_Ker_FFT[2] =
+		{
+			driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u))),
+			driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipeline_SSBOInput->getLayout()->getDescriptorSetLayout(0u)))
+		};
+		updateDescriptorSet(fftDescriptorSet_Ker_FFT[0].get(), kerImageView, ISampler::ETC_CLAMP_TO_BORDER, fftOutputBuffer_0);
+		FFTClass::updateDescriptorSet(driver,fftDescriptorSet_Ker_FFT[1].get(), fftOutputBuffer_0, fftOutputBuffer_1);
+		
+		// Normalization of FFT spectrum
 		struct NormalizationPushConstants
 		{
 			ext::FFT::uvec4 stride;
@@ -540,28 +549,21 @@ int main()
 			return dset;
 		}();
 
-		FFTClass::Parameters_t fftPushConstants[2];
-		FFTClass::DispatchInfo_t fftDispatchInfo[2];
-		const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_CLAMP_TO_BORDER,ISampler::ETC_CLAMP_TO_BORDER};
-		const auto passes = FFTClass::buildParameters(false,srcNumChannels,kerDim,fftPushConstants,fftDispatchInfo,fftPadding);
-		assert(passes==2u);
-
-		// Ker Image FFT X
-		auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver, kerDim.height, useHalfFloats);
+		// Ker Image First Axis FFT
 		{
-			auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,fft_x.get(),"../image_first_fft.comp",bloomScale));
+			auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../image_first_fft.comp",bloomScale));
 			driver->bindComputePipeline(fftPipeline_ImageInput.get());
-			driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
+			driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT[0].get(), nullptr);
 			FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
 		}
 
-		// Ker Image FFT Y
-		driver->bindComputePipeline(fftPipeline_SSBOInput);
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipeline_SSBOInput->getLayout(), 0u, 1u, &fftDescriptorSet_Ker_FFT_Y.get(), nullptr);
+		// Ker Image Last Axis FFT
+		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipeline_SSBOInput->getLayout(), 0u, 1u, &fftDescriptorSet_Ker_FFT[1].get(), nullptr);
 		FFTClass::dispatchHelper(driver, fftPipeline_SSBOInput->getLayout(), fftPushConstants[1], fftDispatchInfo[1]);
 		
 		// Ker Normalization
-		auto fftPipeline_KernelNormalization = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization),createShader(driver,fft_x.get(),"../normalization.comp"));
+		auto fftPipeline_KernelNormalization = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization),createShader(driver,0xdeadbeefu,useHalfFloats,"../normalization.comp"));
 		driver->bindComputePipeline(fftPipeline_KernelNormalization.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_KernelNormalization.get(), 0u, 1u, &fftDescriptorSet_KernelNormalization.get(), nullptr);
 		{
@@ -580,22 +582,35 @@ int main()
 		}
 	}
 	
+	FFTClass::Parameters_t fftPushConstants[3];
+	FFTClass::DispatchInfo_t fftDispatchInfo[3];
+	const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
+	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
+	{
+		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides; // override for less work and storage (dont need to store the extra padding of the last axis after iFFT)
+		fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
+		{
+			fftPushConstants[2].input_dimensions.w = fftPushConstants[0].input_dimensions.w^0x80000000u;
+			fftPushConstants[2].input_strides = fftPushConstants[1].output_strides;
+			fftPushConstants[2].output_strides = fftPushConstants[0].input_strides;
+		}
+		fftDispatchInfo[2] = fftDispatchInfo[0];
+	}
+	assert(passes==2);
 	// pipelines
-	auto fft_x = core::make_smart_refctd_ptr<FFTClass>(driver,marginSrcDim.width,useHalfFloats);
-	auto fft_y = core::make_smart_refctd_ptr<FFTClass>(driver,marginSrcDim.height,useHalfFloats);
-	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,fft_x.get(), "../image_first_fft.comp"));
-	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, std::move(convolvePipelineLayout), createShader(driver,fft_y.get(), "../fft_convolve_ifft.comp"));
-	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, std::move(lastFFTPipelineLayout), createShader(driver,fft_x.get(), "../last_fft.comp"));
+	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../image_first_fft.comp"));
+	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, std::move(convolvePipelineLayout), createShader(driver,0x1u<<fftPushConstants[1].getLog2FFTSize(),useHalfFloats, "../fft_convolve_ifft.comp"));
+	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, std::move(lastFFTPipelineLayout), createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../last_fft.comp"));
 
-	// Src FFT X 
-	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
-	updateDescriptorSet(fftDescriptorSet_Src_FFT_X.get(), srcImageView, ISampler::ETC_MIRROR, fftOutputBuffer_0);
+	// Src First Axis FFT
+	auto fftDescriptorSet_Src_FirstFFT = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
+	updateDescriptorSet(fftDescriptorSet_Src_FirstFFT.get(), srcImageView, ISampler::ETC_MIRROR, fftOutputBuffer_0);
 
 	// Convolution
 	auto convolveDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipeline->getLayout()->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_0, fftOutputBuffer_1, kernelNormalizedSpectrums);
 
-	// Last IFFTX 
+	// Last Axis IFFT
 	auto lastFFTDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(lastFFTPipeline->getLayout()->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_LastFFT(driver, lastFFTDescriptorSet.get(), fftOutputBuffer_1, outImgView);
 
@@ -608,33 +623,16 @@ int main()
 	auto blitFBO = driver->addFrameBuffer();
 	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
 
-
-	FFTClass::Parameters_t fftPushConstants[3];
-	FFTClass::DispatchInfo_t fftDispatchInfo[3];
-	const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
-	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
-	{
-		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides; // override for less work and storage (dont need to store the extra Y-slices after iFFT)
-		fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
-		{
-			fftPushConstants[2].input_dimensions.w = fftPushConstants[0].input_dimensions.w^0x80000000u;
-			fftPushConstants[2].input_strides = fftPushConstants[1].output_strides;
-			fftPushConstants[2].output_strides = fftPushConstants[0].input_strides;
-		}
-		fftDispatchInfo[2] = fftDispatchInfo[0];
-	}
-	assert(passes==2);
-
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
 
-		// Src Image FFT X
+		// Src Image First Axis FFT
 		driver->bindComputePipeline(fftPipeline_ImageInput.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Src_FFT_X.get(), nullptr);
+		driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Src_FirstFFT.get(), nullptr);
 		FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
 
-		// Src Image FFT Y + Convolution + Convolved IFFT Y
+		// Src Image Last Axis FFT + Convolution + Convolved Last Axis IFFT Y
 		driver->bindComputePipeline(convolvePipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, convolvePipeline->getLayout(), 0u, 1u, &convolveDescriptorSet.get(), nullptr);
 		{

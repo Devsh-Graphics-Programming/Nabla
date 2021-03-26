@@ -32,6 +32,10 @@ class FFT final : public core::IReferenceCounted
 	public:
 		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t
 		{
+			inline uint getLog2FFTSize()
+			{
+				return (input_dimensions.w>>3u)&0x1fu;
+			}
 		};
 
 		struct DispatchInfo_t
@@ -53,7 +57,7 @@ class FFT final : public core::IReferenceCounted
 
 			const auto paddedInputDimensions = padDimensions(extraPaddedInputDimensions);
 
-			using SizeAxisPair = std::tuple<uint32_t,uint8_t,uint8_t>;
+			using SizeAxisPair = std::tuple<float,uint8_t,uint8_t>;
 			std::array<SizeAxisPair,3u> passes;
 			if (numChannels)
 			{
@@ -62,9 +66,9 @@ class FFT final : public core::IReferenceCounted
 					auto dim = (&paddedInputDimensions.width)[i];
 					if (dim<2u)
 						continue;
-					passes[passesRequired++] = {dim,i,paddingType[i]};
+					passes[passesRequired++] = {float(dim)/float((&inputDimensions.width)[i]),i,paddingType[i]};
 				}
-				std::sort(passes.begin(),passes.begin()+passesRequired,[](const auto& lhs, const auto& rhs)->bool{return std::get<0u>(lhs)>std::get<0u>(rhs);});
+				std::sort(passes.begin(),passes.begin()+passesRequired);
 			}
 
 			auto computeOutputStride = [](const uvec3& output_dimensions, const auto axis, const auto nextAxis) -> uvec4
@@ -99,17 +103,17 @@ class FFT final : public core::IReferenceCounted
 					params.input_dimensions.y = output_dimensions.y;
 					params.input_dimensions.z = output_dimensions.z;
 
-					const auto paddedAxisLen = std::get<0u>(passes[i]);
+					const auto passAxis = std::get<1u>(passes[i]);
+					const auto paddedAxisLen = (&paddedInputDimensions.width)[passAxis];
 					{
 						assert(paddingType[i]<=asset::ISampler::ETC_MIRROR);
 						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
-													(i<<28u)| // direction
+													(passAxis<<28u)| // direction
 													((numChannels-1u)<<26u)| // max channel
 													(core::findMSB(paddedAxisLen)<<3u)| // log2(fftSize)
 													uint32_t(std::get<2u>(passes[i]));
 					}
 
-					const auto passAxis = std::get<1u>(passes[i]);
 					(&output_dimensions.x)[passAxis] = paddedAxisLen;
 					if (i)
 						params.input_strides = outParams[i-1u].output_strides;
