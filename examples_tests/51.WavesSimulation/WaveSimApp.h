@@ -27,6 +27,7 @@ struct WaveSimParams
 	float wind_speed;
 	float amplitude; 
 	float wind_dependency;
+	float choppiness;
 };
 
 class WaveSimApp

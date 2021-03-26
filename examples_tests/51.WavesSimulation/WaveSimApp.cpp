@@ -482,7 +482,7 @@ bool WaveSimApp::CreateComputePipelines()
 				{
 					ds_layout = ift_y_ds_layout;
 					asset::SPushConstantRange range;
-					range.size = sizeof(ext::FFT::FFT::Parameters_t);
+					range.size = sizeof(ext::FFT::FFT::Parameters_t) + sizeof(float);
 					range.offset = 0u;
 					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 					layout = m_driver->createGPUPipelineLayout(&range,
@@ -813,7 +813,13 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 		auto ds = m_ifft_2_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_ifft_pipeline_2->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_ifft_pipeline_2.get());
-		m_driver->pushConstants(m_ifft_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(params), &params);
+		
+		auto all_params = [&]() { 
+			struct PC { FFT::Parameters_t params; float choppiness; };
+			return PC{ params, m_params.choppiness }; 
+		} ();
+
+		m_driver->pushConstants(m_ifft_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(all_params), &all_params);
 		{
 			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
 			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -888,7 +894,7 @@ void WaveSimApp::Run()
 
 	scene::ICameraSceneNode* camera = m_device->getSceneManager()->addCameraSceneNodeFPS(0, 100.0f, 0.001f);
 
-	camera->setPosition(core::vector3df(0, 5, 0));
+	camera->setPosition(core::vector3df(20, 5, 20));
 	camera->setTarget(core::vector3df(0, 0, 0));
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);

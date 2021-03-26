@@ -9,9 +9,9 @@ layout( push_constant ) uniform Block {
 	layout(offset = 64) vec3 camera_pos;
 } u_pc;
 
-const vec3 water_color = vec3(0, 0.4, 0.5);
+const vec3 water_color = vec3(0, 0.3, 0.5);
 const vec3 light_color = vec3(1, 1, 0.8);
-const vec3 light_pos = vec3(5, 100, 5);     
+const vec3 light_pos = vec3(100, 100, 100);     
 
 vec3 fresnel(float cosTheta, vec3 f0)
 {

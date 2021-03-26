@@ -12,7 +12,7 @@ layout( push_constant, row_major ) uniform Block {
 layout(location = 0) out vec3 v_normal;
 layout(location = 1) out vec3 v_world_coord;
 
-const vec3 scale = vec3(10, 2, 10); 
+const vec3 scale = vec3(100, 20, 100); 
 void main()
 {
 	uvec2 size = textureSize(displacement_map, 0);
