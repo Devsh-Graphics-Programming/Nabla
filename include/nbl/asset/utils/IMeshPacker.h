@@ -144,7 +144,7 @@ protected:
     {
         uint32_t triCnt;
         if (IMeshManipulator::getPolyCount(triCnt,meshBuffer))
-            return triCnt*3u;
+            return triCnt * 3u;
         return 0u;
     }
 
@@ -399,11 +399,11 @@ protected:
                 break;
         }
 
-        uint32_t output;
-        const bool success = IMeshManipulator::getPolyCount(output, meshBuffer);
+        uint32_t triCnt;
+        const bool success = IMeshManipulator::getPolyCount(triCnt, meshBuffer);
         assert(success);
 
-        return output * 3;
+        return triCnt * 3;
     }
 
     std::pair<uint32_t, core::smart_refctd_ptr<ICPUBuffer>> convertIdxBufferToTriangles(MeshBufferType* meshBuffer)
