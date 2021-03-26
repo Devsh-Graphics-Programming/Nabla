@@ -3,15 +3,14 @@
 int main()
 {
 	WaveSimParams params{
-		256, 
-		256,
+		512, 
+		512,
 		{ 1000, 1000 },
-		{ 1.f, 0.f },
-		20,
-		0.0001, 
-		0.
+		{ 1.f, 1.f },
+		31,
+		1, 
+		0.07
 	};
-	//Sleep(5000);
 	WaveSimApp app(params);
 	app.Run();
 }

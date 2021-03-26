@@ -888,7 +888,7 @@ void WaveSimApp::Run()
 
 	scene::ICameraSceneNode* camera = m_device->getSceneManager()->addCameraSceneNodeFPS(0, 100.0f, 0.001f);
 
-	camera->setPosition(core::vector3df(-4, 1, 0));
+	camera->setPosition(core::vector3df(0, 5, 0));
 	camera->setTarget(core::vector3df(0, 0, 0));
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
@@ -901,7 +901,7 @@ void WaveSimApp::Run()
 	while (m_device->run())
 	{
 		std::chrono::duration<double> time_passed = std::chrono::system_clock::now() - start_time;
-		m_driver->beginScene(true);
+		m_driver->beginScene(true, true, SColor(255, 25, 170, 237));
 		GenerateDisplacementMap(initial_values, displacement_map, std::chrono::duration_cast<std::chrono::milliseconds>(time_passed).count() / 1000.f);
 		GenerateNormalMap(displacement_map, normal_map);
 
