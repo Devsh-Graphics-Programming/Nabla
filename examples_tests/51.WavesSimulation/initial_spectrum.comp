@@ -38,12 +38,12 @@ float Ph(vec2 k)
     float cosine_factor_sqrt = dot(normalize(k), u_pc.WIND_DIR);
     float cosine_factor = cosine_factor_sqrt  * cosine_factor_sqrt;
     float k2 = dot(k, k);
-    float k6 = k2 * k2 * k2;
+    float k6 = k2 * k2;
     float res =  u_pc.A * exp(-1 / (k2 * L * L)) / k6 * cosine_factor; 
     if(cosine_factor_sqrt < 0)
         res *= u_pc.WIND_DEP;
 
-    return res * exp(-k2 * W * W);
+    return res;
 }
 
 vec2 h0(vec2 k)
