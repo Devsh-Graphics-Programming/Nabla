@@ -3,7 +3,7 @@
 layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (set = 0, binding = 0) uniform sampler2D heightmap;
-layout (set = 0, binding = 1, rgba8) uniform writeonly image2D normalmap;
+layout (set = 0, binding = 1, rgba16) uniform writeonly image2D normalmap;
 
 layout(push_constant) uniform PUSH_CONSTANTS
 {
@@ -25,8 +25,8 @@ void main()
         vec4 r_d = textureGather(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y) / 2, 2);
         
         vec3 normal;
-        normal.x = 10 * -(r_u[1] - l_u[0] + 2 * (r_u[2] -l_u[3]) + r_d[2] - l_d[3]);
-        normal.z = 10 * -(l_d[3] - l_u[0] + 2 * (l_d[2] -l_u[1]) + r_d[2] - r_u[1]);
+        normal.z = -(r_u[1] - l_u[0] + 2 * (r_u[2] -l_u[3]) + r_d[2] - l_d[3]);
+        normal.x = -(l_d[3] - l_u[0] + 2 * (l_d[2] -l_u[1]) + r_d[2] - r_u[1]);
         normal.y = 1.0;
 
 	    imageStore(normalmap, ivec2(gl_GlobalInvocationID.xy), vec4(normalize(normal), 1));

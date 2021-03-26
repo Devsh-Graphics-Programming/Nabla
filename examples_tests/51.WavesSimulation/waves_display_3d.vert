@@ -12,13 +12,13 @@ layout( push_constant, row_major ) uniform Block {
 layout(location = 0) out vec3 v_normal;
 layout(location = 1) out vec3 v_world_coord;
 
-
+const vec3 scale = vec3(10, 2, 10); 
 void main()
 {
 	uvec2 size = textureSize(displacement_map, 0);
 	vec3 displacement = texture(displacement_map, texture_pos).rgb;
 	displacement = displacement.xzy;
-	vec4 pos = vec4((world_pos.xyz + displacement) * 10, 1);
+	vec4 pos = vec4((world_pos.xyz + displacement) * scale, 1);
     gl_Position = u_pc.vp * pos;
 
 	v_normal = texture(normal_map, texture_pos).rgb;
