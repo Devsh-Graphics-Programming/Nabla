@@ -145,7 +145,7 @@ public:
 	void shrinkOutputBuffersSize()
 	{
 		m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
-		m_allocParams.perInstanceVertexBuffSupportedByteSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, 1u) * 2;
+		m_allocParams.perInstanceVertexBuffSupportedByteSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, 1u);
 		m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u, 1u);
 		m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
 	}
