@@ -50,7 +50,7 @@ class FFT final : public core::IReferenceCounted
 		static inline uint32_t buildParameters(
 			bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, 
 			Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType,
-			const asset::VkExtent3D& extraPaddedInputDimensions
+			const asset::VkExtent3D& extraPaddedInputDimensions, bool realInput = false
 		)
 		{
 			uint32_t passesRequired = 0u;
