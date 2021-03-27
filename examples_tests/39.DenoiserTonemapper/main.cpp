@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
 	params.Vsync = true;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false;
-	params.StreamingDownloadBufferSize = 2560*1024*1024;
+	params.StreamingDownloadBufferSize = 1024*1024*1024; // for 16k images
 	auto device = createDeviceEx(params);
 
 	if (check_error(!device,"Could not create Irrlicht Device!"))
@@ -837,37 +837,6 @@ void main()
 				//input with RGB, Albedo, Normals
 				OptixImage2D denoiserInputs[EII_COUNT];
 				OptixImage2D denoiserOutput;
-
-				auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
-				
-				constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
-				const auto waitPoint = std::chrono::high_resolution_clock::now() + std::chrono::nanoseconds(timeoutInNanoSeconds);
-
-				auto downloadAndGetBuffer = [&, downloadStagingArea](auto& optixGpuBuffer) -> core::smart_refctd_ptr<ICPUBuffer>
-				{
-					const video::VkMemoryRequirements& vulkanFetchedReqs = optixGpuBuffer.getObject()->getMemoryReqs().vulkanReqs;
-					uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
-					const uint32_t alignment = 4096u; // common page size
-					const uint32_t size = vulkanFetchedReqs.size;
-					auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &size, &alignment);
-					if (unallocatedSize)
-					{
-						os::Printer::log(makeImageIDString(i) + "Could not download the buffer from the GPU!", ELL_ERROR);
-						return nullptr;
-					}
-
-					driver->copyBuffer(optixGpuBuffer.getObject(), downloadStagingArea->getBuffer(), 0u, address, vulkanFetchedReqs.size);
-
-					auto downloadFence = driver->placeFence(true);
-
-					auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address;
-					return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(vulkanFetchedReqs.size, data, core::adopt_memory);
-
-					while (downloadFence->waitCPU(1000ull, downloadFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
-				};
-
-				core::smart_refctd_ptr<ICPUBuffer> denoiserInputsTexelBuffer = downloadAndGetBuffer(temporaryPixelBuffer);
-				core::smart_refctd_ptr<ICPUBuffer> denoiserOutputTexelBuffer = downloadAndGetBuffer(imagePixelBuffer);
 				
 				for (size_t k = 0; k < denoiserInputCount; k++)
 				{
