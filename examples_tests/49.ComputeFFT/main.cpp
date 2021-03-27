@@ -443,7 +443,7 @@ int main()
 			video::IGPUImage::SCreationParams imageParams;
 			imageParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
 			imageParams.type = asset::IImage::ET_2D;
-			imageParams.format = asset::EF_R16G16_SFLOAT;
+			imageParams.format = useHalfFloats ? EF_R16G16_SFLOAT:EF_R32G32_SFLOAT;
 			imageParams.extent = { paddedKerDim.width,paddedKerDim.height,1u};
 			imageParams.mipLevels = 1u;
 			imageParams.arrayLayers = 1u;
@@ -453,7 +453,7 @@ int main()
 			viewParams.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
 			viewParams.image = driver->createGPUImageOnDedMem(std::move(imageParams),driver->getDeviceLocalGPUMemoryReqs());
 			viewParams.viewType = video::IGPUImageView::ET_2D;
-			viewParams.format = asset::EF_R16G16_SFLOAT;
+			viewParams.format = useHalfFloats ? EF_R16G16_SFLOAT:EF_R32G32_SFLOAT;
 			viewParams.components = {};
 			viewParams.subresourceRange = {};
 			viewParams.subresourceRange.levelCount = 1u;

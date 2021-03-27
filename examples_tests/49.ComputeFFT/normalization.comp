@@ -15,11 +15,17 @@ layout(push_constant) uniform PushConstants
 	uvec4 bitreverse_shift;
 } pc;
 
+#include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+
 void main()
 {
 	nbl_glsl_complex value = nbl_glsl_ext_FFT_storage_t_get(in_data[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)]);
 	
-	const float power = abs(nbl_glsl_ext_FFT_storage_t_get(in_data[0]).x); // imaginary component will be 0
+	// imaginary component will be 0, image shall be positive
+	vec3 avg;
+	for (uint i=0u; i<3u; i++)
+		avg[i] = nbl_glsl_ext_FFT_storage_t_get(in_data[pc.strides.z*i]).x;
+	const float power = (nbl_glsl_scRGBtoXYZ*avg).y;
 
 	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
 	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));
