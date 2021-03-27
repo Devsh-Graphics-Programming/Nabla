@@ -12,15 +12,11 @@ layout( push_constant ) uniform Block {
 	layout(offset = 64) vec3 camera_pos;
 } u_pc;
 
-const vec3 water_color = vec3(0.004f, 0.016f, 0.047f);
-const vec3 sky_color = vec3(0.1, 0.6, 0.9);
-//const vec3 sky_color = vec3(1, 1, 0.9);
-const vec3 light_pos = vec3(100, 1000000, 100);     
+const vec3 water_color = vec3(0.005f, 0.015f, 0.05f);
+//const vec3 sky_color = vec3(1, 1, 0.8);
+const vec3 sky_color = vec3(0.3, 1, 1);
+const vec3 light_pos = vec3(200, 50, 200);     
 
-vec3 fresnel(float cosTheta, vec3 f0)
-{
-    return f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);
-}
 
 void main()
 {
@@ -29,7 +25,7 @@ void main()
     vec3 view = normalize(u_pc.camera_pos - world_coord);
     
     vec3 f0 = vec3(0.04);
-    vec3 f  = nbl_glsl_fresnel_schlick(f0, max(dot(normal, view), 0.0));
+    vec3 f  = nbl_glsl_fresnel_schlick(f0, abs(dot(normal, view)));
     
     vec3 albedo = mix(water_color.rgb, sky_color, f);
 
