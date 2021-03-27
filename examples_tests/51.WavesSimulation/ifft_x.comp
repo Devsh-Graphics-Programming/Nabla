@@ -29,7 +29,6 @@ layout(push_constant) uniform PUSH_CONSTANTS
 	float TIME;
 } u_pc;
 
-#define EI(x) vec2(cos(x), sin(x))
 void main()
 {
 	for(uint channel = 0; channel < 3; channel++)

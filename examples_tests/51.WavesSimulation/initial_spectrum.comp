@@ -57,7 +57,7 @@ void main()
     {
         float n = float(int(gl_GlobalInvocationID.x) - int(u_pc.IMG_SIZE.x) / 2); 
         float m = float(int(gl_GlobalInvocationID.y) - int(u_pc.IMG_SIZE.y) / 2); 
-        vec2 k = vec2(2 * PI * n / u_pc.LENGTH_UNIT.x, 2 * PI * m / u_pc.LENGTH_UNIT.y);
+        vec2 k = vec2(2 * nbl_glsl_PI * n / u_pc.LENGTH_UNIT.x, 2 * nbl_glsl_PI * m / u_pc.LENGTH_UNIT.y);
         
         uint ssbo_index = gl_GlobalInvocationID.y * u_pc.IMG_SIZE.x + gl_GlobalInvocationID.x;
         primary_calculations.data[ssbo_index][0] = h0(k);

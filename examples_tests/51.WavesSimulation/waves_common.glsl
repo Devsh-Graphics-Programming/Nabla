@@ -3,13 +3,13 @@
 
 #include <nbl/builtin/glsl/math/complex.glsl>
 #include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
-#define PI 3.1415926538
+#include <nbl/builtin/glsl/math/constants.glsl>
 #define G 9.8
 #define UINT_MAX 4294967295u
 
 struct displacement_spectrum
 {
-	vec2 d[3];
+	mat3x2 d;
 };
 
 #endif

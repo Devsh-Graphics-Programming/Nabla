@@ -29,7 +29,7 @@ void main()
 	vec2 h0_conj = h0_data[1];
 
 	vec2 coord = ivec2(gl_GlobalInvocationID.xy) - ivec2(u_pc.IMG_SIZE) / 2;
-    vec2 k = 2 * PI * coord / u_pc.LENGTH_UNIT;
+    vec2 k = 2 * nbl_glsl_PI * coord / u_pc.LENGTH_UNIT;
 	float wkt = sqrt(length(k) * G) * u_pc.TIME; 
 	
 	float k2 = dot(k, k);

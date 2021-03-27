@@ -5,10 +5,6 @@
 #include "nbl/ext/FFT/FFT.h"
 #include "../common/QToQuitEventReceiver.h"
 
-using namespace nbl;
-using namespace core;
-using namespace asset;
-using namespace video;
 
 bool WaveSimApp::Init()
 {
@@ -185,12 +181,21 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 		auto unspec = m_driver->createGPUShader(std::move(spirv));
 		return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
 	};
-
+	auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
+	{
+		std::ifstream ifs(filepath);
+		std::string source((std::istreambuf_iterator<char>(ifs)),
+			std::istreambuf_iterator<char>());
+		auto resolved_includes = m_device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source.c_str(), stage, origFilepath);
+		auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage, "main", "runtimeID");
+		auto unspec = m_driver->createGPUShader(std::move(spirv));
+		return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
+	};
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
 	{
- 		createGPUSpecializedShaderFromFile(vertex_shader_path, asset::ISpecializedShader::ESS_VERTEX),
-		createGPUSpecializedShaderFromFile(fragment_shader_path, asset::ISpecializedShader::ESS_FRAGMENT)
+		createGPUSpecializedShaderFromFile(vertex_shader_path, asset::ISpecializedShader::ESS_VERTEX),
+		createGPUSpecializedShaderFromSourceWithIncludes(fragment_shader_path, asset::ISpecializedShader::ESS_FRAGMENT, fragment_shader_path)
 	};
 	auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);
 
@@ -237,7 +242,7 @@ bool WaveSimApp::CreateComputePipelines()
 {
 	enum class EPipeline
 	{
-		RANDOMIZE_SPECTRUM,
+		GENERATE_SPECTRUM,
 		ANIMATE_SPECTRUM,
 		IFFT_STAGE_1,
 		IFFT_STAGE_2,
@@ -247,7 +252,7 @@ bool WaveSimApp::CreateComputePipelines()
 	{
 		switch (type)
 		{
-		case EPipeline::RANDOMIZE_SPECTRUM:
+		case EPipeline::GENERATE_SPECTRUM:
 			return "../initial_spectrum.comp";
 		case EPipeline::ANIMATE_SPECTRUM:
 			return "../spectrum_animation.comp";
@@ -265,7 +270,7 @@ bool WaveSimApp::CreateComputePipelines()
 		{
 		case EPipeline::GENERATE_NORMALMAP:
 		case EPipeline::ANIMATE_SPECTRUM:
-		case EPipeline::RANDOMIZE_SPECTRUM:
+		case EPipeline::GENERATE_SPECTRUM:
 		{
 			std::string filepath = getFilePath(type);
 			auto f = core::smart_refctd_ptr<io::IReadFile>(m_filesystem->createAndOpenFile(filepath.c_str()));
@@ -448,7 +453,7 @@ bool WaveSimApp::CreateComputePipelines()
 				smart_refctd_ptr<IGPUDescriptorSetLayout> ds_layout;
 				switch (pipeline_type)
 				{
-				case EPipeline::RANDOMIZE_SPECTRUM:
+				case EPipeline::GENERATE_SPECTRUM:
 				{
 					ds_layout = init_ds_layout;
 					asset::SPushConstantRange range;
@@ -536,7 +541,7 @@ bool WaveSimApp::CreateComputePipelines()
 	};
 	m_normalmap_generating_pipeline = createComputePipeline(EPipeline::GENERATE_NORMALMAP);
 	m_spectrum_animating_pipeline = createComputePipeline(EPipeline::ANIMATE_SPECTRUM);
-	m_spectrum_randomizing_pipeline = createComputePipeline(EPipeline::RANDOMIZE_SPECTRUM);
+	m_spectrum_randomizing_pipeline = createComputePipeline(EPipeline::GENERATE_SPECTRUM);
 	m_ifft_pipeline_1 = createComputePipeline(EPipeline::IFFT_STAGE_1);
 	m_ifft_pipeline_2 = createComputePipeline(EPipeline::IFFT_STAGE_2);
 	return m_spectrum_randomizing_pipeline.get() != nullptr &&
@@ -608,7 +613,7 @@ void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textu
 		info[0].image.sampler = m_driver->createGPUSampler(samplerParams_nearest);
 		info[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		info[1].desc = normal_map;
-		info[1].image.sampler = m_driver->createGPUSampler(samplerParams_linear);
+		info[1].image.sampler = m_driver->createGPUSampler(samplerParams_nearest);
 		info[1].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 	}
 	{
@@ -633,7 +638,7 @@ void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textu
 	m_driver->drawMeshBuffer(m_3d_mesh_buffer.get());
 }
 
-smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::RandomizeWaveSpectrum()
+smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::GenerateWaveSpectrum()
 {
 	const uint32_t SSBO_SIZE = m_params.width * m_params.length * 6 * sizeof(float);
 
@@ -900,8 +905,8 @@ void WaveSimApp::Run()
 	camera->setFarValue(100.0f);
 
 	m_device->getSceneManager()->setActiveCamera(camera);
-	auto initial_values = RandomizeWaveSpectrum();
-	auto displacement_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
+	auto initial_values = GenerateWaveSpectrum();
+	auto displacement_map = CreateTexture(m_params.size, EF_R16G16B16A16_SFLOAT);
 	auto normal_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
 	auto start_time = std::chrono::system_clock::now();
 	while (m_device->run())

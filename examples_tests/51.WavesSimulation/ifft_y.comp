@@ -15,7 +15,7 @@ layout(set = 0, binding = 0, std430) buffer IFFT_X_IN
 	displacement_spectrum data[];
 } ifft_x_in;
 
-layout(set = 0, binding = 1, rgba8) uniform image2D heightmap;
+layout(set = 0, binding = 1, rgba16f) uniform image2D heightmap;
 
 layout(push_constant) uniform PUSH_CONSTANTS
 {
