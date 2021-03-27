@@ -12,30 +12,49 @@ layout (set = 0, binding = 0, std430) buffer inout_buffer
 layout(push_constant) uniform pushConstants
 {
     layout (offset = 0) uint stride;
-} u_push_constants;
+	layout (offset = 4) uint element_count_total;
+	layout (offset = 8) uint scan_op;
 
-#define STRIDED_IDX(i) (((i) + 1)*u_push_constants.stride-1)
+} pc;
+
+#define STRIDED_IDX(i) (((i) + 1)*pc.stride-1)
 
 #include <nbl/builtin/glsl/workgroup/shuffle.glsl>
 
 shared uint global_offset;
 
+uint ScanOperation(in uint a, in uint b)
+{
+	switch (pc.scan_op)
+	{
+		case (1 << 0):
+			return a & b;
+		case (1 << 1):
+			return a ^ b;
+		case (1 << 2):
+			return a | b;
+		case (1 << 3):
+			return a + b;
+		case (1 << 4):
+			return a * b;
+		case (1 << 5):
+			return min(a, b);
+		case (1 << 6):
+			return max(a, b);
+	}
+}
+
 void main()
 {
 	uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
 
-	// Question: Since `global_offset` needs to be added to the `data` value of each thread we need it either in each thread's private memory
-	// or the workgroup's shared memory, I chose the latter.
-	// Would it be better to do the former ie reading from the global memory for each thread, especially when the accesses will be
-	// strided?
-
-	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ -1u))
+	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
 		global_offset = inout_values[idx];
 	barrier();
 
 	uint data = global_offset;
 	if (gl_LocalInvocationIndex != 0u)
-		data += inout_values[STRIDED_IDX(gl_GlobalInvocationID.x - 1)];
+		data = ScanOperation(data, inout_values[STRIDED_IDX(gl_GlobalInvocationID.x - 1u)]);
 	barrier();
 
 	inout_values[idx] = data;

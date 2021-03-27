@@ -81,6 +81,417 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
 	}
 }
 
+enum ScanOperator : uint32_t
+{
+	AND = 1 << 0,
+	XOR = 1 << 1,
+	OR	= 1 << 2,
+	ADD = 1 << 3,
+	MUL = 1 << 4,
+	MIN = 1 << 5,
+	MAX = 1 << 6,
+};
+
+// Note: This is assuming input element type is `uint32_t` 
+static inline uint32_t GetIdentityElement(ScanOperator op)
+{
+	switch (op)
+	{
+	case ScanOperator::AND:
+		return uint32_t(-1);
+	case ScanOperator::XOR:
+		return 0u;
+	case ScanOperator::OR:
+		return 0u;
+	case ScanOperator::ADD:
+		return 0u;
+	case ScanOperator::MUL:
+		return 1u;
+	case ScanOperator::MIN:
+		return uint32_t(-1);
+	case ScanOperator::MAX:
+		return 0u;
+	}
+}
+
+static inline uint32_t ScanOperation(uint32_t a, uint32_t b, ScanOperator op)
+{
+	switch (op)
+	{
+	case ScanOperator::AND:
+		return a & b;
+	case ScanOperator::XOR:
+		return a ^ b;
+	case ScanOperator::OR:
+		return a | b;
+	case ScanOperator::ADD:
+		return a + b;
+	case ScanOperator::MUL:
+		return a * b;
+	case ScanOperator::MIN:
+		return min(a, b);
+	case ScanOperator::MAX:
+		return max(a, b);
+	}
+}
+
+int main()
+{
+	// create device with full flexibility over creation parameters
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
+	params.Bits = 24; //may have to set to 32bit for some platforms
+	params.ZBufferBits = 24; //we'd like 32bit here
+	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+	params.WindowSize = dimension2d<uint32_t>(512, 512);
+	params.Fullscreen = false;
+	params.Vsync = true; //! If supported by target platform
+	params.Doublebuffer = true;
+	params.Stencilbuffer = false; //! This will not even be a choice soon
+	auto device = createDeviceEx(params);
+
+	if (!device)
+		return 1; // could not create selected driver.
+
+	IVideoDriver* driver = device->getVideoDriver();
+
+	io::IFileSystem* filesystem = device->getFileSystem();
+	asset::IAssetManager* am = device->getAssetManager();
+
+	unsigned int seed = 128;
+
+	// Stress Test
+	// Todo: Remove this stupid thing before merging
+	uint32_t i = 24u;
+#if 1
+	while (i > 0)
+	{
+#endif
+		const size_t in_count = 1 << (i--); assert((in_count != 1u) || (in_count != 0u));
+		const size_t in_size = in_count * sizeof(uint32_t);
+
+		std::cout << "\n=========================" << std::endl;	
+		std::cout << "Input element count: " << in_count << std::endl;
+		std::cout << "=========================\n" << std::endl;
+
+		uint32_t* in = new uint32_t[in_count];
+		srand(seed++);
+		for (size_t i = 0u; i < in_count; ++i)
+			in[i] = rand();
+
+		ScanOperator scan_op = ScanOperator::ADD;
+		uint32_t identity = GetIdentityElement(scan_op);
+
+		const uint32_t wg_dim = 1 << 8;
+
+		auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+
+		// Upsweep pipeline and ds
+
+		smart_refctd_ptr<IGPUComputePipeline> upsweep_pipeline = nullptr;
+		smart_refctd_ptr<IGPUDescriptorSet> ds_upsweep = nullptr;
+		{
+			const uint32_t count = 1u;
+			IGPUDescriptorSetLayout::SBinding binding[count];
+			for (uint32_t i = 0; i < count; ++i)
+				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
+
+			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
+			ds_upsweep = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
+
+			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
+
+			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
+			{
+				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Upsweep.comp"));
+
+				asset::IAssetLoader::SAssetLoadParams lp;
+				auto cs_bundle = am->getAsset("../Upsweep.comp", lp);
+				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+				auto cs_rawptr = cs.get();
+
+				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+			}
+
+			upsweep_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+		}
+
+		// Downsweep pipeline and ds
+
+		smart_refctd_ptr<IGPUComputePipeline> downsweep_pipeline = nullptr;
+		smart_refctd_ptr<IGPUDescriptorSet> ds_downsweep = nullptr;
+		{
+			const uint32_t count = 1u;
+			IGPUDescriptorSetLayout::SBinding binding[count];
+			for (uint32_t i = 0; i < count; ++i)
+				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
+
+			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
+			ds_downsweep = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
+
+			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
+
+			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
+			{
+				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Downsweep.comp"));
+
+				asset::IAssetLoader::SAssetLoadParams lp;
+				auto cs_bundle = am->getAsset("../Downsweep.comp", lp);
+				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+				auto cs_rawptr = cs.get();
+
+				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+			}
+
+			downsweep_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+		}
+
+		driver->beginScene(true);
+
+		// Upsweeps
+		uint32_t upsweep_pass_count = std::ceil(log(in_count) / log(wg_dim)); // includes the top pass
+
+		uint32_t* temp_cpu = new uint32_t[in_count];
+		memcpy(temp_cpu, in, in_size);
+
+		// Initial conditions
+
+		uint32_t stride = 1u;
+		uint32_t pass_in_count = in_count;
+
+		for (uint32_t upsweep_pass = 0; upsweep_pass < upsweep_pass_count; ++upsweep_pass)
+		{
+			uint32_t wg_count = (pass_in_count + wg_dim - 1) / wg_dim;
+
+			{
+				const uint32_t count = 1;
+				IGPUDescriptorSet::SDescriptorInfo ds_info[count];
+
+				ds_info[0].desc = in_gpu;
+				ds_info[0].buffer = { 0u, in_size };
+
+				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+				for (uint32_t i = 0; i < count; ++i)
+					writes[i] = { ds_upsweep.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+
+				driver->updateDescriptorSets(count, writes, 0u, nullptr);
+			}
+
+			driver->bindComputePipeline(upsweep_pipeline.get());
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_upsweep.get(), nullptr);
+
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
+				&stride);
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
+				&pass_in_count); // pass in element count for this pass
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t),
+				&in_count);
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 12u, sizeof(uint32_t),
+				&scan_op);
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 16u, sizeof(uint32_t),
+				&identity);
+			driver->dispatch(wg_count, 1, 1);
+
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+#if 1
+			// Check the result for this pass
+
+			if (upsweep_pass < upsweep_pass_count - 1)
+			{
+				std::cout << "=========================" << std::endl;
+				std::cout << "Upsweep Pass #" << upsweep_pass << std::endl;
+				std::cout << "=========================" << std::endl;
+
+				for (uint32_t wg = 0; wg < wg_count; ++wg)
+				{
+					size_t begin = wg * wg_dim;
+					size_t end = (wg + 1) * wg_dim;
+
+					if (end > in_count)
+						end = in_count;
+
+					uint32_t* local_prefix_scan = new uint32_t[end - begin];
+
+					uint32_t k = 0;
+					uint32_t scan = identity;
+					for (size_t i = begin; i < end; ++i)
+					{
+						size_t idx = STRIDED_IDX(i);
+						if (idx >= in_count)
+							idx = in_count - 1u;
+
+						scan = ScanOperation(scan, temp_cpu[idx], scan_op);
+						local_prefix_scan[k++] = scan;
+					}
+
+					k = 0;
+					for (size_t i = begin; i < end; ++i)
+					{
+						size_t idx = STRIDED_IDX(i);
+						if (idx >= in_count)
+							idx = in_count - 1u;
+
+						temp_cpu[idx] = local_prefix_scan[k++];
+					}
+
+					delete[] local_prefix_scan;
+				}
+
+				DebugCompareGPUvsCPU<uint32_t>(in_gpu, temp_cpu, in_size, driver);
+			}
+			else
+			{
+				std::cout << "=========================" << std::endl;
+				std::cout << "Top-of-Hierarchy Pass" << std::endl;
+				std::cout << "=========================" << std::endl;
+
+				uint32_t* local_prefix_scan = new uint32_t[pass_in_count];
+
+				uint32_t k = 0;
+				uint32_t scan = identity;
+				for (size_t i = 0; i < pass_in_count; ++i)
+				{
+					local_prefix_scan[k++] = scan;
+					size_t idx = STRIDED_IDX(i);
+					if (idx >= in_count)
+						idx = in_count - 1;
+					scan = ScanOperation(scan, temp_cpu[idx], scan_op);
+				}
+
+				k = 0;
+				for (size_t i = 0; i < pass_in_count; ++i)
+				{
+					size_t idx = STRIDED_IDX(i);
+					if (idx >= in_count)
+						idx = in_count - 1;
+					temp_cpu[idx] = local_prefix_scan[k++];
+				}
+
+				delete[] local_prefix_scan;
+
+				DebugCompareGPUvsCPU<uint32_t>(in_gpu, temp_cpu, in_size, driver);
+			}
+#endif
+
+			// Prepare for next pass
+
+			if (upsweep_pass != upsweep_pass_count - 1u)
+			{
+				stride *= wg_dim;
+				pass_in_count = wg_count;
+			}
+			else
+			{
+				stride /= wg_dim;
+			}
+		}
+
+		// Downsweep passes
+		uint32_t downsweep_pass_count = upsweep_pass_count - 1u;
+
+		for (uint32_t downsweep_pass = 0; downsweep_pass < downsweep_pass_count; ++downsweep_pass)
+		{
+			uint32_t pass_out_count = pass_in_count * wg_dim;
+			uint32_t wg_count = (pass_out_count + wg_dim - 1) / wg_dim;
+
+			{
+				const uint32_t count = 1;
+				IGPUDescriptorSet::SDescriptorInfo ds_info[count];
+
+				ds_info[0].desc = in_gpu;
+				ds_info[0].buffer = { 0u, in_size };
+
+				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+				for (uint32_t i = 0; i < count; ++i)
+					writes[i] = { ds_downsweep.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+
+				driver->updateDescriptorSets(count, writes, 0u, nullptr);
+			}
+
+			driver->bindComputePipeline(downsweep_pipeline.get());
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, downsweep_pipeline->getLayout(), 0u, 1u, &ds_downsweep.get(), nullptr);
+
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
+				&stride);
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
+				&in_count);
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t),
+				&scan_op);
+			driver->dispatch(wg_count, 1, 1);
+
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+			// Check the result for this pass
+
+#if 1
+			std::cout << "=========================" << std::endl;
+			std::cout << "Downsweep Pass #" << downsweep_pass << std::endl;
+			std::cout << "=========================" << std::endl;
+
+			for (uint32_t wg = 0; wg < wg_count; ++wg)
+			{
+				size_t begin = wg * wg_dim;
+				size_t end = (wg + 1) * wg_dim;
+
+				if (end > in_count)
+					end = in_count;
+
+				uint32_t* downsweep_result = new uint32_t[end - begin];
+
+				size_t idx = STRIDED_IDX(end - 1);
+				downsweep_result[0] = temp_cpu[idx];
+
+				uint32_t k = 1;
+				for (size_t i = begin + 1; i < end; ++i)
+					downsweep_result[k++] = ScanOperation(temp_cpu[STRIDED_IDX(i - 1)], downsweep_result[0], scan_op);
+
+				k = 0;
+				for (size_t i = begin; i < end; ++i)
+					temp_cpu[STRIDED_IDX(i)] = downsweep_result[k++];
+
+				delete[] downsweep_result;
+			}
+
+			DebugCompareGPUvsCPU<uint32_t>(in_gpu, temp_cpu, in_size, driver);
+#endif
+
+			// Prepare for the next pass
+
+			pass_in_count = pass_out_count;
+			stride /= wg_dim;
+		}
+
+		// Final Testing (this takes non padded element count)
+		uint32_t* scan_cpu = new uint32_t[in_count];
+
+		uint32_t scan = identity;
+		for (uint32_t i = 0; i < in_count; ++i)
+		{
+			scan_cpu[i] = scan;
+			scan = ScanOperation(scan, in[i], scan_op);
+		}
+
+		std::cout << "=========================" << std::endl;
+		std::cout << "Final Test" << std::endl;
+		std::cout << "=========================" << std::endl;
+
+		DebugCompareGPUvsCPU<uint32_t>(in_gpu, scan_cpu, in_size, driver);
+
+		driver->endScene();
+
+		delete[] in;
+		delete[] temp_cpu;
+		delete[] scan_cpu;
+#if 1
+	}
+#endif
+
+	std::cout << "\a" << std::endl;
+	return 0;
+}
+
+#if 0
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -614,3 +1025,4 @@ int main()
 
 	return 0;
 }
+#endif

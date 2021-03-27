@@ -12,37 +12,68 @@ layout (set = 0, binding = 0, std430) buffer inout_buffer
 layout(push_constant) uniform pushConstants
 {
     layout (offset = 0) uint stride;
-	layout (offset = 4) uint total_elements;
-} u_push_constants;
+	layout (offset = 4) uint element_count;
+	layout (offset = 8) uint element_count_total;
+	layout (offset = 12) uint scan_op;
+	layout (offset = 16) uint identity;
+} pc;
 
-#define STRIDED_IDX(i) (((i) + 1)*u_push_constants.stride-1)
+#define STRIDED_IDX(i) (((i) + 1)*pc.stride-1)
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 
+uint ScanExclusive(in uint val)
+{
+	switch (pc.scan_op)
+	{
+		case (1 << 0):
+			return nbl_glsl_workgroupExclusiveAnd(val);
+		case (1 << 1):
+			return nbl_glsl_workgroupExclusiveXor(val);
+		case (1 << 2):
+			return nbl_glsl_workgroupExclusiveOr(val);
+		case (1 << 3):
+			return nbl_glsl_workgroupExclusiveAdd(val);
+		case (1 << 4):
+			return nbl_glsl_workgroupExclusiveMul(val);
+		case (1 << 5):
+			return nbl_glsl_workgroupExclusiveMin(val);
+		case (1 << 6):
+			return nbl_glsl_workgroupExclusiveMax(val);			
+	}
+}
+
+uint ScanInclusive(in uint val)
+{
+	switch (pc.scan_op)
+	{
+		case (1 << 0):
+			return nbl_glsl_workgroupInclusiveAnd(val);
+		case (1 << 1):
+			return nbl_glsl_workgroupInclusiveXor(val);
+		case (1 << 2):
+			return nbl_glsl_workgroupInclusiveOr(val);
+		case (1 << 3):
+			return nbl_glsl_workgroupInclusiveAdd(val);
+		case (1 << 4):
+			return nbl_glsl_workgroupInclusiveMul(val);
+		case (1 << 5):
+			return nbl_glsl_workgroupInclusiveMin(val);
+		case (1 << 6):
+			return nbl_glsl_workgroupInclusiveMax(val);			
+	}
+}
+
 void main()
 {
-	if (gl_NumWorkGroups.x == 1)
-	{
-		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+	uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
 
-		uint data = 0u;
-		if (idx < u_push_constants.total_elements)
-			data = inout_values[idx];
+	uint data = pc.identity;
+	if (idx < pc.element_count_total)
+		data = inout_values[idx];
 
-		// Todo: just trying to be extra sure here, try to replace scan_result with data itself later
-		uint scan_result = nbl_glsl_workgroupExclusiveAdd(data);
+	uint scan_result = (gl_NumWorkGroups.x == 1u) ? ScanExclusive(data) : ScanInclusive(data);
 
-		if (idx < u_push_constants.total_elements)
-			inout_values[idx] = scan_result;
-	}
-	else
-	{
-		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-		uint data = inout_values[idx];
-
-		// Todo: just trying to be extra sure here, try to replace scan_result with data itself later
-		uint scan_result = nbl_glsl_workgroupInclusiveAdd(data);
-
+	if (idx < pc.element_count_total)
 		inout_values[idx] = scan_result;
-	}
 }
