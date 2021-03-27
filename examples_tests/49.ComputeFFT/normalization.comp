@@ -19,7 +19,7 @@ void main()
 {
 	nbl_glsl_complex value = nbl_glsl_ext_FFT_storage_t_get(in_data[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)]);
 	
-	const float power = length(nbl_glsl_ext_FFT_storage_t_get(in_data[0]));
+	const float power = abs(nbl_glsl_ext_FFT_storage_t_get(in_data[0]).x); // imaginary component will be 0
 
 	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
 	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));

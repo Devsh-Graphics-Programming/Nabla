@@ -29,7 +29,7 @@ void convolve(in uint item_per_thread_count, in uint ch)
 
 		nbl_glsl_complex sourceSpectrum = nbl_glsl_ext_FFT_impl_values[t];
 		
-		// TODO: do push constants here
+		//
 		const uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
         vec2 uv = vec2(bitfieldReverse(coords.xy))/vec2(4294967296.f)+pc.params.kernel_half_pixel_size;
 		//
