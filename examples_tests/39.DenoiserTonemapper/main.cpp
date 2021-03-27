@@ -53,9 +53,8 @@ bool check_error(bool cond, const char* message)
 constexpr uint32_t overlap = 64;
 //constexpr uint32_t tileWidth = 1920/2, tileHeight = 1080/2;
 constexpr uint32_t tileWidth = 1024, tileHeight = 1024;
-constexpr uint32_t tileWidthWithOverlap = tileWidth + overlap * 2;
-constexpr uint32_t tileHeightWithOverlap = tileHeight + overlap * 2;
 constexpr uint32_t outputDimensions[] = { tileWidth ,tileHeight };
+constexpr uint32_t outputDimensionsWithOverlap[] = { tileWidth+overlap*2,tileHeight+overlap*2 };
 
 int main(int argc, char* argv[])
 {
@@ -823,7 +822,7 @@ void main()
 
 				// set up denoiser
 				auto& denoiser = denoisers[param.denoiserType];
-				if (denoiser.m_denoiser->setup(m_cudaStream, outputDimensions, denoiserState, denoiser.stateSize, fakeScratchLink, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
+				if (denoiser.m_denoiser->setup(m_cudaStream, outputDimensionsWithOverlap, denoiserState, denoiser.stateSize, fakeScratchLink, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
 				{
 					os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 					continue;
