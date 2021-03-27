@@ -66,14 +66,30 @@ uint ScanInclusive(in uint val)
 
 void main()
 {
-	uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-
 	uint data = pc.identity;
-	if (idx < pc.element_count_total)
+	if (gl_GlobalInvocationID.x < pc.element_count)
+	{
+		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+		if (idx >= pc.element_count_total)
+			idx = pc.element_count_total - 1u;
+
 		data = inout_values[idx];
+	}
+
+	// if (idx < pc.element_count_total)
+	// 	data = inout_values[idx];
 
 	uint scan_result = (gl_NumWorkGroups.x == 1u) ? ScanExclusive(data) : ScanInclusive(data);
 
-	if (idx < pc.element_count_total)
+	if (gl_GlobalInvocationID.x < pc.element_count)
+	{
+		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+		if (idx >= pc.element_count_total)
+			idx = pc.element_count_total - 1u;
+
 		inout_values[idx] = scan_result;
+	}
+
+	// if (idx < pc.element_count_total)
+	// 	inout_values[idx] = scan_result;
 }

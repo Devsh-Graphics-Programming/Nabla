@@ -158,16 +158,18 @@ int main()
 	io::IFileSystem* filesystem = device->getFileSystem();
 	asset::IAssetManager* am = device->getAssetManager();
 
-	unsigned int seed = 128;
+	unsigned int seed = 666;
 
 	// Stress Test
 	// Todo: Remove this stupid thing before merging
-	uint32_t i = 24u;
+	uint32_t i = 0u;
+	uint32_t k = 258u;
+	ScanOperator scan_ops[7] = { AND, XOR, OR, ADD, MUL, MIN, MAX };
 #if 1
-	while (i > 0)
+	while (i <= 70u)
 	{
 #endif
-		const size_t in_count = 1 << (i--); assert((in_count != 1u) || (in_count != 0u));
+		const size_t in_count = (rand() * 10) + (rand() % 10); // 1 << (i--); assert((in_count != 1u) || (in_count != 0u));
 		const size_t in_size = in_count * sizeof(uint32_t);
 
 		std::cout << "\n=========================" << std::endl;	
@@ -179,7 +181,7 @@ int main()
 		for (size_t i = 0u; i < in_count; ++i)
 			in[i] = rand();
 
-		ScanOperator scan_op = ScanOperator::ADD;
+		ScanOperator scan_op = scan_ops[(i++ % 7)]; // ScanOperator::ADD;
 		uint32_t identity = GetIdentityElement(scan_op);
 
 		const uint32_t wg_dim = 1 << 8;
@@ -308,8 +310,8 @@ int main()
 					size_t begin = wg * wg_dim;
 					size_t end = (wg + 1) * wg_dim;
 
-					if (end > in_count)
-						end = in_count;
+					if (end > pass_in_count)
+						end = pass_in_count;
 
 					uint32_t* local_prefix_scan = new uint32_t[end - begin];
 
@@ -424,7 +426,7 @@ int main()
 
 			// Check the result for this pass
 
-#if 1
+#if 0
 			std::cout << "=========================" << std::endl;
 			std::cout << "Downsweep Pass #" << downsweep_pass << std::endl;
 			std::cout << "=========================" << std::endl;
@@ -462,6 +464,7 @@ int main()
 			stride /= wg_dim;
 		}
 
+#if 0
 		// Final Testing (this takes non padded element count)
 		uint32_t* scan_cpu = new uint32_t[in_count];
 
@@ -478,11 +481,13 @@ int main()
 
 		DebugCompareGPUvsCPU<uint32_t>(in_gpu, scan_cpu, in_size, driver);
 
+		delete[] scan_cpu;
+#endif
+
 		driver->endScene();
 
 		delete[] in;
 		delete[] temp_cpu;
-		delete[] scan_cpu;
 #if 1
 	}
 #endif
