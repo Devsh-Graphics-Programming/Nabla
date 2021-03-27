@@ -592,7 +592,12 @@ int main()
 	const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
 	const auto passes = FFTClass::buildParameters(false,srcNumChannels,srcDim,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
 	{
-		fftPushConstants[1].output_strides = fftPushConstants[1].input_strides; // override for less work and storage (dont need to store the extra padding of the last axis after iFFT)
+		// override for less work and storage (dont need to store the extra padding of the last axis after iFFT)
+		fftPushConstants[1].output_strides.x = fftPushConstants[0].input_strides.x;
+		fftPushConstants[1].output_strides.y = fftPushConstants[0].input_strides.y;
+		fftPushConstants[1].output_strides.z = fftPushConstants[1].input_strides.z;
+		fftPushConstants[1].output_strides.w = fftPushConstants[1].input_strides.w;
+		// iFFT
 		fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
 		{
 			fftPushConstants[2].input_dimensions.w = fftPushConstants[0].input_dimensions.w^0x80000000u;

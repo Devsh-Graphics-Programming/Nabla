@@ -1,8 +1,42 @@
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 
-#include <nbl/builtin/glsl/ext/FFT/types.glsl>
-
 layout(set=0, binding=2) uniform sampler2D NormalizedKernel[3];
+
+/* TODO: Hardcode the parameters for the frequent FFTs
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(1280u,1024u,1u);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return false;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 0u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
+{
+    return 2u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return 11u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
+{
+    return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
+}
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getInputStrides()
+{
+	return uvec4(1024u,1u,0u,1024u*1280u);
+}
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getOutputStrides()
+{
+	return uvec4(1u,1280u,0u,1280u*1024u);
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+*/
 
 #include "extra_parameters.glsl"
 layout(push_constant) uniform PushConstants

@@ -24,6 +24,8 @@ nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters();
 #endif
 
 
+#ifndef _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
 uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
 {
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
@@ -67,5 +69,6 @@ uvec4 nbl_glsl_ext_FFT_Parameters_t_getOutputStrides()
     nbl_glsl_ext_FFT_Parameters_t params = nbl_glsl_ext_FFT_getParameters();
     return params.output_strides;
 }
+#endif
 
 #endif
