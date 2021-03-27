@@ -11,6 +11,7 @@
 #include "nbl/asset/filters/dithering/CPrecomputedDither.h"
 
 #include "nbl/ext/ToneMapper/CToneMapper.h"
+#include "nbl/ext/FFT/FFT.h"
 #include "nbl/ext/OptiX/Manager.h"
 
 #include "CommonPushConstants.h"
@@ -31,7 +32,9 @@ struct ImageToDenoise
 	uint32_t width = 0u, height = 0u;
 	uint32_t colorTexelSize = 0u;
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
+	float bloomScale;
 	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
+	core::smart_refctd_ptr<asset::ICPUImage> kernel = nullptr;
 };
 struct DenoiserToUse
 {
@@ -153,11 +156,13 @@ int main(int argc, char* argv[])
 	}
 
 
-	constexpr uint32_t kComputeWGSize = 256u;
-	
-
+	using FFTClass = ext::FFT::FFT;
 	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;
+
+	constexpr uint32_t kComputeWGSize = FFTClass::DEFAULT_WORK_GROUP_SIZE; // if it changes, maybe it breaks stuff
+	
+	constexpr bool usingHalfFloatFFTStorage = false;
 	constexpr bool usingLumaMeter = true;
 	constexpr auto MeterMode = LumaMeterClass::EMM_MEDIAN;
 	const auto HistogramBufferSize = LumaMeterClass::getOutputBufferSize(MeterMode);
@@ -171,7 +176,7 @@ int main(int argc, char* argv[])
 	constexpr auto SharedDescriptorSetDescCount = 4u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndDFFTXPipeline,interleavePipeline;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndFirstFFTPipeline,interleavePipeline;
 	{
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
@@ -274,7 +279,7 @@ void main()
 		intensity[pc.data.intensityBufferDWORDOffset] = optixIntensity;
 }
 		)==="));
-		auto secondLumaMeterAndDFFTXShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto secondLumaMeterAndFirstFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #define _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
@@ -380,7 +385,7 @@ void main()
 												};
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto intensitySpecializedShader = driver->createGPUSpecializedShader(intensityShader.get(),specInfo);
-		auto secondLumaMeterAndDFFTXSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndDFFTXShader.get(),specInfo);
+		auto secondLumaMeterAndFirstFFTSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndFirstFFTShader.get(),specInfo);
 		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
 		
 		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
@@ -395,7 +400,7 @@ void main()
 
 		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
 		intensityPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
-		secondLumaMeterAndDFFTXPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndDFFTXSpecializedShader));
+		secondLumaMeterAndFirstFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndFirstFFTSpecializedShader));
 		interleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveSpecializedShader));
 	}
 
@@ -409,10 +414,10 @@ void main()
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
 	const auto& denoiserExposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
-	const auto& bloomFovBundle = cmdHandler.getBloomFovBundle();
+	const auto& bloomScaleBundle = cmdHandler.getBloomScaleBundle();
 	const auto& tonemapperBundle = cmdHandler.getTonemapperBundle();
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
-	const auto& psdFileBunde = cmdHandler.getBloomPsfBundle();
+	const auto& bloomPsfFileBundle = cmdHandler.getBloomPsfBundle();
 
 	auto makeImageIDString = [](uint32_t i, const core::vector<std::optional<std::string>>& fileNameBundle = {})
 	{
@@ -433,6 +438,7 @@ void main()
 	uint32_t maxResolution[2] = { 0,0 };
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
+		auto default_kernel_image_bundle = am->getAsset("../../media/kernels/physical_flare_512.exr",lp); // TODO: use builtins?
 
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
@@ -447,6 +453,8 @@ void main()
 
 			albedo_image_bundle = albedoFileNameBundle[i].has_value() ? am->getAsset(albedoFileNameBundle[i].value(), lp) : decltype(albedo_image_bundle)();
 			normal_image_bundle = normalFileNameBundle[i].has_value() ? am->getAsset(normalFileNameBundle[i].value(), lp) : decltype(normal_image_bundle)();
+
+			auto kernel_image_bundle = bloomPsfFileBundle[i].has_value() ? am->getAsset(bloomPsfFileBundle[i].value(),lp):default_kernel_image_bundle;
 
 			auto& outParam = images[i];
 
@@ -484,9 +492,20 @@ void main()
 				return asset::IAsset::castDown<ICPUImage>(contents.begin()[pickedChannel]);
 			};
 
-			auto& color = getImageAssetGivenChannelName(color_image_bundle,colorChannelNameBundle[i]);
-			decltype(color)& albedo = getImageAssetGivenChannelName(albedo_image_bundle,albedoChannelNameBundle[i]);
-			decltype(color)& normal = getImageAssetGivenChannelName(normal_image_bundle,normalChannelNameBundle[i]);
+			auto color = getImageAssetGivenChannelName(color_image_bundle,colorChannelNameBundle[i]);
+			decltype(color) albedo = getImageAssetGivenChannelName(albedo_image_bundle,albedoChannelNameBundle[i]);
+			decltype(color) normal = getImageAssetGivenChannelName(normal_image_bundle,normalChannelNameBundle[i]);
+
+			decltype(color) kernel = getImageAssetGivenChannelName(kernel_image_bundle,{});
+			if (!kernel)
+			{
+				kernel = getImageAssetGivenChannelName(default_kernel_image_bundle,{});
+				if (!kernel)
+				{
+					os::Printer::log(imageIDString+"Could not load default Bloom Kernel Image, denoise will be skipped!", ELL_ERROR);
+					continue;
+				}
+			}
 
 			auto putImageIntoImageToDenoise = [&](asset::SAssetBundle& queriedBundle, core::smart_refctd_ptr<ICPUImage>&& queriedImage, E_IMAGE_INPUT defaultEII, const std::optional<std::string>& actualWantedChannel)
 			{
@@ -525,6 +544,7 @@ void main()
 			putImageIntoImageToDenoise(color_image_bundle, std::move(color), EII_COLOR, colorChannelNameBundle[i]);
 			putImageIntoImageToDenoise(albedo_image_bundle, std::move(albedo), EII_ALBEDO, albedoChannelNameBundle[i]);
 			putImageIntoImageToDenoise(normal_image_bundle, std::move(normal), EII_NORMAL, normalChannelNameBundle[i]);
+			outParam.kernel = std::move(kernel);
 		}
 		// check inputs and set-up
 		for (size_t i=0; i<inputFilesAmount; i++)
@@ -551,6 +571,47 @@ void main()
 					const auto& region = regions.begin()[0];
 					assert(region.bufferRowLength);
 					outParam.colorTexelSize = asset::getTexelOrBlockBytesize(colorCreationParams.format);
+				}
+				
+				const auto& kerDim = outParam.kernel->getCreationParameters().extent;
+				const float bloomScale = core::min(float(extent.width)/float(kerDim.width),float(extent.height)/float(kerDim.height))*bloomScaleBundle[i].value();
+				if (bloomScale>1.f)
+					os::Printer::log(imageIDString + "Bloom Kernel will Clip and loose sharpness, increase resolution of bloom kernel!", ELL_WARNING);
+				const auto marginSrcDim = [extent,kerDim,bloomScale]() -> auto
+				{
+					auto tmp = extent;
+					for (auto i=0u; i<3u; i++)
+					{
+						const auto coord = (&kerDim.width)[i];
+						if (coord>1u)
+							(&tmp.width)[i] += core::max(coord*bloomScale,1u)-1u;
+					}
+					return tmp;
+				}();
+				constexpr uint32_t colorChannelsFFT = 3u;
+				FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,marginSrcDim,colorChannelsFFT); // TODO: get a max of this value
+				{
+					// TODO: store these
+					FFTClass::Parameters_t fftPushConstants[3];
+					FFTClass::DispatchInfo_t fftDispatchInfo[3];
+					const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
+					const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,extent,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
+					{
+						// override for less work and storage (dont need to store the extra padding of the last axis after iFFT)
+						fftPushConstants[1].output_strides.x = fftPushConstants[0].input_strides.x;
+						fftPushConstants[1].output_strides.y = fftPushConstants[0].input_strides.y;
+						fftPushConstants[1].output_strides.z = fftPushConstants[1].input_strides.z;
+						fftPushConstants[1].output_strides.w = fftPushConstants[1].input_strides.w;
+						// iFFT
+						fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
+						{
+							fftPushConstants[2].input_dimensions.w = fftPushConstants[0].input_dimensions.w^0x80000000u;
+							fftPushConstants[2].input_strides = fftPushConstants[1].output_strides;
+							fftPushConstants[2].output_strides = fftPushConstants[0].input_strides;
+						}
+						fftDispatchInfo[2] = fftDispatchInfo[0];
+					}
+					assert(passes==2);
 				}
 
 				outParam.denoiserType = EII_COLOR;
@@ -880,20 +941,41 @@ void main()
 				// let the shaders know we're in the second phase now
 				shaderConstants.beforeDenoise = 0u;
 				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,beforeDenoise), sizeof(uint32_t), &shaderConstants.beforeDenoise);
-				// Bloom (FoV vs. Constant)
+				// Bloom
 				{
-					driver->bindComputePipeline(secondLumaMeterAndDFFTXPipeline.get());
+					core::smart_refctd_ptr<IGPUImageView> kerImageView;
+					{
+						auto kerGpuImages = driver->getGPUObjectsFromAssets(&param.kernel,&param.kernel+1u,&assetConverter);
+
+
+						IGPUImageView::SCreationParams kerImgViewInfo;
+						kerImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+						kerImgViewInfo.image = kerGpuImages->operator[](0u);
+
+						// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
+						am->removeCachedGPUObject(param.kernel.get(),kerImgViewInfo.image);
+
+						kerImgViewInfo.viewType = IGPUImageView::ET_2D;
+						kerImgViewInfo.format = kerImgViewInfo.image->getCreationParameters().format;
+						kerImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+						kerImgViewInfo.subresourceRange.baseMipLevel = 0;
+						kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
+						kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
+						kerImgViewInfo.subresourceRange.layerCount = 1;
+						kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
+					}
+
+					driver->bindComputePipeline(secondLumaMeterAndFirstFFTPipeline.get());
+					//FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
 					// dispatch
 					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-					// TODO: do Y-axis pass of the DFFT (merge the intensity pipeline into it)
-
-					// TODO: compute DFFT of the flare image (2 passes, maybe merge intensity pipeline into the Y-pass and hoist it outside of here to just after the deinterleave)
+					// TODO: do X-axis pass of the DFFT
 
 					// TODO: multiply the spectra together 
 
-					// TODO: perform inverse DFFT and interleave the results
+					// TODO: perform inverse Y-axis DFFT and interleave the results
 
 					// bind intensity pipeline
 					driver->bindComputePipeline(intensityPipeline.get());

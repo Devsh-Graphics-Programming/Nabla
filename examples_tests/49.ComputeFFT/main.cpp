@@ -7,11 +7,8 @@
 #include <iostream>
 #include <cstdio>
 
-
-#include "nbl/ext/ToneMapper/CToneMapper.h"
 #include "nbl/ext/FFT/FFT.h"
 #include "../common/QToQuitEventReceiver.h"
-#include "../../../../source/Nabla/COpenGLExtensionHandler.h"
 
 using namespace nbl;
 using namespace nbl::core;
