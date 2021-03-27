@@ -440,7 +440,7 @@ void main()
 			const auto imageIDString = makeImageIDString(i, colorFileNameBundle);
 
 			auto color_image_bundle = am->getAsset(colorFileNameBundle[i].value(), lp); decltype(color_image_bundle) albedo_image_bundle, normal_image_bundle;
-			if (color_image_bundle.isEmpty())
+			if (color_image_bundle.getContents().empty())
 			{
 				os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the image from file: " + imageIDString + "!", ELL_ERROR);
 				continue;
@@ -453,7 +453,7 @@ void main()
 
 			auto getImageAssetGivenChannelName = [](asset::SAssetBundle& assetBundle, const std::optional<std::string>& channelName) -> core::smart_refctd_ptr<ICPUImage>
 			{
-				if (assetBundle.isEmpty())
+				if (assetBundle.getContents().empty())
 					return nullptr;
 
 				// calculate a score for how much each channel name matches the requested
@@ -464,14 +464,16 @@ void main()
 					for (auto& asset : contents)
 					{
 						assert(asset);
+						
+						const auto* bundleMeta = assetBundle.getMetadata();
+						const auto* exrmeta = static_cast<const COpenEXRMetadata*>(bundleMeta);
+						const auto* metadata = static_cast<const COpenEXRMetadata::CImage*>(exrmeta->getAssetSpecificMetadata(core::smart_refctd_ptr_static_cast<ICPUImage>(asset).get()));
 
-						auto metadata = asset->getMetadata();
-						const auto exrmeta = static_cast<const COpenEXRImageMetadata*>(metadata);
-						if (strcmp(metadata->getLoaderName(), COpenEXRImageMetadata::LoaderName) != 0)
+						if (strcmp(exrmeta->getLoaderName(), COpenEXRMetadata::LoaderName) != 0)
 							continue;
 						else
 						{
-							const auto& assetMetaChannelName = exrmeta->getName();
+							const auto& assetMetaChannelName = metadata->m_name;
 							auto found = assetMetaChannelName.find(channelName.value());
 							if (found >= firstChannelNameOccurence)
 								continue;
@@ -487,7 +489,7 @@ void main()
 			decltype(color)& albedo = getImageAssetGivenChannelName(albedo_image_bundle,albedoChannelNameBundle[i]);
 			decltype(color)& normal = getImageAssetGivenChannelName(normal_image_bundle,normalChannelNameBundle[i]);
 
-			auto putImageIntoImageToDenoise = [&](core::smart_refctd_ptr<ICPUImage>&& queriedImage, E_IMAGE_INPUT defaultEII, const std::optional<std::string>& actualWantedChannel)
+			auto putImageIntoImageToDenoise = [&](asset::SAssetBundle& queriedBundle, core::smart_refctd_ptr<ICPUImage>&& queriedImage, E_IMAGE_INPUT defaultEII, const std::optional<std::string>& actualWantedChannel)
 			{
 				outParam.image[defaultEII] = nullptr;
 				if (!queriedImage)
@@ -506,22 +508,24 @@ void main()
 					return;
 				}
 
-				auto metadata = queriedImage->getMetadata();
-				auto exrmeta = static_cast<const COpenEXRImageMetadata*>(metadata);
-				if (strcmp(metadata->getLoaderName(),COpenEXRImageMetadata::LoaderName)!=0)
+				const auto* bundleMeta = queriedBundle.getMetadata();
+				const auto* exrmeta = static_cast<const COpenEXRMetadata*>(bundleMeta);
+				const auto* metadata = static_cast<const COpenEXRMetadata::CImage*>(exrmeta->getAssetSpecificMetadata(queriedImage.get()));
+
+				if (strcmp(exrmeta->getLoaderName(), COpenEXRMetadata::LoaderName)!=0)
 					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): "+ imageIDString+" is not an EXR file, so there are no multiple layers of channels.", ELL_WARNING);
 				else if (!actualWantedChannel.has_value())
 					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): User did not specify channel choice for "+ imageIDString+" using the default (first).", ELL_WARNING);
-				else if (exrmeta->getName()!=actualWantedChannel.value())
+				else if (metadata->m_name!=actualWantedChannel.value())
 				{
-					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): Using best fit channel \""+exrmeta->getName()+"\" for requested \""+actualWantedChannel.value()+"\" out of "+ imageIDString+"!", ELL_WARNING);
+					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): Using best fit channel \""+ metadata->m_name +"\" for requested \""+actualWantedChannel.value()+"\" out of "+ imageIDString+"!", ELL_WARNING);
 				}
 				outParam.image[defaultEII] = std::move(queriedImage);
 			};
 
-			putImageIntoImageToDenoise(std::move(color), EII_COLOR, colorChannelNameBundle[i]);
-			putImageIntoImageToDenoise(std::move(albedo), EII_ALBEDO, albedoChannelNameBundle[i]);
-			putImageIntoImageToDenoise(std::move(normal), EII_NORMAL, normalChannelNameBundle[i]);
+			putImageIntoImageToDenoise(color_image_bundle, std::move(color), EII_COLOR, colorChannelNameBundle[i]);
+			putImageIntoImageToDenoise(albedo_image_bundle, std::move(albedo), EII_ALBEDO, albedoChannelNameBundle[i]);
+			putImageIntoImageToDenoise(normal_image_bundle, std::move(normal), EII_NORMAL, normalChannelNameBundle[i]);
 		}
 		// check inputs and set-up
 		for (size_t i=0; i<inputFilesAmount; i++)
@@ -1055,7 +1059,7 @@ void main()
 					CONVERSION_FILTER::state_type state;
 					
 					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/LDR_RGBA.png", {});
-					const auto ditheringStatus = ditheringBundle.isEmpty();
+					const auto ditheringStatus = ditheringBundle.getContents().empty();
 					if (ditheringStatus)
 					{
 						os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the dithering image!", ELL_ERROR);
