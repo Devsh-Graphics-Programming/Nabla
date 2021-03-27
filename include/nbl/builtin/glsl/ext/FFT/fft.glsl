@@ -52,7 +52,7 @@ ivec3 nbl_glsl_ext_FFT_getPaddedCoordinates(in uint tidx, in uint log2FFTSize, i
 #include "nbl/builtin/glsl/workgroup/fft.glsl"
 
 
-nbl_glsl_complex nbl_glsl_ext_FFT_impl_values[(_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_-1u)/_NBL_GLSL_WORKGROUP_SIZE_+1u];
+nbl_glsl_complex nbl_glsl_ext_FFT_impl_values[(_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_-1u)/_NBL_GLSL_WORKGROUP_SIZE_+1u]; // TODO: hardcoded channel count, multichannel FFT (shared twiddles), maybe even precompute twiddles into a LUT!?
 
 void nbl_glsl_ext_FFT_loop(in bool is_inverse, in uint virtual_thread_count, in uint step)
 {
