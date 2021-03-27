@@ -909,7 +909,7 @@ void WaveSimApp::Run()
 	auto displacement_map = CreateTexture(m_params.size, EF_R16G16B16A16_SFLOAT);
 	auto normal_map = CreateTexture(m_params.size, EF_R8G8B8A8_UNORM);
 	auto start_time = std::chrono::system_clock::now();
-	while (m_device->run())
+	while (m_device->run() && m_receiver.keepOpen())
 	{
 		std::chrono::duration<double> time_passed = std::chrono::system_clock::now() - start_time;
 		m_driver->beginScene(true, true, SColor(255, 25, 170, 237));
