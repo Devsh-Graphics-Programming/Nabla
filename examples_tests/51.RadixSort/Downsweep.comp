@@ -12,8 +12,9 @@ layout (set = 0, binding = 0, std430) buffer inout_buffer
 layout(push_constant) uniform pushConstants
 {
     layout (offset = 0) uint stride;
-	layout (offset = 4) uint element_count_total;
-	layout (offset = 8) uint scan_op;
+	layout (offset = 4) uint element_count;
+	layout (offset = 8) uint element_count_total;
+	layout (offset = 12) uint scan_op;
 
 } pc;
 
@@ -46,16 +47,49 @@ uint ScanOperation(in uint a, in uint b)
 
 void main()
 {
-	uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-
 	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
+	{
+		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+		if (idx >= pc.element_count_total)
+			idx = pc.element_count_total - 1u;
+
 		global_offset = inout_values[idx];
+	}
 	barrier();
 
 	uint data = global_offset;
-	if (gl_LocalInvocationIndex != 0u)
-		data = ScanOperation(data, inout_values[STRIDED_IDX(gl_GlobalInvocationID.x - 1u)]);
+
+	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < pc.element_count))
+	{
+		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x - 1u);
+		if (idx >= pc.element_count_total)
+			idx = pc.element_count_total - 1u;
+
+		data = ScanOperation(data, inout_values[idx]);
+	}
 	barrier();
 
-	inout_values[idx] = data;
+	if (gl_GlobalInvocationID.x < pc.element_count)
+	{
+		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+		if (idx >= pc.element_count_total)
+			idx = pc.element_count_total - 1u;
+
+		inout_values[idx] = data;
+	}
+
+
+	// uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+	// 
+	// if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
+	// 	// This idx can go out of bounds
+	// 	global_offset = inout_values[idx];
+	// barrier();
+	// 
+	// uint data = global_offset;
+	// if (gl_LocalInvocationIndex != 0u)
+	// 	data = ScanOperation(data, inout_values[STRIDED_IDX(gl_GlobalInvocationID.x - 1u)]);
+	// barrier();
+	// 
+	// inout_values[idx] = data;
 }

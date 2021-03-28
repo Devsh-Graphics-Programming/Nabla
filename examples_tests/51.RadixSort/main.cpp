@@ -3,6 +3,8 @@
 
 #include "../../source/Nabla/COpenGLDriver.h"
 
+#include <stack>
+
 using namespace nbl;
 using namespace core;
 using namespace video;
@@ -163,13 +165,12 @@ int main()
 	// Stress Test
 	// Todo: Remove this stupid thing before merging
 	uint32_t i = 0u;
-	uint32_t k = 258u;
 	ScanOperator scan_ops[7] = { AND, XOR, OR, ADD, MUL, MIN, MAX };
 #if 1
-	while (i <= 70u)
+	while (i++ < 50u)
 	{
 #endif
-		const size_t in_count = (rand() * 10) + (rand() % 10); // 1 << (i--); assert((in_count != 1u) || (in_count != 0u));
+		const size_t in_count = (rand() * 10) + (rand() % 10); // assert((in_count != 1u) || (in_count != 0u));
 		const size_t in_size = in_count * sizeof(uint32_t);
 
 		std::cout << "\n=========================" << std::endl;	
@@ -181,7 +182,7 @@ int main()
 		for (size_t i = 0u; i < in_count; ++i)
 			in[i] = rand();
 
-		ScanOperator scan_op = scan_ops[(i++ % 7)]; // ScanOperator::ADD;
+		ScanOperator scan_op = ScanOperator::MAX;
 		uint32_t identity = GetIdentityElement(scan_op);
 
 		const uint32_t wg_dim = 1 << 8;
@@ -250,6 +251,10 @@ int main()
 
 		driver->beginScene(true);
 
+		// Kind of a hack (probably temporary) to get the exact number of elements being processed (for bounds checking)
+		// during the downsweep passes. Push during the upsweep passes, pop during the downsweep passes.
+		std::stack<uint32_t> elements_per_pass_stack;
+
 		// Upsweeps
 		uint32_t upsweep_pass_count = std::ceil(log(in_count) / log(wg_dim)); // includes the top pass
 
@@ -263,6 +268,8 @@ int main()
 
 		for (uint32_t upsweep_pass = 0; upsweep_pass < upsweep_pass_count; ++upsweep_pass)
 		{
+			if (upsweep_pass != (upsweep_pass_count - 1u)) elements_per_pass_stack.push(pass_in_count);
+
 			uint32_t wg_count = (pass_in_count + wg_dim - 1) / wg_dim;
 
 			{
@@ -285,7 +292,7 @@ int main()
 			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
 				&stride);
 			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
-				&pass_in_count); // pass in element count for this pass
+				&pass_in_count);
 			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t),
 				&in_count);
 			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 12u, sizeof(uint32_t),
@@ -394,7 +401,20 @@ int main()
 
 		for (uint32_t downsweep_pass = 0; downsweep_pass < downsweep_pass_count; ++downsweep_pass)
 		{
-			uint32_t pass_out_count = pass_in_count * wg_dim;
+			// There is no guarantee that each element will spawn exactly wg_dim number of elements
+			// The last workgroup might spawn less. So I need to employ this hack for now.
+			// 
+			// For in_count = 275920
+			// 
+			// upsweep pass 0: 275920 ==> 1078
+			// upsweep pass 1: 1078 ==> 5
+			// 
+			// top pass: 5 ==> 5
+			// 
+			// downsweep pass 0: 5 ==> 1078 (5 * 256 = 1280)
+			// downsweep pass 1: 1078 ==> 275920 (1078 * 256 = 275968)
+			uint32_t pass_out_count = elements_per_pass_stack.top(); elements_per_pass_stack.pop();
+
 			uint32_t wg_count = (pass_out_count + wg_dim - 1) / wg_dim;
 
 			{
@@ -417,8 +437,10 @@ int main()
 			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
 				&stride);
 			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
-				&in_count);
+				&pass_out_count);
 			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t),
+				&in_count);
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 12u, sizeof(uint32_t),
 				&scan_op);
 			driver->dispatch(wg_count, 1, 1);
 
@@ -426,7 +448,7 @@ int main()
 
 			// Check the result for this pass
 
-#if 0
+#if 1
 			std::cout << "=========================" << std::endl;
 			std::cout << "Downsweep Pass #" << downsweep_pass << std::endl;
 			std::cout << "=========================" << std::endl;
@@ -436,12 +458,14 @@ int main()
 				size_t begin = wg * wg_dim;
 				size_t end = (wg + 1) * wg_dim;
 
-				if (end > in_count)
-					end = in_count;
+				if (end > pass_out_count)
+					end = pass_out_count;
 
 				uint32_t* downsweep_result = new uint32_t[end - begin];
 
 				size_t idx = STRIDED_IDX(end - 1);
+				if (idx >= in_count)
+					idx = in_count - 1u;
 				downsweep_result[0] = temp_cpu[idx];
 
 				uint32_t k = 1;
@@ -450,7 +474,12 @@ int main()
 
 				k = 0;
 				for (size_t i = begin; i < end; ++i)
-					temp_cpu[STRIDED_IDX(i)] = downsweep_result[k++];
+				{
+					size_t idx = STRIDED_IDX(i);
+					if (idx >= in_count)
+						idx = in_count - 1u;
+					temp_cpu[idx] = downsweep_result[k++];
+				}
 
 				delete[] downsweep_result;
 			}
@@ -464,7 +493,7 @@ int main()
 			stride /= wg_dim;
 		}
 
-#if 0
+#if 1
 		// Final Testing (this takes non padded element count)
 		uint32_t* scan_cpu = new uint32_t[in_count];
 
