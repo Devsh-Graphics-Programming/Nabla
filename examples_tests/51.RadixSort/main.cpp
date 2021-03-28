@@ -167,7 +167,7 @@ int main()
 	uint32_t i = 0u;
 	ScanOperator scan_ops[7] = { AND, XOR, OR, ADD, MUL, MIN, MAX };
 #if 1
-	while (i++ < 50u)
+	while (i++ < 500u)
 	{
 #endif
 		const size_t in_count = (rand() * 10) + (rand() % 10); // assert((in_count != 1u) || (in_count != 0u));
@@ -182,7 +182,7 @@ int main()
 		for (size_t i = 0u; i < in_count; ++i)
 			in[i] = rand();
 
-		ScanOperator scan_op = ScanOperator::MAX;
+		ScanOperator scan_op = ScanOperator::ADD;
 		uint32_t identity = GetIdentityElement(scan_op);
 
 		const uint32_t wg_dim = 1 << 8;
@@ -401,18 +401,6 @@ int main()
 
 		for (uint32_t downsweep_pass = 0; downsweep_pass < downsweep_pass_count; ++downsweep_pass)
 		{
-			// There is no guarantee that each element will spawn exactly wg_dim number of elements
-			// The last workgroup might spawn less. So I need to employ this hack for now.
-			// 
-			// For in_count = 275920
-			// 
-			// upsweep pass 0: 275920 ==> 1078
-			// upsweep pass 1: 1078 ==> 5
-			// 
-			// top pass: 5 ==> 5
-			// 
-			// downsweep pass 0: 5 ==> 1078 (5 * 256 = 1280)
-			// downsweep pass 1: 1078 ==> 275920 (1078 * 256 = 275968)
 			uint32_t pass_out_count = elements_per_pass_stack.top(); elements_per_pass_stack.pop();
 
 			uint32_t wg_count = (pass_out_count + wg_dim - 1) / wg_dim;

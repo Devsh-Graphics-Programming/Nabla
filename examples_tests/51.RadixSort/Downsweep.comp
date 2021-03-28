@@ -12,15 +12,13 @@ layout (set = 0, binding = 0, std430) buffer inout_buffer
 layout(push_constant) uniform pushConstants
 {
     layout (offset = 0) uint stride;
-	layout (offset = 4) uint element_count;
+	layout (offset = 4) uint element_count_pass;
 	layout (offset = 8) uint element_count_total;
 	layout (offset = 12) uint scan_op;
 
 } pc;
 
 #define STRIDED_IDX(i) (((i) + 1)*pc.stride-1)
-
-#include <nbl/builtin/glsl/workgroup/shuffle.glsl>
 
 shared uint global_offset;
 
@@ -47,49 +45,22 @@ uint ScanOperation(in uint a, in uint b)
 
 void main()
 {
-	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
-	{
-		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-		if (idx >= pc.element_count_total)
-			idx = pc.element_count_total - 1u;
+	uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+	if (idx >= pc.element_count_total)
+		idx = pc.element_count_total - 1u;
 
+	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
 		global_offset = inout_values[idx];
-	}
 	barrier();
 
 	uint data = global_offset;
-
-	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < pc.element_count))
+	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < pc.element_count_pass))
 	{
-		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x - 1u);
-		if (idx >= pc.element_count_total)
-			idx = pc.element_count_total - 1u;
-
-		data = ScanOperation(data, inout_values[idx]);
+		uint prev_idx = STRIDED_IDX(gl_GlobalInvocationID.x - 1u);
+		data = ScanOperation(data, inout_values[prev_idx]);
 	}
 	barrier();
 
-	if (gl_GlobalInvocationID.x < pc.element_count)
-	{
-		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-		if (idx >= pc.element_count_total)
-			idx = pc.element_count_total - 1u;
-
+	if (gl_GlobalInvocationID.x < pc.element_count_pass)
 		inout_values[idx] = data;
-	}
-
-
-	// uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-	// 
-	// if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
-	// 	// This idx can go out of bounds
-	// 	global_offset = inout_values[idx];
-	// barrier();
-	// 
-	// uint data = global_offset;
-	// if (gl_LocalInvocationIndex != 0u)
-	// 	data = ScanOperation(data, inout_values[STRIDED_IDX(gl_GlobalInvocationID.x - 1u)]);
-	// barrier();
-	// 
-	// inout_values[idx] = data;
 }

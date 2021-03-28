@@ -12,7 +12,7 @@ layout (set = 0, binding = 0, std430) buffer inout_buffer
 layout(push_constant) uniform pushConstants
 {
     layout (offset = 0) uint stride;
-	layout (offset = 4) uint element_count;
+	layout (offset = 4) uint element_count_pass;
 	layout (offset = 8) uint element_count_total;
 	layout (offset = 12) uint scan_op;
 	layout (offset = 16) uint identity;
@@ -66,30 +66,16 @@ uint ScanInclusive(in uint val)
 
 void main()
 {
+	uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
+	if (idx >= pc.element_count_total)
+		idx = pc.element_count_total - 1u;
+
 	uint data = pc.identity;
-	if (gl_GlobalInvocationID.x < pc.element_count)
-	{
-		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-		if (idx >= pc.element_count_total)
-			idx = pc.element_count_total - 1u;
-
+	if (gl_GlobalInvocationID.x < pc.element_count_pass)
 		data = inout_values[idx];
-	}
-
-	// if (idx < pc.element_count_total)
-	// 	data = inout_values[idx];
 
 	uint scan_result = (gl_NumWorkGroups.x == 1u) ? ScanExclusive(data) : ScanInclusive(data);
 
-	if (gl_GlobalInvocationID.x < pc.element_count)
-	{
-		uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
-		if (idx >= pc.element_count_total)
-			idx = pc.element_count_total - 1u;
-
+	if (gl_GlobalInvocationID.x < pc.element_count_pass)
 		inout_values[idx] = scan_result;
-	}
-
-	// if (idx < pc.element_count_total)
-	// 	inout_values[idx] = scan_result;
 }
