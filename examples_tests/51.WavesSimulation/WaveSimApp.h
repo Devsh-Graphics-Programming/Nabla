@@ -46,15 +46,17 @@ private:
 	[[nodiscard]] bool CreatePresenting3DPipeline();
 	[[nodiscard]] bool CreateComputePipelines();
 	textureView CreateTexture(dimension2du size, E_FORMAT format = E_FORMAT::EF_R8G8B8A8_UNORM) const;
+	textureView CreateTextureFromImageFile(const std::string_view image_file_path, E_FORMAT format = E_FORMAT::EF_UNKNOWN) const;
 	void PresentWaves2D(const textureView& tex);
-	void PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const matrix4SIMD& mvp, const vector3df& camera);
-	smart_refctd_ptr<IGPUBuffer> GenerateWaveSpectrum();
-	void AnimateSpectrum(const smart_refctd_ptr<IGPUBuffer>& h0, smart_refctd_ptr<IGPUBuffer>& animated_spectrum, float time);
+	void PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const textureView& env_map, const matrix4SIMD& mvp, const vector3df& camera);
 	void GenerateDisplacementMap(const smart_refctd_ptr<IGPUBuffer>& h0, textureView& out, float time);
 	void GenerateNormalMap(const textureView& displacement_map, textureView& normalmap);
+	smart_refctd_ptr<IGPUBuffer> GenerateWaveSpectrum();
 public:
 	WaveSimApp(const WaveSimParams& params);
 	void Run();
+private:
+	const std::string m_envmap_file_path = "../../media/envmap/envmap_1.exr";
 private:
 	WaveSimParams m_params;
 	
@@ -66,13 +68,11 @@ private:
 
 	graphicsPipeline m_presenting_pipeline;
 	computePipeline m_spectrum_randomizing_pipeline;
-	computePipeline m_spectrum_animating_pipeline;
 	computePipeline m_ifft_pipeline_1;
 	computePipeline m_ifft_pipeline_2;
 	computePipeline m_normalmap_generating_pipeline;
 
 	smart_refctd_ptr<IGPUDescriptorSet> m_randomizer_descriptor_set;
-	smart_refctd_ptr<IGPUDescriptorSet> m_spectrum_animating_descriptor_set;
 	smart_refctd_ptr<IGPUDescriptorSet> m_ifft_1_descriptor_set;
 	smart_refctd_ptr<IGPUDescriptorSet> m_ifft_2_descriptor_set;
 	smart_refctd_ptr<IGPUDescriptorSet> m_normalmap_descriptor_set;
@@ -80,8 +80,8 @@ private:
 
 	smart_refctd_ptr<IGPUMeshBuffer> m_2d_mesh_buffer;
 	smart_refctd_ptr<IGPUMeshBuffer> m_3d_mesh_buffer;
+
 	smart_refctd_ptr<IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout_2d;
-
+ 
 	QToQuitEventReceiver m_receiver;
-
 };

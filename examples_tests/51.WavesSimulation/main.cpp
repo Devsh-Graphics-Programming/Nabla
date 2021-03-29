@@ -10,7 +10,7 @@ int main()
 		31,             // wind speed 
 		0.1,            // amplitude
 		0.07,           // wind dependency
-		1.3             // choppiness 
+		1.1             // choppiness 
 	};
 	WaveSimApp app(params);
 	app.Run();

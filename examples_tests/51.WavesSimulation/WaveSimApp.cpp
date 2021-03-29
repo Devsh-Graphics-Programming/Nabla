@@ -150,7 +150,7 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> presenting_layout;
 	{
-		IGPUDescriptorSetLayout::SBinding texture_bindings[2];
+		IGPUDescriptorSetLayout::SBinding texture_bindings[3];
 		texture_bindings[0].binding = 0;
 		texture_bindings[0].type = EDT_COMBINED_IMAGE_SAMPLER;
 		texture_bindings[0].count = 1u;
@@ -163,7 +163,13 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 		texture_bindings[1].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_FRAGMENT);
 		texture_bindings[1].samplers = nullptr;
 
-		presenting_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 2);
+		texture_bindings[2].binding = 2;
+		texture_bindings[2].type = EDT_COMBINED_IMAGE_SAMPLER;
+		texture_bindings[2].count = 1u;
+		texture_bindings[2].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_FRAGMENT);
+		texture_bindings[2].samplers = nullptr;
+
+		presenting_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 3);
 		m_presenting_3d_descriptor_set = m_driver->createGPUDescriptorSet(presenting_layout);
 	}
 
@@ -211,7 +217,7 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 	inputParams.bindings[0].stride = sizeof(VertexData);
 	inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
 
-	asset::SBlendParams blendParams; 
+	asset::SBlendParams blendParams;
 
 	asset::SPrimitiveAssemblyParams assemblyParams = { asset::EPT_TRIANGLE_LIST,false,1u };
 
@@ -243,7 +249,6 @@ bool WaveSimApp::CreateComputePipelines()
 	enum class EPipeline
 	{
 		GENERATE_SPECTRUM,
-		ANIMATE_SPECTRUM,
 		IFFT_STAGE_1,
 		IFFT_STAGE_2,
 		GENERATE_NORMALMAP
@@ -254,8 +259,6 @@ bool WaveSimApp::CreateComputePipelines()
 		{
 		case EPipeline::GENERATE_SPECTRUM:
 			return "../initial_spectrum.comp";
-		case EPipeline::ANIMATE_SPECTRUM:
-			return "../spectrum_animation.comp";
 		case EPipeline::GENERATE_NORMALMAP:
 			return "../normalmap_generation.comp";
 		case EPipeline::IFFT_STAGE_1:
@@ -269,7 +272,6 @@ bool WaveSimApp::CreateComputePipelines()
 		switch (type)
 		{
 		case EPipeline::GENERATE_NORMALMAP:
-		case EPipeline::ANIMATE_SPECTRUM:
 		case EPipeline::GENERATE_SPECTRUM:
 		{
 			std::string filepath = getFilePath(type);
@@ -362,7 +364,6 @@ bool WaveSimApp::CreateComputePipelines()
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ift_x_ds_layout;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> ift_y_ds_layout;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> normalmap_ds_layout;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> animating_ds_layout;
 	{
 		IGPUDescriptorSetLayout::SBinding texture_bindings[1];
 		texture_bindings[0].binding = 0;
@@ -425,23 +426,6 @@ bool WaveSimApp::CreateComputePipelines()
 		normalmap_ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 2);
 		m_normalmap_descriptor_set = m_driver->createGPUDescriptorSet(normalmap_ds_layout);
 	}
-	{
-		IGPUDescriptorSetLayout::SBinding texture_bindings[2];
-		texture_bindings[0].binding = 0;
-		texture_bindings[0].type = EDT_STORAGE_BUFFER;
-		texture_bindings[0].count = 1u;
-		texture_bindings[0].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
-		texture_bindings[0].samplers = nullptr;
-
-		texture_bindings[1].binding = 1;
-		texture_bindings[1].type = EDT_STORAGE_BUFFER;
-		texture_bindings[1].count = 1u;
-		texture_bindings[1].stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_COMPUTE);
-		texture_bindings[1].samplers = nullptr;
-
-		animating_ds_layout = m_driver->createGPUDescriptorSetLayout(texture_bindings, texture_bindings + 2);
-		m_spectrum_animating_descriptor_set = m_driver->createGPUDescriptorSet(animating_ds_layout);
-	}
 
 	auto createComputePipeline = [&](EPipeline pipeline_type)
 	{
@@ -472,7 +456,7 @@ bool WaveSimApp::CreateComputePipelines()
 				{
 					ds_layout = ift_x_ds_layout;
 					asset::SPushConstantRange range;
-					range.size = sizeof(float) + sizeof(uint32_t) * 2 + sizeof(ext::FFT::FFT::Parameters_t);
+					range.size = sizeof(float) * 3 + sizeof(uint32_t) * 2 + sizeof(ext::FFT::FFT::Parameters_t);
 					range.offset = 0u;
 					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 					layout = m_driver->createGPUPipelineLayout(&range,
@@ -513,21 +497,6 @@ bool WaveSimApp::CreateComputePipelines()
 						nullptr);
 				}
 				break;
-				case EPipeline::ANIMATE_SPECTRUM:
-				{
-					ds_layout = animating_ds_layout;
-					asset::SPushConstantRange range;
-					range.size = sizeof(dimension2du) + sizeof(float) + sizeof(m_params.length_unit);
-					range.offset = 0u;
-					range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
-					layout = m_driver->createGPUPipelineLayout(&range,
-						&range + 1,
-						std::move(ds_layout),
-						nullptr,
-						nullptr,
-						nullptr);
-				}
-				break;
 				}
 
 			}
@@ -540,15 +509,13 @@ bool WaveSimApp::CreateComputePipelines()
 		return comp_pipeline;
 	};
 	m_normalmap_generating_pipeline = createComputePipeline(EPipeline::GENERATE_NORMALMAP);
-	m_spectrum_animating_pipeline = createComputePipeline(EPipeline::ANIMATE_SPECTRUM);
 	m_spectrum_randomizing_pipeline = createComputePipeline(EPipeline::GENERATE_SPECTRUM);
 	m_ifft_pipeline_1 = createComputePipeline(EPipeline::IFFT_STAGE_1);
 	m_ifft_pipeline_2 = createComputePipeline(EPipeline::IFFT_STAGE_2);
 	return m_spectrum_randomizing_pipeline.get() != nullptr &&
 		m_ifft_pipeline_1.get() != nullptr &&
 		m_ifft_pipeline_2.get() != nullptr &&
-		m_normalmap_generating_pipeline.get() != nullptr &&
-		m_spectrum_animating_pipeline.get() != nullptr;
+		m_normalmap_generating_pipeline.get() != nullptr;
 }
 
 WaveSimApp::textureView WaveSimApp::CreateTexture(nbl::core::dimension2du size, nbl::asset::E_FORMAT format) const
@@ -604,6 +571,7 @@ void WaveSimApp::PresentWaves2D(const textureView& tex)
 }
 
 void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const core::matrix4SIMD& mvp, const nbl::core::vector3df& camera)
+void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const textureView& env_map, const core::matrix4SIMD& mvp, const nbl::core::vector3df& camera)
 {
 	IGPUDescriptorSet::SDescriptorInfo info[2];
 	{
@@ -627,11 +595,14 @@ void WaveSimApp::PresentWaves3D(const textureView& displacement_map, const textu
 		write[1] = write[0];
 		write[1].binding = 1u;
 		write[1].info = info + 1;
+		write[2] = write[0];
+		write[2].binding = 2u;
+		write[2].info = info + 2;
 
-		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
+		m_driver->updateDescriptorSets(3u, write, 0u, nullptr);
 	}
 
-	m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_3d_mesh_buffer->getPipeline()->getLayout(), 0, 2, &m_presenting_3d_descriptor_set.get(), nullptr);
+	m_driver->bindDescriptorSets(EPBP_GRAPHICS, m_3d_mesh_buffer->getPipeline()->getLayout(), 0, 1, &m_presenting_3d_descriptor_set.get(), nullptr);
 	m_driver->bindGraphicsPipeline(m_3d_mesh_buffer->getPipeline());
 	m_driver->pushConstants(m_3d_mesh_buffer->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
 	m_driver->pushConstants(m_3d_mesh_buffer->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_FRAGMENT, sizeof(core::matrix4SIMD), sizeof(core::vector3df), &camera);
@@ -668,51 +639,11 @@ smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::GenerateWaveSpectrum()
 	return initial_buffer;
 }
 
-void WaveSimApp::AnimateSpectrum(const nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer>& animated_spectrum, float time)
-{
-	const uint32_t IN_SSBO_SIZE = m_params.width * m_params.length * 4 * sizeof(float);
-	const uint32_t OUT_SSBO_SIZE = m_params.width * m_params.length * 6 * sizeof(float);
-	{
-		video::IGPUDescriptorSet::SWriteDescriptorSet write[3];
-		video::IGPUDescriptorSet::SDescriptorInfo info[3];
-		write[0].dstSet = m_spectrum_animating_descriptor_set.get();
-		write[0].binding = 0u;
-		write[0].count = 1;
-		write[0].arrayElement = 0u;
-		write[0].descriptorType = asset::EDT_STORAGE_BUFFER;
-		write[0].info = info;
-		info[0].desc = h0;
-		info[0].buffer = { 0, IN_SSBO_SIZE };
-
-		write[1] = write[0];
-		write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-		write[1].binding = 1u;
-		write[1].info = info + 1;
-		info[1].desc = animated_spectrum;
-		info[1].buffer = { 0, OUT_SSBO_SIZE };
-
-		m_driver->updateDescriptorSets(2u, write, 0u, nullptr);
-	}
-	auto pc = [this, time]() {
-		struct PC { dimension2du size; vector2df length_unit; float time; };
-		return PC{ m_params.size, m_params.length_unit, time };
-	} ();
-	auto ds = m_spectrum_animating_descriptor_set.get();
-	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_spectrum_animating_pipeline->getLayout(), 0u, 1u, &ds, nullptr);
-	m_driver->bindComputePipeline(m_spectrum_animating_pipeline.get());
-	m_driver->pushConstants(m_spectrum_animating_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
-	{
-		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.length + 15u) / 16u, 1u);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-	}
-}
-
 void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time)
 {
 	using namespace ext::FFT;
+	const uint32_t H0_SSBO_SIZE = m_params.width * m_params.length * 4 * sizeof(float);
 	const uint32_t SSBO_SIZE = m_params.width * m_params.length * 6 * sizeof(float);
-	auto animated_data_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
-	AnimateSpectrum(h0, animated_data_buffer, time);
 	auto ifft_x_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write[2];
@@ -723,8 +654,8 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 		write[0].arrayElement = 0u;
 		write[0].descriptorType = asset::EDT_STORAGE_BUFFER;
 		write[0].info = info;
-		info[0].desc = animated_data_buffer;
-		info[0].buffer = { 0, SSBO_SIZE };
+		info[0].desc = h0;
+		info[0].buffer = { 0, H0_SSBO_SIZE };
 
 		write[1] = write[0];
 		write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
@@ -740,10 +671,12 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 		{
 			FFT::Parameters_t params;
 			dimension2du size;
+			vector2df length_unit;
 			float time;
 		} pc;
 		pc.time = time;
 		pc.size = m_params.size;
+		pc.length_unit = m_params.length_unit;
 		uint8_t isInverse_u8 = false;
 		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::Y);
 		uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
@@ -818,17 +751,15 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 		auto ds = m_ifft_2_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_ifft_pipeline_2->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_ifft_pipeline_2.get());
-		
-		auto all_params = [&]() { 
+
+		auto all_params = [&]() {
 			struct PC { FFT::Parameters_t params; float choppiness; };
-			return PC{ params, m_params.choppiness }; 
+			return PC{ params, m_params.choppiness };
 		} ();
 
 		m_driver->pushConstants(m_ifft_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(all_params), &all_params);
-		{
-			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
-			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		}
+		m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 	}
 }

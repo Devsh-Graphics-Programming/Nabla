@@ -7,9 +7,4 @@
 #define G 9.8
 #define UINT_MAX 4294967295u
 
-struct displacement_spectrum
-{
-	mat3x2 d;
-};
-
 #endif
