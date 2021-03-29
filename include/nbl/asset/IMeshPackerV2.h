@@ -58,6 +58,10 @@ public:
         core::smart_refctd_ptr<BufferType> indexBuffer;
     };
 
+    inline uint32_t getFloatBufferBindingsCnt() { return virtualAttribConfig.floatArrayElementsCnt;  } //TODO: better names?
+    inline uint32_t getIntBufferBindingsCnt() { return virtualAttribConfig.intArrayElementsCnt; }
+    inline uint32_t getUintBufferBindingsCnt() { return virtualAttribConfig.uintArrayElementsCnt; }
+
 protected:
 	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
 		:base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
@@ -65,6 +69,134 @@ protected:
 	{
         initializeCommonAllocators(allocParams);
     };
+
+    template <typename DSlayout>
+    uint32_t getDSlayoutBindings_internal(typename DSlayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    {
+        const uint32_t bindingCount = 
+            (virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
+            (virtualAttribConfig.intArrayElementsCnt ? 1u : 0u) +
+            (virtualAttribConfig.uintArrayElementsCnt ? 1u : 0u);
+
+        if (!outBindings)
+            return bindingCount;
+
+        auto* bindings = outBindings;
+
+        auto fillBinding = [](auto& bnd, uint32_t binding, uint32_t count) {
+            bnd.binding = binding;
+            bnd.count = count;
+            bnd.stageFlags = asset::ISpecializedShader::ESS_ALL;
+            bnd.type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+            bnd.samplers = nullptr;
+        };
+
+        uint32_t i = 0u;
+        if (virtualAttribConfig.floatArrayElementsCnt)
+        {
+            fillBinding(bindings[i], fsamplersBinding, virtualAttribConfig.floatArrayElementsCnt);
+            ++i;
+        }
+        if (virtualAttribConfig.intArrayElementsCnt)
+        {
+            fillBinding(bindings[i], isamplersBinding, virtualAttribConfig.intArrayElementsCnt);
+            ++i;
+        }
+        if (virtualAttribConfig.uintArrayElementsCnt)
+        {
+            fillBinding(bindings[i], usamplersBinding, virtualAttribConfig.uintArrayElementsCnt);
+        }
+
+        return bindingCount;
+    }
+
+    template <typename DS>
+    std::pair<uint32_t, uint32_t> getDescriptorSetWrites_internal(typename DS::SWriteDescriptorSet* outWrites, typename DS::SDescriptorInfo* outInfo, DS* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    {
+        const uint32_t writeCount = 
+            (virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
+            (virtualAttribConfig.intArrayElementsCnt ? 1u : 0u) +
+            (virtualAttribConfig.uintArrayElementsCnt ? 1u : 0u);
+        const uint32_t infoCount = 
+            virtualAttribConfig.floatArrayElementsCnt +
+            virtualAttribConfig.intArrayElementsCnt +
+            virtualAttribConfig.uintArrayElementsCnt;
+
+        if (!outWrites || !outInfo)
+            return std::make_pair(writeCount, infoCount);
+
+        auto* writes = outWrites;
+
+        auto* floatInfoPtr = outInfo;
+        auto* intInfoPtr = floatInfoPtr + virtualAttribConfig.floatArrayElementsCnt;
+        auto* uintInfoPtr = intInfoPtr + virtualAttribConfig.intArrayElementsCnt;
+
+        uint32_t i = 0u, j = 0u;
+        if (virtualAttribConfig.floatArrayElementsCnt)
+        {
+            writes[i].binding = fBuffersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = virtualAttribConfig.floatArrayElementsCnt;
+            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+            writes[i].dstSet = dstSet;
+            writes[i].info = floatInfoPtr;
+        }
+        if (virtualAttribConfig.intArrayElementsCnt)
+        {
+            writes[i].binding = iBuffersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = virtualAttribConfig.intArrayElementsCnt;
+            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+            writes[i].dstSet = dstSet;
+            writes[i].info = intInfoPtr;
+        }
+        if (virtualAttribConfig.uintArrayElementsCnt)
+        {
+            writes[i].binding = uBuffersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = virtualAttribConfig.uintArrayElementsCnt;
+            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+            writes[i].dstSet = dstSet;
+            writes[i].info = uintInfoPtr;
+        }
+
+        auto fillInfoStruct = [&](auto* ptr, E_FORMAT format)
+        {
+            //TODO: make it work for `CGPUMeshPackerV2`
+            ptr->desc = core::make_smart_refctd_ptr<ICPUBufferView>(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer), format);
+            ptr->buffer.offset = 0u;
+            ptr->buffer.size = m_packerDataStore.vertexBuffer->getSize();
+        };
+
+        for (auto virtualAttribData : virtualAttribConfig.map)
+        {
+            const E_UTB_ARRAY_TYPE utbArrayType = virtualAttribData.second.first;
+            const E_FORMAT format = virtualAttribData.first;
+            const uint32_t arrayElement = virtualAttribData.second.second;
+
+            switch (utbArrayType)
+            {
+            case E_UTB_ARRAY_TYPE::EUAT_FLOAT:
+                fillInfoStruct(floatInfoPtr + arrayElement, format);
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_INT:
+                fillInfoStruct(intInfoPtr + arrayElement, format);
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_UINT:
+                fillInfoStruct(uintInfoPtr + arrayElement, format);
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_UNKNOWN:
+                assert(false);
+                return std::make_pair(0u, 0u);
+            }
+        }
+
+        return std::make_pair(writeCount, infoCount);
+    }
+
 
 public:
 	template <typename MeshBufferIterator>
@@ -74,84 +206,6 @@ public:
     uint32_t calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
-
-    std::string generateGLSLBufferDefinitions(uint32_t set)
-    {
-        const std::string setStr = std::to_string(set);
-        const std::string UTBTemplate = std::string("layout(set = ") + setStr + std::string(", binding = ) uniform ");
-        const std::string SSBOTemplateDec = std::string("layout(set = ") + setStr + std::string(", binding = ) readonly buffer ");
-        const std::string SSBOTemplateDef = "{\n    int dataOffsetTable[];\n} ";
-        const uint32_t bindingOffset = 26u;
-
-        enum TBOType
-        {
-            ETT_INT,
-            ETT_UINT,
-            ETT_FLOAT,
-            ETT_UNKNOWN
-        };
-
-        std::string result;
-
-        uint32_t binding = 0u;
-        for (uint32_t i = 0u; i < virtualAttribTable.size(); i++)
-        {
-            std::string tmp = UTBTemplate;
-            std::string samplerType = "samplerBuffer ";
-
-            //TODO
-            TBOType type = ETT_FLOAT;
-
-            switch (type)
-            {
-            case ETT_INT:
-                samplerType = "isamplerBuffer ";
-                break;
-            case ETT_UINT:
-                samplerType = "usamplerBuffer ";
-                break;
-            case ETT_FLOAT:
-                samplerType = "samplerBuffer ";
-                break;
-            default:
-                assert(false);
-            }
-
-            tmp.insert(bindingOffset, std::to_string(binding));
-            tmp.append(samplerType);
-            tmp.append(std::string("MeshPackedData_") + std::to_string(i) + std::string(";\n\n"));
-
-            result += tmp;
-
-            binding++;
-        }
-
-        uint32_t activeBindingCnt = 0u;
-
-        for (uint32_t i = 0u; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
-        {
-            if (enabledAttribFlagsCombined & (1u << i))
-                activeBindingCnt++;
-        }
-
-        for (uint32_t i = 0u; i < activeBindingCnt; i++)
-        {
-            std::string tmp = SSBOTemplateDec;
-
-            tmp.insert(bindingOffset, std::to_string(binding));
-            tmp.append(std::string("OffsetTable_") + std::to_string(i) + std::string("\n"));
-            tmp.append(SSBOTemplateDef);
-            tmp.append("offsetTable_" + std::to_string(i) + std::string(";\n\n"));
-
-            result += tmp;
-
-            binding++;
-        }
-
-        std::cout << result;
-
-        return result;
-    }
 
 protected:
     core::vector<VirtualAttribute> virtualAttribTable;
@@ -180,9 +234,6 @@ protected:
 
             E_UTB_ARRAY_TYPE utbArrayType = getUTBArrayTypeFromFormat(format);
 
-            //TODO:
-            //if it falils then state of mesh packer is invalid.. maybe return iterator to the inserted element, store array of these iterators in `alloc`
-            //and remove all inserted elements when this function returns false
             uint16_t arrayElement = 0u;
             switch (utbArrayType)
             {
@@ -211,8 +262,6 @@ protected:
             return true;
         }
 
-    private:
-
         inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
         {
             //TODO: moar formats!
@@ -222,7 +271,7 @@ protected:
             case EF_R32G32_SFLOAT:
                 return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
             case EF_A2B10G10R10_SNORM_PACK32:
-                return E_UTB_ARRAY_TYPE::EUAT_INT;
+                return E_UTB_ARRAY_TYPE::EUAT_UINT;
 
             default:
                 return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;

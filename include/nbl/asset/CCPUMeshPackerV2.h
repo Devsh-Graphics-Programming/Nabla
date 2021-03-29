@@ -48,6 +48,17 @@ public:
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
+    uint32_t getDSlayoutBindings(ICPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    {
+        return getDSlayoutBindings_internal<ICPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
+    }
+
+    // cannot be called before 'instantiateDataStorage'
+    std::pair<uint32_t, uint32_t> getDescriptorSetWrites(ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    {
+        return getDescriptorSetWrites_internal<ICPUDescriptorSet>(outWrites, outInfo, dstSet, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+    }
+
 };
 
 template <typename MDIStructType>

@@ -7,6 +7,9 @@
 
 #include <nbl/video/IGPUMesh.h>
 #include <nbl/asset/IMeshPackerV2.h>
+#include <nbl/video/IGPUDescriptorSetLayout.h>
+
+using namespace nbl::video;
 
 namespace nbl
 {
@@ -36,6 +39,16 @@ public:
 
     template <typename MeshBufferIterator>
     bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+
+    uint32_t getDSlayoutBindings(IGPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    {
+        return getDSlayoutBindings_internal<IGPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
+    }
+
+    std::pair<uint32_t, uint32_t> getDescriptorSetWrites(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    {
+        return getDescriptorSetWrites_internal<IGPUDescriptorSet>(outWrites, outInfo, dstSet, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+    }
 
 private:
     video::IVideoDriver* m_driver;
