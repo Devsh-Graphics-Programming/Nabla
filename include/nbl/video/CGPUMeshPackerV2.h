@@ -83,9 +83,9 @@ public:
 
     std::pair<uint32_t, uint32_t> getDescriptorSetWrites(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
     {
-        auto createBufferView = [&](E_FORMAT format)
+        auto createBufferView = [&](E_FORMAT format) -> core::smart_refctd_ptr<IGPUBufferView>
         {
-            return driver->createGPUBufferView(m_packerDataStore.vertexBuffer, format);
+            return m_driver->createGPUBufferView(m_packerDataStore.vertexBuffer.get(), format);
         };
 
         return getDescriptorSetWrites_internal<IGPUDescriptorSet, IGPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);

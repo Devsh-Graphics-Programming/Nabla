@@ -294,7 +294,6 @@ protected:
         return std::make_pair(writeCount, infoCount);
     }
 
-
 public:
 	template <typename MeshBufferIterator>
 	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);

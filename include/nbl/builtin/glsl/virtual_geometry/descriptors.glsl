@@ -21,13 +21,13 @@
 #define _NBL_VG_UINT_BUFFERS_COUNT 0
 #endif
 
-#if _NBL_VG_FLOAT_VIEWS_COUNT
+#if _NBL_VG_FLOAT_BUFFERS_COUNT
 layout(set = _NBL_VG_DESCRIPTOR_SET, binding = _NBL_VG_FLOAT_BUFFERS_BINDING) uniform samplerBuffer MeshPackedDataFloatSample[_NBL_VG_FLOAT_BUFFERS_COUNT];
 #endif
-#if _NBL_VG_INT_VIEWS_COUNT
+#if _NBL_VG_INT_BUFFERS_COUNT
 layout(set = _NBL_VG_DESCRIPTOR_SET, binding = _NBL_VG_INT_BUFFERS_BINDING) uniform isamplerBuffer MeshPackedDataIntSample[_NBL_VG_INT_BUFFERS_COUNT];
 #endif
-#if _NBL_VG_UINT_VIEWS_COUNT
+#if _NBL_VG_UINT_BUFFERS_COUNT
 layout(set = _NBL_VG_DESCRIPTOR_SET, binding = _NBL_VG_UINT_BUFFERS_BINDING) uniform usamplerBuffer MeshPackedDataUintSample[_NBL_VG_UINT_BUFFERS_COUNT];
 #endif
 
