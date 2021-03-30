@@ -55,6 +55,9 @@ private:
 	void GenerateDisplacementMap(const smart_refctd_ptr<IGPUBuffer>& h0, textureView& out, float time);
 	void GenerateNormalMap(const textureView& displacement_map, textureView& normalmap);
 	smart_refctd_ptr<IGPUBuffer> GenerateWaveSpectrum();
+
+	smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShaderFromFile(const std::string_view filepath, asset::ISpecializedShader::E_SHADER_STAGE stage);
+	smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShaderFromFileWithIncludes(const std::string_view filepath, asset::ISpecializedShader::E_SHADER_STAGE stage, std::string_view origFilePath);
 public:
 	WaveSimApp(const WaveSimParams& params);
 	void Run();

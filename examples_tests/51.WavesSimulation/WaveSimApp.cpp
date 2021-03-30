@@ -180,24 +180,6 @@ bool WaveSimApp::CreatePresenting3DPipeline()
 	asset::SPushConstantRange ranges[2] = { { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) },
 										    { asset::ISpecializedShader::ESS_FRAGMENT, sizeof(core::matrix4SIMD), sizeof(core::vector3df) } };
 
-	auto createGPUSpecializedShaderFromFile = [this](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage)
-	{
-		auto file = m_filesystem->createAndOpenFile(filepath);
-		auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(file, stage, "main", "runtimeID");
-		auto unspec = m_driver->createGPUShader(std::move(spirv));
-		return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
-	};
-	auto createGPUSpecializedShaderFromFileWithIncludes = [&](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
-	{
-		std::ifstream ifs(filepath);
-		std::string source((std::istreambuf_iterator<char>(ifs)),
-			std::istreambuf_iterator<char>());
-		auto resolved_includes = m_device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source.c_str(), stage, origFilepath);
-		auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage, "main", "runtimeID");
-		auto unspec = m_driver->createGPUShader(std::move(spirv));
-		return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
-	};
-
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
 	{
 		createGPUSpecializedShaderFromFile(vertex_shader_path, asset::ISpecializedShader::ESS_VERTEX),
@@ -262,25 +244,6 @@ bool WaveSimApp::CreateSkyboxPresentingPipeline()
 	const char* vertex_shader_path = "../skybox.vert";
 	const char* fragment_shader_path = "../skybox.frag";
 	auto sphereGeometry = m_device->getAssetManager()->getGeometryCreator()->createSphereMesh(300, 16, 16);
-
-	//TODO: function instead of repeating lambda in every method !!!
-	auto createGPUSpecializedShaderFromFile = [this](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage)
-	{
-		auto file = m_filesystem->createAndOpenFile(filepath);
-		auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(file, stage, "main", "runtimeID");
-		auto unspec = m_driver->createGPUShader(std::move(spirv));
-		return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
-	};
-	auto createGPUSpecializedShaderFromFileWithIncludes = [&](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
-	{
-		std::ifstream ifs(filepath);
-		std::string source((std::istreambuf_iterator<char>(ifs)),
-			std::istreambuf_iterator<char>());
-		auto resolved_includes = m_device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source.c_str(), stage, origFilepath);
-		auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage, "main", "runtimeID");
-		auto unspec = m_driver->createGPUShader(std::move(spirv));
-		return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
-	};
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
 	{
@@ -828,6 +791,25 @@ smart_refctd_ptr<nbl::video::IGPUBuffer> WaveSimApp::GenerateWaveSpectrum()
 		m_driver->dispatch((m_params.width + 15u) / 16u, (m_params.length + 15u) / 16u, 1u);
 	}
 	return initial_buffer;
+}
+
+smart_refctd_ptr<IGPUSpecializedShader> WaveSimApp::createGPUSpecializedShaderFromFile(const std::string_view filepath, asset::ISpecializedShader::E_SHADER_STAGE stage)
+{
+	auto file = m_filesystem->createAndOpenFile(filepath.data());
+	auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(file, stage, "main", "runtimeID");
+	auto unspec = m_driver->createGPUShader(std::move(spirv));
+	return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
+}
+
+smart_refctd_ptr<IGPUSpecializedShader> WaveSimApp::createGPUSpecializedShaderFromFileWithIncludes(const std::string_view filepath, asset::ISpecializedShader::E_SHADER_STAGE stage, std::string_view orig_file_path)
+{
+	std::ifstream ifs(filepath.data());
+	std::string source((std::istreambuf_iterator<char>(ifs)),
+		std::istreambuf_iterator<char>());
+	auto resolved_includes = m_device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source.c_str(), stage, orig_file_path.data());
+	auto spirv = m_asset_manager->getGLSLCompiler()->createSPIRVFromGLSL(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage, "main", "runtimeID");
+	auto unspec = m_driver->createGPUShader(std::move(spirv));
+	return m_driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
 }
 
 void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPUBuffer>& h0, textureView& out, float time)
