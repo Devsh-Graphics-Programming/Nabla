@@ -6,8 +6,9 @@
 #define __NBL_ASSET_C_GPU_MESH_PACKER_V2_H_INCLUDED__
 
 #include <nbl/video/IGPUMesh.h>
-#include <nbl/asset/IMeshPackerV2.h>
 #include <nbl/video/IGPUDescriptorSetLayout.h>
+#include <nbl/asset/IMeshPackerV2.h>
+#include <nbl/asset/CCPUMeshPackerV2.h>
 
 using namespace nbl::video;
 
@@ -21,7 +22,7 @@ class CGPUMeshPackerV2 final : public IMeshPackerV2<video::IGPUBuffer, video::IG
 {
     using base_t = IMeshPackerV2<video::IGPUBuffer, video::IGPUMeshBuffer, MDIStructType>;
     using Triangle = typename base_t::Triangle;
-    using TriangleBatch = typename base_t::TriangleBatch;
+    using TriangleBatches = typename base_t::TriangleBatches;
 
 public:
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
@@ -35,6 +36,41 @@ public:
          m_driver(driver)
     {}
 
+    CGPUMeshPackerV2(video::IVideoDriver* driver, const asset::CCPUMeshPackerV2<MDIStructType>& cpuMP)
+        :IMeshPackerV2<video::IGPUBuffer, video::IGPUMeshBuffer, MDIStructType>(cpuMP.m_allocParams, cpuMP.m_minTriangleCountPerMDIData, cpuMP.m_maxTriangleCountPerMDIData),
+         m_driver(driver)
+    {
+        m_virtualAttribConfig = cpuMP.m_virtualAttribConfig;
+
+        auto& cpuMDIBuff = cpuMP.m_packerDataStore.MDIDataBuffer;
+        auto& cpuIdxBuff = cpuMP.m_packerDataStore.indexBuffer;
+        auto& cpuVtxBuff = cpuMP.m_packerDataStore.vertexBuffer;
+
+        m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+        m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+        m_packerDataStore.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+    }
+
+    CGPUMeshPackerV2(video::IVideoDriver* driver, asset::CCPUMeshPackerV2<MDIStructType>&& cpuMP)
+        :IMeshPackerV2<video::IGPUBuffer, video::IGPUMeshBuffer, MDIStructType>(cpuMP.m_allocParams, cpuMP.m_minTriangleCountPerMDIData, cpuMP.m_maxTriangleCountPerMDIData),
+         m_driver(driver)
+    {
+        m_virtualAttribConfig = std::move(cpuMP.m_virtualAttribConfig);
+
+        auto cpuMDIBuff = std::move(cpuMP.m_packerDataStore.MDIDataBuffer);
+        auto cpuIdxBuff = std::move(cpuMP.m_packerDataStore.indexBuffer);
+        auto cpuVtxBuff = std::move(cpuMP.m_packerDataStore.vertexBuffer);
+
+        m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+        m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+        m_packerDataStore.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+
+        cpuMP.m_vtxBuffAlctr.reset();
+        cpuMP.m_idxBuffAlctr.reset();
+        cpuMP.m_MDIDataAlctr.reset();
+    }
+
+
     void instantiateDataStorage();
 
     template <typename MeshBufferIterator>
@@ -47,7 +83,12 @@ public:
 
     std::pair<uint32_t, uint32_t> getDescriptorSetWrites(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
     {
-        return getDescriptorSetWrites_internal<IGPUDescriptorSet>(outWrites, outInfo, dstSet, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+        auto createBufferView = [&](E_FORMAT format)
+        {
+            return driver->createGPUBufferView(m_packerDataStore.vertexBuffer, format);
+        };
+
+        return getDescriptorSetWrites_internal<IGPUDescriptorSet, IGPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
     }
 
 private:

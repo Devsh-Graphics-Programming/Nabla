@@ -12,205 +12,9 @@ namespace nbl
 namespace asset
 {
 
-template <typename BufferType, typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
-class IMeshPackerV2 : public IMeshPacker<MeshBufferType, MDIStructType>
+class IMeshPackerV2Base
 {
-    static_assert(std::is_base_of<IBuffer, BufferType>::value);
-
-	using base_t = IMeshPacker<MeshBufferType, MDIStructType>;
-    using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
-
-public:
-    struct AttribAllocParams
-    {
-        size_t offset = INVALID_ADDRESS;
-        size_t size = 0ull;
-    };
-
-    struct ReservedAllocationMeshBuffers
-    {
-        uint32_t mdiAllocationOffset;
-        uint32_t mdiAllocationReservedSize;
-        uint32_t indexAllocationOffset;
-        uint32_t indexAllocationReservedSize;
-        AttribAllocParams attribAllocParams[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
-
-        inline bool isValid()
-        {
-            return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-        }
-    };
-
-    struct VirtualAttribute
-    {
-        uint32_t arrayElement : 4;
-        uint32_t offset : 28;
-    };
-
-    struct CombinedDataOffsetTable
-    {
-        VirtualAttribute attribInfo[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
-    };
-
-    struct PackerDataStore : base_t::template PackerDataStoreCommon<BufferType>
-    {
-        core::smart_refctd_ptr<BufferType> vertexBuffer;
-        core::smart_refctd_ptr<BufferType> indexBuffer;
-    };
-
-    inline uint32_t getFloatBufferBindingsCnt() { return virtualAttribConfig.floatArrayElementsCnt;  } //TODO: better names?
-    inline uint32_t getIntBufferBindingsCnt() { return virtualAttribConfig.intArrayElementsCnt; }
-    inline uint32_t getUintBufferBindingsCnt() { return virtualAttribConfig.uintArrayElementsCnt; }
-
 protected:
-	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-		:base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
-         m_allocParams(allocParams)
-	{
-        initializeCommonAllocators(allocParams);
-    };
-
-    template <typename DSlayout>
-    uint32_t getDSlayoutBindings_internal(typename DSlayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
-    {
-        const uint32_t bindingCount = 
-            (virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
-            (virtualAttribConfig.intArrayElementsCnt ? 1u : 0u) +
-            (virtualAttribConfig.uintArrayElementsCnt ? 1u : 0u);
-
-        if (!outBindings)
-            return bindingCount;
-
-        auto* bindings = outBindings;
-
-        auto fillBinding = [](auto& bnd, uint32_t binding, uint32_t count) {
-            bnd.binding = binding;
-            bnd.count = count;
-            bnd.stageFlags = asset::ISpecializedShader::ESS_ALL;
-            bnd.type = asset::EDT_UNIFORM_TEXEL_BUFFER;
-            bnd.samplers = nullptr;
-        };
-
-        uint32_t i = 0u;
-        if (virtualAttribConfig.floatArrayElementsCnt)
-        {
-            fillBinding(bindings[i], fsamplersBinding, virtualAttribConfig.floatArrayElementsCnt);
-            ++i;
-        }
-        if (virtualAttribConfig.intArrayElementsCnt)
-        {
-            fillBinding(bindings[i], isamplersBinding, virtualAttribConfig.intArrayElementsCnt);
-            ++i;
-        }
-        if (virtualAttribConfig.uintArrayElementsCnt)
-        {
-            fillBinding(bindings[i], usamplersBinding, virtualAttribConfig.uintArrayElementsCnt);
-        }
-
-        return bindingCount;
-    }
-
-    template <typename DS>
-    std::pair<uint32_t, uint32_t> getDescriptorSetWrites_internal(typename DS::SWriteDescriptorSet* outWrites, typename DS::SDescriptorInfo* outInfo, DS* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
-    {
-        const uint32_t writeCount = 
-            (virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
-            (virtualAttribConfig.intArrayElementsCnt ? 1u : 0u) +
-            (virtualAttribConfig.uintArrayElementsCnt ? 1u : 0u);
-        const uint32_t infoCount = 
-            virtualAttribConfig.floatArrayElementsCnt +
-            virtualAttribConfig.intArrayElementsCnt +
-            virtualAttribConfig.uintArrayElementsCnt;
-
-        if (!outWrites || !outInfo)
-            return std::make_pair(writeCount, infoCount);
-
-        auto* writes = outWrites;
-
-        auto* floatInfoPtr = outInfo;
-        auto* intInfoPtr = floatInfoPtr + virtualAttribConfig.floatArrayElementsCnt;
-        auto* uintInfoPtr = intInfoPtr + virtualAttribConfig.intArrayElementsCnt;
-
-        uint32_t i = 0u, j = 0u;
-        if (virtualAttribConfig.floatArrayElementsCnt)
-        {
-            writes[i].binding = fBuffersBinding;
-            writes[i].arrayElement = 0u;
-            writes[i].count = virtualAttribConfig.floatArrayElementsCnt;
-            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
-            writes[i].dstSet = dstSet;
-            writes[i].info = floatInfoPtr;
-        }
-        if (virtualAttribConfig.intArrayElementsCnt)
-        {
-            writes[i].binding = iBuffersBinding;
-            writes[i].arrayElement = 0u;
-            writes[i].count = virtualAttribConfig.intArrayElementsCnt;
-            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
-            writes[i].dstSet = dstSet;
-            writes[i].info = intInfoPtr;
-        }
-        if (virtualAttribConfig.uintArrayElementsCnt)
-        {
-            writes[i].binding = uBuffersBinding;
-            writes[i].arrayElement = 0u;
-            writes[i].count = virtualAttribConfig.uintArrayElementsCnt;
-            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
-            writes[i].dstSet = dstSet;
-            writes[i].info = uintInfoPtr;
-        }
-
-        auto fillInfoStruct = [&](auto* ptr, E_FORMAT format)
-        {
-            //TODO: make it work for `CGPUMeshPackerV2`
-            ptr->desc = core::make_smart_refctd_ptr<ICPUBufferView>(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer), format);
-            ptr->buffer.offset = 0u;
-            ptr->buffer.size = m_packerDataStore.vertexBuffer->getSize();
-        };
-
-        for (auto virtualAttribData : virtualAttribConfig.map)
-        {
-            const E_UTB_ARRAY_TYPE utbArrayType = virtualAttribData.second.first;
-            const E_FORMAT format = virtualAttribData.first;
-            const uint32_t arrayElement = virtualAttribData.second.second;
-
-            switch (utbArrayType)
-            {
-            case E_UTB_ARRAY_TYPE::EUAT_FLOAT:
-                fillInfoStruct(floatInfoPtr + arrayElement, format);
-                break;
-
-            case E_UTB_ARRAY_TYPE::EUAT_INT:
-                fillInfoStruct(intInfoPtr + arrayElement, format);
-                break;
-
-            case E_UTB_ARRAY_TYPE::EUAT_UINT:
-                fillInfoStruct(uintInfoPtr + arrayElement, format);
-                break;
-
-            case E_UTB_ARRAY_TYPE::EUAT_UNKNOWN:
-                assert(false);
-                return std::make_pair(0u, 0u);
-            }
-        }
-
-        return std::make_pair(writeCount, infoCount);
-    }
-
-
-public:
-	template <typename MeshBufferIterator>
-	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
-
-    template <typename MeshBufferIterator>
-    uint32_t calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
-
-    inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
-
-protected:
-    core::vector<VirtualAttribute> virtualAttribTable;
-    uint16_t enabledAttribFlagsCombined = 0u;
-
     enum class E_UTB_ARRAY_TYPE
     {
         EUAT_FLOAT,
@@ -223,8 +27,32 @@ protected:
     {
         core::unordered_map<E_FORMAT, std::pair<E_UTB_ARRAY_TYPE, uint32_t>> map;
         uint16_t floatArrayElementsCnt = 0u;
-        uint16_t intArrayElementsCnt   = 0u;
-        uint16_t uintArrayElementsCnt  = 0u;
+        uint16_t intArrayElementsCnt = 0u;
+        uint16_t uintArrayElementsCnt = 0u;
+
+        VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
+        {
+            map = other.map;
+            floatArrayElementsCnt = other.floatArrayElementsCnt;
+            intArrayElementsCnt = other.intArrayElementsCnt;
+            uintArrayElementsCnt = other.uintArrayElementsCnt;
+
+            return *this;
+        }
+
+        VirtualAttribConfig& operator=(VirtualAttribConfig&& other)
+        {
+            map = std::move(other.map);
+            floatArrayElementsCnt = other.floatArrayElementsCnt;
+            intArrayElementsCnt = other.intArrayElementsCnt;
+            uintArrayElementsCnt = other.uintArrayElementsCnt;
+
+            other.floatArrayElementsCnt = 0u;
+            other.intArrayElementsCnt = 0u;
+            other.uintArrayElementsCnt = 0u;
+
+            return *this;
+        }
 
         inline bool insertAttribFormat(E_FORMAT format)
         {
@@ -277,10 +105,208 @@ protected:
                 return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
             }
         }
-
     };
 
-    VirtualAttribConfig virtualAttribConfig;
+    VirtualAttribConfig m_virtualAttribConfig;
+};
+
+template <typename BufferType, typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
+class IMeshPackerV2 : public IMeshPacker<MeshBufferType, MDIStructType>, public IMeshPackerV2Base
+{
+    static_assert(std::is_base_of<IBuffer, BufferType>::value);
+
+	using base_t = IMeshPacker<MeshBufferType, MDIStructType>;
+    using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
+
+public:
+    struct AttribAllocParams
+    {
+        size_t offset = INVALID_ADDRESS;
+        size_t size = 0ull;
+    };
+
+    struct ReservedAllocationMeshBuffers
+    {
+        uint32_t mdiAllocationOffset;
+        uint32_t mdiAllocationReservedSize;
+        uint32_t indexAllocationOffset;
+        uint32_t indexAllocationReservedSize;
+        AttribAllocParams attribAllocParams[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
+
+        inline bool isValid()
+        {
+            return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+        }
+    };
+
+    struct VirtualAttribute
+    {
+        uint32_t arrayElement : 4;
+        uint32_t offset : 28;
+    };
+
+    struct CombinedDataOffsetTable
+    {
+        VirtualAttribute attribInfo[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
+    };
+
+    struct PackerDataStore : base_t::template PackerDataStoreCommon<BufferType>
+    {
+        core::smart_refctd_ptr<BufferType> vertexBuffer;
+        core::smart_refctd_ptr<BufferType> indexBuffer;
+    };
+
+    inline uint32_t getFloatBufferBindingsCnt() { return m_virtualAttribConfig.floatArrayElementsCnt;  } //TODO: better names?
+    inline uint32_t getIntBufferBindingsCnt() { return m_virtualAttribConfig.intArrayElementsCnt; }
+    inline uint32_t getUintBufferBindingsCnt() { return m_virtualAttribConfig.uintArrayElementsCnt; }
+
+protected:
+	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+		:base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
+         m_allocParams(allocParams)
+	{
+        initializeCommonAllocators(allocParams);
+    };
+
+    template <typename DSlayout>
+    uint32_t getDSlayoutBindings_internal(typename DSlayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    {
+        const uint32_t bindingCount = 
+            (m_virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
+            (m_virtualAttribConfig.intArrayElementsCnt ? 1u : 0u) +
+            (m_virtualAttribConfig.uintArrayElementsCnt ? 1u : 0u);
+
+        if (!outBindings)
+            return bindingCount;
+
+        auto* bindings = outBindings;
+
+        auto fillBinding = [](auto& bnd, uint32_t binding, uint32_t count) {
+            bnd.binding = binding;
+            bnd.count = count;
+            bnd.stageFlags = asset::ISpecializedShader::ESS_ALL;
+            bnd.type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+            bnd.samplers = nullptr;
+        };
+
+        uint32_t i = 0u;
+        if (m_virtualAttribConfig.floatArrayElementsCnt)
+        {
+            fillBinding(bindings[i], fsamplersBinding, m_virtualAttribConfig.floatArrayElementsCnt);
+            ++i;
+        }
+        if (m_virtualAttribConfig.intArrayElementsCnt)
+        {
+            fillBinding(bindings[i], isamplersBinding, m_virtualAttribConfig.intArrayElementsCnt);
+            ++i;
+        }
+        if (m_virtualAttribConfig.uintArrayElementsCnt)
+        {
+            fillBinding(bindings[i], usamplersBinding, m_virtualAttribConfig.uintArrayElementsCnt);
+        }
+
+        return bindingCount;
+    }
+
+    template <typename DS, typename BufferView>
+    std::pair<uint32_t, uint32_t> getDescriptorSetWrites_internal(typename DS::SWriteDescriptorSet* outWrites, typename DS::SDescriptorInfo* outInfo, DS* dstSet, std::function<core::smart_refctd_ptr<BufferView>(E_FORMAT)> createBufferView, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    {
+        const uint32_t writeCount = 
+            (m_virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
+            (m_virtualAttribConfig.intArrayElementsCnt ? 1u : 0u) +
+            (m_virtualAttribConfig.uintArrayElementsCnt ? 1u : 0u);
+        const uint32_t infoCount = 
+            m_virtualAttribConfig.floatArrayElementsCnt +
+            m_virtualAttribConfig.intArrayElementsCnt +
+            m_virtualAttribConfig.uintArrayElementsCnt;
+
+        if (!outWrites || !outInfo)
+            return std::make_pair(writeCount, infoCount);
+
+        auto* writes = outWrites;
+
+        auto* floatInfoPtr = outInfo;
+        auto* intInfoPtr = floatInfoPtr + m_virtualAttribConfig.floatArrayElementsCnt;
+        auto* uintInfoPtr = intInfoPtr + m_virtualAttribConfig.intArrayElementsCnt;
+
+        uint32_t i = 0u, j = 0u;
+        if (m_virtualAttribConfig.floatArrayElementsCnt)
+        {
+            writes[i].binding = fBuffersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = m_virtualAttribConfig.floatArrayElementsCnt;
+            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+            writes[i].dstSet = dstSet;
+            writes[i].info = floatInfoPtr;
+        }
+        if (m_virtualAttribConfig.intArrayElementsCnt)
+        {
+            writes[i].binding = iBuffersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = m_virtualAttribConfig.intArrayElementsCnt;
+            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+            writes[i].dstSet = dstSet;
+            writes[i].info = intInfoPtr;
+        }
+        if (m_virtualAttribConfig.uintArrayElementsCnt)
+        {
+            writes[i].binding = uBuffersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = m_virtualAttribConfig.uintArrayElementsCnt;
+            writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+            writes[i].dstSet = dstSet;
+            writes[i].info = uintInfoPtr;
+        }
+
+        auto fillInfoStruct = [&](auto* ptr, E_FORMAT format)
+        {
+            ptr->desc = createBufferView(format);
+            ptr->buffer.offset = 0u;
+            ptr->buffer.size = m_packerDataStore.vertexBuffer->getSize();
+        };
+
+        for (auto virtualAttribData : m_virtualAttribConfig.map)
+        {
+            const E_UTB_ARRAY_TYPE utbArrayType = virtualAttribData.second.first;
+            const E_FORMAT format = virtualAttribData.first;
+            const uint32_t arrayElement = virtualAttribData.second.second;
+
+            switch (utbArrayType)
+            {
+            case E_UTB_ARRAY_TYPE::EUAT_FLOAT:
+                fillInfoStruct(floatInfoPtr + arrayElement, format);
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_INT:
+                fillInfoStruct(intInfoPtr + arrayElement, format);
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_UINT:
+                fillInfoStruct(uintInfoPtr + arrayElement, format);
+                break;
+
+            case E_UTB_ARRAY_TYPE::EUAT_UNKNOWN:
+                assert(false);
+                return std::make_pair(0u, 0u);
+            }
+        }
+
+        return std::make_pair(writeCount, infoCount);
+    }
+
+
+public:
+	template <typename MeshBufferIterator>
+	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+
+    template <typename MeshBufferIterator>
+    uint32_t calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+
+    inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
+
+protected:
+    core::vector<VirtualAttribute> virtualAttribTable;
+    uint16_t enabledAttribFlagsCombined = 0u;
 
     PackerDataStore m_packerDataStore;
     AllocationParams m_allocParams;
@@ -338,7 +364,7 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
             if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                 return false;
 
-            virtualAttribConfig.insertAttribFormat(attribFormat);
+            m_virtualAttribConfig.insertAttribFormat(attribFormat);
 
             //TODO: reset state when allocation fails
         }
