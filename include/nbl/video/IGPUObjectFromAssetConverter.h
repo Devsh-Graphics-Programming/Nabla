@@ -173,7 +173,7 @@ class IGPUObjectFromAssetConverter
 	protected:
         virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj)
         {
-            if (_asset)
+            if (_asset && _gpuobj)
                 m_assetManager->convertAssetToEmptyCacheHandle(_asset,core::smart_refctd_ptr(_gpuobj));
         }
 
@@ -216,7 +216,7 @@ class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
 	protected:
         virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj) override
         {
-            if (_asset)
+            if (_asset && _gpuobj)
                 m_assetManager->insertGPUObjectIntoCache(_asset,core::smart_refctd_ptr(_gpuobj));
         }
 };
