@@ -2,6 +2,7 @@
 #include "nbl/builtin/glsl/bxdf/fresnel.glsl"
 
 layout (set = 0, binding = 1) uniform sampler2D normal_map;
+layout (set = 0, binding = 2) uniform sampler2D env_map;
 
 layout(location = 0) out vec4 pixelColor;
 
@@ -12,24 +13,30 @@ layout( push_constant ) uniform Block {
 	layout(offset = 64) vec3 camera_pos;
 } u_pc;
 
-const vec3 water_color = vec3(0.005f, 0.015f, 0.05f);
-//const vec3 sky_color = vec3(1, 1, 0.8);
-const vec3 sky_color = vec3(0.3, 1, 1);
-const vec3 light_pos = vec3(200, 50, 200);     
+const vec3 water_color = vec3(0, 0.16, 0.43);
+const vec3 sky_color = vec3(10, 50.5, 50.5);
+const vec3 light_pos = vec3(3000,35, -3000);     
 
+vec2 getSphericalUV(vec3 r)
+{
+    return normalize(vec2(acos(r.z), atan(r.y, r.x))); 
+}
 
 void main()
 {
-    vec3 normal = texture(normal_map, texture_pos).rgb;;
+    vec3 normal = normalize(texture(normal_map, texture_pos).rgb);
     vec3 light = normalize(light_pos - world_coord);
     vec3 view = normalize(u_pc.camera_pos - world_coord);
-    
-    vec3 f0 = vec3(0.04);
+    vec3 R = reflect(-light, normal);
+
+    vec3 f0 = vec3(0.02);
     vec3 f  = nbl_glsl_fresnel_schlick(f0, abs(dot(normal, view)));
     
-    vec3 albedo = mix(water_color.rgb, sky_color, f);
+    vec3 albedo = mix(water_color.rgb, texture(env_map, getSphericalUV(R)).rgb, f);
 
-    vec3  color = max(dot(normal, light), 0) * albedo.rgb;
-
+    vec3  color = abs(dot(normal, light)) * albedo.rgb;
+   
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
     pixelColor = vec4(color, 1);
 }

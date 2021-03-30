@@ -35,6 +35,7 @@ struct WaveSimParams
 	float choppiness;
 };
 
+
 class WaveSimApp
 {
 	using computePipeline = smart_refctd_ptr<IGPUComputePipeline>;
@@ -44,10 +45,12 @@ private:
 	[[nodiscard]] bool Init();
 	[[nodiscard]] bool CreatePresenting2DPipeline();
 	[[nodiscard]] bool CreatePresenting3DPipeline();
+	[[nodiscard]] bool CreateSkyboxPresentingPipeline();
 	[[nodiscard]] bool CreateComputePipelines();
 	textureView CreateTexture(dimension2du size, E_FORMAT format = E_FORMAT::EF_R8G8B8A8_UNORM) const;
 	textureView CreateTextureFromImageFile(const std::string_view image_file_path, E_FORMAT format = E_FORMAT::EF_UNKNOWN) const;
 	void PresentWaves2D(const textureView& tex);
+	void PresentSkybox(const textureView& envmap, matrix4SIMD mvp);
 	void PresentWaves3D(const textureView& displacement_map, const textureView& normal_map, const textureView& env_map, const matrix4SIMD& mvp, const vector3df& camera);
 	void GenerateDisplacementMap(const smart_refctd_ptr<IGPUBuffer>& h0, textureView& out, float time);
 	void GenerateNormalMap(const textureView& displacement_map, textureView& normalmap);
@@ -67,6 +70,7 @@ private:
 	IAssetManager* m_asset_manager;
 
 	graphicsPipeline m_presenting_pipeline;
+	graphicsPipeline m_skybox_pipeline;
 	computePipeline m_spectrum_randomizing_pipeline;
 	computePipeline m_ifft_pipeline_1;
 	computePipeline m_ifft_pipeline_2;
@@ -76,12 +80,17 @@ private:
 	smart_refctd_ptr<IGPUDescriptorSet> m_ifft_1_descriptor_set;
 	smart_refctd_ptr<IGPUDescriptorSet> m_ifft_2_descriptor_set;
 	smart_refctd_ptr<IGPUDescriptorSet> m_normalmap_descriptor_set;
-	smart_refctd_ptr<IGPUDescriptorSet> m_presenting_3d_descriptor_set;
+	smart_refctd_ptr<IGPUDescriptorSet> m_3d_presenting_descriptor_set;
+	smart_refctd_ptr<IGPUDescriptorSet> m_skybox_presenting_descriptor_set;
 
 	smart_refctd_ptr<IGPUMeshBuffer> m_2d_mesh_buffer;
 	smart_refctd_ptr<IGPUMeshBuffer> m_3d_mesh_buffer;
+	smart_refctd_ptr<IGPUMeshBuffer> m_skybox_mesh_buffer;
 
 	smart_refctd_ptr<IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout_2d;
- 
+	smart_refctd_ptr<IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout_skybox;
+	
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> m_gpu_sphere;
+
 	QToQuitEventReceiver m_receiver;
 };
