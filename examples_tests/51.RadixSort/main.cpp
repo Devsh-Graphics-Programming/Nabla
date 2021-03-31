@@ -8,6 +8,9 @@
 using namespace nbl;
 using namespace core;
 using namespace video;
+using namespace asset;
+
+#define WG_SIZE 256
 
 // Note: Just a debug thing. Assumes there's something called `stride`.
 #define STRIDED_IDX(i) (((i) + 1)*stride-1)
@@ -76,7 +79,7 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
 		for (int i = 0; i < buffer_count; ++i)
 		{
 			if (downloaded_buffer[i] != cpu_buffer[i])
-				assert(false);
+				__debugbreak();
 		}
 
 		std::cout << "PASS" << std::endl;
@@ -137,6 +140,34 @@ static inline uint32_t ScanOperation(uint32_t a, uint32_t b, ScanOperator op)
 	}
 }
 
+static inline core::smart_refctd_ptr<IGPUSpecializedShader> CreateShader(const char* main_include_name, IVideoDriver* driver)
+{
+	const char* source_fmt =
+R"===(#version 430 core
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ %u
+ 
+#include "%s"
+
+)===";
+
+	// Question: How is this being computed? This just the value I took from FFT example.
+	const size_t extraSize = 4u + 8u + 8u + 128u;
+
+	constexpr uint32_t DEFAULT_WORKGROUP_SIZE = WG_SIZE; // Todo: Take this from the Scan class
+	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source_fmt) + extraSize + 1u);
+	snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, DEFAULT_WORKGROUP_SIZE, main_include_name);
+
+	auto cpu_specialized_shader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader), ICPUShader::buffer_contains_glsl),
+		ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
+
+	auto gpu_shader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpu_specialized_shader->getUnspecialized()));
+	auto gpu_shader_specialized = driver->createGPUSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
+
+	return gpu_shader_specialized;
+}
+
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -161,16 +192,16 @@ int main()
 	asset::IAssetManager* am = device->getAssetManager();
 
 	unsigned int seed = 666;
-
-	// Stress Test
-	// Todo: Remove this stupid thing before merging
 	uint32_t i = 0u;
 	ScanOperator scan_ops[7] = { AND, XOR, OR, ADD, MUL, MIN, MAX };
+
+	// Stress Test
+	// Todo: Remove this stupid thing
 #if 1
 	while (i++ < 500u)
 	{
 #endif
-		const size_t in_count = (rand() * 10) + (rand() % 10); // assert((in_count != 1u) || (in_count != 0u));
+		const size_t in_count = 257920u; // (rand() * 10) + (rand() % 10); // assert((in_count != 1u) || (in_count != 0u));
 		const size_t in_size = in_count * sizeof(uint32_t);
 
 		std::cout << "\n=========================" << std::endl;	
@@ -184,8 +215,6 @@ int main()
 
 		ScanOperator scan_op = ScanOperator::ADD;
 		uint32_t identity = GetIdentityElement(scan_op);
-
-		const uint32_t wg_dim = 1 << 8;
 
 		auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
 
@@ -204,19 +233,9 @@ int main()
 
 			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
 
-			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
-			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Upsweep.comp"));
-
-				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../Upsweep.comp", lp);
-				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-				auto cs_rawptr = cs.get();
-
-				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-			}
-
-			upsweep_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+			// Todo: Eventually I should be able to just use default_upsweep.comp here
+			upsweep_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout),
+				CreateShader("../DummyUpsweepClient.comp", driver));
 		}
 
 		// Downsweep pipeline and ds
@@ -234,91 +253,71 @@ int main()
 
 			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
 
-			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
-			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Downsweep.comp"));
-
-				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../Downsweep.comp", lp);
-				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-				auto cs_rawptr = cs.get();
-
-				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-			}
-
-			downsweep_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+			downsweep_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout),
+				CreateShader("../DummyDownsweepClient.comp", driver));
 		}
 
 		driver->beginScene(true);
 
-		// Kind of a hack (probably temporary) to get the exact number of elements being processed (for bounds checking)
-		// during the downsweep passes. Push during the upsweep passes, pop during the downsweep passes.
-		std::stack<uint32_t> elements_per_pass_stack;
-
-		// Upsweeps
-		uint32_t upsweep_pass_count = std::ceil(log(in_count) / log(wg_dim)); // includes the top pass
-
 		uint32_t* temp_cpu = new uint32_t[in_count];
 		memcpy(temp_cpu, in, in_size);
 
-		// Initial conditions
-
+		// Upsweeps
+		uint32_t upsweep_pass_count = std::ceil(log(in_count) / log(WG_SIZE)); // includes the top pass
 		uint32_t stride = 1u;
-		uint32_t pass_in_count = in_count;
+		uint32_t element_count_pass = in_count;
 
-		for (uint32_t upsweep_pass = 0; upsweep_pass < upsweep_pass_count; ++upsweep_pass)
+		std::stack<uint32_t> elements_per_pass_stack;
+
+		for (uint32_t pass = 0; pass < upsweep_pass_count; ++pass)
 		{
-			if (upsweep_pass != (upsweep_pass_count - 1u)) elements_per_pass_stack.push(pass_in_count);
+			if (pass != (upsweep_pass_count - 1u))
+				elements_per_pass_stack.push(element_count_pass);
 
-			uint32_t wg_count = (pass_in_count + wg_dim - 1) / wg_dim;
+			uint32_t wg_count = (element_count_pass + WG_SIZE - 1) / WG_SIZE;
 
 			{
 				const uint32_t count = 1;
 				IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-
+			
 				ds_info[0].desc = in_gpu;
 				ds_info[0].buffer = { 0u, in_size };
-
+			
 				IGPUDescriptorSet::SWriteDescriptorSet writes[count];
 				for (uint32_t i = 0; i < count; ++i)
 					writes[i] = { ds_upsweep.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
+			
 				driver->updateDescriptorSets(count, writes, 0u, nullptr);
 			}
-
+			
 			driver->bindComputePipeline(upsweep_pipeline.get());
 			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_upsweep.get(), nullptr);
-
-			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
-				&stride);
-			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
-				&pass_in_count);
-			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t),
-				&in_count);
-			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 12u, sizeof(uint32_t),
-				&scan_op);
-			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 16u, sizeof(uint32_t),
-				&identity);
+			
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &stride);
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t), &element_count_pass);
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t), &in_count);
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 12u, sizeof(uint32_t), &scan_op);
+			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 16u, sizeof(uint32_t), &identity);
 			driver->dispatch(wg_count, 1, 1);
-
+			
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 #if 1
 			// Check the result for this pass
 
-			if (upsweep_pass < upsweep_pass_count - 1)
+			if (pass < upsweep_pass_count - 1)
 			{
 				std::cout << "=========================" << std::endl;
-				std::cout << "Upsweep Pass #" << upsweep_pass << std::endl;
+				std::cout << "Upsweep Pass #" << pass << std::endl;
 				std::cout << "=========================" << std::endl;
 
 				for (uint32_t wg = 0; wg < wg_count; ++wg)
 				{
-					size_t begin = wg * wg_dim;
-					size_t end = (wg + 1) * wg_dim;
+					size_t begin = wg * WG_SIZE;
+					size_t end = (wg + 1) * WG_SIZE;
 
-					if (end > pass_in_count)
-						end = pass_in_count;
+					if (end > element_count_pass)
+						end = element_count_pass;
 
 					uint32_t* local_prefix_scan = new uint32_t[end - begin];
 
@@ -355,11 +354,11 @@ int main()
 				std::cout << "Top-of-Hierarchy Pass" << std::endl;
 				std::cout << "=========================" << std::endl;
 
-				uint32_t* local_prefix_scan = new uint32_t[pass_in_count];
+				uint32_t* local_prefix_scan = new uint32_t[element_count_pass];
 
 				uint32_t k = 0;
 				uint32_t scan = identity;
-				for (size_t i = 0; i < pass_in_count; ++i)
+				for (size_t i = 0; i < element_count_pass; ++i)
 				{
 					local_prefix_scan[k++] = scan;
 					size_t idx = STRIDED_IDX(i);
@@ -369,7 +368,7 @@ int main()
 				}
 
 				k = 0;
-				for (size_t i = 0; i < pass_in_count; ++i)
+				for (size_t i = 0; i < element_count_pass; ++i)
 				{
 					size_t idx = STRIDED_IDX(i);
 					if (idx >= in_count)
@@ -384,26 +383,27 @@ int main()
 #endif
 
 			// Prepare for next pass
-
-			if (upsweep_pass != upsweep_pass_count - 1u)
+			if (pass != upsweep_pass_count - 1u)
 			{
-				stride *= wg_dim;
-				pass_in_count = wg_count;
+				stride *= WG_SIZE;
+				element_count_pass = wg_count;
 			}
 			else
 			{
-				stride /= wg_dim;
+				stride /= WG_SIZE;
 			}
 		}
 
-		// Downsweep passes
+#if 1
+		uint32_t in_count_padded = std::ceil(in_count/ WG_SIZE) * WG_SIZE;
+
+		// Downsweeps
 		uint32_t downsweep_pass_count = upsweep_pass_count - 1u;
+		element_count_pass = elements_per_pass_stack.top(); elements_per_pass_stack.pop();
 
-		for (uint32_t downsweep_pass = 0; downsweep_pass < downsweep_pass_count; ++downsweep_pass)
+		for (uint32_t pass = 0; pass < downsweep_pass_count; ++pass)
 		{
-			uint32_t pass_out_count = elements_per_pass_stack.top(); elements_per_pass_stack.pop();
-
-			uint32_t wg_count = (pass_out_count + wg_dim - 1) / wg_dim;
+			uint32_t wg_count = (element_count_pass + WG_SIZE - 1) / WG_SIZE;
 
 			{
 				const uint32_t count = 1;
@@ -422,32 +422,27 @@ int main()
 			driver->bindComputePipeline(downsweep_pipeline.get());
 			driver->bindDescriptorSets(video::EPBP_COMPUTE, downsweep_pipeline->getLayout(), 0u, 1u, &ds_downsweep.get(), nullptr);
 
-			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
-				&stride);
-			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
-				&pass_out_count);
-			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t),
-				&in_count);
-			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 12u, sizeof(uint32_t),
-				&scan_op);
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &stride);
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t), &element_count_pass);
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 8u, sizeof(uint32_t), &in_count);
+			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 12u, sizeof(uint32_t), &scan_op);
 			driver->dispatch(wg_count, 1, 1);
 
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 			// Check the result for this pass
-
 #if 1
 			std::cout << "=========================" << std::endl;
-			std::cout << "Downsweep Pass #" << downsweep_pass << std::endl;
+			std::cout << "Downsweep Pass #" << pass << std::endl;
 			std::cout << "=========================" << std::endl;
 
 			for (uint32_t wg = 0; wg < wg_count; ++wg)
 			{
-				size_t begin = wg * wg_dim;
-				size_t end = (wg + 1) * wg_dim;
+				size_t begin = wg * WG_SIZE;
+				size_t end = (wg + 1) * WG_SIZE;
 
-				if (end > pass_out_count)
-					end = pass_out_count;
+				if (end > element_count_pass)
+					end = element_count_pass;
 
 				uint32_t* downsweep_result = new uint32_t[end - begin];
 
@@ -476,13 +471,14 @@ int main()
 #endif
 
 			// Prepare for the next pass
-
-			pass_in_count = pass_out_count;
-			stride /= wg_dim;
+			if (pass != downsweep_pass_count - 1u)
+			{
+				stride /= WG_SIZE;
+				element_count_pass = elements_per_pass_stack.top(); elements_per_pass_stack.pop();
+			}
 		}
 
-#if 1
-		// Final Testing (this takes non padded element count)
+		// Final Testing
 		uint32_t* scan_cpu = new uint32_t[in_count];
 
 		uint32_t scan = identity;

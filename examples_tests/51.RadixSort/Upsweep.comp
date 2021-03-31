@@ -1,8 +1,7 @@
-#version 450
-
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
 #define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 8)
-
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+#endif
 
 layout (set = 0, binding = 0, std430) buffer inout_buffer
 {
@@ -69,13 +68,13 @@ void main()
 	uint idx = STRIDED_IDX(gl_GlobalInvocationID.x);
 	if (idx >= pc.element_count_total)
 		idx = pc.element_count_total - 1u;
-
+	
 	uint data = pc.identity;
 	if (gl_GlobalInvocationID.x < pc.element_count_pass)
 		data = inout_values[idx];
-
+	
 	uint scan_result = (gl_NumWorkGroups.x == 1u) ? ScanExclusive(data) : ScanInclusive(data);
-
+	
 	if (gl_GlobalInvocationID.x < pc.element_count_pass)
 		inout_values[idx] = scan_result;
 }

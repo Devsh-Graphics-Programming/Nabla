@@ -1,6 +1,6 @@
 #version 450
 
-#define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 8)
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
@@ -52,7 +52,7 @@ void main()
 	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
 		global_offset = inout_values[idx];
 	barrier();
-
+	
 	uint data = global_offset;
 	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < pc.element_count_pass))
 	{
@@ -60,7 +60,7 @@ void main()
 		data = ScanOperation(data, inout_values[prev_idx]);
 	}
 	barrier();
-
+	
 	if (gl_GlobalInvocationID.x < pc.element_count_pass)
 		inout_values[idx] = data;
 }

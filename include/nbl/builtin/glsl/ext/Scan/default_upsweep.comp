@@ -1,0 +1,81 @@
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+#endif
+
+#ifndef _NBL_GLSL_EXT_UPSWEEP_INPUT_SET_DEFINED_
+#define _NBL_GLSL_EXT_UPSWEEP_INPUT_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_UPSWEEP_INPUT_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_UPSWEEP_INPUT_BINDING_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_UPSWEEP_INPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_UPSWEEP_INPUT_DESCRIPTOR_DEFINED_
+
+layout (set = _NBL_GLSL_EXT_UPSWEEP_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_UPSWEEP_INPUT_BINDING_DEFINED_, std430) buffer InoutBuffer
+{
+	// Todo: Make this type generic, so I can process int and floats as well
+	// nbl_glsl_ext_SCAN_storage_t inout_values[];
+	uint inout_values[];
+};
+
+#endif
+
+#ifndef _NBL_GLSL_EXT_UPSWEEP_PUSH_CONSTANTS_DEFINED_
+
+layout(push_constant) uniform PushConstants
+{
+	layout (offset = 0) uint stride;
+	layout (offset = 4) uint element_count_pass;
+	layout (offset = 8) uint element_count_total;
+	layout (offset = 12) uint scan_op;
+	layout (offset = 16) uint identity;
+} pc;
+
+#define _NBL_GLSL_EXT_UPSWEEP_PUSH_CONSTANTS_DEFINED_
+#endif 
+
+#ifndef _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
+
+uint nbl_glsl_ext_Scan_getPaddedData(in uint idx)
+{
+	uint data = pc.identity;
+	if (gl_GlobalInvocationID.x < pc.element_count_pass)
+		data = inout_values[idx];
+
+	return data;
+}
+
+#define _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
+
+void nbl_glsl_ext_Scan_setData(in uint idx, in uint val)
+{
+	if (gl_GlobalInvocationID.x < pc.element_count_pass)
+		inout_values[idx] = val;
+}
+
+#define _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
+#endif
+
+#include "nbl/builtin/glsl/ext/Scan/scan.glsl"
+
+#ifndef _NBL_GLSL_EXT_SCAN_UPSWEEP_MAIN_DEFINED_
+#define _NBL_GLSL_EXT_SCAN_UPSWEEP_MAIN_DEFINED_
+
+void main()
+{
+	uint idx = min(pc.element_count_total - 1u, STRIDED_IDX(gl_GlobalInvocationID.x));
+
+	uint data = nbl_glsl_ext_Scan_getPaddedData(idx);
+	
+	uint result = nbl_glsl_ext_Scan_upsweep(data);
+
+	nbl_glsl_ext_Scan_setData(idx, result);
+}
+
+#endif
