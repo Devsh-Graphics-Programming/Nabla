@@ -191,6 +191,7 @@ namespace nbl {
 				, glHint
 				, glFrontFace
 				, glCullFace
+				, glGetProgramPipelineiv
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLfragment, OpenGLFunctionLoader
 				, glBlendEquation

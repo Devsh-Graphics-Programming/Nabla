@@ -207,7 +207,7 @@ namespace impl
         uint32_t first;
         uint32_t count;
         core::smart_refctd_ptr<IGPUBuffer> buffers[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-        const size_t* offsets;
+        size_t offsets[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_SCISSORS)
     {
@@ -736,11 +736,11 @@ public:
         SCmd<impl::ECT_BIND_VERTEX_BUFFERS> cmd;
         cmd.first = firstBinding;
         cmd.count = bindingCount;
-        cmd.offsets = pOffsets;
         for (uint32_t i = 0u; i < cmd.count; ++i)
         {
             buffer_t* b = pBuffers[i];
             cmd.buffers[i] = core::smart_refctd_ptr<buffer_t>(b);
+            cmd.offsets[i] = pOffsets[i];
         }
         pushCommand(std::move(cmd));
         return true;
@@ -1039,6 +1039,12 @@ public:
     bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
     {
         if (!this->isCompatibleDevicewise(dstBuffer))
+            return false;
+        if ((dstOffset & 0x03ull) != 0ull)
+            return false;
+        if ((dataSize & 0x03ull) != 0ull)
+            return false;
+        if (dataSize > 65536ull)
             return false;
         SCmd<impl::ECT_UPDATE_BUFFER> cmd;
         uint8_t* data = getGLCommandPool()->emplace_n<uint8_t>(dataSize);

@@ -6,9 +6,32 @@
 #include <iostream>
 #include <cstdio>
 #include <nabla.h>
+#if defined(_NBL_PLATFORM_WINDOWS_)
 #include <nbl/system/CWindowWin32.h>
+using CWindowT = nbl::system::CWindowWin32;
+#elif defined(_NBL_PLATFORM_LINUX_)
+#include <nbl/system/CWindowLinux.h>
+using CWindowT = nbl::system::CWindowLinux;
+#endif
 
 using namespace nbl;
+
+static void debugCallback(video::E_DEBUG_MESSAGE_SEVERITY severity, video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
+{
+	const char* sev = nullptr;
+	switch (severity)
+	{
+	case video::EDMS_VERBOSE:
+		sev = "verbose"; break;
+	case video::EDMS_INFO:
+		sev = "info"; break;
+	case video::EDMS_WARNING:
+		sev = "warning"; break;
+	case video::EDMS_ERROR:
+		sev = "error"; break;
+	}
+	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
+}
 
 int main()
 {
@@ -40,9 +63,12 @@ void main()
 }
 )";
 
-	auto win = system::CWindowWin32::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
+	auto win = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
 
-	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test");
+	video::SDebugCallback dbgcb;
+	dbgcb.callback = &debugCallback;
+	dbgcb.userData = nullptr;
+	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
 	auto surface = gl->createSurface(win.get());
 
 	auto gpus = gl->getPhysicalDevices();
@@ -291,7 +317,7 @@ void main()
 		asset::VkRect2D area;
 		area.offset = { 0, 0 };
 		area.extent = { WIN_W, WIN_H };
-		clear.color.float32[0] = 0.f;
+		clear.color.float32[0] = 1.f;
 		clear.color.float32[1] = 0.f;
 		clear.color.float32[2] = 0.f;
 		clear.color.float32[3] = 1.f;

@@ -199,6 +199,8 @@ public:
         unbindMasterContext();
         EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, master_ctx);
         auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig, m_dbgCb);
+        if (!sc)
+            return nullptr;
         // wait until swapchain's internal thread finish context creation
         sc->waitForContextCreation();
         // make master context (in logical device internal thread) again

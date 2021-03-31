@@ -22,7 +22,6 @@ namespace nbl
 namespace core
 {
 
-
 template<typename INT_TYPE>
 NBL_FORCE_INLINE constexpr bool isNPoT(INT_TYPE value)
 {

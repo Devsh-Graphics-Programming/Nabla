@@ -6,6 +6,7 @@
 #define __NBL_CORE_LRU_CACHE_H_INCLUDED__
 
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
+#include <iostream>
 
 namespace nbl
 {

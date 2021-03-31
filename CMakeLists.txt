@@ -84,6 +84,9 @@ macro(nbl_adjust_flags)
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+			add_compile_options("$<$<CONFIG:DEBUG>:-g>")
+		endif()
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
@@ -136,9 +139,7 @@ macro(nbl_adjust_flags)
 				"$<$<CONFIG:RELEASE>:-ffast-math>"
 			)
 		endif()
-		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-			add_compile_options("$<$<CONFIG:DEBUG>:-ggdb3>")
-		endif()
+
 	elseif(MSVC) # /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
 		if (NBL_SANITIZE_ADDRESS)
 			set(NBL_MSVC_FLAG_SANITIZE_ADDRESS "/fsanitize=address")

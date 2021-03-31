@@ -134,6 +134,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/source/Nabla/os.cpp
 	
 	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CWindowLinux.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -410,7 +411,7 @@ macro(nbl_target_link_SDL2 _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/SDL2/include)
 endmacro()
 macro(nbl_target_link_volk _trgt)
-	target_link_libraries(${_trgt} PRIVATE volk)
+	target_link_libraries(${_trgt} PUBLIC volk)
 endmacro()
 macro(nbl_target_link_EGL _trgt)
 	target_link_libraries(${_trgt} PRIVATE egl)
@@ -446,7 +447,7 @@ nbl_target_link_spirv_tools(Nabla)
 if (NBL_COMPILE_WITH_SDL2)
 	nbl_target_link_SDL2(Nabla)
 endif()
-nbl_target_link_volk(Nabla)
+#nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 
 # dont link statically, x11, xrandr, xxf

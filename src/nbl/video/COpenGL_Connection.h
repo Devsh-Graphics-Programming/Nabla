@@ -6,6 +6,9 @@
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/system/IWindowWin32.h"
 #   include "nbl/video/surface/CSurfaceGLWin32.h"
+#elif defined(_NBL_PLATFORM_LINUX_)
+#   include "nbl/system/IWindowLinux.h"
+#   include "nbl/video/surface/CSurfaceGLLinux.h"
 #endif // TODO more platforms
 
 namespace nbl {
@@ -48,6 +51,16 @@ public:
             params.hwnd = w32->getNativeHandle();
 
             return core::make_smart_refctd_ptr<CSurfaceGLWin32>(std::move(params));
+        }
+#elif defined(_NBL_PLATFORM_LINUX_)
+        {
+            system::IWindowLinux* win = static_cast<system::IWindowLinux*>(window);
+
+            CSurfaceGLLinux::SCreationParams params;
+            params.dpy = XOpenDisplay(NULL);
+            params.window = win->getNativeHandle();
+
+            return core::make_smart_refctd_ptr<CSurfaceGLLinux>(std::move(params));
         }
 #else // TODO more platforms
         return nullptr;

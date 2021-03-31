@@ -5,12 +5,11 @@
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/COpenGLFeatureMap.h"
 #include "nbl/video/COpenGLDebug.h"
-#ifndef GL_GLEXT_LEGACY
-#define GL_GLEXT_LEGACY 1
-#endif
-#include "GL/gl.h"
-#undef GL_GLEXT_LEGACY
-#include "GL/glext.h"
+#define GL_GLEXT_PROTOTYPES
+#define GL_APICALL extern
+#define GL_APIENTRY // im not sure about calling convention...
+#undef GL_KHR_debug
+#include "GLES3/gl2ext.h"
 
 namespace nbl { 
 namespace video
@@ -55,8 +54,8 @@ protected:
 			EGL_STENCIL_SIZE, stencil,
 			EGL_ALPHA_SIZE, alpha,
 			EGL_COLOR_BUFFER_TYPE, EGL_RGB_BUFFER,
-			EGL_CONFORMANT, EGL_OPENGL_BIT,
-			EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+			EGL_CONFORMANT, IsGLES ? EGL_OPENGL_ES3_BIT:EGL_OPENGL_BIT,
+			EGL_RENDERABLE_TYPE, IsGLES ? EGL_OPENGL_ES3_BIT:EGL_OPENGL_BIT,
 			//Params.Stereobuffer
 			//Params.Vsync
 			EGL_SURFACE_TYPE, (EGL_WINDOW_BIT | EGL_PBUFFER_BIT),
@@ -352,9 +351,8 @@ public:
 			GetFloatv(GL_POINT_SIZE_RANGE, m_limits.pointSizeRange);
 			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_limits.lineWidthRange);
 
-			GLint maxViewportExtent[2];
-			GetIntegeri_v(GL_MAX_VIEWPORT_DIMS, 0, maxViewportExtent);
-			GetIntegeri_v(GL_MAX_VIEWPORT_DIMS, 1, maxViewportExtent + 1);
+			GLint maxViewportExtent[2]{0,0};
+			GetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewportExtent);
 
 			GLint maxViewports = 16;
 			GetIntegerv(GL_MAX_VIEWPORTS, &maxViewports);

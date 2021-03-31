@@ -16,7 +16,7 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURende
         nextState.pipeline.graphics.usedShadersHash = hash;
         return;
     }
-    SOpenGLState::SGraphicsPipelineHash hash = nextState.pipeline.graphics.pipeline->getPipelineHash(ctxid);
+    SOpenGLState::SGraphicsPipelineHash hash = nextState.pipeline.graphics.pipeline->getPipelineHash(/*ctxid*/0);//TODO change back to ctxid
     nextState.pipeline.graphics.usedShadersHash = hash;
 
     const auto& ppln = nextState.pipeline.graphics.pipeline;
@@ -254,7 +254,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
 
                 constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = { 0u, 0u, 0u, 0u, 0u };
 
-                SOpenGLState::SGraphicsPipelineHash lookingFor = nextState.pipeline.graphics.usedShadersHash;
+                const SOpenGLState::SGraphicsPipelineHash lookingFor = nextState.pipeline.graphics.usedShadersHash;
                 if (lookingFor != NULL_HASH)
                 {
                     auto found = GraphicsPipelineMap.get(lookingFor);
@@ -264,8 +264,8 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                     }
                     else
                     {
-                        GLuint pipeline = createGraphicsPipeline(gl, nextState.pipeline.graphics.usedShadersHash);
-                        SOpenGLState::SGraphicsPipelineHash hash;
+                        GLuint pipeline = createGraphicsPipeline(gl, lookingFor);
+                        SOpenGLState::SGraphicsPipelineHash hash = lookingFor;
                         SPipelineCacheVal val;
                         currentState.pipeline.graphics.usedPipeline = val.GLname = pipeline;
                         GraphicsPipelineMap.insert(std::move(hash), std::move(val));
@@ -279,6 +279,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
         }
     }
+    
 
     // this needs to be here to make sure interleaving the same compute pipeline with the same gfx pipeline works
     if (currentState.pipeline.graphics.usedPipeline && currentState.pipeline.compute.usedShader)
