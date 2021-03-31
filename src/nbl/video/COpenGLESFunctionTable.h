@@ -102,6 +102,7 @@ public:
 		IOpenGL_FunctionTable(_egl, _features),
 		glesGeneral(_egl),
 		glesBuffer(_egl),
+		glesTexture(_egl),
 		glesDebug(_egl),
 		glesDrawing(_egl),
 		glesFragment(_egl)
