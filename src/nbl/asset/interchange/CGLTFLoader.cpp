@@ -6,7 +6,7 @@
 
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
-#include "nbl/asset/filters/CNormalMapToDerivativeFilter.h"
+#include "nbl/asset/utils/CDerivativeMapCreator.h"
 #include "nbl/asset/metadata/CGLTFMetadata.h"
 #include "nbl/asset/CGLTFPipelineMetadata.h"
 #include "simdjson/singleheader/simdjson.h"
@@ -1454,92 +1454,10 @@ namespace nbl
 							pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE;
 
 							auto cpuNormalTexture = IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE];
-							{
-								core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
-
-								auto cpuImageNormalTexture = cpuNormalTexture->getCreationParameters().image;
-
-								const auto referenceImageParams = cpuImageNormalTexture->getCreationParameters();
-								const auto referenceBuffer = cpuImageNormalTexture->getBuffer();
-								const auto referenceRegions = cpuImageNormalTexture->getRegions();
-								const auto* referenceRegion = referenceRegions.begin();
-
-								auto newImageParams = referenceImageParams;
-								core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer;
-
-								newImageParams.format = EF_R32G32_SFLOAT;
-
-								auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
-
-								size_t regionOffsets = {};
-
-								for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
-								{
-									auto idOffset = newRegion - newRegions->begin();
-									*newRegion = *(referenceRegion++);
-									newRegion->bufferOffset = regionOffsets;
-
-									const auto fullMipMapExtent = cpuImageNormalTexture->getMipSize(idOffset);
-
-									regionOffsets += fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
-								}
-								newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(regionOffsets);
-
-								newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
-								newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-								using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle>;
-								DerivativeNormalMapFilter derivativeNormalFilter;
-								DerivativeNormalMapFilter::state_type state;
-
-								state.inImage = cpuImageNormalTexture.get();
-								state.outImage = newDerivativeNormalMapImage.get();
-								state.inOffset = { 0, 0, 0 };
-								state.inBaseLayer = 0;
-								state.outOffset = { 0, 0, 0 };
-								state.outBaseLayer = 0;
-								state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
-								state.layerCount = newDerivativeNormalMapImage->getCreationParameters().arrayLayers;
-
-								state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.layerCount, state.extent);
-								state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
-
-								state.inMipLevel = 0;
-								state.outMipLevel = 0;
-
-								if (!derivativeNormalFilter.execute(&state))
-									os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
-
-								_NBL_ALIGNED_FREE(state.scratchMemory);
-
-								ICPUImageView::SCreationParams imageViewInfo;
-								imageViewInfo.image = core::smart_refctd_ptr(newDerivativeNormalMapImage);
-								imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
-								imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;
-								imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-								imageViewInfo.subresourceRange.baseArrayLayer = 0u; 
-								imageViewInfo.subresourceRange.baseMipLevel = 0u;
-								imageViewInfo.subresourceRange.layerCount = imageViewInfo.image->getCreationParameters().arrayLayers;
-								imageViewInfo.subresourceRange.levelCount = imageViewInfo.image->getCreationParameters().mipLevels;
-
-								auto imageView = ICPUImageView::create(std::move(imageViewInfo));
-
-								if(!imageView.get())
-									os::Printer::log("Something went wrong while creating image view for derivative normal map!", ELL_ERROR);
-
-								/*
-									@devshgraphicsprogramming
-
-									TODO: I think it should be done at the very begining of the glTF loading resources since it may occur
-									for a single normal map will be applied more than one derivative computations.
-
-									Such asset should also store info about `scale` from state for derivatives in a geometry shader
-								*/
-
-								IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE] = std::move(imageView);
-
-								// const auto& absLayerScaleValues = state.getAbsoluteLayerScaleValue(0);
-							}
+							IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE] = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(cpuNormalTexture->getCreationParameters().image.get());
+							
+							// fetch from cpuDerivativeNormalTexture scale using meta
+							// const auto& absLayerScaleValues = state.getAbsoluteLayerScaleValue(0);
 
 							/*
 								if (normalTexture.texCoord.has_value())
