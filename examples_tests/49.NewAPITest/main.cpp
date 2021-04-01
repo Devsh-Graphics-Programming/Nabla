@@ -64,12 +64,14 @@ void main()
 )";
 
 	auto win = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
+	auto win2 = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
 
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL_ES, 0, "New API Test", &dbgcb);
 	auto surface = gl->createSurface(win.get());
+	auto surface2 = gl->createSurface(win2.get());
 
 	auto gpus = gl->getPhysicalDevices();
 	assert(!gpus.empty());
@@ -81,10 +83,10 @@ void main()
 	dev_params.queueParamsCount = 1u;
 	video::ILogicalDevice::SQueueCreationParams q_params;
 	q_params.familyIndex = 0u;
-	q_params.count = 1u;
+	q_params.count = 4u;
 	q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-	float priority = 1.f;
-	q_params.priorities = &priority;
+	float priority[4] = {1.f,1.f,1.f,1.f};
+	q_params.priorities = priority;
 	dev_params.queueCreateInfos = &q_params;
 	auto device = gpu->createLogicalDevice(dev_params);
 
@@ -105,6 +107,22 @@ void main()
 
 		sc = device->createSwapchain(std::move(sc_params));
 		assert(sc);
+	}
+	core::smart_refctd_ptr<video::ISwapchain> sc2;
+	{
+		video::ISwapchain::SCreationParams sc_params;
+		sc_params.width = WIN_W;
+		sc_params.height = WIN_H;
+		sc_params.arrayLayers = 1u;
+		sc_params.minImageCount = SC_IMG_COUNT;
+		sc_params.presentMode = video::ISurface::EPM_FIFO_RELAXED;
+		sc_params.surface = surface2;
+		sc_params.surfaceFormat.format = asset::EF_R8G8B8A8_SRGB;
+		sc_params.surfaceFormat.colorSpace.eotf = asset::EOTF_sRGB;
+		sc_params.surfaceFormat.colorSpace.primary = asset::ECP_SRGB;
+
+		sc2 = device->createSwapchain(std::move(sc_params));
+		assert(sc2);
 	}
 
 	core::smart_refctd_ptr<video::IGPURenderpass> renderpass;
