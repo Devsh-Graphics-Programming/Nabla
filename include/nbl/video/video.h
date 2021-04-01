@@ -30,12 +30,7 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/IGPUMesh.h"
-#include "nbl/video/IGPUSkinnedMesh.h"
-#include "nbl/video/CGPUMesh.h"
 #include "nbl/video/IGPUObjectFromAssetConverter.h"
-
-// kill/refactor
-#include "nbl/video/CGPUSkinnedMesh.h"
 
 //VT
 #include "nbl/video/IGPUVirtualTexture.h"

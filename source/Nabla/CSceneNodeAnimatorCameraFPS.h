@@ -80,18 +80,6 @@ namespace scene
 			return true;
 		}
 
-		//! Returns the type of this animator
-		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const
-		{
-			return ESNAT_CAMERA_FPS;
-		}
-
-		//! Creates a clone of this animator.
-		/** Please note that you will have to drop
-		(IReferenceCounted::drop()) the returned pointer once you're
-		done with it. */
-		virtual ISceneNodeAnimator* createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager=0);
-
 	private:
 		void allKeysUp();
 

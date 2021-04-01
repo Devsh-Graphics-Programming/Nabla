@@ -9,7 +9,7 @@
 
 #include "../../../../source/Nabla/COpenGLBuffer.h"
 #include "../../../../source/Nabla/COpenGLExtensionHandler.h"
-#include "../../../nbl/asset/IImageAssetHandlerBase.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 namespace nbl
 {

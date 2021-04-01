@@ -8,13 +8,11 @@
 #include "matrix4SIMD.h"
 #include "nbl/asset/asset.h"
 #include "IFileSystem.h"
-#include "nbl/asset/ICPUVirtualTexture.h"
+#include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
-#include "nbl/ext/MitsubaLoader/CElementShape.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
 
@@ -28,7 +26,7 @@ namespace MitsubaLoader
 class CElementBSDF;
 class CMitsubaMaterialCompilerFrontend;
 
-class CMitsubaLoader : public asset::IAssetLoader
+class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 {
 		friend class CMitsubaMaterialCompilerFrontend;
 	public:
@@ -38,7 +36,6 @@ class CMitsubaLoader : public asset::IAssetLoader
 		void initialize() override;
 
 	protected:
-		asset::IAssetManager* m_manager;
 		io::IFileSystem* m_filesystem;
 
 		//! Destructor
@@ -51,15 +48,13 @@ class CMitsubaLoader : public asset::IAssetLoader
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
 		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
 		
-		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, bool _restore = false);
 
 		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
-
-		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 
 	public:
 		//! Check if the file might be loaded by this class

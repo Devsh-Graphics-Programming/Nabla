@@ -16,7 +16,6 @@ namespace ext
 namespace MitsubaLoader
 {
 
-class CGlobalMitsubaMetadata;
 
 class CElementRFilter : public IElement
 {
@@ -52,7 +51,7 @@ class CElementRFilter : public IElement
 		virtual ~CElementRFilter() {}
 
 		bool addProperty(SNamedPropertyElement&& _property) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::RFILTER; }
 		std::string getLogName() const override { return "rfilter"; }
 

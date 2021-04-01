@@ -15,14 +15,11 @@
 #include "IReadFile.h"
 #include "IWriteFile.h"
 
-#include "nbl/core/Types.h"
-#include "nbl/asset/IGLSLCompiler.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IAssetWriter.h"
 
-#include "nbl/asset/IGeometryCreator.h"/*
-#include "nbl/asset/IMeshManipulator.h"
-#include "nbl/asset/CQuantNormalCache.h"*/
-#include "nbl/asset/IAssetLoader.h"
-#include "nbl/asset/IAssetWriter.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/IGeometryCreator.h"
 
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
@@ -204,30 +201,40 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 			@see IAssetLoader
 			@see SAssetBundle
 		*/
-        SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        template <bool RestoreWholeBundle>
+        SAssetBundle getAssetInHierarchy_impl(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
+            const uint32_t restoreLevels = (_hierarchyLevel >= _params.restoreLevels) ? 0u : (_params.restoreLevels - _hierarchyLevel);
+
             IAssetLoader::SAssetLoadParams params(_params);
             if (params.meshManipulatorOverride == nullptr)
             {
                 params.meshManipulatorOverride = m_meshManipulator.get();
             }
+            if (restoreLevels)
+            {
+                using flags_t = std::underlying_type_t<IAssetLoader::E_CACHING_FLAGS>;
+                flags_t mask = ~static_cast<flags_t>(0);
+                mask = core::bitfieldInsert<flags_t>(mask, IAssetLoader::ECF_DONT_CACHE_REFERENCES, 2u*_hierarchyLevel, 2u*restoreLevels);
+                params.cacheFlags = static_cast<IAssetLoader::E_CACHING_FLAGS>(params.cacheFlags & mask);
+            }
 
             IAssetLoader::SAssetLoadContext ctx{params, _file};
 
             std::string filename = _file ? _file->getFileName().c_str() : _supposedFilename;
-            io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel);
+            io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel); // WARNING: mem-leak possibility: _override should return smart_ptr<IReadFile> (TODO, inspect this)
             filename = file ? file->getFileName().c_str() : _supposedFilename;
 
             const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
-            SAssetBundle asset;
+            SAssetBundle bundle;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
                 auto found = findAssets(filename);
                 if (found->size())
                     return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
-                else if (!(asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel)).isEmpty())
-                    return asset;
+                else if (!(bundle = _override->handleSearchFail(filename, ctx, _hierarchyLevel)).getContents().empty())
+                    return bundle;
             }
 
             // if at this point, and after looking for an asset in cache, file is still nullptr, then return nullptr
@@ -238,33 +245,78 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             // loaders associated with the file's extension tryout
             for (auto& loader : capableLoadersRng)
             {
-                if (loader.second->isALoadableFileFormat(file) && !(asset = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
+                if (loader.second->isALoadableFileFormat(file) && !(bundle = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
                     break;
             }
-            for (auto loaderItr = std::begin(m_loaders.vector); asset.isEmpty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+            for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
             {
-                if ((*loaderItr)->isALoadableFileFormat(file) && !(asset = (*loaderItr)->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
+                if ((*loaderItr)->isALoadableFileFormat(file) && !(bundle = (*loaderItr)->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
                     break;
             }
 
-            if (!asset.isEmpty() && 
+            if (!bundle.getContents().empty() && 
                 ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
                 ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
             {
-                _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
+                _override->insertAssetIntoCache(bundle, filename, ctx, _hierarchyLevel);
             }
-            else if (asset.isEmpty())
+            else if (bundle.getContents().empty())
             {
                 bool addToCache;
-                asset = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
-                if (!asset.isEmpty() && addToCache)
-                    _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
+                bundle = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
+                if (!bundle.getContents().empty() && addToCache)
+                    _override->insertAssetIntoCache(bundle, filename, ctx, _hierarchyLevel);
+            }
+
+            auto whole_bundle_not_dummy = [restoreLevels](const SAssetBundle& _b) {
+                auto rng = _b.getContents();
+                for (const auto& a : rng)
+                    if (a->isAnyDependencyDummy(restoreLevels))
+                        return false;
+                return true;
+            };
+            if (bundle.getContents().empty() || whole_bundle_not_dummy(bundle))
+                return bundle;
+
+            if (restoreLevels)
+            {
+                auto reloadParams = IAssetLoader::SAssetLoadParams(_params, true);
+                {
+                    using flags_t = std::underlying_type_t<IAssetLoader::E_CACHING_FLAGS>;
+                    constexpr uint32_t bitdepth = sizeof(flags_t)*8u;
+                    const flags_t zeroOutMask = (~static_cast<flags_t>(0)) >> (bitdepth - 2u*(restoreLevels + _hierarchyLevel));
+                    flags_t reloadFlags = reloadParams.cacheFlags;
+                    reloadFlags &= zeroOutMask; // make sure we never pointlessy reload levels above (_restoreLevels+_hierLevel) in reload pass
+                    // set flags for levels [_hierLevel,_hierLevel+_restoreLevels) to dont look into cache and dont put into cache
+                    reloadFlags = core::bitfieldInsert<flags_t>(reloadFlags, IAssetLoader::ECF_DUPLICATE_REFERENCES, _hierarchyLevel*2u, restoreLevels*2u);
+                    reloadParams.cacheFlags = static_cast<IAssetLoader::E_CACHING_FLAGS>(reloadFlags);
+                    reloadParams.restoreLevels = 0u; // make sure it wont turn into infinite recursion
+                }
+
+                auto reloadBundle = getAssetInHierarchy_impl<RestoreWholeBundle>(_file, _supposedFilename, reloadParams, _hierarchyLevel, _override);
+
+                if constexpr (!RestoreWholeBundle)
+                {
+                    IAssetLoader::SAssetLoadContext ctx(params, file);
+                    auto asset = _override->chooseDefaultAsset(bundle, ctx);
+
+                    auto newChosenAsset = _override->handleRestore(std::move(asset), bundle, reloadBundle, restoreLevels);
+                    if (!newChosenAsset || newChosenAsset->isAnyDependencyDummy(restoreLevels))
+                        return {};
+                }
+                else
+                {
+                    _override->handleRestore(bundle, reloadBundle, restoreLevels);
+                    if (!whole_bundle_not_dummy(bundle))
+                        return {};
+                }
             }
             
-            return asset;
+            return bundle;
         }
         //TODO change name
-        SAssetBundle getAssetInHierarchy(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        template <bool RestoreWholeBundle>
+        SAssetBundle getAssetInHierarchy_impl(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
 
@@ -272,7 +324,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             _override->getLoadFilename(filePath, ctx, _hierarchyLevel);
             io::IReadFile* file = m_fileSystem->createAndOpenFile(filePath.c_str());
 
-            SAssetBundle asset = getAssetInHierarchy(file, _filePath, _params, _hierarchyLevel, _override);
+            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file, _filePath, _params, _hierarchyLevel, _override);
 
             if (file)
                 file->drop();
@@ -281,15 +333,52 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         }
 
         //TODO change name
-        SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        template <bool RestoreWholeBundle>
+        SAssetBundle getAssetInHierarchy_impl(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
         {
-            return getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
+            return getAssetInHierarchy_impl<RestoreWholeBundle>(_file, _supposedFilename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
         }
 
         //TODO change name
+        template <bool RestoreWholeBundle>
+        SAssetBundle getAssetInHierarchy_impl(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        {
+            return getAssetInHierarchy_impl<RestoreWholeBundle>(_filename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
+        }
+
+
+        SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchy_impl<false>(_file, _supposedFilename, _params, _hierarchyLevel, _override);
+        }
+        SAssetBundle getAssetInHierarchy(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchy_impl<false>(_filePath, _params, _hierarchyLevel, _override);
+        }
+        SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        {
+            return getAssetInHierarchy_impl<false>(_file, _supposedFilename, _params, _hierarchyLevel);
+        }
         SAssetBundle getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
         {
-            return getAssetInHierarchy(_filename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
+            return getAssetInHierarchy_impl<false>(_filename, _params, _hierarchyLevel);
+        }
+
+        SAssetBundle getAssetInHierarchyWholeBundleRestore(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchy_impl<true>(_file, _supposedFilename, _params, _hierarchyLevel, _override);
+        }
+        SAssetBundle getAssetInHierarchyWholeBundleRestore(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchy_impl<true>(_filePath, _params, _hierarchyLevel, _override);
+        }
+        SAssetBundle getAssetInHierarchyWholeBundleRestore(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        {
+            return getAssetInHierarchy_impl<true>(_file, _supposedFilename, _params, _hierarchyLevel);
+        }
+        SAssetBundle getAssetInHierarchyWholeBundleRestore(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        {
+            return getAssetInHierarchy_impl<true>(_filename, _params, _hierarchyLevel);
         }
 
     public:
@@ -305,17 +394,35 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         {
             return getAssetInHierarchy(_file, _supposedFilename, _params,  0u, _override);
         }
-
         //TODO change name
         SAssetBundle getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
         {
             return getAsset(_filename, _params, &m_defaultLoaderOverride);
         }
-
         //TODO change name
         SAssetBundle getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params)
         {
             return getAsset(_file, _supposedFilename, _params, &m_defaultLoaderOverride);
+        }
+
+        SAssetBundle getAssetWholeBundleRestore(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchyWholeBundleRestore(_filename, _params, 0u, _override);
+        }
+        //TODO change name
+        SAssetBundle getAssetWholeBundleRestore(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        {
+            return getAssetInHierarchyWholeBundleRestore(_file, _supposedFilename, _params, 0u, _override);
+        }
+        //TODO change name
+        SAssetBundle getAssetWholeBundleRestore(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
+        {
+            return getAssetWholeBundleRestore(_filename, _params, &m_defaultLoaderOverride);
+        }
+        //TODO change name
+        SAssetBundle getAssetWholeBundleRestore(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params)
+        {
+            return getAssetWholeBundleRestore(_file, _supposedFilename, _params, &m_defaultLoaderOverride);
         }
 
         //TODO change name
@@ -398,15 +505,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 			return retval;
         }
 
-		//! It injects metadata into Asset structure
-		/**
-			@see IAssetMetadata
-		*/
-        inline void setAssetMetadata(IAsset* _asset, core::smart_refctd_ptr<IAssetMetadata>&& _metadata)
-        {
-            _asset->setMetadata(std::move(_metadata));
-        }
-
         //! Changes the lookup key
         //TODO change name
         inline void changeAssetKey(SAssetBundle& _asset, const std::string& _newKey)
@@ -430,7 +528,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
         //TODO change key
-        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by asset’s key instead
+        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by asset's key instead
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
             return m_assetCache[ix]->removeObject(_asset, _asset.getCacheKey());
@@ -486,8 +584,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 			size_t outputSize = 0u;
 			for (auto it=assets->begin(); it!=assets->end(); it++)
 			{
-				outputSize += it->getSize();
-				if (it->getSize())
+                const auto contentCount = it->getContents().size();
+				outputSize += contentCount;
+				if (contentCount)
 					assert(it->getAssetType() == _type);
 			}
 			if (!outputSize)
@@ -585,8 +684,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         //! @returns 0xdeadbeefu on failure or 0-based index on success.
         uint32_t addAssetLoader(core::smart_refctd_ptr<IAssetLoader>&& _loader)
         {
-            _loader->initialize();
-
             // there's no way it ever fails, so no 0xdeadbeef return
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;

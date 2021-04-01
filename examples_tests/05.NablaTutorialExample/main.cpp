@@ -8,7 +8,6 @@
 #include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include "nbl/asset/CGeometryCreator.h"
 
 /*
 	General namespaces. Entire engine consists of those bellow.
@@ -87,7 +86,7 @@ int main()
 
 	asset::IAssetLoader::SAssetLoadParams loadingParams;
 	auto images_bundle = assetManager->getAsset("../../media/color_space_test/R8G8B8A8_1.png", loadingParams);
-	assert(!images_bundle.isEmpty());
+	assert(!images_bundle.getContents().empty());
 	auto image = images_bundle.getContents().begin()[0];
 	auto image_raw = static_cast<asset::ICPUImage*>(image.get());
 
@@ -110,8 +109,8 @@ int main()
 
 	const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 
-	auto cpuVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/materials/lambertian/singletexture/specializedshader.vert", types)->front().getContents().begin()[0]);
-	auto cpuFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/materials/lambertian/singletexture/specializedshader.frag", types)->front().getContents().begin()[0]);
+	auto cpuVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert", types)->front().getContents().begin()[0]);
+	auto cpuFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag", types)->front().getContents().begin()[0]);
 
 	auto gpuVertexShader = driver->getGPUObjectsFromAssets(&cpuVertexShader.get(), &cpuVertexShader.get() + 1)->front();
 	auto gpuFragmentShader = driver->getGPUObjectsFromAssets(&cpuFragmentShader.get(), &cpuFragmentShader.get() + 1)->front();

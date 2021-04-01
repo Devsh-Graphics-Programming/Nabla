@@ -12,10 +12,6 @@
 #include "vector3d.h"
 #include "dimension2d.h"
 #include "SColor.h"
-#include "ESceneNodeTypes.h"
-#include "ESceneNodeAnimatorTypes.h"
-#include "nbl/video/IGPUSkinnedMesh.h"
-#include "ISkinnedMeshSceneNode.h"
 #include "nbl/asset/ICPUMesh.h"
 
 namespace nbl
@@ -31,72 +27,13 @@ namespace io
 	class IFileSystem;
 } // end namespace io
 
-namespace video
-{
-	class IVideoDriver;
-	class ITexture;
-} // end namespace video
-
 namespace scene
 {
-	//! Enumeration for render passes.
-	/** A parameter passed to the registerNodeForRendering() method of the ISceneManager,
-	specifying when the node wants to be drawn in relation to the other nodes. */
-	enum E_SCENE_NODE_RENDER_PASS
-	{
-		//! No pass currently active
-		ESNRP_NONE =0,
-
-		//! Camera pass. The active view is set up here. The very first pass.
-		ESNRP_CAMERA =1,
-
-		//! In this pass, lights are transformed into camera space and added to the driver
-		ESNRP_LIGHT =2,
-
-		//! This is used for sky boxes.
-		ESNRP_SKY_BOX =4,
-
-		//! All normal objects can use this for registering themselves.
-		/** This value will never be returned by
-		ISceneManager::getSceneNodeRenderPass(). The scene manager
-		will determine by itself if an object is transparent or solid
-		and register the object as SNRT_TRANSPARENT or SNRT_SOLD
-		automatically if you call registerNodeForRendering with this
-		value (which is default). Note that it will register the node
-		only as ONE type. If your scene node has both solid and
-		transparent material types register it twice (one time as
-		SNRT_SOLID, the other time as SNRT_TRANSPARENT) and in the
-		render() method call getSceneNodeRenderPass() to find out the
-		current render pass and render only the corresponding parts of
-		the node. */
-		ESNRP_AUTOMATIC =24,
-
-		//! Solid scene nodes or special scene nodes without materials.
-		ESNRP_SOLID =8,
-
-		//! Transparent scene nodes, drawn after solid nodes. They are sorted from back to front and drawn in that order.
-		ESNRP_TRANSPARENT =16,
-
-		//! Transparent effect scene nodes, drawn after Transparent nodes. They are sorted from back to front and drawn in that order.
-		ESNRP_TRANSPARENT_EFFECT =32
-	};
-
-	class IAnimatedMeshSceneNode;
 	class ICameraSceneNode;
 	class IDummyTransformationSceneNode;
-	class ILightSceneNode;
-	class IMeshLoader;
 	class IMeshSceneNode;
-	class IMeshSceneNodeInstanced;
-	class IMeshWriter;
 	class ISceneNode;
 	class ISceneNodeAnimator;
-	class ISceneNodeAnimatorCollisionResponse;
-
-	namespace quake3
-	{
-		struct IShader;
-	} // end namespace quake3
 
 	//! The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
 	/** All Scene nodes can be created only here. There is a always growing
@@ -120,24 +57,6 @@ namespace scene
 		/** \return Pointer to the video Driver.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual video::IVideoDriver* getVideoDriver() = 0;
-
-
-		//! Get the active FileSystem
-		/** \return Pointer to the FileSystem
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual io::IFileSystem* getFileSystem() = 0;
-
-		//!
-        virtual IrrlichtDevice* getDevice() = 0;
-
-		//! Adds a scene node for rendering an skinned mesh model.
-		virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(
-                core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh,
-				const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
-				IDummyTransformationSceneNode* parent=0, int32_t id=-1,
-				const core::vector3df& position = core::vector3df(0,0,0),
-				const core::vector3df& rotation = core::vector3df(0,0,0),
-				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
 		//! Adds a camera scene node to the scene tree and sets it as active camera.
 		/** This camera does not react on user input like for example the one created with
@@ -259,60 +178,6 @@ namespace scene
 			float jumpSpeed = 0.f, bool invertMouse=false,
 			bool makeActive=true) = 0;
 
-		//! Adds a skybox scene node to the scene tree.
-		/** A skybox is a big cube with 6 textures on it and
-		is drawn around the camera position.
-		\param cubemap: Texture for the skybox, has to be a cubemap
-		\param parent: Parent scene node of the skybox. A skybox usually has no parent,
-		so this should be null. Note: If a parent is set to the skybox, the box will not
-		change how it is drawn.
-		\param id: An id of the node. This id can be used to identify the node.
-		\return Pointer to the sky box if successful, otherwise NULL.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IMeshSceneNode* addSkyBoxSceneNode(core::smart_refctd_ptr<video::IGPUImageView>&& cubemap, IDummyTransformationSceneNode* parent = 0, int32_t id=-1) = 0;
-
-		//! Adds a skydome scene node to the scene tree.
-		/** A skydome is a large (half-) sphere with a panoramic texture
-		on the inside and is drawn around the camera position.
-		\param texture: Texture for the dome.
-		\param horiRes: Number of vertices of a horizontal layer of the sphere.
-		\param vertRes: Number of vertices of a vertical layer of the sphere.
-		\param texturePercentage: How much of the height of the
-		texture is used. Should be between 0 and 1.
-		\param spherePercentage: How much of the sphere is drawn.
-		Value should be between 0 and 2, where 1 is an exact
-		half-sphere and 2 is a full sphere.
-		\param radius The Radius of the sphere
-		\param parent: Parent scene node of the dome. A dome usually has no parent,
-		so this should be null. Note: If a parent is set, the dome will not
-		change how it is drawn.
-		\param id: An id of the node. This id can be used to identify the node.
-		\return Pointer to the sky dome if successful, otherwise NULL.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IMeshSceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IGPUImageView>&& texture,
-													uint32_t horiRes=16, uint32_t vertRes=8, float texturePercentage=0.9,
-													float spherePercentage=2.0,float radius = 1000.f,
-													IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
-
-		//! Adds a dummy transformation scene node to the scene tree.
-		/** This scene node does not render itself, have a bounding box, a render method,
-        and is as-if always visible ISceneNode.
-		Its actually a base of ISceneNode, and it can be used for doing advanced transformations
-		or structuring the scene tree.
-		\return Pointer to the created scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
-			IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
-
-		//! Gets the root scene node.
-		/** This is the scene node which is parent
-		of all scene nodes. The root scene node is a special scene node which
-		only exists to manage all scene nodes. It will not be rendered and cannot
-		be removed from the scene.
-		\return Pointer to the root scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* getRootSceneNode() = 0;
-
 		//! Get the current active camera.
 		/** \return The active camera is returned. Note that this can
 		be NULL, if there was no camera created yet.
@@ -324,101 +189,6 @@ namespace scene
 		\param camera: The new camera which should be active. */
 		virtual void setActiveCamera(ICameraSceneNode* camera) = 0;
 
-		//! Registers a node for rendering it at a specific time.
-		/** This method should only be used by SceneNodes when they get a
-		ISceneNode::OnRegisterSceneNode() call.
-		\param node: Node to register for drawing. Usually scene nodes would set 'this'
-		as parameter here because they want to be drawn.
-		\param pass: Specifies when the node wants to be drawn in relation to the other nodes.
-		For example, if the node is a shadow, it usually wants to be drawn after all other nodes
-		and will use ESNRP_SHADOW for this. See scene::E_SCENE_NODE_RENDER_PASS for details.
-		\return scene will be rendered ( passed culling ) */
-		virtual uint32_t registerNodeForRendering(ISceneNode* node,
-			E_SCENE_NODE_RENDER_PASS pass = ESNRP_AUTOMATIC) = 0;
-
-		//! Draws all the scene nodes.
-		/** This can only be invoked between
-		IVideoDriver::beginScene() and IVideoDriver::endScene(). Please note that
-		the scene is not only drawn when calling this, but also animated
-		by existing scene node animators, culling of scene nodes is done, etc. */
-		virtual void drawAll() = 0;
-
-		//! Creates a rotation animator, which rotates the attached scene node around itself.
-		/** \param rotationSpeed Specifies the speed of the animation in degree per 10 milliseconds.
-		\return The animator. Attach it to a scene node with ISceneNode::addAnimator()
-		and the animator will animate it.
-		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createRotationAnimator(const core::vector3df& rotationSpeed) = 0;
-
-		//! Creates a fly circle animator, which lets the attached scene node fly around a center.
-		/** \param center: Center of the circle.
-		\param radius: Radius of the circle.
-		\param speed: The orbital speed, in radians per millisecond.
-		\param direction: Specifies the upvector used for alignment of the mesh.
-		\param startPosition: The position on the circle where the animator will
-		begin. Value is in multiples of a circle, i.e. 0.5 is half way around. (phase)
-		\param radiusEllipsoid: if radiusEllipsoid != 0 then radius2 froms a ellipsoid
-		begin. Value is in multiples of a circle, i.e. 0.5 is half way around. (phase)
-		\return The animator. Attach it to a scene node with ISceneNode::addAnimator()
-		and the animator will animate it.
-		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createFlyCircleAnimator(
-				const core::vector3df& center=core::vector3df(0.f,0.f,0.f),
-				float radius=100.f, float speed=0.001f,
-				const core::vectorSIMDf& direction=core::vectorSIMDf(0.f, 1.f, 0.f),
-				float startPosition = 0.f,
-				float radiusEllipsoid = 0.f) = 0;
-
-		//! Creates a fly straight animator, which lets the attached scene node fly or move along a line between two points.
-		/** \param startPoint: Start point of the line.
-		\param endPoint: End point of the line.
-		\param timeForWay: Time in milli seconds how long the node should need to
-		move from the start point to the end point.
-		\param loop: If set to false, the node stops when the end point is reached.
-		If loop is true, the node begins again at the start.
-		\param pingpong Flag to set whether the animator should fly
-		back from end to start again.
-		\return The animator. Attach it to a scene node with ISceneNode::addAnimator()
-		and the animator will animate it.
-		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vectorSIMDf& startPoint,
-			const core::vectorSIMDf& endPoint, uint32_t timeForWay, bool loop=false, bool pingpong = false) = 0;
-
-		//! Creates a scene node animator, which deletes the scene node after some time automatically.
-		/** \param timeMs: Time in milliseconds, after when the node will be deleted.
-		\return The animator. Attach it to a scene node with ISceneNode::addAnimator()
-		and the animator will animate it.
-		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createDeleteAnimator(uint32_t timeMs) = 0;
-
-		//! Creates a follow spline animator.
-		/** The animator modifies the position of
-		the attached scene node to make it follow a hermite spline.
-		It uses a subset of hermite splines: either cardinal splines
-		(tightness != 0.5) or catmull-rom-splines (tightness == 0.5).
-		The animator moves from one control point to the next in
-		1/speed seconds. This code was sent in by Matthias Gall.
-		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createFollowSplineAnimator(int32_t startTime,
-			const core::vector< core::vector3df >& points,
-			float speed = 1.0f, float tightness = 0.5f, bool loop=true, bool pingpong=false) = 0;
-
-		//! Adds a scene node to the deletion queue.
-		/** The scene node is immediatly
-		deleted when it's secure. Which means when the scene node does not
-		execute animators and things like that. This method is for example
-		used for deleting scene nodes by their scene node animators. In
-		most other cases, a ISceneNode::remove() call is enough, using this
-		deletion queue is not necessary.
-		See ISceneManager::createDeleteAnimator() for details.
-		\param node: Node to detete. */
-		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node) = 0;
-
 		//! Posts an input event to the environment.
 		/** Usually you do not have to
 		use this method, it is used by the internal engine. */
@@ -427,34 +197,6 @@ namespace scene
 		//! Clears the whole scene.
 		/** All scene nodes are removed. */
 		virtual void clear() = 0;
-
-		//! Get current render pass.
-		/** All scene nodes are being rendered in a specific order.
-		First lights, cameras, sky boxes, solid geometry, and then transparent
-		stuff. During the rendering process, scene nodes may want to know what the scene
-		manager is rendering currently, because for example they registered for rendering
-		twice, once for transparent geometry and once for solid. When knowing what rendering
-		pass currently is active they can render the correct part of their geometry. */
-		virtual E_SCENE_NODE_RENDER_PASS getSceneNodeRenderPass() const = 0;
-
-		//! Creates a new scene manager.
-		/** This can be used to easily draw and/or store two
-		independent scenes at the same time.
-		If you no longer need the new scene manager, you should call
-		ISceneManager::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneManager* createNewSceneManager(bool cloneContent=false) = 0;
-
-		//! Check if node is culled in current view frustum
-		/** Please note that depending on the used culling method this
-		check can be rather coarse, or slow. A positive result is
-		correct, though, i.e. if this method returns true the node is
-		positively not visible. The node might still be invisible even
-		if this method returns false.
-		\param node The scene node which is checked for culling.
-		\return True if node is not visible in the current scene, else
-		false. */
-		virtual bool isCulled(ISceneNode* node) const =0;
 	};
 
 

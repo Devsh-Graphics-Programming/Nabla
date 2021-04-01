@@ -5,10 +5,12 @@
 #ifndef __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 #define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 
-#include <nbl/asset/material_compiler/IR.h>
-#include <nbl/asset/ICPUVirtualTexture.h>
 
 #include <ostream>
+
+#include <nbl/asset/utils/ICPUVirtualTexture.h>
+#include <nbl/asset/material_compiler/IR.h>
+
 
 namespace nbl
 {

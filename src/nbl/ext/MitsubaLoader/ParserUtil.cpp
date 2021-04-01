@@ -215,7 +215,7 @@ void ParserManager::onEnd(const Context& ctx, const char* _el)
 	auto element = elements.top();
 	elements.pop();
 
-	if (element.first && !element.first->onEndTag(m_override, m_globalMetadata.get()))
+	if (element.first && !element.first->onEndTag(m_override,m_metadata.get()))
 	{
 		killParseWithError(ctx,element.first->getLogName() + " could not onEndTag");
 		return;

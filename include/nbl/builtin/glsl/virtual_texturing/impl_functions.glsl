@@ -146,14 +146,14 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
     if (haveToDoTrilinear)
         loMip = textureGrad(physicalTileStorageFormatView[nonuniformEXT(formatID)],loPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
 #else
-    uint64_t outstandingSampleMask = ballotARB(true);
+    uvec2 outstandingSampleMask = subgroupBallot(true).xy;
     // maybe unroll a few times manually
-    while (outstandingSampleMask!=uint64_t(0u))
+    while (outstandingSampleMask!=uvec2(0u))
     {
-		uvec2 tmp = unpackUint2x32(outstandingSampleMask);
-        uint subgroupFormatID = readInvocationARB(formatID,tmp[1]!=0u ? 32u:findLSB(tmp[0]));
+		uvec2 tmp = outstandingSampleMask;
+        uint subgroupFormatID = subgroupBroadcast(formatID,tmp[1]!=0u ? 32u:findLSB(tmp[0]));
         bool canSample = subgroupFormatID==formatID; // do I need this? && (outstandingSampleMask&gl_SubGroupEqMaskARB)==gl_SubGroupEqMaskARB;
-        outstandingSampleMask ^= ballotARB(canSample);
+        outstandingSampleMask ^= subgroupBallot(canSample).xy;
         if (canSample)
         {
             hiMip_retval = textureGrad(physicalTileStorageFormatView[subgroupFormatID],hiPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);

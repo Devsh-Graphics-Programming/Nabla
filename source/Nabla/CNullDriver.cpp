@@ -3,14 +3,17 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "CNullDriver.h"
-#include "os.h"
-#include "IAnimatedMeshSceneNode.h"
-
-#include "nbl/asset/CMeshManipulator.h"
-#include "nbl/asset/asset_utils.h"
 
 #include <new>
+
+#include "os.h"
+
+#include "nbl/asset/asset_utils.h"
+#include "nbl/asset/utils/CMeshManipulator.h"
+
+#include "CNullDriver.h"
+
+
 #include "IrrlichtDevice.h"
 
 namespace nbl

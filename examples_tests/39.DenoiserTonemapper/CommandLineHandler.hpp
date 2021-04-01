@@ -36,7 +36,7 @@ Mandatory parameters:
 -CAMERA_TRANSFORM=mitsubaFilePath or val1,val2,val3,...,val9
 -DENOISER_EXPOSURE_BIAS=value
 -DENOISER_BLEND_FACTOR=value
--BLOOM_FOV=theta
+-BLOOM_SCALE=theta
 -TONEMAPPER=tonemapper=keyValue,extraParameter
 -OUTPUT=file.choosenextension
 Optional Parameters:
@@ -48,14 +48,14 @@ Optional Parameters:
 -BLOOM_PSF_FILE=psfFilePath
 
 Note there mustn't be any space characters!
-All file's resolutions must match!
+All files' (except the bloom kernel) resolutions must match!
 Also you must not put another data like comments or behaviour will be undefined, the app'll crash (TODO: not crash on parse failure)
 
 Description and usage: 
 
-COLOR_FILE: File containing color image data, it's required to run within.
-ALBEDO_FILE: File containing albedo image data, it is not required to run within.
-NORMAL_FILE: File containing normal image data, it is not required to run within, but it can only be specified if ALBEDO_FILE has been specified.
+COLOR_FILE: File containing color image data, it's required to run with.
+ALBEDO_FILE: File containing albedo image data, it is not required to run.
+NORMAL_FILE: File containing normal image data, it is not required to run, but it can only be specified if ALBEDO_FILE has been specified.
 
 COLOR_CHANNEL_NAME: Channel name for multilayered EXR images, a layer with most matching name will be chosen (one that contains the channel name as a substring at the earliest position).
 ALBEDO_CHANNEL_NAME: Channel name for multilayered EXR images, a layer with most matching name will be chosen (one that contains the channel name as a substring at the earliest position). It can only be specified if ALBEDO_FILE has been specified.
@@ -73,9 +73,9 @@ you should use the Tonemapping Operator's Key Value.
 
 DENOISER_BLEND_FACTOR: denoiser blend factor, 0.0 is full denoise, 1.0 is no denoise.
 
-BLOOM_FOV: Field of View of the image, its used to scale the size of the Bloom's light-flares (point spread function) to match the Camera's projection.
-If you don't want bloom then either provide a PSF image the size of the input image with a single bright pixel, or set the FoV to negative or NaN.
-Please note that the Bloom is not implemented yet, so the value is ignored (forced to NaN).
+BLOOM_SCALE: Must not be negative or greater than 1. The scale relative to the kernel being placed at the center of the denoised image and isotropically stretched until it touches one of the sides of the denoised image.
+You'll usually want to keep this value below 1/32
+If you don't want bloom then either provide a PSF image which is a single white pixel, or set bloom scale to a very small non negative value.
 
 TONEMAPPER: tonemapper - choose between "REINHARD", "ACES" and "NONE". After specifying it you have to pass arguments to revelant tonemapper,
 the first argument is always the Key Value, a good default is 0.18 like the Reinhard paper's default.
@@ -100,15 +100,16 @@ or:
 -TONEMAPPER=NONE=AutoexposureOff
 
 OUTPUT: output file with specified extension 
-BLOOM_PSF_FILE: A EXR file with a HDR sprite corresponding to the Point Spread Function you want to convolve the image with,
-if this file is not provided then we use a built-in PSF as the kernel for the convolution.
+BLOOM_PSF_FILE: A EXR file with a HDR sprite corresponding to the Point Spread Function you want to convolve the image with.
+The kernel must be centered and in RGB or RGBA floating point format. Resolution should be less than the denoised image.
+If this file is not provided then we use a built-in PSF as the kernel for the convolution.
 )";
 
 constexpr std::string_view COLOR_FILE = "COLOR_FILE";
 constexpr std::string_view CAMERA_TRANSFORM = "CAMERA_TRANSFORM";
 constexpr std::string_view DENOISER_EXPOSURE_BIAS = "DENOISER_EXPOSURE_BIAS";
 constexpr std::string_view DENOISER_BLEND_FACTOR = "DENOISER_BLEND_FACTOR";
-constexpr std::string_view BLOOM_FOV = "BLOOM_FOV";
+constexpr std::string_view BLOOM_SCALE = "BLOOM_SCALE";
 constexpr std::string_view TONEMAPPER = "TONEMAPPER";
 constexpr std::string_view REINHARD = "REINHARD";
 constexpr std::string_view ACES = "ACES";
@@ -128,7 +129,7 @@ constexpr std::array<std::string_view, MANDATORY_CMD_ARGUMENTS_AMOUNT> REQUIRED_
 	CAMERA_TRANSFORM,
 	DENOISER_EXPOSURE_BIAS,
 	DENOISER_BLEND_FACTOR,
-	BLOOM_FOV,
+	BLOOM_SCALE,
 	TONEMAPPER,
 	OUTPUT
 };
@@ -143,7 +144,7 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 	DTEA_CAMERA_TRANSFORM,
 	DTEA_DENOISER_EXPOSURE_BIAS,
 	DTEA_DENOISER_BLEND_FACTOR,
-	DTEA_BLOOM_FOV,
+	DTEA_BLOOM_SCALE,
 	DTEA_TONEMAPPER,
 	DTEA_TONEMAPPER_REINHARD,
 	DTEA_TONEMAPPER_ACES,
@@ -181,7 +182,7 @@ class CommandLineHandler
 {
 	public:
 
-		CommandLineHandler(nbl::core::vector<std::string> argv, nbl::asset::IAssetManager* am);
+		CommandLineHandler(nbl::core::vector<std::string> argv, nbl::asset::IAssetManager* am, nbl::io::IFileSystem* fs);
 
 		auto getInputFilesAmount()
 		{
@@ -233,9 +234,9 @@ class CommandLineHandler
 			return denoiserBlendFactorBundle;
 		}
 
-		auto& getBloomFovBundle() const
+		auto& getBloomScaleBundle() const
 		{
-			return bloomFovBundle;
+			return bloomScaleBundle;
 		}
 
 		auto& getTonemapperBundle() const
@@ -265,7 +266,7 @@ class CommandLineHandler
 			rawVariablesPerFile[DTEA_CAMERA_TRANSFORM];
 			rawVariablesPerFile[DTEA_DENOISER_EXPOSURE_BIAS];
 			rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR];
-			rawVariablesPerFile[DTEA_BLOOM_FOV];
+			rawVariablesPerFile[DTEA_BLOOM_SCALE];
 			rawVariablesPerFile[DTEA_TONEMAPPER_REINHARD];
 			rawVariablesPerFile[DTEA_TONEMAPPER_ACES];
 			rawVariablesPerFile[DTEA_TONEMAPPER_NONE];
@@ -289,8 +290,8 @@ class CommandLineHandler
 				return DTEA_DENOISER_EXPOSURE_BIAS;
 			else if (variableName == DENOISER_BLEND_FACTOR)
 				return DTEA_DENOISER_BLEND_FACTOR;
-			else if (variableName == BLOOM_FOV)
-				return DTEA_BLOOM_FOV;
+			else if (variableName == BLOOM_SCALE)
+				return DTEA_BLOOM_SCALE;
 			else if (variableName == TONEMAPPER)
 				return DTEA_TONEMAPPER;
 			else if (variableName == REINHARD)
@@ -341,9 +342,9 @@ class CommandLineHandler
 			return std::stof(rawVariables[id][DTEA_DENOISER_BLEND_FACTOR].value()[0]);
 		}
 
-		auto getBloomFov(uint64_t id = 0)
+		auto getBloomScale(uint64_t id = 0)
 		{
-			return std::stof(rawVariables[id][DTEA_BLOOM_FOV].value()[0]);
+			return std::stof(rawVariables[id][DTEA_BLOOM_SCALE].value()[0]);
 		}
 
 		auto getTonemapper(uint64_t id = 0)
@@ -437,7 +438,7 @@ class CommandLineHandler
 			cameraTransformBundle.reserve(inputFilesAmount);
 			denoiserExposureBiasBundle.reserve(inputFilesAmount);
 			denoiserBlendFactorBundle.reserve(inputFilesAmount);
-			bloomFovBundle.reserve(inputFilesAmount);
+			bloomScaleBundle.reserve(inputFilesAmount);
 			tonemapperBundle.reserve(inputFilesAmount);
 			outputFileNameBundle.reserve(inputFilesAmount);
 			bloomPsfFileNameBundle.reserve(inputFilesAmount);
@@ -453,7 +454,7 @@ class CommandLineHandler
 				cameraTransformBundle.push_back(getCameraTransform(i));
 				denoiserExposureBiasBundle.push_back(getDenoiserExposureBias(i));
 				denoiserBlendFactorBundle.push_back(getDenoiserBlendFactor(i));
-				bloomFovBundle.push_back(getBloomFov(i));
+				bloomScaleBundle.push_back(getBloomScale(i));
 				tonemapperBundle.push_back(getTonemapper(i));
 				outputFileNameBundle.push_back(getOutputFile(i));
 				bloomPsfFileNameBundle.push_back(getBloomPsfFile(i));
@@ -477,7 +478,7 @@ class CommandLineHandler
 		nbl::core::vector<std::optional<nbl::core::matrix3x4SIMD>> cameraTransformBundle;
 		nbl::core::vector<std::optional<float>> denoiserExposureBiasBundle;
 		nbl::core::vector<std::optional<float>> denoiserBlendFactorBundle;
-		nbl::core::vector<std::optional<float>> bloomFovBundle;
+		nbl::core::vector<std::optional<float>> bloomScaleBundle;
 		nbl::core::vector<std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,nbl::core::vector<float>>> tonemapperBundle;
 		nbl::core::vector<std::optional<std::string>> outputFileNameBundle;
 		nbl::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;

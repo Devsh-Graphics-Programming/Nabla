@@ -121,14 +121,18 @@ core::unordered_set<uint64_t> TypedBlob<MeshBlobV3, asset::ICPUMesh>::getNeededD
 template<>
 void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
+#ifdef OLD_SHADERS
 	if (!_blob)
-		return NULL;
+#endif
+		return nullptr;
 
+#ifdef OLD_SHADERS
 	const auto* blob = (const MeshBlobV3*)_blob;
 	asset::CCPUMesh* mesh = new asset::CCPUMesh();
 	mesh->setBoundingBox(blob->box);
 
 	return mesh;
+#endif
 }
 
 template<>
@@ -138,6 +142,7 @@ void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::finalize(void* _obj, const void* _
 		return NULL;
 
 	const auto* blob = reinterpret_cast<const MeshBlobV3*>(_blob);
+#ifdef OLD_SHADERS
 	asset::CCPUMesh* mesh = (asset::CCPUMesh*)_obj;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		mesh->addMeshBuffer(impl::castPtrAndRefcount<asset::ICPUMeshBuffer>(_deps[blob->meshBufPtrs[i]]));
@@ -145,6 +150,7 @@ void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::finalize(void* _obj, const void* _
 	bool isRightHandedCoordinateSystem = blob->meshFlags & MeshBlobV3::EBMF_RIGHT_HANDED;
 	if (isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
 		_params.meshesToFlip.push(core::smart_refctd_ptr<ICPUMesh>(mesh));
+#endif
 
 	return _obj;
 }
@@ -156,6 +162,7 @@ void TypedBlob<MeshBlobV3, asset::ICPUMesh>::releaseObj(const void* _obj)
 		reinterpret_cast<const asset::ICPUMesh*>(_obj)->drop();
 }
 
+#ifdef OLD_SHADERS
 template<>
 core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::getNeededDeps(const void* _blob)
 {
@@ -206,6 +213,7 @@ void TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::releaseObj(const void
 	if (_obj)
 		reinterpret_cast<const asset::ICPUSkinnedMesh*>(_obj)->drop();
 }
+#endif
 
 template<>
 core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::getNeededDeps(const void* _blob)
@@ -284,6 +292,7 @@ void TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::releaseObj(const void* 
 		reinterpret_cast<const asset::ICPUMeshBuffer*>(_obj)->drop();
 }
 
+#ifdef OLD_SHADERS
 template<>
 core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::getNeededDeps(const void* _blob)
 {
@@ -298,7 +307,6 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instanti
 
 	const auto* blob = (const SkinnedMeshBufferBlobV3*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = new asset::ICPUSkinnedMeshBuffer();
-#ifdef OLD_SHADERS
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
@@ -319,7 +327,6 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instanti
 	buf->setNormalnAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->normalAttrId);
 	buf->setIndexRange(blob->indexValMin, blob->indexValMax);
 	buf->setMaxVertexBoneInfluences(blob->maxVertexBoneInfluences);
-#endif
 
 	return buf;
 }
@@ -332,7 +339,6 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize
 
 	const auto* blob = (const SkinnedMeshBufferBlobV3*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_obj);
-#ifdef OLD_SHADERS
 	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
@@ -340,7 +346,6 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize
 		if (tex)
 			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
-#endif
 
 	return _obj;
 }
@@ -433,7 +438,6 @@ void TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::releaseObj(const 
 }
 
 
-#ifdef OLD_SHADERS
 
 template<>
 core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
