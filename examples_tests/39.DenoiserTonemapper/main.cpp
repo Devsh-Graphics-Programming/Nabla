@@ -863,7 +863,7 @@ void main()
 						attachWholeBuffer(EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL]);
 					for (uint32_t j=0u; j<denoiserInputCount; j++)
 					{
-						outImageByteOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride*sizeof(uint16_t); // float 16 actually
+						outImageByteOffset[j] = j*param.width*param.height*8u;// TODO do it with *forcedOptiXFormatPixelStride;
 						attachWholeBuffer(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j]);
 					}
 					attachWholeBuffer(EII_COUNT*2u,histogramBuffer.get());
@@ -949,7 +949,7 @@ void main()
 				denoiserOutput.rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
 				denoiserOutput.format = forcedOptiXFormat;
 				denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride;
-
+#if 0
 				//invoke
 				if (denoiser.m_denoiser->tileAndInvoke(
 					m_cudaStream,
@@ -967,6 +967,9 @@ void main()
 					os::Printer::log(makeImageIDString(i) + "Could not invoke the denoiser sucessfully, skipping image!", ELL_ERROR);
 					continue;
 				}
+#else
+				driver->copyBuffer(colorPixelBuffer.getObject(),temporaryPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],outImageByteOffset[0],denoiserInputs[0].rowStrideInBytes*param.height);
+#endif
 			}
 
 			// compute post-processing
