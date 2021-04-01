@@ -1,11 +1,8 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
+#include "nbl/ext/Scan/Scan.h"
 #include "../../source/Nabla/COpenGLDriver.h"
-
-typedef uint32_t uint;
-
-#include "nbl/builtin/glsl/ext/Scan/parameters_struct.glsl"
 
 #include <stack>
 
@@ -13,6 +10,8 @@ using namespace nbl;
 using namespace core;
 using namespace video;
 using namespace asset;
+
+using ScanClass = ext::Scan::Scan;
 
 #define WG_SIZE 256
 
@@ -90,65 +89,54 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
 	}
 }
 
-enum ScanOperator : uint32_t
-{
-	AND = 1 << 0,
-	XOR = 1 << 1,
-	OR	= 1 << 2,
-	ADD = 1 << 3,
-	MUL = 1 << 4,
-	MIN = 1 << 5,
-	MAX = 1 << 6,
-};
-
 // Will not work for floats
 template <typename T>
-static inline T GetIdentityElement(ScanOperator op)
+static inline T DebugGetIdentityElement(ScanClass::Operator op)
 {
 	switch (op)
 	{
-	case ScanOperator::AND:
+	case ScanClass::Operator::AND:
 		return T(uint32_t(-1));
-	case ScanOperator::XOR:
+	case ScanClass::Operator::XOR:
 		return T(0);
-	case ScanOperator::OR:
+	case ScanClass::Operator::OR:
 		return T(0);
-	case ScanOperator::ADD:
+	case ScanClass::Operator::ADD:
 		return T(0);
-	case ScanOperator::MUL:
+	case ScanClass::Operator::MUL:
 		return T(1);
-	case ScanOperator::MIN:
+	case ScanClass::Operator::MIN:
 		return T(uint32_t(-1));
-	case ScanOperator::MAX:
+	case ScanClass::Operator::MAX:
 		return T(0);
 	}
 }
 
 template <typename T>
-static inline T ScanOperation(T a, T b, ScanOperator op)
+static inline T DebugScanOperation(T a, T b, ScanClass::Operator op)
 {
 	switch (op)
 	{
-	case ScanOperator::AND:
+	case ScanClass::Operator::AND:
 		return a & b;
-	case ScanOperator::XOR:
+	case ScanClass::Operator::XOR:
 		return a ^ b;
-	case ScanOperator::OR:
+	case ScanClass::Operator::OR:
 		return a | b;
-	case ScanOperator::ADD:
+	case ScanClass::Operator::ADD:
 		return a + b;
-	case ScanOperator::MUL:
+	case ScanClass::Operator::MUL:
 		return a * b;
-	case ScanOperator::MIN:
+	case ScanClass::Operator::MIN:
 		return min(a, b);
-	case ScanOperator::MAX:
+	case ScanClass::Operator::MAX:
 		return max(a, b);
 	}
 }
 
 template <typename T>
 static void DebugCPUUpsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Parameters_t* scan_params,
-	ScanOperator scan_op, T identity)
+	ScanClass::Operator scan_op, T identity)
 {
 	for (uint32_t wg = 0; wg < wg_count; ++wg)
 	{
@@ -166,7 +154,7 @@ static void DebugCPUUpsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Para
 		{
 			size_t idx = min(STRIDED_IDX(i), scan_params->element_count_total - 1u);
 
-			scan = ScanOperation(scan, result[idx], scan_op);
+			scan = DebugScanOperation(scan, result[idx], scan_op);
 			upsweep_result[k++] = scan;
 		}
 
@@ -182,7 +170,7 @@ static void DebugCPUUpsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Para
 }
 
 template <typename T>
-static void DebugCPUTopPass(T* result, nbl_glsl_ext_Scan_Parameters_t* scan_params, ScanOperator scan_op, T identity)
+static void DebugCPUTopPass(T* result, nbl_glsl_ext_Scan_Parameters_t* scan_params, ScanClass::Operator scan_op, T identity)
 {
 	T* top_pass_result = new uint32_t[scan_params->element_count_pass];
 
@@ -192,7 +180,7 @@ static void DebugCPUTopPass(T* result, nbl_glsl_ext_Scan_Parameters_t* scan_para
 	{
 		top_pass_result[k++] = scan;
 		size_t idx = min(STRIDED_IDX(i), scan_params->element_count_total - 1u);
-		scan = ScanOperation(scan, result[idx], scan_op);
+		scan = DebugScanOperation(scan, result[idx], scan_op);
 	}
 
 	k = 0;
@@ -207,7 +195,7 @@ static void DebugCPUTopPass(T* result, nbl_glsl_ext_Scan_Parameters_t* scan_para
 
 template <typename T>
 static void DebugCPUDownsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Parameters_t* scan_params,
-	ScanOperator scan_op)
+	ScanClass::Operator scan_op)
 {
 	for (uint32_t wg = 0; wg < wg_count; ++wg)
 	{
@@ -224,7 +212,7 @@ static void DebugCPUDownsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Pa
 
 		uint32_t k = 1;
 		for (size_t i = begin + 1; i < end; ++i)
-			downsweep_result[k++] = ScanOperation(result[STRIDED_IDX(i - 1)], downsweep_result[0], scan_op);
+			downsweep_result[k++] = DebugScanOperation(result[STRIDED_IDX(i - 1)], downsweep_result[0], scan_op);
 
 		k = 0;
 		for (size_t i = begin; i < end; ++i)
@@ -237,43 +225,15 @@ static void DebugCPUDownsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Pa
 	}
 }
 
-static inline core::smart_refctd_ptr<IGPUSpecializedShader> CreateShader(const char* main_include_name, IVideoDriver* driver)
+template <typename T>
+static void DebugCPUExclusiveScan(T* scan_cpu, T* in, size_t in_count, ScanClass::Operator scan_op, T identity)
 {
-	const char* source_fmt =
-R"===(#version 430 core
-
-#define _NBL_GLSL_WORKGROUP_SIZE_ %u
- 
-#include "%s"
-
-)===";
-
-	// Question: How is this being computed? This just the value I took from FFT example.
-	const size_t extraSize = 4u + 8u + 8u + 128u;
-
-	constexpr uint32_t DEFAULT_WORKGROUP_SIZE = WG_SIZE; // Todo: Take this from the Scan class
-	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source_fmt) + extraSize + 1u);
-	snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, DEFAULT_WORKGROUP_SIZE, main_include_name);
-
-	auto cpu_specialized_shader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader), ICPUShader::buffer_contains_glsl),
-		ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
-
-	auto gpu_shader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpu_specialized_shader->getUnspecialized()));
-	auto gpu_shader_specialized = driver->createGPUSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
-
-	return gpu_shader_specialized;
-}
-
-static inline void UpdateDescriptorSets(IGPUDescriptorSet* ds, smart_refctd_ptr<IGPUBuffer> gpu_buffer, size_t buffer_size, IVideoDriver* driver)
-{
-	IGPUDescriptorSet::SDescriptorInfo ds_info = {};
-	ds_info.desc = gpu_buffer;
-	ds_info.buffer = { 0u, buffer_size };
-
-	IGPUDescriptorSet::SWriteDescriptorSet writes = { ds, 0, 0u, 1u, asset::EDT_STORAGE_BUFFER, &ds_info };
-
-	driver->updateDescriptorSets(1, &writes, 0u, nullptr);
+	T prefix_scan = identity;
+	for (size_t i = 0; i < in_count; ++i)
+	{
+		scan_cpu[i] = prefix_scan;
+		prefix_scan = DebugScanOperation(prefix_scan, in[i], scan_op);
+	}
 }
 
 int main()
@@ -300,16 +260,16 @@ int main()
 	asset::IAssetManager* am = device->getAssetManager();
 
 	unsigned int seed = 666;
-	uint32_t i = 0u;
-	ScanOperator scan_ops[7] = { AND, XOR, OR, ADD, MUL, MIN, MAX };
+	ScanClass::Operator scan_ops[7] = { ScanClass::Operator::AND, ScanClass::Operator::XOR, ScanClass::Operator::OR,
+		ScanClass::Operator::ADD, ScanClass::Operator::MUL, ScanClass::Operator::MIN, ScanClass::Operator::MAX };
 
 	// Stress Test
 	// Todo: Remove this stupid thing
 #if 1
-	while (i++ < 500u)
+	while (true)
 	{
 #endif
-		const size_t in_count = 257920u; // 275920u; // (rand() * 10) + (rand() % 10); // assert((in_count != 1u) || (in_count != 0u));
+		const size_t in_count = 275920u; // 257920u; // (rand() * 10) + (rand() % 10); // assert((in_count != 1u) || (in_count != 0u));
 		const size_t in_size = in_count * sizeof(uint32_t);
 
 		std::cout << "\n=========================" << std::endl;	
@@ -323,29 +283,21 @@ int main()
 
 		auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
 
-		ScanOperator scan_op = ScanOperator::MAX;
-		uint32_t identity = GetIdentityElement<uint32_t>(scan_op);
+		ScanClass::Operator scan_op = ScanClass::Operator::ADD;
+		core::smart_refctd_ptr<ScanClass> scanner = core::make_smart_refctd_ptr<ScanClass>(driver, scan_op);
+
+		core::smart_refctd_ptr<IGPUDescriptorSet> ds_upsweep = driver->createGPUDescriptorSet(
+			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
+		scanner->updateDescriptorSet(ds_upsweep.get(), in_gpu, driver);
+		core::smart_refctd_ptr<IGPUComputePipeline> upsweep_pipeline(scanner->getDefaultUpsweepPipeline());
+
+		core::smart_refctd_ptr<IGPUDescriptorSet> ds_downsweep = driver->createGPUDescriptorSet(
+			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
+		scanner->updateDescriptorSet(ds_downsweep.get(), in_gpu, driver);
+		core::smart_refctd_ptr<IGPUComputePipeline> downsweep_pipeline(scanner->getDefaultDownsweepPipeline());
+
+		uint32_t identity = DebugGetIdentityElement<uint32_t>(scan_op);
 		nbl_glsl_ext_Scan_Parameters_t scan_params = { 1u, in_count, in_count };
-
-		auto sweep_pipeline_layout = [driver]() -> auto
-		{
-			const asset::SPushConstantRange pc_range = { ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_ext_Scan_Parameters_t) };
-			IGPUDescriptorSetLayout::SBinding binding = {0u, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-
-			return driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, driver->createGPUDescriptorSetLayout(&binding, &binding + 1));
-		}();
-
-		smart_refctd_ptr<IGPUComputePipeline> upsweep_pipeline = driver->createGPUComputePipeline(nullptr,
-			smart_refctd_ptr(sweep_pipeline_layout), CreateShader("../DummyUpsweepClient.comp", driver));
-		smart_refctd_ptr<IGPUDescriptorSet> ds_upsweep = driver->createGPUDescriptorSet(
-			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(sweep_pipeline_layout->getDescriptorSetLayout(0u)));
-		UpdateDescriptorSets(ds_upsweep.get(), in_gpu, in_size, driver);
-
-		smart_refctd_ptr<IGPUComputePipeline> downsweep_pipeline = driver->createGPUComputePipeline(nullptr,
-			smart_refctd_ptr(sweep_pipeline_layout), CreateShader("../DummyDownsweepClient.comp", driver));
-		smart_refctd_ptr<IGPUDescriptorSet> ds_downsweep = driver->createGPUDescriptorSet(
-			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(sweep_pipeline_layout->getDescriptorSetLayout(0u)));
-		UpdateDescriptorSets(ds_downsweep.get(), in_gpu, in_size, driver);
 
 		uint32_t* temp_cpu = new uint32_t[in_count];
 		memcpy(temp_cpu, in, in_size);
@@ -440,22 +392,13 @@ int main()
 			}
 		}
 
-		// Final Testing
-		uint32_t* scan_cpu = new uint32_t[in_count];
-
-		uint32_t scan = identity;
-		for (uint32_t i = 0; i < in_count; ++i)
-		{
-			scan_cpu[i] = scan;
-			scan = ScanOperation(scan, in[i], scan_op);
-		}
-
 		std::cout << "=========================" << std::endl;
 		std::cout << "Final Test" << std::endl;
 		std::cout << "=========================" << std::endl;
 
+		uint32_t* scan_cpu = new uint32_t[in_count];
+		DebugCPUExclusiveScan<uint32_t>(scan_cpu, in, in_count, scan_op, identity);
 		DebugCompareGPUvsCPU<uint32_t>(in_gpu, scan_cpu, in_size, driver);
-
 		delete[] scan_cpu;
 
 		driver->endScene();

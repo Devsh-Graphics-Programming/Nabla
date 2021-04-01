@@ -28,8 +28,6 @@ layout(set = _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_SCAN
 #include "nbl/builtin/glsl/ext/Scan/parameters_struct.glsl"
 #include "nbl/builtin/glsl/ext/Scan/parameters.glsl"
 
-#define STRIDED_IDX(i) (((i) + 1)*(nbl_glsl_ext_Scan_Parameters_t_getStride())-1)
-
 #ifndef _NBL_GLSL_EXT_SCAN_PUSH_CONSTANTS_DEFINED_
 
 layout(push_constant) uniform PushConstants

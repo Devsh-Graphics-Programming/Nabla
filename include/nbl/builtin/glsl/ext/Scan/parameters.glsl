@@ -1,4 +1,5 @@
 #ifndef _NBL_GLSL_EXT_SCAN_PARAMETERS_INCLUDED_
+#define _NBL_GLSL_EXT_SCAN_PARAMETERS_INCLUDED_
 
 #include "nbl/builtin/glsl/ext/Scan/parameters_struct.glsl"
 
@@ -30,5 +31,4 @@ uint nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal()
 #define _NBL_GLSL_EXT_SCAN_PARAMETERS_METHODS_DEFINED_
 #endif
 
-#define _NBL_GLSL_EXT_SCAN_PARAMETERS_INCLUDED_
 #endif

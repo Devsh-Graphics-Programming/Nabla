@@ -1,9 +1,8 @@
 #ifndef _NBL_GLSL_EXT_SCAN_INCLUDED_
+#define _NBL_GLSL_EXT_SCAN_INCLUDED_
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 #include <nbl/builtin/glsl/math/typeless_arithmetic.glsl>
-
-#define STRIDED_IDX(i) (((i) + 1)*(nbl_glsl_ext_Scan_Parameters_t_getStride())-1)
 
 #ifndef _NBL_GLSL_EXT_SCAN_SET_DATA_DECLARED_
 
@@ -84,7 +83,7 @@ barrier();\
 uint data = global_offset;\
 if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass()))\
 {\
-	uint prev_idx = STRIDED_IDX(gl_GlobalInvocationID.x - 1u);\
+	uint prev_idx = gl_GlobalInvocationID.x * nbl_glsl_ext_Scan_Parameters_t_getStride() - 1u;\
 	data = BIN_OP(data, nbl_glsl_ext_Scan_getPaddedData(prev_idx, IDENTITY, false));\
 }\
 barrier();\
@@ -125,5 +124,4 @@ uint nbl_glsl_ext_Scan_downsweepMax(in uint idx)
 	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, uint(-1), max)
 }
 
-#define _NBL_GLSL_EXT_SCAN_INCLUDED_
 #endif

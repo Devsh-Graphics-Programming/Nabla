@@ -10,7 +10,8 @@
 
 void main()
 {
-	uint idx = min(nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal() - 1u, STRIDED_IDX(gl_GlobalInvocationID.x));
+	uint idx = min(nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal() - 1u,
+		(gl_GlobalInvocationID.x + 1u) * nbl_glsl_ext_Scan_Parameters_t_getStride() - 1u);
 	uint result = _NBL_GLSL_EXT_SCAN_UPSWEEP_TYPE_(idx);
 	nbl_glsl_ext_Scan_setData(idx, result);
 }
