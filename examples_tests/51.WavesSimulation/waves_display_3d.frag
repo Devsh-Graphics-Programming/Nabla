@@ -13,10 +13,10 @@ layout( push_constant ) uniform Block {
 	layout(offset = 64) vec3 camera_pos;
 } u_pc;
 
-const vec3 water_color = vec3(0, 0.16, 0.43);
+const vec3 water_color = vec3(0, 0.016, 0.043);
 const vec3 sky_color = vec3(10, 50.5, 50.5);
-const vec3 light_pos = vec3(3000,35, -3000);     
-
+const vec3 light_pos = vec3(7000, 100, -7000);     
+const float light_intensity = 1;
 vec2 getSphericalUV(vec3 r)
 {
     return normalize(vec2(acos(r.z), atan(r.y, r.x))); 
@@ -27,14 +27,15 @@ void main()
     vec3 normal = normalize(texture(normal_map, texture_pos).rgb);
     vec3 light = normalize(light_pos - world_coord);
     vec3 view = normalize(u_pc.camera_pos - world_coord);
-    vec3 R = reflect(-light, normal);
+    vec3 r = reflect(-light, normal);
 
     vec3 f0 = vec3(0.02);
     vec3 f  = nbl_glsl_fresnel_schlick(f0, abs(dot(normal, view)));
     
-    vec3 albedo = mix(water_color.rgb, texture(env_map, getSphericalUV(R)).rgb, f);
+    vec2 spherical_uv = getSphericalUV(r);
+    vec3 albedo = mix(water_color.rgb, texture(env_map, spherical_uv).rgb, f);
 
-    vec3  color = abs(dot(normal, light)) * albedo.rgb;
+    vec3 color = max(dot(normal, light), 0.) * albedo.rgb;
    
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0 / 2.2));
