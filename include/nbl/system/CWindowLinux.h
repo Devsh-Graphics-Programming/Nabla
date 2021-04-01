@@ -23,8 +23,9 @@ class CWindowLinux final : public IWindowLinux
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
 
 public:
-	explicit CWindowLinux(native_handle_t win);
+	explicit CWindowLinux(Display* dpy, native_handle_t win);
 
+    Display* getDisplay() const override { return m_dpy; }
 	native_handle_t getNativeHandle() const override { return m_native; }
 
 	static core::smart_refctd_ptr<CWindowLinux> create(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
@@ -39,6 +40,7 @@ public:
 private:
     CWindowLinux(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
 
+    Display* m_dpy;
     native_handle_t m_native;
 };
 

@@ -450,13 +450,12 @@ endif()
 #nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 
-# dont link statically, x11, xrandr, xxf
 target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
-		${X11_LIBRARIES} 
-		${X11_Xrandr_LIB} 
-		${X11_Xxf86vm_LIB} 
+		#${X11_LIBRARIES} 
+		#${X11_Xrandr_LIB} 
+		#${X11_Xxf86vm_LIB} 
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
 		$<$<CONFIG:DEBUG>:-lunwind>

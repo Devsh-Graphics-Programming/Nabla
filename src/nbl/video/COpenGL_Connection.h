@@ -57,7 +57,7 @@ public:
             system::IWindowLinux* win = static_cast<system::IWindowLinux*>(window);
 
             CSurfaceGLLinux::SCreationParams params;
-            params.dpy = XOpenDisplay(NULL);
+            params.dpy = win->getDisplay();
             params.window = win->getNativeHandle();
 
             return core::make_smart_refctd_ptr<CSurfaceGLLinux>(std::move(params));

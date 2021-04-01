@@ -74,15 +74,13 @@ int CWindowLinux::printXErrorCallback(Display *Display, XErrorEvent *event)
     return 0;
 }
 
-CWindowLinux::CWindowLinux(native_handle_t win) : m_native(win)
+CWindowLinux::CWindowLinux(Display* dpy, native_handle_t win) : m_dpy(dpy), m_native(win)
 {
     Window tmp;
     int x, y;
     unsigned int w, h, border, bits;
 
-    Display* dpy = x11.pXOpenDisplay(nullptr);
-
-    x11.pXGetGeometry(dpy, win, &tmp, &x, &y, &w, &h, &border, &bits);
+    x11.pXGetGeometry(m_dpy, win, &tmp, &x, &y, &w, &h, &border, &bits);
 
     m_width = w;
     m_height = h;
@@ -90,7 +88,7 @@ CWindowLinux::CWindowLinux(native_handle_t win) : m_native(win)
     // TODO m_flags
 }
 
-CWindowLinux::CWindowLinux(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowLinux(_w, _h, _flags), m_native(NULL)
+CWindowLinux::CWindowLinux(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowLinux(_w, _h, _flags), m_dpy(NULL), m_native(NULL)
 {
     // XInitThreads() call not needed unless windows are created concurrently, spoof EGL synchronizes per-display access itself
     //"If all calls to Xlib functions are protected by some other access mechanism 
@@ -224,6 +222,7 @@ CWindowLinux::CWindowLinux(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IW
         x11.pXWarpPointer(dpy, None, win, 0, 0, 0, 0, 0, 0);
     }
 
+    m_dpy = dpy;
     m_native = win;
 }
 
