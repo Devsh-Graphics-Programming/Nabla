@@ -99,3 +99,9 @@
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git
+[submodule "3rdparty/simdjson"]
+	path = 3rdparty/simdjson
+	url = https://github.com/simdjson/simdjson
+[submodule "3rdparty/glTFSampleModels"]
+	path = 3rdparty/glTFSampleModels
+	url = https://github.com/KhronosGroup/glTF-Sample-Models
