@@ -8,6 +8,8 @@ layout(local_size_x=COMPUTE_WG_SIZE) in;
 layout(constant_id = 1) const uint EII_COLOR = 0u;
 layout(constant_id = 2) const uint EII_ALBEDO = 1u;
 layout(constant_id = 3) const uint EII_NORMAL = 2u;
+// layout(constant_id = 4) const uint EII_COUNT = 3u; // for now until @Crisspl fixes a bug with SPIRV-Cross usage
+#define EII_COUNT 3u
 
 #include "./CommonPushConstants.h"
 

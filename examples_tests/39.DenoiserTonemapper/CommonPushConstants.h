@@ -9,9 +9,7 @@
 #endif
 struct CommonPushConstants
 {
-	uint inImageTexelOffset[3];
 	uint inImageTexelPitch[3];
-	uint outImageOffset[3];
 	uint imageWidth;
 
 
