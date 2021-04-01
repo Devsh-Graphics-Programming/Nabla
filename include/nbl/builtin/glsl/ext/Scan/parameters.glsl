@@ -27,18 +27,6 @@ uint nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal()
     return params.element_count_total;
 }
 
-uint nbl_glsl_ext_Scan_Parameters_t_getScanOp()
-{
-    nbl_glsl_ext_Scan_Parameters_t params = nbl_glsl_ext_Scan_getParameters();
-    return params.scan_op;
-}
-
-uint nbl_glsl_ext_Scan_Parameters_t_getIdentity()
-{
-    nbl_glsl_ext_Scan_Parameters_t params = nbl_glsl_ext_Scan_getParameters();
-    return params.identity;
-}
-
 #define _NBL_GLSL_EXT_SCAN_PARAMETERS_METHODS_DEFINED_
 #endif
 

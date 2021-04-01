@@ -6,8 +6,6 @@ struct nbl_glsl_ext_Scan_Parameters_t
 	uint stride;
 	uint element_count_pass;
 	uint element_count_total;
-	uint scan_op;
-	uint identity;
 };
 
 #endif

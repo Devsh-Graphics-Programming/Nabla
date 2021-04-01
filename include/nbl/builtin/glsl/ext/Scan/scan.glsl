@@ -115,32 +115,15 @@ uint nbl_glsl_ext_Scan_downsweepMul(in uint idx)
 	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, 1u, nbl_glsl_mul)
 }
 
-uint nbl_glsl_ext_Scan_downsweepMax(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, uint(-1), max)
-}
-
 uint nbl_glsl_ext_Scan_downsweepMin(in uint idx)
 {
 	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, 0u, min)
 }
 
-// uint nbl_glsl_ext_Scan_downsweepAdd(in uint idx)
-// {
-// 	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
-// 		global_offset = nbl_glsl_ext_Scan_getPaddedData(idx, 0u, false);
-// 	barrier();
-// 
-// 	uint data = global_offset;
-// 	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass()))
-// 	{
-// 		uint prev_idx = STRIDED_IDX(gl_GlobalInvocationID.x - 1u);
-// 		data += nbl_glsl_ext_Scan_getPaddedData(prev_idx, 0u, false);
-// 	}
-// 	barrier();
-// 	
-// 	return data;
-// }
+uint nbl_glsl_ext_Scan_downsweepMax(in uint idx)
+{
+	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, uint(-1), max)
+}
 
 #define _NBL_GLSL_EXT_SCAN_INCLUDED_
 #endif
