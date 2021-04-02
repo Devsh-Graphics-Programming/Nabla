@@ -17,5 +17,5 @@ void main()
     uv.x = abs(0.5 - atan(normal.z, normal.x) * twopi_r);
     uv.y = abs(0.5 + asin(-normal.y) * pi_r);
    
-   pixelColor = texture(env_map, uv);
+   pixelColor = textureLod(env_map, uv, 0);
 }

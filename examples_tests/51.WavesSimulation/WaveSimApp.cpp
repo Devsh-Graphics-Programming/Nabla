@@ -357,11 +357,11 @@ bool WaveSimApp::CreateComputePipelines()
 			const char* sourceFmt =
 				R"===(#version 450
 
-#define USE_SSBO_FOR_INPUT 1
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
- 
+#define _NBL_GLSL_EXT_FFT_HALF_STORAGE_ %u
+
 #include "../ifft_x.comp"
 
 )===";
@@ -374,7 +374,8 @@ bool WaveSimApp::CreateComputePipelines()
 				reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), sourceFmt,
 				DEFAULT_WORK_GROUP_SIZE,
 				maxPaddedDimensionSize,
-				maxItemsPerThread
+				maxItemsPerThread,
+				1
 			);
 
 			auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -397,6 +398,7 @@ bool WaveSimApp::CreateComputePipelines()
 #define _NBL_GLSL_EXT_FFT_WORKGROUP_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ %u
 #define _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD %u
+#define _NBL_GLSL_EXT_FFT_HALF_STORAGE_ %u
  
 #include "../ifft_y.comp"
 
@@ -410,7 +412,8 @@ bool WaveSimApp::CreateComputePipelines()
 				reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), sourceFmt,
 				DEFAULT_WORK_GROUP_SIZE,
 				maxPaddedDimensionSize,
-				maxItemsPerThread
+				maxItemsPerThread,
+				1
 			);
 
 			auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -818,6 +821,13 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 	const uint32_t H0_SSBO_SIZE = m_params.width * m_params.length * 4 * sizeof(float);
 	const uint32_t SSBO_SIZE = m_params.width * m_params.length * 6 * sizeof(float);
 	auto ifft_x_buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(SSBO_SIZE);
+
+	FFT::Parameters_t params[2];
+	VkExtent3D dim = { m_params.width, m_params.length, 1 };
+	FFT::DispatchInfo_t dispatch_info[2];
+	ISampler::E_TEXTURE_CLAMP padding_type[2] = { ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_BORDER };
+	uint32_t passes = FFT::buildParameters(true, 3u, dim, params, dispatch_info, padding_type);
+	assert(passes == 2u);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write[2];
 		video::IGPUDescriptorSet::SDescriptorInfo info[2];
@@ -850,30 +860,14 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 		pc.time = time;
 		pc.size = m_params.size;
 		pc.length_unit = m_params.length_unit;
-		uint8_t isInverse_u8 = false;
-		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::Y);
-		uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
-
-		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
-
-		pc.params.dimension.x = m_params.width;
-		pc.params.dimension.y = m_params.length;
-		pc.params.dimension.z = 1;
-		pc.params.dimension.w = packed;
-		pc.params.padded_dimension.x = pc.params.dimension.x;
-		pc.params.padded_dimension.y = pc.params.dimension.y;
-		pc.params.padded_dimension.z = pc.params.dimension.z;
-		pc.params.padded_dimension.w = 1;
-		auto dispatch_info = FFT::buildParameters({ pc.params.dimension.x,
-													pc.params.dimension.y,
-													pc.params.dimension.z }, FFT::Direction::Y);
+		pc.params = params[0];
 
 		auto ds = m_ifft_1_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_ifft_pipeline_1->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_ifft_pipeline_1.get());
 		m_driver->pushConstants(m_ifft_pipeline_1->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(pc), &pc);
 		{
-			m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
+			m_driver->dispatch(dispatch_info[0].workGroupCount[0], dispatch_info[0].workGroupCount[1], dispatch_info[0].workGroupCount[2]);
 			COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
 	}
@@ -901,37 +895,17 @@ void WaveSimApp::GenerateDisplacementMap(const smart_refctd_ptr<nbl::video::IGPU
 	}
 
 	{
-		FFT::Parameters_t params;
-		uint8_t isInverse_u8 = false;
-		uint8_t direction_u8 = static_cast<uint8_t>(FFT::Direction::X);
-		uint8_t paddingType_u8 = static_cast<uint8_t>(FFT::PaddingType::CLAMP_TO_EDGE);
-
-		uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
-
-		params.dimension.x = m_params.width;
-		params.dimension.y = m_params.length;
-		params.dimension.z = 1;
-		params.dimension.w = packed;
-		params.padded_dimension.x = params.dimension.x;
-		params.padded_dimension.y = params.dimension.y;
-		params.padded_dimension.z = params.dimension.z;
-		params.padded_dimension.w = 1;
-
-		auto dispatch_info = FFT::buildParameters({ params.dimension.x,
-													params.dimension.y,
-													params.dimension.z }, FFT::Direction::X);
-
 		auto ds = m_ifft_2_descriptor_set.get();
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_ifft_pipeline_2->getLayout(), 0u, 1u, &ds, nullptr);
 		m_driver->bindComputePipeline(m_ifft_pipeline_2.get());
 
 		auto all_params = [&]() {
 			struct PC { FFT::Parameters_t params; float choppiness; };
-			return PC{ params, m_params.choppiness };
+			return PC{ params[1], m_params.choppiness };
 		} ();
 
 		m_driver->pushConstants(m_ifft_pipeline_2->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(all_params), &all_params);
-		m_driver->dispatch(dispatch_info.workGroupCount[0], dispatch_info.workGroupCount[1], dispatch_info.workGroupCount[2]);
+		m_driver->dispatch(dispatch_info[1].workGroupCount[0], dispatch_info[1].workGroupCount[1], dispatch_info[1].workGroupCount[2]);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 	}
@@ -1032,7 +1006,7 @@ void WaveSimApp::Run()
 
 		if constexpr (CURRENT_PRESENTING_MODE == PresentingMode::PM_2D)
 		{
-			PresentWaves2D(normal_map);
+			PresentWaves2D(displacement_map);
 		}
 		else if constexpr (CURRENT_PRESENTING_MODE == PresentingMode::PM_3D)
 		{
