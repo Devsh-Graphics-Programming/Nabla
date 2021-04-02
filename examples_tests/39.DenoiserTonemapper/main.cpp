@@ -949,7 +949,7 @@ void main()
 				denoiserOutput.rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
 				denoiserOutput.format = forcedOptiXFormat;
 				denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride;
-#if 0
+#if 1 // for easy debug with renderdoc disable optix stuff
 				//invoke
 				if (denoiser.m_denoiser->tileAndInvoke(
 					m_cudaStream,
@@ -968,7 +968,7 @@ void main()
 					continue;
 				}
 #else
-				driver->copyBuffer(colorPixelBuffer.getObject(),temporaryPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],outImageByteOffset[0],denoiserInputs[0].rowStrideInBytes*param.height);
+				driver->copyBuffer(temporaryPixelBuffer.getObject(),colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],outImageByteOffset[EII_COLOR],denoiserInputs[EII_COLOR].rowStrideInBytes*param.height);
 #endif
 			}
 
