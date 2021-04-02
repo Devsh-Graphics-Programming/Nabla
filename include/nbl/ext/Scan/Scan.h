@@ -2,15 +2,15 @@
 
 #include "nabla.h"
 
-typedef uint32_t uint;
-#include "nbl/builtin/glsl/ext/Scan/parameters_struct.glsl"
-
 namespace nbl
 {
 namespace ext
 {
 namespace Scan
 {
+
+typedef uint32_t uint;
+#include "nbl/builtin/glsl/ext/Scan/parameters_struct.glsl"
 
 class Scan final : public core::IReferenceCounted
 {
@@ -21,24 +21,24 @@ public:
 	{
 		AND = 1 << 0,
 		XOR = 1 << 1,
-		OR = 1 << 2,
+		OR  = 1 << 2,
 		ADD = 1 << 3,
 		MUL = 1 << 4,
 		MIN = 1 << 5,
 		MAX = 1 << 6,
 	};
 
-    Scan(video::IDriver* driver, Operator op)
-    {
-		const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_ext_Scan_Parameters_t) };
-		video::IGPUDescriptorSetLayout::SBinding binding = { 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
+	typedef nbl_glsl_ext_Scan_Parameters_t Parameters_t;
 
-		m_ds_layout = driver->createGPUDescriptorSetLayout(&binding, &binding + 1);
-		m_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_ds_layout));
-		
-		m_upsweep_pipeline = createPipeline("nbl/builtin/glsl/ext/Scan/default_upsweep.comp", op, driver);
-		m_downsweep_pipeline = createPipeline("nbl/builtin/glsl/ext/Scan/default_downsweep.comp", op, driver);
-    }
+	struct DispatchInfo_t
+	{
+		uint32_t upsweep_pass_count;
+		uint32_t downsweep_pass_count;
+		uint32_t wg_count;
+		std::stack<uint32_t> element_count_pass_stack;
+	};
+
+	Scan(video::IDriver* driver, Operator op, const uint32_t wg_size);
 
 	inline auto getDefaultDescriptorSetLayout() const { return m_ds_layout.get(); }
 
@@ -48,17 +48,68 @@ public:
 
 	inline auto getDefaultDownsweepPipeline() const { return m_downsweep_pipeline.get(); }
 
-	static void updateDescriptorSet(video::IGPUDescriptorSet* set, core::smart_refctd_ptr<video::IGPUBuffer> descriptor,
-		video::IVideoDriver* driver)
+	static inline void dispatchHelper(const video::IGPUPipelineLayout* pipeline_layout, const nbl_glsl_ext_Scan_Parameters_t& params,
+		const DispatchInfo_t& dispatch_info, video::IVideoDriver* driver, bool issue_default_barrier = true)
 	{
-		video::IGPUDescriptorSet::SDescriptorInfo ds_info = {};
-		ds_info.desc = descriptor;
-		ds_info.buffer = { 0u, descriptor->getSize() };
+		driver->pushConstants(pipeline_layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
+		driver->dispatch(dispatch_info.wg_count, 1, 1);
 
-		video::IGPUDescriptorSet::SWriteDescriptorSet writes = { set, 0, 0u, 1u, asset::EDT_STORAGE_BUFFER, &ds_info };
-
-		driver->updateDescriptorSets(1, &writes, 0u, nullptr);
+		if (issue_default_barrier)
+			defaultBarrier();
 	}
+
+	static inline void buildParameters(const uint32_t in_count, Parameters_t* push_constants, DispatchInfo_t* dispatch_info,
+		const uint32_t wg_size)
+	{
+		dispatch_info->upsweep_pass_count = std::ceil(log(in_count) / log(wg_size));
+		assert(dispatch_info->upsweep_pass_count != 0u && "Input element count should be > 1!");
+
+		dispatch_info->downsweep_pass_count = dispatch_info->upsweep_pass_count - 1u;
+
+		push_constants->element_count_pass = in_count;
+		push_constants->element_count_total = in_count;
+		push_constants->stride = 1u;
+	}
+
+	static inline void prePassParameterUpdate(uint32_t pass_idx, bool is_upsweep, Parameters_t* push_constants,
+		DispatchInfo_t* dispatch_info, const uint32_t wg_size)
+	{
+		if (is_upsweep)
+		{
+			if (pass_idx != (dispatch_info->upsweep_pass_count - 1u))
+				dispatch_info->element_count_pass_stack.push(push_constants->element_count_pass);
+		}
+		else
+		{
+			push_constants->element_count_pass = dispatch_info->element_count_pass_stack.top();
+			dispatch_info->element_count_pass_stack.pop();
+		}
+
+		dispatch_info->wg_count = (push_constants->element_count_pass + wg_size - 1) / wg_size;
+	}
+
+	static inline void postPassParameterUpdate(uint32_t pass_idx, bool is_upsweep, Parameters_t* push_constants, DispatchInfo_t* dispatch_info,
+		const uint32_t wg_size)
+	{
+		if (is_upsweep && (pass_idx != (dispatch_info->upsweep_pass_count - 1u)))
+		{
+			push_constants->stride *= wg_size;
+			push_constants->element_count_pass = dispatch_info->wg_count;
+		}
+		else
+		{
+			push_constants->stride /= wg_size;
+		}
+	}
+
+	static inline void defaultBarrier()
+	{
+		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+	}
+
+	static void updateDescriptorSet(video::IGPUDescriptorSet* set, core::smart_refctd_ptr<video::IGPUBuffer> descriptor, video::IVideoDriver* driver);
+
+	const uint32_t m_wg_size;
 
 private:
 	~Scan() {}
@@ -68,35 +119,7 @@ private:
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_upsweep_pipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_downsweep_pipeline = nullptr;
 
-	core::smart_refctd_ptr<video::IGPUComputePipeline> createPipeline(const char* shader_include_name, Operator bin_op, video::IDriver* driver)
-	{
-		const char* source_fmt =
-R"===(#version 430 core
-
-#define _NBL_GLSL_WORKGROUP_SIZE_ %u
-#define _NBL_GLSL_EXT_SCAN_BIN_OP_ %u
-
-layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
- 
-#include "%s"
-
-)===";
-
-		// Question: How is this being computed? This just the value I took from FFT example.
-		const size_t extraSize = 4u + 8u + 8u + 128u;
-
-		auto shader = core::make_smart_refctd_ptr<asset::ICPUBuffer>(strlen(source_fmt) + extraSize + 1u);
-		snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, DEFAULT_WORKGROUP_SIZE, bin_op, shader_include_name);
-
-		auto cpu_specialized_shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
-			core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shader), asset::ICPUShader::buffer_contains_glsl),
-			asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
-
-		auto gpu_shader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpu_specialized_shader->getUnspecialized()));
-		auto gpu_shader_specialized = driver->createGPUSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
-
-		return driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout), std::move(gpu_shader_specialized));
-	}
+	core::smart_refctd_ptr<video::IGPUComputePipeline> createPipeline(const char* shader_include_name, Operator bin_op, video::IDriver* driver);
 };
 
 }

@@ -4,8 +4,6 @@
 #include "nbl/ext/Scan/Scan.h"
 #include "../../source/Nabla/COpenGLDriver.h"
 
-#include <stack>
-
 using namespace nbl;
 using namespace core;
 using namespace video;
@@ -135,7 +133,7 @@ static inline T DebugScanOperation(T a, T b, ScanClass::Operator op)
 }
 
 template <typename T>
-static void DebugCPUUpsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Parameters_t* scan_params,
+static void DebugCPUUpsweep(T* result, uint32_t wg_count, ScanClass::Parameters_t* scan_params,
 	ScanClass::Operator scan_op, T identity)
 {
 	for (uint32_t wg = 0; wg < wg_count; ++wg)
@@ -170,7 +168,7 @@ static void DebugCPUUpsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Para
 }
 
 template <typename T>
-static void DebugCPUTopPass(T* result, nbl_glsl_ext_Scan_Parameters_t* scan_params, ScanClass::Operator scan_op, T identity)
+static void DebugCPUTopPass(T* result, ScanClass::Parameters_t* scan_params, ScanClass::Operator scan_op, T identity)
 {
 	T* top_pass_result = new uint32_t[scan_params->element_count_pass];
 
@@ -194,7 +192,7 @@ static void DebugCPUTopPass(T* result, nbl_glsl_ext_Scan_Parameters_t* scan_para
 }
 
 template <typename T>
-static void DebugCPUDownsweep(T* result, uint32_t wg_count, nbl_glsl_ext_Scan_Parameters_t* scan_params,
+static void DebugCPUDownsweep(T* result, uint32_t wg_count, ScanClass::Parameters_t* scan_params,
 	ScanClass::Operator scan_op)
 {
 	for (uint32_t wg = 0; wg < wg_count; ++wg)
@@ -238,21 +236,19 @@ static void DebugCPUExclusiveScan(T* scan_cpu, T* in, size_t in_count, ScanClass
 
 int main()
 {
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
 	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+	params.Bits = 24;
+	params.ZBufferBits = 24;
+	params.DriverType = video::EDT_OPENGL;
 	params.WindowSize = dimension2d<uint32_t>(512, 512);
 	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
+	params.Vsync = true;
 	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
+	params.Stencilbuffer = false;
 	auto device = createDeviceEx(params);
 
 	if (!device)
-		return 1; // could not create selected driver.
+		return 1;
 
 	IVideoDriver* driver = device->getVideoDriver();
 
@@ -260,8 +256,6 @@ int main()
 	asset::IAssetManager* am = device->getAssetManager();
 
 	unsigned int seed = 666;
-	ScanClass::Operator scan_ops[7] = { ScanClass::Operator::AND, ScanClass::Operator::XOR, ScanClass::Operator::OR,
-		ScanClass::Operator::ADD, ScanClass::Operator::MUL, ScanClass::Operator::MIN, ScanClass::Operator::MAX };
 
 	// Stress Test
 	// Todo: Remove this stupid thing
@@ -269,7 +263,13 @@ int main()
 	while (true)
 	{
 #endif
-		const size_t in_count = 275920u; // 257920u; // (rand() * 10) + (rand() % 10); // assert((in_count != 1u) || (in_count != 0u));
+		// const size_t in_count = 75317u;
+		// const size_t in_count = 257920u;
+		const size_t in_count = 275920u;
+		// const size_t in_count = (rand() * 10) + (rand() % 10);
+
+		assert(in_count > 1u);
+
 		const size_t in_size = in_count * sizeof(uint32_t);
 
 		std::cout << "\n=========================" << std::endl;	
@@ -284,57 +284,50 @@ int main()
 		auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
 
 		ScanClass::Operator scan_op = ScanClass::Operator::ADD;
-		core::smart_refctd_ptr<ScanClass> scanner = core::make_smart_refctd_ptr<ScanClass>(driver, scan_op);
+		core::smart_refctd_ptr<ScanClass> scanner = core::make_smart_refctd_ptr<ScanClass>(driver, scan_op, WG_SIZE);
 
 		core::smart_refctd_ptr<IGPUDescriptorSet> ds_upsweep = driver->createGPUDescriptorSet(
 			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
-		scanner->updateDescriptorSet(ds_upsweep.get(), in_gpu, driver);
+		ScanClass::updateDescriptorSet(ds_upsweep.get(), in_gpu, driver);
 		core::smart_refctd_ptr<IGPUComputePipeline> upsweep_pipeline(scanner->getDefaultUpsweepPipeline());
 
 		core::smart_refctd_ptr<IGPUDescriptorSet> ds_downsweep = driver->createGPUDescriptorSet(
 			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
-		scanner->updateDescriptorSet(ds_downsweep.get(), in_gpu, driver);
+		ScanClass::updateDescriptorSet(ds_downsweep.get(), in_gpu, driver);
 		core::smart_refctd_ptr<IGPUComputePipeline> downsweep_pipeline(scanner->getDefaultDownsweepPipeline());
 
-		uint32_t identity = DebugGetIdentityElement<uint32_t>(scan_op);
-		nbl_glsl_ext_Scan_Parameters_t scan_params = { 1u, in_count, in_count };
 
-		uint32_t* temp_cpu = new uint32_t[in_count];
-		memcpy(temp_cpu, in, in_size);
+		uint32_t debug_identity = DebugGetIdentityElement<uint32_t>(scan_op);
+		uint32_t* debug_temp_cpu = new uint32_t[in_count];
+		memcpy(debug_temp_cpu, in, in_size);
+
+
+		ScanClass::Parameters_t push_constants;
+		ScanClass::DispatchInfo_t dispatch_info;
+		ScanClass::buildParameters(in_count, &push_constants, &dispatch_info, WG_SIZE);
 
 		driver->beginScene(true);
 
-		std::stack<uint32_t> elements_per_pass_stack;
-
 		// Upsweeps
 
-		uint32_t upsweep_pass_count = std::ceil(log(in_count) / log(WG_SIZE)); // includes the top pass
-
-		for (uint32_t pass = 0; pass < upsweep_pass_count; ++pass)
+		for (uint32_t pass = 0; pass < dispatch_info.upsweep_pass_count; ++pass)
 		{
-			if (pass != (upsweep_pass_count - 1u))
-				elements_per_pass_stack.push(scan_params.element_count_pass);
-
-			uint32_t wg_count = (scan_params.element_count_pass + WG_SIZE - 1) / WG_SIZE;
+			ScanClass::prePassParameterUpdate(pass, true, &push_constants, &dispatch_info, WG_SIZE);
 			
 			driver->bindComputePipeline(upsweep_pipeline.get());
 			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_upsweep.get(), nullptr);
-			
-			driver->pushConstants(upsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_ext_Scan_Parameters_t), &scan_params);
-			driver->dispatch(wg_count, 1, 1);
-			
-			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			ScanClass::dispatchHelper(upsweep_pipeline->getLayout(), push_constants, dispatch_info, driver);
 
 			// Check the result for this pass
 
-			if (pass < upsweep_pass_count - 1)
+			if (pass < dispatch_info.upsweep_pass_count - 1)
 			{
 				std::cout << "=========================" << std::endl;
 				std::cout << "Upsweep Pass #" << pass << std::endl;
 				std::cout << "=========================" << std::endl;
 
-				DebugCPUUpsweep<uint32_t>(temp_cpu, wg_count, &scan_params, scan_op, identity);
-				DebugCompareGPUvsCPU<uint32_t>(in_gpu, temp_cpu, in_size, driver);
+				DebugCPUUpsweep<uint32_t>(debug_temp_cpu, dispatch_info.wg_count, &push_constants, scan_op, debug_identity);
+				DebugCompareGPUvsCPU<uint32_t>(in_gpu, debug_temp_cpu, in_size, driver);
 			}
 			else
 			{
@@ -342,37 +335,22 @@ int main()
 				std::cout << "Top-of-Hierarchy Pass" << std::endl;
 				std::cout << "=========================" << std::endl;
 
-				DebugCPUTopPass<uint32_t>(temp_cpu, &scan_params, scan_op, identity);
-				DebugCompareGPUvsCPU<uint32_t>(in_gpu, temp_cpu, in_size, driver);
+				DebugCPUTopPass<uint32_t>(debug_temp_cpu, &push_constants, scan_op, debug_identity);
+				DebugCompareGPUvsCPU<uint32_t>(in_gpu, debug_temp_cpu, in_size, driver);
 			}
 
-			// Prepare for next pass
-			if (pass != upsweep_pass_count - 1u)
-			{
-				scan_params.stride *= WG_SIZE;
-				scan_params.element_count_pass = wg_count;
-			}
-			else
-			{
-				scan_params.stride /= WG_SIZE;
-			}
+			ScanClass::postPassParameterUpdate(pass, true, &push_constants, &dispatch_info, WG_SIZE);
 		}
 
 		// Downsweeps
-		uint32_t downsweep_pass_count = upsweep_pass_count - 1u;
-		scan_params.element_count_pass = elements_per_pass_stack.top(); elements_per_pass_stack.pop();
 
-		for (uint32_t pass = 0; pass < downsweep_pass_count; ++pass)
+		for (uint32_t pass = 0; pass < dispatch_info.downsweep_pass_count; ++pass)
 		{
-			uint32_t wg_count = (scan_params.element_count_pass + WG_SIZE - 1) / WG_SIZE;
+			ScanClass::prePassParameterUpdate(pass, false, &push_constants, &dispatch_info, WG_SIZE);
 
 			driver->bindComputePipeline(downsweep_pipeline.get());
 			driver->bindDescriptorSets(video::EPBP_COMPUTE, downsweep_pipeline->getLayout(), 0u, 1u, &ds_downsweep.get(), nullptr);
-
-			driver->pushConstants(downsweep_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_ext_Scan_Parameters_t), &scan_params);
-			driver->dispatch(wg_count, 1, 1);
-
-			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			ScanClass::dispatchHelper(downsweep_pipeline->getLayout(), push_constants, dispatch_info, driver);
 
 			// Check the result for this pass
 
@@ -380,16 +358,10 @@ int main()
 			std::cout << "Downsweep Pass #" << pass << std::endl;
 			std::cout << "=========================" << std::endl;
 
-			DebugCPUDownsweep<uint32_t>(temp_cpu, wg_count, &scan_params, scan_op);
-			DebugCompareGPUvsCPU<uint32_t>(in_gpu, temp_cpu, in_size, driver);
+			DebugCPUDownsweep<uint32_t>(debug_temp_cpu, dispatch_info.wg_count, &push_constants, scan_op);
+			DebugCompareGPUvsCPU<uint32_t>(in_gpu, debug_temp_cpu, in_size, driver);
 
-			// Prepare for the next pass
-
-			if (pass != downsweep_pass_count - 1u)
-			{
-				scan_params.stride /= WG_SIZE;
-				scan_params.element_count_pass = elements_per_pass_stack.top(); elements_per_pass_stack.pop();
-			}
+			ScanClass::postPassParameterUpdate(pass, false, &push_constants, &dispatch_info, WG_SIZE);
 		}
 
 		std::cout << "=========================" << std::endl;
@@ -397,14 +369,14 @@ int main()
 		std::cout << "=========================" << std::endl;
 
 		uint32_t* scan_cpu = new uint32_t[in_count];
-		DebugCPUExclusiveScan<uint32_t>(scan_cpu, in, in_count, scan_op, identity);
+		DebugCPUExclusiveScan<uint32_t>(scan_cpu, in, in_count, scan_op, debug_identity);
 		DebugCompareGPUvsCPU<uint32_t>(in_gpu, scan_cpu, in_size, driver);
 		delete[] scan_cpu;
 
 		driver->endScene();
 
 		delete[] in;
-		delete[] temp_cpu;
+		delete[] debug_temp_cpu;
 #if 1
 	}
 #endif
