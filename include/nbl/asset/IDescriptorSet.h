@@ -182,6 +182,7 @@ class IEmulatedDescriptorSet
 			
 			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
 			// set up all offsets
+			// no idea what this code does
 			prevBinding = 0u;
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
 			{
@@ -189,6 +190,16 @@ class IEmulatedDescriptorSet
 					prevBinding = it->offset;
 				else
 					it->offset = prevBinding;
+			}
+
+			// this is vital for getDescriptorCountAtIndex
+			uint32_t off = ~0u;
+			for (auto it = m_bindingInfo->end() - 1; it != m_bindingInfo->begin() - 1; --it)
+			{
+				if (it->descriptorType != EDT_INVALID)
+					off = it->offset;
+				else
+					it->offset = off;
 			}
 		}
 
