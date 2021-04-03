@@ -301,7 +301,7 @@ void main()
 #include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
-	float16_t inBuffer[];
+	f16vec3_packed inBuffer[];
 };
 layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
@@ -314,16 +314,9 @@ layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
 void main()
 {
 	// TODO: compute iFFT of the image
-	uint wgOffset = (gl_GlobalInvocationID.y*pc.data.imageWidth+gl_WorkGroupID.x*COMPUTE_WG_SIZE)*SHARED_CHANNELS;
-	uint localOffset = gl_LocalInvocationIndex;
-	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
-	localOffset += COMPUTE_WG_SIZE;
-	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
-	localOffset += COMPUTE_WG_SIZE;
-	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
-	barrier();
+	const uint inAddr = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
-	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
+	vec3 color = vec3(inBuffer[inAddr].x,inBuffer[inAddr].y,inBuffer[inAddr].z);
 	
 	color = _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
 	color *= intensity[pc.data.intensityBufferDWORDOffset]; // *= 0.18/AvgLuma

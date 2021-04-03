@@ -26,11 +26,6 @@ struct f16vec3_packed
 	float16_t z;
 };
 
-// the amount of memory needed for luma metering is bigger than interleaving
-#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ ((COMPUTE_WG_SIZE+1)*8)
-shared uint repackBuffer[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
-#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ repackBuffer
-
 
 // luma metering stuff
 // those don't really influence anything but need to let the header know that we're using the same number of invocations as bins
