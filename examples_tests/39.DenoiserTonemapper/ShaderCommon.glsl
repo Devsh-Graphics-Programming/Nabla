@@ -19,6 +19,13 @@ layout(push_constant, row_major) uniform PushConstants{
 
 
 #define SHARED_CHANNELS 3
+struct f16vec3_packed
+{
+	float16_t x;
+	float16_t y;
+	float16_t z;
+};
+
 // the amount of memory needed for luma metering is bigger than interleaving
 #define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ ((COMPUTE_WG_SIZE+1)*8)
 shared uint repackBuffer[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];

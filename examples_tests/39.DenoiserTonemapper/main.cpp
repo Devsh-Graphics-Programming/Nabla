@@ -194,7 +194,7 @@ layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 } inBuffers[EII_COUNT];
 layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
-	float16_t data[];
+	f16vec3_packed data[];
 } outBuffers[EII_COUNT];
 vec3 fetchData(in uvec3 texCoord)
 {
@@ -217,21 +217,10 @@ void main()
 		nbl_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
 		barrier();
 	}
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(globalPixelData[0u]);
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(globalPixelData[1u]);
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(globalPixelData[2u]);
-	barrier();
-	const uint outImagePitch = pc.data.imageWidth*SHARED_CHANNELS;
-	uint rowOffset = gl_GlobalInvocationID.y*outImagePitch;
-	uint lineOffset = gl_WorkGroupID.x*COMPUTE_WG_SIZE*SHARED_CHANNELS+gl_LocalInvocationIndex;
-	if (lineOffset<outImagePitch)
-		outBuffers[gl_GlobalInvocationID.z].data[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*0u]));
-	lineOffset += COMPUTE_WG_SIZE;
-	if (lineOffset<outImagePitch)
-		outBuffers[gl_GlobalInvocationID.z].data[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*1u]));
-	lineOffset += COMPUTE_WG_SIZE;
-	if (lineOffset<outImagePitch)
-		outBuffers[gl_GlobalInvocationID.z].data[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*2u]));
+	const uint addr = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
+	outBuffers[gl_GlobalInvocationID.z].data[addr].x = float16_t(globalPixelData.x);
+	outBuffers[gl_GlobalInvocationID.z].data[addr].y = float16_t(globalPixelData.y);
+	outBuffers[gl_GlobalInvocationID.z].data[addr].z = float16_t(globalPixelData.z);
 }
 		)==="));
 		auto intensityShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -290,7 +279,7 @@ void main()
 #include "../ShaderCommon.glsl"
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
-	float16_t inBuffer[];
+	f16vec3_packed inBuffer[];
 };
 layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
@@ -298,10 +287,8 @@ layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 } outBuffers[EII_COUNT]; // TODO: do FFT
 void main()
 {
-	const uint dataOffset = (gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x)*SHARED_CHANNELS;
-
-	// TODO: Optimize this fetch
-	globalPixelData = vec3(inBuffer[dataOffset+0u],inBuffer[dataOffset+1u],inBuffer[dataOffset+2u]);
+	const uint dataOffset = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
+	globalPixelData = vec3(inBuffer[dataOffset].x,inBuffer[dataOffset].y,inBuffer[dataOffset].z);
 
 	nbl_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
 	barrier();
