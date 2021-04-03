@@ -817,9 +817,9 @@ void main()
 				return retval;
 			};
 			colorPixelBuffer = createLinkAndRegister(EII_COLOR);
-			if (denoiserInputCount>=EII_ALBEDO)
+			if (denoiserInputCount>EII_ALBEDO)
 				albedoPixelBuffer = createLinkAndRegister(EII_ALBEDO);
-			if (denoiserInputCount>=EII_NORMAL)
+			if (denoiserInputCount>EII_NORMAL)
 				normalPixelBuffer = createLinkAndRegister(EII_NORMAL);
 			if (skip)
 				continue;
@@ -851,27 +851,34 @@ void main()
 				// write descriptor set
 				{
 					IGPUDescriptorSet::SDescriptorInfo infos[SharedDescriptorSetDescCount+EII_COUNT*2u-2u];
-					auto attachWholeBuffer = [&infos](auto ix, IGPUBuffer* buff, uint64_t offset=0ull) -> void
+					auto attachBufferImageRange = [param,&infos](auto ix, IGPUBuffer* buff, uint64_t offset, uint64_t pixelByteSize) -> void
 					{
 						infos[ix].desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
-						infos[ix].buffer = {offset,buff->getMemoryReqs().vulkanReqs.size-offset};
+						infos[ix].buffer = {offset,param.width*param.height*pixelByteSize};
 					};
-					attachWholeBuffer(EII_COLOR,colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR]);
-					if (denoiserInputCount>=EII_ALBEDO)
-						attachWholeBuffer(EII_ALBEDO,albedoPixelBuffer.getObject(),inImageByteOffset[EII_ALBEDO]);
-					if (denoiserInputCount>=EII_NORMAL)
-						attachWholeBuffer(EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL]);
+					auto attachWholeBuffer = [&infos](auto ix, IGPUBuffer* buff) -> void
+					{
+						infos[ix].desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
+						infos[ix].buffer = {0ull,buff->getMemoryReqs().vulkanReqs.size};
+					};
+					uint64_t interleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>();
+					attachBufferImageRange(EII_COLOR,colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],interleavedPixelBytesize);
+					if (denoiserInputCount>EII_ALBEDO)
+						attachBufferImageRange(EII_ALBEDO,albedoPixelBuffer.getObject(),inImageByteOffset[EII_ALBEDO],interleavedPixelBytesize);
+					if (denoiserInputCount>EII_NORMAL)
+						attachBufferImageRange(EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL],interleavedPixelBytesize);
 					for (uint32_t j=0u; j<denoiserInputCount; j++)
 					{
-						outImageByteOffset[j] = j*param.width*param.height*8u;// TODO do it with *forcedOptiXFormatPixelStride;
-						attachWholeBuffer(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j]);
+						uint64_t deinterleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>(); // TODO do it with EF_R16G16B16_SFLOAT
+						outImageByteOffset[j] = j*param.width*param.height*deinterleavedPixelBytesize;
+						attachBufferImageRange(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],deinterleavedPixelBytesize);
 					}
 					attachWholeBuffer(EII_COUNT*2u,histogramBuffer.get());
 					attachWholeBuffer(EII_COUNT*2u+1u,intensityBuffer.getObject());
 					IGPUDescriptorSet::SWriteDescriptorSet writes[SharedDescriptorSetDescCount] =
 					{
-						{descriptorSet.get(),0u,0u,EII_COUNT,EDT_STORAGE_BUFFER,infos+0},
-						{descriptorSet.get(),1u,0u,EII_COUNT,EDT_STORAGE_BUFFER,infos+EII_COUNT},
+						{descriptorSet.get(),0u,0u,denoiserInputCount,EDT_STORAGE_BUFFER,infos+0},
+						{descriptorSet.get(),1u,0u,denoiserInputCount,EDT_STORAGE_BUFFER,infos+EII_COUNT},
 						{descriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u},
 						{descriptorSet.get(),3u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u+1u}
 					};
