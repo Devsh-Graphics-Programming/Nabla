@@ -9,12 +9,9 @@ using namespace core;
 using namespace video;
 using namespace asset;
 
-using ScanClass = ext::Scan::Scan;
+using ScanClass = ext::Scan::Scan<uint32_t>;
 
 #define WG_SIZE 256
-
-// Note: Just a debug thing. Assumes there's something called `stride`.
-#define STRIDED_IDX(i) (((i) + 1)*scan_params->stride-1)
 
 struct SortElement
 {
@@ -87,153 +84,7 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
 	}
 }
 
-// Will not work for floats
-template <typename T>
-static inline T DebugGetIdentityElement(ScanClass::Operator op)
-{
-	switch (op)
-	{
-	case ScanClass::Operator::AND:
-		return T(uint32_t(-1));
-	case ScanClass::Operator::XOR:
-		return T(0);
-	case ScanClass::Operator::OR:
-		return T(0);
-	case ScanClass::Operator::ADD:
-		return T(0);
-	case ScanClass::Operator::MUL:
-		return T(1);
-	case ScanClass::Operator::MIN:
-		return T(uint32_t(-1));
-	case ScanClass::Operator::MAX:
-		return T(0);
-	}
-}
-
-template <typename T>
-static inline T DebugScanOperation(T a, T b, ScanClass::Operator op)
-{
-	switch (op)
-	{
-	case ScanClass::Operator::AND:
-		return a & b;
-	case ScanClass::Operator::XOR:
-		return a ^ b;
-	case ScanClass::Operator::OR:
-		return a | b;
-	case ScanClass::Operator::ADD:
-		return a + b;
-	case ScanClass::Operator::MUL:
-		return a * b;
-	case ScanClass::Operator::MIN:
-		return min(a, b);
-	case ScanClass::Operator::MAX:
-		return max(a, b);
-	}
-}
-
-template <typename T>
-static void DebugCPUUpsweep(T* result, uint32_t wg_count, ScanClass::Parameters_t* scan_params,
-	ScanClass::Operator scan_op, T identity)
-{
-	for (uint32_t wg = 0; wg < wg_count; ++wg)
-	{
-		size_t begin = wg * WG_SIZE;
-		size_t end = (wg + 1) * WG_SIZE;
-
-		if (end > scan_params->element_count_pass)
-			end = scan_params->element_count_pass;
-
-		T* upsweep_result = new T[end - begin];
-
-		uint32_t k = 0;
-		T scan = identity;
-		for (size_t i = begin; i < end; ++i)
-		{
-			size_t idx = min(STRIDED_IDX(i), scan_params->element_count_total - 1u);
-
-			scan = DebugScanOperation(scan, result[idx], scan_op);
-			upsweep_result[k++] = scan;
-		}
-
-		k = 0;
-		for (size_t i = begin; i < end; ++i)
-		{
-			size_t idx = min(STRIDED_IDX(i), scan_params->element_count_total - 1u);
-			result[idx] = upsweep_result[k++];
-		}
-
-		delete[] upsweep_result;
-	}
-}
-
-template <typename T>
-static void DebugCPUTopPass(T* result, ScanClass::Parameters_t* scan_params, ScanClass::Operator scan_op, T identity)
-{
-	T* top_pass_result = new uint32_t[scan_params->element_count_pass];
-
-	uint32_t k = 0;
-	T scan = identity;
-	for (size_t i = 0; i < scan_params->element_count_pass; ++i)
-	{
-		top_pass_result[k++] = scan;
-		size_t idx = min(STRIDED_IDX(i), scan_params->element_count_total - 1u);
-		scan = DebugScanOperation(scan, result[idx], scan_op);
-	}
-
-	k = 0;
-	for (size_t i = 0; i < scan_params->element_count_pass; ++i)
-	{
-		size_t idx = min(STRIDED_IDX(i), scan_params->element_count_total - 1u);
-		result[idx] = top_pass_result[k++];
-	}
-
-	delete[] top_pass_result;
-}
-
-template <typename T>
-static void DebugCPUDownsweep(T* result, uint32_t wg_count, ScanClass::Parameters_t* scan_params,
-	ScanClass::Operator scan_op)
-{
-	for (uint32_t wg = 0; wg < wg_count; ++wg)
-	{
-		size_t begin = wg * WG_SIZE;
-		size_t end = (wg + 1) * WG_SIZE;
-
-		if (end > scan_params->element_count_pass)
-			end = scan_params->element_count_pass;
-
-		T* downsweep_result = new T[end - begin];
-
-		size_t idx = min(STRIDED_IDX(end - 1u), scan_params->element_count_total - 1u);
-		downsweep_result[0] = result[idx];
-
-		uint32_t k = 1;
-		for (size_t i = begin + 1; i < end; ++i)
-			downsweep_result[k++] = DebugScanOperation(result[STRIDED_IDX(i - 1)], downsweep_result[0], scan_op);
-
-		k = 0;
-		for (size_t i = begin; i < end; ++i)
-		{
-			size_t idx = min(STRIDED_IDX(i), scan_params->element_count_total - 1u);
-			result[idx] = downsweep_result[k++];
-		}
-
-		delete[] downsweep_result;
-	}
-}
-
-template <typename T>
-static void DebugCPUExclusiveScan(T* scan_cpu, T* in, size_t in_count, ScanClass::Operator scan_op, T identity)
-{
-	T prefix_scan = identity;
-	for (size_t i = 0; i < in_count; ++i)
-	{
-		scan_cpu[i] = prefix_scan;
-		prefix_scan = DebugScanOperation(prefix_scan, in[i], scan_op);
-	}
-}
-
+#if 1
 int main()
 {
 	nbl::SIrrlichtCreationParameters params;
@@ -257,133 +108,67 @@ int main()
 
 	unsigned int seed = 666;
 
-	// Stress Test
-	// Todo: Remove this stupid thing
-#if 1
-	while (true)
+	const size_t in_count = (rand() * 10) + (rand() % 10);
+	const size_t in_size = in_count * sizeof(uint32_t);
+
+	uint32_t* in = new uint32_t[in_count];
+	srand(seed++);
+	for (size_t i = 0u; i < in_count; ++i)
+		in[i] = rand() * std::pow(-1, (i + 1));
+
+	auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+
+	core::smart_refctd_ptr<ScanClass> scanner = core::make_smart_refctd_ptr<ScanClass>(driver, ScanClass::ADD, WG_SIZE);
+
+	core::smart_refctd_ptr<IGPUDescriptorSet> ds_upsweep = driver->createGPUDescriptorSet(
+		core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
+	ScanClass::updateDescriptorSet(ds_upsweep.get(), in_gpu, driver);
+	core::smart_refctd_ptr<IGPUComputePipeline> upsweep_pipeline(scanner->getDefaultUpsweepPipeline());
+
+	core::smart_refctd_ptr<IGPUDescriptorSet> ds_downsweep = driver->createGPUDescriptorSet(
+		core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
+	ScanClass::updateDescriptorSet(ds_downsweep.get(), in_gpu, driver);
+	core::smart_refctd_ptr<IGPUComputePipeline> downsweep_pipeline(scanner->getDefaultDownsweepPipeline());
+
+	ScanClass::Parameters_t push_constants;
+	ScanClass::DispatchInfo_t dispatch_info;
+	ScanClass::buildParameters(in_count, &push_constants, &dispatch_info, WG_SIZE);
+
+	driver->beginScene(true);
+
+	// Upsweeps
+
+	for (uint32_t pass = 0; pass < dispatch_info.upsweep_pass_count; ++pass)
 	{
-#endif
-		// const size_t in_count = 75317u;
-		// const size_t in_count = 257920u;
-		const size_t in_count = 275920u;
-		// const size_t in_count = (rand() * 10) + (rand() % 10);
+		ScanClass::prePassParameterUpdate(pass, true, &push_constants, &dispatch_info, WG_SIZE);
+		
+		driver->bindComputePipeline(upsweep_pipeline.get());
+		driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_upsweep.get(), nullptr);
+		ScanClass::dispatchHelper(upsweep_pipeline->getLayout(), push_constants, dispatch_info, driver);
 
-		assert(in_count > 1u);
-
-		const size_t in_size = in_count * sizeof(uint32_t);
-
-		std::cout << "\n=========================" << std::endl;	
-		std::cout << "Input element count: " << in_count << std::endl;
-		std::cout << "=========================\n" << std::endl;
-
-		uint32_t* in = new uint32_t[in_count];
-		srand(seed++);
-		for (size_t i = 0u; i < in_count; ++i)
-			in[i] = rand();
-
-		auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
-
-		ScanClass::Operator scan_op = ScanClass::Operator::ADD;
-		core::smart_refctd_ptr<ScanClass> scanner = core::make_smart_refctd_ptr<ScanClass>(driver, scan_op, WG_SIZE);
-
-		core::smart_refctd_ptr<IGPUDescriptorSet> ds_upsweep = driver->createGPUDescriptorSet(
-			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
-		ScanClass::updateDescriptorSet(ds_upsweep.get(), in_gpu, driver);
-		core::smart_refctd_ptr<IGPUComputePipeline> upsweep_pipeline(scanner->getDefaultUpsweepPipeline());
-
-		core::smart_refctd_ptr<IGPUDescriptorSet> ds_downsweep = driver->createGPUDescriptorSet(
-			core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(scanner->getDefaultDescriptorSetLayout()));
-		ScanClass::updateDescriptorSet(ds_downsweep.get(), in_gpu, driver);
-		core::smart_refctd_ptr<IGPUComputePipeline> downsweep_pipeline(scanner->getDefaultDownsweepPipeline());
-
-
-		uint32_t debug_identity = DebugGetIdentityElement<uint32_t>(scan_op);
-		uint32_t* debug_temp_cpu = new uint32_t[in_count];
-		memcpy(debug_temp_cpu, in, in_size);
-
-
-		ScanClass::Parameters_t push_constants;
-		ScanClass::DispatchInfo_t dispatch_info;
-		ScanClass::buildParameters(in_count, &push_constants, &dispatch_info, WG_SIZE);
-
-		driver->beginScene(true);
-
-		// Upsweeps
-
-		for (uint32_t pass = 0; pass < dispatch_info.upsweep_pass_count; ++pass)
-		{
-			ScanClass::prePassParameterUpdate(pass, true, &push_constants, &dispatch_info, WG_SIZE);
-			
-			driver->bindComputePipeline(upsweep_pipeline.get());
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_upsweep.get(), nullptr);
-			ScanClass::dispatchHelper(upsweep_pipeline->getLayout(), push_constants, dispatch_info, driver);
-
-			// Check the result for this pass
-
-			if (pass < dispatch_info.upsweep_pass_count - 1)
-			{
-				std::cout << "=========================" << std::endl;
-				std::cout << "Upsweep Pass #" << pass << std::endl;
-				std::cout << "=========================" << std::endl;
-
-				DebugCPUUpsweep<uint32_t>(debug_temp_cpu, dispatch_info.wg_count, &push_constants, scan_op, debug_identity);
-				DebugCompareGPUvsCPU<uint32_t>(in_gpu, debug_temp_cpu, in_size, driver);
-			}
-			else
-			{
-				std::cout << "=========================" << std::endl;
-				std::cout << "Top-of-Hierarchy Pass" << std::endl;
-				std::cout << "=========================" << std::endl;
-
-				DebugCPUTopPass<uint32_t>(debug_temp_cpu, &push_constants, scan_op, debug_identity);
-				DebugCompareGPUvsCPU<uint32_t>(in_gpu, debug_temp_cpu, in_size, driver);
-			}
-
-			ScanClass::postPassParameterUpdate(pass, true, &push_constants, &dispatch_info, WG_SIZE);
-		}
-
-		// Downsweeps
-
-		for (uint32_t pass = 0; pass < dispatch_info.downsweep_pass_count; ++pass)
-		{
-			ScanClass::prePassParameterUpdate(pass, false, &push_constants, &dispatch_info, WG_SIZE);
-
-			driver->bindComputePipeline(downsweep_pipeline.get());
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, downsweep_pipeline->getLayout(), 0u, 1u, &ds_downsweep.get(), nullptr);
-			ScanClass::dispatchHelper(downsweep_pipeline->getLayout(), push_constants, dispatch_info, driver);
-
-			// Check the result for this pass
-
-			std::cout << "=========================" << std::endl;
-			std::cout << "Downsweep Pass #" << pass << std::endl;
-			std::cout << "=========================" << std::endl;
-
-			DebugCPUDownsweep<uint32_t>(debug_temp_cpu, dispatch_info.wg_count, &push_constants, scan_op);
-			DebugCompareGPUvsCPU<uint32_t>(in_gpu, debug_temp_cpu, in_size, driver);
-
-			ScanClass::postPassParameterUpdate(pass, false, &push_constants, &dispatch_info, WG_SIZE);
-		}
-
-		std::cout << "=========================" << std::endl;
-		std::cout << "Final Test" << std::endl;
-		std::cout << "=========================" << std::endl;
-
-		uint32_t* scan_cpu = new uint32_t[in_count];
-		DebugCPUExclusiveScan<uint32_t>(scan_cpu, in, in_count, scan_op, debug_identity);
-		DebugCompareGPUvsCPU<uint32_t>(in_gpu, scan_cpu, in_size, driver);
-		delete[] scan_cpu;
-
-		driver->endScene();
-
-		delete[] in;
-		delete[] debug_temp_cpu;
-#if 1
+		ScanClass::postPassParameterUpdate(pass, true, &push_constants, &dispatch_info, WG_SIZE);
 	}
-#endif
 
-	std::cout << "\a" << std::endl;
+	// Downsweeps
+
+	for (uint32_t pass = 0; pass < dispatch_info.downsweep_pass_count; ++pass)
+	{
+		ScanClass::prePassParameterUpdate(pass, false, &push_constants, &dispatch_info, WG_SIZE);
+
+		driver->bindComputePipeline(downsweep_pipeline.get());
+		driver->bindDescriptorSets(video::EPBP_COMPUTE, downsweep_pipeline->getLayout(), 0u, 1u, &ds_downsweep.get(), nullptr);
+		ScanClass::dispatchHelper(downsweep_pipeline->getLayout(), push_constants, dispatch_info, driver);
+
+		ScanClass::postPassParameterUpdate(pass, false, &push_constants, &dispatch_info, WG_SIZE);
+	}
+
+	driver->endScene();
+
+	delete[] in;
+
 	return 0;
 }
+#endif
 
 #if 0
 int main()

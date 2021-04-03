@@ -3,17 +3,15 @@
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 #include <nbl/builtin/glsl/math/typeless_arithmetic.glsl>
+#include <nbl/builtin/glsl/limits/numeric.glsl>
 
-#ifndef _NBL_GLSL_EXT_SCAN_SET_DATA_DECLARED_
-
-void nbl_glsl_ext_Scan_setData(in uint idx, in uint val);
-
-#define _NBL_GLSL_EXT_SCAN_SET_DATA_DECLARED_
-#endif
+#include "nbl/builtin/glsl/ext/Scan/parameters.glsl"
 
 #ifndef _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DECLARED_
 
 uint nbl_glsl_ext_Scan_getPaddedData(in uint idx, in uint pad_val, bool is_upsweep);
+int nbl_glsl_ext_Scan_getPaddedData(in uint idx, in int pad_val, bool is_upsweep);
+float nbl_glsl_ext_Scan_getPaddedData(in uint idx, in float pad_val, bool is_upsweep);
 
 #define _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DECLARED_
 #endif
@@ -21,9 +19,7 @@ uint nbl_glsl_ext_Scan_getPaddedData(in uint idx, in uint pad_val, bool is_upswe
 #ifndef _NBL_GLSL_EXT_SCAN_GET_PARAMETERS_DEFINED_
 #error "You need to define `nbl_glsl_ext_Scan_getParameters` and mark `_NBL_GLSL_EXT_SCAN_GET_PARAMETERS_DEFINED_`!"
 #endif
-#ifndef _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
-#error "You need to define `nbl_glsl_ext_Scan_setData` and mark `_NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_`!"
-#endif
+
 #ifndef _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
 #error "You need to define `nbl_glsl_ext_Scan_getPaddedData` and mark `_NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_`!"
 #endif
@@ -32,96 +28,95 @@ uint nbl_glsl_ext_Scan_getPaddedData(in uint idx, in uint pad_val, bool is_upswe
 // Upsweep
 //
 
-#define NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(IDX, IDENTITY, WORKGROUP_OP_EXC, WORKGROUP_OP_INC) uint data = nbl_glsl_ext_Scan_getPaddedData(IDX, IDENTITY, true); \
-	return (gl_NumWorkGroups.x == 1u) ? WORKGROUP_OP_EXC(data) : WORKGROUP_OP_INC(data);
-
-uint nbl_glsl_ext_Scan_upsweepAnd(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(idx, uint(-1), nbl_glsl_workgroupExclusiveAnd, nbl_glsl_workgroupInclusiveAnd)
+#define NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(BIN_OP_NAME, TYPE, IDENTITY)\
+void nbl_glsl_ext_Scan_upsweep##BIN_OP_NAME(in uint idx, out TYPE val)\
+{\
+	TYPE data = nbl_glsl_ext_Scan_getPaddedData(idx, IDENTITY, true);\
+	val = (gl_NumWorkGroups.x == 1u) ? nbl_glsl_workgroupExclusive##BIN_OP_NAME(data) : nbl_glsl_workgroupInclusive##BIN_OP_NAME(data);\
 }
 
-uint nbl_glsl_ext_Scan_upsweepXor(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(idx, 0u, nbl_glsl_workgroupExclusiveXor, nbl_glsl_workgroupInclusiveXor)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(And, uint, ~0u)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(And, int, int(~0u))
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(And, float, uintBitsToFloat(~0u))
 
-uint nbl_glsl_ext_Scan_upsweepOr(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(idx, 0u, nbl_glsl_workgroupExclusiveOr, nbl_glsl_workgroupInclusiveOr)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Xor, uint, 0u)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Xor, int, 0)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Xor, float, uintBitsToFloat(0u))
 
-uint nbl_glsl_ext_Scan_upsweepAdd(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(idx, 0u, nbl_glsl_workgroupExclusiveAdd, nbl_glsl_workgroupInclusiveAdd)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Or, uint, 0u)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Or, int, 0)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Or, float, uintBitsToFloat(0u))
 
-uint nbl_glsl_ext_Scan_upsweepMul(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(idx, 1u, nbl_glsl_workgroupExclusiveMul, nbl_glsl_workgroupInclusiveMul)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Add, uint, 0u)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Add, int, 0)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Add, float, 0.0)
 
-uint nbl_glsl_ext_Scan_upsweepMin(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(idx, uint(-1), nbl_glsl_workgroupExclusiveMin, nbl_glsl_workgroupInclusiveMin)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Mul, uint, 1u)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Mul, int, 1)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Mul, float, 1.0)
 
-uint nbl_glsl_ext_Scan_upsweepMax(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(idx, 0u, nbl_glsl_workgroupExclusiveMax, nbl_glsl_workgroupInclusiveMax)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Min, uint, ~0u)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Min, int, INT_MAX)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Min, float, FLT_INF)
+
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Max, uint, 0u)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Max, int, INT_MIN)
+NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Max, float, -FLT_INF)
 
 //
 //	Downsweep
 //
 
-shared uint global_offset;
+shared uint global_offset_uint;
+shared int global_offset_int;
+shared float global_offset_float;
 
-#define NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(IDX, IDENTITY, BIN_OP)\
-if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))\
-	global_offset = nbl_glsl_ext_Scan_getPaddedData(IDX, IDENTITY, false);\
-barrier();\
-uint data = global_offset;\
-if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass()))\
+#define NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(BIN_OP_NAME, TYPE, IDENTITY, BIN_OP, CONV, INVCONV)\
+void nbl_glsl_ext_Scan_downsweep##BIN_OP_NAME(in uint idx, out TYPE val)\
 {\
-	uint prev_idx = gl_GlobalInvocationID.x * nbl_glsl_ext_Scan_Parameters_t_getStride() - 1u;\
-	data = BIN_OP(data, nbl_glsl_ext_Scan_getPaddedData(prev_idx, IDENTITY, false));\
-}\
-barrier();\
-return data;
-
-uint nbl_glsl_ext_Scan_downsweepAnd(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, uint(-1), nbl_glsl_and)
+	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))\
+		global_offset_##TYPE = nbl_glsl_ext_Scan_getPaddedData(idx, IDENTITY, false);\
+	barrier();\
+	TYPE data = global_offset_##TYPE;\
+	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass()))\
+	{\
+		uint prev_idx = gl_GlobalInvocationID.x * nbl_glsl_ext_Scan_Parameters_t_getStride() - 1u;\
+		data = INVCONV(BIN_OP(CONV(data), CONV(nbl_glsl_ext_Scan_getPaddedData(prev_idx, IDENTITY, false))));\
+	}\
+	barrier();\
+	val = data;\
 }
 
-uint nbl_glsl_ext_Scan_downsweepXor(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, 0u, nbl_glsl_xor)
-}
+// A lot of this clutter related to CONV/INVCONV could be removed by extending `typeless_arithmetic.glsl`
+// to allow `nbl_glsl_and` and friends to work on ints and floats, for example. This could also benefit
+// other places plagued by CONV/INCONV in the code base like reduction functions in arithmetic.glsl by
+// doing all the conversion in a single place it typeless_arithmetic.glsl.
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(And, uint, ~0u, nbl_glsl_and, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(And, int, int(~0u), nbl_glsl_and, uint, int)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(And, float, uintBitsToFloat(~0u), nbl_glsl_and, floatBitsToUint, uintBitsToFloat)
 
-uint nbl_glsl_ext_Scan_downsweepOr(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, 0u, nbl_glsl_or)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Xor, uint, 0u, nbl_glsl_xor, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Xor, int, int(0u), nbl_glsl_xor, uint, int)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Xor, float, uintBitsToFloat(0u), nbl_glsl_xor, floatBitsToUint, uintBitsToFloat)
 
-uint nbl_glsl_ext_Scan_downsweepAdd(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, 0u, nbl_glsl_add)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Or, uint, 0u, nbl_glsl_or, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Or, int, int(0u), nbl_glsl_or, uint, int)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Or, float, uintBitsToFloat(0u), nbl_glsl_or, floatBitsToUint, uintBitsToFloat)
 
-uint nbl_glsl_ext_Scan_downsweepMul(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, 1u, nbl_glsl_mul)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Add, uint, 0u, nbl_glsl_add, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Add, int, 0, nbl_glsl_add, uint, int)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Add, float, 0.0, nbl_glsl_add, float, float)
 
-uint nbl_glsl_ext_Scan_downsweepMin(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, 0u, min)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Mul, uint, 1u, nbl_glsl_mul, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Mul, int, 1, nbl_glsl_mul, uint, int)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Mul, float, 1.0, nbl_glsl_mul, float, float)
 
-uint nbl_glsl_ext_Scan_downsweepMax(in uint idx)
-{
-	NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(idx, uint(-1), max)
-}
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Min, uint, ~0u, min, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Min, int, INT_MAX, min, int, int)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Min, float, FLT_INF, min, float, float)
+
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Max, uint, 0u, max, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Max, int, INT_MIN, max, int, int)
+NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(Max, float, -FLT_INF, max, float, float)
 
 #endif

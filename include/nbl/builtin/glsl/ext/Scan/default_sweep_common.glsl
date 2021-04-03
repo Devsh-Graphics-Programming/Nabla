@@ -5,6 +5,12 @@
 layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 #endif
 
+#ifndef _NBL_GLSL_EXT_SCAN_STORAGE_TYPE_
+#error "_NBL_GLSL_EXT_SCAN_STORAGE_TYPE needs to be defined to any of uint/int/float"
+#endif
+
+#define nbl_glsl_ext_Scan_Storage_t _NBL_GLSL_EXT_SCAN_STORAGE_TYPE_
+
 #ifndef _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_
 #define _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_ 0
 #endif
@@ -17,9 +23,7 @@ layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
 layout(set = _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_SCAN_INPUT_BINDING_DEFINED_, std430) buffer InoutBuffer
 {
-	// Todo: Make this type generic, so I can process int and floats as well
-	// nbl_glsl_ext_SCAN_storage_t inout_values[];
-	uint inout_values[];
+	nbl_glsl_ext_Scan_Storage_t inout_values[];
 };
 
 #define _NBL_GLSL_EXT_SCAN_INPUT_DESCRIPTOR_DEFINED_
@@ -48,7 +52,7 @@ nbl_glsl_ext_Scan_Parameters_t nbl_glsl_ext_Scan_getParameters()
 
 #ifndef _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
 
-void nbl_glsl_ext_Scan_setData(in uint idx, in uint val)
+void nbl_glsl_ext_Scan_setData(in uint idx, in nbl_glsl_ext_Scan_Storage_t val)
 {
 	if (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass())
 		inout_values[idx] = val;
@@ -59,9 +63,9 @@ void nbl_glsl_ext_Scan_setData(in uint idx, in uint val)
 
 #ifndef _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
 
-uint nbl_glsl_ext_Scan_getPaddedData(in uint idx, in uint pad_val, bool is_upsweep)
+nbl_glsl_ext_Scan_Storage_t nbl_glsl_ext_Scan_getPaddedData(in uint idx, in nbl_glsl_ext_Scan_Storage_t pad_val, bool is_upsweep)
 {
-	uint data = pad_val;
+	nbl_glsl_ext_Scan_Storage_t data = pad_val;
 	if (is_upsweep)
 	{
 		if (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass())
