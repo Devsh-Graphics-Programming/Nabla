@@ -114,8 +114,10 @@ int main()
 	while (true)
 	{
 #endif
-		const size_t in_count = 1 << 23; // this param is tied to macros in Histogram.comp for now
+		const size_t in_count = (rand() * 10) + (rand() % 10); //  (1 << 23) - 23u;
 		const size_t in_size = in_count * sizeof(SortElement);
+
+		std::cout << "Input element count: " << in_count << std::endl;
 
 		SortElement* in = new SortElement[in_count];
 		srand(seed++);
@@ -229,6 +231,7 @@ int main()
 			
 			uint32_t shift = pass * 4;
 			driver->pushConstants(histogram_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &shift);
+			driver->pushConstants(histogram_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t), &in_count);
 			driver->dispatch(wg_count, 1, 1);
 			
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -290,6 +293,8 @@ int main()
 			
 			driver->pushConstants(scatter_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t),
 				&shift);
+			driver->pushConstants(scatter_pipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 4u, sizeof(uint32_t),
+				&in_count);
 			driver->dispatch(wg_count, 1, 1);
 			
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

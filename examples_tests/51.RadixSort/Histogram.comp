@@ -1,8 +1,6 @@
 #version 450
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 8)
-
-#define TOTAL_ELEMENTS (1 << 23)
 #define BITS_PER_PASS 4
 #define NUM_BUCKETS (1 << BITS_PER_PASS)
 
@@ -18,21 +16,26 @@ layout (set = 0, binding = 1, std430) writeonly buffer out_buffer
 	uint out_values[];
 };
 
-layout(push_constant) uniform pushConstants
+layout(push_constant) uniform PushConstants
 {
     layout (offset = 0) uint shift;
-} u_push_constants;
+	layout (offset = 4) uint element_count_total; 
+} pc;
 
 #define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ (_NBL_GLSL_WORKGROUP_SIZE_ * 2 * 4)
 shared uint scratch_shared[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ scratch_shared
 
 #include <nbl/builtin/glsl/workgroup/ballot.glsl>
+#include <nbl/builtin/glsl/limits/numeric.glsl>
 
 void main()
 {
-	uvec2 data = inout_values[gl_GlobalInvocationID.x];
-	uint digit = (data.x >> u_push_constants.shift) & 0xf;
+	uvec2 data = uvec2(UINT_MAX);
+	if (gl_GlobalInvocationID.x < pc.element_count_total)
+		data = inout_values[gl_GlobalInvocationID.x];
+
+	uint digit = (data.x >> pc.shift) & 0xf;
 
 	uint local_scatter_idx = 0;
 	uint local_histogram[NUM_BUCKETS];
@@ -42,37 +45,34 @@ void main()
 		nbl_glsl_workgroupBallot(predicate);
 		local_histogram[i] = nbl_glsl_workgroupBallotInclusiveBitCount();
 
-		// Question: What is the problem with dynamically indexing local variables?
-
 		if (predicate)
 			local_scatter_idx = local_histogram[i] - 1;
 	}
 
-	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
+	uint last_of_wg_idx = min((gl_WorkGroupID.x + 1u) * _NBL_GLSL_WORKGROUP_SIZE_ - 1u, pc.element_count_total - 1u);
+
+	if (gl_GlobalInvocationID.x == last_of_wg_idx)
 	{
 		for (int i = 0; i < NUM_BUCKETS; ++i)
-			out_values[i * gl_NumWorkGroups.x + gl_WorkGroupID.x] = local_histogram[i];
+			out_values[i * gl_NumWorkGroups.x + gl_WorkGroupID.x] = local_histogram[i]; // This shouldn't require bounds checking
 
 		uint sum = 0;
 		scratch_shared[0] = sum;
 		for (int i = 1; i < NUM_BUCKETS; ++i)
 			scratch_shared[i] = (sum += local_histogram[i - 1]);
 	}
-
 	barrier();
 
 	uint local_offset = scratch_shared[digit];
-
 	local_scatter_idx += local_offset;
-
 	memoryBarrier();
 
 	scratch_shared[local_scatter_idx] = data.x;
 	scratch_shared[_NBL_GLSL_WORKGROUP_SIZE_ + local_scatter_idx] = data.y;
-
 	barrier();
 
-	data = uvec2(scratch_shared[gl_LocalInvocationIndex], scratch_shared[_NBL_GLSL_WORKGROUP_SIZE_ + gl_LocalInvocationIndex]);
+	data = uvec2(scratch_shared[gl_LocalInvocationIndex], scratch_shared[gl_LocalInvocationIndex + _NBL_GLSL_WORKGROUP_SIZE_]);
 	
-	inout_values[gl_GlobalInvocationID.x] = data;
+	if (gl_GlobalInvocationID.x < pc.element_count_total)
+		inout_values[gl_GlobalInvocationID.x] = data;
 }

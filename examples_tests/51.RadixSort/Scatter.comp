@@ -1,6 +1,8 @@
 #version 450
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 8)
+#define BITS_PER_PASS 4
+#define NUM_BUCKETS (1 << BITS_PER_PASS)
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
@@ -19,15 +21,13 @@ layout (set = 0, binding = 2, std430) readonly buffer histogram_buffer
 	uint histogram[];
 };
 
-layout(push_constant) uniform pushConstants
+layout(push_constant) uniform PushConstants
 {
     layout (offset = 0) uint shift;
-} u_push_constants;
+	layout (offset = 4) uint element_count_total;
+} pc;
 
 #include <nbl/builtin/glsl/workgroup/ballot.glsl>
-
-#define BITS_PER_PASS 4
-#define NUM_BUCKETS (1 << BITS_PER_PASS)
 
 shared uint global_histogram[NUM_BUCKETS];
 
@@ -35,11 +35,13 @@ void main()
 {	
 	if (gl_LocalInvocationIndex < NUM_BUCKETS)
 		global_histogram[gl_LocalInvocationIndex] = histogram[gl_LocalInvocationIndex * gl_NumWorkGroups.x + gl_WorkGroupID.x];
-
 	barrier();
 
-	uvec2 data = in_values[gl_GlobalInvocationID.x];
-	uint digit = (data.x >> u_push_constants.shift) & 0xf;
+	uvec2 data = uvec2(UINT_MAX);
+	if (gl_GlobalInvocationID.x < pc.element_count_total)
+		data = in_values[gl_GlobalInvocationID.x];
+
+	uint digit = (data.x >> pc.shift) & 0xf;
 
 	uint local_scatter_idx = 0;
 	for (int i = 0; i < NUM_BUCKETS; ++i)
@@ -48,13 +50,11 @@ void main()
 		nbl_glsl_workgroupBallot(predicate);
 		uint temp = nbl_glsl_workgroupBallotExclusiveBitCount();
 
-		// Todo: What is the problem with dynamically indexing local variables?
-
 		if (predicate)
 			local_scatter_idx = temp;
 	}
 
 	const uint scatter_idx = global_histogram[digit] + local_scatter_idx;
-	
-	out_values[scatter_idx] = data;
+	if (scatter_idx < pc.element_count_total)
+		out_values[scatter_idx] = data;
 }
