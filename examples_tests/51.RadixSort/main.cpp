@@ -84,6 +84,37 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
 	}
 }
 
+core::smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_file_path, video::IDriver* driver)
+{
+	const char* source_fmt =
+R"===(#version 450
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ %u
+#define BITS_PER_PASS 4
+#define NUM_BUCKETS 16
+
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+ 
+#include "%s"
+
+)===";
+
+	// Todo: This just the value I took from FFT example, don't know how it is being computed.
+	const size_t extraSize = 4u + 8u + 8u + 128u;
+
+	auto shader = core::make_smart_refctd_ptr<asset::ICPUBuffer>(strlen(source_fmt) + extraSize + 1u);
+	snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, WG_SIZE, shader_file_path);
+
+	auto cpu_specialized_shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shader), asset::ICPUShader::buffer_contains_glsl),
+		asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
+
+	auto gpu_shader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpu_specialized_shader->getUnspecialized()));
+	auto gpu_shader_specialized = driver->createGPUSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
+
+	return gpu_shader_specialized;
+}
+
 int main()
 {
 	nbl::SIrrlichtCreationParameters params;
@@ -114,7 +145,7 @@ int main()
 	while (true)
 	{
 #endif
-		const size_t in_count = (rand() * 10) + (rand() % 10); //  (1 << 23) - 23u;
+		const size_t in_count = (rand() * 10) + (rand() % 10);
 		const size_t in_size = in_count * sizeof(SortElement);
 
 		std::cout << "Input element count: " << in_count << std::endl;
@@ -140,8 +171,8 @@ int main()
 		const size_t histogram_size = histogram_count * sizeof(uint32_t);
 		auto histogram_gpu = driver->createDeviceLocalGPUBufferOnDedMem(histogram_size);
 
-		smart_refctd_ptr<IGPUComputePipeline> histogram_pipeline = nullptr;
 		smart_refctd_ptr<IGPUDescriptorSet> ds_histogram = nullptr;
+		smart_refctd_ptr<IGPUComputePipeline> histogram_pipeline = nullptr;
 		{
 			const uint32_t count = 2u;
 			IGPUDescriptorSetLayout::SBinding binding[count];
@@ -149,23 +180,11 @@ int main()
 				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
 
 			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-			ds_histogram = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
-
 			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
 
-			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
-			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Histogram.comp"));
-
-				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../Histogram.comp", lp);
-				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-				auto cs_rawptr = cs.get();
-
-				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-			}
-
-			histogram_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+			ds_histogram = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
+			histogram_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout),
+				createShader("nbl/builtin/glsl/ext/RadixSort/default_histogram.comp", driver));
 		}
 
 		smart_refctd_ptr<IGPUComputePipeline> scatter_pipeline = nullptr;
@@ -177,23 +196,11 @@ int main()
 				binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr };
 
 			auto ds_layout_gpu = driver->createGPUDescriptorSetLayout(binding, binding + count);
-			ds_scatter = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
-
 			auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(ds_layout_gpu));
 
-			smart_refctd_ptr<IGPUSpecializedShader> shader_gpu = nullptr;
-			{
-				auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../Scatter.comp"));
-
-				asset::IAssetLoader::SAssetLoadParams lp;
-				auto cs_bundle = am->getAsset("../Scatter.comp", lp);
-				auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-				auto cs_rawptr = cs.get();
-
-				shader_gpu = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-			}
-
-			scatter_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), std::move(shader_gpu));
+			ds_scatter = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout_gpu));
+			scatter_pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout),
+				createShader("nbl/builtin/glsl/ext/RadixSort/default_scatter.comp", driver));
 		}
 
 		core::smart_refctd_ptr<ScanClass> scanner = core::make_smart_refctd_ptr<ScanClass>(driver, ScanClass::Operator::ADD, WG_SIZE);

@@ -1,4 +1,5 @@
 #ifndef _NBL_GLSL_EXT_SCAN_DEFAULT_SWEEP_COMMON_GLSL_INCLUDED_
+#define _NBL_GLSL_EXT_SCAN_DEFAULT_SWEEP_COMMON_GLSL_INCLUDED_
 
 #ifndef _NBL_GLSL_WORKGROUP_SIZE_
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
@@ -112,5 +113,4 @@ nbl_glsl_ext_Scan_Storage_t nbl_glsl_ext_Scan_getPaddedData(in uint idx, in nbl_
 #define _NBL_GLSL_EXT_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_ext_Scan_downsweepMax
 #endif
 
-#define _NBL_GLSL_EXT_SCAN_DEFAULT_SWEEP_COMMON_GLSL_INCLUDED_
 #endif
