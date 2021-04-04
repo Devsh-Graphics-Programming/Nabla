@@ -145,6 +145,9 @@ set(nbl_resources_to_embed
   # radix sort
   "nbl/builtin/glsl/ext/RadixSort/default_histogram.comp"
   "nbl/builtin/glsl/ext/RadixSort/default_scatter.comp"
+  "nbl/builtin/glsl/ext/RadixSort/radix_sort.glsl"
+  "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
+  "nbl/builtin/glsl/ext/RadixSort/parameters.glsl"
   "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
