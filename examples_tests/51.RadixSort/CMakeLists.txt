@@ -3,4 +3,8 @@ if(NOT RES)
 	message(FATAL_ERROR "common.cmake not found. Should be in {repo_root}/cmake directory")
 endif()
 
-nbl_create_executable_project("" "" "" "")
+set(EXAMPLE_SOURCES
+	../../src/nbl/ext/RadixSort/RadixSort.cpp
+)
+
+nbl_create_executable_project("${EXAMPLE_SOURCES}" "" "" "")

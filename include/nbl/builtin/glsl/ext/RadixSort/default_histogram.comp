@@ -47,8 +47,6 @@ layout (set = _NBL_GLSL_EXT_RADIXSORT_HISTOGRAM_OUTPUT_SET_DEFINED_, binding = _
 layout(push_constant) uniform PushConstants
 {
 	layout (offset = 0) nbl_glsl_ext_RadixSort_Parameters_t params;
-    // layout (offset = 0) uint shift;
-	// layout (offset = 4) uint element_count_total; 
 } pc;
 
 #define _NBL_GLSL_EXT_RADIXSORT_PUSH_CONSTANTS_DEFINED_
@@ -63,7 +61,6 @@ nbl_glsl_ext_RadixSort_Parameters_t nbl_glsl_ext_RadixSort_getParameters()
 
 #define _NBL_GLSL_EXT_RADIXSORT_GET_PARAMETERS_DEFINED_
 #endif
-
 
 #include <nbl/builtin/glsl/limits/numeric.glsl>
 
@@ -113,8 +110,7 @@ void main()
 
 	uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompact(digit, true);
 
-	uint last_of_wg_idx = min((gl_WorkGroupID.x + 1u) * _NBL_GLSL_WORKGROUP_SIZE_ - 1u, nbl_glsl_ext_RadixSort_Parameters_t_getElementCountTotal() - 1u);
-	if (gl_GlobalInvocationID.x == last_of_wg_idx)
+	if (gl_LocalInvocationIndex == 0u)
 	{
 		for (int i = 0; i < NUM_BUCKETS; ++i)
 			nbl_glsl_ext_RadixSort_setHistogram(i * gl_NumWorkGroups.x + gl_WorkGroupID.x, scratch_shared[i]);
