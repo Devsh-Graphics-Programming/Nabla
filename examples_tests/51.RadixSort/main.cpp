@@ -122,37 +122,46 @@ static void ExclusiveSumScan(IVideoDriver* driver, smart_refctd_ptr<IGPUBuffer> 
 	}
 }
 
-static void RadixSort(IVideoDriver* driver,
-	smart_refctd_ptr<IGPUBuffer> in_gpu, const uint32_t in_count, smart_refctd_ptr<IGPUBuffer> scratch_gpu,
-	smart_refctd_ptr<IGPUBuffer> histogram_gpu,
+static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_gpu_range,
 	IGPUDescriptorSet* ds_histogram, IGPUComputePipeline* histogram_pipeline,
-	IGPUDescriptorSet* ds_upsweep, IGPUComputePipeline* upsweep_pipeline,
+	IGPUDescriptorSet*  ds_upsweep, IGPUComputePipeline*  upsweep_pipeline,
 	IGPUDescriptorSet* ds_downsweep, IGPUComputePipeline* downsweep_pipeline,
-	IGPUDescriptorSet* ds_scatter, IGPUComputePipeline* scatter_pipeline,
-	RadixSortClass::Parameters_t* radix_sort_push_constants, RadixSortClass::DispatchInfo_t* radix_sort_dispatch_info)
+	IGPUDescriptorSet* ds_scatter, IGPUComputePipeline* scatter_pipeline)
 {
+	RadixSortClass::Parameters_t radix_sort_push_constants;
+	RadixSortClass::DispatchInfo_t radix_sort_dispatch_info;
+	RadixSortClass::buildParameters(in_gpu_range.size / sizeof(SortElement), &radix_sort_push_constants, &radix_sort_dispatch_info, WG_SIZE);
+
+	SBufferRange<IGPUBuffer> scratch_gpu_range = { 0 };
+	scratch_gpu_range.size = in_gpu_range.size;
+	scratch_gpu_range.buffer = driver->createDeviceLocalGPUBufferOnDedMem(in_gpu_range.size);
+
+	SBufferRange<IGPUBuffer> histogram_gpu_range = { 0 };
+	histogram_gpu_range.size = radix_sort_dispatch_info.histogram_count * sizeof(uint32_t);
+	histogram_gpu_range.buffer = driver->createDeviceLocalGPUBufferOnDedMem(histogram_gpu_range.size);
+
 	for (uint32_t pass = 0; pass < RadixSortClass::PASS_COUNT; ++pass)
 	{
-		RadixSortClass::updateParameters(radix_sort_push_constants, pass);
+		RadixSortClass::updateParameters(&radix_sort_push_constants, pass);
 
 		(pass == 0u)
-			? RadixSortClass::updateDescriptorSet(ds_histogram, { (pass % 2) ? scratch_gpu : in_gpu, histogram_gpu }, driver)
-			: RadixSortClass::updateDescriptorSet(ds_histogram, { (pass % 2) ? scratch_gpu : in_gpu }, driver);
+			? RadixSortClass::updateDescriptorSet(ds_histogram, { (pass % 2) ? scratch_gpu_range : in_gpu_range, histogram_gpu_range }, driver)
+			: RadixSortClass::updateDescriptorSet(ds_histogram, { (pass % 2) ? scratch_gpu_range : in_gpu_range }, driver);
 
 		driver->bindComputePipeline(histogram_pipeline);
 		driver->bindDescriptorSets(video::EPBP_COMPUTE, histogram_pipeline->getLayout(), 0u, 1u, &ds_histogram, nullptr);
-		RadixSortClass::dispatchHelper(histogram_pipeline->getLayout(), *radix_sort_push_constants, *radix_sort_dispatch_info, driver);
+		RadixSortClass::dispatchHelper(histogram_pipeline->getLayout(), radix_sort_push_constants, radix_sort_dispatch_info, driver);
 
-		ExclusiveSumScan(driver, histogram_gpu, radix_sort_dispatch_info->histogram_count, ds_upsweep, upsweep_pipeline,
+		ExclusiveSumScan(driver, histogram_gpu_range.buffer, radix_sort_dispatch_info.histogram_count, ds_upsweep, upsweep_pipeline,
 			ds_downsweep, downsweep_pipeline);
 
 		(pass == 0u)
-			? RadixSortClass::updateDescriptorSet(ds_scatter, { (pass % 2) ? scratch_gpu : in_gpu, (pass % 2) ? in_gpu : scratch_gpu, histogram_gpu }, driver)
-			: RadixSortClass::updateDescriptorSet(ds_scatter, { (pass % 2) ? scratch_gpu : in_gpu, (pass % 2) ? in_gpu : scratch_gpu }, driver);
+			? RadixSortClass::updateDescriptorSet(ds_scatter, { (pass % 2) ? scratch_gpu_range : in_gpu_range, (pass % 2) ? in_gpu_range : scratch_gpu_range, histogram_gpu_range }, driver)
+			: RadixSortClass::updateDescriptorSet(ds_scatter, { (pass % 2) ? scratch_gpu_range : in_gpu_range, (pass % 2) ? in_gpu_range : scratch_gpu_range }, driver);
 
 		driver->bindComputePipeline(scatter_pipeline);
 		driver->bindDescriptorSets(video::EPBP_COMPUTE, scatter_pipeline->getLayout(), 0u, 1u, &ds_scatter, nullptr);
-		RadixSortClass::dispatchHelper(scatter_pipeline->getLayout(), *radix_sort_push_constants, *radix_sort_dispatch_info, driver);
+		RadixSortClass::dispatchHelper(scatter_pipeline->getLayout(), radix_sort_push_constants, radix_sort_dispatch_info, driver);
 	}
 }
 
@@ -167,6 +176,7 @@ int main()
 	params.Vsync = true;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false;
+	params.StreamingDownloadBufferSize = 0x10000000u; // 256MB download required
 	auto device = createDeviceEx(params);
 
 	if (!device)
@@ -179,7 +189,8 @@ int main()
 
 	unsigned int seed = 128;
 
-	const size_t in_count = (1 << 23) - 23;
+	// Create (an almost) 256MB input buffer
+	const size_t in_count = (1 << 25) - 23;
 	const size_t in_size = in_count * sizeof(SortElement);
 
 	std::cout << "Input element count: " << in_count << std::endl;
@@ -193,6 +204,15 @@ int main()
 	}
 	
 	auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+
+	// Take (an almost) 64MB portion from it to sort
+	size_t begin = (1 << 23) + 112;
+	size_t end = (1 << 24) - 77;
+
+	SBufferRange<IGPUBuffer> in_gpu_range = { 0 };
+	in_gpu_range.offset = begin * sizeof(SortElement);
+	in_gpu_range.size = (end - begin) * sizeof(SortElement);
+	in_gpu_range.buffer = in_gpu;
 
 	auto sorter = core::make_smart_refctd_ptr<RadixSortClass>(driver, WG_SIZE);
 	auto scanner = core::make_smart_refctd_ptr<ScanClass>(driver, ScanClass::Operator::ADD, WG_SIZE);
@@ -213,41 +233,31 @@ int main()
 		sorter->getDefaultScatterDescriptorSetLayout()));
 	auto scatter_pipeline = sorter->getDefaultScatterPipeline();
 
-	RadixSortClass::Parameters_t radix_sort_push_constants;
-	RadixSortClass::DispatchInfo_t radix_sort_dispatch_info;
-	RadixSortClass::buildParameters(in_count, &radix_sort_push_constants, &radix_sort_dispatch_info, WG_SIZE);
-
-	auto scratch_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_gpu->getSize());
-	auto histogram_gpu = driver->createDeviceLocalGPUBufferOnDedMem(radix_sort_dispatch_info.histogram_count * sizeof(uint32_t));
-
 	{
 		driver->beginScene(true);
 
 		std::cout << "GPU sort begin" << std::endl;
-		auto begin = std::chrono::high_resolution_clock::now();
 
-		RadixSort(driver, in_gpu, in_count, scratch_gpu, histogram_gpu, ds_histogram.get(), histogram_pipeline,
-			ds_upsweep.get(), upsweep_pipeline, ds_downsweep.get(), downsweep_pipeline, ds_scatter.get(), scatter_pipeline,
-			&radix_sort_push_constants, &radix_sort_dispatch_info);
+		auto start = std::chrono::high_resolution_clock::now();
 
-		auto end = std::chrono::high_resolution_clock::now();
-		std::cout << "GPU sort end" << std::endl;
+		RadixSort(driver, in_gpu_range, ds_histogram.get(), histogram_pipeline, ds_upsweep.get(), upsweep_pipeline,
+			ds_downsweep.get(), downsweep_pipeline, ds_scatter.get(), scatter_pipeline);
 
-		std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << " microseconds" << std::endl;
+		auto stop = std::chrono::high_resolution_clock::now();
+
+		std::cout << "GPU sort end\nTime taken: " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << " microseconds" << std::endl;
 
 		driver->endScene();
 	}
 
 	{
 		std::cout << "CPU sort begin" << std::endl;
-		auto begin = std::chrono::high_resolution_clock::now();
 
-		std::stable_sort(in, in + in_count, [](const SortElement& a, const SortElement& b) { return a.key < b.key; });
+		auto start = std::chrono::high_resolution_clock::now();
+		std::stable_sort(in + begin, in + end, [](const SortElement& a, const SortElement& b) { return a.key < b.key; });
+		auto stop = std::chrono::high_resolution_clock::now();
 
-		auto end = std::chrono::high_resolution_clock::now();
-		std::cout << "CPU sort end" << std::endl;
-
-		std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << " microseconds" << std::endl;
+		std::cout << "CPU sort end\nTime taken: " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << " microseconds" << std::endl;
 	}
 
 	std::cout << "Testing: ";

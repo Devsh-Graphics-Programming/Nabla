@@ -68,7 +68,7 @@ public:
 		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 	}
 
-	static inline void updateDescriptorSet(video::IGPUDescriptorSet* set, core::vector< core::smart_refctd_ptr<video::IGPUBuffer> > descriptors,
+	static inline void updateDescriptorSet(video::IGPUDescriptorSet* set, core::vector< asset::SBufferRange<video::IGPUBuffer> > descriptors,
 		video::IVideoDriver* driver)
 	{
 		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 3u;
@@ -77,8 +77,8 @@ public:
 		video::IGPUDescriptorSet::SDescriptorInfo ds_info[MAX_DESCRIPTOR_COUNT];
 		for (uint32_t i = 0; i < descriptors.size(); ++i)
 		{
-			ds_info[i].desc = descriptors[i];
-			ds_info[i].buffer = { 0u, descriptors[i]->getSize() };
+			ds_info[i].desc = descriptors[i].buffer;
+			ds_info[i].buffer = { descriptors[i].offset, descriptors[i].size };
 		}
 
 		video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT];

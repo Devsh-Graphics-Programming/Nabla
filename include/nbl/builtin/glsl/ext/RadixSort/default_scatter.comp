@@ -65,8 +65,6 @@ layout (set = _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_SET_DEFINED_, bind
 layout(push_constant) uniform PushConstants
 {
 	layout (offset = 0) nbl_glsl_ext_RadixSort_Parameters_t params;
-    // layout (offset = 0) uint shift;
-	// layout (offset = 4) uint element_count_total; 
 } pc;
 
 #define _NBL_GLSL_EXT_RADIXSORT_PUSH_CONSTANTS_DEFINED_
