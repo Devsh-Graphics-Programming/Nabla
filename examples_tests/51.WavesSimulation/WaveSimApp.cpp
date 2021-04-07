@@ -354,6 +354,9 @@ bool WaveSimApp::CreateComputePipelines()
 		}
 		case EPipeline::IFFT_STAGE_1:
 		{
+			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
+			uint32_t maxPaddedDimensionSize = std::max(m_params.length, m_params.width);
+			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
 			const char* sourceFmt =
 				R"===(#version 450
 
@@ -365,21 +368,10 @@ bool WaveSimApp::CreateComputePipelines()
 #include "../ifft_x.comp"
 
 )===";
-			const size_t extraSize = 128;
-			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-			uint32_t maxPaddedDimensionSize = std::max(m_params.length, m_params.width);
-			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
-			auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
-			snprintf(
-				reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), sourceFmt,
-				DEFAULT_WORK_GROUP_SIZE,
-				maxPaddedDimensionSize,
-				maxItemsPerThread,
-				1
-			);
+			auto shader = IGLSLCompiler::createOverridenCopy(nullptr, sourceFmt, DEFAULT_WORK_GROUP_SIZE, maxPaddedDimensionSize, maxItemsPerThread, 1);
 
 			auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-				core::make_smart_refctd_ptr<ICPUShader>(std::move(shader), ICPUShader::buffer_contains_glsl),
+				std::move(shader),
 				ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE }
 			);
 
@@ -391,6 +383,9 @@ bool WaveSimApp::CreateComputePipelines()
 		}
 		case EPipeline::IFFT_STAGE_2:
 		{
+			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
+			uint32_t maxPaddedDimensionSize = std::max(m_params.length, m_params.width);
+			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
 			const char* sourceFmt =
 				R"===(#version 450
 
@@ -403,21 +398,10 @@ bool WaveSimApp::CreateComputePipelines()
 #include "../ifft_y.comp"
 
 )===";
-			const size_t extraSize = 128;
-			constexpr uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
-			uint32_t maxPaddedDimensionSize = std::max(m_params.length, m_params.width);
-			const uint32_t maxItemsPerThread = ((maxPaddedDimensionSize >> 1) - 1u) / (DEFAULT_WORK_GROUP_SIZE)+1u;
-			auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
-			snprintf(
-				reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), sourceFmt,
-				DEFAULT_WORK_GROUP_SIZE,
-				maxPaddedDimensionSize,
-				maxItemsPerThread,
-				1
-			);
+			auto shader = IGLSLCompiler::createOverridenCopy(nullptr, sourceFmt, DEFAULT_WORK_GROUP_SIZE, maxPaddedDimensionSize, maxItemsPerThread, 1);
 
 			auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-				core::make_smart_refctd_ptr<ICPUShader>(std::move(shader), ICPUShader::buffer_contains_glsl),
+				std::move(shader),
 				ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE }
 			);
 
