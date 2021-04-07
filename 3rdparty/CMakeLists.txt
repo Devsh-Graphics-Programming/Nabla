@@ -91,7 +91,7 @@ if (NBL_COMPILE_WITH_SDL2)
 endif()
 
 # EGL
-set(EGL_NO_GLEW ON)
+set(EGL_NO_GLEW ON FORCE)
 add_subdirectory(EGL/EGL)
 
 # zlib (target is zlibstatic)
