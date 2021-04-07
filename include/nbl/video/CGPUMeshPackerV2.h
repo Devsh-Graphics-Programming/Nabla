@@ -62,8 +62,8 @@ public:
         auto cpuVtxBuff = std::move(cpuMP.m_packerDataStore.vertexBuffer);
 
         m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
-        m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
-        m_packerDataStore.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+        m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuIdxBuff->getSize(), cpuIdxBuff->getPointer());
+        m_packerDataStore.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
 
         cpuMP.m_vtxBuffAlctr.reset();
         cpuMP.m_idxBuffAlctr.reset();

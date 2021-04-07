@@ -229,7 +229,7 @@ protected:
         auto* intInfoPtr = floatInfoPtr + m_virtualAttribConfig.floatArrayElementsCnt;
         auto* uintInfoPtr = intInfoPtr + m_virtualAttribConfig.intArrayElementsCnt;
 
-        uint32_t i = 0u, j = 0u;
+        uint32_t i = 0u;
         if (m_virtualAttribConfig.floatArrayElementsCnt)
         {
             writes[i].binding = fBuffersBinding;
@@ -238,6 +238,8 @@ protected:
             writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
             writes[i].dstSet = dstSet;
             writes[i].info = floatInfoPtr;
+
+            i++;
         }
         if (m_virtualAttribConfig.intArrayElementsCnt)
         {
@@ -247,6 +249,8 @@ protected:
             writes[i].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
             writes[i].dstSet = dstSet;
             writes[i].info = intInfoPtr;
+
+            i++;
         }
         if (m_virtualAttribConfig.uintArrayElementsCnt)
         {
@@ -268,7 +272,7 @@ protected:
         for (auto virtualAttribData : m_virtualAttribConfig.map)
         {
             const E_UTB_ARRAY_TYPE utbArrayType = virtualAttribData.second.first;
-            const E_FORMAT format = virtualAttribData.first;
+            E_FORMAT format = virtualAttribData.first;
             const uint32_t arrayElement = virtualAttribData.second.second;
 
             switch (utbArrayType)
@@ -282,6 +286,8 @@ protected:
                 break;
 
             case E_UTB_ARRAY_TYPE::EUAT_UINT:
+                if (format == EF_A2B10G10R10_SNORM_PACK32)
+                    format = EF_R32_UINT;
                 fillInfoStruct(uintInfoPtr + arrayElement, format);
                 break;
 
