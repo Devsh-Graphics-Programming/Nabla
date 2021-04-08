@@ -34,7 +34,7 @@ struct KeyAdaptor
 };
 
 template<typename T>
-constexpr uint8_t find_msb(const T& a_variable)
+constexpr int8_t find_msb(const T& a_variable)
 {
     static_assert(std::is_unsigned<T>::value, "Variable must be unsigned");
 
@@ -44,9 +44,9 @@ constexpr uint8_t find_msb(const T& a_variable)
     for (uint8_t msb = number_of_bits - 1; msb >= 0; msb--)
     {
         if (variable_bitset[msb] == 1)
-            return msb + 1;
+            return msb;
     }        
-    return 0;
+    return -1;
 }
 
 template<size_t key_bit_count, typename histogram_t>
