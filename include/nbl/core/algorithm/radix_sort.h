@@ -76,8 +76,11 @@ struct RadixSorter
 			// prefix sum
 			std::inclusive_scan(histogram,histogram+histogram_size,histogram);
 			// scatter
-			for (histogram_t i=0u; i<rangeSize; i++)
+			for (histogram_t i=rangeSize; i!=0u;)
+			{
+				i--;
 				output[--histogram[comp.operator()<shift,radix_mask>(input[i])]] = input[i];
+			}
 
 			if constexpr (pass_ix != last_pass)
 				return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
@@ -98,7 +101,7 @@ inline RandomIt radix_sort(RandomIt input, RandomIt scratch, const size_t rangeS
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<16ull))
 		return impl::RadixSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<32ull))
-		return impl::RadixSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
+		return impl::RadixSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
 	else
 		return impl::RadixSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
 }
