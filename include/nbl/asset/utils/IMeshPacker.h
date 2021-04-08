@@ -310,8 +310,6 @@ protected:
         auto batchEnd = batches.ranges[batchIdx + 1];
 
         const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
-        //TODO: create array of idxInBatchCnt in the `TriangleBatches` struct
-        //actually don't, here this value is computed for the second time, but caching would not improve performance in any way
         const uint32_t idxInBatchCnt = 3u * triangleInBatchCnt;
 
         uint32_t newIdx = 0u;
