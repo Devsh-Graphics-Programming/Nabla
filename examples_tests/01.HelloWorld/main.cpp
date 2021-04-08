@@ -10,17 +10,14 @@ nothing fancy, just to show that Irrlicht links fine
 #include <iostream>
 #include <cstdio>
 #include <nabla.h>
-#if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/system/CWindowWin32.h>
-using CWindowT = nbl::system::CWindowWin32;
-#elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/system/CWindowLinux.h>
-using CWindowT = nbl::system::CWindowLinux;
-#endif
+
+#include "../common/CommonAPI.h"
+
 using namespace nbl;
 
-static void debugCallback(video::E_DEBUG_MESSAGE_SEVERITY severity, video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
+inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
 {
+	using namespace nbl;
 	const char* sev = nullptr;
 	switch (severity)
 	{
@@ -35,6 +32,7 @@ static void debugCallback(video::E_DEBUG_MESSAGE_SEVERITY severity, video::E_DEB
 	}
 	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 }
+
 
 int main()
 {
@@ -69,96 +67,15 @@ int main()
 
 	auto* queue = device->getQueue(0u, 0u);
 
-	core::smart_refctd_ptr<video::ISwapchain> sc;
-	{
-		video::ISwapchain::SCreationParams sc_params;
-		sc_params.width = WIN_W;
-		sc_params.height = WIN_H;
-		sc_params.arrayLayers = 1u;
-		sc_params.minImageCount = SC_IMG_COUNT;
-		sc_params.presentMode = video::ISurface::EPM_FIFO_RELAXED;
-		sc_params.surface = surface;
-		sc_params.surfaceFormat.format = asset::EF_R8G8B8A8_SRGB;
-		sc_params.surfaceFormat.colorSpace.eotf = asset::EOTF_sRGB;
-		sc_params.surfaceFormat.colorSpace.primary = asset::ECP_SRGB;
+	core::smart_refctd_ptr<video::ISwapchain> sc  = CommonAPI::createSwapchain(WIN_W, WIN_H, SC_IMG_COUNT, device, surface, video::ISurface::EPM_FIFO_RELAXED);
+	assert(sc);
 
-		sc = device->createSwapchain(std::move(sc_params));
-		assert(sc);
-	}
+	core::smart_refctd_ptr<video::IGPURenderpass> renderpass = CommonAPI::createRenderpass(device);
 
-	core::smart_refctd_ptr<video::IGPURenderpass> renderpass;
-	{
-		video::IGPURenderpass::SCreationParams::SAttachmentDescription a;
-		a.initialLayout = asset::EIL_UNDEFINED;
-		a.finalLayout = asset::EIL_UNDEFINED;
-		a.format = asset::EF_R8G8B8A8_SRGB;
-		a.samples = asset::IImage::ESCF_1_BIT;
-		a.loadOp = video::IGPURenderpass::ELO_CLEAR;
-		a.storeOp = video::IGPURenderpass::ESO_STORE;
-
-		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
-		colorAttRef.attachment = 0u;
-		colorAttRef.layout = asset::EIL_UNDEFINED;
-		video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
-		sp.colorAttachmentCount = 1u;
-		sp.colorAttachments = &colorAttRef;
-		sp.depthStencilAttachment = nullptr;
-		sp.flags = video::IGPURenderpass::ESDF_NONE;
-		sp.inputAttachmentCount = 0u;
-		sp.inputAttachments = nullptr;
-		sp.preserveAttachmentCount = 0u;
-		sp.preserveAttachments = nullptr;
-		sp.resolveAttachments = nullptr;
-
-		video::IGPURenderpass::SCreationParams rp_params;
-		rp_params.attachmentCount = 1u;
-		rp_params.attachments = &a;
-		rp_params.dependencies = nullptr;
-		rp_params.dependencyCount = 0u;
-		rp_params.subpasses = &sp;
-		rp_params.subpassCount = 1u;
-
-		renderpass = device->createGPURenderpass(rp_params);
-	}
-
-	auto sc_images = sc->getImages();
-	assert(sc_images.size() == SC_IMG_COUNT);
-
-	core::smart_refctd_ptr<video::IGPUFramebuffer> fbo[SC_IMG_COUNT];
-	for (uint32_t i = 0u; i < sc_images.size(); ++i)
-	{
-		auto img = sc_images.begin()[i];
-		core::smart_refctd_ptr<video::IGPUImageView> view;
-		{
-			video::IGPUImageView::SCreationParams view_params;
-			view_params.format = img->getCreationParameters().format;
-			view_params.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
-			view_params.subresourceRange.baseMipLevel = 0u;
-			view_params.subresourceRange.levelCount = 1u;
-			view_params.subresourceRange.baseArrayLayer = 0u;
-			view_params.subresourceRange.layerCount = 1u;
-			view_params.image = std::move(img);
-
-			view = device->createGPUImageView(std::move(view_params));
-			assert(view);
-		}
-
-		video::IGPUFramebuffer::SCreationParams fb_params;
-		fb_params.width = WIN_W;
-		fb_params.height = WIN_H;
-		fb_params.layers = 1u;
-		fb_params.renderpass = renderpass;
-		fb_params.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
-		fb_params.attachmentCount = 1u;
-		fb_params.attachments = &view;
-
-		fbo[i] = device->createGPUFramebuffer(std::move(fb_params));
-		assert(fbo[i]);
-	}
+	auto fbo = CommonAPI::createFBOWithSwapchainImages<SC_IMG_COUNT, WIN_W, WIN_H>(device, sc, renderpass);
 
 	auto cmdpool = device->createCommandPool(0u, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
 	assert(cmdpool);
-
 
 
 	{
@@ -228,42 +145,7 @@ int main()
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
  	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
-		auto img_acq_sem = device->createSemaphore();
-		auto render_finished_sem = device->createSemaphore();
-
-		uint32_t imgnum = 0u;
-		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-
-		video::IGPUQueue::SSubmitInfo submit;
-		{
-			auto* cb = cmdbuf[imgnum].get();
-			submit.commandBufferCount = 1u;
-			submit.commandBuffers = &cb;
-			video::IGPUSemaphore* signalsem = render_finished_sem.get();
-			submit.signalSemaphoreCount = 1u;
-			submit.pSignalSemaphores = &signalsem;
-			video::IGPUSemaphore* waitsem = img_acq_sem.get();
-			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
-			submit.waitSemaphoreCount = 1u;
-			submit.pWaitSemaphores = &waitsem;
-			submit.pWaitDstStageMask = &dstWait;
-
-			queue->submit(1u, &submit, nullptr);
-		}
-
-		video::IGPUQueue::SPresentInfo present;
-		{
-			present.swapchainCount = 1u;
-			present.imgIndices = &imgnum;
-			video::ISwapchain* swapchain = sc.get();
-			present.swapchains = &swapchain;
-			video::IGPUSemaphore* waitsem = render_finished_sem.get();
-			present.waitSemaphoreCount = 1u;
-			present.waitSemaphores = &waitsem;
-
-			queue->present(present);
-		}
-		
+		CommonAPI::Present<SC_IMG_COUNT>(device, sc, cmdbuf, queue);
 	}
 
 	device->waitIdle();
