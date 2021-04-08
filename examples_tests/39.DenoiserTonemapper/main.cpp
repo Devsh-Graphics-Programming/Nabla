@@ -29,17 +29,21 @@ enum E_IMAGE_INPUT : uint32_t
 };
 constexpr uint32_t calcDenoiserBuffersNeeded(E_IMAGE_INPUT denoiserType)
 {
-	return 3u+denoiserType;
+	return 4u+denoiserType;
 }
+
+using FFTClass = ext::FFT::FFT;
 
 struct ImageToDenoise
 {
+	FFTClass::Parameters_t fftPushConstants[3];
+	FFTClass::DispatchInfo_t fftDispatchInfo[3];
+	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
+	core::smart_refctd_ptr<asset::ICPUImage> kernel = nullptr;
 	uint32_t width = 0u, height = 0u;
 	uint32_t colorTexelSize = 0u;
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
 	float bloomScale;
-	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
-	core::smart_refctd_ptr<asset::ICPUImage> kernel = nullptr;
 };
 struct DenoiserToUse
 {
@@ -160,7 +164,6 @@ int main(int argc, char* argv[])
 	}
 
 
-	using FFTClass = ext::FFT::FFT;
 	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;
 
@@ -428,7 +431,7 @@ void main()
 	uint32_t fftScratchSize = 0u;
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
-		auto default_kernel_image_bundle = am->getAsset("../../media/kernels/physical_flare_512.exr",lp); // TODO: use builtins?
+		auto default_kernel_image_bundle = am->getAsset("../../media/kernels/physical_flare_512.exr",lp); // TODO: make it a builtins?
 
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
@@ -580,9 +583,8 @@ void main()
 				}();
 				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,marginSrcDim,colorChannelsFFT),fftScratchSize);
 				{
-					// TODO: store these
-					FFTClass::Parameters_t fftPushConstants[3];
-					FFTClass::DispatchInfo_t fftDispatchInfo[3];
+					auto* fftPushConstants = outParam.fftPushConstants;
+					auto* fftDispatchInfo = outParam.fftDispatchInfo;
 					const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
 					const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,extent,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
 					{
@@ -648,20 +650,19 @@ void main()
 	// keep all CUDA links in an array (less code to map/unmap)
 	constexpr uint32_t kMaxDenoiserBuffers = calcDenoiserBuffersNeeded(EII_NORMAL);
 	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[kMaxDenoiserBuffers];
-	// except for the scratch CUDA buffer which can and will be ENORMOUS
-	CUdeviceptr denoiserScratch = 0ull; // TODO: allocate scratch with Nabla
 	// set-up denoisers
 	constexpr size_t IntensityValuesSize = sizeof(float);
 	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
-	auto& temporaryPixelBuffer = bufferLinks[1];
-	auto& colorPixelBuffer = bufferLinks[2];
-	auto& albedoPixelBuffer = bufferLinks[3];
-	auto& normalPixelBuffer = bufferLinks[4];
+	auto& scratch = bufferLinks[1];
+	auto& temporaryPixelBuffer = bufferLinks[2];
+	auto& colorPixelBuffer = bufferLinks[3];
+	auto& albedoPixelBuffer = bufferLinks[4];
+	auto& normalPixelBuffer = bufferLinks[5];
 	//auto denoised;
 	size_t denoiserStateBufferSize = 0ull;
 	{
-		size_t scratchBufferSize = 0ull;
+		size_t scratchBufferSize = fftScratchSize;
 		size_t tempBufferSize = fftScratchSize;
 		for (uint32_t i=0u; i<EII_COUNT; i++)
 		{
@@ -697,7 +698,8 @@ void main()
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&temporaryPixelBuffer)),"Could not register buffer for Denoiser scratch memory!"))
 			return error_code;
 		// TODO: allocate scratch with Nabla again
-		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuMemAlloc_v2(&denoiserScratch,scratchBufferSize)), "Could not register buffer for Denoiser temporary memory with CUDA natively!"))
+		scratch = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
+		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&scratch)), "Could not register buffer for Denoiser temporary memory with CUDA natively!"))
 			return error_code;
 	}
 	const auto intensityBufferOffset = denoiserStateBufferSize;
@@ -898,12 +900,9 @@ void main()
 				};
 				core::SRAIIBasedExiter<decltype(unmapBuffers)> exitRoutine(unmapBuffers);
 
-				cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> fakeScratchLink; // TODO: undo this
-				fakeScratchLink.asBuffer.pointer = denoiserScratch;
-
 				// set up denoiser
 				auto& denoiser = denoisers[param.denoiserType];
-				if (denoiser.m_denoiser->setup(m_cudaStream, denoiseTileDimsWithOverlap, denoiserState, denoiser.stateSize, fakeScratchLink, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
+				if (denoiser.m_denoiser->setup(m_cudaStream, denoiseTileDimsWithOverlap, denoiserState, denoiser.stateSize, scratch, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
 				{
 					os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 					continue;
@@ -944,7 +943,7 @@ void main()
 					denoiserInputs,
 					denoiserInputCount,
 					&denoiserOutput,
-					fakeScratchLink,
+					scratch,
 					denoiser.scratchSize,
 					overlap,
 					tileWidth,
