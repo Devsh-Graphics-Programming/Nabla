@@ -34,7 +34,7 @@ struct KeyAdaptor
 };
 
 template<typename T>
-constexpr uint8_t find_msb(const T& a_variable)
+constexpr int8_t find_msb(const T& a_variable)
 {
     static_assert(std::is_unsigned<T>::value, "Variable must be unsigned");
 
@@ -44,9 +44,9 @@ constexpr uint8_t find_msb(const T& a_variable)
     for (uint8_t msb = number_of_bits - 1; msb >= 0; msb--)
     {
         if (variable_bitset[msb] == 1)
-            return msb + 1;
+            return msb;
     }        
-    return 0;
+    return -1;
 }
 
 template<size_t key_bit_count, typename histogram_t>
@@ -76,8 +76,11 @@ struct RadixSorter
 			// prefix sum
 			std::inclusive_scan(histogram,histogram+histogram_size,histogram);
 			// scatter
-			for (histogram_t i=0u; i<rangeSize; i++)
+			for (histogram_t i=rangeSize; i!=0u;)
+			{
+				i--;
 				output[--histogram[comp.operator()<shift,radix_mask>(input[i])]] = input[i];
+			}
 
 			if constexpr (pass_ix != last_pass)
 				return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
@@ -98,7 +101,7 @@ inline RandomIt radix_sort(RandomIt input, RandomIt scratch, const size_t rangeS
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<16ull))
 		return impl::RadixSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<32ull))
-		return impl::RadixSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
+		return impl::RadixSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
 	else
 		return impl::RadixSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
 }

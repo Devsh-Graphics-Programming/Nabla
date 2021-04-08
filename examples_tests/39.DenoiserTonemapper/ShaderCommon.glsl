@@ -8,6 +8,7 @@ layout(local_size_x=COMPUTE_WG_SIZE) in;
 layout(constant_id = 1) const uint EII_COLOR = 0u;
 layout(constant_id = 2) const uint EII_ALBEDO = 1u;
 layout(constant_id = 3) const uint EII_NORMAL = 2u;
+layout(constant_id = 4) const uint EII_COUNT = 3u;
 
 #include "./CommonPushConstants.h"
 
@@ -18,10 +19,12 @@ layout(push_constant, row_major) uniform PushConstants{
 
 
 #define SHARED_CHANNELS 3
-// the amount of memory needed for luma metering is bigger than interleaving
-#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ ((COMPUTE_WG_SIZE+1)*8)
-shared uint repackBuffer[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
-#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ repackBuffer
+struct f16vec3_packed
+{
+	float16_t x;
+	float16_t y;
+	float16_t z;
+};
 
 
 // luma metering stuff
