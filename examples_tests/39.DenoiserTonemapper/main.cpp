@@ -241,7 +241,7 @@ layout(binding = 3, std430) restrict writeonly buffer IntensityBuffer
 
 int nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
 {
-	return pc.data.beforeDenoise!=0u ? 0:1;
+	return int((~pc.data.flags)&0x1u);
 }
 nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t nbl_glsl_ext_ToneMapper_getLumaMeterOutput()
 {
@@ -254,11 +254,9 @@ nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t nbl_glsl_ext_ToneMapper_getL
 void main()
 {
 	const bool firstInvocation = all(equal(uvec3(0,0,0),gl_GlobalInvocationID));
-	const bool beforeDenoise = pc.data.beforeDenoise!=0u;
-	const bool autoexposureOn = pc.data.autoexposureOff==0u;
 
 	float optixIntensity = 1.0;
-	if (beforeDenoise||autoexposureOn)
+	if (bool(pc.data.flags&0x2u))
 	{
 		nbl_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
 		lumaPassInfo.percentileRange[0] = pc.data.percentileRange[0];
@@ -266,6 +264,7 @@ void main()
 		float measuredLumaLog2 = nbl_glsl_ext_LumaMeter_getMeasuredLumaLog2(nbl_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
 		if (firstInvocation)
 		{
+			const bool beforeDenoise = bool(pc.data.flags&0x1u);
 			measuredLumaLog2 += beforeDenoise ? pc.data.denoiserExposureBias:0.0;
 			optixIntensity = nbl_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
 		}
@@ -284,10 +283,56 @@ layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	f16vec3_packed inBuffer[];
 };
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
-	float16_t data[];
-} outBuffers[EII_COUNT]; // TODO: do FFT
+	f16vec2 outBuffer[];
+};
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+
+
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+
+
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(pc.data.imageWidth,pc.data.imageHeight,1u);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return false;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 0u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
+{
+    return 2u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return max(findMSB(pc.data.imageWidth-1u),_NBL_GLSL_WORKGROUP_SIZE_LOG2_)+1u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
+{
+    return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+
+
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
+{
+	const uint index = ((pc.data.imageHeight*channel+coordinate.x)<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.y;
+	outBuffer[index] = f16vec2(complex_value);
+}
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+
+
+
 void main()
 {
 	const uint dataOffset = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
@@ -295,6 +340,29 @@ void main()
 
 	nbl_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
 	barrier();
+}
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
+{
+#if 0
+	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
+		return nbl_glsl_complex(0.f,0.f);
+#endif
+	const uint index = coordinate.y*pc.data.imageWidth+coordinate.x;
+	float data;
+	switch (channel)
+	{
+		case 2u:
+			data = float(inBuffer[index].z);
+			break;
+		case 1u:
+			data = float(inBuffer[index].y);
+			break;
+		default:
+			data = float(inBuffer[index].x);
+			break;
+	}
+	return nbl_glsl_complex(data,0.f);
 }
 		)==="));
 		auto interleaveAndLastFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -306,14 +374,48 @@ layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	f16vec3_packed inBuffer[];
 };
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
 	f16vec4 outBuffer[];
 };
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
 {
 	float intensity[];
 };
+
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(pc.data.imageWidth,pc.data.imageHeight,1u);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return true;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 0u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
+{
+    return 2u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return 10u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
+{
+    return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+
 void main()
 {
 	// TODO: compute iFFT of the image
@@ -351,6 +453,15 @@ void main()
 	uint dataOffset = gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
 		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));
+}
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
+{
+#if 0
+	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
+		return nbl_glsl_complex(0.f,0.f);
+#endif
+		return nbl_glsl_complex(0.f,0.f);
 }
 		)==="));
 		struct SpecializationConstants
@@ -586,7 +697,7 @@ void main()
 					auto* fftPushConstants = outParam.fftPushConstants;
 					auto* fftDispatchInfo = outParam.fftDispatchInfo;
 					const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
-					const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,extent,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
+					const auto passes = FFTClass::buildParameters<false>(false,colorChannelsFFT,extent,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
 					{
 						// override for less work and storage (dont need to store the extra padding of the last axis after iFFT)
 						fftPushConstants[1].output_strides.x = fftPushConstants[0].input_strides.x;
@@ -697,7 +808,6 @@ void main()
 		temporaryPixelBuffer = driver->createDeviceLocalGPUBufferOnDedMem(tempBufferSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&temporaryPixelBuffer)),"Could not register buffer for Denoiser scratch memory!"))
 			return error_code;
-		// TODO: allocate scratch with Nabla again
 		scratch = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&scratch)), "Could not register buffer for Denoiser temporary memory with CUDA natively!"))
 			return error_code;
@@ -717,13 +827,13 @@ void main()
 		CommonPushConstants shaderConstants;
 		{
 			shaderConstants.imageWidth = param.width;
+			shaderConstants.imageHeight = param.height;
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
-			shaderConstants.beforeDenoise = 1u;
 
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
-			shaderConstants.autoexposureOff = 0u;
+			shaderConstants.flags = 0b11u; // (autoexposureOn<<1)|beforeDenoise
 			switch (tonemapperBundle[i].first)
 			{
 				case DTEA_TONEMAPPER_REINHARD:
@@ -764,7 +874,7 @@ void main()
 					if (core::isnan(key))
 					{
 						shaderConstants.tonemapperParams[0] = 0.18;
-						shaderConstants.autoexposureOff = 1u;
+						shaderConstants.flags &= 0b01u; // ~(autoexposureOn<<1)
 					}
 					else
 						shaderConstants.tonemapperParams[0] = key;
@@ -961,8 +1071,8 @@ void main()
 			// compute post-processing
 			{
 				// let the shaders know we're in the second phase now
-				shaderConstants.beforeDenoise = 0u;
-				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,beforeDenoise), sizeof(uint32_t), &shaderConstants.beforeDenoise);
+				shaderConstants.flags &= 0b10u;
+				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,flags), sizeof(uint32_t), &shaderConstants.flags);
 				// Bloom
 				uint32_t workgroupCounts[2] = { (param.width + kComputeWGSize - 1u) / kComputeWGSize,param.height }; // TODO: change
 				{
@@ -989,7 +1099,6 @@ void main()
 					}
 
 					driver->bindComputePipeline(secondLumaMeterAndFirstFFTPipeline.get());
-					//FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
 					// dispatch
 					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

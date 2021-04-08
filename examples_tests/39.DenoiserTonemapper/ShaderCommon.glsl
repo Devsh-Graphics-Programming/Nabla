@@ -16,6 +16,8 @@ layout(push_constant, row_major) uniform PushConstants{
 	CommonPushConstants data;
 } pc;
 #define _NBL_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
+#define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
+#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
 
 
 #define SHARED_CHANNELS 3
@@ -29,7 +31,7 @@ struct f16vec3_packed
 
 // luma metering stuff
 // those don't really influence anything but need to let the header know that we're using the same number of invocations as bins
-#define _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_ 256
+#define _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_ COMPUTE_WG_SIZE
 #define _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_ 1
 
 #define _NBL_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ 0x39800000
@@ -57,6 +59,7 @@ struct f16vec3_packed
 #define _NBL_GLSL_EXT_LUMA_METER_INVOCATION_COUNT (_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_)
 #define _NBL_GLSL_EXT_LUMA_METER_BIN_COUNT _NBL_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
 #define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_EXT_LUMA_METER_BIN_COUNT
+#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ 8
 #define _NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION 4
 #ifdef _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 	#include "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
@@ -64,12 +67,12 @@ struct f16vec3_packed
 	// need to override the offset and color provision functions
 	int nbl_glsl_ext_LumaMeter_getNextLumaOutputOffset()
 	{
-		return pc.data.beforeDenoise!=0u ? 1:0;
+		return int(pc.data.flags&0x1u);
 	}
 
 	int nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
 	{
-		return pc.data.beforeDenoise!=0u ? 0:1;
+		return int((~pc.data.flags)&0x1u);
 	}
 
 	vec3 globalPixelData;
