@@ -4,6 +4,20 @@
 #error "_NBL_GLSL_EXT_SCAN_DOWNSWEEP_TYPE_ is not defined! Recheck _NBL_GLSL_EXT_SCAN_BIN_OP_!"
 #endif
 
+#ifndef _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
+
+nbl_glsl_ext_Scan_Storage_t nbl_glsl_ext_Scan_getPaddedData(in uint idx, in nbl_glsl_ext_Scan_Storage_t pad_val)
+{
+	nbl_glsl_ext_Scan_Storage_t data = pad_val;
+	if (idx < nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal())
+		data = inout_values[idx];
+
+	return data;
+}
+
+#define _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
+#endif
+
 #include "nbl/builtin/glsl/ext/Scan/scan.glsl"
 
 #ifndef _NBL_GLSL_EXT_SCAN_DOWNSWEEP_MAIN_DEFINED_

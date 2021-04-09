@@ -62,28 +62,6 @@ void nbl_glsl_ext_Scan_setData(in uint idx, in nbl_glsl_ext_Scan_Storage_t val)
 #define _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
 #endif
 
-#ifndef _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
-
-nbl_glsl_ext_Scan_Storage_t nbl_glsl_ext_Scan_getPaddedData(in uint idx, in nbl_glsl_ext_Scan_Storage_t pad_val, bool is_upsweep)
-{
-	nbl_glsl_ext_Scan_Storage_t data = pad_val;
-	if (is_upsweep)
-	{
-		if (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass())
-			data = inout_values[idx];
-	}
-	else
-	{
-		if (idx < nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal())
-			data = inout_values[idx];
-	}
-
-	return data;
-}
-
-#define _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DEFINED_
-#endif
-
 #ifndef _NBL_GLSL_EXT_SCAN_BIN_OP_
 #error "_NBL_GLSL_EXT_SCAN_BIN_OP_ must be defined!"
 #endif

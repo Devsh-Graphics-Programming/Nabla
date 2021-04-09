@@ -60,6 +60,10 @@ layout (set = _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_SET_DEFINED_, bind
 #include "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
 #include "nbl/builtin/glsl/ext/RadixSort/parameters.glsl"
 
+#ifndef _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_
+#error "You need to define `_NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_`!"
+#endif
+
 #ifndef _NBL_GLSL_EXT_RADIXSORT_PUSH_CONSTANTS_DEFINED_
 
 layout(push_constant) uniform PushConstants
@@ -80,15 +84,16 @@ nbl_glsl_ext_RadixSort_Parameters_t nbl_glsl_ext_RadixSort_getParameters()
 #define _NBL_GLSL_EXT_RADIXSORT_GET_PARAMETERS_DEFINED_
 #endif
 
-shared uint global_histogram[NUM_BUCKETS];
+#include <nbl/builtin/glsl/workgroup/shuffle.glsl>
 
 #ifndef _NBL_GLSL_EXT_RADIXSORT_LOAD_GLOBAL_HISTOGRAM_DEFINED_
 
-void nbl_glsl_ext_RadixSort_loadGlobalHistogram()
+uint nbl_glsl_ext_RadixSort_loadGlobalHistogram(in uint digit)
 {
-	if (gl_LocalInvocationIndex < NUM_BUCKETS)
-		global_histogram[gl_LocalInvocationIndex] = histogram[gl_LocalInvocationIndex * gl_NumWorkGroups.x + gl_WorkGroupID.x];
-	barrier();
+	uint offset;
+	if (gl_LocalInvocationIndex < _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_)
+		offset = histogram[gl_LocalInvocationIndex * gl_NumWorkGroups.x + gl_WorkGroupID.x];
+	return nbl_glsl_workgroupShuffle(offset, digit);
 }
 
 #define _NBL_GLSL_EXT_RADIXSORT_LOAD_GLOBAL_HISTOGRAM_DEFINED_
@@ -126,15 +131,14 @@ void nbl_glsl_ext_RadixSort_setData(in uint idx, in uvec2 data)
 #ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_MAIN_DEFINED_
 
 void main()
-{	
-	nbl_glsl_ext_RadixSort_loadGlobalHistogram();
+{
+	const uvec2 data = nbl_glsl_ext_RadixSort_getPaddedData(gl_GlobalInvocationID.x);
+	const uint digit = nbl_glsl_ext_RadixSort_extractDigit(data.x);
 
-	uvec2 data = nbl_glsl_ext_RadixSort_getPaddedData(gl_GlobalInvocationID.x);
-	uint digit = nbl_glsl_ext_RadixSort_extractDigit(data.x);
+	const uint offset = nbl_glsl_ext_RadixSort_loadGlobalHistogram(digit);
+	const uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompact(digit);
 
-	uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompact(digit, false);
-
-	uint global_scatter_idx = global_histogram[digit] + scatter_idx;
+	const uint global_scatter_idx = offset + scatter_idx;
 	nbl_glsl_ext_RadixSort_setData(global_scatter_idx, data);
 }
 

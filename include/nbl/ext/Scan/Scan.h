@@ -33,10 +33,7 @@ public:
 
 	struct DispatchInfo_t
 	{
-		uint32_t upsweep_pass_count;
-		uint32_t downsweep_pass_count;
-		uint32_t wg_count;
-		std::stack<uint32_t> element_count_pass_stack;
+		uint32_t wg_count[3];
 	};
 
 	Scan(video::IDriver* driver, Operator op, const uint32_t wg_size) : m_wg_size(wg_size)
@@ -73,54 +70,38 @@ public:
 		const DispatchInfo_t& dispatch_info, video::IVideoDriver* driver, bool issue_default_barrier = true)
 	{
 		driver->pushConstants(pipeline_layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
-		driver->dispatch(dispatch_info.wg_count, 1, 1);
+		driver->dispatch(dispatch_info.wg_count[0], 1, 1);
 
 		if (issue_default_barrier)
 			defaultBarrier();
 	}
 
-	static inline void buildParameters(const uint32_t in_count, Parameters_t* push_constants, DispatchInfo_t* dispatch_info,
-		const uint32_t wg_size)
+	static inline uint32_t buildParameters(const uint32_t in_count, const uint32_t wg_size, Parameters_t* push_constants,
+		DispatchInfo_t* dispatch_info)
 	{
-		dispatch_info->upsweep_pass_count = std::ceil(log(in_count) / log(wg_size));
-		assert(dispatch_info->upsweep_pass_count != 0u && "Input element count should be > 1!");
+		assert(in_count > 0u && "Input element count can't be 0!");
+		const uint32_t upsweep_pass_count = (core::findMSB((in_count + 1u) - 1u) / core::findMSB(wg_size)) + 1u;
+		const uint32_t total_pass_count = 2 * upsweep_pass_count - 1;
 
-		dispatch_info->downsweep_pass_count = dispatch_info->upsweep_pass_count - 1u;
+		if (!push_constants || !dispatch_info)
+			return total_pass_count;
 
-		push_constants->element_count_pass = in_count;
-		push_constants->element_count_total = in_count;
-		push_constants->stride = 1u;
-	}
+		uint32_t element_count_pass = in_count;
+		uint32_t element_count_total = in_count;
+		uint32_t stride = 1u;
+		uint32_t wg_count = (element_count_pass + wg_size - 1) / wg_size;
 
-	static inline void prePassParameterUpdate(uint32_t pass_idx, bool is_upsweep, Parameters_t* push_constants,
-		DispatchInfo_t* dispatch_info, const uint32_t wg_size)
-	{
-		if (is_upsweep)
+		for (uint32_t pass = 0; pass < upsweep_pass_count; ++pass)
 		{
-			if (pass_idx != (dispatch_info->upsweep_pass_count - 1u))
-				dispatch_info->element_count_pass_stack.push(push_constants->element_count_pass);
-		}
-		else
-		{
-			push_constants->element_count_pass = dispatch_info->element_count_pass_stack.top();
-			dispatch_info->element_count_pass_stack.pop();
+			push_constants[pass] = { stride, element_count_pass, element_count_total };
+			dispatch_info[pass] = { { wg_count, 0, 0 } };
+
+			element_count_pass = wg_count;
+			stride *= wg_size;
+			wg_count = (element_count_pass + wg_size - 1) / wg_size;
 		}
 
-		dispatch_info->wg_count = (push_constants->element_count_pass + wg_size - 1) / wg_size;
-	}
-
-	static inline void postPassParameterUpdate(uint32_t pass_idx, bool is_upsweep, Parameters_t* push_constants, DispatchInfo_t* dispatch_info,
-		const uint32_t wg_size)
-	{
-		if (is_upsweep && (pass_idx != (dispatch_info->upsweep_pass_count - 1u)))
-		{
-			push_constants->stride *= wg_size;
-			push_constants->element_count_pass = dispatch_info->wg_count;
-		}
-		else
-		{
-			push_constants->stride /= wg_size;
-		}
+		return total_pass_count;
 	}
 
 	static inline void defaultBarrier()

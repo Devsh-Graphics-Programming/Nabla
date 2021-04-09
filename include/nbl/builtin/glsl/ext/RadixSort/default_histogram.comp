@@ -42,6 +42,10 @@ layout (set = _NBL_GLSL_EXT_RADIXSORT_HISTOGRAM_OUTPUT_SET_DEFINED_, binding = _
 #include "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
 #include "nbl/builtin/glsl/ext/RadixSort/parameters.glsl"
 
+#ifndef _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_
+#error "You need to define `_NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_`!"
+#endif
+
 #ifndef _NBL_GLSL_EXT_RADIXSORT_PUSH_CONSTANTS_DEFINED_
 
 layout(push_constant) uniform PushConstants
@@ -99,6 +103,12 @@ void nbl_glsl_ext_RadixSort_setHistogram(in uint idx, in uint val)
 #define _NBL_GLSL_EXT_RADIXSORT_HISTOGRAM_SET_HISTOGRAM_DEFINED_
 #endif
 
+#ifndef _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_
+#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ (_NBL_GLSL_WORKGROUP_SIZE_ * 2)
+shared uint scratch_shared[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
+#endif
+#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ scratch_shared
+
 #include "nbl/builtin/glsl/ext/RadixSort/radix_sort.glsl"
 
 #ifndef _NBL_GLSL_EXT_RADIXSORT_HISTOGRAM_MAIN_DEFINED_
@@ -106,17 +116,25 @@ void nbl_glsl_ext_RadixSort_setHistogram(in uint idx, in uint val)
 void main()
 {
 	uvec2 data = nbl_glsl_ext_RadixSort_getPaddedData(gl_GlobalInvocationID.x);
-	uint digit = nbl_glsl_ext_RadixSort_extractDigit(data.x);
+	const uint digit = nbl_glsl_ext_RadixSort_extractDigit(data.x);
 
-	uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompact(digit, true);
+	groupMemoryBarrier();
 
-	if (gl_LocalInvocationIndex == 0u)
-	{
-		for (int i = 0; i < NUM_BUCKETS; ++i)
-			nbl_glsl_ext_RadixSort_setHistogram(i * gl_NumWorkGroups.x + gl_WorkGroupID.x, scratch_shared[i]);
-	}
+	uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompact(digit);
 
-	data = nbl_glsl_ext_RadixSort_workgroupSort(data, scatter_idx);
+	// Here I am assuming scratch_shared has exclusive prefix sum of local histogram
+	// we could change the name of `nbl_glsl_ext_RadixSort_workgroupCompact` to reflect that
+
+	const uint local_offset = scratch_shared[digit];
+	scatter_idx += local_offset;
+	barrier();
+
+	scratch_shared[scatter_idx] = data.x;
+	scratch_shared[_NBL_GLSL_WORKGROUP_SIZE_ + scatter_idx] = data.y;
+	barrier();
+
+	data = uvec2(scratch_shared[gl_LocalInvocationIndex], scratch_shared[gl_LocalInvocationIndex + _NBL_GLSL_WORKGROUP_SIZE_]);
+
 	nbl_glsl_ext_RadixSort_setData(gl_GlobalInvocationID.x, data);
 }
 

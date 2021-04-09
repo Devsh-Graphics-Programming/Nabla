@@ -9,9 +9,9 @@
 
 #ifndef _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DECLARED_
 
-uint nbl_glsl_ext_Scan_getPaddedData(in uint idx, in uint pad_val, bool is_upsweep);
-int nbl_glsl_ext_Scan_getPaddedData(in uint idx, in int pad_val, bool is_upsweep);
-float nbl_glsl_ext_Scan_getPaddedData(in uint idx, in float pad_val, bool is_upsweep);
+uint nbl_glsl_ext_Scan_getPaddedData(in uint idx, in uint pad_val);
+int nbl_glsl_ext_Scan_getPaddedData(in uint idx, in int pad_val);
+float nbl_glsl_ext_Scan_getPaddedData(in uint idx, in float pad_val);
 
 #define _NBL_GLSL_EXT_SCAN_GET_PADDED_DATA_DECLARED_
 #endif
@@ -28,11 +28,13 @@ float nbl_glsl_ext_Scan_getPaddedData(in uint idx, in float pad_val, bool is_ups
 // Upsweep
 //
 
-#define NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(BIN_OP_NAME, TYPE, IDENTITY)\
-void nbl_glsl_ext_Scan_upsweep##BIN_OP_NAME(in uint idx, out TYPE val)\
+#define NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(BIN_OP_NAME, TYPE, IDENTITY) void nbl_glsl_ext_Scan_upsweep##BIN_OP_NAME(in uint idx, out TYPE val)\
 {\
-	TYPE data = nbl_glsl_ext_Scan_getPaddedData(idx, IDENTITY, true);\
-	val = (gl_NumWorkGroups.x == 1u) ? nbl_glsl_workgroupExclusive##BIN_OP_NAME(data) : nbl_glsl_workgroupInclusive##BIN_OP_NAME(data);\
+	TYPE data = nbl_glsl_ext_Scan_getPaddedData(idx, IDENTITY);\
+	if (gl_NumWorkGroups.x == 1u)\
+		val = nbl_glsl_workgroupExclusive##BIN_OP_NAME(data);\
+	else\
+		val = nbl_glsl_workgroupInclusive##BIN_OP_NAME(data);\
 }
 
 NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(And, uint, ~0u)
@@ -67,21 +69,18 @@ NBL_GLSL_EXT_SCAN_DEFINE_UPSWEEP(Max, float, -FLT_INF)
 //	Downsweep
 //
 
-shared uint global_offset_uint;
-shared int global_offset_int;
-shared float global_offset_float;
-
 #define NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(BIN_OP_NAME, TYPE, IDENTITY, BIN_OP, CONV, INVCONV)\
 void nbl_glsl_ext_Scan_downsweep##BIN_OP_NAME(in uint idx, out TYPE val)\
 {\
-	if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))\
-		global_offset_##TYPE = nbl_glsl_ext_Scan_getPaddedData(idx, IDENTITY, false);\
-	barrier();\
-	TYPE data = global_offset_##TYPE;\
+	TYPE data;\
+	const uint last_idx = _NBL_GLSL_WORKGROUP_SIZE_ - 1u;\
+	if (gl_LocalInvocationIndex == last_idx)\
+		data = nbl_glsl_ext_Scan_getPaddedData(idx, IDENTITY);\
+	data = nbl_glsl_workgroupBroadcast(data, last_idx);\
 	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass()))\
 	{\
 		uint prev_idx = gl_GlobalInvocationID.x * nbl_glsl_ext_Scan_Parameters_t_getStride() - 1u;\
-		data = INVCONV(BIN_OP(CONV(data), CONV(nbl_glsl_ext_Scan_getPaddedData(prev_idx, IDENTITY, false))));\
+		data = INVCONV(BIN_OP(CONV(data), CONV(nbl_glsl_ext_Scan_getPaddedData(prev_idx, IDENTITY))));\
 	}\
 	barrier();\
 	val = data;\

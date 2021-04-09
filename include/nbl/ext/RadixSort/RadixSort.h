@@ -1,6 +1,7 @@
 #ifndef _NBL_EXT_RADIXSORT_INCLUDED_
 
 #include "nabla.h"
+#include "nbl/ext/Scan/Scan.h"
 
 namespace nbl
 {
@@ -8,6 +9,8 @@ namespace ext
 {
 namespace RadixSort
 {
+
+using ScanClass = ext::Scan::Scan<uint32_t>;
 
 typedef uint32_t uint;
 #include "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
@@ -24,9 +27,11 @@ public:
 
 	struct DispatchInfo_t
 	{
-		uint32_t wg_count;
-		uint32_t histogram_count;
+		uint32_t wg_count[3];
 	};
+
+	const uint32_t m_wg_size;
+	core::smart_refctd_ptr<ScanClass> m_scanner = nullptr;
 	
 	RadixSort(video::IDriver* driver, const uint32_t wg_size);
 
@@ -42,25 +47,31 @@ public:
 		const DispatchInfo_t& dispatch_info, video::IVideoDriver* driver, bool issue_default_barrier = true)
 	{
 		driver->pushConstants(pipeline_layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
-		driver->dispatch(dispatch_info.wg_count, 1, 1);
+		driver->dispatch(dispatch_info.wg_count[0], 1, 1);
 
 		if (issue_default_barrier)
 			defaultBarrier();
 	}
 
-	static inline void buildParameters(const uint32_t in_count, Parameters_t* push_constants, DispatchInfo_t* dispatch_info,
-		const uint32_t wg_size)
+	// Returns the total number of passes required by scan, since the total number of passes required by the radix sort
+	// is always constant and is given by `PASS_COUNT` constant above
+	static inline uint32_t buildParameters(const uint32_t in_count, const uint32_t wg_size, Parameters_t* sort_push_constants,
+		DispatchInfo_t* sort_dispatch_info, ScanClass::Parameters_t* scan_push_constants, ScanClass::DispatchInfo_t* scan_dispatch_info)
 	{
-		push_constants->element_count_total = in_count;
-		push_constants->shift = 0u;
+		const uint32_t wg_count = (in_count + wg_size - 1) / wg_size;
+		const uint32_t histogram_count = wg_count * BUCKETS_COUNT;
 
-		dispatch_info->wg_count = (in_count + wg_size - 1) / wg_size;
-		dispatch_info->histogram_count = dispatch_info->wg_count * BUCKETS_COUNT;
-	}
+		const uint32_t total_scan_pass_count = ScanClass::buildParameters(histogram_count, wg_size, scan_push_constants, scan_dispatch_info);
 
-	static inline void updateParameters(Parameters_t* push_constants, const uint32_t pass_idx)
-	{
-		push_constants->shift = 4u * pass_idx;
+		if (!scan_push_constants || !scan_dispatch_info || !sort_push_constants || !sort_dispatch_info)
+			return total_scan_pass_count;
+
+		sort_dispatch_info[0] = { {wg_count, 0, 0} };
+
+		for (uint32_t pass = 0; pass < PASS_COUNT; ++pass)
+			sort_push_constants[pass] = { BITS_PER_PASS * pass,  in_count };
+
+		return total_scan_pass_count;
 	}
 
 	static inline void defaultBarrier()
@@ -68,6 +79,7 @@ public:
 		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 	}
 
+	// Todo: Don't let it use core::vector
 	static inline void updateDescriptorSet(video::IGPUDescriptorSet* set, core::vector< asset::SBufferRange<video::IGPUBuffer> > descriptors,
 		video::IVideoDriver* driver)
 	{
@@ -88,7 +100,10 @@ public:
 		driver->updateDescriptorSets(descriptors.size(), writes, 0u, nullptr);
 	}
 
-	const uint32_t m_wg_size;
+	static void exclusiveSumScan(video::IVideoDriver* driver, core::smart_refctd_ptr<video::IGPUBuffer> in_gpu,
+		video::IGPUDescriptorSet* ds_upsweep, video::IGPUComputePipeline* upsweep_pipeline, video::IGPUDescriptorSet* ds_downsweep,
+		video::IGPUComputePipeline* downsweep_pipeline, ScanClass::Parameters_t* push_constants, ScanClass::DispatchInfo_t* dispatch_info,
+		const uint32_t total_pass_count, const uint32_t upsweep_pass_count);
 
 private:
 	~RadixSort() {}
