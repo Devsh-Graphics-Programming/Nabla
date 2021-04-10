@@ -72,6 +72,10 @@ float nbl_glsl_ext_LumaMeter_local_process(in bool wgExecutionMask, in vec3 colo
 	return scaledLogLuma;
 }
 
+#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
+#include "nbl/builtin/glsl/workgroup/arithmetic.glsl"
+#endif
+
 nbl_glsl_ext_LumaMeter_WriteOutValue_t nbl_glsl_ext_LumaMeter_workgroup_process(in bool wgExecutionMask, in float scaledLogLuma)
 {
 	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
@@ -81,22 +85,7 @@ nbl_glsl_ext_LumaMeter_WriteOutValue_t nbl_glsl_ext_LumaMeter_workgroup_process(
 			writeOutVal += _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_NBL_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT];
 		return writeOutVal;
 	#elif _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
-		// TODO: use nbl_glsl_workgroupAdd reduction
-		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = wgExecutionMask ? floatBitsToUint(scaledLogLuma):0u;
-		for (int i=NBL_GLSL_WORKGROUP_SIZE_>>1; i>1; i>>=1)
-		{
-			barrier();
-			if (gl_LocalInvocationIndex<i)
-			{
-				_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint
-				(
-					uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex])+
-					uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i])
-				);
-			}
-		}
-		barrier();
-		return uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[0])+uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[1]);
+		return nbl_glsl_workgroupAdd(wgExecutionMask ? scaledLogLuma:0.f);
 	#endif
 }
 

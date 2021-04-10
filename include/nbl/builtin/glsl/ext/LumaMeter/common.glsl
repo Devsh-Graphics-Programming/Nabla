@@ -64,7 +64,8 @@ struct nbl_glsl_ext_LumaMeter_Uniforms_t
     };
 #elif _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
     #ifdef _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
-	    #define _NBL_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ NBL_GLSL_EVAL(_NBL_GLSL_WORKGROUP_SIZE_)
+        #include "nbl/builtin/glsl/workgroup/shared_arithmetic.glsl"
+	    #define _NBL_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ NBL_GLSL_EVAL(_NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_)
     #else
         #define _NBL_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ 0
     #endif
