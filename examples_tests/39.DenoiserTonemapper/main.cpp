@@ -332,37 +332,44 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 
 
+#define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
-void main()
-{
-	const uint dataOffset = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
-	globalPixelData = vec3(inBuffer[dataOffset].x,inBuffer[dataOffset].y,inBuffer[dataOffset].z);
-
-	nbl_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
-	barrier();
-}
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
 {
-#if 0
-	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
-		return nbl_glsl_complex(0.f,0.f);
-#endif
+	ivec3 oldCoord = coordinate;
+	nbl_glsl_ext_FFT_wrap_coord(coordinate);
+
 	const uint index = coordinate.y*pc.data.imageWidth+coordinate.x;
-	float data;
+
+	nbl_glsl_complex retval;
 	switch (channel)
 	{
 		case 2u:
-			data = float(inBuffer[index].z);
-			break;
+			retval.z = float(inBuffer[index].z);
 		case 1u:
-			data = float(inBuffer[index].y);
-			break;
+			retval.y = float(inBuffer[index].y);
 		default:
-			data = float(inBuffer[index].x);
-			break;
+			retval.x = float(inBuffer[index].x);
 	}
-	return nbl_glsl_complex(data,0.f);
+	return retval;
+}
+
+void main()
+{
+	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+		nbl_glsl_ext_LumaMeter_clearHistogram();
+	#endif
+	nbl_glsl_ext_LumaMeter_clearFirstPassOutput();
+
+	//
+
+	// prevent overlap between different usages of shared memory
+	barrier();
+
+	for(uint ch=0u; ch<=nbl_glsl_ext_FFT_Parameters_t_getMaxChannel(); ++ch)
+		nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse(),ch);
 }
 		)==="));
 		auto interleaveAndLastFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -390,9 +397,13 @@ layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
 
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return max(findMSB(pc.data.imageWidth-1u),_NBL_GLSL_WORKGROUP_SIZE_LOG2_)+1u;
+}
 uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
 {
-	return uvec3(pc.data.imageWidth,pc.data.imageHeight,1u);
+	return uvec3(0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize(),pc.data.imageHeight,1u);
 }
 bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
 {
@@ -405,10 +416,6 @@ uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
 uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
 {
     return 2u;
-}
-uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
-{
-    return 10u;
 }
 uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
 {
