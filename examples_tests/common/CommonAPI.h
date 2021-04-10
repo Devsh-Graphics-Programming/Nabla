@@ -116,7 +116,7 @@ public:
 
 	template<size_t imageCount>
 	static void Present(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
-		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> sc,
+		const nbl::core::smart_refctd_ptr<nbl::video::ISwapchain>& sc,
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[imageCount],
 		nbl::video::IGPUQueue* queue)
 	{
@@ -156,6 +156,48 @@ public:
 
 			queue->present(present);
 		}
+	}
+	static std::pair<nbl::core::smart_refctd_ptr<nbl::video::IGPUImage>, nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView>> createEmpty2DTexture(
+		const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
+		uint32_t width,
+		uint32_t height,
+		nbl::asset::E_FORMAT format = nbl::asset::E_FORMAT::EF_R8G8B8A8_UNORM)
+	{
+		nbl::video::IGPUImage::SCreationParams gpu_image_params;
+		gpu_image_params.mipLevels = 1;
+		gpu_image_params.extent = { width, height, 1 };
+		gpu_image_params.format = format;
+		gpu_image_params.arrayLayers = 1u;
+		gpu_image_params.type = nbl::asset::IImage::ET_2D;
+		gpu_image_params.samples = nbl::asset::IImage::ESCF_1_BIT;
+		gpu_image_params.flags = static_cast<nbl::asset::IImage::E_CREATE_FLAGS>(0u);
+		nbl::core::smart_refctd_ptr image = device->createGPUImageOnDedMem(std::move(gpu_image_params), device->getDeviceLocalGPUMemoryReqs());
+
+		nbl::video::IGPUImageView::SCreationParams creation_params;
+		creation_params.format = image->getCreationParameters().format;
+		creation_params.image = image;
+		creation_params.viewType = nbl::video::IGPUImageView::ET_2D;
+		creation_params.subresourceRange = { static_cast<nbl::asset::IImage::E_ASPECT_FLAGS>(0u), 0, 1, 0, 1 };
+		creation_params.flags = static_cast<nbl::video::IGPUImageView::E_CREATE_FLAGS>(0u);
+		nbl::core::smart_refctd_ptr image_view = device->createGPUImageView(std::move(creation_params));
+		return std::pair(image, image_view);
+	}
+	static void defaultDebugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
+	{
+		using namespace nbl;
+		const char* sev = nullptr;
+		switch (severity)
+		{
+		case video::EDMS_VERBOSE:
+			sev = "verbose"; break;
+		case video::EDMS_INFO:
+			sev = "info"; break;
+		case video::EDMS_WARNING:
+			sev = "warning"; break;
+		case video::EDMS_ERROR:
+			sev = "error"; break;
+		}
+		std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 	}
 
 };
