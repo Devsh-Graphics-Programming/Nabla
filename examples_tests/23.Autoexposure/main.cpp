@@ -81,7 +81,7 @@ int main()
 	const auto inputColorSpace = std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY);
 
 	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
-	constexpr auto MeterMode = LumaMeterClass::EMM_GEOM_MEAN;
+	constexpr auto MeterMode = LumaMeterClass::EMM_MEDIAN;
 	const float minLuma = 1.f/2048.f;
 	const float maxLuma = 65536.f;
 

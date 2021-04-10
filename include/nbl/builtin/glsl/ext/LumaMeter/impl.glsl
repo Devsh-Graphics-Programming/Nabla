@@ -38,7 +38,7 @@ void nbl_glsl_ext_LumaMeter(in bool wgExecutionMask);
 
 float nbl_glsl_ext_LumaMeter_local_process(in bool wgExecutionMask, in vec3 color)
 {
-	float scaledLogLuma;
+	float scaledLogLuma = 0.f; // this default kind-of makes sense
 	// linearize
 	if (wgExecutionMask)
 	{
@@ -58,7 +58,7 @@ float nbl_glsl_ext_LumaMeter_local_process(in bool wgExecutionMask, in vec3 colo
 		int histogramIndex;
 		if (wgExecutionMask)
 		{
-			histogramIndex = int(scaledLogLuma *float(_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT-1u)+0.5);
+			histogramIndex = int(scaledLogLuma*float(_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT-1u)+0.5);
 			histogramIndex += int(gl_LocalInvocationIndex&uint(_NBL_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION-1))*_NBL_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT;
 		}
 		// barrier so we "see" the cleared histogram
@@ -76,7 +76,7 @@ float nbl_glsl_ext_LumaMeter_local_process(in bool wgExecutionMask, in vec3 colo
 #include "nbl/builtin/glsl/workgroup/arithmetic.glsl"
 #endif
 
-nbl_glsl_ext_LumaMeter_WriteOutValue_t nbl_glsl_ext_LumaMeter_workgroup_process(in bool wgExecutionMask, in float scaledLogLuma)
+nbl_glsl_ext_LumaMeter_WriteOutValue_t nbl_glsl_ext_LumaMeter_workgroup_process(in float scaledLogLuma)
 {
 	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
 		// join the histograms across workgroups
@@ -85,7 +85,7 @@ nbl_glsl_ext_LumaMeter_WriteOutValue_t nbl_glsl_ext_LumaMeter_workgroup_process(
 			writeOutVal += _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_NBL_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT];
 		return writeOutVal;
 	#elif _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
-		return nbl_glsl_workgroupAdd(wgExecutionMask ? scaledLogLuma:0.f);
+		return nbl_glsl_workgroupAdd(scaledLogLuma);
 	#endif
 }
 
@@ -100,7 +100,7 @@ void nbl_glsl_ext_LumaMeter(in bool wgExecutionMask)
 	nbl_glsl_ext_LumaMeter_clearFirstPassOutput();
 
 	const float scaledLogLuma = nbl_glsl_ext_LumaMeter_local_process(wgExecutionMask,color);
-	const nbl_glsl_ext_LumaMeter_WriteOutValue_t writeOutVal = nbl_glsl_ext_LumaMeter_workgroup_process(wgExecutionMask,scaledLogLuma);
+	const nbl_glsl_ext_LumaMeter_WriteOutValue_t writeOutVal = nbl_glsl_ext_LumaMeter_workgroup_process(scaledLogLuma);
 
 	nbl_glsl_ext_LumaMeter_setFirstPassOutput(writeOutVal);
 }

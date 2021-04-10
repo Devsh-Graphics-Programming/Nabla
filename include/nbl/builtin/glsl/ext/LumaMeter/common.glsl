@@ -255,7 +255,9 @@ layout(set=_NBL_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_NBL_GLSL_
         int layerIndex = nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset();
         #if NBL_GLSL_EQUAL(_NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
             uint globalIndex = gl_LocalInvocationIndex;
-            globalIndex += (gl_WorkGroupID.x&uint(_NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT;
+            // assert(_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT==_NBL_GLSL_WORKGROUP_SIZE_)
+            const uint workgroupHash = gl_WorkGroupID.x+gl_WorkGroupID.y*gl_NumWorkGroups.x;
+            globalIndex += (workgroupHash&uint(_NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_NBL_GLSL_WORKGROUP_SIZE_;
 		    atomicAdd(outParams[layerIndex].packedHistogram[globalIndex],writeOutVal);
         #else
 		    if (gl_LocalInvocationIndex==0u)
