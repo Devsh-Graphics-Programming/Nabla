@@ -19,6 +19,9 @@ layout(push_constant, row_major) uniform PushConstants{
 #define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 #define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
 
+// kinda bad overdeclaration but oh well
+#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ 16384
+
 
 #define SHARED_CHANNELS 3
 struct f16vec3_packed

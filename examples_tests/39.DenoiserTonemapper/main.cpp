@@ -336,6 +336,7 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
 
+float scaledLogLuma;
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
 {
 	ivec3 oldCoord = coordinate;
@@ -343,15 +344,20 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 	const uint index = coordinate.y*pc.data.imageWidth+coordinate.x;
 
+	// rewrite this fetch at some point
 	nbl_glsl_complex retval;
 	switch (channel)
 	{
 		case 2u:
-			retval.z = float(inBuffer[index].z);
+			retval[0] = float(inBuffer[index].z);
+			break;
 		case 1u:
-			retval.y = float(inBuffer[index].y);
+			retval[0] = float(inBuffer[index].y);
+			break;
 		default:
-			retval.x = float(inBuffer[index].x);
+			scaledLogLuma += nbl_glsl_ext_LumaMeter_local_process(all(equal(coordinate,oldCoord)),vec3(inBuffer[index].x,inBuffer[index].y,inBuffer[index].z));
+			retval[0] = float(inBuffer[index].x);
+			break;
 	}
 	return retval;
 }
@@ -363,13 +369,36 @@ void main()
 	#endif
 	nbl_glsl_ext_LumaMeter_clearFirstPassOutput();
 
-	//
 
-	// prevent overlap between different usages of shared memory
-	barrier();
+	for(uint channel=0u; channel<3u; channel++)
+	{
+		// Virtual Threads Calculation
+		const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+		const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
 
-	for(uint ch=0u; ch<=nbl_glsl_ext_FFT_Parameters_t_getMaxChannel(); ++ch)
-		nbl_glsl_ext_FFT(nbl_glsl_ext_FFT_Parameters_t_getIsInverse(),ch);
+		scaledLogLuma = 0.f;
+		// Load Values into local memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
+		}
+		if (channel==0u)
+		{
+			nbl_glsl_ext_LumaMeter_setFirstPassOutput(nbl_glsl_ext_LumaMeter_workgroup_process(scaledLogLuma));
+			// prevent overlap between different usages of shared memory
+			barrier();
+		}
+		// do FFT
+		nbl_glsl_ext_FFT_preloaded(false,log2FFTSize);
+		// write out to main memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,nbl_glsl_ext_FFT_impl_values[t]);
+		}
+	}
 }
 		)==="));
 		auto interleaveAndLastFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -970,7 +999,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					{
 						uint64_t deinterleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>(); // TODO do it with EF_R16G16B16_SFLOAT
 						outImageByteOffset[j] = j*param.width*param.height*deinterleavedPixelBytesize;
-						attachBufferImageRange(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],deinterleavedPixelBytesize);
+						attachBufferImageRange(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],j ? deinterleavedPixelBytesize:fftScratchSize);
 					}
 					attachWholeBuffer(EII_COUNT*2u,histogramBuffer.get());
 					attachWholeBuffer(EII_COUNT*2u+1u,intensityBuffer.getObject());
@@ -1107,7 +1136,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 					driver->bindComputePipeline(secondLumaMeterAndFirstFFTPipeline.get());
 					// dispatch
-					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
+					driver->dispatch(param.fftDispatchInfo[0].workGroupCount[0],param.fftDispatchInfo[0].workGroupCount[1],1u);
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 					// TODO: do X-axis pass of the DFFT
