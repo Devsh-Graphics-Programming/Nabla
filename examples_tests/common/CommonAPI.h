@@ -14,6 +14,68 @@ class CommonAPI
 {
 	CommonAPI() = delete;
 public:
+	template<uint32_t sc_image_count>
+	struct InitOutput
+	{
+		nbl::core::smart_refctd_ptr<CWindowT> window;
+		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
+		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
+		nbl::video::IGPUQueue* queue;
+		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
+		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, sc_image_count> fbo;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+
+	};
+	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count>
+	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name)
+	{
+		using namespace nbl;
+		InitOutput<sc_image_count> result = {};
+		result.window = CWindowT::create(window_width, window_height, system::IWindow::ECF_NONE);
+
+		video::SDebugCallback dbgcb;
+		dbgcb.callback = &defaultDebugCallback;
+		dbgcb.userData = nullptr;
+		result.apiConnection = video::IAPIConnection::create(api_type, 0, app_name.data(), &dbgcb);
+		result.surface = result.apiConnection->createSurface(result.window.get());
+
+		auto gpus = result.apiConnection->getPhysicalDevices();
+		assert(!gpus.empty());
+		auto gpu = gpus.begin()[0];
+		int familyIndex = getQueueFamilyIndex(gpu, video::IPhysicalDevice::EQF_GRAPHICS_BIT |
+			video::IPhysicalDevice::EQF_COMPUTE_BIT |
+			video::IPhysicalDevice::EQF_TRANSFER_BIT);
+		assert(result.surface->isSupported(gpu.get(), familyIndex));
+
+		video::ILogicalDevice::SCreationParams dev_params;
+		dev_params.queueParamsCount = 1u;
+		video::ILogicalDevice::SQueueCreationParams q_params;
+		q_params.familyIndex = familyIndex;
+		q_params.count = 1u;
+		q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+		float priority = 1.f;
+		q_params.priorities = &priority;
+		dev_params.queueCreateInfos = &q_params;
+		result.logicalDevice = gpu->createLogicalDevice(dev_params);
+
+		result.queue = result.logicalDevice->getQueue(familyIndex, 0);
+
+		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
+		assert(result.swapchain);
+
+		result.renderpass = createRenderpass(result.logicalDevice);
+
+		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass);
+
+		result.commandPool = result.logicalDevice->createCommandPool(familyIndex, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
+		assert(result.commandPool);
+
+
+		return result;
+
+	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,
 		uint32_t height,
 		uint32_t imageCount,
@@ -38,7 +100,7 @@ public:
 	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device)
 	{
 		using namespace nbl;
-		
+
 		video::IGPURenderpass::SCreationParams::SAttachmentDescription a;
 		a.initialLayout = asset::EIL_UNDEFINED;
 		a.finalLayout = asset::EIL_UNDEFINED;
@@ -75,7 +137,7 @@ public:
 	template<size_t imageCount, size_t width, size_t height>
 	static auto createFBOWithSwapchainImages(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain,
-		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass) -> std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, imageCount>
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass)->std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, imageCount>
 	{
 		using namespace nbl;
 		std::array<nbl::core::smart_refctd_ptr<video::IGPUFramebuffer>, imageCount> fbo;
@@ -181,6 +243,21 @@ public:
 		creation_params.flags = static_cast<nbl::video::IGPUImageView::E_CREATE_FLAGS>(0u);
 		nbl::core::smart_refctd_ptr image_view = device->createGPUImageView(std::move(creation_params));
 		return std::pair(image, image_view);
+	}
+
+	static int getQueueFamilyIndex(const nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice>& gpu, uint32_t requiredQueueFlags)
+	{
+		auto props = gpu->getQueueFamilyProperties();
+		int currentIndex = 0;
+		for (const auto& property : props)
+		{
+			if ((property.queueFlags & requiredQueueFlags) == requiredQueueFlags)
+			{
+				return currentIndex;
+			}
+			++currentIndex;
+		}
+		return -1;
 	}
 	static void defaultDebugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
 	{

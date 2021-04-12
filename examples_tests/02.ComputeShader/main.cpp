@@ -29,20 +29,6 @@ void main()
 })";
 
 
-int getQueueFamilyIndex(const core::smart_refctd_ptr<nbl::video::IPhysicalDevice>& gpu, uint32_t requiredQueueFlags)
-{
-	auto props = gpu->getQueueFamilyProperties();
-	int currentIndex = 0;
-	for (const auto& property : props)
-	{
-		if (property.queueFlags & requiredQueueFlags)
-		{
-			return currentIndex;
-		}
-		++currentIndex;
-	}
-	return -1;
-}
 
 int main()
 {
@@ -50,44 +36,16 @@ int main()
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 
-	auto win = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
-
-	video::SDebugCallback dbgcb;
-	dbgcb.callback = &CommonAPI::defaultDebugCallback;
-	dbgcb.userData = nullptr;
-	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
-	auto surface = gl->createSurface(win.get());
-
-	auto gpus = gl->getPhysicalDevices();
-	assert(!gpus.empty());
-	auto gpu = gpus.begin()[0];
-	int familyIndex = getQueueFamilyIndex(gpu, video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT | 
-		video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT | 
-		video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_TRANSFER_BIT);
-	assert(surface->isSupported(gpu.get(), 0u));
-
-	video::ILogicalDevice::SCreationParams dev_params;
-	dev_params.queueParamsCount = 1u;
-	video::ILogicalDevice::SQueueCreationParams q_params;
-	q_params.familyIndex = 0u;
-	q_params.count = 4u;
-	q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-	float priority[4] = { 1.f,1.f,1.f,1.f };
-	q_params.priorities = priority;
-	dev_params.queueCreateInfos = &q_params;
-	auto device = gpu->createLogicalDevice(dev_params);
-
-	auto queue = device->getQueue(familyIndex, 0);
-
-	core::smart_refctd_ptr<video::ISwapchain> sc = CommonAPI::createSwapchain(WIN_W, WIN_H, SC_IMG_COUNT, device, surface, video::ISurface::EPM_FIFO_RELAXED);
-	assert(sc);
-
-	core::smart_refctd_ptr<video::IGPURenderpass> renderpass = CommonAPI::createRenderpass(device);
-
-	auto fbo = CommonAPI::createFBOWithSwapchainImages<SC_IMG_COUNT, WIN_W, WIN_H>(device, sc, renderpass);
-
-	auto cmdpool = device->createCommandPool(familyIndex, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
-	assert(cmdpool);
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Compute Shader");
+	auto win = initOutp.window;
+	auto gl = initOutp.apiConnection;
+	auto surface = initOutp.surface;
+	auto device = initOutp.logicalDevice;
+	auto queue = initOutp.queue;
+	auto sc = initOutp.swapchain;
+	auto renderpass = initOutp.renderpass;
+	auto fbo = initOutp.fbo;
+	auto cmdpool = initOutp.commandPool;
 
 	core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
 	{
@@ -134,7 +92,7 @@ int main()
 		}
 		core::smart_refctd_ptr<video::IGPUSpecializedShader> shader;
 		{
-			//TODO: Load from compute.comp instead of getting source from src
+			//TODO: Load from "../compute.comp" instead of getting source from src
 			auto cs_unspec = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(src));
 			asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "cs");
 			auto cs = device->createGPUSpecializedShader(cs_unspec.get(), csinfo);
@@ -213,7 +171,7 @@ int main()
 	}
 
 
-	constexpr uint32_t FRAME_COUNT = 500000u;
+	constexpr uint32_t FRAME_COUNT = 50000u;
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
 		CommonAPI::Present<SC_IMG_COUNT>(device, sc, cmdbuf, queue);
