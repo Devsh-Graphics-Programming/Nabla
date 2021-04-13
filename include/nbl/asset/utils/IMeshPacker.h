@@ -355,7 +355,6 @@ protected:
         }
     }
 
-    //is it too much of DRY violation?
     static void deinterleaveAndCopyPerInstanceAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, uint8_t* dstAttrPtr)
     {
         const uint8_t const* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);

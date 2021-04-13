@@ -380,6 +380,28 @@ public:
 	template <typename MeshBufferIterator>
 	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
+    //TODO: test (free only part of the scene)
+    void free(const ReservedAllocationMeshBuffers* rambIn, uint32_t meshBuffersToFreeCnt)
+    {
+        for (uint32_t i = 0u; i < meshBuffersToFreeCnt; i++)
+        {
+            const ReservedAllocationMeshBuffers* const ramb = rambIn + i;
+
+            if (ramb->indexAllocationOffset != INVALID_ADDRESS)
+                m_idxBuffAlctr.free_addr(ramb->indexAllocationOffset, ramb->indexAllocationReservedSize);
+            
+            if (ramb->mdiAllocationOffset != INVALID_ADDRESS)
+                m_MDIDataAlctr.free_addr(ramb->mdiAllocationOffset, ramb->mdiAllocationReservedSize);
+            
+            for (uint32_t j = 0; j < SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; j++)
+            {
+                const AttribAllocParams& attrAllocParams = ramb->attribAllocParams[j];
+                if (attrAllocParams.offset != INVALID_ADDRESS)
+                    m_vtxBuffAlctr.free_addr(attrAllocParams.offset, attrAllocParams.size);
+            }
+        }
+    }
+
     template <typename MeshBufferIterator>
     uint32_t calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 

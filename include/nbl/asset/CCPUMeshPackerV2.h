@@ -120,7 +120,6 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                     return false;
 
                 const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
-                //should I cashe it?
                 const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
                 const uint32_t binding = mbVtxInputParams.attributes[location].binding;
                 const E_VERTEX_INPUT_RATE inputRate = mbVtxInputParams.bindings[binding].inputRate;
