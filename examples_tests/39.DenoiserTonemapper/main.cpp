@@ -286,7 +286,7 @@ layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 layout(binding = 1, std430) restrict writeonly buffer SpectrumOutputBuffer
 {
-	f16vec2 outSpectrum[];
+	vec2 outSpectrum[];
 };
 #define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 
@@ -327,7 +327,7 @@ uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
 	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
-	outSpectrum[index] = f16vec2(complex_value);
+	outSpectrum[index] = complex_value;
 }
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 
@@ -419,7 +419,7 @@ layout(binding = 0, std430) restrict buffer ImageOutputBuffer
 #define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 layout(binding = 1, std430) restrict readonly buffer SpectrumInputBuffer
 {
-	f16vec2 inSpectrum[];
+	vec2 inSpectrum[];
 };
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
@@ -539,7 +539,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
 		return nbl_glsl_complex(0.f,0.f);
 	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
-	return nbl_glsl_complex(inSpectrum[index]);
+	return inSpectrum[index];
 }
 		)==="));
 		struct SpecializationConstants
@@ -1039,9 +1039,10 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 						attachBufferImageRange(EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL],interleavedPixelBytesize);
 					for (uint32_t j=0u; j<denoiserInputCount; j++)
 					{
-						uint64_t deinterleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>(); // TODO do it with EF_R16G16B16_SFLOAT
-						outImageByteOffset[j] = j*param.width*param.height*deinterleavedPixelBytesize;
-						attachBufferImageRange(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],j ? deinterleavedPixelBytesize:fftScratchSize);
+						outImageByteOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride;
+						attachBufferImageRange(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],forcedOptiXFormatPixelStride);
+						if (j==0u)
+							infos[EII_COUNT].buffer.size = fftScratchSize;
 					}
 					attachWholeBuffer(EII_COUNT*2u,histogramBuffer.get());
 					attachWholeBuffer(EII_COUNT*2u+1u,intensityBuffer.getObject());
@@ -1152,7 +1153,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				shaderConstants.flags &= 0b10u;
 				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,flags), sizeof(uint32_t), &shaderConstants.flags);
 				// Bloom
-				uint32_t workgroupCounts[2] = { (param.width + kComputeWGSize - 1u) / kComputeWGSize,param.height }; // TODO: change
+				uint32_t workgroupCounts[2] = { (param.width + kComputeWGSize - 1u) / kComputeWGSize,param.height };
 				{
 					core::smart_refctd_ptr<IGPUImageView> kerImageView;
 					{
