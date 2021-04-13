@@ -284,9 +284,9 @@ layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 	f16vec3_packed inBuffer[];
 };
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
-layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
+layout(binding = 1, std430) restrict writeonly buffer SpectrumOutputBuffer
 {
-	f16vec2 outBuffer[];
+	f16vec2 outSpectrum[];
 };
 #define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 
@@ -326,8 +326,8 @@ uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-	const uint index = ((pc.data.imageHeight*channel+coordinate.x)<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.y;
-	outBuffer[index] = f16vec2(complex_value);
+	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	outSpectrum[index] = f16vec2(complex_value);
 }
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 
@@ -345,7 +345,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	const uint index = coordinate.y*pc.data.imageWidth+coordinate.x;
 
 	// rewrite this fetch at some point
-	nbl_glsl_complex retval;
+	nbl_glsl_complex retval; retval.y = 0.0;
 	switch (channel)
 	{
 		case 2u:
@@ -370,12 +370,11 @@ void main()
 	nbl_glsl_ext_LumaMeter_clearFirstPassOutput();
 
 
+	// Virtual Threads Calculation
+	const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+	const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
 	for(uint channel=0u; channel<3u; channel++)
 	{
-		// Virtual Threads Calculation
-		const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
-		const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
-
 		scaledLogLuma = 0.f;
 		// Load Values into local memory
 		for(uint t=0u; t<item_per_thread_count; t++)
@@ -404,18 +403,25 @@ void main()
 		auto interleaveAndLastFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
+
+// nasty and ugly but oh well
+#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ sharedScratch
+#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ 1024
+shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
+
+
 #include "../ShaderCommon.glsl"
 #include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
-layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
-{
-	f16vec3_packed inBuffer[];
-};
-#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
-layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
+layout(binding = 0, std430) restrict buffer ImageOutputBuffer
 {
 	f16vec4 outBuffer[];
 };
 #define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+layout(binding = 1, std430) restrict readonly buffer SpectrumInputBuffer
+{
+	f16vec2 inSpectrum[];
+};
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
 {
 	float intensity[];
@@ -452,52 +458,88 @@ uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
 }
 #define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
 
+
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
+{
+	ivec2 coords = ivec2(coordinate.xy);
+	const uint padding_size = (0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())-pc.data.imageWidth;
+	coords.x -= int(padding_size>>1u);
+    if (coords.x<0 || coords.x>int(pc.data.imageWidth))
+		return;
+	
+	uint dataOffset = coords.y*pc.data.inImageTexelPitch[EII_COLOR]+coords.x;	
+	vec3 color = vec4(outBuffer[dataOffset]).xyz;
+	color[channel] = complex_value.x;
+	if (channel==nbl_glsl_ext_FFT_Parameters_t_getMaxChannel())
+	{
+		color = _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
+		color *= intensity[pc.data.intensityBufferDWORDOffset]; // *= 0.18/AvgLuma
+		switch (pc.data.tonemappingOperator)
+		{
+			case _NBL_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR:
+			{
+				nbl_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
+				tonemapParams.keyAndManualLinearExposure = pc.data.tonemapperParams[0];
+				tonemapParams.rcpWhite2 = pc.data.tonemapperParams[1];
+				color = nbl_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
+				break;
+			}
+			case _NBL_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR:
+			{
+				nbl_glsl_ext_ToneMapper_ACESParams_t tonemapParams;
+				tonemapParams.gamma = pc.data.tonemapperParams[0];
+				tonemapParams.exposure = pc.data.tonemapperParams[1];
+				color = nbl_glsl_ext_ToneMapper_ACES(tonemapParams,color);
+				break;
+			}
+			default:
+			{
+				color *= pc.data.tonemapperParams[0];
+				break;
+			}
+		}
+		color = nbl_glsl_XYZtosRGB*color;
+	}
+	outBuffer[dataOffset] = f16vec4(vec4(color,1.f));
+}
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+
+
+#define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+
+
 void main()
 {
-	// TODO: compute iFFT of the image
-	const uint inAddr = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
-	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
-	vec3 color = vec3(inBuffer[inAddr].x,inBuffer[inAddr].y,inBuffer[inAddr].z);
-	
-	color = _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
-	color *= intensity[pc.data.intensityBufferDWORDOffset]; // *= 0.18/AvgLuma
-	switch (pc.data.tonemappingOperator)
+	// Virtual Threads Calculation
+	const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+	const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
+	for(uint channel=0u; channel<3u; channel++)
 	{
-		case _NBL_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR:
+		// Load Values into local memory
+		for(uint t=0u; t<item_per_thread_count; t++)
 		{
-			nbl_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
-			tonemapParams.keyAndManualLinearExposure = pc.data.tonemapperParams[0];
-			tonemapParams.rcpWhite2 = pc.data.tonemapperParams[1];
-			color = nbl_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
-			break;
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
 		}
-		case _NBL_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR:
+		// do FFT
+		nbl_glsl_ext_FFT_preloaded(true,log2FFTSize);
+		// write out to main memory
+		for(uint t=0u; t<item_per_thread_count; t++)
 		{
-			nbl_glsl_ext_ToneMapper_ACESParams_t tonemapParams;
-			tonemapParams.gamma = pc.data.tonemapperParams[0];
-			tonemapParams.exposure = pc.data.tonemapperParams[1];
-			color = nbl_glsl_ext_ToneMapper_ACES(tonemapParams,color);
-			break;
-		}
-		default:
-		{
-			color *= pc.data.tonemapperParams[0];
-			break;
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,nbl_glsl_ext_FFT_impl_values[t]);
 		}
 	}
-	color = nbl_glsl_XYZtosRGB*color;
-	uint dataOffset = gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
-	if (alive)
-		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));
 }
 
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
 {
-#if 0
 	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
 		return nbl_glsl_complex(0.f,0.f);
-#endif
-		return nbl_glsl_complex(0.f,0.f);
+	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	return nbl_glsl_complex(inSpectrum[index]);
 }
 		)==="));
 		struct SpecializationConstants
@@ -1139,11 +1181,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					driver->dispatch(param.fftDispatchInfo[0].workGroupCount[0],param.fftDispatchInfo[0].workGroupCount[1],1u);
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-					// TODO: do X-axis pass of the DFFT
-
-					// TODO: multiply the spectra together 
-
-					// TODO: perform inverse Y-axis DFFT and interleave the results
+					// TODO: Y-axis FFT, multiply the spectra together, y-axis iFFT
 
 					// bind intensity pipeline
 					driver->bindComputePipeline(intensityPipeline.get());
@@ -1154,7 +1192,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				// Tonemap and interleave the output
 				{
 					driver->bindComputePipeline(interleaveAndLastFFTPipeline.get());
-					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
+					driver->dispatch(param.fftDispatchInfo[2].workGroupCount[0],param.fftDispatchInfo[2].workGroupCount[1],1u);
 					// issue a full memory barrier (or at least all buffer read/write barrier)
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 				}
@@ -1198,7 +1236,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 							continue;
 						}
 
-						driver->copyBuffer(temporaryPixelBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,colorBufferBytesize);
+						driver->copyBuffer(colorPixelBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,colorBufferBytesize);
 					}
 					auto downloadFence = driver->placeFence(true);
 
