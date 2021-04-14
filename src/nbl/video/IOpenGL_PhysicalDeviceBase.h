@@ -168,7 +168,7 @@ public:
 		std::string vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
 		m_glfeatures.isIntelGPU = (vendor.find("Intel") != vendor.npos || vendor.find("INTEL") != vendor.npos);
 
-		const std::regex version_re("\\s([1-9]\\.[0-9]+)");
+		const std::regex version_re("([1-9]\\.[0-9])");
 		std::cmatch re_match;
 
 		float ogl_ver = 0.f;
@@ -178,7 +178,11 @@ public:
 			sscanf(re_match[1].str().c_str(), "%f", &ogl_ver);
 			m_glfeatures.Version = static_cast<uint16_t>(core::round(ogl_ver * 100.0f));
 		}
-		//assert(ogl_ver != 0.f);
+		else
+		{
+			sscanf(ogl_ver_str, "%f", &ogl_ver);
+		}
+		assert(ogl_ver != 0.f);
 
 		float sl_ver;
 		const char* shaderVersion = reinterpret_cast<const char*>(GetString(GL_SHADING_LANGUAGE_VERSION));
@@ -187,7 +191,11 @@ public:
 			sscanf(re_match[1].str().c_str(), "%f", &sl_ver);
 			m_glfeatures.ShaderLanguageVersion = static_cast<uint16_t>(core::round(sl_ver * 100.0f));
 		}
-		//assert(sl_ver != 0.f);
+		else
+		{
+			sscanf(shaderVersion, "%f", &sl_ver);
+		}
+		assert(sl_ver != 0.f);
 
 		//should contain space-separated OpenGL extension names
 		constexpr const char* OPENGL_EXTS_ENVVAR_NAME = "_NBL_OPENGL_EXTENSIONS_LIST";//move this to some top-level header?
