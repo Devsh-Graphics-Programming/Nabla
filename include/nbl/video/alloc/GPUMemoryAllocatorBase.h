@@ -12,18 +12,18 @@ namespace nbl
 namespace video
 {
 
-class IDriver;
+class ILogicalDevice;
 
 class GPUMemoryAllocatorBase
 {
     protected:
-        IDriver*   mDriver;
+        ILogicalDevice*   mDriver;
         void            copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen);
 
-        GPUMemoryAllocatorBase(IDriver* inDriver) : mDriver(inDriver) {}
+        GPUMemoryAllocatorBase(ILogicalDevice* inDriver) : mDriver(inDriver) {}
         virtual ~GPUMemoryAllocatorBase() {}
     public:
-        IDriver*    getDriver() noexcept {return mDriver;}
+        ILogicalDevice*    getDriver() noexcept {return mDriver;}
 };
 
 }

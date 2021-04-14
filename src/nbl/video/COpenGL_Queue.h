@@ -99,6 +99,15 @@ class COpenGL_Queue final : public IGPUQueue
                 this->start();
             }
 
+            template <typename RequestParams>
+            void waitForRequestCompletion(SRequest& req)
+            {
+                base_t::waitForRequestCompletion(req);
+
+                // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
+                std::get<RequestParams>(req.params) = RequestParams{};
+            }
+
             void init(ThreadInternalStateType* state_ptr)
             {
                 egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
@@ -249,6 +258,12 @@ class COpenGL_Queue final : public IGPUQueue
             if (!IGPUQueue::submit(_count, _submits, _fence))
                 return false;
 
+            if (_fence)
+            {
+                COpenGLFence* glfence = static_cast<COpenGLFence*>(_fence);
+                glfence->setToBeSignaled();
+            }
+
             m_mempoolMutex.lock();
 
             for (uint32_t i = 0u; i < _count; ++i)
@@ -288,7 +303,7 @@ class COpenGL_Queue final : public IGPUQueue
                     params.commandBuffers[j] = core::smart_refctd_ptr<IGPUCommandBuffer>(submit.commandBuffers[j]);
 
                 auto& req = threadHandler.request(std::move(params));
-                threadHandler.waitForRequestCompletion(req);
+                threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
                     m_mempool.free_n<core::smart_refctd_ptr<IGPUSemaphore>>(waitSems, submit.waitSemaphoreCount);
@@ -305,11 +320,10 @@ class COpenGL_Queue final : public IGPUQueue
             {
                 SRequestParams_Fence params;
                 COpenGLFence* glfence = static_cast<COpenGLFence*>(_fence);
-                glfence->setToBeSignaled();
                 params.fence = core::smart_refctd_ptr<COpenGLFence>(glfence);
 
                 auto& req = threadHandler.request(std::move(params));
-                // wait on completion ?
+                threadHandler.template waitForRequestCompletion<SRequestParams_Fence>(req);
             }
         }
 

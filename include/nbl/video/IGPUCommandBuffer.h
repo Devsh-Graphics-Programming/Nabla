@@ -50,6 +50,8 @@ class IGPUCommandBuffer :
 public:
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
+    IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
+
 protected:
     IGPUCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(dev), m_cmdpool(_cmdpool)
     {
@@ -58,7 +60,6 @@ protected:
     virtual ~IGPUCommandBuffer() = default;
 
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
-
 
 
     static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)

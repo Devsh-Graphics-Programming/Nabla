@@ -210,6 +210,7 @@ set(NBL_VIDEO_SOURCES
 # Allocators
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/GPUMemoryAllocatorBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/SimpleGPUBufferAllocator.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
@@ -219,6 +220,7 @@ set(NBL_VIDEO_SOURCES
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp

@@ -69,7 +69,7 @@ void main()
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
-	auto gl = video::IAPIConnection::create(video::EAT_OPENGL_ES, 0, "New API Test", &dbgcb);
+	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
 	auto surface = gl->createSurface(win.get());
 	auto surface2 = gl->createSurface(win2.get());
 
@@ -91,6 +91,16 @@ void main()
 	auto device = gpu->createLogicalDevice(dev_params);
 
 	auto* queue = device->getQueue(0u, 0u);
+
+	uint8_t stackmem[1u << 14];
+	auto memreqs = device->getDeviceLocalGPUMemoryReqs();
+	memreqs.vulkanReqs.size = sizeof(stackmem);
+	auto somebuffer = device->createGPUBufferOnDedMem(memreqs, true);
+	asset::SBufferRange<video::IGPUBuffer> bufrng;
+	bufrng.offset = 0;
+	bufrng.size = somebuffer->getSize();
+	bufrng.buffer = somebuffer;
+	device->updateBufferRangeViaStagingBuffer(queue, bufrng, stackmem);
 
 	core::smart_refctd_ptr<video::ISwapchain> sc;
 	{

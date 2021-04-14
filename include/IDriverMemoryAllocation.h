@@ -12,6 +12,9 @@ namespace nbl
 namespace video
 {
 
+    //fwd decl
+    class ILogicalDevice;
+
 //! Class corresponding to VkDeviceMemory and emulating them on OpenGL
 /** This class replaces and takes over the functionality from the
 old-alpha-version IGPUMappedBuffer class.
@@ -21,6 +24,8 @@ We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
 class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 {
+    friend class ILogicalDevice;
+
     public:
         //!
         struct MemoryRange
@@ -112,9 +117,32 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         virtual bool isDedicated() const = 0;
 
-    protected:
-        IDriverMemoryAllocation() : currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
+        inline bool isCurrentlyMapped() const { return mappedPtr != nullptr; }
 
+        //! Gets internal pointer.
+        /** It is best you use a GPU Fence to ensure any operations that you have queued up which are or will be writing to this memory
+        or reading from it have completed before you start using the returned pointer. Otherwise this will result in a race condition.
+        WARNING: UNMAP will invalidate pointer!
+        WARNING: NEED TO FENCE BEFORE USE!
+        @returns Internal pointer with 0 offset into the memory allocation, so the address that it is pointing to may be unsafe
+        to access without an offset if a memory range (if a subrange not starting at 0 was mapped). */
+        inline void* getMappedPointer() { return mappedPtr; }
+
+        //! Constant variant of getMappedPointer
+        inline const void* getMappedPointer() const { return mappedPtr; }
+
+    protected:
+        inline void postMapSetMembers(void* ptr, MemoryRange rng, E_MAPPING_CPU_ACCESS_FLAG access)
+        {
+            mappedPtr = reinterpret_cast<uint8_t*>(ptr);
+            mappedRange = rng;
+            currentMappingAccess = access;
+        }
+
+        IDriverMemoryAllocation() : mappedPtr(nullptr), mappedRange(0,0), currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
+
+        uint8_t* mappedPtr;
+        MemoryRange                 mappedRange;
         E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;
 };
 
