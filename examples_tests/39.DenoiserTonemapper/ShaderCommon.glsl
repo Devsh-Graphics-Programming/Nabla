@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define COMPUTE_WG_SIZE 256
+#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ 8
 layout(local_size_x=COMPUTE_WG_SIZE) in;
 
 layout(constant_id = 1) const uint EII_COLOR = 0u;
@@ -17,6 +18,20 @@ layout(push_constant, row_major) uniform PushConstants{
 } pc;
 #define _NBL_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
 #define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
+
+
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return max(findMSB(pc.data.imageWidth-1u),_NBL_GLSL_WORKGROUP_SIZE_LOG2_)+1u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
+{
+	return 2u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
+{
+	return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
+}
 #define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
 
 // kinda bad overdeclaration but oh well
@@ -62,7 +77,6 @@ struct f16vec3_packed
 #define _NBL_GLSL_EXT_LUMA_METER_INVOCATION_COUNT (_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_)
 #define _NBL_GLSL_EXT_LUMA_METER_BIN_COUNT _NBL_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
 #define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_EXT_LUMA_METER_BIN_COUNT
-#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ 8
 #define _NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION 4
 #ifdef _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 	#include "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"

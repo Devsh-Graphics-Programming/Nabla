@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
 	constexpr auto SharedDescriptorSetDescCount = 4u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndFirstFFTPipeline,interleaveAndLastFFTPipeline;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndFirstFFTPipeline,convolvePipeline,interleaveAndLastFFTPipeline;
 	{
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
@@ -309,18 +309,6 @@ uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
 {
 	return 0u;
 }
-uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
-{
-    return 2u;
-}
-uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
-{
-    return max(findMSB(pc.data.imageWidth-1u),_NBL_GLSL_WORKGROUP_SIZE_LOG2_)+1u;
-}
-uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
-{
-    return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
-}
 #define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
 
 
@@ -400,6 +388,115 @@ void main()
 	}
 }
 		)==="));
+		auto convolveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+
+// nasty and ugly but oh well
+#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ sharedScratch
+#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ 1024
+shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
+
+#include "../ShaderCommon.glsl"
+layout(binding = 1, std430) restrict buffer SpectrumOutputBuffer
+{
+	vec2 spectrum[];
+};
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+
+
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+
+
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize(),pc.data.imageHeight,1u);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return bool(0xdeadbeefu);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 1u;
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
+{
+	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	spectrum[index] = complex_value;
+}
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+
+#define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+
+void convolve(in uint item_per_thread_count, in uint ch) 
+{
+	for(uint t=0u; t<item_per_thread_count; t++)
+	{
+		const uint tid = _NBL_GLSL_WORKGROUP_SIZE_*t+gl_LocalInvocationIndex;
+
+		nbl_glsl_complex sourceSpectrum = nbl_glsl_ext_FFT_impl_values[t];
+		
+		//
+		const uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
+        vec2 uv = vec2(bitfieldReverse(coords.xy))/vec2(4294967296.f);
+#ifdef CONVOLVE
+		uv += pc.params.kernel_half_pixel_size;
+		//
+		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
+#else
+		nbl_glsl_complex convSpectrum = nbl_glsl_complex(1.f,0.f);
+#endif
+		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
+	}
+}
+
+void main()
+{
+	// Virtual Threads Calculation
+	const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+	const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
+	for(uint channel=0u; channel<3u; channel++)
+	{
+		// Load Values into local memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
+		}
+		nbl_glsl_ext_FFT_preloaded(false,log2FFTSize);
+		barrier();
+
+		convolve(item_per_thread_count,channel);
+	
+		barrier();
+		nbl_glsl_ext_FFT_preloaded(true,log2FFTSize);
+		// write out to main memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,nbl_glsl_ext_FFT_impl_values[t]);
+		}
+	}
+}
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
+{
+	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
+		return nbl_glsl_complex(0.f,0.f);
+	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	return spectrum[index];
+}
+		)==="));
 		auto interleaveAndLastFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
@@ -432,10 +529,6 @@ layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
 
-uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
-{
-    return max(findMSB(pc.data.imageWidth-1u),_NBL_GLSL_WORKGROUP_SIZE_LOG2_)+1u;
-}
 uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
 {
 	return uvec3(0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize(),pc.data.imageHeight,1u);
@@ -447,14 +540,6 @@ bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
 uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
 {
 	return 0u;
-}
-uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
-{
-    return 2u;
-}
-uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
-{
-    return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
 }
 #define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
 
@@ -567,6 +652,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto intensitySpecializedShader = driver->createGPUSpecializedShader(intensityShader.get(),specInfo);
 		auto secondLumaMeterAndFirstFFTSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndFirstFFTShader.get(),specInfo);
+		auto convolveSpecializedShader = driver->createGPUSpecializedShader(convolveShader.get(),specInfo);
 		auto interleaveAndLastFFTSpecializedShader = driver->createGPUSpecializedShader(interleaveAndLastFFTShader.get(),specInfo);
 		
 		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
@@ -582,6 +668,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
 		intensityPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
 		secondLumaMeterAndFirstFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndFirstFFTSpecializedShader));
+		convolvePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(convolveSpecializedShader));
 		interleaveAndLastFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveAndLastFFTSpecializedShader));
 	}
 
@@ -1183,6 +1270,19 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 					// TODO: Y-axis FFT, multiply the spectra together, y-axis iFFT
+					driver->bindComputePipeline(convolvePipeline.get());
+#if 0
+					{
+						const auto& kernelImgExtent = kernelNormalizedSpectrums[0]->getCreationParameters().image->getCreationParameters().extent;
+						vec2 kernel_half_pixel_size{0.5f,0.5f};
+						kernel_half_pixel_size.x /= kernelImgExtent.width;
+						kernel_half_pixel_size.y /= kernelImgExtent.height;
+						driver->pushConstants(convolvePipeline->getLayout(),ISpecializedShader::ESS_COMPUTE,offsetof(convolve_parameters_t,kernel_half_pixel_size),sizeof(convolve_parameters_t::kernel_half_pixel_size),&kernel_half_pixel_size);
+					}
+#endif
+					// dispatch
+					//!driver->dispatch(param.fftDispatchInfo[1].workGroupCount[0],param.fftDispatchInfo[1].workGroupCount[1],1u);
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 					// bind intensity pipeline
 					driver->bindComputePipeline(intensityPipeline.get());
