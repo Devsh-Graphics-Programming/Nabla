@@ -314,14 +314,6 @@ float CSceneNodeAnimatorCameraMaya::getDistance() const
 	return CurrentZoom;
 }
 
-
-ISceneNodeAnimator* CSceneNodeAnimatorCameraMaya::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
-{
-	CSceneNodeAnimatorCameraMaya * newAnimator =
-		new CSceneNodeAnimatorCameraMaya(CursorControl, RotateSpeed, ZoomSpeed, TranslateSpeed);
-	return newAnimator;
-}
-
 } // end namespace
 } // end namespace
 

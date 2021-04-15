@@ -16,4 +16,18 @@
 #define nbl_glsl_RGB19E7_COMPONENT_BITOFFSETS ivec4(0,nbl_glsl_RGB19E7_MANTISSA_BITS,(2*nbl_glsl_RGB19E7_MANTISSA_BITS)&31,(3*nbl_glsl_RGB19E7_MANTISSA_BITS)&31)
 #define nbl_glsl_RGB19E7_G_COMPONENT_SPLIT (32-nbl_glsl_RGB19E7_MANTISSA_BITS)
 
+//rgb18e7s3, out custom 3 channel, shared exponent signed floating point format
+#define nbl_glsl_RGB18E7S3_MANTISSA_BITS 18
+#define nbl_glsl_RGB18E7S3_EXPONENT_BITS nbl_glsl_RGB19E7_EXPONENT_BITS
+#define nbl_glsl_RGB18E7S3_EXP_BIAS nbl_glsl_RGB19E7_EXP_BIAS
+#define nbl_glsl_MAX_RGB18E7S3_EXP (nbl_glsl_RGB18E7S3_EXP_BIAS+1)
+
+#define nbl_glsl_MAX_RGB18E7S3_MANTISSA_VALUES (0x1<<nbl_glsl_RGB18E7S3_MANTISSA_BITS)
+#define nbl_glsl_MAX_RGB18E7S3_MANTISSA (nbl_glsl_MAX_RGB18E7S3_MANTISSA_VALUES-1)
+#define nbl_glsl_MAX_RGB18E7S3 float(nbl_glsl_MAX_RGB18E7S3_MANTISSA)/float(nbl_glsl_MAX_RGB18E7S3_MANTISSA_VALUES)*exp2(float(nbl_glsl_MAX_RGB18E7S3_EXP))
+
+#define nbl_glsl_RGB18E7S3_COMPONENT_INDICES nbl_glsl_RGB19E7_COMPONENT_INDICES
+#define nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS ivec4(0,nbl_glsl_RGB18E7S3_MANTISSA_BITS,(2*nbl_glsl_RGB18E7S3_MANTISSA_BITS)&31,(3*nbl_glsl_RGB18E7S3_MANTISSA_BITS)&31)
+#define nbl_glsl_RGB18E7S3_G_COMPONENT_SPLIT (32-nbl_glsl_RGB18E7S3_MANTISSA_BITS)
+
 #endif

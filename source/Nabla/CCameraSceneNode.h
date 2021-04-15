@@ -67,9 +67,6 @@ class CCameraSceneNode : public ICameraSceneNode
 		//! Render
 		virtual void render();
 
-		//! Returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<float>& getBoundingBox();
-
 		//!
 		virtual void recomputeProjectionMatrix();
 

@@ -1,4 +1,5 @@
 #ifndef __NBL_E_COMMON_ENUMS_H_INCLUDED__
+#ifndef __NBL_E_COMMON_ENUMS_H_INCLUDED__
 #define __NBL_E_COMMON_ENUMS_H_INCLUDED__
 
 #include <cstdint>

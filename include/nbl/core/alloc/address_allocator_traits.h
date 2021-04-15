@@ -126,7 +126,6 @@ namespace core
 
             template<class U> using cstexpr_supportsArbitraryOrderFrees = decltype(std::declval<U&>().supportsArbitraryOrderFrees);
             template<class U> using cstexpr_maxMultiOps                 = decltype(std::declval<U&>().maxMultiOps);
-            template<class U> using cstexpr_supportsNullBuffer          = decltype(std::declval<U&>().supportsNullBuffer);
 
             template<class U> using func_multi_alloc_addr               = decltype(std::declval<U&>().multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
             template<class U> using func_multi_free_addr                = decltype(std::declval<U&>().multi_free_addr(0u,nullptr,nullptr));
@@ -136,7 +135,6 @@ namespace core
         public:
             template<class,class=void> struct resolve_supportsArbitraryOrderFrees  : std::true_type {};
             template<class,class=void> struct resolve_maxMultiOps                           : std::integral_constant<uint32_t,256u> {};
-            template<class,class=void> struct resolve_supportsNullBuffer                  : std::true_type {};
 
             template<class,class=void> struct has_func_multi_alloc_addr                : std::false_type {};
             template<class,class=void> struct has_func_multi_free_addr                 : std::false_type {};
@@ -148,8 +146,6 @@ namespace core
                                                                             :  std::conditional<std::true_type/*std::is_same<cstexpr_supportsArbitraryOrderFrees<U>,bool>*/::value,nbl::bool_constant<U::supportsArbitraryOrderFrees>,resolve_supportsArbitraryOrderFrees<void,void> >::type {};
             template<class U> struct resolve_maxMultiOps<U,std::void_t<cstexpr_maxMultiOps<U> > >
                                                                             : std::conditional<std::true_type/*std::is_integral<cstexpr_maxMultiOps<U> >*/::value,std::integral_constant<uint32_t,U::maxMultiOps>, resolve_maxMultiOps<void, void> >::type {};
-            template<class U> struct resolve_supportsNullBuffer<U,std::void_t<cstexpr_supportsNullBuffer<U> > >
-                                                                            : std::conditional<std::true_type/*std::is_same<cstexpr_supportsNullBuffer<U>,bool>*/::value,nbl::bool_constant<U::supportsNullBuffer>,resolve_supportsNullBuffer<void,void> >::type {};
 
             template<class U> struct has_func_multi_alloc_addr<U,std::void_t<func_multi_alloc_addr<U> > >
                                                                             : std::is_same<func_multi_alloc_addr<U>,void> {};
@@ -160,7 +156,6 @@ namespace core
 
             _NBL_STATIC_INLINE_CONSTEXPR bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
             _NBL_STATIC_INLINE_CONSTEXPR uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
-            _NBL_STATIC_INLINE_CONSTEXPR bool         supportsNullBuffer          = resolve_supportsNullBuffer<AddressAlloc>::value;
 
             static inline void          printDebugInfo()
             {
@@ -170,7 +165,6 @@ namespace core
 
                 printf("supportsArbitraryOrderFrees == %d\n", supportsArbitraryOrderFrees);
                 printf("maxMultiOps == %d\n",                           maxMultiOps);
-                printf("supportsNullBuffer == %d\n",                 supportsNullBuffer);
             }
 
 

@@ -463,7 +463,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                     AllocStrategy(newBuffSz-Base::alignOffset,std::move(other),newReservedSpc)
         {
         }
-        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
         GeneralpurposeAddressAllocator(size_type newBuffSz, GeneralpurposeAddressAllocator&& other, void* newReservedSpc, Args&&... args) noexcept :
                     Base(std::move(other),newReservedSpc,std::forward<Args>(args)...),

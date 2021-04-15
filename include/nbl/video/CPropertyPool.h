@@ -23,14 +23,15 @@ class CPropertyPool final : public IPropertyPool
         {
             return (sizeof(Properties) + ...);
         }
-        static uint32_t calcApproximateCapacity(size_t bufferSize)
-        {
-            return bufferSize/propertyCombinedSize();
-        }
 
         _NBL_STATIC_INLINE_CONSTEXPR auto PropertyCount = sizeof...(Properties);
 
 	public:
+        static inline uint32_t calcApproximateCapacity(size_t bufferSize)
+        {
+            return bufferSize/propertyCombinedSize();
+        }
+
 		static inline core::smart_refctd_ptr<this_t> create(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, allocator<uint8_t>&& alloc = allocator<uint8_t>())
 		{
 			const auto reservedSize = getReservedSize(calcApproximateCapacity(_memoryBlock.size));

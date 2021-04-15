@@ -20,8 +20,6 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
-
         #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(invalid_address), cursor(invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
@@ -34,7 +32,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             reset();
         }
 
-        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
         LinearAddressAllocator(_size_type newBuffSz, LinearAddressAllocator&& other, Args&&... args) :
             Base(std::move(other),std::forward<Args>(args)...), bufferSize(invalid_address), cursor(invalid_address)

@@ -238,11 +238,6 @@ set(NBL_SCENE_SOURCES
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorDelete.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyCircle.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyStraight.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFollowSpline.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorRotation.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
