@@ -93,6 +93,8 @@ void main()
 	auto* queue = device->getQueue(0u, 0u);
 
 	uint8_t stackmem[1u << 14];
+	float farray[3]{ 1.f, 3.f, 4.f };
+	memcpy(stackmem, farray, 12);
 	auto memreqs = device->getDeviceLocalGPUMemoryReqs();
 	memreqs.vulkanReqs.size = sizeof(stackmem);
 	auto somebuffer = device->createGPUBufferOnDedMem(memreqs, true);

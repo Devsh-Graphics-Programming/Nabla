@@ -16,6 +16,9 @@
 #include "nbl/video/asset_traits.h"
 #include "nbl/core/alloc/LinearAddressAllocator.h"
 #include "nbl/video/IGPUPipelineCache.h"
+#include "nbl/video/IGPUQueue.h"
+#include "nbl/video/IGPUEvent.h"
+#include "nbl/video/ILogicalDevice.h"
 
 namespace nbl
 {
@@ -38,13 +41,32 @@ class IGPUObjectFromAssetConverter
     public:
         struct SParams
         {
+            //! Required not null
+            ILogicalDevice* device = nullptr;
+            //! Required not null
+            asset::IAssetManager* assetManager = nullptr;
             IGPUPipelineCache* pipelineCache = nullptr;
+
+            // @sadiuk put here more parameters if needed
+
+            //! Queue used for transfer commands (data copies, etc.)
+            IGPUQueue* transferQueue = nullptr;
+            //! Queue used for compute commands (compute shader mip map generation, etc.)
+            IGPUQueue* computeQueue = nullptr;
+
+            //! If not null, fence will be written here. Written fence will be signaled once last operations of corresponding type (transfer/compute) are finished.
+            core::smart_refctd_ptr<IGPUFence>* const transferFence = nullptr;
+            core::smart_refctd_ptr<IGPUFence>* const computeFence = nullptr;
+
+            //! If not null, semaphore will be written here. Written semaphore will be signaled once last operations of corresponding type (transfer/compute) are finished.
+            core::smart_refctd_ptr<IGPUSemaphore>* const transferSemaphore = nullptr;
+            core::smart_refctd_ptr<IGPUSemaphore>* const computeSemaphore = nullptr;
+
+            core::smart_refctd_ptr<IGPUEvent>* const transferEvent = nullptr;
+            core::smart_refctd_ptr<IGPUEvent>* const computeEvent = nullptr;
         };
 
 	protected:
-		asset::IAssetManager* m_assetManager;
-		video::IDriver* m_driver;
-
 		template<typename AssetType, typename iterator_type>
 		struct get_asset_raw_ptr
 		{
@@ -78,14 +100,12 @@ class IGPUObjectFromAssetConverter
         };
 
 	public:
-		IGPUObjectFromAssetConverter(asset::IAssetManager* _assetMgr, video::IDriver* _drv) : m_assetManager{_assetMgr}, m_driver{_drv} {}
-
 		virtual ~IGPUObjectFromAssetConverter() = default;
 
 		inline virtual created_gpu_object_array<asset::ICPUBuffer>				            create(const asset::ICPUBuffer** const _begin, const asset::ICPUBuffer** const _end, const SParams& _params);
+		inline virtual created_gpu_object_array<asset::ICPUImage>				            create(const asset::ICPUImage** const _begin, const asset::ICPUImage** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMeshBuffer>			            create(const asset::ICPUMeshBuffer** const _begin, const asset::ICPUMeshBuffer** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMesh>				            create(const asset::ICPUMesh** const _begin, const asset::ICPUMesh** const _end, const SParams& _params);
-		inline virtual created_gpu_object_array<asset::ICPUImage>				            create(const asset::ICPUImage** const _begin, const asset::ICPUImage** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUShader>				            create(const asset::ICPUShader** const _begin, const asset::ICPUShader** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUSpecializedShader>	            create(const asset::ICPUSpecializedShader** const _begin, const asset::ICPUSpecializedShader** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUBufferView>		                create(const asset::ICPUBufferView** const _begin, const asset::ICPUBufferView** const _end, const SParams& _params);
@@ -100,7 +120,7 @@ class IGPUObjectFromAssetConverter
         //! iterator_type is always either `[const] core::smart_refctd_ptr<AssetType>*[const]*` or `[const] AssetType*[const]*`
 		template<typename AssetType, typename iterator_type>
         std::enable_if_t<!impl::is_const_iterator_v<iterator_type>, created_gpu_object_array<AssetType>>
-        getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end, const SParams& _params = {nullptr})
+        getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end, const SParams& _params)
 		{
 			const auto assetCount = _end-_begin;
 			auto res = core::make_refctd_dynamic_array<created_gpu_object_array<AssetType> >(assetCount);
@@ -135,7 +155,7 @@ class IGPUObjectFromAssetConverter
 				for (size_t i=0u; i<created->size(); ++i)
 				{
 					auto& input = created->operator[](i);
-                    handleGPUObjCaching(notFound[i],input);
+                    handleGPUObjCaching(_params.assetManager,notFound[i],input);
 					res->operator[](pos[i]) = std::move(input); // ok to move because the `created` array will die after the next scope
 				}
 			}
@@ -167,10 +187,10 @@ class IGPUObjectFromAssetConverter
         }
 
 	protected:
-        virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj)
+        virtual inline void handleGPUObjCaching(asset::IAssetManager* _amgr, asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj)
         {
             if (_asset)
-                m_assetManager->convertAssetToEmptyCacheHandle(_asset,core::smart_refctd_ptr(_gpuobj));
+                _amgr->convertAssetToEmptyCacheHandle(_asset,core::smart_refctd_ptr(_gpuobj));
         }
 
 		//! TODO: Make this faster and not call any allocator
@@ -210,10 +230,10 @@ class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
         using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
 
 	protected:
-        virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj) override
+        virtual inline void handleGPUObjCaching(asset::IAssetManager* _amgr, asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj) override
         {
             if (_asset)
-                m_assetManager->insertGPUObjectIntoCache(_asset,core::smart_refctd_ptr(_gpuobj));
+                _amgr->insertGPUObjectIntoCache(_asset,core::smart_refctd_ptr(_gpuobj));
         }
 };
 
