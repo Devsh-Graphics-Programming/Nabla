@@ -21,6 +21,9 @@ namespace nbl {
 namespace video
 {
 
+// fwd decl
+class IGPUObjectFromAssetConverter;
+
 class ILogicalDevice : public core::IReferenceCounted
 {
 public:

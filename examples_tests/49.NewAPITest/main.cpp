@@ -91,7 +91,7 @@ void main()
 	auto device = gpu->createLogicalDevice(dev_params);
 
 	auto* queue = device->getQueue(0u, 0u);
-
+	/*
 	uint8_t stackmem[1u << 14];
 	float farray[3]{ 1.f, 3.f, 4.f };
 	memcpy(stackmem, farray, 12);
@@ -103,6 +103,16 @@ void main()
 	bufrng.size = somebuffer->getSize();
 	bufrng.buffer = somebuffer;
 	device->updateBufferRangeViaStagingBuffer(queue, bufrng, stackmem);
+	*/
+
+	video::IGPUObjectFromAssetConverter cpu2gpu;
+	video::IGPUObjectFromAssetConverter::SParams c2gparams;
+	c2gparams.device = device.get();
+	c2gparams.transferQueue = queue;
+	c2gparams.limits = gpu->getLimits();
+	
+	auto cpubuf = new asset::ICPUBuffer(1024);
+	auto gpubuf2 = cpu2gpu.getGPUObjectsFromAssets(&cpubuf, &cpubuf + 1);
 
 	core::smart_refctd_ptr<video::ISwapchain> sc;
 	{

@@ -37,7 +37,7 @@
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPURenderpass.h"
-//#include "nbl/video/IGPUObjectFromAssetConverter.h"
+#include "nbl/video/IGPUObjectFromAssetConverter.h"
 
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"
