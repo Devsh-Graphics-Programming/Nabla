@@ -34,8 +34,11 @@ protected:
          m_idxBuffAlctrResSpc(nullptr),
          m_vtxBuffAlctrResSpc(nullptr)
     {
-        assert(minTriangleCountPerMDIData <= 21845);
-        assert(maxTriangleCountPerMDIData <= 21845);
+        assert(minTriangleCountPerMDIData <= 21845u);
+        assert(maxTriangleCountPerMDIData <= 21845u);
+        assert(minTriangleCountPerMDIData <= maxTriangleCountPerMDIData);
+        assert(minTriangleCountPerMDIData > 0u);
+        assert(maxTriangleCountPerMDIData > 0u);
     };
 
     virtual ~IMeshPackerBase()
@@ -162,10 +165,9 @@ protected:
 
     struct TriangleBatches
     {
-        TriangleBatches(uint32_t triCnt, uint32_t batchCount)
+        TriangleBatches(uint32_t triCnt)
         {
             triangles = core::vector<Triangle>(triCnt);
-            ranges = core::vector<Triangle*>(batchCount + 1u);
         }
 
         core::vector<Triangle> triangles;
@@ -232,7 +234,7 @@ protected:
             }
         };
 
-        TriangleBatches triangleBatches(triCnt, batchCnt);
+        TriangleBatches triangleBatches(triCnt);
         core::vector<TriangleMortonCodePair> triangles(triCnt); //#1
 
         //triangle reordering
@@ -294,9 +296,32 @@ protected:
         //set ranges
         Triangle* triangleArrayBegin = triangleBatches.triangles.data();
         Triangle* triangleArrayEnd = triangleArrayBegin + triangleBatches.triangles.size();
-        for (uint32_t i = 0u; i < batchCnt; i++)
-            triangleBatches.ranges[i] = triangleArrayBegin + (m_maxTriangleCountPerMDIData * i);
-        triangleBatches.ranges[batchCnt] = triangleArrayEnd;
+        const uint32_t triangleCnt = triangleBatches.triangles.size();
+        //for (uint32_t i = 0u; i < batchCnt; i++)
+        //    triangleBatches.ranges.push_back(triangleArrayBegin + (m_minTriangleCountPerMDIData * i)); //is calcBatchCountBound correct?
+        //triangleBatches.ranges.push_back(triangleArrayEnd);
+
+        std::random_device rd;
+        std::mt19937 mt(rd());
+        std::uniform_int_distribution<uint16_t> dist(m_minTriangleCountPerMDIData, m_maxTriangleCountPerMDIData);
+
+        triangleBatches.ranges.push_back(triangleArrayBegin);
+        for(uint32_t i = 1u, trianglesAddedToBatchesCnt = 0u; ; i++)
+        {
+            const uint16_t randomBatchSize = dist(mt);
+            trianglesAddedToBatchesCnt += randomBatchSize;
+
+            //std::cout << randomBatchSize << std::endl;
+
+            if (trianglesAddedToBatchesCnt >= triangleCnt)
+            {
+                //std::cout << std::endl << trianglesAddedToBatchesCnt << std::endl;
+                triangleBatches.ranges.push_back(triangleArrayEnd);
+                break;
+            }
+
+            triangleBatches.ranges.push_back(triangleArrayBegin + trianglesAddedToBatchesCnt);
+        }
 
         return triangleBatches;
     }
@@ -401,6 +426,11 @@ protected:
         assert(success);
 
         return triCnt * 3;
+    }
+
+    uint32_t calcIdxCntAfterConversionToTriangleList(core::smart_refctd_ptr<MeshBufferType> meshBuffer)
+    {
+        return calcIdxCntAfterConversionToTriangleList(meshBuffer.get());
     }
 
     std::pair<uint32_t, core::smart_refctd_ptr<ICPUBuffer>> convertIdxBufferToTriangles(MeshBufferType* meshBuffer)

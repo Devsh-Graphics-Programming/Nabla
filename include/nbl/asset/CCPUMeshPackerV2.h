@@ -45,8 +45,11 @@ public:
         m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
     }
 
+    /**
+    \return number of mdi structs created for mesh buffer range described by mbBegin .. mbEnd, 0 if commit failed or mbBegin == mbEnd
+    */
     template <typename MeshBufferIterator>
-    bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+    uint32_t commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
@@ -78,15 +81,21 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
+    MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + rambIn->mdiAllocationOffset;
+
     size_t i = 0ull;
+    uint32_t batchCntTotal = 0u;
     for (auto it = mbBegin; it != mbEnd; it++)
     {
         ReservedAllocationMeshBuffers& ramb = *(rambIn + i);
         IMeshPackerBase::PackedMeshBufferData& pmbd = *(pmbdOut + i);
 
-        MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
+        //this is fucked up..
+        //mdiAllocationOffset should be one for all mesh buffers in range defined by mbBegin .. mbEnd, otherwise things get fucked when there are random sizes of batches
+        //TODO: so modify ReservedAllocationMeshBuffers and free function
+        //MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
         uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_packerDataStore.indexBuffer->getPointer()) + ramb.indexAllocationOffset;
 
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
@@ -99,8 +108,10 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
         size_t instancesAddedCnt = 0u;
+        uint32_t batchesAddedCnt = 0u;
 
         const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
+        batchCntTotal += batchCnt;
         for (uint32_t i = 0u; i < batchCnt; i++)
         {
             auto batchBegin = triangleBatches.ranges[i];
@@ -117,7 +128,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                     continue;
 
                 if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
-                    return false;
+                    return 0u;
 
                 const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
                 const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
@@ -142,7 +153,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                 auto vtxFormatInfo = m_virtualAttribConfig.map.find(attribFormat);
 
                 if (vtxFormatInfo == m_virtualAttribConfig.map.end())
-                    return false;
+                    return 0u;
 
                 cdotOut->attribInfo[location].arrayElement = vtxFormatInfo->second.second;
 
@@ -172,12 +183,13 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 
         instancesAddedCnt += insCnt;
 
-        pmbd = { ramb.mdiAllocationOffset, static_cast<uint32_t>(batchCnt) };
+        pmbd = { rambIn->mdiAllocationOffset + batchesAddedCnt, static_cast<uint32_t>(batchCnt) };
+        batchesAddedCnt += batchCnt;
 
         i++;
     }
 
-    return true;
+    return batchCntTotal;
 }
 
 }

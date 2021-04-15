@@ -256,12 +256,9 @@ using GPUMeshPacker = CGPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipelineRange>& ranges, DrawData& drawData)
 {
     assert(ranges.size()>=2u);
-    
-    //constexpr uint16_t minTrisBatch = 256u;// TODO: CRASHES WITH 256u for `minTrisBatch` and std::numeric_limits<uint16_t>::max()/3u for maxTrisBatch
-    //constexpr uint16_t maxTrisBatch = std::numeric_limits<uint16_t>::max()/3u;
 
     constexpr uint16_t minTrisBatch = 256u;
-    constexpr uint16_t maxTrisBatch = 256u;
+    constexpr uint16_t maxTrisBatch = 512u;//std::numeric_limits<uint16_t>::max() / 3u; 
 
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
@@ -275,61 +272,75 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
 
     auto wholeMbRangeBegin = ranges.front().second;
     auto wholeMbRangeEnd = ranges.back().second;
+    const uint32_t meshBufferCnt = std::distance(wholeMbRangeBegin, wholeMbRangeEnd);
 
-    const uint32_t mdiCntTotal = mp.calcMDIStructCount(wholeMbRangeBegin,wholeMbRangeEnd);
+    const uint32_t mdiCntTotal = mp.calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd);
+    //shouldn't it be `meshBufferCnt` instead of `mdiCntTotal`?
     auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntTotal);
 
-    const uint32_t offsetTableSz = mdiCntTotal * 3u;
-    core::vector<MeshPacker::VirtualAttribute> offsetTableLocal;
-    offsetTableLocal.reserve(offsetTableSz);
-
-    uint32_t offsetForDrawCall = 0u;
+    core::vector<uint32_t> allocDataOffsetForDrawCall(ranges.size());
+    allocDataOffsetForDrawCall[0] = 0u;
+    uint32_t i = 0u;
     for (auto it=ranges.begin(); it!=ranges.end()-1u; )
     {
         auto mbRangeBegin = &it->second->get();
         auto mbRangeEnd = &(++it)->second->get();
 
-        const uint32_t mdiCnt = mp.calcMDIStructCount(mbRangeBegin,mbRangeEnd);
-        bool allocSuccessfull = mp.alloc(allocData->data()+offsetForDrawCall, mbRangeBegin,mbRangeEnd);
+        bool allocSuccessfull = mp.alloc(allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
         if (!allocSuccessfull)
         {
             std::cout << "Alloc failed \n";
             _NBL_DEBUG_BREAK_IF(true);
         }
 
-        drawData.pushConstantsData.push_back(offsetForDrawCall); // FOUND THE FUCKUP!
-        offsetForDrawCall += mdiCnt;
+        const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
+        allocDataOffsetForDrawCall[i + 1] = allocDataOffsetForDrawCall[i] + mdiMaxCnt;
+        i++;
     }
     
     mp.shrinkOutputBuffersSize();
     mp.instantiateDataStorage();
     MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
     
-    auto materialDataIt = drawData.pushConstantsData.begin();
-    for (auto it=ranges.begin(); it!=ranges.end()-1u; materialDataIt++)
+    const uint32_t offsetTableSz = mdiCntTotal * 3u;
+    core::vector<MeshPacker::VirtualAttribute> offsetTableLocal;
+    offsetTableLocal.reserve(offsetTableSz);
+
+    core::vector<uint32_t> mdiCntForMeshBuffer;
+    mdiCntForMeshBuffer.reserve(meshBufferCnt);
+
+    uint32_t offsetForDrawCall = 0u;
+    i = 0u;
+    for (auto it=ranges.begin(); it!=ranges.end()-1u;)
     {
         auto mbRangeBegin = &it->second->get();
         auto mbRangeEnd = &(++it)->second->get();
 
-        const uint32_t mdiCnt = mp.calcMDIStructCount(mbRangeBegin, mbRangeEnd);
+        const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin, mbRangeEnd);
+        core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiMaxCnt); //why mdiMaxCnt and not meshBuffersInRangeCnt??????????
+        core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiMaxCnt);
 
-        core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiCnt);
-
-        core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiCnt);
-
-        bool commitSuccessfull = mp.commit(pmbd.data(), cdot.data(), allocData->data() + (*materialDataIt), mbRangeBegin, mbRangeEnd);
-        if (!commitSuccessfull)
+        uint32_t mdiCnt = mp.commit(pmbd.data(), cdot.data(), allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
+        if (mdiCnt == 0u)
         {
             std::cout << "Commit failed \n";
             _NBL_DEBUG_BREAK_IF(true);
         }
 
-        DrawIndexedIndirectInput mdiCallInput;
+        drawData.pushConstantsData.push_back(offsetForDrawCall);
+        offsetForDrawCall += mdiCnt;
 
+        DrawIndexedIndirectInput mdiCallInput;
         mdiCallInput.maxCount = mdiCnt;
         mdiCallInput.offset = pmbd[0].mdiParameterOffset * sizeof(DrawElementsIndirectCommand_t);
 
         drawData.drawIndirectInput.push_back(mdiCallInput);
+
+        const uint32_t mbInRangeCnt = std::distance(mbRangeBegin, mbRangeEnd);
+        for (uint32_t j = 0u; j < mbInRangeCnt; j++)
+        {
+            mdiCntForMeshBuffer.push_back(pmbd[j].mdiParameterCount);
+        }
 
         //setOffsetTables
         for (uint32_t j = 0u; j < mdiCnt; j++)
@@ -351,19 +362,23 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
             std::cout << "vtx: " << i << " idx: " << *(idxBuffPtr + i) << "    ";
             std::cout << *firstCoord << ' ' << *(firstCoord + 1u) << ' ' << *(firstCoord + 2u) << std::endl;
         }*/
+
+        i++;
     }
 
     //prepare data for (set = 2, binding = 1) frag shader ssbo
     {
-        //TODO: this is shit and `calcMDIStructCount` should be cashed so it would't be called so often, rewrite it
         core::vector<MaterialParams> vtData;
         vtData.reserve(mdiCntTotal);
 
+        uint32_t i = 0u;
         for (auto it = wholeMbRangeBegin; it != wholeMbRangeEnd; it++)
         {
-            const uint32_t mdiCntForThisMb = mp.calcMDIStructCount(it, it + 1);
+            const uint32_t mdiCntForThisMb = mdiCntForMeshBuffer[i];
             for (uint32_t i = 0u; i < mdiCntForThisMb; i++)
                 vtData.push_back(*reinterpret_cast<MaterialParams*>((*it)->getPushConstantsDataPtr()));
+
+            i++;
         }
 
         drawData.vtDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(vtData.size() * sizeof(MaterialParams), vtData.data());
@@ -374,6 +389,7 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
     drawData.mdiBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.MDIDataBuffer->getSize(), packerDataStore.MDIDataBuffer->getPointer());
 
     drawData.virtualAttribTable = driver->createFilledDeviceLocalGPUBufferOnDedMem(offsetTableLocal.size() * sizeof(MeshPacker::VirtualAttribute), offsetTableLocal.data());
+
 
     return GPUMeshPacker(driver, std::move(mp));
 }

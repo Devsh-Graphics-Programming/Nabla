@@ -11,7 +11,7 @@
 
 //AFTER SAFE SHRINK FIX TODO LIST:
 //1. new size for buffers (obviously)
-//3. handle case where (maxIdx - minIdx) > 0xFFFF
+//3. Chandle case where (maxIdx - minIdx) > 0xFFFF
 //4. fix handling of per instance attributes 
 //5. make it work for multiple `alloc` calls
 //6. provide `free` method
@@ -82,15 +82,14 @@ public:
 		size_t perInstanceVertexBufferMinAllocByteSize = 32ull;
 	};
 
-	//TODO: names
 	struct ReservedAllocationMeshBuffers
 	{
 		uint32_t mdiAllocationOffset;
-		uint32_t mdiAllocationReservedSize;
+		uint32_t mdiAllocationReservedCnt;
 		uint32_t instanceAllocationOffset;
 		uint32_t instanceAllocationReservedSize;
 		uint32_t indexAllocationOffset;
-		uint32_t indexAllocationReservedSize;
+		uint32_t indexAllocationReservedCnt;
 		uint32_t vertexAllocationOffset;
 		uint32_t vertexAllocationReservedSize;
 
@@ -125,6 +124,22 @@ public:
 
 	template <typename MeshBufferIterator>
 	ReservedAllocationMeshBuffers alloc(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+
+	//TODO: test
+	void free(const ReservedAllocationMeshBuffers& ramb)
+	{
+		if (ramb.indexAllocationOffset != INVALID_ADDRESS)
+			m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
+
+		if (ramb.mdiAllocationOffset != INVALID_ADDRESS)
+			m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
+
+		if (ramb.vertexAllocationOffset != INVALID_ADDRESS)
+			m_vtxBuffAlctr.free_addr(ramb.vertexAllocationOffset, ramb.vertexAllocationReservedSize);
+
+		if (ramb.instanceAllocationOffset != INVALID_ADDRESS)
+			m_vtxBuffAlctr.free_addr(ramb.instanceAllocationOffset, ramb.instanceAllocationReservedSize);
+	}
 
 	//needs to be called before first `commit`
 	void instantiateDataStorage();

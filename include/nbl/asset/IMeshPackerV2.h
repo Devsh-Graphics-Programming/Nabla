@@ -200,13 +200,15 @@ public:
         size_t offset = INVALID_ADDRESS;
         size_t size = 0ull;
     };
-
+    
+    //TODO: REDESIGN
+    //mdi allocation offset and index allocation offset should be shared
     struct ReservedAllocationMeshBuffers
     {
         uint32_t mdiAllocationOffset;
-        uint32_t mdiAllocationReservedSize;
+        uint32_t mdiAllocationReservedCnt;
         uint32_t indexAllocationOffset;
-        uint32_t indexAllocationReservedSize;
+        uint32_t indexAllocationReservedCnt;
         AttribAllocParams attribAllocParams[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
 
         inline bool isValid()
@@ -388,10 +390,10 @@ public:
             const ReservedAllocationMeshBuffers* const ramb = rambIn + i;
 
             if (ramb->indexAllocationOffset != INVALID_ADDRESS)
-                m_idxBuffAlctr.free_addr(ramb->indexAllocationOffset, ramb->indexAllocationReservedSize);
+                m_idxBuffAlctr.free_addr(ramb->indexAllocationOffset, ramb->indexAllocationReservedCnt);
             
             if (ramb->mdiAllocationOffset != INVALID_ADDRESS)
-                m_MDIDataAlctr.free_addr(ramb->mdiAllocationOffset, ramb->mdiAllocationReservedSize);
+                m_MDIDataAlctr.free_addr(ramb->mdiAllocationOffset, ramb->mdiAllocationReservedCnt);
             
             for (uint32_t j = 0; j < SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; j++)
             {
@@ -402,8 +404,9 @@ public:
         }
     }
 
+    //! Returns maximum number of mdi structs needed to draw range of mesh buffers described by range mbBegin .. mbEnd, actual number of mdi structd needed may differ
     template <typename MeshBufferIterator>
-    uint32_t calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+    uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
@@ -437,7 +440,7 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
         ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
         if (ramb.indexAllocationOffset == INVALID_ADDRESS)
             return false;
-        ramb.indexAllocationReservedSize = idxCnt * 2;
+        ramb.indexAllocationReservedCnt = idxCnt;
 
         //allocate vertices
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
@@ -479,7 +482,7 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
         ramb.mdiAllocationOffset = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
         if (ramb.mdiAllocationOffset == INVALID_ADDRESS)
             return false;
-        ramb.mdiAllocationReservedSize = possibleMDIStructsNeededCnt;
+        ramb.mdiAllocationReservedCnt = possibleMDIStructsNeededCnt;
 
         i++;
     }
@@ -489,14 +492,13 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
 
 template <typename MeshBufferType, typename BufferType, typename MDIStructType>
 template <typename MeshBufferIterator>
-uint32_t IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::calcMDIStructCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+uint32_t IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     uint32_t acc = 0u;
     for (auto mbIt = mbBegin; mbIt != mbEnd; mbIt++)
     {
         auto mb = *mbIt;
-        assert(mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType==EPT_TRIANGLE_LIST);
-        const size_t idxCnt = mb->getIndexCount();
+        const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(mb);
         const uint32_t triCnt = idxCnt / 3;
         assert(idxCnt % 3 == 0);
 
