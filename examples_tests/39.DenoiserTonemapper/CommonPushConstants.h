@@ -5,6 +5,7 @@
 #ifdef __cplusplus
 	#define int int32_t
 	#define uint uint32_t
+	struct vec2 {float x,y;};
 	#define mat3 nbl::core::matrix3x4SIMD
 #endif
 struct CommonPushConstants
@@ -12,6 +13,8 @@ struct CommonPushConstants
 	uint inImageTexelPitch[3];
 	uint imageWidth;
 	uint imageHeight;
+	uint fftSizeLog2; // TODO: use this
+	vec2 kernel_half_pixel_size;
 	
 	// luma meter and tonemapping var but also for denoiser
 	uint percentileRange[2];

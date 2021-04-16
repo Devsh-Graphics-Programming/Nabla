@@ -181,7 +181,7 @@ int main(int argc, char* argv[])
 	// clear the histogram to 0s
 	driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 
-	constexpr auto SharedDescriptorSetDescCount = 4u;
+	constexpr auto SharedDescriptorSetDescCount = 5u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
 	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndFirstFFTPipeline,convolvePipeline,interleaveAndLastFFTPipeline;
@@ -398,13 +398,15 @@ void main()
 shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
 
 #include "../ShaderCommon.glsl"
-layout(binding = 1, std430) restrict buffer SpectrumOutputBuffer
+layout(binding = 1, std430) restrict buffer SpectrumBuffer
 {
 	vec2 spectrum[];
 };
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 #define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 
+
+layout(binding=4) uniform sampler2D NormalizedKernel[3];
 
 
 #include <nbl/builtin/glsl/math/complex.glsl>
@@ -448,13 +450,10 @@ void convolve(in uint item_per_thread_count, in uint ch)
 		//
 		const uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
         vec2 uv = vec2(bitfieldReverse(coords.xy))/vec2(4294967296.f);
-#ifdef CONVOLVE
+
 		uv += pc.params.kernel_half_pixel_size;
 		//
 		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
-#else
-		nbl_glsl_complex convSpectrum = nbl_glsl_complex(1.f,0.f);
-#endif
 		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
 	}
 }
@@ -484,7 +483,12 @@ void main()
 		for(uint t=0u; t<item_per_thread_count; t++)
 		{
 			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-			nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,nbl_glsl_ext_FFT_impl_values[t]);
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			// we also prevent certain threads from writing the memory out
+			const uint padding = ((0x1u<<log2FFTSize)-trueDim)>>1u;
+			const uint shifted = tid-padding;
+			if (tid>=padding && shifted<trueDim)
+				nbl_glsl_ext_FFT_setData(ivec3(nbl_glsl_ext_FFT_getCoordinates(shifted)),channel,nbl_glsl_ext_FFT_impl_values[t]);
 		}
 	}
 }
@@ -549,7 +553,7 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_
 	ivec2 coords = ivec2(coordinate.xy);
 	const uint padding_size = (0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())-pc.data.imageWidth;
 	coords.x -= int(padding_size>>1u);
-    if (coords.x<0 || coords.x>int(pc.data.imageWidth))
+    if (coords.x<0 || coords.x>=int(pc.data.imageWidth))
 		return;
 	
 	uint dataOffset = coords.y*pc.data.inImageTexelPitch[EII_COLOR]+coords.x;	
@@ -654,12 +658,33 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 		auto secondLumaMeterAndFirstFFTSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndFirstFFTShader.get(),specInfo);
 		auto convolveSpecializedShader = driver->createGPUSpecializedShader(convolveShader.get(),specInfo);
 		auto interleaveAndLastFFTSpecializedShader = driver->createGPUSpecializedShader(interleaveAndLastFFTShader.get(),specInfo);
-		
+
+		core::smart_refctd_ptr<IGPUSampler> samplers[colorChannelsFFT];
+		{
+			IGPUSampler::SParams params =
+			{
+				{
+					ISampler::ETC_REPEAT,
+					ISampler::ETC_REPEAT,
+					ISampler::ETC_REPEAT,
+					ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+					ISampler::ETF_LINEAR, // is it needed?
+					ISampler::ETF_LINEAR,
+					ISampler::ESMM_NEAREST,
+					0u,
+					0u,
+					ISampler::ECO_ALWAYS
+				}
+			};
+			auto sampler = driver->createGPUSampler(std::move(params));
+			std::fill_n(samplers,colorChannelsFFT,sampler);
+		}
 		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
-			{0u,EDT_STORAGE_BUFFER,3u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{1u,EDT_STORAGE_BUFFER,3u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{0u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{1u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 			{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
+			{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{4u,EDT_COMBINED_IMAGE_SAMPLER,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,samplers}
 		};
 		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
 		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
@@ -1068,7 +1093,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				cuda::CCUDAHandler::GraphicsAPIObjLink<IGPUBuffer> retval = core::smart_refctd_ptr<IGPUBuffer>(gpubuffers->operator[](ix)->getBuffer());
 				if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&retval)))
 				{
-					os::Printer::log(makeImageIDString(i) + "Could register the image data buffer with CUDA, skipping image!", ELL_ERROR);
+					os::Printer::log(makeImageIDString(i) + "Could not register the image data buffer with CUDA, skipping image!", ELL_ERROR);
 					skip = true;
 				}
 				return retval;
@@ -1094,12 +1119,39 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				shaderConstants.inImageTexelPitch[j] = image->getRegions().begin()[0].bufferRowLength;
 				inImageByteOffset[j] = offsetPair->getOffset();
 			}
-			// upload the constants to the GPU
-			driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CommonPushConstants), &shaderConstants);
 		}
 
 		// process
 		{
+			// get the bloom kernel FFT Spectrum
+			core::smart_refctd_ptr<IGPUImageView> kernelNormalizedSpectrums[colorChannelsFFT];
+			{
+				core::smart_refctd_ptr<IGPUImageView> kerImageView;
+				{
+					auto kerGpuImages = driver->getGPUObjectsFromAssets(&param.kernel, &param.kernel + 1u, &assetConverter);
+
+
+					IGPUImageView::SCreationParams kerImgViewInfo;
+					kerImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+					kerImgViewInfo.image = kerGpuImages->operator[](0u);
+
+					// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
+					am->removeCachedGPUObject(param.kernel.get(), kerImgViewInfo.image);
+
+					kerImgViewInfo.viewType = IGPUImageView::ET_2D;
+					kerImgViewInfo.format = kerImgViewInfo.image->getCreationParameters().format;
+					kerImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+					kerImgViewInfo.subresourceRange.baseMipLevel = 0;
+					kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
+					kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
+					kerImgViewInfo.subresourceRange.layerCount = 1;
+					kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
+				}
+
+				// TODO: the FFTs
+				kernelNormalizedSpectrums[] = ;
+			}
+
 			uint32_t outImageByteOffset[EII_COUNT];
 			// bind shader resources
 			{
@@ -1107,44 +1159,53 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
 				// write descriptor set
 				{
-					IGPUDescriptorSet::SDescriptorInfo infos[SharedDescriptorSetDescCount+EII_COUNT*2u-2u];
-					auto attachBufferImageRange = [param,&infos](auto ix, IGPUBuffer* buff, uint64_t offset, uint64_t pixelByteSize) -> void
+					IGPUDescriptorSet::SDescriptorInfo infos[SharedDescriptorSetDescCount+EII_COUNT*2u-2u+colorChannelsFFT];
+					auto attachBufferImageRange = [param,&infos](auto* pInfo, IGPUBuffer* buff, uint64_t offset, uint64_t pixelByteSize) -> void
 					{
-						infos[ix].desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
-						infos[ix].buffer = {offset,param.width*param.height*pixelByteSize};
+						pInfo->desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
+						pInfo->buffer = {offset,param.width*param.height*pixelByteSize};
 					};
-					auto attachWholeBuffer = [&infos](auto ix, IGPUBuffer* buff) -> void
+					auto attachWholeBuffer = [&infos](auto* pInfo, IGPUBuffer* buff) -> void
 					{
-						infos[ix].desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
-						infos[ix].buffer = {0ull,buff->getMemoryReqs().vulkanReqs.size};
+						pInfo->desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
+						pInfo->buffer = {0ull,buff->getMemoryReqs().vulkanReqs.size};
 					};
-					uint64_t interleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>();
-					attachBufferImageRange(EII_COLOR,colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],interleavedPixelBytesize);
-					if (denoiserInputCount>EII_ALBEDO)
-						attachBufferImageRange(EII_ALBEDO,albedoPixelBuffer.getObject(),inImageByteOffset[EII_ALBEDO],interleavedPixelBytesize);
-					if (denoiserInputCount>EII_NORMAL)
-						attachBufferImageRange(EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL],interleavedPixelBytesize);
-					for (uint32_t j=0u; j<denoiserInputCount; j++)
-					{
-						outImageByteOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride;
-						attachBufferImageRange(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],forcedOptiXFormatPixelStride);
-						if (j==0u)
-							infos[EII_COUNT].buffer.size = fftScratchSize;
-					}
-					attachWholeBuffer(EII_COUNT*2u,histogramBuffer.get());
-					attachWholeBuffer(EII_COUNT*2u+1u,intensityBuffer.getObject());
 					IGPUDescriptorSet::SWriteDescriptorSet writes[SharedDescriptorSetDescCount] =
 					{
 						{descriptorSet.get(),0u,0u,denoiserInputCount,EDT_STORAGE_BUFFER,infos+0},
 						{descriptorSet.get(),1u,0u,denoiserInputCount,EDT_STORAGE_BUFFER,infos+EII_COUNT},
 						{descriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u},
-						{descriptorSet.get(),3u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u+1u}
+						{descriptorSet.get(),3u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u+1u},
+						{descriptorSet.get(),4u,0u,colorChannelsFFT,EDT_COMBINED_IMAGE_SAMPLER,infos+EII_COUNT*2u+2u}
 					};
+					uint64_t interleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>();
+					attachBufferImageRange(writes[0].info+EII_COLOR,colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],interleavedPixelBytesize);
+					if (denoiserInputCount>EII_ALBEDO)
+						attachBufferImageRange(writes[0].info+EII_ALBEDO,albedoPixelBuffer.getObject(),inImageByteOffset[EII_ALBEDO],interleavedPixelBytesize);
+					if (denoiserInputCount>EII_NORMAL)
+						attachBufferImageRange(writes[0].info+EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL],interleavedPixelBytesize);
+					for (uint32_t j=0u; j<denoiserInputCount; j++)
+					{
+						outImageByteOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride;
+						attachBufferImageRange(writes[1].info+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],forcedOptiXFormatPixelStride);
+						if (j==0u)
+							infos[EII_COUNT].buffer.size = fftScratchSize;
+					}
+					attachWholeBuffer(writes[2].info,histogramBuffer.get());
+					attachWholeBuffer(writes[3].info,intensityBuffer.getObject());
+					for (auto j=0u; j< colorChannelsFFT; j++)
+					{
+						writes[0].info[4].desc = core::smart_refctd_ptr(kernelNormalizedSpectrums[j]);
+						//writes[0].info[4].image.imageLayout = ;
+						writes[0].info[4].image.sampler = nullptr; //immutable
+					}
 					driver->updateDescriptorSets(SharedDescriptorSetDescCount,writes,0u,nullptr);
 				}
 				// bind descriptor set (for all shaders)
 				driver->bindDescriptorSets(video::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,1u,&descriptorSet.get(),nullptr);
 			}
+			// upload the constants to the GPU
+			driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CommonPushConstants), &shaderConstants);
 			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
 				// bind deinterleave pipeline
@@ -1211,7 +1272,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				denoiserOutput.rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
 				denoiserOutput.format = forcedOptiXFormat;
 				denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride;
-#if 1 // for easy debug with renderdoc disable optix stuff
+#if 0 // for easy debug with renderdoc disable optix stuff
 				//invoke
 				if (denoiser.m_denoiser->tileAndInvoke(
 					m_cudaStream,
@@ -1240,48 +1301,24 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				shaderConstants.flags &= 0b10u;
 				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,flags), sizeof(uint32_t), &shaderConstants.flags);
 				// Bloom
-				uint32_t workgroupCounts[2] = { (param.width + kComputeWGSize - 1u) / kComputeWGSize,param.height };
+				uint32_t workgroupCounts[2] = { (param.width+kComputeWGSize-1u)/kComputeWGSize,param.height };
 				{
-					core::smart_refctd_ptr<IGPUImageView> kerImageView;
-					{
-						auto kerGpuImages = driver->getGPUObjectsFromAssets(&param.kernel,&param.kernel+1u,&assetConverter);
-
-
-						IGPUImageView::SCreationParams kerImgViewInfo;
-						kerImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-						kerImgViewInfo.image = kerGpuImages->operator[](0u);
-
-						// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
-						am->removeCachedGPUObject(param.kernel.get(),kerImgViewInfo.image);
-
-						kerImgViewInfo.viewType = IGPUImageView::ET_2D;
-						kerImgViewInfo.format = kerImgViewInfo.image->getCreationParameters().format;
-						kerImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
-						kerImgViewInfo.subresourceRange.baseMipLevel = 0;
-						kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
-						kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
-						kerImgViewInfo.subresourceRange.layerCount = 1;
-						kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
-					}
-
 					driver->bindComputePipeline(secondLumaMeterAndFirstFFTPipeline.get());
 					// dispatch
 					driver->dispatch(param.fftDispatchInfo[0].workGroupCount[0],param.fftDispatchInfo[0].workGroupCount[1],1u);
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-					// TODO: Y-axis FFT, multiply the spectra together, y-axis iFFT
+					// Y-axis FFT, multiply the spectra together, y-axis iFFT
 					driver->bindComputePipeline(convolvePipeline.get());
-#if 0
 					{
 						const auto& kernelImgExtent = kernelNormalizedSpectrums[0]->getCreationParameters().image->getCreationParameters().extent;
 						vec2 kernel_half_pixel_size{0.5f,0.5f};
 						kernel_half_pixel_size.x /= kernelImgExtent.width;
 						kernel_half_pixel_size.y /= kernelImgExtent.height;
-						driver->pushConstants(convolvePipeline->getLayout(),ISpecializedShader::ESS_COMPUTE,offsetof(convolve_parameters_t,kernel_half_pixel_size),sizeof(convolve_parameters_t::kernel_half_pixel_size),&kernel_half_pixel_size);
+						driver->pushConstants(convolvePipeline->getLayout(),ISpecializedShader::ESS_COMPUTE,offsetof(CommonPushConstants,kernel_half_pixel_size),sizeof(CommonPushConstants::kernel_half_pixel_size),&kernel_half_pixel_size);
 					}
-#endif
 					// dispatch
-					//!driver->dispatch(param.fftDispatchInfo[1].workGroupCount[0],param.fftDispatchInfo[1].workGroupCount[1],1u);
+					driver->dispatch(param.fftDispatchInfo[1].workGroupCount[0],param.fftDispatchInfo[1].workGroupCount[1],1u);
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 					// bind intensity pipeline
