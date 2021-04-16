@@ -451,9 +451,9 @@ void convolve(in uint item_per_thread_count, in uint ch)
 		const uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
         vec2 uv = vec2(bitfieldReverse(coords.xy))/vec2(4294967296.f);
 
-		uv += pc.params.kernel_half_pixel_size;
+		uv += pc.data.kernel_half_pixel_size;
 		//
-		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
+		nbl_glsl_complex convSpectrum = vec2(1.0,0.0);//textureLod(NormalizedKernel[ch],uv,0).xy;
 		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
 	}
 }
@@ -1126,6 +1126,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 			// get the bloom kernel FFT Spectrum
 			core::smart_refctd_ptr<IGPUImageView> kernelNormalizedSpectrums[colorChannelsFFT];
 			{
+				// kernel inputs
 				core::smart_refctd_ptr<IGPUImageView> kerImageView;
 				{
 					auto kerGpuImages = driver->getGPUObjectsFromAssets(&param.kernel, &param.kernel + 1u, &assetConverter);
@@ -1148,8 +1149,39 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
 				}
 
-				// TODO: the FFTs
-				kernelNormalizedSpectrums[] = ;
+				// kernel outputs
+				const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
+				const VkExtent3D paddedKerDim = FFTClass::padDimensions(kerImageView->getCreationParameters().image->getCreationParameters().extent);
+				for (uint32_t i=0u; i<colorChannelsFFT; i++)
+				{
+					video::IGPUImage::SCreationParams imageParams;
+					imageParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+					imageParams.type = asset::IImage::ET_2D;
+					imageParams.format = EF_R32G32_SFLOAT;
+					imageParams.extent = { paddedKerDim.width,paddedKerDim.height,1u};
+					imageParams.mipLevels = 1u;
+					imageParams.arrayLayers = 1u;
+					imageParams.samples = asset::IImage::ESCF_1_BIT;
+
+					video::IGPUImageView::SCreationParams viewParams;
+					viewParams.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
+					viewParams.image = driver->createGPUImageOnDedMem(std::move(imageParams),driver->getDeviceLocalGPUMemoryReqs());
+					viewParams.viewType = video::IGPUImageView::ET_2D;
+					viewParams.format = EF_R32G32_SFLOAT;
+					viewParams.components = {};
+					viewParams.subresourceRange = {};
+					viewParams.subresourceRange.levelCount = 1u;
+					viewParams.subresourceRange.layerCount = 1u;
+					kernelNormalizedSpectrums[i] = driver->createGPUImageView(std::move(viewParams));
+				}
+
+				//
+				FFTClass::Parameters_t fftPushConstants[2];
+				FFTClass::DispatchInfo_t fftDispatchInfo[2];
+				const ISampler::E_TEXTURE_CLAMP fftPadding[2] = { ISampler::ETC_CLAMP_TO_BORDER,ISampler::ETC_CLAMP_TO_BORDER };
+				const auto passes = FFTClass::buildParameters(false,colorChannelsFFT, kerDim, fftPushConstants, fftDispatchInfo, fftPadding);
+
+				// the kernel's FFTs
 			}
 
 			uint32_t outImageByteOffset[EII_COUNT];
@@ -1193,11 +1225,11 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					}
 					attachWholeBuffer(writes[2].info,histogramBuffer.get());
 					attachWholeBuffer(writes[3].info,intensityBuffer.getObject());
-					for (auto j=0u; j< colorChannelsFFT; j++)
+					for (auto j=0u; j<colorChannelsFFT; j++)
 					{
-						writes[0].info[4].desc = core::smart_refctd_ptr(kernelNormalizedSpectrums[j]);
+						writes[4].info[j].desc = core::smart_refctd_ptr(kernelNormalizedSpectrums[j]);
 						//writes[0].info[4].image.imageLayout = ;
-						writes[0].info[4].image.sampler = nullptr; //immutable
+						writes[4].info[j].image.sampler = nullptr; //immutable
 					}
 					driver->updateDescriptorSets(SharedDescriptorSetDescCount,writes,0u,nullptr);
 				}
