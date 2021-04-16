@@ -73,6 +73,26 @@ inline bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPU
     return true;
 }
 
+class CThreadSafeGPUQueueAdapter : IGPUQueue
+{
+protected:
+    IGPUQueue* originalQueue;
+    std::mutex m;
+public:
+    CThreadSafeGPUQueueAdapter(IGPUQueue* originalQueue) : IGPUQueue(nullptr, 0, E_CREATE_FLAGS::ECF_PROTECTED_BIT, 0.f), originalQueue(originalQueue) {}
+
+    virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
+    {
+        std::lock_guard g(m);
+        return originalQueue->submit(_count, _submits, _fence);
+    }
+
+    virtual bool present(const SPresentInfo& info) override
+    {
+        std::lock_guard g(m);
+        return originalQueue->present(info);
+    }
+};
 }}
 
 #endif
