@@ -257,8 +257,8 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
 {
     assert(ranges.size()>=2u);
 
-    constexpr uint16_t minTrisBatch = 256u;
-    constexpr uint16_t maxTrisBatch = 512u;//std::numeric_limits<uint16_t>::max() / 3u; 
+    constexpr uint16_t minTrisBatch = 64u;
+    constexpr uint16_t maxTrisBatch = 128u;//std::numeric_limits<uint16_t>::max() / 3u; 
 
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
@@ -699,9 +699,11 @@ int main()
                     auto lPpln = lhs->getPipeline();
                     auto rPpln = rhs->getPipeline();
                     // render non-transparent things first
-                    if (lPpln->getBlendParams().blendParams[0].blendEnable<rPpln->getBlendParams().blendParams[0].blendEnable)
+                    if (lPpln->getBlendParams().blendParams[0].blendEnable < rPpln->getBlendParams().blendParams[0].blendEnable)
                         return true;
-                    return lPpln<rPpln;
+                    if (lPpln->getBlendParams().blendParams[0].blendEnable == rPpln->getBlendParams().blendParams[0].blendEnable)
+                        return lPpln < rPpln;
+                    return false;
                 }
             );
 

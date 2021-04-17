@@ -297,30 +297,104 @@ protected:
         Triangle* triangleArrayBegin = triangleBatches.triangles.data();
         Triangle* triangleArrayEnd = triangleArrayBegin + triangleBatches.triangles.size();
         const uint32_t triangleCnt = triangleBatches.triangles.size();
-        //for (uint32_t i = 0u; i < batchCnt; i++)
-        //    triangleBatches.ranges.push_back(triangleArrayBegin + (m_minTriangleCountPerMDIData * i)); //is calcBatchCountBound correct?
-        //triangleBatches.ranges.push_back(triangleArrayEnd);
 
-        std::random_device rd;
-        std::mt19937 mt(rd());
-        std::uniform_int_distribution<uint16_t> dist(m_minTriangleCountPerMDIData, m_maxTriangleCountPerMDIData);
-
-        triangleBatches.ranges.push_back(triangleArrayBegin);
-        for(uint32_t i = 1u, trianglesAddedToBatchesCnt = 0u; ; i++)
+        //aabb batch division
         {
-            const uint16_t randomBatchSize = dist(mt);
-            trianglesAddedToBatchesCnt += randomBatchSize;
-
-            //std::cout << randomBatchSize << std::endl;
-
-            if (trianglesAddedToBatchesCnt >= triangleCnt)
+            triangleBatches.ranges.push_back(triangleArrayBegin);
+            for (uint32_t i = 1u; ; i++)
             {
-                //std::cout << std::endl << trianglesAddedToBatchesCnt << std::endl;
-                triangleBatches.ranges.push_back(triangleArrayEnd);
-                break;
-            }
+                Triangle* batchBegin = *(triangleBatches.ranges.end() - 1u);
+                Triangle* batchEnd = batchBegin + m_minTriangleCountPerMDIData;
+                
+                if (batchEnd >= triangleArrayEnd)
+                {
+                    triangleBatches.ranges.push_back(triangleArrayEnd);
+                    break;
+                }
 
-            triangleBatches.ranges.push_back(triangleArrayBegin + trianglesAddedToBatchesCnt);
+                if (m_minTriangleCountPerMDIData == m_maxTriangleCountPerMDIData)
+                {
+                    triangleBatches.ranges.push_back(batchEnd);
+                    continue;
+                }
+
+                //find min and max edge
+                core::vector3df min(std::numeric_limits<float>::max());
+                core::vector3df max(std::numeric_limits<float>::min());
+
+                //TODO: simd
+                for (auto it = batchBegin; it != batchEnd; it++)
+                {
+                    for (uint32_t j = 0u; j < 3u; j++)
+                    {
+                        core::vector3df pos(
+                            meshBuffer->getPosition(it->oldIndices[j]).x,
+                            meshBuffer->getPosition(it->oldIndices[j]).y,
+                            meshBuffer->getPosition(it->oldIndices[j]).z
+                        );
+
+                        if (min.X > pos.X) min.X = pos.X;
+                        if (min.Y > pos.Y) min.Y = pos.Y;
+                        if (min.Z > pos.Z) min.Z = pos.Z;
+
+                        if (max.X < pos.X) max.X = pos.X;
+                        if (max.Y < pos.Y) max.Y = pos.Y;
+                        if (max.Z < pos.Z) max.Z = pos.Z;
+                    }
+                }
+
+
+                //add vertices of triangles and chceck if new area of aabb exceeds limit
+                core::aabbox3d<float> aabb(min, max);
+                const float initialArea = aabb.getArea();
+                constexpr float areaIncreaseLimit = 0.95f;
+
+                bool allTrianglesAdded = false;
+                while (true)
+                {
+                    bool limitExceed = false;
+                    for (uint32_t j = 0u; j < 3u; j++)
+                    {
+                        core::vector3df pos(
+                            meshBuffer->getPosition(batchEnd->oldIndices[j]).x,
+                            meshBuffer->getPosition(batchEnd->oldIndices[j]).y,
+                            meshBuffer->getPosition(batchEnd->oldIndices[j]).z
+                        );
+
+                        aabb.addInternalPoint(pos);
+
+                        const float area = aabb.getArea();
+                        if (initialArea / area <= areaIncreaseLimit)
+                        {
+                            limitExceed = true;
+                            break;
+                        }
+                    }
+
+                    if (limitExceed)
+                    {
+                        triangleBatches.ranges.push_back(batchEnd);
+                        break;
+                    }
+
+                    batchEnd++;
+                    if (batchEnd >= triangleArrayEnd)
+                    {
+                        allTrianglesAdded = true;
+                        triangleBatches.ranges.push_back(triangleArrayEnd);
+                        break;
+                    }
+                    
+                    if (std::distance(batchBegin, batchEnd) >= m_maxTriangleCountPerMDIData)
+                    {
+                        triangleBatches.ranges.push_back(batchEnd);
+                        break;
+                    }
+                }
+
+                if (allTrianglesAdded)
+                    break;
+            }
         }
 
         return triangleBatches;
