@@ -202,7 +202,7 @@ class FFT final : public core::IReferenceCounted
 			bool issueDefaultBarrier=true)
 		{
 			driver->pushConstants(pipelineLayout,video::IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(Parameters_t),&params);
-			driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
+			driver->dispatch(dispatchInfo.workGroupCount[0],dispatchInfo.workGroupCount[1],dispatchInfo.workGroupCount[2]);
 
 			if (issueDefaultBarrier)
 				defaultBarrier();

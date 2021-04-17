@@ -182,10 +182,139 @@ int main(int argc, char* argv[])
 	driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 
 	constexpr auto SharedDescriptorSetDescCount = 5u;
-	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
-	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndFirstFFTPipeline,convolvePipeline,interleaveAndLastFFTPipeline;
+	core::smart_refctd_ptr<IGPUDescriptorSetLayout> kernelDescriptorSetLayout,sharedDescriptorSetLayout;
+	core::smart_refctd_ptr<IGPUPipelineLayout> kernelPipelineLayout,sharedPipelineLayout;
+	core::smart_refctd_ptr<IGPUComputePipeline> firstKernelFFTPipeline,lastKernelFFTPipeline,kernelNormalizationPipeline,
+		deinterleavePipeline,intensityPipeline,
+		secondLumaMeterAndFirstFFTPipeline,convolvePipeline,interleaveAndLastFFTPipeline;
+	// Normalization of FFT spectrum
+	struct NormalizationPushConstants
 	{
+		ext::FFT::uvec4 stride;
+		ext::FFT::uvec4 bitreverse_shift;
+	};
+	{
+		auto firstKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
+
+// kinda bad overdeclaration but oh well
+#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ 16384
+
+// Input Descriptor
+layout(set=0, binding=0) uniform sampler2D inputImage;
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel) 
+{
+	ivec2 inputImageSize = textureSize(inputImage,0);
+	vec2 normalizedCoords = (vec2(coordinate.xy)+vec2(0.5f))/(vec2(inputImageSize)*KERNEL_SCALE);
+	vec4 texelValue = textureLod(inputImage, normalizedCoords+vec2(0.5-0.5/KERNEL_SCALE), -log2(KERNEL_SCALE));
+	return nbl_glsl_complex(texelValue[channel], 0.0f);
+}
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+		)==="));
+		auto lastKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
+
+// kinda bad overdeclaration but oh well
+#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ 16384
+#include <nbl/builtin/glsl/ext/FFT/types.glsl>
+
+layout(set=0, binding=1) readonly restrict buffer InputBuffer
+{
+	nbl_glsl_ext_FFT_storage_t inData[];
+};
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+
+layout(set=0, binding=2) writeonly restrict buffer OutputBuffer
+{
+	nbl_glsl_ext_FFT_storage_t outData[];
+};
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+		)==="));
+		auto kernelNormalizationShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+layout(local_size_x=16, local_size_y=16, local_size_z=1) in;
+
+#include <nbl/builtin/glsl/ext/FFT/types.glsl>
+
+layout(set=0, binding=2) readonly restrict buffer InputBuffer
+{
+	nbl_glsl_ext_FFT_storage_t inData[];
+};
+layout(set=0, binding=3, rg32f) uniform image2D NormalizedKernel[3];
+
+layout(push_constant) uniform PushConstants
+{
+	uvec4 strides;
+	uvec4 bitreverse_shift;
+} pc;
+
+#include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+
+void main()
+{
+	nbl_glsl_complex value = in_data[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)];
+	
+	// imaginary component will be 0, image shall be positive
+	vec3 avg;
+	for (uint i=0u; i<3u; i++)
+		avg[i] = in_data[pc.strides.z*i].x;
+	const float power = (nbl_glsl_scRGBtoXYZ*avg).y;
+
+	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
+	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));
+	value = nbl_glsl_complex_mul(value,shift)/power;
+	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
+}
+		)==="));
+		auto firstKernelFFTSpecializedShader = driver->createGPUSpecializedShader(firstKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+		auto lastKernelFFTSpecializedShader = driver->createGPUSpecializedShader(lastKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+		auto kernelNormalizationSpecializedShader = driver->createGPUSpecializedShader(kernelNormalizationShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+
+		{
+			IGPUSampler::SParams params =
+			{
+				{
+					ISampler::ETC_CLAMP_TO_BORDER,
+					ISampler::ETC_CLAMP_TO_BORDER,
+					ISampler::ETC_CLAMP_TO_BORDER,
+					ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+					ISampler::ETF_LINEAR,
+					ISampler::ETF_LINEAR,
+					ISampler::ESMM_LINEAR,
+					0u,
+					0u,
+					ISampler::ECO_ALWAYS
+				}
+			};
+			auto sampler = driver->createGPUSampler(std::move(params));
+			constexpr uint32_t kernelSetDescCount = 4u;
+			IGPUDescriptorSetLayout::SBinding binding[kernelSetDescCount] = {
+				{0u,EDT_COMBINED_IMAGE_SAMPLER,1u,IGPUSpecializedShader::ESS_COMPUTE,&sampler},
+				{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{3u,EDT_STORAGE_IMAGE,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			};
+			kernelDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+kernelSetDescCount);
+		}
+
+		{
+			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t),sizeof(NormalizationPushConstants))};
+			kernelPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+1u,core::smart_refctd_ptr(kernelDescriptorSetLayout));
+		}
+
+		firstKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(firstKernelFFTSpecializedShader));
+		lastKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(lastKernelFFTSpecializedShader));
+		kernelNormalizationPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(kernelNormalizationSpecializedShader));
+
+
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
@@ -453,7 +582,7 @@ void convolve(in uint item_per_thread_count, in uint ch)
 
 		uv += pc.data.kernel_half_pixel_size;
 		//
-		nbl_glsl_complex convSpectrum = vec2(1.0,0.0);//textureLod(NormalizedKernel[ch],uv,0).xy;
+		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
 		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
 	}
 }
@@ -659,36 +788,41 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 		auto convolveSpecializedShader = driver->createGPUSpecializedShader(convolveShader.get(),specInfo);
 		auto interleaveAndLastFFTSpecializedShader = driver->createGPUSpecializedShader(interleaveAndLastFFTShader.get(),specInfo);
 
-		core::smart_refctd_ptr<IGPUSampler> samplers[colorChannelsFFT];
 		{
-			IGPUSampler::SParams params =
+			core::smart_refctd_ptr<IGPUSampler> samplers[colorChannelsFFT];
 			{
+				IGPUSampler::SParams params =
 				{
-					ISampler::ETC_REPEAT,
-					ISampler::ETC_REPEAT,
-					ISampler::ETC_REPEAT,
-					ISampler::ETBC_FLOAT_OPAQUE_BLACK,
-					ISampler::ETF_LINEAR, // is it needed?
-					ISampler::ETF_LINEAR,
-					ISampler::ESMM_NEAREST,
-					0u,
-					0u,
-					ISampler::ECO_ALWAYS
-				}
+					{
+						ISampler::ETC_REPEAT,
+						ISampler::ETC_REPEAT,
+						ISampler::ETC_REPEAT,
+						ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+						ISampler::ETF_LINEAR, // is it needed?
+						ISampler::ETF_LINEAR,
+						ISampler::ESMM_NEAREST,
+						0u,
+						0u,
+						ISampler::ECO_ALWAYS
+					}
+				};
+				auto sampler = driver->createGPUSampler(std::move(params));
+				std::fill_n(samplers,colorChannelsFFT,sampler);
+			}
+			IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
+				{0u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{1u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{4u,EDT_COMBINED_IMAGE_SAMPLER,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,samplers}
 			};
-			auto sampler = driver->createGPUSampler(std::move(params));
-			std::fill_n(samplers,colorChannelsFFT,sampler);
+			sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
 		}
-		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
-			{0u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{1u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{4u,EDT_COMBINED_IMAGE_SAMPLER,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,samplers}
-		};
-		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
-		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
-		sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
+
+		{
+			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
+			sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
+		}
 
 		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
 		intensityPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
@@ -1179,9 +1313,39 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				FFTClass::Parameters_t fftPushConstants[2];
 				FFTClass::DispatchInfo_t fftDispatchInfo[2];
 				const ISampler::E_TEXTURE_CLAMP fftPadding[2] = { ISampler::ETC_CLAMP_TO_BORDER,ISampler::ETC_CLAMP_TO_BORDER };
-				const auto passes = FFTClass::buildParameters(false,colorChannelsFFT, kerDim, fftPushConstants, fftDispatchInfo, fftPadding);
+				const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,kerDim,fftPushConstants,fftDispatchInfo,fftPadding);
 
 				// the kernel's FFTs
+				{
+					auto kernelDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(kernelDescriptorSetLayout));
+					{
+					}
+					driver->bindDescriptorSets(EPBP_COMPUTE,kernelPipelineLayout.get(),0u,1u,&kernelDescriptorSet.get(),nullptr);
+
+					// Ker Image First Axis FFT
+					driver->bindComputePipeline(firstKernelFFTPipeline.get());
+					driver->pushConstants(firstKernelFFTPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,sizeof(FFTClass::Parameters_t),sizeof(float),&param.bloomScale);
+					FFTClass::dispatchHelper(driver,kernelPipelineLayout.get(),fftPushConstants[0],fftDispatchInfo[0]);
+
+					// Ker Image Last Axis FFT
+					driver->bindComputePipeline(lastKernelFFTPipeline.get());
+					FFTClass::dispatchHelper(driver,kernelPipelineLayout.get(),fftPushConstants[1],fftDispatchInfo[1]);
+
+					// normalization and shuffle
+					driver->bindComputePipeline(kernelNormalizationPipeline.get());
+					{
+						NormalizationPushConstants normalizationPC;
+						normalizationPC.stride = fftPushConstants[1].output_strides;
+						normalizationPC.bitreverse_shift.x = 32-core::findMSB(paddedKerDim.width);
+						normalizationPC.bitreverse_shift.y = 32-core::findMSB(paddedKerDim.height);
+						normalizationPC.bitreverse_shift.z = 0;
+						driver->pushConstants(kernelNormalizationPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(normalizationPC),&normalizationPC);
+						const uint32_t dispatchSizeX = (paddedKerDim.width-1u)/16u+1u;
+						const uint32_t dispatchSizeY = (paddedKerDim.height-1u)/16u+1u;
+						driver->dispatch(dispatchSizeX,dispatchSizeY,colorChannelsFFT);
+					}
+					FFTClass::defaultBarrier();
+				}
 			}
 
 			uint32_t outImageByteOffset[EII_COUNT];
