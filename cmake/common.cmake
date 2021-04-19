@@ -48,10 +48,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
 	target_link_libraries(${EXECUTABLE_NAME} Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
-	if (NBL_COMPILE_WITH_OPENGL)
-		find_package(OpenGL REQUIRED)
-		target_link_libraries(${EXECUTABLE_NAME} ${OPENGL_LIBRARIES})
-	endif()
+
 	add_compile_options(${_EXTRA_OPTIONS})
 	
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

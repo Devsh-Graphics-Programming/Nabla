@@ -10,8 +10,8 @@
 #include <nbl/system/CWindowWin32.h>
 using CWindowT = nbl::system::CWindowWin32;
 #elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/system/CWindowLinux.h>
-using CWindowT = nbl::system::CWindowLinux;
+#include <nbl/system/CWindowWayland.h>
+using CWindowT = nbl::system::CWindowWayland;
 #endif
 
 using namespace nbl;

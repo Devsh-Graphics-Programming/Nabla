@@ -2,8 +2,60 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
-find_package(OpenGL REQUIRED)
-if(UNIX)
+#[[
+macro(FindLibraryAndSONAME _LIB)
+  string(TOUPPER ${_LIB} _UPPERLNAME)
+  string(REGEX REPLACE "\\-" "_" _LNAME "${_UPPERLNAME}")
+
+  find_library(${_LNAME}_LIB ${_LIB})
+  #message(FATAL_ERROR ${${_LNAME}_LIB})
+  if(${_LNAME}_LIB)
+    # reduce the library name for shared linking
+
+    get_filename_component(_LIB_REALPATH ${${_LNAME}_LIB} REALPATH)  # resolves symlinks
+    get_filename_component(_LIB_JUSTNAME ${_LIB_REALPATH} NAME)
+
+    if(APPLE)
+      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*dylib$" "\\1.dylib" _LIB_REGEXD "${_LIB_JUSTNAME}")
+    else()
+      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*$" "\\1" _LIB_REGEXD "${_LIB_JUSTNAME}")
+    endif()
+
+    SET(_DEBUG_FindSONAME TRUE)
+    #if(_DEBUG_FindSONAME)
+      #message(WARNING "DYNLIB OUTPUTVAR: ${_LIB} ... ${_LNAME}_LIB")
+      message(WARNING "DYNLIB ORIGINAL LIB: ${_LIB} ... ${${_LNAME}_LIB}")
+      #message(WARNING "DYNLIB REALPATH LIB: ${_LIB} ... ${_LIB_REALPATH}")
+      #message(WARNING "DYNLIB JUSTNAME LIB: ${_LIB} ... ${_LIB_JUSTNAME}")
+      #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
+    #endif()
+
+    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}")
+    set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
+  endif()
+endmacro()
+
+FindLibraryAndSONAME(wayland-client)
+FindLibraryAndSONAME(wayland-egl)
+FindLibraryAndSONAME(wayland-cursor)
+message(FATAL_ERROR "XDDDDDDD")
+]]
+
+if (NOT ANDROID)
+	find_package(OpenGL REQUIRED OPTIONAL_COMPONENTS EGL)
+else()
+	find_path(GLES3_INCLUDE_DIR GLES3/gl31.h HINTS ${ANDROID_NDK_ROOT_PATH} REQUIRED)
+	if (${GLES3_INCLUDE_DIR})
+		set(OpenGL_OpenGL_FOUND True)
+	endif()
+	find_path(EGL_INCLUDE_DIR EGL/egl.h HINTS ${ANDROID_NDK_ROOT_PATH} REQUIRED)
+	if (${OPENGL_EGL_INCLUDE_DIRS})
+		set(OpenGL_EGL_FOUND True)
+		set(OPENGL_EGL_INCLUDE_DIRS True)
+	endif()
+endif()
+if(UNIX AND NOT ANDROID)
+	find_package(Wayland)
 	find_package(X11 REQUIRED)
 	set(CMAKE_THREAD_PREFER_PTHREAD 1)
 	find_package(Threads REQUIRED)
@@ -19,6 +71,12 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 			set(PLATFORM win64-gcc)
 		elseif (MSVC)
 			set(PLATFORM win64-msvc)
+		endif()
+	elseif (ANDROID)
+		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+			set(PLATFORM android-clang)
+		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+			set(PLATFORM android-gcc)
 		endif()
 	elseif (UNIX AND NOT APPLE)
 		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -85,6 +143,11 @@ endif()
 set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
+if (WAYLAND_CLIENT_FOUND AND OpenGL_EGL_FOUND)
+	set(_NBL_BUILD_WITH_WAYLAND 1)
+else()
+	set(_NBL_BUILD_WITH_WAYLAND 0)
+endif()
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 set(_NBL_DEBUG 0)
 set(_NBL_RELWITHDEBINFO 0)
@@ -135,6 +198,7 @@ set(NBL_SYSTEM_SOURCES
 	
 	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CWindowLinux.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CWindowWayland.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -219,6 +283,8 @@ set(NBL_VIDEO_SOURCES
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+
+	${NBL_ROOT_PATH}/src/nbl/video/CWaylandCaller.cpp
 
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
@@ -438,7 +504,9 @@ nbl_target_link_openssl(Nabla)
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg(Nabla)
 nbl_target_link_libpng(Nabla)
-nbl_target_link_openexr(Nabla)
+if (_NBL_COMPILE_WITH_OPEN_EXR_)
+	nbl_target_link_openexr(Nabla)
+endif()
 if(_NBL_COMPILE_WITH_GLI_)
 	nbl_target_link_gli(Nabla)
 endif()
@@ -450,12 +518,9 @@ endif()
 #nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 
-target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
+#target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
-		#${X11_LIBRARIES} 
-		#${X11_Xrandr_LIB} 
-		#${X11_Xxf86vm_LIB} 
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
 		$<$<CONFIG:DEBUG>:-lunwind>
@@ -470,10 +535,12 @@ target_include_directories(Nabla PUBLIC
 	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
 	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
+	"$<$<BOOL:${OpenGL_EGL_FOUND}>:${OPENGL_EGL_INCLUDE_DIRS}>"
+	"$<$<BOOL:${WAYLAND_CLIENT_FOUND}>:${WAYLAND_CLIENT_INCLUDE_DIR}>"
 )
 target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
-if (UNIX)
+if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
 		${X11_INCLUDE_DIR} 
 		${X11_Xrandr_INCLUDE_PATH} 
@@ -487,7 +554,7 @@ endif()
 
 target_compile_definitions(Nabla 
 	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-	PUBLIC	UNW_LOCAL_ONLY
+	PUBLIC	UNW_LOCAL_ONLY $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>
 )
 
 if (MSVC) #on MSVC it won't compile without this option!
@@ -502,7 +569,7 @@ endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
-	   DEPENDS ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
+	   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
 	  add_dependencies(Nabla builtin_resources)
 elseif()
 	foreach(X IN LISTS nbl_resources_to_embed)
@@ -537,13 +604,15 @@ nbl_install_lib(Nabla)
 #install dependencies
 nbl_install_lib(glslang)
 nbl_install_lib(jpeg)
-nbl_install_lib(Half)
-nbl_install_lib(HLSL)
-nbl_install_lib(Iex)
-nbl_install_lib(IexMath)
-nbl_install_lib(IlmImf)
-nbl_install_lib(IlmThread)
-nbl_install_lib(Imath)
+if (_NBL_COMPILE_WITH_OPEN_EXR_)
+	nbl_install_lib(Half)
+	nbl_install_lib(HLSL)
+	nbl_install_lib(Iex)
+	nbl_install_lib(IexMath)
+	nbl_install_lib(IlmImf)
+	nbl_install_lib(IlmThread)
+	nbl_install_lib(Imath)
+endif()
 nbl_install_lib(png_static)
 if(WIN32)
 	install(FILES

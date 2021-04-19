@@ -16,7 +16,6 @@
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
-#include "COpenGLExtensionHandler.h"
 
 #include "spirv_cross/spirv_glsl.hpp"
 
