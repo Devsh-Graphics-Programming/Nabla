@@ -181,6 +181,7 @@ int main(int argc, char* argv[])
 	// clear the histogram to 0s
 	driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 
+	constexpr uint32_t kernelSetDescCount = 4u;
 	constexpr auto SharedDescriptorSetDescCount = 5u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> kernelDescriptorSetLayout,sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> kernelPipelineLayout,sharedPipelineLayout;
@@ -195,6 +196,7 @@ int main(int argc, char* argv[])
 	};
 	{
 		auto firstKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 
@@ -205,12 +207,25 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) i
 layout(set=0, binding=0) uniform sampler2D inputImage;
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 
+#include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
+layout(push_constant) uniform PushConstants
+{
+	nbl_glsl_ext_FFT_Parameters_t params;
+	float kernelScale;
+} pc;
+#define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
+nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters()
+{
+	return pc.params;
+}
+#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
+
 #include <nbl/builtin/glsl/math/complex.glsl>
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel) 
 {
 	ivec2 inputImageSize = textureSize(inputImage,0);
-	vec2 normalizedCoords = (vec2(coordinate.xy)+vec2(0.5f))/(vec2(inputImageSize)*KERNEL_SCALE);
-	vec4 texelValue = textureLod(inputImage, normalizedCoords+vec2(0.5-0.5/KERNEL_SCALE), -log2(KERNEL_SCALE));
+	vec2 normalizedCoords = (vec2(coordinate.xy)+vec2(0.5f))/(vec2(inputImageSize)*pc.kernelScale);
+	vec4 texelValue = textureLod(inputImage, normalizedCoords+vec2(0.5-0.5/pc.kernelScale), -log2(pc.kernelScale));
 	return nbl_glsl_complex(texelValue[channel], 0.0f);
 }
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
@@ -218,6 +233,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint cha
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 		)==="));
 		auto lastKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 
@@ -240,6 +256,7 @@ layout(set=0, binding=2) writeonly restrict buffer OutputBuffer
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 		)==="));
 		auto kernelNormalizationShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
 layout(local_size_x=16, local_size_y=16, local_size_z=1) in;
 
 #include <nbl/builtin/glsl/ext/FFT/types.glsl>
@@ -260,12 +277,12 @@ layout(push_constant) uniform PushConstants
 
 void main()
 {
-	nbl_glsl_complex value = in_data[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)];
+	nbl_glsl_complex value = inData[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)];
 	
 	// imaginary component will be 0, image shall be positive
 	vec3 avg;
 	for (uint i=0u; i<3u; i++)
-		avg[i] = in_data[pc.strides.z*i].x;
+		avg[i] = inData[pc.strides.z*i].x;
 	const float power = (nbl_glsl_scRGBtoXYZ*avg).y;
 
 	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
@@ -295,7 +312,6 @@ void main()
 				}
 			};
 			auto sampler = driver->createGPUSampler(std::move(params));
-			constexpr uint32_t kernelSetDescCount = 4u;
 			IGPUDescriptorSetLayout::SBinding binding[kernelSetDescCount] = {
 				{0u,EDT_COMBINED_IMAGE_SAMPLER,1u,IGPUSpecializedShader::ESS_COMPUTE,&sampler},
 				{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
@@ -306,13 +322,13 @@ void main()
 		}
 
 		{
-			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t),sizeof(NormalizationPushConstants))};
+			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t)+sizeof(float),sizeof(NormalizationPushConstants))};
 			kernelPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+1u,core::smart_refctd_ptr(kernelDescriptorSetLayout));
 		}
 
-		firstKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(firstKernelFFTSpecializedShader));
-		lastKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(lastKernelFFTSpecializedShader));
-		kernelNormalizationPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(kernelNormalizationSpecializedShader));
+		firstKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(firstKernelFFTSpecializedShader));
+		lastKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(lastKernelFFTSpecializedShader));
+		kernelNormalizationPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(kernelNormalizationSpecializedShader));
 
 
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -1016,6 +1032,8 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					}
 					return tmp;
 				}();
+				outParam.bloomScale = bloomScale;
+				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,kerDim,colorChannelsFFT)*2u,fftScratchSize);
 				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,marginSrcDim,colorChannelsFFT),fftScratchSize);
 				{
 					auto* fftPushConstants = outParam.fftPushConstants;
@@ -1319,12 +1337,32 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				{
 					auto kernelDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(kernelDescriptorSetLayout));
 					{
+						IGPUDescriptorSet::SDescriptorInfo infos[kernelSetDescCount+colorChannelsFFT-1u];
+						infos[0].desc = kerImageView;
+						infos[0].image.sampler = nullptr; // immutable
+						infos[1].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
+						infos[1].buffer = {0u,fftScratchSize>>1u};
+						infos[2].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
+						infos[2].buffer = {fftScratchSize>>1u,fftScratchSize};
+						for (uint32_t i=0u; i<colorChannelsFFT; i++)
+						{
+							infos[3+i].desc = kernelNormalizedSpectrums[i];
+							infos[3+i].image.sampler = nullptr; // storage
+						}
+						IGPUDescriptorSet::SWriteDescriptorSet writes[kernelSetDescCount] =
+						{
+							{kernelDescriptorSet.get(),0u,0u,1u,EDT_COMBINED_IMAGE_SAMPLER,infos+0u},
+							{kernelDescriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1u},
+							{kernelDescriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+2u},
+							{kernelDescriptorSet.get(),3u,0u,colorChannelsFFT,EDT_STORAGE_IMAGE,infos+3u}
+						};
+						driver->updateDescriptorSets(kernelSetDescCount,writes,0u,nullptr);
 					}
 					driver->bindDescriptorSets(EPBP_COMPUTE,kernelPipelineLayout.get(),0u,1u,&kernelDescriptorSet.get(),nullptr);
 
 					// Ker Image First Axis FFT
 					driver->bindComputePipeline(firstKernelFFTPipeline.get());
-					driver->pushConstants(firstKernelFFTPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,sizeof(FFTClass::Parameters_t),sizeof(float),&param.bloomScale);
+					driver->pushConstants(kernelPipelineLayout.get(),ICPUSpecializedShader::ESS_COMPUTE,sizeof(FFTClass::Parameters_t),sizeof(float),&param.bloomScale);
 					FFTClass::dispatchHelper(driver,kernelPipelineLayout.get(),fftPushConstants[0],fftDispatchInfo[0]);
 
 					// Ker Image Last Axis FFT
@@ -1468,7 +1506,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				denoiserOutput.rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
 				denoiserOutput.format = forcedOptiXFormat;
 				denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride;
-#if 0 // for easy debug with renderdoc disable optix stuff
+#if 1 // for easy debug with renderdoc disable optix stuff
 				//invoke
 				if (denoiser.m_denoiser->tileAndInvoke(
 					m_cudaStream,
