@@ -33,20 +33,12 @@ vec3 nbl_glsl_ext_LumaMeter_getColor(bool wgExecutionMask);
 
 #ifndef _NBL_GLSL_EXT_LUMA_METER_IMPL_DECLARED_
 #define _NBL_GLSL_EXT_LUMA_METER_IMPL_DECLARED_
-void nbl_glsl_ext_LumaMeter(bool wgExecutionMask);
+void nbl_glsl_ext_LumaMeter(in bool wgExecutionMask);
 #endif
 
-#ifndef _NBL_GLSL_EXT_LUMA_METER_IMPL_DEFINED_
-#define _NBL_GLSL_EXT_LUMA_METER_IMPL_DEFINED_
-void nbl_glsl_ext_LumaMeter(bool wgExecutionMask)
+float nbl_glsl_ext_LumaMeter_local_process(in bool wgExecutionMask, in vec3 color)
 {
-	vec3 color = nbl_glsl_ext_LumaMeter_getColor(wgExecutionMask);
-	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
-		nbl_glsl_ext_LumaMeter_clearHistogram();
-	#endif
-	nbl_glsl_ext_LumaMeter_clearFirstPassOutput();
-
-	float logLuma;
+	float scaledLogLuma = 0.f; // this default kind-of makes sense
 	// linearize
 	if (wgExecutionMask)
 	{
@@ -58,7 +50,7 @@ void nbl_glsl_ext_LumaMeter(bool wgExecutionMask)
 		const float MaxLuma = intBitsToFloat(_NBL_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_);
 		luma = clamp(luma,MinLuma,MaxLuma);
 
-		logLuma = log2(luma/MinLuma)/log2(MaxLuma/MinLuma);
+		scaledLogLuma = log2(luma/MinLuma)/log2(MaxLuma/MinLuma);
 	}
 
 	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
@@ -66,41 +58,49 @@ void nbl_glsl_ext_LumaMeter(bool wgExecutionMask)
 		int histogramIndex;
 		if (wgExecutionMask)
 		{
-			histogramIndex = int(logLuma*float(_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT-1u)+0.5);
+			histogramIndex = int(scaledLogLuma*float(_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT-1u)+0.5);
 			histogramIndex += int(gl_LocalInvocationIndex&uint(_NBL_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION-1))*_NBL_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT;
 		}
 		// barrier so we "see" the cleared histogram
 		barrier();
-		memoryBarrierShared();
 		if (wgExecutionMask)
 			atomicAdd(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[histogramIndex],1u);
-
-		// no barrier on shared memory cause if we use it with atomics the writes and reads be coherent
+		// no barrier on shared memory because we read from it later and we need all atomics to be done before we read
 		barrier();
+	#endif
 
+	return scaledLogLuma;
+}
+
+#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
+#include "nbl/builtin/glsl/workgroup/arithmetic.glsl"
+#endif
+
+nbl_glsl_ext_LumaMeter_WriteOutValue_t nbl_glsl_ext_LumaMeter_workgroup_process(in float scaledLogLuma)
+{
+	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
 		// join the histograms across workgroups
 		uint writeOutVal = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex];
 		for (int i=1; i<_NBL_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
 			writeOutVal += _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_NBL_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT];
+		return writeOutVal;
 	#elif _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
-		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = wgExecutionMask ? floatBitsToUint(logLuma):0u;
-		for (int i=NBL_GLSL_WORKGROUP_SIZE_>>1; i>1; i>>=1)
-		{
-			barrier();
-			memoryBarrierShared();
-			if (gl_LocalInvocationIndex<i)
-			{
-				_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint
-				(
-					uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex])+
-					uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i])
-				);
-			}
-		}
-		barrier();
-		memoryBarrierShared();
-		float writeOutVal = uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[0])+uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[1]);
+		return nbl_glsl_workgroupAdd(scaledLogLuma);
 	#endif
+}
+
+#ifndef _NBL_GLSL_EXT_LUMA_METER_IMPL_DEFINED_
+#define _NBL_GLSL_EXT_LUMA_METER_IMPL_DEFINED_
+void nbl_glsl_ext_LumaMeter(in bool wgExecutionMask)
+{
+	vec3 color = nbl_glsl_ext_LumaMeter_getColor(wgExecutionMask);
+	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+		nbl_glsl_ext_LumaMeter_clearHistogram();
+	#endif
+	nbl_glsl_ext_LumaMeter_clearFirstPassOutput();
+
+	const float scaledLogLuma = nbl_glsl_ext_LumaMeter_local_process(wgExecutionMask,color);
+	const nbl_glsl_ext_LumaMeter_WriteOutValue_t writeOutVal = nbl_glsl_ext_LumaMeter_workgroup_process(scaledLogLuma);
 
 	nbl_glsl_ext_LumaMeter_setFirstPassOutput(writeOutVal);
 }
