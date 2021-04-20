@@ -36,8 +36,8 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 				}
 				Keyframe(const core::vectorSIMDf& _scale, const core::quaternion& _quat, const CQuantQuaternionCache* quantCache, const core::vectorSIMDf& _translation)
 				{
-					std::copy(translation,_translation.pointer,3u);
-					quat = quantCache->quantize(_quat);
+					std::copy(_translation.pointer,_translation.pointer+3,translation);
+					quat = quantCache->template quantize<decltype(quat)>(_quat);
 					// TODO: encode to RGB18E7S3
 					//scale = ;
 				}
