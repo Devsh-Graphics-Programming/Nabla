@@ -6,6 +6,9 @@
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/system/IWindowWin32.h"
 #   include "nbl/video/surface/CSurfaceGLWin32.h"
+#elif defined(_NBL_BUILD_WITH_WAYLAND)
+#   include "nbl/system/IWindowWayland.h"
+#   include "nbl/video/surface/CSurfaceGLWayland.h"
 #elif defined(_NBL_PLATFORM_LINUX_)
 #   include "nbl/system/IWindowLinux.h"
 #   include "nbl/video/surface/CSurfaceGLLinux.h"
@@ -42,6 +45,9 @@ public:
 
     core::smart_refctd_ptr<ISurface> createSurface(system::IWindow* window) const override
     {
+        // TODO surface creation needs to be reorganized
+        // on linux both X11 and Wayland windows are possible, and theres no way to distinguish between them
+        // (so now in case of Wayland installed, createSurface always expects Wayland window)
 #if defined(_NBL_PLATFORM_WINDOWS_)
         {
             system::IWindowWin32* w32 = static_cast<system::IWindowWin32*>(window);
@@ -51,6 +57,16 @@ public:
             params.hwnd = w32->getNativeHandle();
 
             return core::make_smart_refctd_ptr<CSurfaceGLWin32>(std::move(params));
+        }
+#elif defined(_NBL_BUILD_WITH_WAYLAND)
+        {
+            system::IWindowWayland* win = static_cast<system::IWindowWayland*>(window);
+
+            CSurfaceGLWayland::SCreationParams params;
+            params.dpy = win->getDisplay();
+            params.window = win->getNativeHandle();
+
+            return core::make_smart_refctd_ptr<CSurfaceGLWayland>(std::move(params));
         }
 #elif defined(_NBL_PLATFORM_LINUX_)
         {

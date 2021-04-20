@@ -197,7 +197,7 @@ class IGPUObjectFromAssetConverter
 
 				//if (*it)
 				//{
-					auto gpu = m_assetManager->findGPUObject(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
+					auto gpu = _params.assetManager->findGPUObject(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
 					if (!gpu)
 					{
 						if ((*it)->isADummyObjectForCache())

@@ -248,6 +248,12 @@ class IImage : public IDescriptor
 			}
 		};
 
+				//!
+		inline const auto& getCreationParameters() const
+		{
+			return params;
+		}
+
 		//!
 		inline static uint32_t calculateMaxMipLevel(const VkExtent3D& extent, E_TYPE type)
 		{
@@ -462,12 +468,6 @@ class IImage : public IDescriptor
 		//!
 		E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
 
-
-		//!
-		inline const auto& getCreationParameters() const
-		{
-			return params;
-		}
 
 		inline const auto& getTexelBlockInfo() const
 		{

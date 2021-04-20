@@ -34,7 +34,7 @@ public:
 
 private:
     std::mutex mutex;
-    core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::aligned_allocator> mempool;
+    core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator> mempool;
 };
 
 }
