@@ -1,11 +1,10 @@
-#version 430 core
 layout(local_size_x=16, local_size_y=16, local_size_z=1) in;
  
-#include "nbl/builtin/glsl/math/complex.glsl"
+#include <nbl/builtin/glsl/ext/FFT/types.glsl>
 
 layout(set=0, binding=0) restrict readonly buffer InBuffer
 {
-	nbl_glsl_complex in_data[];
+	nbl_glsl_ext_FFT_storage_t in_data[];
 };
 
 layout(set=0, binding=1, rg16f) uniform image2D NormalizedKernel[3];
@@ -16,11 +15,17 @@ layout(push_constant) uniform PushConstants
 	uvec4 bitreverse_shift;
 } pc;
 
+#include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+
 void main()
 {
-	nbl_glsl_complex value = in_data[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)];
+	nbl_glsl_complex value = nbl_glsl_ext_FFT_storage_t_get(in_data[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)]);
 	
-	const float power = length(in_data[0]);
+	// imaginary component will be 0, image shall be positive
+	vec3 avg;
+	for (uint i=0u; i<3u; i++)
+		avg[i] = nbl_glsl_ext_FFT_storage_t_get(in_data[pc.strides.z*i]).x;
+	const float power = (nbl_glsl_scRGBtoXYZ*avg).y;
 
 	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
 	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));

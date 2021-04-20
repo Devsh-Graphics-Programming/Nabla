@@ -1,77 +1,72 @@
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
-#endif
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
  
-#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
-#define _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
-#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
-#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
-#include "nbl/builtin/glsl/ext/FFT/fft.glsl"
-
-// Input Descriptor
-
-layout(set=0, binding=0) readonly restrict buffer InputBuffer
-{
-	nbl_glsl_complex inData[];
-};
-
 // Output Descriptor
-
 layout(set=0, binding=1, rgba16f) uniform image2D outImage;
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 
-// Get/Set Data Function
+/* TODO: Hardcode the parameters for the frequent FFTs
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(1280u,1024u,1u);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return true;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 1u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
+{
+    return 2u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return 10u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
+{
+    return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
+}
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getInputStrides()
+{
+	return uvec4(1u,1280u,0u,1280u*1024u);
+}
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getOutputStrides()
+{
+	return uvec4(0xdeadbeefu);
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+*/
 
+#include "extra_parameters.glsl"
 layout(push_constant) uniform PushConstants
 {
-	nbl_glsl_ext_FFT_Parameters_t params;
+	image_store_parameters_t params;
 } pc;
+#define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 
- nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters() {
-	 nbl_glsl_ext_FFT_Parameters_t ret;
-	 ret = pc.params;
-	 return ret;
- }
-
-nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
+nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters()
 {
-	nbl_glsl_complex retValue = nbl_glsl_complex(0, 0);
-	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
-	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	retValue = inData[index];
-	return retValue;
+	return pc.params.fft;
 }
+#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
 
+
+#include <nbl/builtin/glsl/math/complex.glsl>
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-	const ivec2 coords = ivec2(coordinate.xy);
+	const ivec2 coords = ivec2(coordinate.xy)-pc.params.unpad_offset;
 
-    vec4 color_value = imageLoad(outImage, coords);
-    color_value[channel] = complex_value.x;
-    imageStore(outImage, coords, color_value);
+    if (all(lessThanEqual(ivec2(0),coords)) && all(greaterThan(imageSize(outImage),coords)))
+    {
+        vec4 color_value = imageLoad(outImage, coords);
+        color_value[channel] = complex_value.x;
+        imageStore(outImage, coords, color_value);
+    }
 }
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 
-nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) 
-{
-	uvec3 max_coord = nbl_glsl_ext_FFT_Parameters_t_getDimensions() - uvec3(1u);
-	uvec3 clamped_coord = min(coordinate, max_coord);
-	
-	bool is_out_of_range = any(bvec3(coordinate!=clamped_coord));
 
-	uint paddingType = nbl_glsl_ext_FFT_Parameters_t_getPaddingType();
-
-	if (_NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ == paddingType && is_out_of_range) {
-		return nbl_glsl_complex(0, 0);
-	}
-	
-	return nbl_glsl_ext_FFT_getData(clamped_coord, channel);
-}
-
-void main()
-{
-    const uint numChannels = nbl_glsl_ext_FFT_Parameters_t_getNumChannels();
-	for(uint ch = 0u; ch < numChannels; ++ch)
-	{
-		nbl_glsl_ext_FFT(true, ch);
-	}
-}
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
