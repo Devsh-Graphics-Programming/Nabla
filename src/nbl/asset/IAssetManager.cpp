@@ -24,7 +24,7 @@
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
+//#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
@@ -56,7 +56,7 @@
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-#include "nbl/asset/bawformat/CBAWMeshWriter.h"
+//#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
@@ -141,7 +141,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
+	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
@@ -162,7 +162,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
+	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());

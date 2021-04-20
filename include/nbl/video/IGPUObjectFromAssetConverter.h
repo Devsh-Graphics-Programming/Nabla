@@ -83,11 +83,35 @@ namespace impl
 
 class IGPUObjectFromAssetConverter
 {
-    private:
+    public:
+        enum E_QUEUE_USAGE
+        {
+            EQU_TRANSFER,
+            EQU_COMPUTE,
+
+            EQU_COUNT
+        };
+
+    protected:
+        struct SContext
+        {
+            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf[EQU_COUNT];
+        };
 
     public:
+
         struct SParams
         {
+            struct SPerQueue
+            {
+                IGPUQueue* queue = nullptr;
+                //! If not null, fence will be written here. Written fence will be signaled once last operations of corresponding type (transfer/compute) are finished.
+                core::smart_refctd_ptr<IGPUFence>* const fence = nullptr;
+                //! If not null, semaphore will be written here. Written semaphore will be signaled once last operations of corresponding type (transfer/compute) are finished.
+                core::smart_refctd_ptr<IGPUSemaphore>* const semaphore = nullptr;
+                core::smart_refctd_ptr<IGPUEvent>* const event = nullptr;
+            };
+
             //! Required not null
             ILogicalDevice* device = nullptr;
             //! Required not null
@@ -96,23 +120,12 @@ class IGPUObjectFromAssetConverter
 
             IPhysicalDevice::SLimits limits;
 
+            uint32_t finalQueueFamIx = 0u;
+            asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
+
             // @sadiuk put here more parameters if needed
 
-            //! Queue used for transfer commands (data copies, etc.)
-            IGPUQueue* transferQueue = nullptr;
-            //! Queue used for compute commands (compute shader mip map generation, etc.)
-            IGPUQueue* computeQueue = nullptr;
-
-            //! If not null, fence will be written here. Written fence will be signaled once last operations of corresponding type (transfer/compute) are finished.
-            core::smart_refctd_ptr<IGPUFence>* const transferFence = nullptr;
-            core::smart_refctd_ptr<IGPUFence>* const computeFence = nullptr;
-
-            //! If not null, semaphore will be written here. Written semaphore will be signaled once last operations of corresponding type (transfer/compute) are finished.
-            core::smart_refctd_ptr<IGPUSemaphore>* const transferSemaphore = nullptr;
-            core::smart_refctd_ptr<IGPUSemaphore>* const computeSemaphore = nullptr;
-
-            core::smart_refctd_ptr<IGPUEvent>* const transferEvent = nullptr;
-            core::smart_refctd_ptr<IGPUEvent>* const computeEvent = nullptr;
+            SPerQueue perQueue[EQU_COUNT];
         };
 
 	protected:
@@ -400,7 +413,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     };
     auto addrAllctr = newBlock();
 
-    core::smart_refctd_ptr<IGPUCommandPool> pool = _params.device->createCommandPool(_params.transferQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+    core::smart_refctd_ptr<IGPUCommandPool> pool = _params.device->createCommandPool(_params.perQueue[EQU_TRANSFER].queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
     auto fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
     core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
     _params.device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
@@ -424,7 +437,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
                 bufrng.size = cpubuffer->getSize();
                 bufrng.buffer = gpubuffer;
                 output->setBuffer(core::smart_refctd_ptr(gpubuffer));
-                _params.device->updateBufferRangeViaStagingBuffer(cmdbuf.get(), fence.get(), _params.transferQueue, bufrng, cpubuffer->getPointer());
+                _params.device->updateBufferRangeViaStagingBuffer(cmdbuf.get(), fence.get(), _params.perQueue[EQU_TRANSFER].queue, bufrng, cpubuffer->getPointer());
             }
         }
     };
@@ -459,10 +472,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     submit.pWaitDstStageMask = nullptr;
     submit.pWaitSemaphores = nullptr;
     // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
-    auto* signalFence = _params.transferFence ? fence.get() : nullptr;
-    _params.transferQueue->submit(1u, nullptr, signalFence);
-    if (_params.transferFence)
-        _params.transferFence[0] = std::move(fence);
+    auto* signalFence = _params.perQueue[EQU_TRANSFER].fence ? fence.get() : nullptr;
+    _params.perQueue[EQU_TRANSFER].queue->submit(1u, nullptr, signalFence);
+    if (_params.perQueue[EQU_TRANSFER].fence)
+        _params.perQueue[EQU_TRANSFER].fence[0] = std::move(fence);
 
     return res;
 }
@@ -717,6 +730,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImage> >(assetCount);
 
+    const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
+    const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
+    bool oneQueue = _params.perQueue[EQU_TRANSFER].queue == _params.perQueue[EQU_COMPUTE].queue;
+
     bool needToGenMips = false;
     core::vector<IGPUCommandBuffer::SImageMemoryBarrier> imgMemBarriers;
     imgMemBarriers.reserve(assetCount);
@@ -728,130 +745,87 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (cpuimg->getRegions().size() == 0ull)
             continue;
 
+        // TODO: @criss why isn't this buffer cached and why are we not going through recursive asset creation and getting ICPUBuffer equivalents? 
+        //(we can always discard/not cache the GPU Buffers created only for image data upload)
         auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize());
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
         if (asset::isIntegerFormat(cpuimg->getCreationParameters().format))
             needToGenMips = true;
     }
-    core::smart_refctd_ptr<IGPUCommandPool> pool;
+
+    bool oneSubmitPerBatch = !needToGenMips || oneQueue;
+
+    core::smart_refctd_ptr<IGPUCommandPool> pool_transfer;
+    core::smart_refctd_ptr<IGPUCommandPool> pool_compute;
     core::smart_refctd_ptr<IGPUFence> fence;
-    core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+    core::smart_refctd_ptr<IGPUCommandBuffer> cmdbufs[EQU_COUNT];
+    core::smart_refctd_ptr<IGPUCommandBuffer>& cmdbuf_transfer = cmdbufs[EQU_TRANSFER];
+    core::smart_refctd_ptr<IGPUCommandBuffer>& cmdbuf_compute = cmdbufs[EQU_COMPUTE];
 
     if (img2gpubuf.size())
     {
-        pool = _params.device->createCommandPool(_params.transferQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
         fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-        _params.device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
 
-        cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-        for (auto& it : img2gpubuf)
+        pool_transfer = _params.device->createCommandPool(transferFamIx, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+        _params.device->createCommandBuffers(pool_transfer.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, cmdbufs + EQU_TRANSFER);
+        cmdbuf_transfer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+        if (oneQueue)
         {
-            auto* cpuimg = it.first;
-            auto* cpubuf = cpuimg->getBuffer();
-            assert(cpubuf);
-            auto& gpubuf = it.second;
-
-            asset::SBufferRange<IGPUBuffer> bufrng;
-            bufrng.buffer = gpubuf;
-            bufrng.offset = 0u;
-            bufrng.size = gpubuf->getSize();
-
-            _params.device->updateBufferRangeViaStagingBuffer(cmdbuf.get(), fence.get(), _params.transferQueue, bufrng, cpubuf->getPointer());
+            pool_compute = pool_transfer;
+            cmdbuf_compute = cmdbuf_transfer;
+        }
+        else if (needToGenMips)
+        {
+            pool_compute = _params.device->createCommandPool(computeFamIx, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            _params.device->createCommandBuffers(pool_compute.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, cmdbufs + EQU_COMPUTE);
+            cmdbuf_compute->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
         }
     }
 
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    {
-        const asset::ICPUImage* cpuimg = _begin[i];
-        asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
-        const bool integerFmt = asset::isIntegerFormat(params.format);
-        if (!integerFmt)
-            params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
-        auto gpuimg = _params.device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+    auto needToCompMipsForThisImg = [](const asset::ICPUImage* img) -> bool {
+        if (img->getRegions().size() == 0u)
+            return false;
+        auto format = img->getCreationParameters().format;
+        if (asset::isIntegerFormat(format))
+            return false;
+        return true;
+    };
+    auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void {
+        if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
+        {
+            auto buf = found->second;
+            assert(buf->getSize() == cpuimg->getBuffer()->getSize());
 
-		auto regions = cpuimg->getRegions();
-		auto count = regions.size();
-		if (count)
-		{
-            {
-                IGPUCommandBuffer::SImageMemoryBarrier imgbarrier;
-                // TODO layouts
-                imgbarrier.oldLayout = asset::EIL_UNDEFINED;
-                imgbarrier.newLayout = asset::EIL_UNDEFINED;
-                imgbarrier.srcQueueFamilyIndex = _params.transferQueue->getFamilyIndex();
-                imgbarrier.dstQueueFamilyIndex = _params.computeQueue->getFamilyIndex();
-                imgbarrier.image = gpuimg;
-                asset::IImage::SSubresourceRange subres;
-                subres.baseArrayLayer = 0u;
-                subres.layerCount = params.arrayLayers;
-                subres.baseMipLevel = 0u;
-                subres.levelCount = params.mipLevels;
-                imgbarrier.subresourceRange = subres;
-                asset::SMemoryBarrier membarrier;
-                membarrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-                membarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-                imgbarrier.barrier = membarrier;
+            asset::SBufferRange<IGPUBuffer> bufrng;
+            bufrng.buffer = buf;
+            bufrng.offset = 0u;
+            bufrng.size = buf->getSize();
 
-                imgMemBarriers.push_back(imgbarrier);
-            }
-
-            auto gpubuf_found = img2gpubuf.find(cpuimg);
-            auto& gpubuf = gpubuf_found->second;
-
-            // TODO layout
-            cmdbuf->copyBufferToImage(gpubuf.get(), gpuimg.get(), asset::EIL_UNDEFINED, count, regions.begin());
-		}
-
-		res->operator[](i) = std::move(gpuimg);
-    }
-
-    if (!cmdbuf)
-        return res;
-
-    // for when mipmaps fill be generated with compute shader
-    cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, 0u, 0u, nullptr, 0u, nullptr, imgMemBarriers.size(), imgMemBarriers.data());
-    cmdbuf->end();
-
-    auto imgsFilledSemaphore = _params.device->createSemaphore();
-    auto* imgsFilledSemaphore_ptr = imgsFilledSemaphore.get();
-
-    IGPUQueue::SSubmitInfo submit;
-    submit.commandBufferCount = 1u;
-    auto* cmdbuf_ptr = cmdbuf.get();
-    submit.commandBuffers = &cmdbuf_ptr;
-    submit.signalSemaphoreCount = 1u;
-    submit.pSignalSemaphores = &imgsFilledSemaphore_ptr;
-    submit.waitSemaphoreCount = 0u;
-    submit.pWaitDstStageMask = nullptr;
-    submit.pWaitSemaphores = nullptr;
-    // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
-    auto* signalFence = _params.transferFence ? fence.get() : nullptr;
-    _params.transferQueue->submit(1u, nullptr, signalFence);
-    if (_params.transferFence && fence)
-        _params.transferFence[0] = std::move(fence);
-    if (_params.transferSemaphore)
-        _params.transferSemaphore[0] = imgsFilledSemaphore;
-
-    if (!needToGenMips)
-        return res;
-
-    // TODO when mipmaps are generated with compute -- another submit for compute queue, wait on imgsFilledSemaphore
-    // now this code below instead:
-    // @matt How to synchronize mipmap generation and filling image storage??
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    {
-        auto& gpuimg = (*res)[i];
-        auto* cpuimg = _begin[i];
-
-        auto format = gpuimg->getCreationParameters().format;
-        if (!cpuimg->getRegions().size() || asset::isIntegerFormat(format))
-            continue;
+            _params.device->updateBufferRangeViaStagingBuffer(cmdbuf_transfer.get(), fence.get(), _params.perQueue[EQU_TRANSFER].queue, bufrng, cpuimg->getBuffer()->getPointer());
+            IGPUCommandBuffer::SBufferMemoryBarrier barrier;
+            barrier.buffer = buf;
+            barrier.offset = bufrng.offset;
+            barrier.size = bufrng.size;
+            barrier.srcQueueFamilyIndex = transferFamIx;
+            barrier.dstQueueFamilyIndex = transferFamIx;
+            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
+            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, 0, 0u, nullptr, 1u, &barrier, 0u, nullptr);
+            cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_UNDEFINED, cpuimg->getRegions().size(), cpuimg->getRegions().begin());
+        }
+    };
+    auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void {
+        if (!needToCompMipsForThisImg(cpuimg))
+            return;
+        /*computeCmdbuf->bindPipeline();
+        computeCmdbuf->bindDescriptorSets();
+        computeCmdbuf->pushConstants();
+        computeCmdbuf->dispatch();*/
 
         uint32_t lowestPresentMip = 1u;
-        while (cpuimg->getRegions(lowestPresentMip).size()) // wtf??? @matt? how could it be working?
-            lowestPresentMip++;
+        for (auto& region : cpuimg->getRegions())
+            lowestPresentMip = std::max(lowestPresentMip, region.imageSubresource.mipLevel);
         // generate temporary image view to make sure we don't screw up any explicit mip levels
         IGPUImageView::SCreationParams tmpViewParams;
         tmpViewParams.subresourceRange.levelCount = cpuimg->getCreationParameters().mipLevels + 1u - lowestPresentMip;
@@ -859,7 +833,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (tmpViewParams.subresourceRange.levelCount > 1u)
         {
             tmpViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-            tmpViewParams.image = gpuimg;
+            tmpViewParams.image = core::smart_refctd_ptr<IGPUImage>(img);
             switch (cpuimg->getCreationParameters().type)
             {
             case asset::IImage::ET_1D:
@@ -885,8 +859,128 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             auto tmpView = _params.device->createGPUImageView(std::move(tmpViewParams));
 
             // deprecated OpenGL path (do with compute shader in the future)
-            _params.device->regenerateMipLevels(tmpView.get());
+            cmdbuf_compute->regenerateMipmaps(tmpView.get());
         }
+    };
+
+    for (ptrdiff_t i = 0u; i < assetCount; ++i)
+    {
+        const asset::ICPUImage* cpuimg = _begin[i];
+        asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
+        params.sharingMode = _params.sharingMode;
+        const bool integerFmt = asset::isIntegerFormat(params.format);
+        if (!integerFmt)
+            params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
+        auto gpuimg = _params.device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
+		res->operator[](i) = std::move(gpuimg);
+    }
+
+    if (img2gpubuf.size() == 0ull)
+        return res;
+
+    auto it = _begin;
+    auto doBatch = [&]() -> void
+    {
+        constexpr uint32_t pipeliningDepth = 8u;
+
+        IGPUCommandBuffer::SImageMemoryBarrier imgbarriers[pipeliningDepth];
+        uint32_t barrierCount = 0u;
+
+        const uint32_t n = it - _begin;
+
+        auto oldIt = it;
+        for (uint32_t i = 0u; i < pipeliningDepth && it != _end; ++i)
+        {
+            auto* cpuimg = *(it++);
+            auto* gpuimg = (*res)[n+i].get();
+            cmdUpload(cpuimg, gpuimg);
+            if (needToCompMipsForThisImg(cpuimg))
+            {
+                auto& b = imgbarriers[barrierCount];
+                b.image = core::smart_refctd_ptr<IGPUImage>(gpuimg);
+                asset::IImage::SSubresourceRange subres;
+                subres.baseArrayLayer = 0u;
+                subres.baseMipLevel = 0;
+                subres.layerCount = b.image->getCreationParameters().arrayLayers;
+                subres.levelCount = b.image->getCreationParameters().mipLevels;
+                //subres.aspectMask = ...
+                b.subresourceRange = subres;
+                b.srcQueueFamilyIndex = transferFamIx;
+                b.dstQueueFamilyIndex = computeFamIx;
+                b.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                b.newLayout = asset::EIL_GENERAL;
+                b.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+                b.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+
+                ++barrierCount;
+            }
+        }
+
+        // ownership transition release or just a barrier
+        cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
+        if ((_params.sharingMode == asset::ESM_EXCLUSIVE) && (transferFamIx != computeFamIx) && cmdbuf_compute && barrierCount) // need to do ownership transition
+        {
+            // ownership transition acquire
+            cmdbuf_compute->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
+        }
+
+        if (needToGenMips)
+        {
+            it = oldIt;
+            for (uint32_t i = 0u; i < pipeliningDepth && it != _end; ++i)
+                cmdComputeMip(*(it++), (*res)[n + i].get());
+        }
+
+        cmdbuf_transfer->end();
+        if (!oneQueue)
+            cmdbuf_compute->end();
+
+        auto sem = _params.device->createSemaphore();
+        auto* sem_ptr = sem.get();
+
+        auto* cb_trans = cmdbuf_transfer.get();
+        IGPUQueue::SSubmitInfo submit_transfer;
+        submit_transfer.commandBufferCount = 1u;
+        submit_transfer.commandBuffers = &cb_trans;
+        submit_transfer.pWaitDstStageMask = nullptr;
+        submit_transfer.pWaitSemaphores = nullptr;
+        submit_transfer.waitSemaphoreCount = 0u;
+        submit_transfer.signalSemaphoreCount = 1u;
+        submit_transfer.pSignalSemaphores = &sem_ptr;
+        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, oneSubmitPerBatch?fence.get():nullptr);
+
+        if (!oneSubmitPerBatch)
+        {
+            asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COMPUTE_SHADER_BIT;
+            auto* cb_comp = cmdbuf_compute.get();
+            IGPUQueue::SSubmitInfo submit_compute;
+            submit_compute.commandBufferCount = 1u;
+            submit_compute.commandBuffers = &cb_comp;
+            submit_compute.waitSemaphoreCount = 1u;
+            submit_compute.pWaitDstStageMask = &dstWait;
+            submit_compute.pWaitSemaphores = &sem_ptr;
+            submit_compute.signalSemaphoreCount = 0u;
+            submit_compute.pSignalSemaphores = nullptr;
+            _params.perQueue[EQU_COMPUTE].queue->submit(1u, &submit_compute, fence.get());
+        }
+
+        // separate cmdbufs per batch instead?
+        auto* fence_ptr = fence.get();
+        _params.device->waitForFences(1u, &fence_ptr, false, 9999999999ull);
+
+        cmdbuf_transfer->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+        cmdbuf_transfer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+        if (!oneSubmitPerBatch)
+        {
+            cmdbuf_compute->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+            cmdbuf_compute->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+        }
+    };
+
+    while (it != _end)
+    {
+        doBatch();
     }
 
     return res;

@@ -98,6 +98,7 @@ struct SClearRect
 template <
     typename BufferType, 
     typename ImageType, 
+    typename ImageViewType,
     typename RenderpassType, 
     typename FramebufferType, 
     typename GraphicsPipelineType, 
@@ -112,6 +113,7 @@ class ICommandBuffer
 protected:
     using buffer_t = BufferType;
     using image_t = ImageType;
+    using image_view_t = ImageViewType;
     using renderpass_t = RenderpassType;
     using framebuffer_t = FramebufferType;
     using graphics_pipeline_t = GraphicsPipelineType;
@@ -293,6 +295,8 @@ public:
         }
         return true;
     }
+
+    virtual bool regenerateMipmaps(image_view_t* imgview) = 0;
 
 protected:
     ICommandBuffer(E_LEVEL lvl) : m_level(lvl) {}

@@ -978,6 +978,14 @@ namespace video
                 static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, ctxlocal, ctxid);
             }
             break;
+            case impl::ECT_REGENERATE_MIPMAPS:
+            {
+                auto& c = cmd.get<impl::ECT_REGENERATE_MIPMAPS>();
+                auto* glimgview = static_cast<COpenGLImageView*>(c.imgview.get());
+
+                gl->extGlGenerateTextureMipmap(glimgview->getOpenGLName(), glimgview->getOpenGLTarget());
+            }
+            break;
             }
         }
     }

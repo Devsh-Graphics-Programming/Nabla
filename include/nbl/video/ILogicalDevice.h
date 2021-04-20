@@ -140,9 +140,6 @@ public:
 
     virtual core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 
-    virtual void regenerateMipLevels(IGPUImageView* imageview) = 0;
-
-
     static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
     {
         IDriverMemoryBacked::SDriverMemoryRequirements reqs;

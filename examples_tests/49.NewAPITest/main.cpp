@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cstdio>
 #include <nabla.h>
+#include "CFileSystem.h" // tmp, this should be accessible via IFileSystem and not required to be created explicitely by user
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #include <nbl/system/CWindowWin32.h>
 using CWindowT = nbl::system::CWindowWin32;
@@ -105,11 +106,15 @@ void main()
 	device->updateBufferRangeViaStagingBuffer(queue, bufrng, stackmem);
 	*/
 
+	auto fs = core::make_smart_refctd_ptr<io::CFileSystem>("");
+	auto am = core::make_smart_refctd_ptr<asset::IAssetManager>(std::move(fs));
+
 	video::IGPUObjectFromAssetConverter cpu2gpu;
 	video::IGPUObjectFromAssetConverter::SParams c2gparams;
 	c2gparams.device = device.get();
 	c2gparams.transferQueue = queue;
 	c2gparams.limits = gpu->getLimits();
+	c2gparams.assetManager = am.get();
 	
 	auto cpubuf = new asset::ICPUBuffer(1024);
 	auto gpubuf2 = cpu2gpu.getGPUObjectsFromAssets(&cpubuf, &cpubuf + 1);

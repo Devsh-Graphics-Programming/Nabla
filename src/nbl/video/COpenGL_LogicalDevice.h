@@ -371,14 +371,6 @@ public:
         post_unmapMemory(memory);
     }
 
-    void regenerateMipLevels(IGPUImageView* imageview) override final
-    {
-        SRequestRegenerateMipLevels req_params;
-        req_params.imgview = imageview;
-        auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.template waitForRequestCompletion<SRequestRegenerateMipLevels>(req);
-    }
-
     void waitIdle() override
     {
         SRequestWaitIdle params;
