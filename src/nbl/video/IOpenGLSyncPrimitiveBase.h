@@ -25,7 +25,7 @@ public:
         if (!m_sync)
             m_toBeSignaled = true;
     }
-    // Answer to "what if the sync is waited upon before it was signaled (before actual GLsync exist) ?"
+    // Answer to "what if the sync is waited upon before actual GLsync exist ?"
     inline uint64_t prewait() const
     {
         if (!m_toBeSignaled.load())

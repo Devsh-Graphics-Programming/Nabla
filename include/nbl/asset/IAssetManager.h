@@ -280,7 +280,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
             if (restoreLevels)
             {
-                auto reloadParams = _params;
+                auto reloadParams = IAssetLoader::SAssetLoadParams(_params, true);
                 {
                     using flags_t = std::underlying_type_t<IAssetLoader::E_CACHING_FLAGS>;
                     constexpr uint32_t bitdepth = sizeof(flags_t)*8u;
@@ -290,25 +290,25 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                     // set flags for levels [_hierLevel,_hierLevel+_restoreLevels) to dont look into cache and dont put into cache
                     reloadFlags = core::bitfieldInsert<flags_t>(reloadFlags, IAssetLoader::ECF_DUPLICATE_REFERENCES, _hierarchyLevel*2u, restoreLevels*2u);
                     reloadParams.cacheFlags = static_cast<IAssetLoader::E_CACHING_FLAGS>(reloadFlags);
-
                     reloadParams.restoreLevels = 0u; // make sure it wont turn into infinite recursion
-                    reloadParams.reload = true; // TODO (consider): alternative to this flag: another method in override just to let user choose asset for restore
                 }
 
                 auto reloadBundle = getAssetInHierarchy_impl<RestoreWholeBundle>(_file, _supposedFilename, reloadParams, _hierarchyLevel, _override);
 
-                if constexpr (RestoreWholeBundle)
+                if constexpr (!RestoreWholeBundle)
                 {
                     IAssetLoader::SAssetLoadContext ctx(params, file);
                     auto asset = _override->chooseDefaultAsset(bundle, ctx);
 
-                    // user responsible for checking if assets he wanted to be restored are in fact restored
-                    _override->handleRestore(std::move(asset), bundle, reloadBundle, restoreLevels);
+                    auto newChosenAsset = _override->handleRestore(std::move(asset), bundle, reloadBundle, restoreLevels);
+                    if (!newChosenAsset || newChosenAsset->isAnyDependencyDummy(restoreLevels))
+                        return {};
                 }
                 else
                 {
-                    // user responsible for checking if assets he wanted to be restored are in fact restored
                     _override->handleRestore(bundle, reloadBundle, restoreLevels);
+                    if (!whole_bundle_not_dummy(bundle))
+                        return {};
                 }
             }
             
@@ -528,7 +528,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
         //TODO change key
-        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by asset’s key instead
+        bool removeAssetFromCache(SAssetBundle& _asset) //will actually look up by asset's key instead
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
             return m_assetCache[ix]->removeObject(_asset, _asset.getCacheKey());

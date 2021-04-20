@@ -380,7 +380,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	}
 	_NBL_ALIGNED_FREE(data);
 
-	return SAssetBundle(nullptr,std::move(meshes));
+	return SAssetBundle(std::move(meta),std::move(meshes));
 }
 
 

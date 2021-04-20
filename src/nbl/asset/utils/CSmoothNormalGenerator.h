@@ -71,7 +71,7 @@ private:
 	};
 
 private:
-	static VertexHashMap setupData(asset::ICPUMeshBuffer* buffer, float epsilon);
+	static VertexHashMap setupData(const asset::ICPUMeshBuffer* buffer, float epsilon);
 	static void processConnectedVertices(asset::ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp);
 
 };

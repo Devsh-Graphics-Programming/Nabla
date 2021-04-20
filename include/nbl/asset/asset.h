@@ -46,7 +46,12 @@
 #include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/asset/utils/CShaderIntrospector.h"
+
 // pipelines
+
+// skinning
+#include "nbl/asset/ICPUAnimationLibrary.h"
+#include "nbl/asset/ICPUSkeleton.h"
 
 // meshes
 #include "nbl/asset/ICPUMeshBuffer.h"

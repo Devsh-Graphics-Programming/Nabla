@@ -7,6 +7,11 @@ namespace video
 
     COpenGLCommandBuffer::~COpenGLCommandBuffer()
     {
+        freeSpaceInCmdPool();
+    }
+
+    void COpenGLCommandBuffer::freeSpaceInCmdPool()
+    {
         auto* pool = getGLCommandPool();
         for (auto& cmd : m_commands)
         {
@@ -94,6 +99,18 @@ namespace video
             default: break; // other commands dont use cmd pool
             }
         }
+    }
+
+    bool COpenGLCommandBuffer::reset(uint32_t _flags)
+    {
+        if (!(m_cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+            return false;
+
+        freeSpaceInCmdPool();
+        m_commands.clear();
+        IGPUCommandBuffer::reset(_flags);
+
+        return true;
     }
 
     void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)

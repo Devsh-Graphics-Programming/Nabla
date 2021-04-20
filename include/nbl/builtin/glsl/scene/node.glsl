@@ -40,14 +40,6 @@ mat2x3 nbl_glsl_scene_Node_static_data_t_getAABB(in nbl_glsl_scene_Node_static_d
 	return mat2x3(node.AABBMin,node.AABBMax);
 }
 
-
-struct nbl_glsl_scene_Node_animation_data_t
-{
-	mat4x3	relativeTransformation;
-	float	animationTime;
-};
-
-
 struct nbl_glsl_scene_Node_output_data_t
 {
 	mat4x3	globalTransformation;

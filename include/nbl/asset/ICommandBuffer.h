@@ -181,6 +181,8 @@ public:
 
     E_LEVEL getLevel() const { return m_level; }
 
+    // hm now i think having begin(), reset() and end() as command buffer API is a little weird
+
     //! `_flags` takes bits from E_USAGE
     virtual void begin(uint32_t _flags)
     {
@@ -192,10 +194,13 @@ public:
     }
 
     //! `_flags` takes bits from E_RESET_FLAGS
-    virtual void reset(uint32_t _flags)
+    virtual bool reset(uint32_t _flags)
     {
-        assert(m_state!=ES_PENDING);
+        if (m_state==ES_PENDING);
+            return false;
         m_state = ES_INITIAL;
+
+        return true;
     }
 
     virtual void end()

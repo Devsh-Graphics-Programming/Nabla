@@ -31,7 +31,7 @@ namespace video
         public:
             typedef IGPUBuffer* value_type;
 
-            SimpleGPUBufferAllocator(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) :
+            SimpleGPUBufferAllocator(ILogicalDevice* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) :
                             GPUMemoryAllocatorBase(inDriver), mBufferMemReqs(bufferReqs)
             {
             }

@@ -274,6 +274,7 @@ set(NBL_VIDEO_SOURCES
 # Allocators
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/GPUMemoryAllocatorBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/SimpleGPUBufferAllocator.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
@@ -283,6 +284,7 @@ set(NBL_VIDEO_SOURCES
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
 	${NBL_ROOT_PATH}/src/nbl/video/CWaylandCaller.cpp
 
@@ -302,11 +304,6 @@ set(NBL_SCENE_SOURCES
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorDelete.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyCircle.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyStraight.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFollowSpline.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorRotation.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}

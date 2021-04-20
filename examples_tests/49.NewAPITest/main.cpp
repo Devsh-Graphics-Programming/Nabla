@@ -69,7 +69,7 @@ void main()
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
-	auto gl = video::IAPIConnection::create(video::EAT_OPENGL_ES, 0, "New API Test", &dbgcb);
+	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
 	auto surface = gl->createSurface(win.get());
 	auto surface2 = gl->createSurface(win2.get());
 
@@ -91,6 +91,28 @@ void main()
 	auto device = gpu->createLogicalDevice(dev_params);
 
 	auto* queue = device->getQueue(0u, 0u);
+	/*
+	uint8_t stackmem[1u << 14];
+	float farray[3]{ 1.f, 3.f, 4.f };
+	memcpy(stackmem, farray, 12);
+	auto memreqs = device->getDeviceLocalGPUMemoryReqs();
+	memreqs.vulkanReqs.size = sizeof(stackmem);
+	auto somebuffer = device->createGPUBufferOnDedMem(memreqs, true);
+	asset::SBufferRange<video::IGPUBuffer> bufrng;
+	bufrng.offset = 0;
+	bufrng.size = somebuffer->getSize();
+	bufrng.buffer = somebuffer;
+	device->updateBufferRangeViaStagingBuffer(queue, bufrng, stackmem);
+	*/
+
+	video::IGPUObjectFromAssetConverter cpu2gpu;
+	video::IGPUObjectFromAssetConverter::SParams c2gparams;
+	c2gparams.device = device.get();
+	c2gparams.transferQueue = queue;
+	c2gparams.limits = gpu->getLimits();
+	
+	auto cpubuf = new asset::ICPUBuffer(1024);
+	auto gpubuf2 = cpu2gpu.getGPUObjectsFromAssets(&cpubuf, &cpubuf + 1);
 
 	core::smart_refctd_ptr<video::ISwapchain> sc;
 	{

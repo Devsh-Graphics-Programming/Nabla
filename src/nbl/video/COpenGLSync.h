@@ -39,7 +39,7 @@ class COpenGLSync final : public core::IReferenceCounted
             if (cachedRetval != ES_TIMEOUT_EXPIRED)
                 return cachedRetval;
 
-            GLenum status = _gl->glSync.pglClientWaitSync(sync, 0, timeout);
+            GLenum status = _gl->glSync.pglClientWaitSync(sync, 0, timeout); // GL_SYNC_FLUSH_COMMANDS_BIT to flags?
             switch (status)
             {
             case GL_ALREADY_SIGNALED:

@@ -75,8 +75,11 @@ namespace impl
             ERT_SET_EVENT,
             ERT_RESET_FENCES,
             ERT_WAIT_FOR_FENCES,
+            ERT_GET_FENCE_STATUS,
             ERT_FLUSH_MAPPED_MEMORY_RANGES,
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
+            ERT_MAP_BUFFER_RANGE,
+            ERT_UNMAP_BUFFER,
             ERT_REGENERATE_MIP_LEVELS,
             //BIND_BUFFER_MEMORY,
 
@@ -210,6 +213,12 @@ namespace impl
             bool waitForAll;
             uint64_t timeout;
         };
+        struct SRequestGetFenceStatus
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_GET_FENCE_STATUS;
+            using retval_t = IGPUFence::E_STATUS;
+            IGPUFence* fence;
+        };
         struct SRequestFlushMappedMemoryRanges
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_FLUSH_MAPPED_MEMORY_RANGES;
@@ -221,6 +230,23 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = ERT_INVALIDATE_MAPPED_MEMORY_RANGES;
             using retval_t = void;
             core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
+        };
+        struct SRequestMapBufferRange
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_MAP_BUFFER_RANGE;
+            using retval_t = void*;
+
+            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
+            GLintptr offset;
+            GLsizeiptr size;
+            GLbitfield flags;
+        };
+        struct SRequestUnmapBuffer
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_UNMAP_BUFFER;
+            using retval_t = void;
+
+            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
         };
         struct SRequestRegenerateMipLevels
         {
@@ -354,8 +380,11 @@ protected:
             SRequestSetEvent,
             SRequestResetFences,
             SRequestWaitForFences,
+            SRequestGetFenceStatus,
             SRequestFlushMappedMemoryRanges,
             SRequestInvalidateMappedMemoryRanges,
+            SRequestMapBufferRange,
+            SRequestUnmapBuffer,
             SRequestRegenerateMipLevels,
 
             SRequestMakeCurrent,
@@ -553,6 +582,21 @@ protected:
                 gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT);
             }
                 break;
+            case ERT_MAP_BUFFER_RANGE:
+            {
+                auto& p = std::get<SRequestMapBufferRange>(req.params_variant);
+
+                void** pretval = reinterpret_cast<void**>(req.pretval);
+                pretval[0] = gl.extGlMapNamedBufferRange(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName(), p.offset, p.size, p.flags);
+            }
+                break;
+            case ERT_UNMAP_BUFFER:
+            {
+                auto& p = std::get<SRequestUnmapBuffer>(req.params_variant);
+
+                gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
+            }
+                break;
             case ERT_REGENERATE_MIP_LEVELS:
             {
                 auto& p = std::get<SRequestRegenerateMipLevels>(req.params_variant);
@@ -560,6 +604,15 @@ protected:
                 GLuint name = view->getOpenGLName();
                 GLenum target = COpenGLImageView::ViewTypeToGLenumTarget[view->getCreationParameters().viewType];
                 gl.extGlGenerateTextureMipmap(name, target);
+            }
+                break;
+            case ERT_GET_FENCE_STATUS:
+            {
+                auto& p = std::get<SRequestGetFenceStatus>(req.params_variant);
+                auto* glfence = static_cast<COpenGLFence*>(p.fence);
+                IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
+
+                retval[0] = glfence->getStatus(&gl);
             }
                 break;
             case ERT_WAIT_FOR_FENCES:

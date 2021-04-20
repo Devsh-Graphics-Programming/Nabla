@@ -398,6 +398,8 @@ namespace impl
 class COpenGLCommandBuffer final : public IGPUCommandBuffer
 {
 protected:
+    void freeSpaceInCmdPool();
+
     ~COpenGLCommandBuffer();
 
     template <impl::E_COMMAND_TYPE ECT>
@@ -508,6 +510,8 @@ public:
 
 
     COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
+
+    bool reset(uint32_t _flags) override final;
 
 
     bool bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override

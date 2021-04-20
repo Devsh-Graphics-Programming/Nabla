@@ -86,14 +86,14 @@ class IPropertyPool : public core::IReferenceCounted
         {
             indexAllocator.reset();
         }
-
-    protected:
+        
+        //
         #define PROPERTY_ADDRESS_ALLOCATOR_ARGS 1u,capacity,1u
         static inline PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity)
         {
             return PropertyAddressAllocator::reserved_size(PROPERTY_ADDRESS_ALLOCATOR_ARGS);
         }
-
+    protected:
         IPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved)
             :   memoryBlock(std::move(_memoryBlock)), indexAllocator(reserved,0u,0u,PROPERTY_ADDRESS_ALLOCATOR_ARGS)
         {
@@ -113,30 +113,3 @@ class IPropertyPool : public core::IReferenceCounted
 }
 
 #endif
-
-/*
-Old Code
-
-class IMeshSceneNodeInstanced : public ISceneNode
-{
-    struct MeshLoD
-    {
-        video::IGPUMesh* mesh;
-        void* userDataForVAOSetup; //put array of vertex attribute mappings here or something
-        float lodDistance;
-    };
-
-    virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
-        const size_t shaderLoDsPerPass = 1, void* overrideUserData = NULL, const size_t& extraDataSizePerInstanceInput = 0) = 0;
-
-    virtual video::CGPUMesh* getLoDMesh(const size_t& lod) = 0;
-
-
-    virtual const core::aabbox3df& getLoDInvariantBBox() const = 0;
-
-
-    inline void setBBoxUpdateEnabled() { wantBBoxUpdate = true; }
-    inline void setBBoxUpdateDisabled() { wantBBoxUpdate = false; }
-    inline const bool& getBBoxUpdateMode() { return wantBBoxUpdate; }
-};
-*/

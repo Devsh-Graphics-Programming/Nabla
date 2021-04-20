@@ -65,13 +65,12 @@ class IAsset : virtual public core::IReferenceCounted
 
 			@see IAsset
 
-			ET_BUFFER represents asset::ICPUBuffer
-			ET_SUB_IMAGE represents asset::CImageData
+			ET_BUFFER represents ICPUBuffer
 			ET_IMAGE represents ICPUTexture
 			ET_SUB_MESH represents
 			ET_MESH represents
 			ET_SKELETON represents
-			ET_KEYFRAME_ANIMATION represents
+			ET_ANIMATION_LIBRARY represents
 			ET_SHADER represents
 			ET_SPECIALIZED_SHADER represents
 			ET_MESH_DATA_DESCRIPTOR represents
@@ -92,7 +91,7 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_DESCRIPTOR_SET = 1ull<<5,                        //!< asset::ICPUDescriptorSet
 			ET_DESCRIPTOR_SET_LAYOUT = 1ull<<6,                 //!< asset::ICPUDescriptorSetLayout
 			ET_SKELETON = 1ull<<7,							    //!< asset::ICPUSkeleton
-			ET_KEYFRAME_ANIMATION = 1ull<<8,					//!< asset::ICPUKeyframeAnimation
+			ET_ANIMATION_LIBRARY = 1ull<<8,						//!< asset::ICPUAnimationLibrary
 			ET_PIPELINE_LAYOUT = 1ull<<9,						//!< asset::ICPUPipelineLayout
 			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
 			ET_SPECIALIZED_SHADER = 1ull<<11,					//!< asset::ICPUSpecializedShader
@@ -171,7 +170,7 @@ class IAsset : virtual public core::IReferenceCounted
 			Additionally the size is used to determine compression level while writing process is performed.
 			As you expect, the bigger the size returned the more likely it is to be compressed with a more expensive (slower) algorithm.
 		*/
-		virtual size_t conservativeSizeEstimate() const = 0;
+		virtual size_t conservativeSizeEstimate() const = 0; // TODO: this shouldn't be a method of IAsset but BlobSerializable ?
 
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;

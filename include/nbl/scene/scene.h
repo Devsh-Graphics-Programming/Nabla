@@ -9,4 +9,14 @@
 #include "nbl/video/video.h"
 #include "nbl/ui/ui.h"
 
+//
+#if 0 // not buildable on criss/vulkan branch
+#include "nbl/scene/IAnimationBlendManager.h"
+#include "nbl/scene/IRenderpassManager.h"
+#endif
+//#include "nbl/scene/ISensor.h" or asset? or a struct?
+//#include "nbl/scene/ICamera.h" or do we stick it inside the renderpass?
+//#include "nbl/scene/ISceneManager.h" do we need this?
+//#include "nbl/scene/.h"
+
 #endif

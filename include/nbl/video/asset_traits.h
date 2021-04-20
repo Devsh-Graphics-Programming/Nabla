@@ -7,6 +7,8 @@
 
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/video/IGPUMesh.h"
+#include "nbl/asset/ICPUSkeleton.h"
+#include "nbl/video/IGPUSkeleton.h"
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
@@ -27,6 +29,8 @@
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/video/IGPUImageView.h"
+#include "nbl/asset/ICPUAnimationLibrary.h"
+#include "nbl/video/IGPUAnimationLibrary.h"
 
 
 namespace nbl
@@ -82,11 +86,15 @@ struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IG
 template<>
 struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
 template<>
+struct asset_traits<asset::ICPUSkeleton> { using GPUObjectType = video::IGPUSkeleton; };
+template<>
 struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
 struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
 template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
+template<>
+struct asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
 
 
 template<typename AssetType>
