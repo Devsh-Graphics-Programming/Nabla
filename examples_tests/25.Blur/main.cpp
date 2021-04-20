@@ -7,179 +7,326 @@
 #include "../common/QToQuitEventReceiver.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
-#include "nbl/ext/Blur/CBlurPerformer.h"
-
 using namespace nbl;
-using namespace core;
+using namespace nbl::core;
+using namespace nbl::asset;
+using namespace nbl::video;
 
-
-//!Same As Last Example
-class MyEventReceiver : public QToQuitEventReceiver
+template <typename T>
+static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download, size_t buffer_size, IVideoDriver* driver)
 {
-		using Base = QToQuitEventReceiver;
-		const float BLUR_RADIUS_MIN = 0.f, BLUR_RADIUS_MAX = 0.5f;
+    constexpr uint64_t timeout_ns = 15000000000u;
+    const uint32_t alignment = uint32_t(sizeof(T));
+    auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
+    auto downBuffer = downloadStagingArea->getBuffer();
 
-	public:
-		ext::Blur::CBlurPerformer* blurPerf = nullptr;
+    bool success = false;
 
-		bool OnEvent(const SEvent& event)
-		{
-			if (!Base::OnEvent(event))
-			if (event.EventType == nbl::EET_MOUSE_INPUT_EVENT && blurPerf)
-			{
-				float r = blurPerf->getRadius() + event.MouseInput.Wheel/500.f;
-				blurPerf->setRadius(std::max(BLUR_RADIUS_MIN, std::min(r, BLUR_RADIUS_MAX)));
-				//return true;
-			}
-
-			return false;
-		}
-};
-
-class SimpleCallBack : public video::IShaderConstantSetCallBack
-{
-    int32_t mvpUniformLocation;
-    int32_t cameraDirUniformLocation;
-    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-    video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
-
-public:
-    SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
+    uint32_t array_size_32 = uint32_t(buffer_size);
+    uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
+    auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &array_size_32, &alignment);
+    if (unallocatedSize)
     {
-        for (size_t i = 0; i<constants.size(); i++)
+        os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
+        exit(420);
+    }
+
+    driver->copyBuffer(buffer_to_download.get(), downBuffer, 0, address, array_size_32);
+
+    auto downloadFence = driver->placeFence(true);
+    auto result = downloadFence->waitCPU(timeout_ns, true);
+
+    T* dataFromBuffer = nullptr;
+    if (result != video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED && result != video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+    {
+        if (downloadStagingArea->needsManualFlushOrInvalidate())
+            driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,array_size_32} });
+
+        dataFromBuffer = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
+    }
+    else
+    {
+        os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+    }
+
+    downloadStagingArea->multi_free(1u, &address, &array_size_32, nullptr);
+
+    return dataFromBuffer;
+}
+
+template <typename T>
+static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu_buffer, size_t buffer_size, IVideoDriver* driver)
+{
+    T* downloaded_buffer = DebugGPUBufferDownload<T>(gpu_buffer, buffer_size, driver);
+
+    size_t buffer_count = buffer_size / sizeof(T);
+
+    if (downloaded_buffer)
+    {
+        for (int i = 0; i < buffer_count; ++i)
         {
-            if (constants[i].name == "MVP")
-            {
-                mvpUniformLocation = constants[i].location;
-                mvpUniformType = constants[i].type;
-            }
-            else if (constants[i].name == "cameraPos")
-            {
-                cameraDirUniformLocation = constants[i].location;
-                cameraDirUniformType = constants[i].type;
-            }
+            if (downloaded_buffer[i] != cpu_buffer[i])
+                __debugbreak();
         }
+
+        std::cout << "PASS" << std::endl;
     }
+}
 
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-        core::vectorSIMDf modelSpaceCamPos;
-        modelSpaceCamPos.set(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
-        services->setShaderConstant(&modelSpaceCamPos, cameraDirUniformLocation, cameraDirUniformType, 1);
-        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
-    }
+smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_file_path, IVideoDriver* driver, io::IFileSystem* filesystem, asset::IAssetManager* am)
+{
+    auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile(shader_file_path));
 
-    virtual void OnUnsetMaterial() {}
-};
+    asset::IAssetLoader::SAssetLoadParams lp;
+    auto cs_bundle = am->getAsset(shader_file_path, lp);
+    auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+    auto cs_rawptr = cs.get();
 
-//! Use scroll to adjust blur radius
+    return driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+}
+
 int main()
 {
-    // create device with full flexibility over creation parameters
-    // you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-    nbl::SIrrlichtCreationParameters params;
-    params.Bits = 24; //may have to set to 32bit for some platforms
-    params.ZBufferBits = 24; //we'd like 32bit here
-    params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-    params.WindowSize = dimension2d<uint32_t>(1280, 720);
-    params.Fullscreen = false;
-    params.Vsync = true; //! If supported by target platform
-    params.Doublebuffer = true;
-    params.Stencilbuffer = false; //! This will not even be a choice soon
-    IrrlichtDevice* device = createDeviceEx(params);
+    nbl::SIrrlichtCreationParameters deviceParams;
+    deviceParams.Bits = 24; //may have to set to 32bit for some platforms
+    deviceParams.ZBufferBits = 24; //we'd like 32bit here
+    deviceParams.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+    deviceParams.WindowSize = dimension2d<uint32_t>(1024u, 1024u);
+    deviceParams.Fullscreen = false;
+    deviceParams.Vsync = true; //! If supported by target platform
+    deviceParams.Doublebuffer = true;
+    deviceParams.Stencilbuffer = false; //! This will not even be a choice soon
 
-    if (device == 0)
+    auto device = createDeviceEx(deviceParams);
+    if (!device)
         return 1; // could not create selected driver.
+
+    QToQuitEventReceiver receiver;
+    device->setEventReceiver(&receiver);
 
     video::IVideoDriver* driver = device->getVideoDriver();
 
-    SimpleCallBack* cb = new SimpleCallBack();
-    video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../cube.vert",
-        "", "", "", //! No Geometry or Tessellation Shaders
-        "../cube.frag",
-        3, video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-        cb, //! Our Shader Callback
-        0); //! No custom user data
-    cb->drop();
+    nbl::io::IFileSystem* filesystem = device->getFileSystem();
+    asset::IAssetManager* am = device->getAssetManager();
 
+    const uint32_t in_count = 9;
+    const size_t in_size = in_count * sizeof(uint32_t);
 
-    scene::ISceneManager* smgr = device->getSceneManager();
-    driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
-    scene::ICameraSceneNode* camera =
-        smgr->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
-    camera->setPosition(core::vector3df(-4, 0, 0));
-    camera->setTarget(core::vector3df(0, 0, 0));
-    camera->setNearValue(0.01f);
-    camera->setFarValue(100.0f);
-    smgr->setActiveCamera(camera);
-    device->getCursorControl()->setVisible(false);
-    MyEventReceiver receiver;
-    device->setEventReceiver(&receiver);
+    float in[in_count] = { 1.f, 0.f, 2.f, 2.f, 3.f, 4.f, 1.f, 0.f, 2.f };
 
+    auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+    auto out_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_size);
 
-    auto cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
-    asset::IAssetLoader::SAssetLoadParams lparams;
-    auto cputexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*device->getAssetManager()->getAsset("../tex.jpg", lparams).getContents().first);
-    auto texture = driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1)->front();
-
-    const core::vector2d<uint32_t> dsFactor{ 1u, 1u };
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, device->getIncludeHandler(), 0.01f, dsFactor, 2u);
-    receiver.blurPerf = blur;
-
-    auto outputTex = blur->createOutputTexture(texture.get());
-
-    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
-    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
-
-    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
-    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh))->getMesh()->getMeshBuffer(0)->getMaterial();
-    mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
-    mutableMaterial.TextureLayer[0].Texture = outputTex;
-
-    cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
-    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
-    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
-
-    gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
-    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh), nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMesh()->getMeshBuffer(0)->getMaterial();
-    mat2.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
-    mat2.TextureLayer[0].Texture = texture;
-
-    uint64_t lastFPSTime = 0;
-
-    while (device->run() && receiver.keepOpen() )
+    smart_refctd_ptr<IGPUDescriptorSet> ds = nullptr;
+    smart_refctd_ptr<IGPUComputePipeline> pipeline = nullptr;
     {
-        driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
+        const uint32_t count = 2u;
+        video::IGPUDescriptorSetLayout::SBinding binding[count];
+        for (uint32_t i = 0; i < count; ++i)
+            binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
 
-        blur->blurTexture(texture.get(), outputTex.get());
+        auto ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
+        auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(ds_layout));
 
-        smgr->drawAll();
-
-        driver->endScene();
-
-        // display frames per second in window title
-        uint64_t time = device->getTimer()->getRealTime();
-        if (time - lastFPSTime > 1000)
-        {
-            std::wostringstream sstr;
-            sstr << L"Builtin Nodes Demo - Irrlicht Engine FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
-
-            device->setWindowCaption(sstr.str().c_str());
-            lastFPSTime = time;
-        }
+        ds = driver->createGPUDescriptorSet(ds_layout);
+        pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipeline_layout),
+            createShader("../BlurPass.comp", driver, filesystem, am));
     }
 
-    blur->drop();
+    driver->beginScene();
+    {
+        {
+            const uint32_t count = 2u;
+            video::IGPUDescriptorSet::SDescriptorInfo ds_info[count];
 
-	//create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
-	}
+            ds_info[0].desc = in_gpu;
+            ds_info[0].buffer = { 0, in_gpu->getSize() };
 
-    device->drop();
+            ds_info[1].desc = out_gpu;
+            ds_info[1].buffer = { 0, out_gpu->getSize() };
+
+            video::IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+
+            for (uint32_t i = 0; i < count; ++i)
+                writes[i] = { ds.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+
+            driver->updateDescriptorSets(count, writes, 0u, nullptr);
+        }
+
+        driver->bindComputePipeline(pipeline.get());
+        driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get(), nullptr);
+        driver->dispatch(1u, 1u, 1u);
+
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    }
+    driver->endScene();
+
+    float* out = DebugGPUBufferDownload<float>(out_gpu, out_gpu->getSize(), driver);
+
+
+#if 0
+    IAssetLoader::SAssetLoadParams lp;
+    auto in_image_bundle = am->getAsset("../tex.jpg", lp);
+
+    // Todo: Flip the image
+
+    smart_refctd_ptr<IGPUImageView> in_image_view;
+    {
+        auto in_gpu_image = driver->getGPUObjectsFromAssets<ICPUImage>(in_image_bundle.getContents());
+
+        IGPUImageView::SCreationParams in_image_view_info;
+        in_image_view_info.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+        in_image_view_info.image = in_gpu_image->operator[](0u);
+        in_image_view_info.viewType = IGPUImageView::ET_2D;
+        in_image_view_info.format = in_image_view_info.image->getCreationParameters().format;
+        in_image_view_info.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+        in_image_view_info.subresourceRange.baseMipLevel = 0;
+        in_image_view_info.subresourceRange.levelCount = 1;
+        in_image_view_info.subresourceRange.baseArrayLayer = 0;
+        in_image_view_info.subresourceRange.layerCount = 1;
+        in_image_view = driver->createGPUImageView(std::move(in_image_view_info));
+    }
+
+    const vector2d<uint32_t> blur_ds_factor = { 7u, 3u };
+    const float blur_radius = 0.01f;
+    const uint32_t passes_per_axis = 3u;
+
+    auto in_dim = in_image_view->getCreationParameters().image->getCreationParameters().extent;
+    vector2d<uint32_t> out_dim = vector2d<uint32_t>(in_dim.width, in_dim.height) / blur_ds_factor;
+
+    // Create out image
+    // Todo: Clean this up, a lot of this state could match with the input image
+    smart_refctd_ptr<IGPUImage> out_image;
+    smart_refctd_ptr<IGPUImageView> out_image_view;
+    {
+        IGPUImageView::SCreationParams out_image_view_info;
+        out_image_view_info.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+        out_image_view_info.viewType = IGPUImageView::ET_2D;
+        out_image_view_info.format = asset::EF_R16G16B16A16_SFLOAT;
+
+        out_image_view_info.components.r = IGPUImageView::SComponentMapping::ES_R;
+        out_image_view_info.components.g = IGPUImageView::SComponentMapping::ES_G;
+        out_image_view_info.components.b = IGPUImageView::SComponentMapping::ES_B;
+        out_image_view_info.components.a = IGPUImageView::SComponentMapping::ES_A;
+
+        out_image_view_info.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+        out_image_view_info.subresourceRange.baseMipLevel = 0;
+        out_image_view_info.subresourceRange.levelCount = 1;
+        out_image_view_info.subresourceRange.baseArrayLayer = 0;
+        out_image_view_info.subresourceRange.layerCount = 1;
+
+        IImage::SCreationParams out_image_info;
+        out_image_info.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+        out_image_info.type = IImage::ET_2D;
+        out_image_info.format = asset::EF_R16G16B16A16_SFLOAT;
+        out_image_info.extent = { out_dim.X, out_dim.Y, 1u };
+        out_image_info.mipLevels = 1u; // Check this by inputting an image dims 146x341 and seeing what Nabla sets this value to
+        out_image_info.arrayLayers = 1u;
+        out_image_info.samples = IImage::ESCF_1_BIT;
+
+        out_image = driver->createDeviceLocalGPUImageOnDedMem(std::move(out_image_info));
+    
+        out_image_view_info.image = out_image;
+        out_image_view = driver->createGPUImageView(IGPUImageView::SCreationParams(out_image_view_info));
+    }
+
+    smart_refctd_ptr<IGPUDescriptorSet> ds = nullptr;
+    smart_refctd_ptr<IGPUComputePipeline> pipeline = nullptr;
+    {
+        const uint32_t count = 2u;
+        IGPUDescriptorSetLayout::SBinding binding[count] =
+        {
+            {
+                0u,
+                EDT_COMBINED_IMAGE_SAMPLER,
+                1u,
+                ISpecializedShader::ESS_COMPUTE,
+                nullptr
+            },
+            {
+                1u,
+                EDT_STORAGE_IMAGE,
+                1u,
+                ISpecializedShader::ESS_COMPUTE,
+                nullptr
+            }
+        };
+
+        auto ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
+        ds = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
+
+        auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, std::move(ds_layout));
+        pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), createShader("../BlurPass.comp", driver, filesystem, am));
+    }
+
+    auto blit_fbo = driver->addFrameBuffer();
+    blit_fbo->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(out_image_view));
+
+    while (device->run() && receiver.keepOpen())
+    {
+        driver->beginScene(false, false);
+
+        IGPUSampler::SParams params =
+        {
+            {
+                ISampler::ETC_CLAMP_TO_BORDER,
+                ISampler::ETC_CLAMP_TO_BORDER,
+                ISampler::ETC_CLAMP_TO_BORDER,
+                ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+                ISampler::ETF_LINEAR,
+                ISampler::ETF_LINEAR,
+                ISampler::ESMM_LINEAR,
+                8u,
+                0u,
+                ISampler::ECO_ALWAYS
+            }
+        };
+        auto sampler = driver->createGPUSampler(std::move(params));
+
+        constexpr auto descriptor_count = 2u;
+        video::IGPUDescriptorSet::SDescriptorInfo ds_infos[descriptor_count];
+        video::IGPUDescriptorSet::SWriteDescriptorSet ds_writes[descriptor_count];
+
+        for (uint32_t i = 0; i < descriptor_count; ++i)
+        {
+            ds_writes[i].dstSet = ds.get();
+            ds_writes[i].arrayElement = 0u;
+            ds_writes[i].count = 1u;
+            ds_writes[i].info = ds_infos + i;
+        }
+
+        // Input sampler2D
+        ds_writes[0].binding = 0;
+        ds_writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+        ds_writes[0].count = 1;
+
+        ds_infos[0].desc = in_image_view;
+        ds_infos[0].image.sampler = sampler;
+        ds_infos[0].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+
+        // Output image2D 
+        ds_writes[1].binding = 1;
+        ds_writes[1].descriptorType = asset::EDT_STORAGE_IMAGE;
+        ds_writes[1].count = 1;
+
+        ds_infos[1].desc = out_image_view;
+        ds_infos[1].image.sampler = nullptr;
+        ds_infos[1].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+
+        driver->updateDescriptorSets(2u, ds_writes, 0u, nullptr);
+
+        driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get(), nullptr);
+        driver->bindComputePipeline(pipeline.get());
+        driver->dispatch(1, out_dim.Y, 1);
+
+        // Todo: You might also want to use texture fetch barrier bit
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+
+        driver->blitRenderTargets(blit_fbo, nullptr, false, false);
+
+        driver->endScene();
+    }
+#endif
 
     return 0;
 }
