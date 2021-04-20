@@ -92,6 +92,7 @@ void main()
 	auto device = gpu->createLogicalDevice(dev_params);
 
 	auto* queue = device->getQueue(0u, 0u);
+	auto* queue2 = device->getQueue(0u, 1u);
 	/*
 	uint8_t stackmem[1u << 14];
 	float farray[3]{ 1.f, 3.f, 4.f };
@@ -106,18 +107,27 @@ void main()
 	device->updateBufferRangeViaStagingBuffer(queue, bufrng, stackmem);
 	*/
 
+	// those shouldnt be like that (filesystem is already created in IAPIConnection but also temporarily i think -- we're going to have system::ISystem instead anyway)
 	auto fs = core::make_smart_refctd_ptr<io::CFileSystem>("");
 	auto am = core::make_smart_refctd_ptr<asset::IAssetManager>(std::move(fs));
+
+	asset::IAssetLoader::SAssetLoadParams lp;
+	auto bundle = am->getAsset("../../media/dwarf.jpg", lp);
+	assert(!bundle.getContents().empty());
 
 	video::IGPUObjectFromAssetConverter cpu2gpu;
 	video::IGPUObjectFromAssetConverter::SParams c2gparams;
 	c2gparams.device = device.get();
-	c2gparams.transferQueue = queue;
+	c2gparams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue;
+	c2gparams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue2;
+	c2gparams.finalQueueFamIx = queue->getFamilyIndex();
+	c2gparams.sharingMode = asset::ESM_CONCURRENT;
 	c2gparams.limits = gpu->getLimits();
 	c2gparams.assetManager = am.get();
 	
-	auto cpubuf = new asset::ICPUBuffer(1024);
-	auto gpubuf2 = cpu2gpu.getGPUObjectsFromAssets(&cpubuf, &cpubuf + 1);
+	//auto cpubuf = new asset::ICPUBuffer(1024);
+	auto gpuimgs = cpu2gpu.getGPUObjectsFromAssets<asset::ICPUImage>(bundle.getContents(), c2gparams);
+	auto gpuimg = (*gpuimgs)[0];
 
 	core::smart_refctd_ptr<video::ISwapchain> sc;
 	{

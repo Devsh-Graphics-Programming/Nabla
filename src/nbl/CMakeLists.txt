@@ -240,7 +240,7 @@ set(NBL_ASSET_SOURCES
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWLegacy.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp

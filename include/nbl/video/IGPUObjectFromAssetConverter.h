@@ -92,14 +92,6 @@ class IGPUObjectFromAssetConverter
             EQU_COUNT
         };
 
-    protected:
-        struct SContext
-        {
-            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf[EQU_COUNT];
-        };
-
-    public:
-
         struct SParams
         {
             struct SPerQueue
@@ -253,23 +245,23 @@ class IGPUObjectFromAssetConverter
         virtual ~IGPUObjectFromAssetConverter() = default;
 
         template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range)
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, const SParams& _params)
         {
             impl::AssetBundleIterator<AssetType> begin(_range.begin());
             impl::AssetBundleIterator<AssetType> end(_range.end());
-            return this->getGPUObjectsFromAssets<AssetType, const impl::AssetBundleIterator<AssetType>>(begin, end);
+            return this->template getGPUObjectsFromAssets<AssetType, const impl::AssetBundleIterator<AssetType>>(begin, end, _params);
         }
 
         template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const AssetType* const* const _begin, const AssetType* const* const _end)
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const AssetType* const* const _begin, const AssetType* const* const _end, const SParams& _params)
         {
-            return this->getGPUObjectsFromAssets<AssetType>(_begin, _end);
+            return this->template getGPUObjectsFromAssets<AssetType, const AssetType* const*>(_begin, _end, _params);
         }
 
         template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end)
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, const SParams& _params)
         {
-            return this->getGPUObjectsFromAssets<AssetType>(_begin, _end);
+            return this->template getGPUObjectsFromAssets<AssetType, const core::smart_refctd_ptr<AssetType>*>(_begin, _end, _params);
         }
 
 	protected:
@@ -465,17 +457,22 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     submit.commandBufferCount = 1u;
     auto* cmdbuf_ptr = cmdbuf.get();
     submit.commandBuffers = &cmdbuf_ptr;
-    // TODO have one signal semaphore here and write it into SParams
-    submit.signalSemaphoreCount = 0u;
-    submit.pSignalSemaphores = nullptr;
+    core::smart_refctd_ptr<IGPUSemaphore> sem;
+    if (_params.perQueue[EQU_TRANSFER].semaphore)
+        sem = _params.device->createSemaphore();
+    auto* sem_ptr = sem.get();
+    submit.signalSemaphoreCount = sem_ptr?1u:0u;
+    submit.pSignalSemaphores = sem_ptr?&sem_ptr:nullptr;
     submit.waitSemaphoreCount = 0u;
     submit.pWaitDstStageMask = nullptr;
     submit.pWaitSemaphores = nullptr;
     // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
     auto* signalFence = _params.perQueue[EQU_TRANSFER].fence ? fence.get() : nullptr;
-    _params.perQueue[EQU_TRANSFER].queue->submit(1u, nullptr, signalFence);
+    _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit, signalFence);
     if (_params.perQueue[EQU_TRANSFER].fence)
         _params.perQueue[EQU_TRANSFER].fence[0] = std::move(fence);
+    if (_params.perQueue[EQU_TRANSFER].semaphore)
+        _params.perQueue[EQU_TRANSFER].semaphore[0] = std::move(sem);
 
     return res;
 }
@@ -750,7 +747,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize());
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
-        if (asset::isIntegerFormat(cpuimg->getCreationParameters().format))
+        if (!asset::isIntegerFormat(cpuimg->getCreationParameters().format))
             needToGenMips = true;
     }
 
@@ -818,6 +815,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void {
         if (!needToCompMipsForThisImg(cpuimg))
             return;
+        // TODO when we have compute shader mips generation:
         /*computeCmdbuf->bindPipeline();
         computeCmdbuf->bindDescriptorSets();
         computeCmdbuf->pushConstants();
@@ -828,19 +826,19 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             lowestPresentMip = std::max(lowestPresentMip, region.imageSubresource.mipLevel);
         // generate temporary image view to make sure we don't screw up any explicit mip levels
         IGPUImageView::SCreationParams tmpViewParams;
-        tmpViewParams.subresourceRange.levelCount = cpuimg->getCreationParameters().mipLevels + 1u - lowestPresentMip;
+        tmpViewParams.subresourceRange.levelCount = img->getCreationParameters().mipLevels + 1u - lowestPresentMip;
         // if not all mip levels have been manually specified
         if (tmpViewParams.subresourceRange.levelCount > 1u)
         {
             tmpViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
             tmpViewParams.image = core::smart_refctd_ptr<IGPUImage>(img);
-            switch (cpuimg->getCreationParameters().type)
+            switch (img->getCreationParameters().type)
             {
             case asset::IImage::ET_1D:
                 tmpViewParams.viewType = IGPUImageView::ET_1D_ARRAY;
                 break;
             case asset::IImage::ET_2D:
-                if (cpuimg->getCreationParameters().flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT)
+                if (img->getCreationParameters().flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT)
                     tmpViewParams.viewType = IGPUImageView::ET_CUBE_MAP_ARRAY;
                 else
                     tmpViewParams.viewType = IGPUImageView::ET_2D_ARRAY;
@@ -852,10 +850,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 assert(false);
                 break;
             }
-            tmpViewParams.format = cpuimg->getCreationParameters().format;
+            tmpViewParams.format = img->getCreationParameters().format;
             //tmpViewParams.subresourceRange.aspectMask
             tmpViewParams.subresourceRange.baseMipLevel = lowestPresentMip - 1u;
-            tmpViewParams.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
+            tmpViewParams.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
             auto tmpView = _params.device->createGPUImageView(std::move(tmpViewParams));
 
             // deprecated OpenGL path (do with compute shader in the future)
@@ -936,8 +934,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (!oneQueue)
             cmdbuf_compute->end();
 
-        auto sem = _params.device->createSemaphore();
-        auto* sem_ptr = sem.get();
+        auto transfer_sem = _params.device->createSemaphore();
+        auto* transfer_sem_ptr = transfer_sem.get();
+
+        IGPUFence* batch_final_fence = fence.get();
 
         auto* cb_trans = cmdbuf_transfer.get();
         IGPUQueue::SSubmitInfo submit_transfer;
@@ -947,11 +947,30 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         submit_transfer.pWaitSemaphores = nullptr;
         submit_transfer.waitSemaphoreCount = 0u;
         submit_transfer.signalSemaphoreCount = 1u;
-        submit_transfer.pSignalSemaphores = &sem_ptr;
-        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, oneSubmitPerBatch?fence.get():nullptr);
+        submit_transfer.pSignalSemaphores = &transfer_sem_ptr;
+        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, fence.get());
+
+        if (_params.perQueue[EQU_TRANSFER].semaphore)
+            _params.perQueue[EQU_TRANSFER].semaphore[0] = transfer_sem;
+        if (_params.perQueue[EQU_COMPUTE].semaphore && oneQueue && needToGenMips)
+            _params.perQueue[EQU_COMPUTE].semaphore[0] = transfer_sem;
+
+        if (_params.perQueue[EQU_TRANSFER].fence)
+            _params.perQueue[EQU_TRANSFER].fence[0] = fence;
+        if (_params.perQueue[EQU_COMPUTE].fence && oneQueue && needToGenMips)
+            _params.perQueue[EQU_COMPUTE].fence[0] = fence;
 
         if (!oneSubmitPerBatch)
         {
+            core::smart_refctd_ptr<IGPUSemaphore> compute_sem;
+            if (_params.perQueue[EQU_COMPUTE].semaphore)
+                compute_sem = _params.device->createSemaphore();
+            auto* compute_sem_ptr = compute_sem.get();
+            core::smart_refctd_ptr<IGPUFence> compute_fence;
+            if (_params.perQueue[EQU_COMPUTE].fence)
+                compute_fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+            auto* compute_fence_ptr = compute_fence.get();
+
             asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COMPUTE_SHADER_BIT;
             auto* cb_comp = cmdbuf_compute.get();
             IGPUQueue::SSubmitInfo submit_compute;
@@ -959,22 +978,35 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             submit_compute.commandBuffers = &cb_comp;
             submit_compute.waitSemaphoreCount = 1u;
             submit_compute.pWaitDstStageMask = &dstWait;
-            submit_compute.pWaitSemaphores = &sem_ptr;
-            submit_compute.signalSemaphoreCount = 0u;
-            submit_compute.pSignalSemaphores = nullptr;
-            _params.perQueue[EQU_COMPUTE].queue->submit(1u, &submit_compute, fence.get());
+            submit_compute.pWaitSemaphores = &transfer_sem_ptr;
+            submit_compute.signalSemaphoreCount = compute_sem?1u:0u;
+            submit_compute.pSignalSemaphores = compute_sem?&compute_sem_ptr:nullptr;
+            _params.perQueue[EQU_COMPUTE].queue->submit(1u, &submit_compute, compute_fence_ptr);
+
+            if (_params.perQueue[EQU_COMPUTE].semaphore)
+                _params.perQueue[EQU_COMPUTE].semaphore[0] = compute_sem;
+            if (_params.perQueue[EQU_COMPUTE].fence)
+                _params.perQueue[EQU_COMPUTE].fence[0] = compute_fence;
+
+            batch_final_fence = compute_fence_ptr;
         }
 
         // separate cmdbufs per batch instead?
-        auto* fence_ptr = fence.get();
-        _params.device->waitForFences(1u, &fence_ptr, false, 9999999999ull);
-
-        cmdbuf_transfer->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-        cmdbuf_transfer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-        if (!oneSubmitPerBatch)
+        if (it != _end)
         {
-            cmdbuf_compute->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-            cmdbuf_compute->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            // wait to finish all batch work
+            _params.device->waitForFences(1u, &batch_final_fence, false, 9999999999ull);
+            // reset the `fence` (will be reused in next batch)
+            auto* fence_ptr = fence.get();
+            _params.device->resetFences(1u, &fence_ptr);
+
+            cmdbuf_transfer->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+            cmdbuf_transfer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            if (!oneSubmitPerBatch)
+            {
+                cmdbuf_compute->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+                cmdbuf_compute->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            }
         }
     };
 

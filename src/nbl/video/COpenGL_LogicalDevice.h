@@ -240,9 +240,9 @@ public:
     }
 
     // TODO impl all this events stuff
-    core::smart_refctd_ptr<IGPUEvent> createEvent() override
+    core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override
     {
-        return core::make_smart_refctd_ptr<COpenGLEvent>(this);
+        return core::make_smart_refctd_ptr<COpenGLEvent>(this, flags);
     }
     IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override
     {

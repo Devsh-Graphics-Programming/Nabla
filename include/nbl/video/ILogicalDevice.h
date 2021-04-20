@@ -102,7 +102,7 @@ public:
 
     virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
-    virtual core::smart_refctd_ptr<IGPUEvent> createEvent() = 0;
+    virtual core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) = 0;
     virtual IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) = 0;
     virtual IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) = 0;
     virtual IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) = 0;
