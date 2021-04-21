@@ -4,7 +4,7 @@
 #include "nbl/core/IReferenceCounted.h"
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
 class IWindow : public core::IReferenceCounted

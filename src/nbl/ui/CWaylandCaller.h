@@ -15,7 +15,7 @@
 #include <wayland-egl.h> // Wayland EGL MUST be included before EGL headers
 
 namespace nbl {
-namespace ui
+namespace video
 {
 
 namespace impl

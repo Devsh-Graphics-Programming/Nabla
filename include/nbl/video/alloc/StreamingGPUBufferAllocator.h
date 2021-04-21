@@ -49,6 +49,7 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
             return {buff,mappedPtr};
         }
 
+#if 0
         template<class AddressAllocator>
         inline void                 reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets, bool copyBuffers=true) noexcept
         {
@@ -80,6 +81,7 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
             newAlloc.first->drop();
             allocation.second = newAlloc.second;
         }
+#endif
 
         inline void                 deallocate(value_type& allocation) noexcept
         {

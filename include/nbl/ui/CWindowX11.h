@@ -1,7 +1,7 @@
 #ifndef __C_WINDOW_LINUX_H_INCLUDED__
 #define __C_WINDOW_LINUX_H_INCLUDED__
 
-#include "nbl/system/IWindowLinux.h"
+#include "nbl/ui/IWindowX11.h"
 
 #ifdef _NBL_PLATFORM_LINUX_
 
@@ -15,7 +15,7 @@
 #include "os.h"
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
 class CWindowLinux final : public IWindowLinux

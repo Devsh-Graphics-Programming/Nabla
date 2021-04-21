@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 #define __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 
-
+#if 0
 #include "nbl/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 
 #include "nbl/core/alloc/PoolAddressAllocator.h"
@@ -185,6 +185,8 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
 
 }
 }
+
+#endif //if 0
 
 #endif
 

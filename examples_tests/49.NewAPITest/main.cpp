@@ -8,11 +8,11 @@
 #include <nabla.h>
 #include "CFileSystem.h" // tmp, this should be accessible via IFileSystem and not required to be created explicitely by user
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/system/CWindowWin32.h>
-using CWindowT = nbl::system::CWindowWin32;
+#include <nbl/ui/CWindowWin32.h>
+using CWindowT = nbl::ui::CWindowWin32;
 #elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/system/CWindowWayland.h>
-using CWindowT = nbl::system::CWindowWayland;
+#include <nbl/ui/CWindowWayland.h>
+using CWindowT = nbl::ui::CWindowWayland;
 #endif
 
 using namespace nbl;
@@ -64,8 +64,8 @@ void main()
 }
 )";
 
-	auto win = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
-	auto win2 = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
+	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
+	auto win2 = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
 
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;

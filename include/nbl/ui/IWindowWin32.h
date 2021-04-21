@@ -1,7 +1,7 @@
 #ifndef __NBL_I_WINDOW_WIN32_H_INCLUDED__
 #define __NBL_I_WINDOW_WIN32_H_INCLUDED__
 
-#include "nbl/system/IWindow.h"
+#include "nbl/ui/IWindow.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
@@ -9,7 +9,7 @@
 #include <windows.h>
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
 class IWindowWin32 : public IWindow

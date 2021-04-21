@@ -65,12 +65,6 @@ namespace video
                 pool->free_n<asset::VkRect2D>(c.scissors, c.scissorCount);
             }
             break;
-            case impl::ECT_WAIT_EVENTS:
-            {
-                auto& c = cmd.get<impl::ECT_WAIT_EVENTS>();
-                pool->free_n<core::smart_refctd_ptr<event_t>>(c.events, c.eventCount);
-            }
-            break;
             case impl::ECT_CLEAR_COLOR_IMAGE:
             {
                 auto& c = cmd.get<impl::ECT_CLEAR_COLOR_IMAGE>();
@@ -754,19 +748,21 @@ namespace video
             case impl::ECT_SET_EVENT:
             {
                 auto& c = cmd.get<impl::ECT_SET_EVENT>();
-                // TODO
+                //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
+                // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
+                gl->glSync.pglMemoryBarrier(c.barrierBits);
             }
             break;
             case impl::ECT_RESET_EVENT:
             {
                 auto& c = cmd.get<impl::ECT_RESET_EVENT>();
-                // TODO
+                // currently no-op
             }
             break;
             case impl::ECT_WAIT_EVENTS:
             {
                 auto& c = cmd.get<impl::ECT_WAIT_EVENTS>();
-                // TODO
+                gl->glSync.pglMemoryBarrier(c.barrier);
             }
             break;
             case impl::ECT_PIPELINE_BARRIER:

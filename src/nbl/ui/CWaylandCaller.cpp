@@ -5,7 +5,7 @@
 #ifdef _NBL_BUILD_WITH_WAYLAND
 
 namespace nbl {
-namespace ui
+namespace video
 {
 
 #define _NBL_WAYLAND_IFACES_LIST \

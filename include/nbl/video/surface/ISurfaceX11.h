@@ -11,7 +11,7 @@ namespace nbl {
 namespace video
 {
 
-class ISurfaceLinux
+class ISurfaceX11
 {
 public:
     struct SCreationParams
@@ -21,7 +21,7 @@ public:
     };
 
 protected:
-    explicit ISurfaceLinux(SCreationParams&& params) : m_params(std::move(params)) {}
+    explicit ISurfaceX11(SCreationParams&& params) : m_params(std::move(params)) {}
 
     SCreationParams m_params;
 };

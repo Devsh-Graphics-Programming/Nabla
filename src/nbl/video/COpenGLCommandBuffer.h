@@ -253,7 +253,7 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_EVENT)
     {
         core::smart_refctd_ptr<IGPUEvent> event;
-        asset::E_PIPELINE_STAGE_FLAGS stageMask;
+        GLbitfield barrierBits;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_RESET_EVENT)
     {
@@ -262,8 +262,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_WAIT_EVENTS)
     {
-        uint32_t eventCount;
-        core::smart_refctd_ptr<IGPUEvent>* events;
+        core::smart_refctd_ptr<IGPUEvent> event;
         GLbitfield barrier;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_PIPELINE_BARRIER)
@@ -834,13 +833,13 @@ public:
         return true;
     }
 
-    bool setEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
+    bool setEvent(event_t* event, const SDependencyInfo& depInfo) override
     {
         if (!this->isCompatibleDevicewise(event))
             return false;
         SCmd<impl::ECT_SET_EVENT> cmd;
         cmd.event = core::smart_refctd_ptr<event_t>(event);
-        cmd.stageMask = stageMask;
+        cmd.barrierBits = barriersToMemBarrierBits(depInfo.memBarrierCount, depInfo.memBarriers, depInfo.bufBarrierCount, depInfo.bufBarriers, depInfo.imgBarrierCount, depInfo.imgBarriers);
         pushCommand(std::move(cmd));
         return true;
     }
@@ -855,27 +854,21 @@ public:
         return true;
     }
 
-    bool waitEvents(uint32_t eventCount, event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
-        uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
-        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
-    ) override
+    bool waitEvents(uint32_t eventCount, event_t** pEvents, const SDependencyInfo* depInfos) override
     {
+        if (eventCount == 0u)
+            return false;
         for (uint32_t i = 0u; i < eventCount; ++i)
             if (!this->isCompatibleDevicewise(pEvents[i]))
                 return false;
-        if (eventCount == 0u)
-            return false;
-        SCmd<impl::ECT_WAIT_EVENTS> cmd;
-        cmd.eventCount = eventCount;
-        auto* events = getGLCommandPool()->emplace_n<core::smart_refctd_ptr<event_t>>(eventCount);
-        if (!events)
-            return false;
         for (uint32_t i = 0u; i < eventCount; ++i)
-            events[i] = core::smart_refctd_ptr<event_t>(pEvents[i]);
-        cmd.events = events;
-        cmd.barrier = barriersToMemBarrierBits(memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
-        pushCommand(std::move(cmd));
+        {
+            SCmd<impl::ECT_WAIT_EVENTS> cmd;
+            cmd.event = core::smart_refctd_ptr<event_t>(pEvents[i]);
+            auto& dep = depInfos[i];
+            cmd.barrier = barriersToMemBarrierBits(dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
+            pushCommand(std::move(cmd));
+        }
         return true;
     }
 

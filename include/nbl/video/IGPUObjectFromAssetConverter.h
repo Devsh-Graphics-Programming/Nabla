@@ -869,6 +869,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         const bool integerFmt = asset::isIntegerFormat(params.format);
         if (!integerFmt)
             params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
+        if (cpuimg->getRegions().size())
+        {
+            params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+            params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+        }
+        else
+        {
+            params.initialLayout = asset::EIL_GENERAL;
+        }
         auto gpuimg = _params.device->createDeviceLocalGPUImageOnDedMem(std::move(params));
 
 		res->operator[](i) = std::move(gpuimg);
@@ -893,8 +902,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             auto* cpuimg = *(it++);
             auto* gpuimg = (*res)[n+i].get();
             cmdUpload(cpuimg, gpuimg);
-            if (needToCompMipsForThisImg(cpuimg))
             {
+                asset::E_IMAGE_LAYOUT finalLayout;
+                auto usage = gpuimg->getCreationParameters().usage;
+                //constexpr auto UsageWriteMask = asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT | asset::IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT | asset::IImage::EUF_STORAGE_BIT;
+                if (!needToCompMipsForThisImg(cpuimg) && usage == asset::IImage::EUF_SAMPLED_BIT)
+                    finalLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+                else
+                    finalLayout = asset::EIL_GENERAL;
+
                 auto& b = imgbarriers[barrierCount];
                 b.image = core::smart_refctd_ptr<IGPUImage>(gpuimg);
                 asset::IImage::SSubresourceRange subres;
@@ -907,7 +923,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 b.srcQueueFamilyIndex = transferFamIx;
                 b.dstQueueFamilyIndex = computeFamIx;
                 b.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-                b.newLayout = asset::EIL_GENERAL;
+                b.newLayout = finalLayout;
                 b.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
                 b.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
 

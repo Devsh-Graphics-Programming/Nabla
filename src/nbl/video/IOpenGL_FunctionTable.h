@@ -3,6 +3,7 @@
 
 #include "os.h" // Printer::log
 
+#include <atomic>
 #include "nbl/video/COpenGLFeatureMap.h"
 #include "nbl/core/string/UniqueStringLiteralType.h"
 #include "nbl/system/DynamicFunctionCaller.h"
@@ -21,6 +22,8 @@ namespace nbl {
 		// And implements (at least a common part) extGl* methods which can be implemented with those pointers
 		class IOpenGL_FunctionTable
 		{
+			static std::atomic_uint32_t s_guidGenerator;
+
 		public:
 			// tokens common for GL 4.6 and GLES 3.2 assuming presence of some extensions
 			static inline constexpr GLenum MAP_PERSISTENT_BIT				= GL_MAP_PERSISTENT_BIT;
@@ -297,6 +300,9 @@ namespace nbl {
 			const egl::CEGL* m_egl;
 			const COpenGLFeatureMap* features;
 
+			const uint32_t m_guid;
+
+
 			virtual bool isGLES() const = 0;
 
 
@@ -498,6 +504,8 @@ namespace nbl {
 
 			const COpenGLFeatureMap* getFeatures() const { return features; }
 
+			uint32_t getGUID() const { return m_guid; }
+
 			// constructor
 			IOpenGL_FunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
 				glSync(_egl),
@@ -514,9 +522,15 @@ namespace nbl {
 				glGeneral(_egl),
 				glCompute(_egl),
 				m_egl(_egl),
-				features(_features)
+				features(_features),
+				m_guid(s_guidGenerator++)
 			{
 
+			}
+
+			~IOpenGL_FunctionTable()
+			{
+				--s_guidGenerator;
 			}
 		};	// end of class IOpenGL_FunctionTable
 

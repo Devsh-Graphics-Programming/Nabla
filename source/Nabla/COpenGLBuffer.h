@@ -88,63 +88,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         inline bool isDedicated() const override { return true; }
 
-        inline bool pseudoMoveAssign(IGPUBuffer* other) override
-        {
-            if (!this->isCompatibleDevicewise(other))
-                return false;
-
-            COpenGLBuffer* otherAsGL = static_cast<COpenGLBuffer*>(other);
-            if (!otherAsGL || otherAsGL == this || otherAsGL->cachedFlags != cachedFlags || otherAsGL->BufferName == 0)
-                return false;
-
-#ifdef _DEBUG
-            if (otherAsGL->getReferenceCount() != 1)
-                os::Printer::log("What are you doing!? You should only swap internals with an IGPUBuffer that is unused yet!", ELL_ERROR);
-#endif // _DEBUG
-
-#ifdef OPENGL_LEAK_DEBUG
-            assert(otherAsGL->concurrentAccessGuard == 0);
-            FW_AtomicCounterIncr(otherAsGL->concurrentAccessGuard);
-            assert(concurrentAccessGuard == 0);
-            FW_AtomicCounterIncr(concurrentAccessGuard);
-#endif // OPENGL_LEAK_DEBUG
-
-            if (BufferName)
-                destroyGLBufferObjectWrapper();
-
-            cachedMemoryReqs = otherAsGL->cachedMemoryReqs;
-
-            mappedPtr = otherAsGL->mappedPtr;
-            mappedRange = otherAsGL->mappedRange;
-            currentMappingAccess = otherAsGL->currentMappingAccess;
-
-            cachedFlags = otherAsGL->cachedFlags;
-            BufferName = otherAsGL->BufferName;
-
-            lastTimeReallocated = s_reallocCounter++;
-
-
-            otherAsGL->cachedMemoryReqs = { {0,0,0},0,0,0,0 };
-
-            otherAsGL->mappedPtr = nullptr;
-            otherAsGL->mappedRange = MemoryRange(0, 0);
-            otherAsGL->currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
-
-            otherAsGL->cachedFlags = 0;
-            otherAsGL->BufferName = 0;
-
-            otherAsGL->lastTimeReallocated = s_reallocCounter++;
-
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard == 1);
-            FW_AtomicCounterDecr(concurrentAccessGuard);
-            assert(otherAsGL->concurrentAccessGuard == 1);
-            FW_AtomicCounterDecr(otherAsGL->concurrentAccessGuard);
-#endif // OPENGL_LEAK_DEBUG
-
-            return true;
-        }
-
     protected:
         static std::atomic_uint32_t s_reallocCounter;
 

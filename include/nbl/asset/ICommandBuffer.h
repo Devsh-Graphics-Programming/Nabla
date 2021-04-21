@@ -180,6 +180,16 @@ public:
         uint32_t clearValueCount;
         const SClearValue* clearValues;
     };
+    struct SDependencyInfo
+    {
+        E_DEPENDENCY_FLAGS dependencyFlags;
+        uint32_t memBarrierCount;
+        const SMemoryBarrier* memBarriers;
+        uint32_t bufBarrierCount;
+        const SBufferMemoryBarrier* bufBarriers;
+        uint32_t imgBarrierCount;
+        const SImageMemoryBarrier* imgBarriers;
+    };
 
     E_LEVEL getLevel() const { return m_level; }
 
@@ -243,14 +253,10 @@ public:
     virtual bool dispatchIndirect(buffer_t* buffer, size_t offset) = 0;
     virtual bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) = 0;
 
-    virtual bool setEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
+    virtual bool setEvent(event_t* event, const SDependencyInfo& depInfo) = 0;
     virtual bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
 
-    virtual bool waitEvents(uint32_t eventCount, event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        uint32_t memoryBarrierCount, const SMemoryBarrier* pMemoryBarriers,
-        uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
-        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
-    ) = 0;
+    virtual bool waitEvents(uint32_t eventCount, event_t** pEvents, const SDependencyInfo* depInfos) = 0;
 
     virtual bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<E_DEPENDENCY_FLAGS> dependencyFlags,

@@ -9,6 +9,8 @@ namespace nbl {
 namespace video
 {
 
+class IOpenGL_LogicalDevice;
+
 class COpenGLFence final : public IGPUFence, public IOpenGLSyncPrimitiveBase
 {
 protected:
@@ -16,29 +18,20 @@ protected:
 
 public:
     // signaled ctor
-    COpenGLFence(IOpenGL_LogicalDevice* dev, ILogicalDevice* _dev, IOpenGL_FunctionTable* gl) : IGPUFence(_dev, ECF_SIGNALED_BIT), IOpenGLSyncPrimitiveBase(dev)
+    COpenGLFence(IOpenGL_LogicalDevice* dev, ILogicalDevice* _dev, IOpenGL_FunctionTable* gl) : IGPUFence(_dev, ECF_SIGNALED_BIT)
     {
-        signal(gl);
+        auto sync = core::make_smart_refctd_ptr<COpenGLSync>();
+        sync->init(dev, gl, false);
+        associateGLSync(std::move(sync));
     }
     // un-signaled ctor
-    explicit COpenGLFence(IOpenGL_LogicalDevice* dev, ILogicalDevice* _dev) : IGPUFence(_dev, static_cast<E_CREATE_FLAGS>(0)), IOpenGLSyncPrimitiveBase(dev)
+    explicit COpenGLFence(ILogicalDevice* _dev) : IGPUFence(_dev, static_cast<E_CREATE_FLAGS>(0))
     {
 
     }
 
     E_STATUS wait(IOpenGL_FunctionTable* _gl, uint64_t timeout)
     {
-        const uint64_t pretimeout = prewait();
-
-        // TODO
-        // im not sure if this is proper vulkan emulation
-        // @matt ?
-        {
-            if (pretimeout >= timeout)
-                return ES_TIMEOUT;
-            timeout -= pretimeout;
-        }
-
         COpenGLSync::E_STATUS status = m_sync->waitCPU(_gl, timeout);
         if (status == COpenGLSync::ES_FAIL)
             return ES_ERROR;
@@ -50,7 +43,7 @@ public:
 
     E_STATUS getStatus(IOpenGL_FunctionTable* _gl)
     {
-        if (!isWaitable())
+        if (m_sync->isInitialized())
             return ES_NOT_READY;
         auto status = m_sync->waitCPU(_gl, 0ull);
         switch (status)

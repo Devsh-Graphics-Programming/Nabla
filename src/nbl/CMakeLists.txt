@@ -195,10 +195,12 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/source/Nabla/CLogger.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
 	${NBL_ROOT_PATH}/source/Nabla/os.cpp
-	
-	${NBL_ROOT_PATH}/src/nbl/system/CWindowWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CWindowLinux.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CWindowWayland.cpp
+)
+set(NBL_UI_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowX11.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -286,8 +288,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
-	${NBL_ROOT_PATH}/src/nbl/video/CWaylandCaller.cpp
-
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
 #${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
@@ -312,6 +312,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
+	${NBL_UI_SOURCES}
 
 # Junk to refactor
 #	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
@@ -346,6 +347,7 @@ set(NABLA_SRCS_NORMAL
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp

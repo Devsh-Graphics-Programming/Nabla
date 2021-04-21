@@ -239,21 +239,26 @@ public:
         return core::make_smart_refctd_ptr<COpenGLSemaphore>(this);
     }
 
-    // TODO impl all this events stuff
     core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override
     {
         return core::make_smart_refctd_ptr<COpenGLEvent>(this, flags);
     }
     IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override
     {
+        assert((_event->getFlags()&IGPUEvent::ECF_DEVICE_ONLY_BIT) == 0);
+        // only support DEVICE_ONLY events for now
         return IGPUEvent::ES_FAILURE;
     }
     IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override
     {
+        assert((_event->getFlags() & IGPUEvent::ECF_DEVICE_ONLY_BIT) == 0);
+        // only support DEVICE_ONLY events for now
         return IGPUEvent::ES_FAILURE;
     }
     IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override
     {
+        assert((_event->getFlags() & IGPUEvent::ECF_DEVICE_ONLY_BIT) == 0);
+        // only support DEVICE_ONLY events for now
         return IGPUEvent::ES_FAILURE;
     }
 
@@ -269,7 +274,7 @@ public:
 
             return retval;
         }
-        return core::make_smart_refctd_ptr<COpenGLFence>(this,this);
+        return core::make_smart_refctd_ptr<COpenGLFence>(this);
     }
 
     IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override final

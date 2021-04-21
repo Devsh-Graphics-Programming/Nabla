@@ -1,7 +1,7 @@
 #ifndef __C_WINDOW_WAYLAND_H_INCLUDED__
 #define __C_WINDOW_WAYLAND_H_INCLUDED__
 
-#include "nbl/system/IWindowWayland.h"
+#include "nbl/ui/IWindowWayland.h"
 
 #ifdef _NBL_BUILD_WITH_WAYLAND
 
@@ -9,7 +9,7 @@
 #include <cstring>
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
 class CWindowWayland : public IWindowWayland

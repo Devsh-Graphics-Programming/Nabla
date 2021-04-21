@@ -4,14 +4,14 @@
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/CEGL.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#   include "nbl/system/IWindowWin32.h"
+#   include "nbl/ui/IWindowWin32.h"
 #   include "nbl/video/surface/CSurfaceGLWin32.h"
 #elif defined(_NBL_BUILD_WITH_WAYLAND)
-#   include "nbl/system/IWindowWayland.h"
+#   include "nbl/ui/IWindowWayland.h"
 #   include "nbl/video/surface/CSurfaceGLWayland.h"
 #elif defined(_NBL_PLATFORM_LINUX_)
-#   include "nbl/system/IWindowLinux.h"
-#   include "nbl/video/surface/CSurfaceGLLinux.h"
+#   include "nbl/ui/IWindowX11.h"
+#   include "nbl/video/surface/CSurfaceGLX11.h"
 #endif // TODO more platforms
 
 namespace nbl {
@@ -43,14 +43,14 @@ public:
         return core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>>{ &m_pdevice, &m_pdevice + 1 };
     }
 
-    core::smart_refctd_ptr<ISurface> createSurface(system::IWindow* window) const override
+    core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const override
     {
         // TODO surface creation needs to be reorganized
         // on linux both X11 and Wayland windows are possible, and theres no way to distinguish between them
         // (so now in case of Wayland installed, createSurface always expects Wayland window)
 #if defined(_NBL_PLATFORM_WINDOWS_)
         {
-            system::IWindowWin32* w32 = static_cast<system::IWindowWin32*>(window);
+            ui::IWindowWin32* w32 = static_cast<ui::IWindowWin32*>(window);
 
             CSurfaceGLWin32::SCreationParams params;
             params.hinstance = GetModuleHandle(NULL);
@@ -60,7 +60,7 @@ public:
         }
 #elif defined(_NBL_BUILD_WITH_WAYLAND)
         {
-            system::IWindowWayland* win = static_cast<system::IWindowWayland*>(window);
+            ui::IWindowWayland* win = static_cast<ui::IWindowWayland*>(window);
 
             CSurfaceGLWayland::SCreationParams params;
             params.dpy = win->getDisplay();
@@ -70,13 +70,13 @@ public:
         }
 #elif defined(_NBL_PLATFORM_LINUX_)
         {
-            system::IWindowLinux* win = static_cast<system::IWindowLinux*>(window);
+            ui::IWindowX11* win = static_cast<ui::IWindowX11*>(window);
 
-            CSurfaceGLLinux::SCreationParams params;
+            CSurfaceGLX11::SCreationParams params;
             params.dpy = win->getDisplay();
             params.window = win->getNativeHandle();
 
-            return core::make_smart_refctd_ptr<CSurfaceGLLinux>(std::move(params));
+            return core::make_smart_refctd_ptr<CSurfaceGLX11>(std::move(params));
         }
 #else // TODO more platforms
         return nullptr;

@@ -1,13 +1,13 @@
 #ifndef __C_WINDOW_WIN32_H_INCLUDED__
 #define __C_WINDOW_WIN32_H_INCLUDED__
 
-#include "nbl/system/IWindowWin32.h"
+#include "nbl/ui/IWindowWin32.h"
 #include "os.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
 class CWindowWin32 final : public IWindowWin32

@@ -231,7 +231,7 @@ class IImage : public IDescriptor
 			E_SAMPLE_COUNT_FLAGS						samples;
 			// stuff below is irrelevant in OpenGL backend
 			E_TILING									tiling = static_cast<E_TILING>(0);
-			E_USAGE_FLAGS								usage = static_cast<E_USAGE_FLAGS>(0);
+			std::underlying_type_t<E_USAGE_FLAGS>		usage = 0u;
 			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
 			core::smart_refctd_dynamic_array<uint32_t>	queueFamilyIndices = nullptr;
 			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;
@@ -371,9 +371,6 @@ class IImage : public IDescriptor
 			}
 
 			if (_params.mipLevels > calculateMaxMipLevel(_params.extent, _params.type))
-				return false;
-
-			if (_params.initialLayout != EIL_UNDEFINED && _params.initialLayout != EIL_PREINITIALIZED)
 				return false;
 
 			return true;

@@ -1,7 +1,7 @@
 #ifndef __I_WINDOW_WAYLAND_H_INCLUDED__
 #define __I_WINDOW_WAYLAND_H_INCLUDED__
 
-#include "nbl/system/IWindow.h"
+#include "nbl/ui/IWindow.h"
 
 #ifdef _NBL_BUILD_WITH_WAYLAND
 
@@ -10,7 +10,7 @@
 #include <wayland-client-protocol.h>
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
 class IWindowWayland : public IWindow

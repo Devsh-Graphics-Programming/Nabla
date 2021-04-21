@@ -558,7 +558,7 @@ protected:
                 if (p.flags & IGPUFence::ECF_SIGNALED_BIT)
                     pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device, &gl);
                 else
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device);
             }
                 break;
 
@@ -776,24 +776,21 @@ protected:
                 {
                     COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
                     IGPUFence::E_STATUS status;
-                    if (fence->isWaitable())
+                    
+                    uint64_t timeout = _timeout;
+                    if (start == clock_t::time_point())
+                        start = clock_t::now();
+                    else
                     {
-                        uint64_t timeout = _timeout;
-                        if (start == clock_t::time_point())
-                            start = clock_t::now();
-                        else
-                        {
-                            const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
-                            if (dt > timeout)
-                                return IGPUFence::ES_TIMEOUT;
-                            timeout -= dt;
-                        }
-
-                        status = fence->wait(&gl, _timeout);
-                        if (status != IGPUFence::ES_SUCCESS)
-                            return status;
+                        const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
+                        if (dt > timeout)
+                            return IGPUFence::ES_TIMEOUT;
+                        timeout -= dt;
                     }
-                    else return IGPUFence::ES_ERROR;
+
+                    status = fence->wait(&gl, _timeout);
+                    if (status != IGPUFence::ES_SUCCESS)
+                        return status;
                 }
             }
             else
@@ -801,10 +798,7 @@ protected:
                 for (uint32_t i = 0u; i < _count; ++i)
                 {
                     COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
-                    if (fence->isWaitable())
-                    {
-                        return fence->wait(&gl, _timeout);
-                    }
+                    return fence->wait(&gl, _timeout);
                 }
             }
         }

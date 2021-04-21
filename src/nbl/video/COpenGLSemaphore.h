@@ -26,22 +26,13 @@ protected:
     }
 
 public:
-    enum E_STATUS
-    {
-        ES_SUCCESS,
-        ES_TIMEOUT,
-        ES_NOT_READY,
-        ES_ERROR
-    };
-
-    COpenGLSemaphore(IOpenGL_LogicalDevice* dev) : IGPUSemaphore(dev), IOpenGLSyncPrimitiveBase(dev)
+    explicit COpenGLSemaphore(IOpenGL_LogicalDevice* dev) : IGPUSemaphore(dev)
     {
 
     }
 
     void wait(IOpenGL_FunctionTable* _gl)
     {
-        prewait();
         m_sync->waitGPU(_gl);
     }
 };

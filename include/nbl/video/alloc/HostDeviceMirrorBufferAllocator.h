@@ -39,6 +39,7 @@ class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
             return {buff,hostPtr};
         }
 
+#if 0
         template<class AddressAllocator>
         inline void                 reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets) noexcept
         {
@@ -62,6 +63,7 @@ class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
             newAlloc.first->drop();
             allocation.second = newAlloc.second;
         }
+#endif
 
         inline void         deallocate(value_type& allocation) noexcept
         {

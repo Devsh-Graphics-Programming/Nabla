@@ -38,6 +38,7 @@ namespace video
 
             value_type  allocate(size_t bytes, size_t alignment) noexcept;
 
+#if 0
             template<class AddressAllocator>
             inline void             reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets, bool copyBuffers=true) noexcept
             {
@@ -59,6 +60,7 @@ namespace video
                 allocation->pseudoMoveAssign(tmp);
                 tmp->drop();
             }
+#endif
 
             inline void             deallocate(value_type& allocation) noexcept
             {

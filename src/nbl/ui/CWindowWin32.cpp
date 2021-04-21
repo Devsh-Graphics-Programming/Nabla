@@ -1,9 +1,9 @@
-#include "nbl/system/CWindowWin32.h"
+#include "nbl/ui/CWindowWin32.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
     LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)

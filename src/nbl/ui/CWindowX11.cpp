@@ -1,11 +1,11 @@
-#include "nbl/system/CWindowLinux.h"
+#include "nbl/ui/CWindowX11.h"
 
 #ifdef _NBL_PLATFORM_LINUX_
 
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
 namespace nbl {
-namespace system
+namespace ui
 {
 
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoader

@@ -1,11 +1,11 @@
-#include "nbl/system/CWindowWayland.h"
+#include "nbl/ui/CWindowWayland.h"
 
 #ifdef _NBL_BUILD_WITH_WAYLAND
 
-#include "nbl/video/CWaylandCaller.h"
+#include "nbl/ui/CWaylandCaller.h"
 
 namespace nbl {
-namespace system
+namespace ui
 {
     static video::CWaylandCaller wlcall;
 
