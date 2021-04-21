@@ -342,7 +342,7 @@ class CCUDAHandler
 		//
 		static core::SRange<const io::IReadFile* const> getCUDASTDHeaders()
 		{
-			auto begin = reinterpret_cast<const io::IReadFile* const*>(&headers[0].get());
+			auto begin = headers.empty() ? nullptr:reinterpret_cast<const io::IReadFile* const*>(&headers[0].get());
 			return {begin,begin+headers.size()};
 		}
 		static const auto& getCUDASTDHeaderContents() { return headerContents; }

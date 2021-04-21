@@ -325,7 +325,7 @@ nbl::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 
 		auto startTime = std::chrono::steady_clock::now();
 		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
-		assert(!meshes_bundle.isEmpty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
+		assert(!meshes_bundle.getContents().empty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
 		auto endTime = std::chrono::steady_clock::now();
 		elapsedTimeXmls += (endTime - startTime);
 		

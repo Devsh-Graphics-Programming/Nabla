@@ -13,7 +13,7 @@ struct CommonPushConstants
 	uint inImageTexelPitch[3];
 	uint imageWidth;
 	uint imageHeight;
-	uint fftSizeLog2; // TODO: use this
+	uint padding;
 	vec2 kernel_half_pixel_size;
 	
 	// luma meter and tonemapping var but also for denoiser
