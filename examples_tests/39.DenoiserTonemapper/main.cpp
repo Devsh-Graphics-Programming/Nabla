@@ -229,7 +229,8 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint cha
 	const vec2 inputSize = vec2(nbl_glsl_ext_FFT_Parameters_t_getDimensions().xy);
 	const vec2 halfInputSize = inputSize*0.5;
 	const vec2 relativeCoords = vec2(coordinate.xy)-halfInputSize;
-    const vec4 texelValue = textureLod(inputImage,(relativeCoords+vec2(0.5))/inputSize+vec2(0.5),0.0);
+	const vec2 inputSizeRcp = vec2(1.0)/inputSize;
+    const vec4 texelValue = textureGrad(inputImage,(relativeCoords+vec2(0.5))*inputSizeRcp+vec2(0.5),vec2(inputSizeRcp.x,0.0),vec2(0.0,inputSizeRcp.y));
 	return nbl_glsl_complex(texelValue[channel], 0.0f);
 }
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
