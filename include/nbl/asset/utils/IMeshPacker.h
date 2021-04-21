@@ -301,99 +301,48 @@ protected:
         //aabb batch division
         {
             triangleBatches.ranges.push_back(triangleArrayBegin);
-            for (uint32_t i = 1u; ; i++)
+            for (auto nextTriangle = triangleArrayBegin; nextTriangle < triangleArrayEnd; nextTriangle++)
             {
-                Triangle* batchBegin = *(triangleBatches.ranges.end() - 1u);
-                Triangle* batchEnd = batchBegin + m_minTriangleCountPerMDIData;
-                
-                if (batchEnd >= triangleArrayEnd)
-                {
-                    triangleBatches.ranges.push_back(triangleArrayEnd);
-                    break;
-                }
-
-                if (m_minTriangleCountPerMDIData == m_maxTriangleCountPerMDIData)
-                {
-                    triangleBatches.ranges.push_back(batchEnd);
-                    continue;
-                }
+                const Triangle* batchBegin = *(triangleBatches.ranges.end() - 1u);
+                const Triangle* batchEnd = batchBegin + m_minTriangleCountPerMDIData;
 
                 //find min and max edge
-                core::vector3df min(std::numeric_limits<float>::max());
-                core::vector3df max(std::numeric_limits<float>::min());
+                core::vector3df_SIMD min(std::numeric_limits<float>::max());
+                core::vector3df_SIMD max(-std::numeric_limits<float>::max());
 
-                //TODO: simd
-                for (auto it = batchBegin; it != batchEnd; it++)
+                auto extendAABB = [&min, &max, &meshBuffer](auto triangleIt) -> void
                 {
-                    for (uint32_t j = 0u; j < 3u; j++)
+                    for (uint32_t i = 0u; i < 3u; i++)
                     {
-                        core::vector3df pos(
-                            meshBuffer->getPosition(it->oldIndices[j]).x,
-                            meshBuffer->getPosition(it->oldIndices[j]).y,
-                            meshBuffer->getPosition(it->oldIndices[j]).z
-                        );
-
-                        if (min.X > pos.X) min.X = pos.X;
-                        if (min.Y > pos.Y) min.Y = pos.Y;
-                        if (min.Z > pos.Z) min.Z = pos.Z;
-
-                        if (max.X < pos.X) max.X = pos.X;
-                        if (max.Y < pos.Y) max.Y = pos.Y;
-                        if (max.Z < pos.Z) max.Z = pos.Z;
+                        auto vxPos = meshBuffer->getPosition(triangleIt->oldIndices[i]);
+                        min = core::min(vxPos, min);
+                        max = core::max(vxPos, max);
                     }
+                };
+
+                for (uint32_t i = 0u; i < m_minTriangleCountPerMDIData && nextTriangle != triangleArrayEnd; i++)
+                    extendAABB(nextTriangle++);
+
+                auto halfAreaAABB = [&min, &max]() -> float
+                {
+                    auto extent = max - min;
+                    return extent.x * extent.y + extent.x * extent.z + extent.y * extent.z;
+                };
+
+                constexpr float kGrowthLimit = 1.025f;
+                float batchArea = halfAreaAABB();
+                for (uint16_t i = m_minTriangleCountPerMDIData; nextTriangle != triangleArrayEnd && i < m_maxTriangleCountPerMDIData; i++)
+                {
+                    // TODO: save the AABB of the MDI batch before it gets "try extended" (will be needed in the future for culling)
+                    extendAABB(nextTriangle);
+                    float newBatchArea = halfAreaAABB();
+                    if (newBatchArea > kGrowthLimit* batchArea)
+                        break;
+                    nextTriangle++;
+                    batchArea = newBatchArea;
                 }
 
-
-                //add vertices of triangles and chceck if new area of aabb exceeds limit
-                core::aabbox3d<float> aabb(min, max);
-                const float initialArea = aabb.getArea();
-                constexpr float areaIncreaseLimit = 0.95f;
-
-                bool allTrianglesAdded = false;
-                while (true)
-                {
-                    bool limitExceed = false;
-                    for (uint32_t j = 0u; j < 3u; j++)
-                    {
-                        core::vector3df pos(
-                            meshBuffer->getPosition(batchEnd->oldIndices[j]).x,
-                            meshBuffer->getPosition(batchEnd->oldIndices[j]).y,
-                            meshBuffer->getPosition(batchEnd->oldIndices[j]).z
-                        );
-
-                        aabb.addInternalPoint(pos);
-
-                        const float area = aabb.getArea();
-                        if (initialArea / area <= areaIncreaseLimit)
-                        {
-                            limitExceed = true;
-                            break;
-                        }
-                    }
-
-                    if (limitExceed)
-                    {
-                        triangleBatches.ranges.push_back(batchEnd);
-                        break;
-                    }
-
-                    batchEnd++;
-                    if (batchEnd >= triangleArrayEnd)
-                    {
-                        allTrianglesAdded = true;
-                        triangleBatches.ranges.push_back(triangleArrayEnd);
-                        break;
-                    }
-                    
-                    if (std::distance(batchBegin, batchEnd) >= m_maxTriangleCountPerMDIData)
-                    {
-                        triangleBatches.ranges.push_back(batchEnd);
-                        break;
-                    }
-                }
-
-                if (allTrianglesAdded)
-                    break;
+                triangleBatches.ranges.push_back(nextTriangle);
             }
         }
 
