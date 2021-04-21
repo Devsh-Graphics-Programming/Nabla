@@ -44,7 +44,7 @@ struct ImageToDenoise
 	uint32_t colorTexelSize = 0u;
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
 	VkExtent3D scaledKernelExtent;
-	float bloomScale;
+	float bloomIntensity;
 };
 struct DenoiserToUse
 {
@@ -193,7 +193,8 @@ int main(int argc, char* argv[])
 	struct NormalizationPushConstants
 	{
 		ext::FFT::uvec4 stride;
-		ext::FFT::uvec4 bitreverse_shift;
+		uint32_t bitreverse_shift[2];
+		float bloomIntensity;
 	};
 	{
 		auto firstKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -209,18 +210,6 @@ layout(set=0, binding=0) uniform sampler2D inputImage;
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 
 #include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
-layout(push_constant) uniform PushConstants
-{
-	nbl_glsl_ext_FFT_Parameters_t params;
-	float kernelScale;
-} pc;
-#define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
-nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters()
-{
-	return pc.params;
-}
-#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
-
 #include "nbl/builtin/glsl/ext/FFT/parameters.glsl"
 
 #include <nbl/builtin/glsl/math/complex.glsl>
@@ -274,9 +263,9 @@ layout(set=0, binding=3, rg32f) uniform image2D NormalizedKernel[3];
 
 layout(push_constant) uniform PushConstants
 {
-	uvec3 strides;
+	uvec4 strides;
+	uvec2 bitreverse_shift;
 	float bloomIntensity;
-	uvec4 bitreverse_shift;
 } pc;
 
 #include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
@@ -291,11 +280,10 @@ void main()
 		avg[i] = inData[pc.strides.z*i].x;
 	const float power = (nbl_glsl_scRGBtoXYZ*avg).y;
 
-	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
+	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift;
 	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));
 	value = nbl_glsl_complex_mul(value,shift)/power;
-const float bloomIntensity = 0.95;
-	value = value*bloomIntensity+nbl_glsl_complex(1.0-bloomIntensity,0.0);
+	value = value*pc.bloomIntensity+nbl_glsl_complex(1.0-pc.bloomIntensity,0.0);
 	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
 }
 		)==="));
@@ -330,7 +318,7 @@ const float bloomIntensity = 0.95;
 		}
 
 		{
-			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t)+sizeof(float),sizeof(NormalizationPushConstants))};
+			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t),sizeof(NormalizationPushConstants))};
 			kernelPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+1u,core::smart_refctd_ptr(kernelDescriptorSetLayout));
 		}
 
@@ -877,7 +865,8 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
 	const auto& denoiserExposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
-	const auto& bloomScaleBundle = cmdHandler.getBloomScaleBundle();
+	const auto& bloomRelativeScaleBundle = cmdHandler.getBloomRelativeScaleBundle();
+	const auto& bloomIntensityBundle = cmdHandler.getBloomIntensityBundle();
 	const auto& tonemapperBundle = cmdHandler.getTonemapperBundle();
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
 	const auto& bloomPsfFileBundle = cmdHandler.getBloomPsfBundle();
@@ -1037,8 +1026,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					outParam.colorTexelSize = asset::getTexelOrBlockBytesize(colorCreationParams.format);
 				}
 
-				const float bloomRelativeScale = bloomScaleBundle[i].value();
-				const auto kernelScale = [&outParam,&extent,bloomRelativeScale]() -> auto
+				const float bloomRelativeScale = bloomRelativeScaleBundle[i].value();
 				{
 					auto kerDim = outParam.kernel->getCreationParameters().extent;
 					float kernelScale;
@@ -1046,13 +1034,12 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 						kernelScale = float(extent.width)*bloomRelativeScale/float(kerDim.width);
 					else
 						kernelScale = float(extent.height)*bloomRelativeScale/float(kerDim.height);
+					if (kernelScale>1.f)
+						os::Printer::log(imageIDString + "Bloom Kernel loose sharpness, increase resolution of bloom kernel or reduce its relative scale!", ELL_WARNING);
 					outParam.scaledKernelExtent.width = core::ceil(float(kerDim.width)*kernelScale);
 					outParam.scaledKernelExtent.height = core::ceil(float(kerDim.height)*kernelScale);
 					outParam.scaledKernelExtent.depth = 1u;
-					return kernelScale;
-				}();
-				if (kernelScale>1.f)
-					os::Printer::log(imageIDString + "Bloom Kernel loose sharpness, increase resolution of bloom kernel or reduce its relative scale!", ELL_WARNING);
+				}
 				const auto marginSrcDim = [extent,outParam]() -> auto
 				{
 					auto tmp = extent;
@@ -1064,7 +1051,6 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					}
 					return tmp;
 				}();
-				outParam.bloomScale = kernelScale;
 				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,outParam.scaledKernelExtent,colorChannelsFFT)*2u,fftScratchSize);
 				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,marginSrcDim,colorChannelsFFT),fftScratchSize);
 				// TODO: maybe move them to nested loop and compute JIT
@@ -1095,6 +1081,8 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 				outParam.width = extent.width;
 				outParam.height = extent.height;
+
+				outParam.bloomIntensity = bloomIntensityBundle[i].value();
 
 				maxResolution[0] = core::max(maxResolution[0], outParam.width);
 				maxResolution[1] = core::max(maxResolution[1], outParam.height);
@@ -1395,7 +1383,6 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 					// Ker Image First Axis FFT
 					driver->bindComputePipeline(firstKernelFFTPipeline.get());
-					driver->pushConstants(kernelPipelineLayout.get(),ICPUSpecializedShader::ESS_COMPUTE,sizeof(FFTClass::Parameters_t),sizeof(float),&param.bloomScale);
 					FFTClass::dispatchHelper(driver,kernelPipelineLayout.get(),fftPushConstants[0],fftDispatchInfo[0]);
 
 					// Ker Image Last Axis FFT
@@ -1407,9 +1394,9 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					{
 						NormalizationPushConstants normalizationPC;
 						normalizationPC.stride = fftPushConstants[1].output_strides;
-						normalizationPC.bitreverse_shift.x = 32-core::findMSB(paddedKernelExtent.width);
-						normalizationPC.bitreverse_shift.y = 32-core::findMSB(paddedKernelExtent.height);
-						normalizationPC.bitreverse_shift.z = 0;
+						normalizationPC.bitreverse_shift[0] = 32-core::findMSB(paddedKernelExtent.width);
+						normalizationPC.bitreverse_shift[1] = 32-core::findMSB(paddedKernelExtent.height);
+						normalizationPC.bloomIntensity = param.bloomIntensity;
 						driver->pushConstants(kernelNormalizationPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(normalizationPC),&normalizationPC);
 						const uint32_t dispatchSizeX = (paddedKernelExtent.width-1u)/16u+1u;
 						const uint32_t dispatchSizeY = (paddedKernelExtent.height-1u)/16u+1u;
