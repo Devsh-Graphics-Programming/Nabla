@@ -382,14 +382,14 @@ public:
     {
         for (auto& q : (*m_queues))
         {
-            static_cast<QueueType*>(q.get())->destroyFramebuffer(fbohash);
+            static_cast<QueueType*>(q.getUnderlyingQueue().get())->destroyFramebuffer(fbohash);
         }
     }
     void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) override final
     {
         for (auto& q : (*m_queues))
         {
-            static_cast<QueueType*>(q.get())->destroyPipeline(pipeline);
+            static_cast<QueueType*>(q.getUnderlyingQueue().get())->destroyPipeline(pipeline);
         }
     }
     void destroyTexture(GLuint img) override final
