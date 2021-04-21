@@ -65,7 +65,7 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
     {
         for (int i = 0; i < buffer_count; ++i)
         {
-            if (downloaded_buffer[i] != cpu_buffer[i])
+            if (abs(downloaded_buffer[i] - cpu_buffer[i]) >= 1.f)
                 __debugbreak();
         }
 
@@ -109,10 +109,12 @@ int main()
     nbl::io::IFileSystem* filesystem = device->getFileSystem();
     asset::IAssetManager* am = device->getAssetManager();
 
-    const uint32_t in_count = 9;
+    const uint32_t in_count = 4096; // 9;
     const size_t in_size = in_count * sizeof(uint32_t);
 
-    float in[in_count] = { 1.f, 0.f, 2.f, 2.f, 3.f, 4.f, 1.f, 0.f, 2.f };
+    float in[in_count]; // = { 1.f, 0.f, 2.f, 2.f, 3.f, 4.f, 1.f, 0.f, 2.f };
+    for (uint32_t i = 0; i < in_count; ++i)
+        in[i] = float(i);
 
     auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
     auto out_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_size);
@@ -162,6 +164,53 @@ int main()
     driver->endScene();
 
     float* out = DebugGPUBufferDownload<float>(out_gpu, out_gpu->getSize(), driver);
+
+    float prefix_sum[in_count];
+    {
+        float scan = 0.f;
+        for (uint32_t i = 0; i < in_count; ++i)
+        {
+            scan += in[i];
+            prefix_sum[i] = scan;
+        }
+    }
+    
+    float blurred[in_count];
+    {
+        const float RADIUS = 1.73f;
+        const uint32_t last = in_count - 1u;
+
+        for (uint32_t idx = 0; idx < in_count; ++idx)
+        {
+            float left = float(idx) - RADIUS - 1.f;
+            float right = float(idx) + RADIUS;
+
+            float result;
+            if (right > last)
+            {
+                result = (right - float(last)) * (prefix_sum[last] - prefix_sum[last - 1u]) + prefix_sum[last];
+            }
+            else
+            {
+                uint32_t floored = uint32_t(floor(right));
+                result = prefix_sum[floored] * (1.f - fract(right)) + prefix_sum[floored + 1u] * fract(right);
+            }
+
+            if (left < 0)
+            {
+                result -= (1.f - abs(left)) * prefix_sum[0u];
+            }
+            else
+            {
+                uint32_t floored = uint32_t(floor(left));
+                result -= prefix_sum[floored] * (1.f - fract(left)) + prefix_sum[floored + 1u] * fract(left);
+            }
+
+            blurred[idx] = result / (2.f * RADIUS + 1.f);
+        }
+    }
+    
+    DebugCompareGPUvsCPU<float>(out_gpu, prefix_sum, out_gpu->getSize(), driver);
 
 
 #if 0

@@ -1,13 +1,13 @@
 #version 430 core
 
-#define _NBL_GLSL_WORKGROUP_SIZE_ 4
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
 
 // Todo: DRY!!
-#define COUNT 9
+#define COUNT 4096
 #define RADIUS 1.73f
 
 // This would probably be a push constant
-#define VT 3
+#define VT 16
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_, local_size_y = 1) in;
 
@@ -50,7 +50,8 @@ layout (set = 0, binding = 1) writeonly buffer out_buffer
 #if _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ > VT
   #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ VT
 #else
-  #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ 
+  // #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ 
+  #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ VT
 #endif
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
@@ -77,34 +78,40 @@ float getPaddedData(in uint idx)
 
 void main()
 {
-	float previous_block_sum = 0.f;
 
-	float spill[_NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_];
-    for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
-    {
-        uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+	{
+		float previous_block_sum = 0.f;
 
-		float data = getPaddedData(idx);
+		int arithmetic_shared_size = _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_;
+		int ballot_shared_size = _NBL_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_;
 
-        spill[i] = nbl_glsl_workgroupInclusiveAdd(data) + previous_block_sum;
-        previous_block_sum = nbl_glsl_workgroupBroadcast(spill[i], _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
-    }
+		float spill[_NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_];
+		for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
+		{
+		    uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+			float data = getPaddedData(idx);
 
-	for (uint i = _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; i < VT; ++i)
-    {
-        uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+		    spill[i] = nbl_glsl_workgroupInclusiveAdd(data) + previous_block_sum;
+		    previous_block_sum = nbl_glsl_workgroupBroadcast(spill[i], _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
+		}
 
-        float data = getPaddedData(idx);
-        
-        float scan_result = nbl_glsl_workgroupInclusiveAdd(data) + previous_block_sum;
-        previous_block_sum = nbl_glsl_workgroupBroadcast(scan_result,  _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
+		for (uint i = _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; i < VT; ++i)
+		{
+		    uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+		    float data = getPaddedData(idx);
+		    
+		    float scan_result = nbl_glsl_workgroupInclusiveAdd(data) + previous_block_sum;
+		    previous_block_sum = nbl_glsl_workgroupBroadcast(scan_result,  _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
 
-        scratch_shared[idx] = floatBitsToUint(scan_result);
-    }
+		    scratch_shared[idx] = floatBitsToUint(scan_result);
+		}
 
-	for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
-        scratch_shared[(i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex] = floatBitsToUint(spill[i]);
-    barrier();
+		for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
+		    scratch_shared[(i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex] = floatBitsToUint(spill[i]);
+		barrier();
+	}
+
+#if 0
 
 	float blurred[VT];
 	for (uint i = 0; i < VT; ++i)
@@ -132,11 +139,44 @@ void main()
 		}
 	}
 
+	{
+		float previous_block_sum = 0.f;
+
+		// The things you want to prefix sum now are not in shared memory but thread private memory, more specifically
+		// they are in `blurred`. Each thread has VT elements in `blurred`.
+
+		float spill[_NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_];
+		for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
+		{
+		    uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+			float data = blurred[i];
+
+		    spill[i] = nbl_glsl_workgroupInclusiveAdd(data) + previous_block_sum;
+		    previous_block_sum = nbl_glsl_workgroupBroadcast(spill[i], _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
+		}
+
+		for (uint i = _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; i < VT; ++i)
+		{
+		    uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+		    float data = blurred[i];
+		    
+		    float scan_result = nbl_glsl_workgroupInclusiveAdd(data) + previous_block_sum;
+		    previous_block_sum = nbl_glsl_workgroupBroadcast(scan_result,  _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
+
+		    scratch_shared[idx] = floatBitsToUint(scan_result);
+		}
+
+		for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
+		    scratch_shared[(i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex] = floatBitsToUint(spill[i]);
+		barrier();
+	}
+#endif
+
 	// Temporary
 	for (uint i = 0; i < VT; ++i)
 	{
 		uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
 		if (idx < COUNT)
-			out_values[idx] = blurred[i];
+			out_values[idx] = uintBitsToFloat(scratch_shared[idx]); // blurred[i]; 
 	}
 }
