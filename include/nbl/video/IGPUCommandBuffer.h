@@ -4,6 +4,7 @@
 #include "nbl/asset/ICommandBuffer.h"
 
 #include "nbl/video/IGPUImage.h"
+#include "nbl/video/IGPUImageView.h"
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
@@ -23,6 +24,7 @@ class IGPUCommandBuffer :
     public asset::ICommandBuffer<
         IGPUBuffer,
         IGPUImage,
+        IGPUImageView,
         IGPURenderpass,
         IGPUFramebuffer,
         IGPUGraphicsPipeline,
@@ -37,6 +39,7 @@ class IGPUCommandBuffer :
     using base_t = asset::ICommandBuffer<
         IGPUBuffer,
         IGPUImage,
+        IGPUImageView,
         IGPURenderpass,
         IGPUFramebuffer,
         IGPUGraphicsPipeline,

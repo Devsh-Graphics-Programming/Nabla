@@ -1,7 +1,7 @@
 #ifndef __NBL_C_EGL_CALLER_H_INCLUDED__
 #define __NBL_C_EGL_CALLER_H_INCLUDED__
 
-#include <EGL/egl.h> // include egl.h from our 3rdparties
+#include <EGL/egl.h>
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
@@ -82,7 +82,6 @@ class CEGLCaller final : public system::DynamicFunctionCallerBase<impl::CEGLFunc
 }()
 #endif
 
-#define _INDIRECTION1(X) (X)
 #define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ( NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) )
 
 #define NBL_IMPL_INIT_EGL_FUNC_PTRS(...)\

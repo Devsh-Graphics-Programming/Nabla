@@ -240,9 +240,9 @@ public:
     }
 
     // TODO impl all this events stuff
-    core::smart_refctd_ptr<IGPUEvent> createEvent() override
+    core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override
     {
-        return core::make_smart_refctd_ptr<COpenGLEvent>(this);
+        return core::make_smart_refctd_ptr<COpenGLEvent>(this, flags);
     }
     IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override
     {
@@ -369,14 +369,6 @@ public:
         m_threadHandler.template waitForRequestCompletion<SRequestUnmapBuffer>(req);
 
         post_unmapMemory(memory);
-    }
-
-    void regenerateMipLevels(IGPUImageView* imageview) override final
-    {
-        SRequestRegenerateMipLevels req_params;
-        req_params.imgview = imageview;
-        auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.template waitForRequestCompletion<SRequestRegenerateMipLevels>(req);
     }
 
     void waitIdle() override

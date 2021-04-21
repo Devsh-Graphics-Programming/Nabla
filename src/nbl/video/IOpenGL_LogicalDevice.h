@@ -80,7 +80,6 @@ namespace impl
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
             ERT_MAP_BUFFER_RANGE,
             ERT_UNMAP_BUFFER,
-            ERT_REGENERATE_MIP_LEVELS,
             //BIND_BUFFER_MEMORY,
 
             ERT_CTX_MAKE_CURRENT,
@@ -248,12 +247,6 @@ namespace impl
 
             core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
         };
-        struct SRequestRegenerateMipLevels
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_REGENERATE_MIP_LEVELS;
-            using retval_t = void;
-            IGPUImageView* imgview = nullptr;
-        };
         struct SRequestMakeCurrent
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_CTX_MAKE_CURRENT;
@@ -385,7 +378,6 @@ protected:
             SRequestInvalidateMappedMemoryRanges,
             SRequestMapBufferRange,
             SRequestUnmapBuffer,
-            SRequestRegenerateMipLevels,
 
             SRequestMakeCurrent,
 
@@ -595,15 +587,6 @@ protected:
                 auto& p = std::get<SRequestUnmapBuffer>(req.params_variant);
 
                 gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
-            }
-                break;
-            case ERT_REGENERATE_MIP_LEVELS:
-            {
-                auto& p = std::get<SRequestRegenerateMipLevels>(req.params_variant);
-                COpenGLImageView* view = static_cast<COpenGLImageView*>(p.imgview);
-                GLuint name = view->getOpenGLName();
-                GLenum target = COpenGLImageView::ViewTypeToGLenumTarget[view->getCreationParameters().viewType];
-                gl.extGlGenerateTextureMipmap(name, target);
             }
                 break;
             case ERT_GET_FENCE_STATUS:

@@ -12,7 +12,10 @@ namespace video
 class IGPUEvent : public asset::IEvent, public core::IReferenceCounted, public IBackendObject
 {
 public:
-    explicit IGPUEvent(ILogicalDevice* dev) : IBackendObject(dev) {}
+    explicit IGPUEvent(ILogicalDevice* dev, E_CREATE_FLAGS flags) : IBackendObject(dev) 
+    {
+        assert(flags&ECF_DEVICE_ONLY_BIT); // for now allow only DEVICE_ONLY events
+    }
 
 protected:
     virtual ~IGPUEvent() = default;

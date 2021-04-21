@@ -20,11 +20,16 @@
 #endif
 
 
-#ifdef __GNUC__
+#if defined(_NBL_POSIX_API_)||defined(_NBL_ANDROID_API_)
 #include <pthread.h>
+#if defined(_NBL_POSIX_API_)
+#define _NBL_IMPL_POSIX_CALL_YIELD() pthread_yield()
+#else
+#define _NBL_IMPL_POSIX_CALL_YIELD() sched_yield()
+#endif
 #endif
 
-#if (defined(WIN32) || defined(_MSC_VER))
+#if defined(_NBL_WINDOWS_API_)
 #include "Windows.h"
 #endif
 
@@ -36,14 +41,14 @@ inline void FW_SleepMs(const uint64_t &milliseconds)
 		std::this_thread::yield();
 	else
 		std::this_thread::sleep_for(std::chrono::duration<uint64_t, std::milli>(milliseconds));
-#elif (defined(WIN32) || defined(_MSC_VER))
+#elif (defined(_NBL_WINDOWS_API_))
     if (!milliseconds)
         SwitchToThread();
 	else
         Sleep(milliseconds);
 #else
 	if (!milliseconds)
-		pthread_yield();
+		_NBL_IMPL_POSIX_CALL_YIELD();
 	else
 	{
 		struct timespec ts;
@@ -62,7 +67,7 @@ inline void FW_SleepNano(const uint64_t &nanoseconds)
 		std::this_thread::yield();
 	else
 		std::this_thread::sleep_for(std::chrono::duration<uint64_t, std::nano>(nanoseconds));
-#elif (defined(WIN32) || defined(_MSC_VER))
+#elif (defined(_NBL_WINDOWS_API_))
     if (!nanoseconds)
         SwitchToThread();
     else
@@ -80,7 +85,7 @@ inline void FW_SleepNano(const uint64_t &nanoseconds)
     }
 #else
 	if (!nanoseconds)
-		pthread_yield();
+		_NBL_IMPL_POSIX_CALL_YIELD();
 	else
 	{
 		struct timespec ts;
@@ -95,7 +100,7 @@ inline uint64_t FW_GetTimestampNs()
 {
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 	return std::chrono::steady_clock::now().time_since_epoch().count();
-#elif (defined(WIN32) || defined(_MSC_VER))
+#elif (defined(_NBL_WINDOWS_API_))
     __int64 time1 = 0, freq = 0;
 
     QueryPerformanceCounter((LARGE_INTEGER*)&time1);
@@ -122,7 +127,7 @@ public:
     {
 	#if defined(FW_MUTEX_H_CXX11_IMPL)
 		hMutex.lock();
-    #elif _MSC_VER && !__INTEL_COMPILER
+    #elif defined(_NBL_WINDOWS_API_) && !__INTEL_COMPILER
         EnterCriticalSection(&hMutex);
     #else
         pthread_mutex_lock(&hMutex);
@@ -132,7 +137,7 @@ public:
     {
 	#if defined(FW_MUTEX_H_CXX11_IMPL)
 		hMutex.unlock();
-    #elif _MSC_VER && !__INTEL_COMPILER
+    #elif defined(_NBL_WINDOWS_API_) && !__INTEL_COMPILER
         LeaveCriticalSection(&hMutex);
     #else
         pthread_mutex_unlock(&hMutex);
@@ -142,7 +147,7 @@ public:
 	{
 	#if defined(FW_MUTEX_H_CXX11_IMPL)
 		return hMutex.try_lock();
-    #elif _MSC_VER && !__INTEL_COMPILER
+    #elif defined(_NBL_WINDOWS_API_) && !__INTEL_COMPILER
         return TryEnterCriticalSection(&hMutex);
     #else
         return pthread_mutex_trylock(&hMutex)==0;
@@ -155,12 +160,12 @@ private:
     FW_Mutex& operator=(const FW_Mutex&); // no implementation
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 	std::mutex hMutex;
-#elif _MSC_VER && !__INTEL_COMPILER
+#elif defined(_NBL_WINDOWS_API_) && !__INTEL_COMPILER
 	CRITICAL_SECTION hMutex;
-#elif defined(_PTHREAD_H)
-    pthread_mutex_t hMutex;
+//#elif defined(_PTHREAD_H)
 #else
-#error "No Threading Lib Used!"
+    pthread_mutex_t hMutex;
+//#error "No Threading Lib Used!"
 #endif
 };
 
@@ -214,12 +219,12 @@ class FW_ConditionVariable
 #endif // _NBL_DEBUG
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 		std::condition_variable conditionVar;
-#elif _MSC_VER && !__INTEL_COMPILER
+#elif defined(_NBL_WINDOWS_API_) && !__INTEL_COMPILER
         CONDITION_VARIABLE      conditionVar;
-#elif defined(_PTHREAD_H)
-        pthread_cond_t conditionVar;
+//#elif defined(_PTHREAD_H)
 #else
-#error "No Threading Lib Used!"
+        pthread_cond_t conditionVar;
+//#error "No Threading Lib Used!"
 #endif
 };
 
@@ -301,7 +306,7 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
 	lock.fetch_sub(FW_AtomicCounterMagicBlockVal-1, std::memory_order_acq_rel);
 }
 
-#elif _MSC_VER && !__INTEL_COMPILER
+#elif defined(_NBL_WINDOWS_API_) && !__INTEL_COMPILER
 
 #define FW_FastLock(lock) volatile long lock = 0
 #define FW_FastLockGet(lock) while(InterlockedCompareExchange(&lock, 1, 0)) \
@@ -391,7 +396,7 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
 
 #define FW_FastLock(lock) volatile int32_t lock = 0
 #define FW_FastLockGet(lock) while(__sync_val_compare_and_swap(&lock, 0, 1)) \
-pthread_yield()
+_NBL_IMPL_POSIX_CALL_YIELD()
 #define FW_FastLockRelease(lock) __sync_fetch_and_add(&lock,int32_t(-1));
 
 
@@ -410,7 +415,7 @@ inline void FW_AtomicCounterIncr(FW_AtomicCounter &lock)
 	{
         while (lock>=FW_AtomicCounterMagicBlockVal)
         {
-            pthread_yield();
+            _NBL_IMPL_POSIX_CALL_YIELD();
         }
 	}
 
@@ -424,7 +429,7 @@ inline void FW_AtomicCounterIncr(FW_AtomicCounter &lock)
         ///checkLock:
         ///if (lock>=FW_AtomicCounterMagicBlockVal)
         ///{
-            ///pthread_yield();
+            ///_NBL_IMPL_POSIX_CALL_YIELD();
             ///goto checkLock;
         ///}
         ///else
@@ -439,7 +444,7 @@ inline void FW_AtomicCounterBlock(FW_AtomicCounter &lock)
 {
     while(__sync_val_compare_and_swap(&lock, 0, FW_AtomicCounterMagicBlockVal))
     {
-        pthread_yield();
+        _NBL_IMPL_POSIX_CALL_YIELD();
     }
 }
 
@@ -486,5 +491,8 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
     #undef FW_AtomicCounterInit
 #endif // defined
 
+#ifdef _NBL_IMPL_POSIX_CALL_YIELD
+#undef _NBL_IMPL_POSIX_CALL_YIELD
+#endif
 
 #endif

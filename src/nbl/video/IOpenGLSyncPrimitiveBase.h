@@ -33,7 +33,7 @@ public:
 
         using clock_t = std::chrono::high_resolution_clock;
         auto start = clock_t::now();
-        while (m_toBeSignaled.load()) { ; }
+        while (m_toBeSignaled.load()) { std::this_thread::yield(); }
 
         return std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
     }

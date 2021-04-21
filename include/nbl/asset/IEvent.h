@@ -10,6 +10,11 @@ namespace asset
 class IEvent
 {
 public:
+    enum E_CREATE_FLAGS
+    {
+        ECF_DEVICE_ONLY_BIT = 0x01
+    };
+
     enum E_STATUS : uint32_t
     {
         ES_SET,

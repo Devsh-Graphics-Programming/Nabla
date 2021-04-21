@@ -4,6 +4,7 @@
 #include "nbl/asset/ICommandBuffer.h"
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImage.h"
+#include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpass.h"
 #include "nbl/asset/ICPUFramebuffer.h"
 #include "nbl/asset/ICPUGraphicsPipeline.h"
@@ -21,6 +22,7 @@ class ICPUCommandBuffer final :
     public ICommandBuffer<
         ICPUBuffer,
         ICPUImage,
+        ICPUImageView,
         ICPURenderpass,
         ICPUFramebuffer,
         ICPUGraphicsPipeline,
