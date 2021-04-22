@@ -69,6 +69,8 @@ public:
 	static inline void dispatchHelper(const video::IGPUPipelineLayout* pipeline_layout, const nbl_glsl_ext_Scan_Parameters_t& params,
 		const DispatchInfo_t& dispatch_info, video::IVideoDriver* driver, bool issue_default_barrier = true)
 	{
+		// Should the size (4th param) I specify here match the size (3rd param of push constant range) I specify when I
+		// create the `pipeline_layout`?
 		driver->pushConstants(pipeline_layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		driver->dispatch(dispatch_info.wg_count[0], 1, 1);
 

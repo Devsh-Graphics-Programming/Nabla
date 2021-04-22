@@ -128,38 +128,67 @@ static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_g
 
 	for (uint32_t pass = 0; pass < RadixSortClass::PASS_COUNT; ++pass)
 	{
-		// Todo: proper if-else
-		(pass == 0u)
-			? RadixSortClass::updateDescriptorSet(ds_histogram, { (pass % 2) ? scratch_gpu_range : in_gpu_range, histogram_gpu_range }, driver)
-			: RadixSortClass::updateDescriptorSet(ds_histogram, { (pass % 2) ? scratch_gpu_range : in_gpu_range }, driver);
-
-		driver->bindComputePipeline(histogram_pipeline);
-		driver->bindDescriptorSets(video::EPBP_COMPUTE, histogram_pipeline->getLayout(), 0u, 1u, &ds_histogram, nullptr);
-		RadixSortClass::dispatchHelper(histogram_pipeline->getLayout(), sort_push_constants[pass], sort_dispatch_info, driver);
-
-		for (uint32_t pass = 0; pass < total_scan_pass_count; ++pass)
 		{
-			ScanClass::updateDescriptorSet(ds_scan, histogram_gpu_range.buffer, driver);
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_scan, nullptr);
+			const uint32_t count = 2u;
+			video::IGPUDescriptorSet::SDescriptorInfo ds_info[count];
 
-			if (pass < upsweep_pass_count)
-			{
-				driver->bindComputePipeline(upsweep_pipeline);
-				ScanClass::dispatchHelper(upsweep_pipeline->getLayout(), scan_push_constants[pass], scan_dispatch_info[pass], driver);
-			}
-			else
-			{
-				driver->bindComputePipeline(downsweep_pipeline);
-				ScanClass::dispatchHelper(downsweep_pipeline->getLayout(), scan_push_constants[total_scan_pass_count - 1 - pass], scan_dispatch_info[total_scan_pass_count - 1 - pass], driver);
-			}
+			// Todo: you can just update the histogram descriptor and corresponding set out of the loop, I think
+			ds_info[0].desc = histogram_gpu_range.buffer;
+			ds_info[0].buffer = { histogram_gpu_range.offset, histogram_gpu_range.size };
+
+			ds_info[1].desc = (pass % 2) ? scratch_gpu_range.buffer : in_gpu_range.buffer;
+			ds_info[1].buffer = { (pass % 2) ? scratch_gpu_range.offset : in_gpu_range.offset, (pass % 2) ? scratch_gpu_range.size : in_gpu_range.size };
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+			writes[0] = { ds_scan, 0, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + 0 };
+			writes[1] = { ds_histogram, 0, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + 1 };
+
+			driver->updateDescriptorSets(count, writes, 0u, nullptr);
+
+			const IGPUDescriptorSet* descriptor_sets[2] = { ds_scan, ds_histogram };
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 2u, descriptor_sets, nullptr);
 		}
 
-		(pass == 0u)
-			? RadixSortClass::updateDescriptorSet(ds_scatter, { (pass % 2) ? scratch_gpu_range : in_gpu_range, (pass % 2) ? in_gpu_range : scratch_gpu_range, histogram_gpu_range }, driver)
-			: RadixSortClass::updateDescriptorSet(ds_scatter, { (pass % 2) ? scratch_gpu_range : in_gpu_range, (pass % 2) ? in_gpu_range : scratch_gpu_range }, driver);
+		driver->bindComputePipeline(histogram_pipeline);
+		RadixSortClass::dispatchHelper(histogram_pipeline->getLayout(), sort_push_constants[pass], sort_dispatch_info, driver);
+
+		for (uint32_t scan_pass = 0; scan_pass < upsweep_pass_count; ++scan_pass)
+		{
+			driver->bindComputePipeline(upsweep_pipeline);
+			ScanClass::dispatchHelper(upsweep_pipeline->getLayout(), scan_push_constants[scan_pass], scan_dispatch_info[scan_pass], driver);
+		}
+
+		for (uint32_t scan_pass = upsweep_pass_count; scan_pass < total_scan_pass_count; ++scan_pass)
+		{
+			driver->bindComputePipeline(downsweep_pipeline);
+			ScanClass::dispatchHelper(downsweep_pipeline->getLayout(), scan_push_constants[total_scan_pass_count - 1 - scan_pass], scan_dispatch_info[total_scan_pass_count - 1 - scan_pass], driver);
+		}
+
+		{
+			const uint32_t count = 3u;
+			video::IGPUDescriptorSet::SDescriptorInfo ds_info[count];
+
+			ds_info[0].desc = histogram_gpu_range.buffer;
+			ds_info[0].buffer = { histogram_gpu_range.offset, histogram_gpu_range.size };
+
+			ds_info[1].desc = (pass % 2) ? scratch_gpu_range.buffer : in_gpu_range.buffer;
+			ds_info[1].buffer = { (pass % 2) ? scratch_gpu_range.offset : in_gpu_range.offset, (pass % 2) ? scratch_gpu_range.size : in_gpu_range.size };
+
+			ds_info[2].desc = (pass % 2) ? in_gpu_range.buffer : scratch_gpu_range.buffer;
+			ds_info[2].buffer = { (pass % 2) ? in_gpu_range.offset : scratch_gpu_range.offset, (pass % 2) ? in_gpu_range.size : scratch_gpu_range.size };
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[count];
+			writes[0] = { ds_scan, 0, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + 0 };
+			writes[1] = { ds_scatter, 0, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + 1 };
+			writes[2] = { ds_scatter, 1, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + 2 };
+
+			driver->updateDescriptorSets(count, writes, 0u, nullptr);
+
+			const IGPUDescriptorSet* descriptor_sets[2] = { ds_scan, ds_scatter };
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 2u, descriptor_sets, nullptr);
+		}
 
 		driver->bindComputePipeline(scatter_pipeline);
-		driver->bindDescriptorSets(video::EPBP_COMPUTE, scatter_pipeline->getLayout(), 0u, 1u, &ds_scatter, nullptr);
 		RadixSortClass::dispatchHelper(scatter_pipeline->getLayout(), sort_push_constants[pass], sort_dispatch_info, driver);
 	}
 }
@@ -187,7 +216,7 @@ int main()
 	asset::IAssetManager* am = device->getAssetManager();
 
 	// Create (an almost) 256MB input buffer
-	const size_t in_count = 1024u; // (1 << 25) - 23;
+	const size_t in_count = (1 << 25) - 23; // 1024u;
 	const size_t in_size = in_count * sizeof(SortElement);
 
 	std::cout << "Input element count: " << in_count << std::endl;
@@ -206,8 +235,8 @@ int main()
 	auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
 	
 	// Take (an almost) 64MB portion from it to sort
-	size_t begin = 0u; // (1 << 23) + 112;
-	size_t end = 1024u; // (1 << 24) - 77;
+	size_t begin = (1 << 23) + 112; // 0u; 
+	size_t end = (1 << 24) - 77; // 1024u;
 	
 	assert((begin & (driver->getRequiredSSBOAlignment() - 1ull)) == 0ull);
 	

@@ -11,38 +11,35 @@ RadixSort::RadixSort(video::IDriver* driver, const uint32_t wg_size) : m_wg_size
 {
 	assert(nbl::core::isPoT(m_wg_size));
 
-	{
-		const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(ScanClass::Parameters_t) };
-		video::IGPUDescriptorSetLayout::SBinding binding = { 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-
-		m_scan_ds_layout = driver->createGPUDescriptorSetLayout(&binding, &binding + 1);
-		m_scan_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_scan_ds_layout));
-
-		m_upsweep_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_scan_pipeline_layout),
-			createShader_Scan("nbl/builtin/glsl/ext/Scan/default_upsweep.comp", driver));
-
-		m_downsweep_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_scan_pipeline_layout),
-			createShader_Scan("nbl/builtin/glsl/ext/Scan/default_downsweep.comp", driver));
-	}
-
 	const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_ext_RadixSort_Parameters_t) };
 
 	{
-		// Todo: I need this to be made 2u
-		const uint32_t count = 3u;
+		video::IGPUDescriptorSetLayout::SBinding binding = { 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
+		m_scan_ds_layout = driver->createGPUDescriptorSetLayout(&binding, &binding + 1);
+	}
+
+	{
+		const uint32_t count = 2u;
 		video::IGPUDescriptorSetLayout::SBinding binding[count];
 		for (uint32_t i = 0; i < count; ++i)
 			binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-
 		m_sort_ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
-		m_sort_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_sort_ds_layout));
-
-		m_histogram_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_sort_pipeline_layout),
-			createShader("nbl/builtin/glsl/ext/RadixSort/default_histogram.comp", driver));
-
-		m_scatter_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_sort_pipeline_layout),
-			createShader("nbl/builtin/glsl/ext/RadixSort/default_scatter.comp", driver));
 	}
+
+	m_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_scan_ds_layout),
+		core::smart_refctd_ptr(m_sort_ds_layout));
+
+	m_histogram_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+		createShader("nbl/builtin/glsl/ext/RadixSort/default_histogram.comp", driver));
+
+	m_upsweep_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+		createShader_Scan("nbl/builtin/glsl/ext/Scan/default_upsweep.comp", driver));
+
+	m_downsweep_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+		createShader_Scan("nbl/builtin/glsl/ext/Scan/default_downsweep.comp", driver));
+
+	m_scatter_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+		createShader("nbl/builtin/glsl/ext/RadixSort/default_scatter.comp", driver));
 }
 
 core::smart_refctd_ptr<video::IGPUSpecializedShader> RadixSort::createShader(const char* shader_file_path, video::IDriver* driver)

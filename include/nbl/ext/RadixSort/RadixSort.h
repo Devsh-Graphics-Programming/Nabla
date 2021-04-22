@@ -36,10 +36,9 @@ public:
 	RadixSort(video::IDriver* driver, const uint32_t wg_size);
 
 	inline auto getDefaultScanDescriptorSetLayout() const { return m_scan_ds_layout.get(); }
-	inline auto getDefaultScanPipelineLayout() const { return m_scan_pipeline_layout.get(); }
-
 	inline auto getDefaultSortDescriptorSetLayout() const { return m_sort_ds_layout.get(); }
-	inline auto getDefaultSortPipelineLayout() const { return m_sort_pipeline_layout.get(); }
+
+	inline auto getDefaultPipelineLayout() const { return m_pipeline_layout.get(); }
 
 	inline auto getDefaultHistogramPipeline() const { return m_histogram_pipeline.get(); }
 	inline auto getDefaultUpsweepPipeline() const { return m_upsweep_pipeline.get(); }
@@ -72,7 +71,10 @@ public:
 		sort_dispatch_info[0] = { {wg_count, 0, 0} };
 
 		for (uint32_t pass = 0; pass < PASS_COUNT; ++pass)
-			sort_push_constants[pass] = { BITS_PER_PASS * pass,  in_count };
+		{
+			sort_push_constants[pass].shift = BITS_PER_PASS * pass;
+			sort_push_constants[pass].element_count_total = in_count;
+		}
 
 		return total_scan_pass_count;
 	}
@@ -82,35 +84,13 @@ public:
 		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 	}
 
-	// Todo: Don't let it use core::vector
-	static inline void updateDescriptorSet(video::IGPUDescriptorSet* set, core::vector< asset::SBufferRange<video::IGPUBuffer> > descriptors,
-		video::IVideoDriver* driver)
-	{
-		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 3u;
-		assert(descriptors.size() <= MAX_DESCRIPTOR_COUNT);
-
-		video::IGPUDescriptorSet::SDescriptorInfo ds_info[MAX_DESCRIPTOR_COUNT];
-		for (uint32_t i = 0; i < descriptors.size(); ++i)
-		{
-			ds_info[i].desc = descriptors[i].buffer;
-			ds_info[i].buffer = { descriptors[i].offset, descriptors[i].size };
-		}
-
-		video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT];
-		for (uint32_t i = 0; i < descriptors.size(); ++i)
-			writes[i] = { set, i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
-		driver->updateDescriptorSets(descriptors.size(), writes, 0u, nullptr);
-	}
-
 private:
 	~RadixSort() {}
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_scan_ds_layout = nullptr;
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_scan_pipeline_layout = nullptr;
-
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_sort_ds_layout = nullptr;
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_sort_pipeline_layout = nullptr;
+
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_pipeline_layout = nullptr;
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_histogram_pipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_upsweep_pipeline = nullptr;
