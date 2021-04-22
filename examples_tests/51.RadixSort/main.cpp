@@ -101,7 +101,7 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
 
 static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_gpu_range,
 	IGPUDescriptorSet* ds_histogram, IGPUComputePipeline* histogram_pipeline,
-	IGPUDescriptorSet*  ds_upsweep, IGPUComputePipeline*  upsweep_pipeline, IGPUComputePipeline* downsweep_pipeline,
+	IGPUDescriptorSet*  ds_scan, IGPUComputePipeline*  upsweep_pipeline, IGPUComputePipeline* downsweep_pipeline,
 	IGPUDescriptorSet* ds_scatter, IGPUComputePipeline* scatter_pipeline)
 {
 	const uint32_t total_scan_pass_count = RadixSortClass::buildParameters(in_gpu_range.size / sizeof(SortElement), WG_SIZE,
@@ -139,8 +139,8 @@ static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_g
 
 		for (uint32_t pass = 0; pass < total_scan_pass_count; ++pass)
 		{
-			ScanClass::updateDescriptorSet(ds_upsweep, histogram_gpu_range.buffer, driver);
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_upsweep, nullptr);
+			ScanClass::updateDescriptorSet(ds_scan, histogram_gpu_range.buffer, driver);
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, upsweep_pipeline->getLayout(), 0u, 1u, &ds_scan, nullptr);
 
 			if (pass < upsweep_pass_count)
 			{
@@ -219,14 +219,14 @@ int main()
 	auto sorter = core::make_smart_refctd_ptr<RadixSortClass>(driver, WG_SIZE);
 	
 	// Todo: compress
-	auto ds_histogram = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultHistogramDescriptorSetLayout()));
+	auto ds_histogram = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
 	auto histogram_pipeline = sorter->getDefaultHistogramPipeline();
 	
 	auto ds_scan = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultScanDescriptorSetLayout()));
 	auto upsweep_pipeline = sorter->getDefaultUpsweepPipeline();
 	auto downsweep_pipeline = sorter->getDefaultDownsweepPipeline();
 	
-	auto ds_scatter = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultScatterDescriptorSetLayout()));
+	auto ds_scatter = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
 	auto scatter_pipeline = sorter->getDefaultScatterPipeline();
 	
 	{

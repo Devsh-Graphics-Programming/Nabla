@@ -35,18 +35,15 @@ public:
 	
 	RadixSort(video::IDriver* driver, const uint32_t wg_size);
 
-	inline auto getDefaultHistogramDescriptorSetLayout() const { return m_histogram_ds_layout.get(); }
-	inline auto getDefaultHistogramPipelineLayout() const { return m_histogram_pipeline_layout.get(); }
-	inline auto getDefaultHistogramPipeline() const { return m_histogram_pipeline.get(); }
-
 	inline auto getDefaultScanDescriptorSetLayout() const { return m_scan_ds_layout.get(); }
 	inline auto getDefaultScanPipelineLayout() const { return m_scan_pipeline_layout.get(); }
 
+	inline auto getDefaultSortDescriptorSetLayout() const { return m_sort_ds_layout.get(); }
+	inline auto getDefaultSortPipelineLayout() const { return m_sort_pipeline_layout.get(); }
+
+	inline auto getDefaultHistogramPipeline() const { return m_histogram_pipeline.get(); }
 	inline auto getDefaultUpsweepPipeline() const { return m_upsweep_pipeline.get(); }
 	inline auto getDefaultDownsweepPipeline() const { return m_downsweep_pipeline.get(); }
-
-	inline auto getDefaultScatterDescriptorSetLayout() const { return m_scatter_ds_layout.get(); }
-	inline auto getDefaultScatterPipelineLayout() const { return m_scatter_pipeline_layout.get(); }
 	inline auto getDefaultScatterPipeline() const { return m_scatter_pipeline.get(); }
 
 	static inline void dispatchHelper(const video::IGPUPipelineLayout* pipeline_layout, const nbl_glsl_ext_RadixSort_Parameters_t& params,
@@ -109,18 +106,15 @@ public:
 private:
 	~RadixSort() {}
 
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_histogram_pipeline_layout = nullptr;
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_histogram_ds_layout = nullptr;
-	core::smart_refctd_ptr<video::IGPUComputePipeline> m_histogram_pipeline = nullptr;
-
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_scan_ds_layout = nullptr;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_scan_pipeline_layout = nullptr;
 
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_sort_ds_layout = nullptr;
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_sort_pipeline_layout = nullptr;
+
+	core::smart_refctd_ptr<video::IGPUComputePipeline> m_histogram_pipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_upsweep_pipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_downsweep_pipeline = nullptr;
-
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_scatter_pipeline_layout = nullptr;
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_scatter_ds_layout = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_scatter_pipeline = nullptr;
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(const char* shader_file_path, video::IDriver* driver);

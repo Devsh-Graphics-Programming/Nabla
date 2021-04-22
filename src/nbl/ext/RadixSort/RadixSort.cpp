@@ -28,28 +28,19 @@ RadixSort::RadixSort(video::IDriver* driver, const uint32_t wg_size) : m_wg_size
 	const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_ext_RadixSort_Parameters_t) };
 
 	{
-		const uint32_t count = 2u;
-		video::IGPUDescriptorSetLayout::SBinding binding[count];
-		for (uint32_t i = 0; i < count; ++i)
-			binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-
-		m_histogram_ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
-		m_histogram_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_histogram_ds_layout));
-
-		m_histogram_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_histogram_pipeline_layout),
-			createShader("nbl/builtin/glsl/ext/RadixSort/default_histogram.comp", driver));
-	}
-
-	{
+		// Todo: I need this to be made 2u
 		const uint32_t count = 3u;
 		video::IGPUDescriptorSetLayout::SBinding binding[count];
 		for (uint32_t i = 0; i < count; ++i)
 			binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
 
-		m_scatter_ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
-		m_scatter_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_scatter_ds_layout));
+		m_sort_ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
+		m_sort_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_sort_ds_layout));
 
-		m_scatter_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_scatter_pipeline_layout),
+		m_histogram_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_sort_pipeline_layout),
+			createShader("nbl/builtin/glsl/ext/RadixSort/default_histogram.comp", driver));
+
+		m_scatter_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_sort_pipeline_layout),
 			createShader("nbl/builtin/glsl/ext/RadixSort/default_scatter.comp", driver));
 	}
 }
