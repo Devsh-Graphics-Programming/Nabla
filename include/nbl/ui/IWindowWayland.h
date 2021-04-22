@@ -8,6 +8,7 @@
 #include <wayland-client.h>
 #include <wayland-server.h>
 #include <wayland-client-protocol.h>
+#include <wayland-egl.h>
 
 namespace nbl {
 namespace ui
