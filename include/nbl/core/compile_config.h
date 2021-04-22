@@ -17,6 +17,8 @@
 
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
 
+//#define _NBL_TEST_WAYLAND
+
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 

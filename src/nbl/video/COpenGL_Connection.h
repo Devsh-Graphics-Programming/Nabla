@@ -58,7 +58,7 @@ public:
 
             return core::make_smart_refctd_ptr<CSurfaceGLWin32>(std::move(params));
         }
-#elif defined(_NBL_BUILD_WITH_WAYLAND)
+#elif defined(_NBL_BUILD_WITH_WAYLAND) && defined(_NBL_TEST_WAYLAND)
         {
             ui::IWindowWayland* win = static_cast<ui::IWindowWayland*>(window);
 

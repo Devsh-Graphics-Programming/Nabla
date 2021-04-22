@@ -11,8 +11,13 @@
 #include <nbl/ui/CWindowWin32.h>
 using CWindowT = nbl::ui::CWindowWin32;
 #elif defined(_NBL_PLATFORM_LINUX_)
+#ifdef _NBL_TEST_WAYLAND
 #include <nbl/ui/CWindowWayland.h>
 using CWindowT = nbl::ui::CWindowWayland;
+#else
+#include <nbl/ui/CWindowX11.h>
+using CWindowT = nbl::ui::CWindowX11;
+#endif
 #endif
 
 using namespace nbl;
