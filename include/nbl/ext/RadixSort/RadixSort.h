@@ -39,6 +39,12 @@ public:
 	inline auto getDefaultHistogramPipelineLayout() const { return m_histogram_pipeline_layout.get(); }
 	inline auto getDefaultHistogramPipeline() const { return m_histogram_pipeline.get(); }
 
+	inline auto getDefaultScanDescriptorSetLayout() const { return m_scan_ds_layout.get(); }
+	inline auto getDefaultScanPipelineLayout() const { return m_scan_pipeline_layout.get(); }
+
+	inline auto getDefaultUpsweepPipeline() const { return m_upsweep_pipeline.get(); }
+	inline auto getDefaultDownsweepPipeline() const { return m_downsweep_pipeline.get(); }
+
 	inline auto getDefaultScatterDescriptorSetLayout() const { return m_scatter_ds_layout.get(); }
 	inline auto getDefaultScatterPipelineLayout() const { return m_scatter_pipeline_layout.get(); }
 	inline auto getDefaultScatterPipeline() const { return m_scatter_pipeline.get(); }
@@ -100,11 +106,6 @@ public:
 		driver->updateDescriptorSets(descriptors.size(), writes, 0u, nullptr);
 	}
 
-	static void exclusiveSumScan(video::IVideoDriver* driver, core::smart_refctd_ptr<video::IGPUBuffer> in_gpu,
-		video::IGPUDescriptorSet* ds_upsweep, video::IGPUComputePipeline* upsweep_pipeline, video::IGPUDescriptorSet* ds_downsweep,
-		video::IGPUComputePipeline* downsweep_pipeline, ScanClass::Parameters_t* push_constants, ScanClass::DispatchInfo_t* dispatch_info,
-		const uint32_t total_pass_count, const uint32_t upsweep_pass_count);
-
 private:
 	~RadixSort() {}
 
@@ -112,11 +113,18 @@ private:
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_histogram_ds_layout = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_histogram_pipeline = nullptr;
 
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_scan_ds_layout = nullptr;
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_scan_pipeline_layout = nullptr;
+
+	core::smart_refctd_ptr<video::IGPUComputePipeline> m_upsweep_pipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> m_downsweep_pipeline = nullptr;
+
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_scatter_pipeline_layout = nullptr;
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_scatter_ds_layout = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_scatter_pipeline = nullptr;
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(const char* shader_file_path, video::IDriver* driver);
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_Scan(const char* shader_file_path, video::IDriver* driver);
 };
 
 }
