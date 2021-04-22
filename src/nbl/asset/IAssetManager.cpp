@@ -129,10 +129,10 @@ IMeshManipulator* IAssetManager::getMeshManipulator()
 void IAssetManager::addLoadersAndWriters()
 {
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
+	//addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
+	//addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
@@ -165,10 +165,10 @@ void IAssetManager::addLoadersAndWriters()
 	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());
+	//addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CSTLMeshWriter>());
+	//addAssetWriter(core::make_smart_refctd_ptr<asset::CSTLMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>());

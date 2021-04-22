@@ -79,9 +79,6 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 			return Kernel::validate(inImage, outImage);
 		}
 
-		// need this to resolve to correct base
-		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
-
 		// this is the only bit that differs
 		template<class PreFilter, class PostFilter>
 		struct sample_functor_t
@@ -114,6 +111,9 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 		{
 			return sample_functor_t<PreFilter,PostFilter>(this,preFilter,postFilter);
 		}
+
+		// need this to resolve to correct base
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
 };
 
 

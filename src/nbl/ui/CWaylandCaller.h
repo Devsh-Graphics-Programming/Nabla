@@ -1,5 +1,3 @@
-// TODO this has to go to system namespace
-
 #ifndef __NBL_C_WAYLAND_CALLER_H_INCLUDED__
 #define __NBL_C_WAYLAND_CALLER_H_INCLUDED__
 
@@ -15,7 +13,7 @@
 #include <wayland-egl.h> // Wayland EGL MUST be included before EGL headers
 
 namespace nbl {
-namespace video
+namespace ui
 {
 
 namespace impl

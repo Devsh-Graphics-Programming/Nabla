@@ -1,11 +1,9 @@
-// TODO this has to go to system namespace
-
-#include "nbl/video/CWaylandCaller.h"
+#include "nbl/ui/CWaylandCaller.h"
 
 #ifdef _NBL_BUILD_WITH_WAYLAND
 
 namespace nbl {
-namespace video
+namespace ui
 {
 
 #define _NBL_WAYLAND_IFACES_LIST \

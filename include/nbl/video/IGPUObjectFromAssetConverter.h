@@ -199,7 +199,7 @@ class IGPUObjectFromAssetConverter
 						pos.push_back(index);
 					}
 					else
-						res->operator[](index) = core::move_and_dynamic_cast<typename video::asset_traits<AssetType>::GPUObjectType>(gpu);
+						res->operator[](index) = core::move_and_dynamic_cast<typename video::asset_traits<AssetType>::GPUObjectType>(std::move(gpu));
 				//}
 				//res->operator[](index) = nullptr;
 			}

@@ -7,7 +7,7 @@
 namespace nbl {
 namespace ui
 {
-    static video::CWaylandCaller wlcall;
+    static ui::CWaylandCaller wlcall;
 
     const struct wl_registry_listener CWindowWayland::s_listener = { &CWindowWayland::registry_callback, nullptr };
 
@@ -16,10 +16,10 @@ namespace ui
         using data_t = std::pair<struct wl_compositor*, struct wl_shell*>;
         data_t* d = reinterpret_cast<data_t*>(data);
         if (strcmp(interface, "wl_compositor") == 0) {
-            d->first = reinterpret_cast<struct wl_compositor*>( wlcall.pwl_registry_bind(registry, id, video::CWaylandInterfaces::wliface_wl_compositor_interface, 1) );
+            d->first = reinterpret_cast<struct wl_compositor*>( wlcall.pwl_registry_bind(registry, id, ui::CWaylandInterfaces::wliface_wl_compositor_interface, 1) );
         }
         else if (strcmp(interface, "wl_shell") == 0) {
-            d->second = reinterpret_cast<struct wl_shell*>( wlcall.pwl_registry_bind(registry, id, video::CWaylandInterfaces::wliface_wl_shell_interface, 1) );
+            d->second = reinterpret_cast<struct wl_shell*>( wlcall.pwl_registry_bind(registry, id, ui::CWaylandInterfaces::wliface_wl_shell_interface, 1) );
         }
     }
 

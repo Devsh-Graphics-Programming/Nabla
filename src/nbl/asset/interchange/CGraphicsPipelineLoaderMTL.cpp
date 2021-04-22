@@ -253,8 +253,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
                     }
                     ds3Layout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
                 }
-                auto noUVLayoutClone = noUVLayout->clone(0u);// clone at 0 depth
-                layout = core::move_and_static_cast<ICPUPipelineLayout>(noUVLayoutClone); 
+                layout = core::move_and_static_cast<ICPUPipelineLayout>(noUVLayout->clone(0u)); // clone at 0 depth
                 layout->setDescriptorSetLayout(3u,std::move(ds3Layout));
                 auto bundle = SAssetBundle(nullptr,{ layout });
                 _ctx.loaderOverride->insertAssetIntoCache(bundle, pplnLayoutCacheKey, _ctx.inner, pipelineHLevel);
