@@ -238,21 +238,26 @@ int main()
 	
 	auto ds_scatter = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
 	auto scatter_pipeline = sorter->getDefaultScatterPipeline();
+
 	
 	{
 		driver->beginScene(true);
+
+		video::IQueryObject* time_query = driver->createElapsedTimeQuery();
 	
 		std::cout << "GPU sort begin" << std::endl;
-	
-		// Todo: Do proper GPU profiling
-		auto start = std::chrono::high_resolution_clock::now();
-	
+
+		driver->beginQuery(time_query);
 		RadixSort(driver, in_gpu_range, ds_histogram.get(), histogram_pipeline, ds_scan.get(), upsweep_pipeline, downsweep_pipeline, ds_scatter.get(), scatter_pipeline);
+		driver->endQuery(time_query);
+
+		uint32_t time_taken;
+		time_query->getQueryResult(&time_taken);
 	
-		auto stop = std::chrono::high_resolution_clock::now();
-	
-		std::cout << "GPU sort end\nTime taken: " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << " microseconds" << std::endl;
-	
+		std::cout << "GPU sort end\nTime taken: " << (double)time_taken/1000000.0 << " ms" << std::endl;
+
+		time_query->drop();
+		
 		driver->endScene();
 	}
 
@@ -268,7 +273,7 @@ int main()
 
 		memcpy(in_data + begin, sorted_data, (end - begin) * sizeof(SortElement));
 
-		std::cout << "CPU sort end\nTime taken: " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << " microseconds" << std::endl;
+		std::cout << "CPU sort end\nTime taken: " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << " ms" << std::endl;
 
 		std::cout << "Testing: ";
 		DebugCompareGPUvsCPU<SortElement>(in_gpu, in_data, in_size, driver);
