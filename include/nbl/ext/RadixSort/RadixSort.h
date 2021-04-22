@@ -48,6 +48,7 @@ public:
 	static inline void dispatchHelper(const video::IGPUPipelineLayout* pipeline_layout, const nbl_glsl_ext_RadixSort_Parameters_t& params,
 		const DispatchInfo_t& dispatch_info, video::IVideoDriver* driver, bool issue_default_barrier = true)
 	{
+		// Since we're using a single pc range we need to update this for both the radix sort exclusive pipelines (histogram and scatter)
 		driver->pushConstants(pipeline_layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
 		driver->dispatch(dispatch_info.wg_count[0], 1, 1);
 
@@ -77,6 +78,26 @@ public:
 		}
 
 		return total_scan_pass_count;
+	}
+
+	static inline void updateDescriptorSet(video::IGPUDescriptorSet* ds, const asset::SBufferRange<video::IGPUBuffer>* descriptor_ranges,
+		const uint32_t count, video::IDriver* driver)
+	{
+		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 2u;
+		assert(count <= MAX_DESCRIPTOR_COUNT);
+
+		video::IGPUDescriptorSet::SDescriptorInfo ds_info[MAX_DESCRIPTOR_COUNT];
+		video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT];
+
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			ds_info[i].desc = descriptor_ranges[i].buffer;
+			ds_info[i].buffer = { descriptor_ranges[i].offset, descriptor_ranges[i].size };
+
+			writes[i] = { ds, i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+		}
+
+		driver->updateDescriptorSets(count, writes, 0u, nullptr);
 	}
 
 	static inline void defaultBarrier()
