@@ -6,7 +6,7 @@
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"
 #   include "nbl/video/surface/CSurfaceGLWin32.h"
-#elif defined(_NBL_BUILD_WITH_WAYLAND)
+#elif defined(_NBL_BUILD_WITH_WAYLAND) && defined(_NBL_TEST_WAYLAND)
 #   include "nbl/ui/IWindowWayland.h"
 #   include "nbl/video/surface/CSurfaceGLWayland.h"
 #elif defined(_NBL_PLATFORM_LINUX_)
