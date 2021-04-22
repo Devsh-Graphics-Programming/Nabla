@@ -96,13 +96,14 @@ public:
     IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
-        return (*m_queues)[offset+_ix].getUnderlyingQueue().get();
+        return (*m_queues)[offset+_ix]->getUnderlyingQueue();
     }
 
-    CThreadSafeGPUQueueAdapter getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
+    // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
+    CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
-        return (*m_queues)[offset + _ix];
+        return (*m_queues)[offset + _ix].get();
     }
 
     virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
@@ -715,7 +716,7 @@ protected:
     core::smart_refctd_ptr<io::IFileSystem> m_fs;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
-    using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter>;
+    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
     queues_array_t m_queues;
     using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
     q_offsets_array_t m_offsets;

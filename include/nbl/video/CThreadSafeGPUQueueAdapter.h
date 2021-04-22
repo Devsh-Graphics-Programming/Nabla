@@ -4,30 +4,21 @@
 
 namespace nbl::video
 {
+    /*
+        A thread-safe implementation of IGPUQueue.
+        Note, that using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
+    */
     class CThreadSafeGPUQueueAdapter : public IGPUQueue
     {
     protected:
-        nbl::core::smart_refctd_ptr<IGPUQueue> originalQueue = nullptr;
+        core::smart_refctd_ptr<IGPUQueue> originalQueue = nullptr;
         std::mutex m;
     public:
-        CThreadSafeGPUQueueAdapter(nbl::core::smart_refctd_ptr<IGPUQueue>&& originalQueue) : IGPUQueue(nullptr, originalQueue->getFamilyIndex(), originalQueue->getFlags(), originalQueue->getPriority()), originalQueue(originalQueue) {}
-        CThreadSafeGPUQueueAdapter(CThreadSafeGPUQueueAdapter&& other) : IGPUQueue(nullptr, other.originalQueue->getFamilyIndex(), other.originalQueue->getFlags(), other.originalQueue->getPriority()), originalQueue(other.originalQueue) {}
-        
-        CThreadSafeGPUQueueAdapter(const CThreadSafeGPUQueueAdapter& other) : IGPUQueue(nullptr, other.originalQueue->getFamilyIndex(), other.originalQueue->getFlags(), other.originalQueue->getPriority()), originalQueue(other.originalQueue) {}
-        CThreadSafeGPUQueueAdapter(const nbl::core::smart_refctd_ptr<IGPUQueue>& originalQueue) : IGPUQueue(nullptr, originalQueue->getFamilyIndex(), originalQueue->getFlags(), originalQueue->getPriority()), originalQueue(originalQueue) {}
-        
+        CThreadSafeGPUQueueAdapter(nbl::core::smart_refctd_ptr<IGPUQueue>&& originalQueue) : IGPUQueue(nullptr, originalQueue->getFamilyIndex(), originalQueue->getFlags(), originalQueue->getPriority()),
+            originalQueue(originalQueue) {}        
+
         CThreadSafeGPUQueueAdapter() : IGPUQueue(nullptr, 0, E_CREATE_FLAGS::ECF_PROTECTED_BIT, 0.f) {};
 
-        CThreadSafeGPUQueueAdapter& operator=(CThreadSafeGPUQueueAdapter&& other)
-        {
-            originalQueue = other.originalQueue;
-            return *this;
-        }
-        CThreadSafeGPUQueueAdapter& operator=(nbl::core::smart_refctd_ptr<IGPUQueue>&& other)
-        {
-            originalQueue = other;
-            return *this;
-        }
         virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
         {
             std::lock_guard g(m);
@@ -40,9 +31,9 @@ namespace nbl::video
             return originalQueue->present(info);
         }
 
-        nbl::core::smart_refctd_ptr<IGPUQueue> getUnderlyingQueue() const
+        IGPUQueue* getUnderlyingQueue() const
         {
-            return originalQueue;
+            return originalQueue.get();
         }
     };
 }
