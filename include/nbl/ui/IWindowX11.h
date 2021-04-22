@@ -1,5 +1,5 @@
-#ifndef __NBL_I_WINDOW_LINUX_H_INCLUDED__
-#define __NBL_I_WINDOW_LINUX_H_INCLUDED__
+#ifndef __NBL_I_WINDOW_X11_H_INCLUDED__
+#define __NBL_I_WINDOW_X11_H_INCLUDED__
 
 #include "nbl/ui/IWindow.h"
 
@@ -11,10 +11,10 @@ namespace nbl {
 namespace ui
 {
 
-class IWindowLinux : public IWindow
+class IWindowX11 : public IWindow
 {
 protected:
-    virtual ~IWindowLinux() = default;
+    virtual ~IWindowX11() = default;
 
 public:
     using IWindow::IWindow;

@@ -1,5 +1,5 @@
-#ifndef __C_WINDOW_LINUX_H_INCLUDED__
-#define __C_WINDOW_LINUX_H_INCLUDED__
+#ifndef __C_WINDOW_X11_H_INCLUDED__
+#define __C_WINDOW_X11_H_INCLUDED__
 
 #include "nbl/ui/IWindowX11.h"
 
@@ -18,27 +18,27 @@ namespace nbl {
 namespace ui
 {
 
-class CWindowLinux final : public IWindowLinux
+class CWindowX11 final : public IWindowX11
 {
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
 
 public:
-	explicit CWindowLinux(Display* dpy, native_handle_t win);
+	explicit CWindowX11(Display* dpy, native_handle_t win);
 
     Display* getDisplay() const override { return m_dpy; }
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowLinux> create(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+	static core::smart_refctd_ptr<CWindowX11> create(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
 	{
 		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
 
-		CWindowLinux* win = new CWindowLinux(_w, _h, _flags);
-		return core::smart_refctd_ptr<CWindowLinux>(win, core::dont_grab);
+		CWindowX11* win = new CWindowX11(_w, _h, _flags);
+		return core::smart_refctd_ptr<CWindowX11>(win, core::dont_grab);
 	}
 
 private:
-    CWindowLinux(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
+    CWindowX11(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
 
     Display* m_dpy;
     native_handle_t m_native;
