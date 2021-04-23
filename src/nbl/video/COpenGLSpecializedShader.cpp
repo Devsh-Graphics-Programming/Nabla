@@ -70,16 +70,17 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp, const COpenGLPipel
             const spirv_cross::Resource& r = res[i];
 			const uint32_t r_bnd = _comp.get_decoration(r.id, spv::DecorationBinding);
 
-			if (dsl->getBindings().begin()[j].binding != r_bnd) {
-				const asset::E_DESCRIPTOR_TYPE dtype = dsl->getBindings().begin()[j].type;
+			const auto& bindInfo = dsl->getBindings().begin()[j];
+			if (bindInfo.binding != r_bnd)
+			{
+				const asset::E_DESCRIPTOR_TYPE dtype = bindInfo.type;
 				if (dtype==_dtype1 || dtype==_dtype2)
-					availableBinding += dsl->getBindings().begin()[j].count;
+					availableBinding += bindInfo.count;
 				continue;
 			}
 
             _comp.set_decoration(r.id, spv::DecorationBinding, availableBinding);
-            const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-			availableBinding += (type.array.size() ? type.array[0] : 1u);
+			availableBinding += bindInfo.count;
             _comp.unset_decoration(r.id, spv::DecorationDescriptorSet);
 			++i;
         }

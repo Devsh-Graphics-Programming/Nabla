@@ -1,86 +1,71 @@
-// WorkGroup Size
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
-#endif
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
 
- 
-#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
-#define _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
-#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
-#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
-#include "nbl/builtin/glsl/ext/FFT/fft.glsl"
+layout(set=0, binding=2) uniform sampler2D NormalizedKernel[3];
 
-// Input Descriptor
-
-layout(set=0, binding=0) buffer restrict InputOutputBuffer
+/* TODO: Hardcode the parameters for the frequent FFTs
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
 {
-	nbl_glsl_complex inoutData[];
-};
+	return uvec3(1280u,1024u,1u);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return false;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 0u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
+{
+    return 2u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+    return 11u;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getPaddingType()
+{
+    return 3u; // _NBL_GLSL_EXT_FFT_PAD_MIRROR_;
+}
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getInputStrides()
+{
+	return uvec4(1024u,1u,0u,1024u*1280u);
+}
+uvec4 nbl_glsl_ext_FFT_Parameters_t_getOutputStrides()
+{
+	return uvec4(1u,1280u,0u,1280u*1024u);
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+*/
 
-layout(set=0, binding=1) uniform sampler2D NormalizedKernel[3];
-
-// Get/Set Data Function
+#include "extra_parameters.glsl"
 layout(push_constant) uniform PushConstants
 {
-	nbl_glsl_ext_FFT_Parameters_t params;
+	convolve_parameters_t params;
 } pc;
+#define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 
- nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters()
- {
-	 nbl_glsl_ext_FFT_Parameters_t ret;
-	 ret = pc.params;
-	 return ret;
- }
-
-nbl_glsl_complex nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
+nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters()
 {
-	nbl_glsl_complex retValue = nbl_glsl_complex(0, 0);
-	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
-	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	retValue = inoutData[index];
-	return retValue;
+	return pc.params.fft;
 }
+#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
 
-void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
-{
-	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getPaddedDimensions();
-	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
-	inoutData[index] = complex_value;
-}
-
-nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
-
-	uvec3 max_coord = nbl_glsl_ext_FFT_Parameters_t_getDimensions() - uvec3(1u);
-	uvec3 clamped_coord = min(coordinate, max_coord);
-	
-	bool is_out_of_range = any(bvec3(coordinate!=clamped_coord));
-
-	uint paddingType = nbl_glsl_ext_FFT_Parameters_t_getPaddingType();
-
-	if (_NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ == paddingType && is_out_of_range) {
-		return nbl_glsl_complex(0, 0);
-	}
-	
-	return nbl_glsl_ext_FFT_getData(clamped_coord, channel);
-}
+#define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 
 void convolve(in uint item_per_thread_count, in uint ch) 
 {
 	// TODO: decouple kernel size from image size (can't get the math to work in my head)
-	uvec3 dimension = nbl_glsl_ext_FFT_Parameters_t_getDimensions();
-	
 	for(uint t=0u; t<item_per_thread_count; t++)
 	{
-		uint tid = gl_LocalInvocationIndex + t * _NBL_GLSL_WORKGROUP_SIZE_;
-		// TODO: refactor
-		uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
-		const uvec3 log2_size = uvec3(11u, 10u, 0u);
-        coords = bitfieldReverse(coords)>>(uvec3(32u)-log2_size);
+		const uint tid = _NBL_GLSL_WORKGROUP_SIZE_*t+gl_LocalInvocationIndex;
 
 		nbl_glsl_complex sourceSpectrum = nbl_glsl_ext_FFT_impl_values[t];
-
-        vec2 uv = (vec2(coords.xy))/vec2(uvec2(1u)<<log2_size.xy)+vec2(0.5f)/vec2(textureSize(NormalizedKernel[ch],0));
+		
+		//
+		const uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
+        vec2 uv = vec2(bitfieldReverse(coords.xy))/vec2(4294967296.f)+pc.params.kernel_half_pixel_size;
 		//
 		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
 		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
@@ -89,29 +74,36 @@ void convolve(in uint item_per_thread_count, in uint ch)
 
 void main()
 {
-    const uint dataLength = nbl_glsl_ext_FFT_Parameters_t_getFFTLength();
-    const uint item_per_thread_count = dataLength>>_NBL_GLSL_WORKGROUP_SIZE_LOG2_;
-    const uint numChannels = nbl_glsl_ext_FFT_Parameters_t_getNumChannels();
-	for(uint ch = 0u; ch < numChannels; ++ch)
+    const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+    const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
+	
+	for(uint ch=0u; ch<=nbl_glsl_ext_FFT_Parameters_t_getMaxChannel(); ++ch)
 	{
 		// Load Values into local memory
 		for(uint t=0u; t<item_per_thread_count; t++)
 		{
 			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),ch);
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),ch);
 		}
-		nbl_glsl_ext_FFT_preloaded(false,dataLength);
+		nbl_glsl_ext_FFT_preloaded(false,log2FFTSize);
 		barrier();
 
 		convolve(item_per_thread_count,ch);
 	
 		barrier();
-		nbl_glsl_ext_FFT_preloaded(true,dataLength);
+		nbl_glsl_ext_FFT_preloaded(true,log2FFTSize);
 		// write out to main memory
+		// we override the setting to happen with padded coordinates because we dont want the padding to be written at all
 		for(uint t=0u; t<item_per_thread_count; t++)
 		{
 			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-			nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),ch,nbl_glsl_ext_FFT_impl_values[t]);
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			// we also prevent certain threads from writing the memory out
+			const uint padding = ((0x1u<<log2FFTSize)-trueDim)>>1u;
+			const uint shifted = tid-padding;
+			if (tid>=padding && shifted<trueDim)
+				nbl_glsl_ext_FFT_setData(ivec3(nbl_glsl_ext_FFT_getCoordinates(shifted)),ch,nbl_glsl_ext_FFT_impl_values[t]);
 		}
 	}
 }
