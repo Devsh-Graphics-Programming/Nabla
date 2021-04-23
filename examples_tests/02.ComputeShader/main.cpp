@@ -79,6 +79,24 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> ds0_gpu;
 	ds0_gpu = device->createGPUDescriptorSet(descriptorPool.get(), ds0layout);
+	{
+		video::IGPUDescriptorSet::SWriteDescriptorSet write[2];
+		video::IGPUDescriptorSet::SDescriptorInfo info[2];
+		write[0].arrayElement = 0u;
+		write[0].binding = 0u;
+		write[0].count = 1u;
+		write[0].descriptorType = asset::EDT_STORAGE_IMAGE;
+		write[0].dstSet = ds0_gpu.get();
+		info[0].desc = inImgView;
+		info[0].image.imageLayout = asset::EIL_GENERAL;
+		write[0].info = info;
+		write[1] = write[0];
+		write[1].binding = 1u;
+		info[1].desc = outImgView;
+		info[1].image.imageLayout = asset::EIL_GENERAL;
+		write[1].info = info+1;
+		device->updateDescriptorSets(2u, write, 0u, nullptr);
+	}
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> compPipeline;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> layout;
@@ -144,7 +162,7 @@ int main()
 		region.extent = { WIN_W, WIN_H, 0 };
 		cb->begin(0);
 		cb->bindDescriptorSets(nbl::asset::E_PIPELINE_BIND_POINT::EPBP_COMPUTE, layout.get(), 0, 1, (nbl::video::IGPUDescriptorSet**)&ds0_gpu.get());
-		cb->pushConstants(layout.get(), 0, 0, sizeof(uint32_t) * 2u, &core::vector2du32_SIMD(WIN_W, WIN_H));
+		cb->pushConstants(layout.get(), asset::ISpecializedShader::ESS_COMPUTE, 0, sizeof(uint32_t) * 2u, &core::vector2du32_SIMD(WIN_W, WIN_H));
 		cb->bindComputePipeline(compPipeline.get());
 		cb->dispatch((WIN_W + 15u) / 16u, (WIN_H + 15u) / 16u, 1u);
 		cb->copyImage(inImg.get(), nbl::asset::E_IMAGE_LAYOUT::EIL_UNDEFINED, sc_images.begin()[i].get(), nbl::asset::E_IMAGE_LAYOUT::EIL_UNDEFINED, 1, &region);
@@ -164,8 +182,8 @@ int main()
 		info.clearValueCount = 1u;
 		info.clearValues = &clear;
 		info.renderArea = area;
-		cb->beginRenderPass(&info, asset::ESC_INLINE);
-		cb->endRenderPass();
+		//cb->beginRenderPass(&info, asset::ESC_INLINE);
+		//cb->endRenderPass();
 
 		cb->end();
 	}

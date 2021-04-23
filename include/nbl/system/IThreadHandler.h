@@ -91,6 +91,7 @@ private:
         static_assert(has_internal_state == has_init::value, "Custom internal state require implementation of init() method!");
 
         internal_state_t* state_ptr = getInternalStatePtr();
+        size_t aaaa = alignof(internal_state_t);
 
         if constexpr (has_internal_state)
         {
@@ -180,10 +181,11 @@ public:
     }
 
 protected:
+    alignas(internal_state_t) uint8_t m_internal_state_storage[sizeof(internal_state_t)];
+
     mutex_t m_mutex;
     cvar_t m_cvar;
     bool m_quit = false;
-    uint8_t m_internal_state_storage[sizeof(internal_state_t)];
 
     // Must be last member!
     std::thread m_thread;
