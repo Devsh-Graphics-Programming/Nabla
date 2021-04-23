@@ -350,7 +350,7 @@ public:
     {
         if (!pool->wasCreatedBy(this))
             return nullptr;
-        if (layout->wasCreatedBy(this))
+        if (!layout->wasCreatedBy(this))
             return nullptr;
         return createGPUDescriptorSet_impl(pool, std::move(layout));
     }
@@ -503,7 +503,7 @@ public:
 
     core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params)
     {
-        if (pipelineCache && pipelineCache->wasCreatedBy(this))
+        if (pipelineCache && !pipelineCache->wasCreatedBy(this))
             return nullptr;
         if (!params.renderpass->wasCreatedBy(this))
             return nullptr;
@@ -516,7 +516,7 @@ public:
 
     bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
     {
-        if (pipelineCache && pipelineCache->wasCreatedBy(this))
+        if (pipelineCache && !pipelineCache->wasCreatedBy(this))
             return false;
         for (const auto& ci : params)
         {

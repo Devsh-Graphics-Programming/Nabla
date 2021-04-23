@@ -2,7 +2,7 @@
 #include <nabla.h>
 #include <random>
 #include <cmath>
-
+#include "../common/CommonAPI.h"
 using namespace nbl;
 using namespace core;
 
@@ -380,85 +380,126 @@ int main()
 		nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 	}
 
-	// Alloc pref test
+	constexpr uint32_t WIN_W = 1280;
+	constexpr uint32_t WIN_H = 720;
+	constexpr uint32_t SC_IMG_COUNT = 3u;
+
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Compute Shader");
+	auto win = initOutp.window;
+	auto gl = initOutp.apiConnection;
+	auto surface = initOutp.surface;
+	auto device = initOutp.logicalDevice;
+	auto queue = initOutp.queue;
+	auto sc = initOutp.swapchain;
+	auto renderpass = initOutp.renderpass;
+	auto fbo = initOutp.fbo;
+	auto cmdpool = initOutp.commandPool;
+
 	{
-		// create device with full flexibility over creation parameters
-		// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-		nbl::SIrrlichtCreationParameters params;
-		params.Bits = 24; //may have to set to 32bit for some platforms
-		params.ZBufferBits = 24; //we'd like 32bit here
-		params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-		params.WindowSize = dimension2d<uint32_t>(1280, 720);
-		params.Fullscreen = false;
-		params.Vsync = false;
-		params.Doublebuffer = true;
-		params.Stencilbuffer = false; //! This will not even be a choice soon
-		auto device = createDeviceEx(params);
-
-		if (!device)
-			return 1; // could not create selected driver.
+		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
 
 
-		video::IVideoDriver* driver = device->getVideoDriver();
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
+		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cb);
+		assert(cb);
 
-		size_t allocSize = 128;
+		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
-		constexpr size_t kMinAllocs = 10000u;
-		constexpr size_t kMaxAllocs = 20000u;
+		asset::SViewport vp;
+		vp.minDepth = 1.f;
+		vp.maxDepth = 0.f;
+		vp.x = 0u;
+		vp.y = 0u;
+		vp.width = WIN_W;
+		vp.height = WIN_H;
+		cb->setViewport(0u, 1u, &vp);
 
+		cb->end();
 
-		scene::ISceneManager* smgr = device->getSceneManager();
-		MyEventReceiver receiver;
-		device->setEventReceiver(&receiver);
-
-
-		video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-		reqs.vulkanReqs.size = 0x1000000u;
-		reqs.vulkanReqs.alignment = 4;
-		reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-		reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-		reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
-		reqs.prefersDedicatedAllocation = true;
-		reqs.requiresDedicatedAllocation = true;
-		auto buffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferST<> >(driver, reqs);
-
-		std::mt19937 mt(0xdeadu);
-		std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs, kMaxAllocs);
-		std::uniform_int_distribution<uint32_t> size(1, 1024 * 1024);
-		std::uniform_int_distribution<uint32_t> alignment(1, 128);
-
-		uint64_t lastFPSTime = 0;
-		while (device->run())
-			//if (device->isWindowActive())
-		{
-			driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
-
-			auto allocsThisFrame = allocsPerFrame(mt);
-			uint32_t outAddr[kMaxAllocs];
-			uint32_t sizes[kMaxAllocs];
-			uint32_t alignments[kMaxAllocs];
-			for (size_t i = 0; i < allocsThisFrame; i++)
-			{
-				outAddr[i] = video::StreamingTransientDataBufferST<>::invalid_address;
-				sizes[i] = size(mt);
-				alignments[i] = alignment(mt);
-			}
-
-			buffer->multi_alloc(allocsThisFrame, (uint32_t*)outAddr, (const uint32_t*)sizes, (const uint32_t*)alignments);
-			buffer->multi_free(allocsThisFrame, (const uint32_t*)outAddr, (const uint32_t*)sizes, driver->placeFence());
-
-			driver->endScene();
-
-			// display frames per second in window title
-			uint64_t time = device->getTimer()->getRealTime();
-			if (time - lastFPSTime > 1000)
-			{
-				std::wostringstream sstr;
-				sstr << L"Alloc Perf Test- Irrlicht Engine [" << driver->getName() << "] K-Allocs/second:" << driver->getFPS() * allocsThisFrame;
-
-				device->setWindowCaption(sstr.str().c_str());
-				lastFPSTime = time;
-			}
-		}
+		video::IGPUQueue::SSubmitInfo info;
+		auto* cb_ = cb.get();
+		info.commandBufferCount = 1u;
+		info.commandBuffers = &cb_;
+		info.pSignalSemaphores = nullptr;
+		info.signalSemaphoreCount = 0u;
+		info.pWaitSemaphores = nullptr;
+		info.waitSemaphoreCount = 0u;
+		info.pWaitDstStageMask = nullptr;
+		queue->submit(1u, &info, nullptr);
 	}
+
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
+	device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT, cmdbuf);
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		auto& cb = cmdbuf[i];
+		auto& fb = fbo[i];
+
+		cb->begin(0);
+
+		size_t offset = 0u;
+		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
+		asset::SClearValue clear;
+		asset::VkRect2D area;
+		area.offset = { 0, 0 };
+		area.extent = { WIN_W, WIN_H };
+		clear.color.float32[0] = 0.f;
+		clear.color.float32[1] = 0.f;
+		clear.color.float32[2] = 1.f;
+		clear.color.float32[3] = 1.f;
+		info.renderpass = renderpass;
+		info.framebuffer = fb;
+		info.clearValueCount = 1u;
+		info.clearValues = &clear;
+		info.renderArea = area;
+		cb->beginRenderPass(&info, asset::ESC_INLINE);
+		cb->endRenderPass();
+
+		cb->end();
+	}
+	size_t allocSize = 128;
+
+    constexpr size_t kMinAllocs = 10000u;
+    constexpr size_t kMaxAllocs = 20000u;
+	/*
+		TODO: make all the commented below stuff from the previous API work here
+	*/
+
+//	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+//	reqs.vulkanReqs.size = 0x1000000u;
+//	reqs.vulkanReqs.alignment = 4;
+//	reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+//	reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+//	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
+//	reqs.prefersDedicatedAllocation = true;
+//	reqs.requiresDedicatedAllocation = true;
+//	auto buffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferST<> >(driver, reqs);
+
+	std::mt19937 mt(0xdeadu);
+	std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs, kMaxAllocs);
+	std::uniform_int_distribution<uint32_t> size(1, 1024 * 1024);
+	std::uniform_int_distribution<uint32_t> alignment(1, 128);
+	constexpr uint32_t FRAME_COUNT = 500000u;
+	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
+	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	{
+		auto allocsThisFrame = allocsPerFrame(mt);
+		//uint32_t outAddr[kMaxAllocs];
+		uint32_t sizes[kMaxAllocs];
+		uint32_t alignments[kMaxAllocs];
+		for (size_t i = 0; i < allocsThisFrame; i++)
+		{
+			//outAddr[i] = video::StreamingTransientDataBufferST<>::invalid_address;
+			sizes[i] = size(mt);
+			alignments[i] = alignment(mt);
+		}
+
+		//buffer->multi_alloc(allocsThisFrame, (uint32_t*)outAddr, (const uint32_t*)sizes, (const uint32_t*)alignments);
+		//buffer->multi_free(allocsThisFrame, (const uint32_t*)outAddr, (const uint32_t*)sizes, driver->placeFence());
+
+		CommonAPI::Present<SC_IMG_COUNT>(device, sc, cmdbuf, queue);
+	}
+
+	device->waitIdle();
 }
+
