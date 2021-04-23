@@ -6,6 +6,7 @@
 #define _NBL_GLSL_EXT_LUMA_METER_COMMON_INCLUDED_
 
 #include <nbl/builtin/glsl/macros.glsl>
+#include <nbl/builtin/glsl/math/functions.glsl>
 
 #ifndef _NBL_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
 #define _NBL_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
@@ -63,7 +64,8 @@ struct nbl_glsl_ext_LumaMeter_Uniforms_t
     };
 #elif _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
     #ifdef _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
-	    #define _NBL_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ NBL_GLSL_EVAL(_NBL_GLSL_WORKGROUP_SIZE_)
+        #include "nbl/builtin/glsl/workgroup/shared_arithmetic.glsl"
+	    #define _NBL_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ NBL_GLSL_EVAL(_NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_)
     #else
         #define _NBL_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ 0
     #endif
@@ -201,6 +203,7 @@ layout(set=_NBL_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_NBL_GLSL_
     #if NBL_GLSL_EQUAL(_NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
         void nbl_glsl_ext_LumaMeter_clearHistogram()
         {
+            // TODO: redo how we clear
 	        for (int i=0; i<_NBL_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
 		        _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_NBL_GLSL_WORKGROUP_SIZE_] = 0u;
             #if NBL_GLSL_GREATER(_NBL_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_,0)
@@ -221,7 +224,7 @@ layout(set=_NBL_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_NBL_GLSL_
     void nbl_glsl_ext_LumaMeter_clearFirstPassOutput()
     {
         #if NBL_GLSL_EQUAL(_NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
-            uint globalIndex = gl_LocalInvocationIndex+gl_WorkGroupID.x*_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT;
+            uint globalIndex = nbl_glsl_dot(uvec3(gl_LocalInvocationIndex,gl_WorkGroupID.xy),uvec3(1u,_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT,gl_NumWorkGroups.x*_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT));
             if (globalIndex<_NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT)
             {
     		    outParams[nbl_glsl_ext_LumaMeter_getNextLumaOutputOffset()].packedHistogram[globalIndex] = 0u;
@@ -235,24 +238,26 @@ layout(set=_NBL_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_NBL_GLSL_
 
 
     #if NBL_GLSL_EQUAL(_NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
-        #define WriteOutValue_t uint
+        #define nbl_glsl_ext_LumaMeter_WriteOutValue_t uint
     #else
-        #define WriteOutValue_t float
+        #define nbl_glsl_ext_LumaMeter_WriteOutValue_t float
     #endif
 
     #ifndef _NBL_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DECLARED_
     #define _NBL_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DECLARED_
-    void nbl_glsl_ext_LumaMeter_setFirstPassOutput(in WriteOutValue_t writeOutVal);
+    void nbl_glsl_ext_LumaMeter_setFirstPassOutput(in nbl_glsl_ext_LumaMeter_WriteOutValue_t writeOutVal);
     #endif
 
     #ifndef _NBL_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DEFINED_
     #define _NBL_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DEFINED_
-    void nbl_glsl_ext_LumaMeter_setFirstPassOutput(in WriteOutValue_t writeOutVal)
+    void nbl_glsl_ext_LumaMeter_setFirstPassOutput(in nbl_glsl_ext_LumaMeter_WriteOutValue_t writeOutVal)
     {
         int layerIndex = nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset();
         #if NBL_GLSL_EQUAL(_NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
             uint globalIndex = gl_LocalInvocationIndex;
-            globalIndex += (gl_WorkGroupID.x&uint(_NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT;
+            // assert(_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT==_NBL_GLSL_WORKGROUP_SIZE_)
+            const uint workgroupHash = gl_WorkGroupID.x+gl_WorkGroupID.y*gl_NumWorkGroups.x;
+            globalIndex += (workgroupHash&uint(_NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_NBL_GLSL_WORKGROUP_SIZE_;
 		    atomicAdd(outParams[layerIndex].packedHistogram[globalIndex],writeOutVal);
         #else
 		    if (gl_LocalInvocationIndex==0u)
@@ -264,8 +269,6 @@ layout(set=_NBL_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_NBL_GLSL_
         #endif
     }
     #endif
-
-    #undef WriteOutValue_t
 #endif // _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 
 

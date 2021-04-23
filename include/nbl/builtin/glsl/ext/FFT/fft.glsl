@@ -14,20 +14,6 @@
 
 #include "nbl/builtin/glsl/workgroup/shared_fft.glsl"
 
-// Push Constants
-
-#define _NBL_GLSL_EXT_FFT_DIRECTION_X_ 0
-#define _NBL_GLSL_EXT_FFT_DIRECTION_Y_ 1
-#define _NBL_GLSL_EXT_FFT_DIRECTION_Z_ 2
-
-#define _NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ 0
-#define _NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ 1
-
-
-#ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
-#define _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
-vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel);
-#endif
 
 #ifndef _NBL_GLSL_EXT_FFT_SET_DATA_DECLARED_
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DECLARED_
@@ -36,14 +22,11 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 comp
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DECLARED_
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DECLARED_
-vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel);
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel);
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
 #error "You need to define `nbl_glsl_ext_FFT_getParameters` and mark `_NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_`!"
-#endif
-#ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
-#error "You need to define `nbl_glsl_ext_FFT_getData` and mark `_NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_`!"
 #endif
 #ifndef _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
 #error "You need to define `nbl_glsl_ext_FFT_setData` and mark `_NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_`!"
@@ -59,12 +42,17 @@ uvec3 nbl_glsl_ext_FFT_getCoordinates(in uint tidx)
     tmp[direction] = tidx;
     return tmp;
 }
+ivec3 nbl_glsl_ext_FFT_getPaddedCoordinates(in uint tidx, in uint log2FFTSize, in uint trueDimension)
+{
+    const uint padding = ((0x1u<<log2FFTSize)-trueDimension)>>1u;
+    return ivec3(nbl_glsl_ext_FFT_getCoordinates(tidx-padding));
+}
 
 
 #include "nbl/builtin/glsl/workgroup/fft.glsl"
 
 
-nbl_glsl_complex nbl_glsl_ext_FFT_impl_values[(_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_-1u)/_NBL_GLSL_WORKGROUP_SIZE_+1u];
+nbl_glsl_complex nbl_glsl_ext_FFT_impl_values[(_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_-1u)/_NBL_GLSL_WORKGROUP_SIZE_+1u]; // TODO: hardcoded channel count, multichannel FFT (shared twiddles), maybe even precompute twiddles into a LUT!?
 
 void nbl_glsl_ext_FFT_loop(in bool is_inverse, in uint virtual_thread_count, in uint step)
 {
@@ -84,9 +72,10 @@ void nbl_glsl_ext_FFT_loop(in bool is_inverse, in uint virtual_thread_count, in 
     }
 }
 
-void nbl_glsl_ext_FFT_preloaded(bool is_inverse, in uint dataLength)
+void nbl_glsl_ext_FFT_preloaded(bool is_inverse, in uint log2FFTSize)
 {
     // Virtual Threads Calculation
+    const uint dataLength = 1u<<log2FFTSize;
     const uint halfDataLength = dataLength>>1u;
     const uint virtual_thread_count = halfDataLength>>_NBL_GLSL_WORKGROUP_SIZE_LOG2_;
 
@@ -115,17 +104,18 @@ void nbl_glsl_ext_FFT_preloaded(bool is_inverse, in uint dataLength)
 void nbl_glsl_ext_FFT(bool is_inverse, uint channel)
 {
     // Virtual Threads Calculation
-    const uint dataLength = nbl_glsl_ext_FFT_Parameters_t_getFFTLength();
-    const uint item_per_thread_count = dataLength>>_NBL_GLSL_WORKGROUP_SIZE_LOG2_;
+    const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+    const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
 
     // Load Values into local memory
     for(uint t=0u; t<item_per_thread_count; t++)
     {
         const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
-        nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getCoordinates(tid),channel);
+        const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+        nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
     }
     // do FFT
-    nbl_glsl_ext_FFT_preloaded(is_inverse,dataLength);
+    nbl_glsl_ext_FFT_preloaded(is_inverse,log2FFTSize);
     // write out to main memory
     for(uint t=0u; t<item_per_thread_count; t++)
     {

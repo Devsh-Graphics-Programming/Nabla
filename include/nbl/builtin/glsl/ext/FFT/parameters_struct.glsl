@@ -7,8 +7,9 @@
 
 struct nbl_glsl_ext_FFT_Parameters_t
 {
-    uvec4   dimension; // settings packed into the w component : (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
-    uvec4   padded_dimension; // num channels in the last channel (again the previous reasoning) 
+    uvec4   input_dimensions; // settings packed into the w component : (isInverse << 31u) | (direction_u3 << 28u) | (maxChannel_u2<<26u) | (fftSizeLog2_u5 << 3u) | paddingType_u3;
+    uvec4   input_strides;
+    uvec4   output_strides;
 };
 
 #endif
