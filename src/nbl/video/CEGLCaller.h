@@ -90,7 +90,7 @@ class CEGLCaller final : public system::DynamicFunctionCallerBase<impl::CEGLFunc
 #define NBL_IMPL_SWAP_EGL_FUNC_PTRS(...)\
     NBL_FOREACH(NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);
 
-    constexpr inline static const char* LibName = "libEGL";
+    constexpr inline static const char* LibName = "EGL"; //libEGL.so
 
 public:
     CEGLCaller() :
