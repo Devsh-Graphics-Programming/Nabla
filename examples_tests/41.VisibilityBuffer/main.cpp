@@ -24,23 +24,6 @@ R"(
 
 layout(location = 4) flat out uint drawID;
 
-#define _NBL_VG_DESCRIPTOR_SET 0
-
-#define _NBL_VG_FLOAT_BUFFERS
-#define _NBL_VG_FLOAT_BUFFERS_BINDING 0 
-//TODO: %u
-#define _NBL_VG_FLOAT_BUFFERS_COUNT 2
-
-//#define _NBL_VG_INT_BUFFERS
-//#define _NBL_VG_INT_BUFFERS_BINDING 1
-//#define _NBL_VG_INT_BUFFERS_COUNT 0
-
-#define _NBL_VG_UINT_BUFFERS
-#define _NBL_VG_UINT_BUFFERS_BINDING 2
-#define _NBL_VG_UINT_BUFFERS_COUNT 1
-
-#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>
-
 layout(set = 3, binding = 0) readonly buffer VirtualAttributes
 {
     nbl_glsl_VG_VirtualAttributePacked_t vAttr[][3];
@@ -302,7 +285,8 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
     mp.instantiateDataStorage();
     MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
     
-    const uint32_t offsetTableSz = mdiCntTotal * 3u;
+    constexpr uint32_t attribCntPerMeshBuffer = 3u;
+    const uint32_t offsetTableSz = mdiCntTotal * attribCntPerMeshBuffer;
     core::vector<MeshPacker::VirtualAttribute> offsetTableLocal;
     offsetTableLocal.reserve(offsetTableSz);
 
@@ -816,17 +800,22 @@ int main()
                 auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(newSource.c_str());
                 auto specinfo = _specShader->getSpecializationInfo();
 
+                std::cout << newSource << std::endl;
+
                 return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
             };
 
-            core::smart_refctd_ptr<ICPUSpecializedShader> vs = overrideShaderJustAfterVersionDirective(pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX),VERTEX_SHADER_OVERRIDES);
+            GPUMeshPacker mp = packMeshBuffers(driver, pipelineMeshBufferRanges, drawData);
+            
+            std::string vertPrelude = mp.getGLSLWithUTB();
+            vertPrelude += VERTEX_SHADER_OVERRIDES;
+            core::smart_refctd_ptr<ICPUSpecializedShader> vs = overrideShaderJustAfterVersionDirective(pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX),vertPrelude);
 
             std::string fragPrelude(strlen(FRAGMENT_SHADER_OVERRIDES)+500u,'\0');
             sprintf(fragPrelude.data(),FRAGMENT_SHADER_OVERRIDES,drawData.vt->getFloatViews().size(),drawData.vt->getGLSLFunctionsIncludePath().c_str());
             fragPrelude.resize(strlen(fragPrelude.c_str()));
             core::smart_refctd_ptr<ICPUSpecializedShader> fs = overrideShaderJustAfterVersionDirective(pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX),fragPrelude);
 
-            GPUMeshPacker mp = packMeshBuffers(driver, pipelineMeshBufferRanges, drawData);
             createPipeline(driver, vs.get(), fs.get(), pipelineMeshBufferRanges, drawData, mp);
         }
     }

@@ -29,6 +29,10 @@ protected:
         uint16_t floatArrayElementsCnt = 0u;
         uint16_t intArrayElementsCnt = 0u;
         uint16_t uintArrayElementsCnt = 0u;
+        bool isUintBufferUsed = false;
+        bool isUvec2BufferUsed = false;
+        bool isUvec3BufferUsed = false;
+        bool isUvec4BufferUsed = false;
 
         VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
         {
@@ -36,6 +40,11 @@ protected:
             floatArrayElementsCnt = other.floatArrayElementsCnt;
             intArrayElementsCnt = other.intArrayElementsCnt;
             uintArrayElementsCnt = other.uintArrayElementsCnt;
+
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
 
             return *this;
         }
@@ -47,9 +56,19 @@ protected:
             intArrayElementsCnt = other.intArrayElementsCnt;
             uintArrayElementsCnt = other.uintArrayElementsCnt;
 
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+
             other.floatArrayElementsCnt = 0u;
             other.intArrayElementsCnt = 0u;
             other.uintArrayElementsCnt = 0u;
+
+            other.isUintBufferUsed = false;
+            other.isUvec2BufferUsed = false;
+            other.isUvec3BufferUsed = false;
+            other.isUvec4BufferUsed = false;
 
             return *this;
         }
@@ -86,6 +105,22 @@ protected:
             }
 
             map.insert(std::make_pair(format, std::make_pair(utbArrayType, arrayElement)));
+
+            switch (format)
+            {
+            case E_FORMAT::EF_R32G32B32_SFLOAT:
+                isUvec3BufferUsed = true;
+                break;
+            case E_FORMAT::EF_R32G32_SFLOAT:
+                isUvec2BufferUsed = true;
+                break;
+            case E_FORMAT::EF_A2B10G10R10_SNORM_PACK32:
+                isUintBufferUsed = true;
+                break;
+            default:
+                assert(false);
+                return true; //tmp
+            }
 
             return true;
         }
@@ -237,6 +272,70 @@ public:
     inline uint32_t getFloatBufferBindingsCnt() { return m_virtualAttribConfig.floatArrayElementsCnt;  } //TODO: better names?
     inline uint32_t getIntBufferBindingsCnt() { return m_virtualAttribConfig.intArrayElementsCnt; }
     inline uint32_t getUintBufferBindingsCnt() { return m_virtualAttribConfig.uintArrayElementsCnt; }
+
+    std::string getGLSLWithUTB(uint32_t descriptorSet = 0u, uint32_t floatArrayBinding = 0u, uint32_t intArrayBinding = 1u, uint32_t uintArrayBinding = 2u)
+    {
+        std::string result = "#define _NBL_VG_DESCRIPTOR_SET " + std::to_string(descriptorSet) + '\n';
+
+        if (getFloatBufferBindingsCnt())
+        {
+            result += "#define _NBL_VG_FLOAT_BUFFERS\n";
+            result += "#define _NBL_VG_FLOAT_BUFFERS_BINDING " + std::to_string(floatArrayBinding) + '\n';
+            result += "#define _NBL_VG_FLOAT_BUFFERS_COUNT " + std::to_string(getFloatBufferBindingsCnt()) + '\n';
+        }
+
+        if (getIntBufferBindingsCnt())
+        {
+            result += "#define _NBL_VG_INT_BUFFERS\n";
+            result += "#define _NBL_VG_INT_BUFFERS_BINDING " + std::to_string(intArrayBinding) + '\n';
+            result += "#define _NBL_VG_INT_BUFFERS_COUNT " + std::to_string(getFloatBufferBindingsCnt()) + '\n';
+        }
+
+        if(getUintBufferBindingsCnt())
+        {
+            result += "#define _NBL_VG_UINT_BUFFERS\n";
+            result += "#define _NBL_VG_UINT_BUFFERS_BINDING " + std::to_string(uintArrayBinding) + '\n';
+            result += "#define _NBL_VG_UINT_BUFFERS_COUNT " + std::to_string(getUintBufferBindingsCnt()) + '\n';
+        }
+
+        result += "#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>\n";
+
+        return result;
+    }
+
+    std::string getGLSLWithSSBO(uint32_t descriptorSet = 0u, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 2u)
+    {
+        std::string result = "#define _NBL_VG_USE_SSBO\n";
+        result += "#define _NBL_VG_SSBO_DESCRIPTOR_SET " + std::to_string(descriptorSet) + '\n';
+
+        if (m_virtualAttribConfig.isUintBufferUsed)
+        {
+            result += "#define _NBL_VG_USE_SSBO_UINT\n";
+            result += "#define _NBL_VG_SSBO_UINT_BINDING " + std::to_string(uintBufferBinding) + '\n';
+        }
+            
+        if (m_virtualAttribConfig.isUvec2BufferUsed)
+        {
+            result += "#define _NBL_VG_USE_SSBO_UVEC2\n";
+            result += "#define _NBL_VG_SSBO_UVEC2_BINDING " + std::to_string(uvec2BufferBinding) + '\n';
+        }
+
+        if (m_virtualAttribConfig.isUvec3BufferUsed)
+        {
+            result += "#define _NBL_VG_USE_SSBO_UVEC3\n";
+            result += "#define _NBL_VG_SSBO_UVEC3_BINDING " + std::to_string(uvec3BufferBinding) + '\n';
+        }
+
+        if (m_virtualAttribConfig.isUvec4BufferUsed)
+        {
+            result += "#define _NBL_VG_USE_SSBO_UVEC4\n";
+            result += "#define _NBL_VG_SSBO_UVEC4_BINDING " + std::to_string(uvec4BufferBinding) + '\n';
+        }
+
+        result += "#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>\n";
+
+        return result;
+    }
 
 protected:
 	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
