@@ -7,6 +7,11 @@ namespace video
 
     COpenGLCommandBuffer::~COpenGLCommandBuffer()
     {
+        freeSpaceInCmdPool();
+    }
+
+    void COpenGLCommandBuffer::freeSpaceInCmdPool()
+    {
         auto* pool = getGLCommandPool();
         for (auto& cmd : m_commands)
         {
@@ -60,12 +65,6 @@ namespace video
                 pool->free_n<asset::VkRect2D>(c.scissors, c.scissorCount);
             }
             break;
-            case impl::ECT_WAIT_EVENTS:
-            {
-                auto& c = cmd.get<impl::ECT_WAIT_EVENTS>();
-                pool->free_n<core::smart_refctd_ptr<event_t>>(c.events, c.eventCount);
-            }
-            break;
             case impl::ECT_CLEAR_COLOR_IMAGE:
             {
                 auto& c = cmd.get<impl::ECT_CLEAR_COLOR_IMAGE>();
@@ -94,6 +93,18 @@ namespace video
             default: break; // other commands dont use cmd pool
             }
         }
+    }
+
+    bool COpenGLCommandBuffer::reset(uint32_t _flags)
+    {
+        if (!(m_cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+            return false;
+
+        freeSpaceInCmdPool();
+        m_commands.clear();
+        IGPUCommandBuffer::reset(_flags);
+
+        return true;
     }
 
     void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
@@ -737,19 +748,21 @@ namespace video
             case impl::ECT_SET_EVENT:
             {
                 auto& c = cmd.get<impl::ECT_SET_EVENT>();
-                // TODO
+                //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
+                // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
+                gl->glSync.pglMemoryBarrier(c.barrierBits);
             }
             break;
             case impl::ECT_RESET_EVENT:
             {
                 auto& c = cmd.get<impl::ECT_RESET_EVENT>();
-                // TODO
+                // currently no-op
             }
             break;
             case impl::ECT_WAIT_EVENTS:
             {
                 auto& c = cmd.get<impl::ECT_WAIT_EVENTS>();
-                // TODO
+                gl->glSync.pglMemoryBarrier(c.barrier);
             }
             break;
             case impl::ECT_PIPELINE_BARRIER:
@@ -959,6 +972,14 @@ namespace video
                 auto& c = cmd.get<impl::ECT_EXECUTE_COMMANDS>();
 
                 static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, ctxlocal, ctxid);
+            }
+            break;
+            case impl::ECT_REGENERATE_MIPMAPS:
+            {
+                auto& c = cmd.get<impl::ECT_REGENERATE_MIPMAPS>();
+                auto* glimgview = static_cast<COpenGLImageView*>(c.imgview.get());
+
+                gl->extGlGenerateTextureMipmap(glimgview->getOpenGLName(), glimgview->getOpenGLTarget());
             }
             break;
             }

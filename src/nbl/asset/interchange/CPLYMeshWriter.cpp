@@ -78,12 +78,52 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
 
     auto meshbuffers = mesh->getMeshBuffers();
-	if (!file || !mesh || meshbuffers.size() > 1)
+	if (!file || !mesh)
 		return false;
+    
+    if (meshbuffers.size() > 1)
+    {
+        #ifdef  _NBL_DEBUG
+        os::Printer::log("PLY WRITER WARNING (" + std::to_string(__LINE__) + " line): Only one meshbuffer input is allowed for writing! Saving first one", ELL_WARNING);
+        #endif // _NBL_DEBUG
+    }
 
 	os::Printer::log("Writing mesh", file->getFileName().c_str());
 
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
+
+    auto getConvertedCpuMeshBufferWithIndexBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUMeshBuffer>
+    {
+        auto inputMeshBuffer = *meshbuffers.begin();
+        bool doesItHaveIndexBuffer = inputMeshBuffer->getIndexBufferBinding().buffer.get(), isItNotTriangleListsPrimitive = inputMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType != asset::EPT_TRIANGLE_LIST;
+        
+        if (doesItHaveIndexBuffer && isItNotTriangleListsPrimitive)
+        {
+            auto cpuConvertedMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMeshBuffer>(inputMeshBuffer->clone());
+            IMeshManipulator::homogenizePrimitiveTypeAndIndices(&cpuConvertedMeshBuffer, &cpuConvertedMeshBuffer + 1, asset::EPT_TRIANGLE_LIST, asset::EIT_32BIT);
+            return cpuConvertedMeshBuffer;
+        }
+        else
+            return nullptr;
+    };
+
+    const auto cpuConvertedMeshBufferWithIndexBuffer = getConvertedCpuMeshBufferWithIndexBuffer();
+    const asset::ICPUMeshBuffer* rawCopyMeshBuffer = cpuConvertedMeshBufferWithIndexBuffer.get() ? cpuConvertedMeshBufferWithIndexBuffer.get() : *meshbuffers.begin();
+    const bool doesItUseIndexBufferBinding = (rawCopyMeshBuffer->getIndexBufferBinding().buffer.get() && rawCopyMeshBuffer->getIndexType() != asset::EIT_UNKNOWN);
+
+    uint32_t faceCount = {}; 
+    size_t vertexCount = {};
+
+    void* indices = nullptr;
+    {
+        auto indexCount = rawCopyMeshBuffer->getIndexCount();
+
+        indices = _NBL_ALIGNED_MALLOC(indexCount * sizeof(uint32_t), _NBL_SIMD_ALIGNMENT);
+        memcpy(indices, rawCopyMeshBuffer->getIndices(), indexCount * sizeof(uint32_t));
+        
+        IMeshManipulator::getPolyCount(faceCount, rawCopyMeshBuffer);
+        vertexCount = IMeshManipulator::upperBoundVertexID(rawCopyMeshBuffer);
+    }
 
 	// write PLY header
     std::string header = "ply\n";
@@ -91,21 +131,20 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 	header += "\ncomment IrrlichtBAW ";
 	header +=  NABLA_SDK_VERSION;
 
-    auto meshBuffer = *meshbuffers.begin();
-	// get vertex and triangle counts
-	size_t vtxCount = IMeshManipulator::upperBoundVertexID(meshBuffer);
-    size_t faceCount = meshBuffer->getIndexCount() / 3;
-
 	// vertex definition
 	header += "\nelement vertex ";
-	header += std::to_string(vtxCount) + '\n';
+	header += std::to_string(vertexCount) + '\n';
 
     bool vaidToWrite[4]{ 0, 0, 0, 0 };
-    auto mbPipeline = meshBuffer->getPipeline();
 
-    if (meshBuffer->getAttribBoundBuffer(0).buffer)
+    const uint32_t POSITION_ATTRIBUTE = rawCopyMeshBuffer->getPositionAttributeIx();
+    constexpr uint32_t COLOR_ATTRIBUTE = 1;
+    constexpr uint32_t UV_ATTRIBUTE = 2;
+    const uint32_t NORMAL_ATTRIBUTE = rawCopyMeshBuffer->getNormalAttributeIx();
+
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(POSITION_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = meshBuffer->getAttribFormat(0);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(POSITION_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[0] = true;
         header +=
@@ -113,9 +152,9 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             "property " + typeStr + " y\n" +
             "property " + typeStr + " z\n";
     }
-    if (meshBuffer->getAttribBoundBuffer(1).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(COLOR_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = meshBuffer->getAttribFormat(1);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(COLOR_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[1] = true;
         header +=
@@ -127,98 +166,64 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             header += "property " + typeStr + " alpha\n";
         }
     }
-    if (meshBuffer->getAttribBoundBuffer(2).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(UV_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = meshBuffer->getAttribFormat(2);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(UV_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[2] = true;
         header +=
             "property " + typeStr + " u\n" +
             "property " + typeStr + " v\n";
     }
-    if (meshBuffer->getAttribBoundBuffer(3).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(NORMAL_ATTRIBUTE).buffer)
     {
-        const asset::E_FORMAT t = meshBuffer->getAttribFormat(3);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(NORMAL_ATTRIBUTE);
         std::string typeStr = getTypeString(t);
         vaidToWrite[3] = true;
         header +=
             "property " + typeStr + " nx\n" +
             "property " + typeStr + " ny\n" +
             "property " + typeStr + " nz\n";
-    }
-  
-    void* indices = nullptr;
-    bool needToFreeIndices = false;
-
-    const void* ind = meshBuffer->getIndices();
-    auto idxCnt = meshBuffer->getIndexCount();  // when you convert triangle Fan or triangle strip to triangle list, the index count changes, and thats what you should derive your face count from
-    const auto idxtype = meshBuffer->getIndexType();
-    const auto primitiveT = mbPipeline->getPrimitiveAssemblyParams().primitiveType;
-
-    if (meshBuffer->getIndexBufferBinding().buffer && primitiveT != asset::EPT_TRIANGLE_LIST)
-    {
-        if (primitiveT == asset::EPT_TRIANGLE_FAN || primitiveT == asset::EPT_TRIANGLE_STRIP)
-        {
-			core::smart_refctd_ptr<ICPUBuffer> buf;
-            if (primitiveT == asset::EPT_TRIANGLE_FAN)
-            {
-                buf = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(ind, idxCnt, idxtype, idxtype);
-            }
-            else if (primitiveT == asset::EPT_TRIANGLE_STRIP)
-            {
-                buf = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(ind, idxCnt, idxtype, idxtype);
-            }
-            needToFreeIndices = true;
-            faceCount = buf->getSize() / (idxtype == asset::EIT_16BIT ? 2u : 4u) / 3u;
-            indices = _NBL_ALIGNED_MALLOC(buf->getSize(),_NBL_SIMD_ALIGNMENT);
-            memcpy(indices, buf->getPointer(), buf->getSize());
-        }
-    }
-    else {
-        indices = _NBL_ALIGNED_MALLOC(idxCnt * (idxtype == asset::EIT_16BIT ? 2u : 4u), _NBL_SIMD_ALIGNMENT);
-        memcpy(indices, meshBuffer->getIndices(), idxCnt * (idxtype == asset::EIT_16BIT ? 2u : 4u));
-    }
+    }    
 
     asset::E_INDEX_TYPE idxT = asset::EIT_UNKNOWN;
     bool forceFaces = false;
-    if (primitiveT == asset::EPT_POINT_LIST)
-    {
+
+    const auto primitiveType = rawCopyMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
+    const auto indexType = rawCopyMeshBuffer->getIndexType();
+  
+    if (primitiveType == asset::EPT_POINT_LIST)
         faceCount = 0u;
-    }
-    else if (indices && idxtype != asset::EIT_UNKNOWN)
+    else if (doesItUseIndexBufferBinding)
     {
         header += "element face ";
         header += std::to_string(faceCount) + '\n';
-        idxT = idxtype;
+        idxT = indexType;
         const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
         header += "property list uchar " + idxTypeStr + " vertex_indices\n";
     }
-    else if (primitiveT == asset::EPT_TRIANGLE_LIST)
+    else if (primitiveType == asset::EPT_TRIANGLE_LIST)
     {
-        faceCount = vtxCount THIS IS ABSOLUTELY 100% WRONG / 3; // TODO: THIS IS WRONG
         forceFaces = true;
 
         header += "element face ";
         header += std::to_string(faceCount) + '\n';
-        idxT = vtxCount <= ((1u<<16) - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
+        idxT = vertexCount <= ((1u<<16) - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
         const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
         header += "property list uchar " + idxTypeStr + " vertex_indices\n";
     }
     else
-    {
         faceCount = 0u;
-    }
     header += "end_header\n";
 
     file->write(header.c_str(), header.size());
 
     if (flags & asset::EWF_BINARY)
-        writeBinary(file, meshBuffer, vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
+        writeBinary(file, rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
     else
-        writeText(file, meshBuffer, vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
+        writeText(file, rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
 
-    if (needToFreeIndices)
-        _NBL_ALIGNED_FREE(const_cast<void*>(indices));
+    _NBL_ALIGNED_FREE(const_cast<void*>(indices));
 
 	return true;
 }

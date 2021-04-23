@@ -313,11 +313,11 @@ public:
 				glTexture.pglActiveTexture(GL_TEXTURE0 + unit);
 
 				if (texture)
-					glBindTexture(targets[i], texture);
+					glTexture.pglBindTexture(targets[i], texture);
 				else
 				{
 					for (size_t j = 0; j < sizeof(supportedTargets) / sizeof(GLenum); j++)
-						glBindTexture(supportedTargets[j], 0);
+						glTexture.pglBindTexture(supportedTargets[j], 0);
 				}
 			}
 

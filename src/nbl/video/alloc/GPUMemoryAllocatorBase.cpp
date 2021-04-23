@@ -12,5 +12,6 @@ using namespace video;
 
 void            GPUMemoryAllocatorBase::copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen)
 {
-    mDriver->copyBuffer(oldBuffer,newBuffer,oldOffset,newOffset,copyRangeLen);
+    // TODO
+    //mDriver->copyBuffer(oldBuffer,newBuffer,oldOffset,newOffset,copyRangeLen);
 }

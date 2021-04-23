@@ -98,6 +98,7 @@ struct SClearRect
 template <
     typename BufferType, 
     typename ImageType, 
+    typename ImageViewType,
     typename RenderpassType, 
     typename FramebufferType, 
     typename GraphicsPipelineType, 
@@ -112,6 +113,7 @@ class ICommandBuffer
 protected:
     using buffer_t = BufferType;
     using image_t = ImageType;
+    using image_view_t = ImageViewType;
     using renderpass_t = RenderpassType;
     using framebuffer_t = FramebufferType;
     using graphics_pipeline_t = GraphicsPipelineType;
@@ -178,8 +180,20 @@ public:
         uint32_t clearValueCount;
         const SClearValue* clearValues;
     };
+    struct SDependencyInfo
+    {
+        E_DEPENDENCY_FLAGS dependencyFlags;
+        uint32_t memBarrierCount;
+        const SMemoryBarrier* memBarriers;
+        uint32_t bufBarrierCount;
+        const SBufferMemoryBarrier* bufBarriers;
+        uint32_t imgBarrierCount;
+        const SImageMemoryBarrier* imgBarriers;
+    };
 
     E_LEVEL getLevel() const { return m_level; }
+
+    // hm now i think having begin(), reset() and end() as command buffer API is a little weird
 
     //! `_flags` takes bits from E_USAGE
     virtual void begin(uint32_t _flags)
@@ -192,10 +206,13 @@ public:
     }
 
     //! `_flags` takes bits from E_RESET_FLAGS
-    virtual void reset(uint32_t _flags)
+    virtual bool reset(uint32_t _flags)
     {
-        assert(m_state!=ES_PENDING);
+        if (m_state==ES_PENDING);
+            return false;
         m_state = ES_INITIAL;
+
+        return true;
     }
 
     virtual void end()
@@ -236,14 +253,10 @@ public:
     virtual bool dispatchIndirect(buffer_t* buffer, size_t offset) = 0;
     virtual bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) = 0;
 
-    virtual bool setEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
+    virtual bool setEvent(event_t* event, const SDependencyInfo& depInfo) = 0;
     virtual bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
 
-    virtual bool waitEvents(uint32_t eventCount, event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        uint32_t memoryBarrierCount, const SMemoryBarrier* pMemoryBarriers,
-        uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
-        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
-    ) = 0;
+    virtual bool waitEvents(uint32_t eventCount, event_t** pEvents, const SDependencyInfo* depInfos) = 0;
 
     virtual bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<E_DEPENDENCY_FLAGS> dependencyFlags,
@@ -288,6 +301,8 @@ public:
         }
         return true;
     }
+
+    virtual bool regenerateMipmaps(image_view_t* imgview) = 0;
 
 protected:
     ICommandBuffer(E_LEVEL lvl) : m_level(lvl) {}

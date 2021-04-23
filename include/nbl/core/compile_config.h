@@ -17,10 +17,12 @@
 
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
 
+//#define _NBL_TEST_WAYLAND
+
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
-#if defined(_NBL_PLATFORM_LINUX_)
+#if defined(_NBL_PLATFORM_LINUX_)// || defined(_NBL_PLATFORM_LINUX_)
 #   define _NBL_POSIX_API_
 #endif
 

@@ -15,11 +15,11 @@ namespace asset
 {
 
 //! Meshloader capable of loading STL meshes.
-class CSTLMeshFileLoader final : public IAssetLoader
+class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 {
 	public:
 
-		CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr) : m_assetMgr(_m_assetMgr) {}
+		CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr);
 
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
@@ -34,6 +34,10 @@ class CSTLMeshFileLoader final : public IAssetLoader
 		uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
 
 	private:
+
+		virtual void initialize() override;
+
+		const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
 
 		// skips to the first non-space character available
 		void goNextWord(io::IReadFile* file) const;

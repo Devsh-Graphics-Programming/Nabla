@@ -1,6 +1,7 @@
 #ifndef __NBL_C_EGL_H_INCLUDED__
 #define __NBL_C_EGL_H_INCLUDED__
 
+//#include "nbl/video/CWaylandCaller.h"
 #include "nbl/video/CEGLCaller.h"
 
 namespace nbl {
@@ -32,6 +33,12 @@ public:
 
     CEGLCaller call;
     EGLDisplay display = EGL_NO_DISPLAY;
+    /*
+#ifdef _NBL_BUILD_WITH_WAYLAND
+    CWaylandCaller wlcall;
+    struct wl_display* wldisplay = NULL;
+#endif
+    */
 };
 
 }

@@ -8,15 +8,6 @@
 
 #include "nbl/asset/filters/kernels/IImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CommonImageFilterKernels.h"
-#include "nbl/asset/filters/kernels/CBoxImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CTriangleImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CGaussianImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CKaiserImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CMitchellImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CScaledImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CConvolutionImageFilterKernel.h"
 
 namespace nbl
 {
@@ -95,6 +86,16 @@ inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t
 
 } // end namespace asset
 } // end namespace nbl
+
+#include "nbl/asset/filters/kernels/CBoxImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CTriangleImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CGaussianImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CKaiserImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CMitchellImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CScaledImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CConvolutionImageFilterKernel.h"
 
 
 #endif

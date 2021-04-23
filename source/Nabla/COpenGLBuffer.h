@@ -22,7 +22,12 @@ namespace video
 class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 {
     protected:
-        virtual ~COpenGLBuffer();
+        virtual ~COpenGLBuffer()
+        {
+            destroyGLBufferObjectWrapper();
+        }
+
+        void destroyGLBufferObjectWrapper();
 
     public:
         COpenGLBuffer(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(dev, mreqs), BufferName(0), cachedFlags(0)
@@ -46,6 +51,8 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         //!
         inline const GLuint& getOpenGLName() const {return BufferName;}
 
+        //!
+        inline GLbitfield getOpenGLStorageFlags() const { return cachedFlags; }
 
         //!
         inline bool canUpdateSubRange() const override {return cachedFlags&IOpenGL_FunctionTable::DYNAMIC_STORAGE_BIT;}
@@ -80,107 +87,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         inline bool isDedicated() const override { return true; }
-
-        //!
-        /*
-        inline void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const MemoryRange& memrange) override
-        {
-        #ifdef _DEBUG
-            assert(!mappedPtr&&accessType!=EMCAF_NO_MAPPING_ACCESS&&BufferName);
-            assert(accessType);
-        #endif // _DEBUG
-
-            GLbitfield flags = GL_MAP_PERSISTENT_BIT|(accessType&static_cast<GLbitfield>(GL_MAP_READ_BIT) ? GL_MAP_READ_BIT:0u);
-            if (cachedFlags&GL_MAP_COHERENT_BIT)
-            {
-                flags |= GL_MAP_COHERENT_BIT|((accessType&EMCAF_WRITE) ? GL_MAP_WRITE_BIT:0u);
-            }
-            else if (accessType&EMCAF_WRITE)
-            {
-                flags |= GL_MAP_FLUSH_EXPLICIT_BIT|GL_MAP_WRITE_BIT;
-            }
-        #ifdef _DEBUG
-            assert(((flags&(~cachedFlags))&(GL_MAP_READ_BIT|GL_MAP_WRITE_BIT))==0u);
-        #endif // _DEBUG
-            mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,memrange.offset,memrange.length,flags))-memrange.offset;
-            mappedRange = memrange;
-            bool canRead = flags&static_cast<GLbitfield>(GL_MAP_READ_BIT);
-            bool canWrite = flags&static_cast<GLbitfield>(GL_MAP_WRITE_BIT);
-            currentMappingAccess = static_cast<E_MAPPING_CPU_ACCESS_FLAG>((canRead ? static_cast<uint32_t>(EMCAF_READ):0u)|(canWrite ? static_cast<uint32_t>(EMCAF_WRITE):0u));
-            return mappedPtr;
-        }
-        */
-
-        //!
-        /*
-        inline void unmapMemory() override
-        {
-        #ifdef _DEBUG
-            assert(mappedPtr&&BufferName);
-        #endif // _DEBUG
-            COpenGLExtensionHandler::extGlUnmapNamedBuffer(BufferName);
-            mappedPtr = nullptr;
-            mappedRange = MemoryRange(0,0);
-            currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
-        }
-        */
-
-        // TODO this whole method
-        inline bool pseudoMoveAssign(IGPUBuffer* other) override
-        {
-            COpenGLBuffer* otherAsGL = static_cast<COpenGLBuffer*>(other);
-            if (!otherAsGL || otherAsGL == this || otherAsGL->cachedFlags != cachedFlags || otherAsGL->BufferName == 0)
-                return false;
-
-#ifdef _DEBUG
-            if (otherAsGL->getReferenceCount() != 1)
-                os::Printer::log("What are you doing!? You should only swap internals with an IGPUBuffer that is unused yet!", ELL_ERROR);
-#endif // _DEBUG
-
-#ifdef OPENGL_LEAK_DEBUG
-            assert(otherAsGL->concurrentAccessGuard == 0);
-            FW_AtomicCounterIncr(otherAsGL->concurrentAccessGuard);
-            assert(concurrentAccessGuard == 0);
-            FW_AtomicCounterIncr(concurrentAccessGuard);
-#endif // OPENGL_LEAK_DEBUG
-
-            assert(false);
-            // TODO
-            //if (BufferName)
-            //    COpenGLExtensionHandler::extGlDeleteBuffers(1, &BufferName);
-
-            cachedMemoryReqs = otherAsGL->cachedMemoryReqs;
-
-            //mappedPtr = otherAsGL->mappedPtr;
-            //mappedRange = otherAsGL->mappedRange;
-            currentMappingAccess = otherAsGL->currentMappingAccess;
-
-            cachedFlags = otherAsGL->cachedFlags;
-            BufferName = otherAsGL->BufferName;
-
-            lastTimeReallocated = s_reallocCounter++;
-
-
-            otherAsGL->cachedMemoryReqs = { {0,0,0},0,0,0,0 };
-
-            //otherAsGL->mappedPtr = nullptr;
-            //otherAsGL->mappedRange = MemoryRange(0, 0);
-            otherAsGL->currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
-
-            otherAsGL->cachedFlags = 0;
-            otherAsGL->BufferName = 0;
-
-            otherAsGL->lastTimeReallocated = s_reallocCounter++;
-
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard == 1);
-            FW_AtomicCounterDecr(concurrentAccessGuard);
-            assert(otherAsGL->concurrentAccessGuard == 1);
-            FW_AtomicCounterDecr(otherAsGL->concurrentAccessGuard);
-#endif // OPENGL_LEAK_DEBUG
-
-            return true;
-        }
 
     protected:
         static std::atomic_uint32_t s_reallocCounter;

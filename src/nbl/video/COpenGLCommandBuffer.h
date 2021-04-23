@@ -78,7 +78,8 @@ namespace impl
     ECT_CLEAR_ATTACHMENTS,\
     ECT_FILL_BUFFER,\
     ECT_UPDATE_BUFFER,\
-    ECT_EXECUTE_COMMANDS
+    ECT_EXECUTE_COMMANDS,\
+    ECT_REGENERATE_MIPMAPS
 
     enum E_COMMAND_TYPE
     {
@@ -252,7 +253,7 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_EVENT)
     {
         core::smart_refctd_ptr<IGPUEvent> event;
-        asset::E_PIPELINE_STAGE_FLAGS stageMask;
+        GLbitfield barrierBits;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_RESET_EVENT)
     {
@@ -261,8 +262,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_WAIT_EVENTS)
     {
-        uint32_t eventCount;
-        core::smart_refctd_ptr<IGPUEvent>* events;
+        core::smart_refctd_ptr<IGPUEvent> event;
         GLbitfield barrier;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_PIPELINE_BARRIER)
@@ -391,6 +391,10 @@ namespace impl
     {
         core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf; // secondary!!!
     };
+    _NBL_DEFINE_SCMD_SPEC(ECT_REGENERATE_MIPMAPS)
+    {
+        core::smart_refctd_ptr<IGPUImageView> imgview;
+    };
 
 #undef _NBL_DEFINE_SCMD_SPEC
 } //namespace impl
@@ -398,6 +402,8 @@ namespace impl
 class COpenGLCommandBuffer final : public IGPUCommandBuffer
 {
 protected:
+    void freeSpaceInCmdPool();
+
     ~COpenGLCommandBuffer();
 
     template <impl::E_COMMAND_TYPE ECT>
@@ -508,6 +514,8 @@ public:
 
 
     COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
+
+    bool reset(uint32_t _flags) override final;
 
 
     bool bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
@@ -825,13 +833,13 @@ public:
         return true;
     }
 
-    bool setEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
+    bool setEvent(event_t* event, const SDependencyInfo& depInfo) override
     {
         if (!this->isCompatibleDevicewise(event))
             return false;
         SCmd<impl::ECT_SET_EVENT> cmd;
         cmd.event = core::smart_refctd_ptr<event_t>(event);
-        cmd.stageMask = stageMask;
+        cmd.barrierBits = barriersToMemBarrierBits(depInfo.memBarrierCount, depInfo.memBarriers, depInfo.bufBarrierCount, depInfo.bufBarriers, depInfo.imgBarrierCount, depInfo.imgBarriers);
         pushCommand(std::move(cmd));
         return true;
     }
@@ -846,27 +854,21 @@ public:
         return true;
     }
 
-    bool waitEvents(uint32_t eventCount, event_t** pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
-        uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
-        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
-    ) override
+    bool waitEvents(uint32_t eventCount, event_t** pEvents, const SDependencyInfo* depInfos) override
     {
+        if (eventCount == 0u)
+            return false;
         for (uint32_t i = 0u; i < eventCount; ++i)
             if (!this->isCompatibleDevicewise(pEvents[i]))
                 return false;
-        if (eventCount == 0u)
-            return false;
-        SCmd<impl::ECT_WAIT_EVENTS> cmd;
-        cmd.eventCount = eventCount;
-        auto* events = getGLCommandPool()->emplace_n<core::smart_refctd_ptr<event_t>>(eventCount);
-        if (!events)
-            return false;
         for (uint32_t i = 0u; i < eventCount; ++i)
-            events[i] = core::smart_refctd_ptr<event_t>(pEvents[i]);
-        cmd.events = events;
-        cmd.barrier = barriersToMemBarrierBits(memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
-        pushCommand(std::move(cmd));
+        {
+            SCmd<impl::ECT_WAIT_EVENTS> cmd;
+            cmd.event = core::smart_refctd_ptr<event_t>(pEvents[i]);
+            auto& dep = depInfos[i];
+            cmd.barrier = barriersToMemBarrierBits(dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
+            pushCommand(std::move(cmd));
+        }
         return true;
     }
 
@@ -1073,6 +1075,15 @@ public:
 
             pushCommand(std::move(cmd));
         }
+        return true;
+    }
+    bool regenerateMipmaps(image_view_t* imgview) override
+    {
+        SCmd<impl::ECT_REGENERATE_MIPMAPS> cmd;
+        cmd.imgview = core::smart_refctd_ptr<image_view_t>(imgview);
+
+        pushCommand(std::move(cmd));
+
         return true;
     }
 };

@@ -465,7 +465,8 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt*sizeof(CylinderVertex));
 
     CylinderVertex* vertices = reinterpret_cast<CylinderVertex*>(vtxBuf->getPointer());
-    std::fill(vertices, vertices + vtxCnt, CylinderVertex());
+	for (auto i=0ull; i<vtxCnt; i++)
+		vertices[i] = CylinderVertex();
 
     const uint32_t halfIx = tesselation;
 
@@ -528,7 +529,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 	ConeVertex* baseVertices = vertices;
 	ConeVertex* apexVertices = vertices + tesselation;
 
-    std::fill(vertices,vertices+vtxCnt, ConeVertex(core::vectorSIMDf(0.f),core::vectorSIMDu32(0u),colorBottom));
+    std::fill(vertices,vertices+vtxCnt, ConeVertex(core::vectorSIMDf(0.f),{},colorBottom));
 	CQuantNormalCache* const quantNormalCache = (meshManipulatorOverride == nullptr) ? defaultMeshManipulator->getQuantNormalCache() : meshManipulatorOverride->getQuantNormalCache();
 
     const float step = (2.f*core::PI<float>()) / tesselation;

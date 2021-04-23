@@ -41,6 +41,7 @@ class CMeshManipulator : public IMeshManipulator
 		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer);
 
 		CQuantNormalCache* getQuantNormalCache() override { return &quantNormalCache; }
+		CQuantQuaternionCache* getQuantQuaternionCache() override { return &quantQuaternionCache; }
 
 	private:
 		friend class IMeshManipulator;
@@ -49,7 +50,7 @@ class CMeshManipulator : public IMeshManipulator
 		static void _filterInvalidTriangles(ICPUMeshBuffer* _input);
 
 		//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
-		static inline core::smart_refctd_ptr<ICPUBuffer> create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, uint32_t _idxCount)
 		{
 			if (!_in)
 				return nullptr;
@@ -58,7 +59,7 @@ class CMeshManipulator : public IMeshManipulator
 
 			auto* outPtr = reinterpret_cast<uint32_t*>(out->getPointer());
 
-			for (size_t i = 0; i < _idxCount; ++i)
+			for (uint32_t i=0u; i<_idxCount; ++i)
 				outPtr[i] = _in[i];
 
 			return out;
@@ -81,14 +82,14 @@ class CMeshManipulator : public IMeshManipulator
 		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
 
 		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> lineStripsToLines(const void* _input, size_t& _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> lineStripsToLines(const void* _input, uint32_t& _idxCount)
 		{
-			const size_t outputSize = _idxCount = (_idxCount - 1) * 2;
+			const auto outputSize = _idxCount = (_idxCount - 1) * 2;
 			
 			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
 			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
-			for (size_t i = 0, j = 0; i < outputSize;)
+			for (uint32_t i = 0, j = 0; i < outputSize;)
 			{
 				optr[i++] = iptr[j++];
 				optr[i++] = iptr[j];
@@ -97,14 +98,14 @@ class CMeshManipulator : public IMeshManipulator
 		}
 
 		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, size_t& _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, uint32_t& _idxCount)
 		{
-			const size_t outputSize = _idxCount = (_idxCount - 2) * 3;
+			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
 			
 			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
 			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
-			for (size_t i = 0, j = 0; i < outputSize; j += 2)
+			for (uint32_t i = 0, j = 0; i < outputSize; j += 2)
 			{
 				optr[i++] = iptr[j + 0];
 				optr[i++] = iptr[j + 1];
@@ -119,14 +120,14 @@ class CMeshManipulator : public IMeshManipulator
 		}
 
 		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, size_t& _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, uint32_t& _idxCount)
 		{
-			const size_t outputSize = _idxCount = (_idxCount - 2) * 3;
+			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
 
 			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
 			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
-			for (size_t i = 0, j = 1; i < outputSize;)
+			for (uint32_t i = 0, j = 1; i < outputSize;)
 			{
 				optr[i++] = iptr[0];
 				optr[i++] = iptr[j++];
@@ -135,8 +136,9 @@ class CMeshManipulator : public IMeshManipulator
 			return output;
 		}
 
-	private:
-			CQuantNormalCache quantNormalCache;
+	private:	
+		CQuantNormalCache quantNormalCache;
+		CQuantQuaternionCache quantQuaternionCache;
 };
 
 } // end namespace scene

@@ -44,7 +44,6 @@ class COpenGL_Queue final : public IGPUQueue
         enum E_REQUEST_TYPE
         {
             ERT_SUBMIT,
-            ERT_SIGNAL_FENCE,
             ERT_DESTROY_FRAMEBUFFER,
             ERT_DESTROY_PIPELINE
         };
@@ -62,10 +61,8 @@ class COpenGL_Queue final : public IGPUQueue
             core::smart_refctd_ptr<IGPUSemaphore>* pSignalSemaphores = nullptr;
             uint32_t commandBufferCount = 0u;
             core::smart_refctd_ptr<IGPUCommandBuffer>* commandBuffers = nullptr;
-        };
-        struct SRequestParams_Fence : SRequestParamsBase<ERT_SIGNAL_FENCE>
-        {
-            core::smart_refctd_ptr<COpenGLFence> fence;
+
+            core::smart_refctd_ptr<COpenGLSync> syncToInit;
         };
         struct SRequestParams_DestroyFramebuffer : SRequestParamsBase<ERT_DESTROY_FRAMEBUFFER>
         {
@@ -79,7 +76,7 @@ class COpenGL_Queue final : public IGPUQueue
         {
             E_REQUEST_TYPE type;
 
-            std::variant<SRequestParams_Submit, SRequestParams_Fence, SRequestParams_DestroyFramebuffer, SRequestParams_DestroyPipeline> params;
+            std::variant<SRequestParams_Submit, SRequestParams_DestroyFramebuffer, SRequestParams_DestroyPipeline> params;
         };
 
         struct CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>
@@ -97,6 +94,15 @@ class COpenGL_Queue final : public IGPUQueue
                 m_dbgCb(_dbgCb)
             {
                 this->start();
+            }
+
+            template <typename RequestParams>
+            void waitForRequestCompletion(SRequest& req)
+            {
+                base_t::waitForRequestCompletion(req);
+
+                // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
+                std::get<RequestParams>(req.params) = RequestParams{};
             }
 
             void init(ThreadInternalStateType* state_ptr)
@@ -154,23 +160,22 @@ class COpenGL_Queue final : public IGPUQueue
                 case ERT_SUBMIT:
                 {
                     auto& submit = std::get<SRequestParams_Submit>(req.params);
-
                     // wait semaphores
                     GLbitfield barrierBits = 0;
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
                         barrierBits |= pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT, submit.pWaitDstStageMask[i]);
                     }
-                    if (barrierBits)
-                        gl.glSync.pglMemoryBarrier(barrierBits);
+
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
                         IGPUSemaphore* sem = submit.pWaitSemaphores[i].get();
                         COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
-                        assert(glsem->isWaitable());
-                        if (glsem->isWaitable())
-                            glsem->wait(&gl);
+                        glsem->wait(&gl);
                     }
+
+                    if (barrierBits)
+                        gl.glSync.pglMemoryBarrier(barrierBits);
 
                     for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
                     {
@@ -178,23 +183,10 @@ class COpenGL_Queue final : public IGPUQueue
                         cmdbuf->executeAll(&gl, &_state.ctxlocal, m_ctxid);
                     }
 
-                    if (submit.signalSemaphoreCount)
+                    if (submit.syncToInit)
                     {
-                        auto sync = core::make_smart_refctd_ptr<COpenGLSync>(m_device, &gl);
-                        for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
-                        {
-                            IGPUSemaphore* sem = submit.pSignalSemaphores[i].get();
-                            COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
-                            glsem->signal(core::smart_refctd_ptr(sync));
-                        }
+                        submit.syncToInit->init(m_device, &gl);
                     }
-                }
-                break;
-                case ERT_SIGNAL_FENCE:
-                {
-                    auto& p = std::get<SRequestParams_Fence>(req.params);
-                    core::smart_refctd_ptr<COpenGLFence> fence = std::move(p.fence);
-                    fence->signal(&gl);
                 }
                 break;
                 case ERT_DESTROY_FRAMEBUFFER:
@@ -249,12 +241,15 @@ class COpenGL_Queue final : public IGPUQueue
             if (!IGPUQueue::submit(_count, _submits, _fence))
                 return false;
 
-            m_mempoolMutex.lock();
-
+            core::smart_refctd_ptr<COpenGLSync> sync;
             for (uint32_t i = 0u; i < _count; ++i)
             {
                 if (_submits[i].commandBufferCount == 0u)
                     continue;
+                if (_submits[i].signalSemaphoreCount || (i == _count-1u && _fence))
+                {
+                    sync = core::make_smart_refctd_ptr<COpenGLSync>();
+                }
 
                 SRequestParams_Submit params;
                 const SSubmitInfo& submit = _submits[i];
@@ -264,7 +259,7 @@ class COpenGL_Queue final : public IGPUQueue
                 for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
                 {
                     COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(submit.pSignalSemaphores[i]);
-                    sem->setToBeSignaled();
+                    sem->associateGLSync(core::smart_refctd_ptr(sync));
                 }
                 core::smart_refctd_ptr<IGPUSemaphore>* waitSems = nullptr;
                 asset::E_PIPELINE_STAGE_FLAGS* dstStageMask = nullptr;
@@ -287,8 +282,10 @@ class COpenGL_Queue final : public IGPUQueue
                 for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
                     params.commandBuffers[j] = core::smart_refctd_ptr<IGPUCommandBuffer>(submit.commandBuffers[j]);
 
+                params.syncToInit = sync;
+
                 auto& req = threadHandler.request(std::move(params));
-                threadHandler.waitForRequestCompletion(req);
+                threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
                     m_mempool.free_n<core::smart_refctd_ptr<IGPUSemaphore>>(waitSems, submit.waitSemaphoreCount);
@@ -299,17 +296,10 @@ class COpenGL_Queue final : public IGPUQueue
                 m_mempool.free_n<core::smart_refctd_ptr<IGPUCommandBuffer>>(cmdBufs, submit.commandBufferCount);
             }
 
-            m_mempoolMutex.unlock();
-
             if (_fence)
             {
-                SRequestParams_Fence params;
                 COpenGLFence* glfence = static_cast<COpenGLFence*>(_fence);
-                glfence->setToBeSignaled();
-                params.fence = core::smart_refctd_ptr<COpenGLFence>(glfence);
-
-                auto& req = threadHandler.request(std::move(params));
-                // wait on completion ?
+                glfence->associateGLSync(std::move(sync)); // associate sync used for signal semaphores in last submit
             }
         }
 
@@ -358,8 +348,7 @@ class COpenGL_Queue final : public IGPUQueue
 
     private:
         CThreadHandler threadHandler;
-        std::mutex m_mempoolMutex;
-        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::aligned_allocator>;
+        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator>;
         memory_pool_t m_mempool;
         uint32_t m_ctxid;
 };

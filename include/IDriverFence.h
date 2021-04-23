@@ -7,7 +7,6 @@
 
 #include <chrono>
 #include "nbl/core/BaseClasses.h"
-#include "nbl/core/EventDeferredHandler.h"
 
 namespace nbl
 {
@@ -108,89 +107,6 @@ class IDriverFence : public core::IReferenceCounted
         virtual void                    waitGPU() = 0;
 };
 
-
-class GPUEventWrapper : public core::Uncopyable
-{
-    protected:
-        core::smart_refctd_ptr<IDriverFence> mFence;
-    public:
-        GPUEventWrapper(core::smart_refctd_ptr<IDriverFence>&& fence) : mFence(std::move(fence))
-        {
-        }
-        GPUEventWrapper(const GPUEventWrapper& other) = delete;
-        GPUEventWrapper(GPUEventWrapper&& other) noexcept : mFence(nullptr)
-        {
-            this->operator=(std::forward<GPUEventWrapper>(other));
-        }
-        virtual ~GPUEventWrapper()
-        {
-        }
-
-        GPUEventWrapper& operator=(const GPUEventWrapper& other) = delete;
-        inline GPUEventWrapper& operator=(GPUEventWrapper&& other) noexcept
-        {
-            mFence.operator=(std::move(other.mFence));
-            return *this;
-        }
-
-        template<class Clock=std::chrono::high_resolution_clock, class Duration=typename Clock::duration>
-        inline static std::chrono::time_point<Clock,Duration> default_wait()
-        {
-            return std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
-        }
-        template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration>
-        inline bool wait_until(const std::chrono::time_point<Clock,Duration>& timeout_time)
-        {
-            auto currentClockTime = Clock::now();
-            do
-            {
-                uint64_t nanosecondsLeft = 0ull;
-                if (currentClockTime<timeout_time)
-                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout_time-currentClockTime).count();
-                switch (mFence->waitCPU(nanosecondsLeft,mFence->canDeferredFlush()))
-                {
-                    case EDFR_FAIL:
-                        return true;
-                    case EDFR_TIMEOUT_EXPIRED:
-                        break;
-                    case EDFR_CONDITION_SATISFIED:
-                    case EDFR_ALREADY_SIGNALED:
-                        return true;
-                        break;
-                }
-                currentClockTime = Clock::now();
-            } while (currentClockTime<timeout_time);
-
-            return false;
-        }
-
-        inline bool poll()
-        {
-            switch (mFence->waitCPU(0u,mFence->canDeferredFlush()))
-            {
-                case EDFR_FAIL:
-                case EDFR_CONDITION_SATISFIED:
-                case EDFR_ALREADY_SIGNALED:
-                    return true;
-                    break;
-                default:
-                    break;
-            }
-            return false;
-        }
-
-        inline bool operator==(const GPUEventWrapper& other)
-        {
-            return mFence==other.mFence;
-        }
-        inline bool operator<(const GPUEventWrapper& other)
-        {
-            return mFence.get()<other.mFence.get();
-        }
-};
-
-template<class Functor>
-using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
 } // end namespace scene
 } // end namespace nbl

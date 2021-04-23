@@ -69,8 +69,9 @@ set(nbl_resources_to_embed
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loader/mtl/common.glsl"
   # math and limits
-  "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/constants.glsl"
+  "nbl/builtin/glsl/math/complex.glsl"
+  "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/quaternions.glsl"
   "nbl/builtin/glsl/math/typeless_arithmetic.glsl"
   "nbl/builtin/glsl/limits/numeric.glsl"
@@ -91,6 +92,7 @@ set(nbl_resources_to_embed
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   # scene
+  "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
   "nbl/builtin/glsl/scene/node.glsl"
   # shapes
@@ -101,6 +103,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/subgroup/basic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
+  ##"nbl/builtin/glsl/subgroup/fft.glsl"
   # utilities
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
@@ -116,6 +119,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/shared_arithmetic.glsl"
   "nbl/builtin/glsl/workgroup/shared_ballot.glsl"
   "nbl/builtin/glsl/workgroup/shared_clustered.glsl"
+  "nbl/builtin/glsl/workgroup/shared_fft.glsl"
   "nbl/builtin/glsl/workgroup/shared_shuffle.glsl"
   "nbl/builtin/glsl/workgroup/shared_shuffle_relative.glsl"
   "nbl/builtin/glsl/workgroup/shared_vote.glsl"
@@ -123,11 +127,17 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/ballot.glsl"
   "nbl/builtin/glsl/workgroup/basic.glsl"
   "nbl/builtin/glsl/workgroup/clustered.glsl"
+  "nbl/builtin/glsl/workgroup/fft.glsl"
   "nbl/builtin/glsl/workgroup/shuffle.glsl"
   "nbl/builtin/glsl/workgroup/shuffle_relative.glsl"
   "nbl/builtin/glsl/workgroup/vote.glsl"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
+  "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+  "nbl/builtin/glsl/ext/FFT/fft.glsl"
+  "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
+  "nbl/builtin/glsl/ext/FFT/parameters.glsl"
+  "nbl/builtin/glsl/ext/FFT/types.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"

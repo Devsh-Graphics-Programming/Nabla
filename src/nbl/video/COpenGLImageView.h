@@ -30,6 +30,13 @@ class COpenGLImageView final : public IGPUImageView
 		};
 		_NBL_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 
+		GLenum getOpenGLTarget() const
+		{
+			auto viewtype = params.viewType;
+			GLenum target = ViewTypeToGLenumTarget[viewtype];
+			return target;
+		}
+
 		COpenGLImageView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(dev, std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];

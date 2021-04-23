@@ -4,6 +4,7 @@
 #include "nbl/asset/ICommandBuffer.h"
 
 #include "nbl/video/IGPUImage.h"
+#include "nbl/video/IGPUImageView.h"
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
@@ -23,6 +24,7 @@ class IGPUCommandBuffer :
     public asset::ICommandBuffer<
         IGPUBuffer,
         IGPUImage,
+        IGPUImageView,
         IGPURenderpass,
         IGPUFramebuffer,
         IGPUGraphicsPipeline,
@@ -37,6 +39,7 @@ class IGPUCommandBuffer :
     using base_t = asset::ICommandBuffer<
         IGPUBuffer,
         IGPUImage,
+        IGPUImageView,
         IGPURenderpass,
         IGPUFramebuffer,
         IGPUGraphicsPipeline,
@@ -50,6 +53,8 @@ class IGPUCommandBuffer :
 public:
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
+    IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
+
 protected:
     IGPUCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(dev), m_cmdpool(_cmdpool)
     {
@@ -58,7 +63,6 @@ protected:
     virtual ~IGPUCommandBuffer() = default;
 
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
-
 
 
     static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)

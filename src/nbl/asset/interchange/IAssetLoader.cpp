@@ -35,22 +35,24 @@ void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asse
         m_manager->insertAssetIntoCache(asset, ASSET_MUTABILITY_ON_CACHE_INSERT);
 }
 
-void IAssetLoader::IAssetLoaderOverride::handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels)
+core::smart_refctd_ptr<IAsset> IAssetLoader::IAssetLoaderOverride::handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels)
 {
     if (_bundle.getContents().size() != _reloadedBundle.getContents().size())
-        return;
+        return nullptr;
 
     auto dummies = _bundle.getContents();
     auto found_it = std::find(dummies.begin(), dummies.end(), _chosenAsset);
     if (found_it == dummies.end())
-        return;
+        return nullptr;
     const uint32_t ix = found_it - dummies.begin();
 
     auto reloaded = _reloadedBundle.getContents();
-    if (dummies.begin()[ix]->isADummyObjectForCache() && !dummies.begin()[ix]->canBeRestoredFrom(reloaded.begin()[ix].get()))
-        return;
+    if (_chosenAsset->isADummyObjectForCache() && !_chosenAsset->canBeRestoredFrom(reloaded.begin()[ix].get()))
+        return nullptr;
 
     _chosenAsset->restoreFromDummy(reloaded.begin()[ix].get(), _restoreLevels);
+
+    return _chosenAsset;
 }
 
 void IAssetLoader::IAssetLoaderOverride::handleRestore(SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels)

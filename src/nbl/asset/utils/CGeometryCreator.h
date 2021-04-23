@@ -72,7 +72,7 @@ class CGeometryCreator : public IGeometryCreator
 
 		struct CylinderVertex
 		{
-			CylinderVertex() : pos{0.f, 0.f, 0.f}, color{0u, 0u, 0u, 0u}, uv{0.f, 0.f}, normal{0u} {}
+			CylinderVertex() : pos{0.f, 0.f, 0.f}, color{0u, 0u, 0u, 0u}, uv{0.f, 0.f}, normal() {}
 
 			float pos[3];
 			uint8_t color[4];

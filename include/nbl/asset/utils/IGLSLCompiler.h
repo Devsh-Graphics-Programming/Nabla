@@ -19,11 +19,6 @@
 namespace nbl
 {
 
-namespace video
-{
-class COpenGLDriver;
-}
-
 namespace asset
 {
 

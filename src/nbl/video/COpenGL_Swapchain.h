@@ -35,8 +35,6 @@ public:
         {
             if (!this->isCompatibleDevicewise(sems[i]))
                 return false;
-            if (!static_cast<COpenGLSemaphore*>(sems[i])->isWaitable())
-                return false;
         }
         m_threadHandler.requestBlit(_imgIx, semCount, sems);
 
@@ -90,12 +88,12 @@ public:
             if (semaphore)
             {
                 COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(semaphore);
-                sem->signal(core::smart_refctd_ptr(sync));
+                sem->associateGLSync(core::smart_refctd_ptr(sync));
             }
             if (fence)
             {
                 COpenGLFence* fen = static_cast<COpenGLFence*>(fence);
-                fen->signal(core::smart_refctd_ptr(sync));
+                fen->associateGLSync(core::smart_refctd_ptr(sync));
             }
         }
 
@@ -213,7 +211,10 @@ private:
                 gl.extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
             }
             for (uint32_t i = 0u; i < fboCount; ++i)
-                syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>(m_device, &gl);
+            {
+                syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
+                syncs[i]->init(m_device, &gl, false);
+            }
         }
 
         void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)
@@ -232,7 +233,8 @@ private:
 
             gl.extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
             egl->call.peglSwapBuffers(egl->display, surface);
-            syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>(m_device, &gl);
+            syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>();
+            syncs[imgix]->init(m_device, &gl, false);
             gl.glGeneral.pglFlush();
         }
 

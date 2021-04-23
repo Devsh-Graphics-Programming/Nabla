@@ -5,7 +5,7 @@
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/EApiType.h"
 #include "nbl/video/surface/ISurface.h"
-#include "nbl/system/IWindow.h"
+#include "nbl/ui/IWindow.h"
 #include "IFileSystem.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/video/debug/debug.h"
@@ -23,7 +23,7 @@ public:
 
     virtual core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const = 0;
 
-    virtual core::smart_refctd_ptr<ISurface> createSurface(system::IWindow* window) const = 0;
+    virtual core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const = 0;
 
 protected:
     IAPIConnection();

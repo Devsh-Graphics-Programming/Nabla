@@ -69,6 +69,9 @@ class NBL_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public nbl::core
         }
 };
 
+template <typename T>
+using default_aligned_allocator = aligned_allocator<T, _NBL_DEFAULT_ALIGNMENT(T)>;
+
 } // end namespace core
 } // end namespace nbl
 

@@ -90,8 +90,19 @@ if (NBL_COMPILE_WITH_SDL2)
 	add_subdirectory(SDL2 SDL2 EXCLUDE_FROM_ALL)
 endif()
 
+find_package(OpenGL OPTIONAL_COMPONENTS EGL)
+find_package(Wayland)
+#[[if (OpenGL_EGL_FOUND)
+	message(FATAL_ERROR "FOUND EGL!!")
+else()
+	message(FATAL_ERROR "COULDNT FIND EGL!!")
+endif()]]
 # EGL
-set(EGL_NO_GLEW ON FORCE)
+set(EGL_NO_GLEW ON)
+#if (OpenGL_EGL_FOUND AND WAYLAND_CLIENT_FOUND AND UNIX AND NOT APPLE)
+#	set(EGL_UNIX_USE_WAYLAND ON)
+#endif()
+set(EGL_UNIX_USE_WAYLAND OFF)
 add_subdirectory(EGL/EGL)
 
 # zlib (target is zlibstatic)
@@ -165,19 +176,22 @@ add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic) #CMake doesn't get it itself
 
 #openexr
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-set(BUILD_TESTING OFF)
-set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
-set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-set(OPENEXR_VIEWERS_ENABLE OFF CACHE STRING "" FORCE)
-add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
+if (_NBL_COMPILE_WITH_OPEN_EXR_)
+	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+	set(BUILD_SHARED_LIBS OFF)
+	set(BUILD_STATIC_LIBS OFF)
+	set(BUILD_TESTING OFF)
+	set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
+	set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
+	set(OPENEXR_VIEWERS_ENABLE OFF CACHE STRING "" FORCE)
+	add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
+	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+endif()
 
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
@@ -465,10 +479,6 @@ set(NBL_3RDPARTY_TARGETS
 				shaderc_util
 				shaderc
 				jpeg
-				Imath
-				IlmThread
-				IlmImf
-				Half
 				convert_utf
 				bzip2			
 				glslang
@@ -477,11 +487,19 @@ set(NBL_3RDPARTY_TARGETS
 				MachineIndependent
 				GenericCodeGen
 				SPIRV 
-				Iex
-				IexMath
 				SPIRV-Tools
 				SPIRV-Tools-opt
 				egl )
+if (_NBL_COMPILE_WITH_OPEN_EXR_)
+	list(APPEND NBL_3RDPARTY_TARGETS
+		Imath
+		IlmThread
+		IlmImf
+		Half
+		Iex
+		IexMath
+	)
+endif()
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)

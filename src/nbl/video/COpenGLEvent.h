@@ -2,19 +2,18 @@
 #define __NBL_C_OPENGL_EVENT_H_INCLUDED__
 
 #include "nbl/video/IGPUEvent.h"
-#include "nbl/video/COpenGLSync.h"
 
 namespace nbl {
 namespace video
 {
 
+// for now impl of COpenGLEvent doesnt include any COpenGLSync since 
+// we dont support no DEVICE_ONLY events yet
+// and so no waiting GL calls are required
 class COpenGLEvent : public IGPUEvent
 {
 public:
     using IGPUEvent::IGPUEvent;
-
-private:
-    core::smart_refctd_ptr<COpenGLSync> m_syncSignal, m_syncUnsignal;
 };
 
 }}

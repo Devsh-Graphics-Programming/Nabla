@@ -28,18 +28,49 @@ class COpenGLSync final : public core::IReferenceCounted
             ES_ALREADY_SIGNALED
         };
 
-        inline COpenGLSync(IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl) : device(_dev), cachedRetval(ES_TIMEOUT_EXPIRED)
+        inline COpenGLSync() : device(nullptr), lockedTable(nullptr), haveNotWaitedOnQueueMask(~0ull), cachedRetval(ES_TIMEOUT_EXPIRED), sync(nullptr)
         {
+
+        }
+
+        void init(IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl, bool _lockToQueue = false)
+        {
+            device = _dev;
             sync = _gl->glSync.pglFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-            _gl->glGeneral.pglFlush();
+            if (_lockToQueue)
+                lockedTable = _gl;
+            else
+                _gl->glGeneral.pglFlush();
+            haveNotWaitedOnQueueMask ^= (1ull << _gl->getGUID());
+        }
+
+        uint64_t prewait() const
+        {
+            if (sync)
+                return 0ull;
+
+            using clock_t = std::chrono::high_resolution_clock;
+            auto start = clock_t::now();
+            while (!sync)
+            { 
+                std::this_thread::yield();
+            }
+
+            return std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
         }
 
         E_STATUS waitCPU(IOpenGL_FunctionTable* _gl, uint64_t timeout)
         {
+            assert(!lockedTable || lockedTable==_gl);
             if (cachedRetval != ES_TIMEOUT_EXPIRED)
                 return cachedRetval;
+            
+            const uint64_t spintime = prewait();
+            if (spintime >= timeout)
+                return (cachedRetval = ES_TIMEOUT_EXPIRED);
+            timeout -= spintime;
 
-            GLenum status = _gl->glSync.pglClientWaitSync(sync, 0, timeout);
+            GLenum status = _gl->glSync.pglClientWaitSync(sync, lockedTable?GL_SYNC_FLUSH_COMMANDS_BIT:0, timeout); // GL_SYNC_FLUSH_COMMANDS_BIT to flags?
             switch (status)
             {
             case GL_ALREADY_SIGNALED:
@@ -59,7 +90,20 @@ class COpenGLSync final : public core::IReferenceCounted
 
         void waitGPU(IOpenGL_FunctionTable* _gl)
         {
-            _gl->glSync.pglWaitSync(sync, 0, GL_TIMEOUT_IGNORED);
+            if (!lockedTable) // OpenGL device does not need to wait on itself within the same context
+            {
+                const uint64_t queueMask = 1ull << _gl->getGUID();
+                if (haveNotWaitedOnQueueMask.load() & queueMask)
+                {
+                    prewait();
+                    _gl->glSync.pglWaitSync(sync, 0, GL_TIMEOUT_IGNORED);
+                    haveNotWaitedOnQueueMask ^= queueMask;
+                }
+            }
+            else
+            {
+                assert(lockedTable==_gl);
+            }
         }
 
         inline GLsync getOpenGLName() const
@@ -67,10 +111,17 @@ class COpenGLSync final : public core::IReferenceCounted
             return sync;
         }
 
+        bool isInitialized() const
+        {
+            return static_cast<bool>(sync);
+        }
+
     private:
         IOpenGL_LogicalDevice* device;
+        IOpenGL_FunctionTable* lockedTable;
+        std::atomic_uint64_t haveNotWaitedOnQueueMask;
         E_STATUS cachedRetval;
-        GLsync sync;
+        volatile GLsync sync;
 };
 
 }}

@@ -12,8 +12,7 @@
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
-
-#include "IDriverFence.h"
+#include "nbl/video/IGPUFence.h"
 
 namespace nbl
 {
@@ -41,6 +40,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         template<class U> struct is_std_get_0_defined<U,std::void_t<std_get_0<U> > > : std::true_type {};
     protected:
         HeterogenousMemoryAddressAllocator mAllocator;
+        ILogicalDevice* mDevice;
 
         template<typename... Args>
         inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
@@ -146,7 +146,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         #undef DUMMY_DEFAULT_CONSTRUCTOR
         //!
         template<typename... Args>
-        SubAllocatedDataBuffer(Args&&... args) : mAllocator(std::forward<Args>(args)...)
+        SubAllocatedDataBuffer(ILogicalDevice* dev, Args&&... args) : mAllocator(std::forward<Args>(args)...), mDevice(dev)
         {
             #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
@@ -228,13 +228,13 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             return unallocatedSize;
         }
         //!
-        inline void         multi_free(core::smart_refctd_ptr<IDriverFence>&& fence, DeferredFreeFunctor&& functor) noexcept
+        inline void         multi_free(core::smart_refctd_ptr<IGPUFence>&& fence, DeferredFreeFunctor&& functor) noexcept
         {
             #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            deferredFrees.addEvent(GPUEventWrapper(std::move(fence)),std::forward<DeferredFreeFunctor>(functor));
+            deferredFrees.addEvent(GPUEventWrapper(mDevice, std::move(fence)),std::forward<DeferredFreeFunctor>(functor));
         }
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
         {
@@ -245,7 +245,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             mAllocator.multi_free_addr(count,addr,bytes);
         }
         template<typename Q=DeferredFreeFunctor>
-        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IDriverFence>&& fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
+        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IGPUFence>&& fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
         {
             if (fence)
                 multi_free(std::move(fence),DeferredFreeFunctor(this,count,addr,bytes));

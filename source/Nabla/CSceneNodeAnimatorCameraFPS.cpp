@@ -332,16 +332,6 @@ void CSceneNodeAnimatorCameraFPS::setInvertMouse(bool invert)
 }
 
 
-ISceneNodeAnimator* CSceneNodeAnimatorCameraFPS::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
-{
-	CSceneNodeAnimatorCameraFPS * newAnimator =
-		new CSceneNodeAnimatorCameraFPS(CursorControl,	RotateSpeed, MoveSpeed, JumpSpeed,
-											0, 0, NoVerticalMovement);
-	newAnimator->setKeyMap(KeyMap);
-	return newAnimator;
-}
-
-
 } // namespace scene
 } // namespace nbl
 

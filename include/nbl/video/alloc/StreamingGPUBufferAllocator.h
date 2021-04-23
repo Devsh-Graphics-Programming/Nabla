@@ -14,18 +14,23 @@ namespace video
 
 class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
 {
+    private:
+        void* mapWrapper(IDriverMemoryAllocation* mem, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access, const IDriverMemoryAllocation::MemoryRange& range) noexcept;
+        void unmapWrapper(IDriverMemoryAllocation* mem) noexcept;
+
     protected:
         inline uint8_t* mapWholeBuffer(IGPUBuffer* buff) noexcept
         {
             auto rangeToMap = IDriverMemoryAllocation::MemoryRange{0u,buff->getSize()};
             auto memory = const_cast<IDriverMemoryAllocation*>(buff->getBoundMemory());
             auto mappingCaps = memory->getMappingCaps()&IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
-            return reinterpret_cast<uint8_t*>(memory->mapMemoryRange(static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(mappingCaps),rangeToMap));
+
+            return reinterpret_cast<uint8_t*>(mapWrapper(memory, static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(mappingCaps), rangeToMap));
         }
     public:
         typedef std::pair<IGPUBuffer*,uint8_t*> value_type;
 
-        StreamingGPUBufferAllocator(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) : SimpleGPUBufferAllocator(inDriver,bufferReqs)
+        StreamingGPUBufferAllocator(ILogicalDevice* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) : SimpleGPUBufferAllocator(inDriver,bufferReqs)
         {
             assert(mBufferMemReqs.mappingCapability&IDriverMemoryAllocation::EMCAF_READ_AND_WRITE); // have to have mapping access to the buffer!
         }
@@ -44,6 +49,7 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
             return {buff,mappedPtr};
         }
 
+#if 0
         template<class AddressAllocator>
         inline void                 reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets, bool copyBuffers=true) noexcept
         {
@@ -62,25 +68,30 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
                 if (allocation.second && (allocation.first->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_READ) )// can read from old
                     memcpy(newAlloc.second,allocation.second+oldOffset_copyRange.first,oldOffset_copyRange.second);
                 else
-                    copyBufferWrapper(allocation.first,newAlloc.first,oldOffset_copyRange.first,0u,oldOffset_copyRange.second);
+                {
+                    // TODO copyBufferWrapper !!!!!!
+                    //copyBufferWrapper(allocation.first,newAlloc.first,oldOffset_copyRange.first,0u,oldOffset_copyRange.second);
+                    assert(false);
+                }
             }
 
             //swap the internals of buffers and book keeping
-            const_cast<IDriverMemoryAllocation*>(allocation.first->getBoundMemory())->unmapMemory();
+            unmapWrapper(const_cast<IDriverMemoryAllocation*>(allocation.first->getBoundMemory()));
             allocation.first->pseudoMoveAssign(newAlloc.first);
             newAlloc.first->drop();
             allocation.second = newAlloc.second;
         }
+#endif
 
         inline void                 deallocate(value_type& allocation) noexcept
         {
             allocation.second = nullptr;
-            const_cast<IDriverMemoryAllocation*>(allocation.first->getBoundMemory())->unmapMemory();
+            unmapWrapper(const_cast<IDriverMemoryAllocation*>(allocation.first->getBoundMemory()));
             SimpleGPUBufferAllocator::deallocate(allocation.first);
         }
 
         //to expose base functions again
-        IDriver*   getDriver() noexcept {return SimpleGPUBufferAllocator::getDriver();}
+        ILogicalDevice*   getDriver() noexcept {return SimpleGPUBufferAllocator::getDriver();}
 };
 
 }

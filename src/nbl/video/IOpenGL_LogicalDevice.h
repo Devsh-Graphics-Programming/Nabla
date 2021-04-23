@@ -75,9 +75,11 @@ namespace impl
             ERT_SET_EVENT,
             ERT_RESET_FENCES,
             ERT_WAIT_FOR_FENCES,
+            ERT_GET_FENCE_STATUS,
             ERT_FLUSH_MAPPED_MEMORY_RANGES,
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
-            ERT_REGENERATE_MIP_LEVELS,
+            ERT_MAP_BUFFER_RANGE,
+            ERT_UNMAP_BUFFER,
             //BIND_BUFFER_MEMORY,
 
             ERT_CTX_MAKE_CURRENT,
@@ -210,6 +212,12 @@ namespace impl
             bool waitForAll;
             uint64_t timeout;
         };
+        struct SRequestGetFenceStatus
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_GET_FENCE_STATUS;
+            using retval_t = IGPUFence::E_STATUS;
+            IGPUFence* fence;
+        };
         struct SRequestFlushMappedMemoryRanges
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_FLUSH_MAPPED_MEMORY_RANGES;
@@ -222,11 +230,22 @@ namespace impl
             using retval_t = void;
             core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
         };
-        struct SRequestRegenerateMipLevels
+        struct SRequestMapBufferRange
         {
-            static inline constexpr E_REQUEST_TYPE type = ERT_REGENERATE_MIP_LEVELS;
+            static inline constexpr E_REQUEST_TYPE type = ERT_MAP_BUFFER_RANGE;
+            using retval_t = void*;
+
+            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
+            GLintptr offset;
+            GLsizeiptr size;
+            GLbitfield flags;
+        };
+        struct SRequestUnmapBuffer
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_UNMAP_BUFFER;
             using retval_t = void;
-            IGPUImageView* imgview = nullptr;
+
+            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
         };
         struct SRequestMakeCurrent
         {
@@ -354,9 +373,11 @@ protected:
             SRequestSetEvent,
             SRequestResetFences,
             SRequestWaitForFences,
+            SRequestGetFenceStatus,
             SRequestFlushMappedMemoryRanges,
             SRequestInvalidateMappedMemoryRanges,
-            SRequestRegenerateMipLevels,
+            SRequestMapBufferRange,
+            SRequestUnmapBuffer,
 
             SRequestMakeCurrent,
 
@@ -537,7 +558,7 @@ protected:
                 if (p.flags & IGPUFence::ECF_SIGNALED_BIT)
                     pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device, &gl);
                 else
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device);
             }
                 break;
 
@@ -553,13 +574,28 @@ protected:
                 gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT);
             }
                 break;
-            case ERT_REGENERATE_MIP_LEVELS:
+            case ERT_MAP_BUFFER_RANGE:
             {
-                auto& p = std::get<SRequestRegenerateMipLevels>(req.params_variant);
-                COpenGLImageView* view = static_cast<COpenGLImageView*>(p.imgview);
-                GLuint name = view->getOpenGLName();
-                GLenum target = COpenGLImageView::ViewTypeToGLenumTarget[view->getCreationParameters().viewType];
-                gl.extGlGenerateTextureMipmap(name, target);
+                auto& p = std::get<SRequestMapBufferRange>(req.params_variant);
+
+                void** pretval = reinterpret_cast<void**>(req.pretval);
+                pretval[0] = gl.extGlMapNamedBufferRange(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName(), p.offset, p.size, p.flags);
+            }
+                break;
+            case ERT_UNMAP_BUFFER:
+            {
+                auto& p = std::get<SRequestUnmapBuffer>(req.params_variant);
+
+                gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
+            }
+                break;
+            case ERT_GET_FENCE_STATUS:
+            {
+                auto& p = std::get<SRequestGetFenceStatus>(req.params_variant);
+                auto* glfence = static_cast<COpenGLFence*>(p.fence);
+                IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
+
+                retval[0] = glfence->getStatus(&gl);
             }
                 break;
             case ERT_WAIT_FOR_FENCES:
@@ -740,24 +776,21 @@ protected:
                 {
                     COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
                     IGPUFence::E_STATUS status;
-                    if (fence->isWaitable())
+                    
+                    uint64_t timeout = _timeout;
+                    if (start == clock_t::time_point())
+                        start = clock_t::now();
+                    else
                     {
-                        uint64_t timeout = _timeout;
-                        if (start == clock_t::time_point())
-                            start = clock_t::now();
-                        else
-                        {
-                            const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
-                            if (dt > timeout)
-                                return IGPUFence::ES_TIMEOUT;
-                            timeout -= dt;
-                        }
-
-                        status = fence->wait(&gl, _timeout);
-                        if (status != IGPUFence::ES_SUCCESS)
-                            return status;
+                        const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
+                        if (dt > timeout)
+                            return IGPUFence::ES_TIMEOUT;
+                        timeout -= dt;
                     }
-                    else return IGPUFence::ES_ERROR;
+
+                    status = fence->wait(&gl, _timeout);
+                    if (status != IGPUFence::ES_SUCCESS)
+                        return status;
                 }
             }
             else
@@ -765,10 +798,7 @@ protected:
                 for (uint32_t i = 0u; i < _count; ++i)
                 {
                     COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
-                    if (fence->isWaitable())
-                    {
-                        return fence->wait(&gl, _timeout);
-                    }
+                    return fence->wait(&gl, _timeout);
                 }
             }
         }

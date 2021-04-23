@@ -6,12 +6,18 @@
 #include <iostream>
 #include <cstdio>
 #include <nabla.h>
+#include "CFileSystem.h" // tmp, this should be accessible via IFileSystem and not required to be created explicitely by user
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/system/CWindowWin32.h>
-using CWindowT = nbl::system::CWindowWin32;
+#include <nbl/ui/CWindowWin32.h>
+using CWindowT = nbl::ui::CWindowWin32;
 #elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/system/CWindowLinux.h>
-using CWindowT = nbl::system::CWindowLinux;
+#ifdef _NBL_TEST_WAYLAND
+#include <nbl/ui/CWindowWayland.h>
+using CWindowT = nbl::ui::CWindowWayland;
+#else
+#include <nbl/ui/CWindowX11.h>
+using CWindowT = nbl::ui::CWindowX11;
+#endif
 #endif
 
 using namespace nbl;
@@ -63,13 +69,13 @@ void main()
 }
 )";
 
-	auto win = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
-	auto win2 = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
+	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
+	auto win2 = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
 
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
-	auto gl = video::IAPIConnection::create(video::EAT_OPENGL_ES, 0, "New API Test", &dbgcb);
+	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
 	auto surface = gl->createSurface(win.get());
 	auto surface2 = gl->createSurface(win2.get());
 
@@ -91,6 +97,42 @@ void main()
 	auto device = gpu->createLogicalDevice(dev_params);
 
 	auto* queue = device->getQueue(0u, 0u);
+	auto* queue2 = device->getQueue(0u, 1u);
+	/*
+	uint8_t stackmem[1u << 14];
+	float farray[3]{ 1.f, 3.f, 4.f };
+	memcpy(stackmem, farray, 12);
+	auto memreqs = device->getDeviceLocalGPUMemoryReqs();
+	memreqs.vulkanReqs.size = sizeof(stackmem);
+	auto somebuffer = device->createGPUBufferOnDedMem(memreqs, true);
+	asset::SBufferRange<video::IGPUBuffer> bufrng;
+	bufrng.offset = 0;
+	bufrng.size = somebuffer->getSize();
+	bufrng.buffer = somebuffer;
+	device->updateBufferRangeViaStagingBuffer(queue, bufrng, stackmem);
+	*/
+
+	// those shouldnt be like that (filesystem is already created in IAPIConnection but also temporarily i think -- we're going to have system::ISystem instead anyway)
+	auto fs = core::make_smart_refctd_ptr<io::CFileSystem>("");
+	auto am = core::make_smart_refctd_ptr<asset::IAssetManager>(std::move(fs));
+
+	asset::IAssetLoader::SAssetLoadParams lp;
+	auto bundle = am->getAsset("../../media/dwarf.jpg", lp);
+	assert(!bundle.getContents().empty());
+
+	video::IGPUObjectFromAssetConverter cpu2gpu;
+	video::IGPUObjectFromAssetConverter::SParams c2gparams;
+	c2gparams.device = device.get();
+	c2gparams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue;
+	c2gparams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue2;
+	c2gparams.finalQueueFamIx = queue->getFamilyIndex();
+	c2gparams.sharingMode = asset::ESM_CONCURRENT;
+	c2gparams.limits = gpu->getLimits();
+	c2gparams.assetManager = am.get();
+	
+	//auto cpubuf = new asset::ICPUBuffer(1024);
+	auto gpuimgs = cpu2gpu.getGPUObjectsFromAssets<asset::ICPUImage>(bundle.getContents(), c2gparams);
+	auto gpuimg = (*gpuimgs)[0];
 
 	core::smart_refctd_ptr<video::ISwapchain> sc;
 	{
