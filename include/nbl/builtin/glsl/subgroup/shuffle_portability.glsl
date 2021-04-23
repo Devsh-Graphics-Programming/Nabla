@@ -5,6 +5,7 @@
 #include <nbl/builtin/glsl/subgroup/shared_shuffle_portability.glsl>
 
 
+// TODO: A SPIRV-Cross contribution so we can set NBL_GL_KHR_shader_subgroup_shuffle when AMD_gcn_shader or NVidia shuffle extensions are available 
 #ifdef NBL_GL_KHR_shader_subgroup_shuffle
 
 
