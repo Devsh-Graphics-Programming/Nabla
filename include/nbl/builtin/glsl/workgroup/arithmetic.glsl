@@ -392,7 +392,7 @@ uint nbl_glsl_workgroupExclusiveMin_noBarriers(in uint val)
 }
 int nbl_glsl_workgroupExclusiveMin_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,int,min,nbl_glsl_subgroupExclusiveMin_impl,val,INT_MAX,uint);
+	NBL_GLSL_WORKGROUP_SCAN(true,int,min,nbl_glsl_subgroupInclusiveMin_impl,val,INT_MAX,uint);
 }
 float nbl_glsl_workgroupExclusiveMin_noBarriers(in float val)
 {
