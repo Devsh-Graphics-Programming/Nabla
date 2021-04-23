@@ -126,8 +126,10 @@ static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_g
 	histogram_gpu_range.size = histogram_count * sizeof(uint32_t);
 	histogram_gpu_range.buffer = driver->createDeviceLocalGPUBufferOnDedMem(histogram_gpu_range.size);
 
-	ScanClass::updateDescriptorSet(ds_scan, histogram_gpu_range, driver);
+	RadixSortClass::updateDescriptorSet(ds_scan, histogram_gpu_range, driver);
 
+	video::IQueryObject* time_query = driver->createElapsedTimeQuery();
+	driver->beginQuery(time_query);
 	for (uint32_t pass = 0; pass < RadixSortClass::PASS_COUNT; ++pass)
 	{
 		const uint32_t count = 2u;
@@ -173,6 +175,13 @@ static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_g
 		driver->bindComputePipeline(scatter_pipeline);
 		RadixSortClass::dispatchHelper(scatter_pipeline->getLayout(), sort_push_constants[pass], sort_dispatch_info, driver);
 	}
+	driver->endQuery(time_query);
+
+	uint32_t time_taken;
+	time_query->getQueryResult(&time_taken);
+	time_query->drop();
+
+	std::cout << "GPU sort end\nTime taken: " << (double)time_taken / 1000000.0 << " ms" << std::endl;
 }
 
 int main()
@@ -243,20 +252,8 @@ int main()
 	{
 		driver->beginScene(true);
 
-		video::IQueryObject* time_query = driver->createElapsedTimeQuery();
-	
 		std::cout << "GPU sort begin" << std::endl;
-
-		driver->beginQuery(time_query);
 		RadixSort(driver, in_gpu_range, ds_histogram.get(), histogram_pipeline, ds_scan.get(), upsweep_pipeline, downsweep_pipeline, ds_scatter.get(), scatter_pipeline);
-		driver->endQuery(time_query);
-
-		uint32_t time_taken;
-		time_query->getQueryResult(&time_taken);
-	
-		std::cout << "GPU sort end\nTime taken: " << (double)time_taken/1000000.0 << " ms" << std::endl;
-
-		time_query->drop();
 		
 		driver->endScene();
 	}

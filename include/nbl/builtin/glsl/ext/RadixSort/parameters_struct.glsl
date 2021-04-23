@@ -3,8 +3,6 @@
 
 struct nbl_glsl_ext_RadixSort_Parameters_t
 {
-	uint dummy;
-
 	uint shift;
 	uint element_count_total;
 };

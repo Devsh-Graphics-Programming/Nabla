@@ -48,9 +48,9 @@ uint nbl_glsl_ext_RadixSort_workgroupCompact(in uint digit)
 		// There is no reason to do the scan here except for the coincidence that only the things which define
 		// _NBL_GLSL_EXT_RADIXSORT_HISTOGRAM_SET_HISTOGRAM_DEFINED_ require it, to locally sort elements (default_histogram.comp, here)
 		uint sum = 0;
-		scratch_shared[0] = sum;
+		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[0] = sum;
 		for (int i = 1; i < _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_; ++i)
-			scratch_shared[i] = (sum += local_histogram[i - 1]);
+			_NBL_GLSL_SCRATCH_SHARED_DEFINED_[i] = (sum += local_histogram[i - 1]);
 	}
 	barrier();
 

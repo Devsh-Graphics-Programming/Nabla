@@ -18,10 +18,10 @@ typedef uint32_t uint;
 class RadixSort final : public core::IReferenceCounted
 {
 public:
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_SIZE = 256u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t BITS_PER_PASS = 4u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t PASS_COUNT = 32u / BITS_PER_PASS;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t BUCKETS_COUNT = 1 << BITS_PER_PASS;
+	static inline const uint32_t DEFAULT_WORKGROUP_SIZE = 256u;
+	static inline const uint32_t BITS_PER_PASS = 4u;
+	static inline const uint32_t PASS_COUNT = 32u / BITS_PER_PASS;
+	static inline const uint32_t BUCKETS_COUNT = 1 << BITS_PER_PASS;
 
 	typedef nbl_glsl_ext_RadixSort_Parameters_t Parameters_t;
 
@@ -98,6 +98,11 @@ public:
 		}
 
 		driver->updateDescriptorSets(count, writes, 0u, nullptr);
+	}
+
+	static inline void updateDescriptorSet(video::IGPUDescriptorSet* ds, const asset::SBufferRange<video::IGPUBuffer>& descriptor_range, video::IVideoDriver* driver)
+	{
+		ScanClass::updateDescriptorSet(ds, descriptor_range, driver);
 	}
 
 	static inline void defaultBarrier()

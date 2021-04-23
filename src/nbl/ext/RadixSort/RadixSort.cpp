@@ -11,7 +11,7 @@ RadixSort::RadixSort(video::IDriver* driver, const uint32_t wg_size) : m_wg_size
 {
 	assert(nbl::core::isPoT(m_wg_size));
 
-	const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_ext_RadixSort_Parameters_t) };
+	const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE, 0u, core::max(sizeof(Parameters_t), sizeof(ScanClass::Parameters_t)) };
 
 	{
 		video::IGPUDescriptorSetLayout::SBinding binding = { 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
