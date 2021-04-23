@@ -37,19 +37,19 @@ layout (push_constant) uniform Block
 vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in uint drawID)
 {
     nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][0];
-    return nbl_glsl_VG_vertexFetch_RGB32_SFLOAT(va, vtxID);
+    return nbl_glsl_VG_attribFetch_RGB32_SFLOAT(va, vtxID);
 }
 
 vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawID)
 {
     nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][1];
-    return nbl_glsl_VG_vertexFetch_RG32_SFLOAT(va, vtxID);
+    return nbl_glsl_VG_attribFetch_RG32_SFLOAT(va, vtxID);
 }
 
 vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawID)
 {
     nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][2];
-    return nbl_glsl_VG_vertexFetch_RGB10A2_SNORM(va, vtxID).xyz;
+    return nbl_glsl_VG_attribFetch_RGB10A2_SNORM(va, vtxID).xyz;
 }
 
 #define _NBL_BASIC_VTX_ATTRIB_FETCH_FUCTIONS_DEFINED_

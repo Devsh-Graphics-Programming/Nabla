@@ -252,6 +252,7 @@ public:
         }
     };
 
+    //TODO: if we use SSBO then there is no need for `arrayElement`
     struct VirtualAttribute
     {
         uint32_t arrayElement : 4;
@@ -269,7 +270,7 @@ public:
         core::smart_refctd_ptr<BufferType> indexBuffer;
     };
 
-    inline uint32_t getFloatBufferBindingsCnt() { return m_virtualAttribConfig.floatArrayElementsCnt;  } //TODO: better names?
+    inline uint32_t getFloatBufferBindingsCnt() { return m_virtualAttribConfig.floatArrayElementsCnt;  }
     inline uint32_t getIntBufferBindingsCnt() { return m_virtualAttribConfig.intArrayElementsCnt; }
     inline uint32_t getUintBufferBindingsCnt() { return m_virtualAttribConfig.uintArrayElementsCnt; }
 
@@ -303,7 +304,7 @@ public:
         return result;
     }
 
-    std::string getGLSLWithSSBO(uint32_t descriptorSet = 0u, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 2u)
+    std::string getGLSLWithSSBO(uint32_t descriptorSet = 0u, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u)
     {
         std::string result = "#define _NBL_VG_USE_SSBO\n";
         result += "#define _NBL_VG_SSBO_DESCRIPTOR_SET " + std::to_string(descriptorSet) + '\n';
@@ -503,7 +504,7 @@ public:
         }
     }
 
-    //! Returns maximum number of mdi structs needed to draw range of mesh buffers described by range mbBegin .. mbEnd, actual number of mdi structd needed may differ
+    //! Returns maximum number of mdi structs needed to draw range of mesh buffers described by range mbBegin .. mbEnd, actual number of MDI structs needed may differ
     template <typename MeshBufferIterator>
     uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
@@ -518,7 +519,7 @@ protected:
 
 };
 
-//TODO: check if offset < 2^28-1
+//TODO: check if offset < 2^28
 
 template <typename MeshBufferType, typename BufferType, typename MDIStructType>
 template <typename MeshBufferIterator>

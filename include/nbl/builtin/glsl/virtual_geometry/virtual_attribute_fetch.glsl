@@ -8,19 +8,19 @@
 #include <nbl/builtin/glsl/format/decode.glsl>
 #include <nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl>
 
-vec3 nbl_glsl_VG_vertexFetch_RGB32_SFLOAT(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
+vec3 nbl_glsl_VG_attribFetch_RGB32_SFLOAT(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
-  return nbl_glsl_VG_vertexFetch3f(attr, vertexID);
+  return nbl_glsl_VG_attribFetch3f(attr, vertexID);
 }
 
-vec2 nbl_glsl_VG_vertexFetch_RG32_SFLOAT(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
+vec2 nbl_glsl_VG_attribFetch_RG32_SFLOAT(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
-  return nbl_glsl_VG_vertexFetch2f(attr, vertexID);
+  return nbl_glsl_VG_attribFetch2f(attr, vertexID);
 }
 
-vec4 nbl_glsl_VG_vertexFetch_RGB10A2_SNORM(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
+vec4 nbl_glsl_VG_attribFetch_RGB10A2_SNORM(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
-  return nbl_glsl_decodeRGB10A2_SNORM(nbl_glsl_VG_vertexFetch1u(attr, vertexID));
+  return nbl_glsl_decodeRGB10A2_SNORM(nbl_glsl_VG_attribFetch1u(attr, vertexID));
 }
 
 #endif
