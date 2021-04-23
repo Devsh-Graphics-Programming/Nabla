@@ -800,8 +800,6 @@ int main()
                 auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(newSource.c_str());
                 auto specinfo = _specShader->getSpecializationInfo();
 
-                std::cout << newSource << std::endl;
-
                 return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
             };
 
