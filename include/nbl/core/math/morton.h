@@ -71,6 +71,17 @@ namespace impl
 
         return x;
     }
+
+    inline uint64_t separate_bits_3d(uint64_t x)
+    {
+        x &= 0x00000000001fffff;
+        x = (x | x << 32) & 0x001f00000000ffff;
+        x = (x | x << 16) & 0x001f0000ff0000ff;
+        x = (x | x << 8) & 0x010f00f00f00f00f;
+        x = (x | x << 4) & 0x10c30c30c30c30c3;
+        x = (x | x << 2) & 0x1249249249249249;
+        return x;
+    }
 }
 
 template<typename T, uint32_t bitDepth=sizeof(T)*8u>
@@ -80,6 +91,8 @@ T morton2d_decode_y(T _morton) { return impl::morton2d_decode<T,bitDepth>(_morto
 
 template<typename T, uint32_t bitDepth=sizeof(T)*8u>
 T morton2d_encode(T x, T y) { return impl::separate_bits_2d<T,bitDepth>(x) | (impl::separate_bits_2d<T,bitDepth>(y)<<1); }
+
+inline uint64_t morton3d_encode(uint64_t x, uint64_t y, uint64_t z) { return impl::separate_bits_3d(x) | (impl::separate_bits_3d(y) << 1) | (impl::separate_bits_3d(z) << 2); }
 
 }}
 

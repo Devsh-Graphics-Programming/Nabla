@@ -18,7 +18,10 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, 
 {
     using base_t = IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>;
     using Triangle = typename base_t::Triangle;
-    using TriangleBatch = typename base_t::TriangleBatch;
+    using TriangleBatches = typename base_t::TriangleBatches;
+    using IdxBufferParams = typename base_t::base_t::IdxBufferParams;
+
+    template<typename> friend class CGPUMeshPackerV2; //TODO: this will allow CGPUMeshPackerV2 with every template parameter to be a friend of this class, fix it
 
 public:
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
@@ -34,10 +37,37 @@ public:
 
     void instantiateDataStorage();
 
+    //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
+    void shrinkOutputBuffersSize()
+    {
+        m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
+        m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u, 1u);
+        m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
+    }
+
+    /**
+    \return number of mdi structs created for mesh buffer range described by mbBegin .. mbEnd, 0 if commit failed or mbBegin == mbEnd
+    */
     template <typename MeshBufferIterator>
-    bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+    uint32_t commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
+
+    uint32_t getDSlayoutBindings(ICPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    {
+        return getDSlayoutBindings_internal<ICPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
+    }
+
+    // cannot be called before 'instantiateDataStorage'
+    std::pair<uint32_t, uint32_t> getDescriptorSetWrites(ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    {
+        auto createBufferView = [&](E_FORMAT format)
+        {
+            return core::make_smart_refctd_ptr<ICPUBufferView>(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer), format);
+        };
+
+        return getDescriptorSetWrites_internal<ICPUDescriptorSet, ICPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+    }
 
 };
 
@@ -46,32 +76,50 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
     m_packerDataStore.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
     m_packerDataStore.indexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
-    m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSize);
+    m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedByteSize);
 }
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
+    MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + rambIn->mdiAllocationOffset;
+
     size_t i = 0ull;
+    uint32_t batchCntTotal = 0u;
     for (auto it = mbBegin; it != mbEnd; it++)
     {
         ReservedAllocationMeshBuffers& ramb = *(rambIn + i);
         IMeshPackerBase::PackedMeshBufferData& pmbd = *(pmbdOut + i);
 
-        MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
+        //this is fucked up..
+        //mdiAllocationOffset should be one for all mesh buffers in range defined by mbBegin .. mbEnd, otherwise things get fucked when there are random sizes of batches
+        //TODO: so modify ReservedAllocationMeshBuffers and free function
+        //MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
         uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_packerDataStore.indexBuffer->getPointer()) + ramb.indexAllocationOffset;
 
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+        const uint32_t insCnt = (*it)->getInstanceCount();
 
-        core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
+        IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
+
+        TriangleBatches triangleBatches = constructTriangleBatches(*it, idxBufferParams);
 
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
+        size_t instancesAddedCnt = 0u;
+        uint32_t batchesAddedCnt = 0u;
 
-        for (TriangleBatch& batch : triangleBatches)
+        const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
+        batchCntTotal += batchCnt;
+        for (uint32_t i = 0u; i < batchCnt; i++)
         {
-            core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);
+            auto batchBegin = triangleBatches.ranges[i];
+            auto batchEnd = triangleBatches.ranges[i + 1];
+            const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
+            const uint32_t idxInBatchCnt = 3 * triangleInBatchCnt;
+
+            core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatchAndUpdateUnifiedIndexBuffer(triangleBatches, i, indexBuffPtr);
 
             //copy deinterleaved vertices into unified vertex buffer
             for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
@@ -80,23 +128,40 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                     continue;
 
                 if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
-                    return false;
+                    return 0u;
 
                 const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
-                //should I cashe it?
                 const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
-                const uint32_t currBatchOffset = verticesAddedCnt * attribSize;
+                const uint32_t binding = mbVtxInputParams.attributes[location].binding;
+                const E_VERTEX_INPUT_RATE inputRate = mbVtxInputParams.bindings[binding].inputRate;
 
-                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset + currBatchOffset;
-                deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
+                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset;
+                
+                if (inputRate == EVIR_PER_VERTEX)
+                {
+                    const uint32_t currBatchOffsetForPerVtxAttribs = verticesAddedCnt * attribSize;
+                    dstAttrPtr += currBatchOffsetForPerVtxAttribs;
+                    deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
+                }
+                if (inputRate == EVIR_PER_INSTANCE)
+                {
+                    const uint32_t currBatchOffsetForPerInstanceAttribs = instancesAddedCnt * attribSize;
+                    dstAttrPtr += currBatchOffsetForPerInstanceAttribs;
+                    deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
+                }
 
-                auto vtxFormatInfo = virtualAttribConfig.map.find(attribFormat);
+                auto vtxFormatInfo = m_virtualAttribConfig.map.find(attribFormat);
 
-                if (vtxFormatInfo == virtualAttribConfig.map.end())
-                    return false;
+                if (vtxFormatInfo == m_virtualAttribConfig.map.end())
+                    return 0u;
 
                 cdotOut->attribInfo[location].arrayElement = vtxFormatInfo->second.second;
-                cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
+
+                if (inputRate == EVIR_PER_VERTEX)
+                    cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
+                if (inputRate == EVIR_PER_INSTANCE)
+                    cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt;
+
             }
 
             verticesAddedCnt += usedVertices.size();
@@ -104,7 +169,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 
             //construct mdi data
             MDIStructType MDIData;
-            MDIData.count = batch.triangles.size() * 3u;
+            MDIData.count = idxInBatchCnt;
             MDIData.instanceCount = (*it)->getInstanceCount();
             MDIData.firstIndex = batchFirstIdx;
             MDIData.baseVertex = 0u;
@@ -113,15 +178,18 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
             *mdiBuffPtr = MDIData;
             mdiBuffPtr++;
 
-            batchFirstIdx += 3u * batch.triangles.size();
+            batchFirstIdx += idxInBatchCnt;
         }
 
-        pmbd = { ramb.mdiAllocationOffset, static_cast<uint32_t>(triangleBatches.size()) };
+        instancesAddedCnt += insCnt;
+
+        pmbd = { rambIn->mdiAllocationOffset + batchesAddedCnt, static_cast<uint32_t>(batchCnt) };
+        batchesAddedCnt += batchCnt;
 
         i++;
     }
 
-    return true;
+    return batchCntTotal;
 }
 
 }
