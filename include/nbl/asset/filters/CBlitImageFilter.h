@@ -337,6 +337,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				// this is our new reference value
 				auto* const nth = begin+core::max<int32_t>(rankIndex,0);
 				auto* const end = begin+outputTexelCount;
+			//std::for_each(std::execution::par,,,[state](uint32_t inMipLevel)
 				for (auto i=0; i<outputTexelCount; i++)
 				{
 					begin[i] = intermediateStorage[axis][i*4+alphaChannel];
@@ -371,7 +372,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				return core::vectorSIMDi32(kernelX.getWindowMinCoord(halfTexelOffset).x-1,kernelY.getWindowMinCoord(halfTexelOffset).y-1,kernelZ.getWindowMinCoord(halfTexelOffset).z-1,0);
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
-			for (uint32_t layer=0; layer!=layerCount; layer++)
+			for (uint32_t layer=0; layer!=layerCount; layer++) // TODO: could be parallelized
 			{
 				const core::vectorSIMDi32 vLayer(0,0,0,layer);
 				const auto windowMinCoord = windowMinCoordBase+vLayer;
@@ -411,6 +412,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 					const int loopCoordID[2] = {axis!=IImage::ET_3D ? 2:0,axis!=IImage::ET_2D ? 1:0/*,axis*/};
 
 					core::vectorSIMDi32 localTexCoord;
+			//std::for_each(std::execution::par,,,[state](uint32_t inMipLevel)
 					for (auto& k=(localTexCoord[loopCoordID[0]]=0); k<intermediateExtent[axis][loopCoordID[0]]; k++)
 					for (auto& j=(localTexCoord[loopCoordID[1]]=0); j<intermediateExtent[axis][loopCoordID[1]]; j++)
 					{
@@ -507,7 +509,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				// filter in Y-axis
 				filterAxis(IImage::ET_2D,kernelY);
 				// filter in Z-axis
-				assert(inImageType!=IImage::ET_3D); // I need to test this in the future
+				assert(inImageType!=IImage::ET_3D); // TODO: Need to test this in the future
 				filterAxis(IImage::ET_3D,kernelZ);
 			}
 			return true;
