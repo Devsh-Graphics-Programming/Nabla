@@ -430,6 +430,8 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
+inline constexpr bool useSSBO() { return true; }
+
 void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs, core::vector<MbPipelineRange>& ranges, DrawData& drawData, const GPUMeshPacker& mp)
 {
     ICPUSpecializedShader* cpuShaders[2] = { vs, fs };
@@ -440,7 +442,16 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds2Layout;
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds3Layout;
     {
-        const uint32_t mpBindingsCnt = mp.getDSlayoutBindings(nullptr);
+
+        auto getMpBindingsCnt = [&mp]()->uint32_t
+        {
+            if constexpr (useSSBO())
+                return mp.getDSlayoutBindingsForSSBO(nullptr);
+            else
+                return mp.getDSlayoutBindingsForUTB(nullptr);
+        };
+
+        const uint32_t mpBindingsCnt = getMpBindingsCnt();
         const auto vtBindingsCnt = drawData.vt->getDSlayoutBindings(nullptr, nullptr);
         
         auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout::SBinding>>(mpBindingsCnt + vtBindingsCnt.first);
@@ -450,7 +461,11 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
         IGPUDescriptorSetLayout::SBinding* mpBindingsPtr = b;
         IGPUDescriptorSetLayout::SBinding* vtBindingsPtr = b + mpBindingsCnt;
         
-        mp.getDSlayoutBindings(mpBindingsPtr);
+        if constexpr (useSSBO())
+            mp.getDSlayoutBindingsForSSBO(mpBindingsPtr);
+        else
+            mp.getDSlayoutBindingsForUTB(mpBindingsPtr);
+
         drawData.vt->getDSlayoutBindings(vtBindingsPtr, vtSamplers->data(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
 
         for (uint32_t i = 0u; i < mpBindingsCnt; i++)
@@ -514,15 +529,30 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
     drawData.ds[2] = driver->createGPUDescriptorSet(std::move(ds2Layout));
     drawData.ds[3] = driver->createGPUDescriptorSet(std::move(ds3Layout));
     {
+        auto getMpWriteAndInfoSize = [&mp]() -> std::pair<uint32_t, uint32_t>
+        {
+            if constexpr (useSSBO())
+            {
+                uint32_t writeAndInfoSize = mp.getDescriptorSetWritesForSSBO(nullptr, nullptr, nullptr);
+                return std::make_pair(writeAndInfoSize, writeAndInfoSize);
+            }
+            else
+                return mp.getDescriptorSetWritesForUTB(nullptr, nullptr, nullptr);
+        };
+
         //mesh packing stuff
-        auto sizesMP = mp.getDescriptorSetWrites(nullptr, nullptr, nullptr);
+        auto sizesMP = getMpWriteAndInfoSize();
         auto writesMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>>(sizesMP.first);
         auto infoMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorInfo>>(sizesMP.second);
 
         auto writesPtr = writesMP->data();
         auto infoPtr = infoMP->data();
 
-        mp.getDescriptorSetWrites(writesMP->data(), infoMP->data(), drawData.ds[0].get());
+        if constexpr (useSSBO())
+            mp.getDescriptorSetWritesForSSBO(writesMP->data(), infoMP->data(), drawData.ds[0].get());
+        else
+            mp.getDescriptorSetWritesForUTB(writesMP->data(), infoMP->data(), drawData.ds[0].get());
+
         driver->updateDescriptorSets(writesMP->size(), writesMP->data(), 0u, nullptr);
 
         IGPUDescriptorSet::SWriteDescriptorSet w1;
@@ -805,7 +835,15 @@ int main()
 
             GPUMeshPacker mp = packMeshBuffers(driver, pipelineMeshBufferRanges, drawData);
             
-            std::string vertPrelude = mp.getGLSLWithUTB();
+            auto getGLSL = [&mp]() -> std::string
+            {
+                if constexpr (useSSBO())
+                    return mp.getGLSLForSSBO();
+                else
+                    return mp.getGLSLForUTB();
+            };
+
+            std::string vertPrelude = getGLSL();
             vertPrelude += VERTEX_SHADER_OVERRIDES;
             core::smart_refctd_ptr<ICPUSpecializedShader> vs = overrideShaderJustAfterVersionDirective(pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX),vertPrelude);
 

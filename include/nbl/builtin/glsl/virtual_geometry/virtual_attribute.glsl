@@ -32,139 +32,160 @@ nbl_glsl_VG_VirtualAttribute nbl_glsl_VG_unpackVirtualAttribute(in nbl_glsl_VG_V
 #endif
 }
 
-#if _NBL_VG_FLOAT_BUFFERS_COUNT
+#if defined(_NBL_VG_FLOAT_BUFFERS_COUNT) || defined(_NBL_VG_USE_SSBO)
 
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC4)
 vec4 nbl_glsl_VG_attribFetch4f(in nbl_glsl_VG_VirtualAttributePacked_t attr, uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#ifdef NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataVec4Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return vec4(meshPackedDataUvec4Buffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataFloatSample[va.binding],addr);
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC3)
 vec3 nbl_glsl_VG_attribFetch3f(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if _NBL_VG_USE_SSBO
-  return meshPackedDataUvec3Buffer[va];
+#ifdef _NBL_VG_USE_SSBO
+  return vec3(meshPackedDataUvec3Buffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataFloatSample[va.binding],addr).xyz;
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC2)
 vec2 nbl_glsl_VG_attribFetch2f(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if _NBL_VG_USE_SSBO
-  return MeshPackedDataVec2Buffer[va];
+#ifdef _NBL_VG_USE_SSBO
+  return vec2(meshPackedDataUvec2Buffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataFloatSample[va.binding],addr).xy;
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UINT)
 float nbl_glsl_VG_attribFetch1f(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return meshPackedDataUvec2Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return float(meshPackedDataUintBuffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataFloatSample[va.binding],addr).x;
 #endif
 }
+#endif
 
-#endif // _NBL_VG_FLOAT_BUFFERS_COUNT
+#endif
+#if defined(_NBL_VG_INT_BUFFERS_COUNT) || defined(_NBL_VG_USE_SSBO)
 
-#if _NBL_VG_INT_BUFFERS_COUNT
-
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC4)
 ivec4 nbl_glsl_VG_attribFetch4i(in nbl_glsl_VG_VirtualAttributePacked_t attr, uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataIvec4Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return ivec4(meshPackedDataUvec4Buffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataIntSample[va.binding],addr);
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC3)
 ivec3 nbl_glsl_VG_attribFetch3i(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataIvec3Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return ivec3(meshPackedDataUvec3Buffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataIntSample[va.binding],addr).xyz;
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC2)
 ivec2 nbl_glsl_VG_attribFetch2i(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataIvec2Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return ivec2(meshPackedDataUvec2Buffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataIntSample[va.binding],addr).xy;
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UINT)
 int nbl_glsl_VG_attribFetch1i(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataIntBuffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return int(meshPackedDataUintBuffer.attribData[va]);
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataIntSample[va.binding],addr).x;
 #endif
 }
+#endif
 
-#endif // _NBL_VG_INT_BUFFERS_COUNT
+#endif
+#if defined(_NBL_VG_UINT_BUFFERS_COUNT) || defined(_NBL_VG_USE_SSBO)
 
-#if _NBL_VG_UINT_BUFFERS_COUNT
-
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC4)
 uvec4 nbl_glsl_VG_attribFetch4u(in nbl_glsl_VG_VirtualAttributePacked_t attr, uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataUvec4Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return meshPackedDataUvec4Buffer.attribData[va];
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataUintSample[va.binding],addr);
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC3)
 uvec3 nbl_glsl_VG_attribFetch3u(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataUvec3Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return meshPackedDataUvec3Buffer.attribData[va];
 #else
+  const int addr = va.offset+int(vertexID);
   return texelFetch(MeshPackedDataUintSample[va.binding],addr).xyz;
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UVEC2)
 uvec2 nbl_glsl_VG_attribFetch2u(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if NBL_GLSL_VG_USE_SSBO
-  return MeshPackedDataUvec2Buffer[va.binding][addr];
+#ifdef _NBL_VG_USE_SSBO
+  return meshPackedDataUvec2Buffer.attribData[va];
 #else
-  return texelFetch(MeshPackedDataUintSample[va.binding],addr).xy;
+  const int addr = va.offset+int(vertexID);
+  return texelFetch(MeshPackedDataUintSample[va.binding],addr).xyz;
 #endif
 }
+#endif
+#if defined(_NBL_VG_USE_SSBO) && defined(_NBL_VG_USE_SSBO_UINT)
 uint nbl_glsl_VG_attribFetch1u(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
-  const int addr = va.offset+int(vertexID);
-#if _NBL_VG_USE_SSBO
-  return meshPackedDataUintBuffer[va];
+#ifdef _NBL_VG_USE_SSBO
+  return meshPackedDataUintBuffer.attribData[va];
 #else
-  return texelFetch(MeshPackedDataUintSample[va.binding],addr).x;
+  const int addr = va.offset+int(vertexID);
+  return texelFetch(MeshPackedDataUintSample[va.binding],addr).xyz;
 #endif
 }
+#endif
 
-#endif // _NBL_VG_UINT_BUFFERS_COUNT
-
+#endif
 #endif
