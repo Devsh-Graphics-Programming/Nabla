@@ -20,15 +20,19 @@ nbl_glsl_ext_Scan_Storage_t nbl_glsl_ext_Scan_getPaddedData(in uint idx, in nbl_
 
 #include "nbl/builtin/glsl/ext/Scan/scan.glsl"
 
+void nbl_glsl_ext_Scan_defaultDownsweep()
+{
+	uint idx = min(nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal() - 1u, (gl_GlobalInvocationID.x + 1u) * nbl_glsl_ext_Scan_Parameters_t_getStride() - 1u);
+	nbl_glsl_ext_Scan_Storage_t result;
+	_NBL_GLSL_EXT_SCAN_DOWNSWEEP_TYPE_(idx, result);
+	nbl_glsl_ext_Scan_setData(idx, result);
+}
+
 #ifndef _NBL_GLSL_EXT_SCAN_DOWNSWEEP_MAIN_DEFINED_
 
 void main()
 {
-	uint idx = min(nbl_glsl_ext_Scan_Parameters_t_getElementCountTotal() - 1u,
-		(gl_GlobalInvocationID.x + 1u) * nbl_glsl_ext_Scan_Parameters_t_getStride() - 1u);
-	nbl_glsl_ext_Scan_Storage_t result;
-	_NBL_GLSL_EXT_SCAN_DOWNSWEEP_TYPE_(idx, result);
-	nbl_glsl_ext_Scan_setData(idx, result);
+	nbl_glsl_ext_Scan_defaultDownsweep();
 }
 
 #define _NBL_GLSL_EXT_SCAN_DOWNSWEEP_MAIN_DEFINED_

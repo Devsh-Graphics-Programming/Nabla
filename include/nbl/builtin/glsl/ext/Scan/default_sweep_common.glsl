@@ -22,7 +22,7 @@ layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #ifndef _NBL_GLSL_EXT_SCAN_INPUT_DESCRIPTOR_DEFINED_
 
-layout(set = _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_SCAN_INPUT_BINDING_DEFINED_, std430) buffer InoutBuffer
+layout(set = _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_SCAN_INPUT_BINDING_DEFINED_, std430) restrict buffer InoutBuffer
 {
 	nbl_glsl_ext_Scan_Storage_t inout_values[];
 };
