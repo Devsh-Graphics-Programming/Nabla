@@ -35,6 +35,13 @@ public:
 	
 	RadixSort(video::IDriver* driver, const uint32_t wg_size);
 
+	static void sort(video::IGPUComputePipeline* histogram, video::IGPUComputePipeline* upsweep, video::IGPUComputePipeline* downsweep,
+		video::IGPUComputePipeline* scatter, video::IGPUDescriptorSet* ds_scan, core::smart_refctd_ptr<video::IGPUDescriptorSet>* ds_sort,
+		ScanClass::Parameters_t* scan_push_constants, Parameters_t* sort_push_constants,
+		ScanClass::DispatchInfo_t* scan_dispatch_info, DispatchInfo_t* sort_dispatch_info,
+		const uint32_t total_scan_pass_count, const uint32_t upsweep_pass_count,
+		video::IVideoDriver* driver);
+
 	inline auto getDefaultScanDescriptorSetLayout() const { return m_scan_ds_layout.get(); }
 	inline auto getDefaultSortDescriptorSetLayout() const { return m_sort_ds_layout.get(); }
 
@@ -80,6 +87,27 @@ public:
 		return total_scan_pass_count;
 	}
 
+	static inline void updateDescriptorSetsPingPong(core::smart_refctd_ptr<video::IGPUDescriptorSet>* pingpong_sets, const asset::SBufferRange<video::IGPUBuffer>& range_zero,
+		const asset::SBufferRange<video::IGPUBuffer>& range_one, video::IVideoDriver* driver)
+	{
+		const uint32_t count = 2u;
+		asset::SBufferRange<video::IGPUBuffer> ranges[count];
+		for (uint32_t i = 0; i < 2u; ++i)
+		{
+			if (i == 0)
+			{
+				ranges[0] = range_zero;
+				ranges[1] = range_one;
+			}
+			else
+			{
+				ranges[0] = range_one;
+				ranges[1] = range_zero;
+			}
+			updateDescriptorSet(pingpong_sets[i].get(), ranges, count, driver);
+		}
+	}
+
 	static inline void updateDescriptorSet(video::IGPUDescriptorSet* ds, const asset::SBufferRange<video::IGPUBuffer>* descriptor_ranges,
 		const uint32_t count, video::IDriver* driver)
 	{
@@ -98,11 +126,6 @@ public:
 		}
 
 		driver->updateDescriptorSets(count, writes, 0u, nullptr);
-	}
-
-	static inline void updateDescriptorSet(video::IGPUDescriptorSet* ds, const asset::SBufferRange<video::IGPUBuffer>& descriptor_range, video::IVideoDriver* driver)
-	{
-		ScanClass::updateDescriptorSet(ds, descriptor_range, driver);
 	}
 
 	static inline void defaultBarrier()

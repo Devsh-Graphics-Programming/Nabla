@@ -42,6 +42,39 @@ RadixSort::RadixSort(video::IDriver* driver, const uint32_t wg_size) : m_wg_size
 		createShader("nbl/builtin/glsl/ext/RadixSort/default_scatter.comp", driver));
 }
 
+void RadixSort::sort(video::IGPUComputePipeline* histogram, video::IGPUComputePipeline* upsweep, video::IGPUComputePipeline* downsweep,
+	video::IGPUComputePipeline* scatter, video::IGPUDescriptorSet* ds_scan, core::smart_refctd_ptr<video::IGPUDescriptorSet>* ds_sort,
+	ScanClass::Parameters_t* scan_push_constants, Parameters_t* sort_push_constants,
+	ScanClass::DispatchInfo_t* scan_dispatch_info, DispatchInfo_t* sort_dispatch_info,
+	const uint32_t total_scan_pass_count, const uint32_t upsweep_pass_count,
+	video::IVideoDriver* driver)
+{
+	for (uint32_t pass = 0; pass < PASS_COUNT; ++pass)
+	{
+		const video::IGPUPipelineLayout* pipeline_layout = histogram->getLayout();
+		const video::IGPUDescriptorSet* descriptor_sets[2] = { ds_scan, ds_sort[pass % 2].get() };
+		driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline_layout, 0u, 2u, descriptor_sets, nullptr);
+
+		driver->bindComputePipeline(histogram);
+		dispatchHelper(pipeline_layout, sort_push_constants[pass], sort_dispatch_info[0], driver);
+
+		for (uint32_t scan_pass = 0; scan_pass < upsweep_pass_count; ++scan_pass)
+		{
+			driver->bindComputePipeline(upsweep);
+			ScanClass::dispatchHelper(pipeline_layout, scan_push_constants[scan_pass], scan_dispatch_info[scan_pass], driver);
+		}
+
+		for (uint32_t scan_pass = upsweep_pass_count; scan_pass < total_scan_pass_count; ++scan_pass)
+		{
+			driver->bindComputePipeline(downsweep);
+			ScanClass::dispatchHelper(pipeline_layout, scan_push_constants[total_scan_pass_count - 1 - scan_pass], scan_dispatch_info[total_scan_pass_count - 1 - scan_pass], driver);
+		}
+
+		driver->bindComputePipeline(scatter);
+		dispatchHelper(pipeline_layout, sort_push_constants[pass], sort_dispatch_info[0], driver);
+	}
+}
+
 core::smart_refctd_ptr<video::IGPUSpecializedShader> RadixSort::createShader(const char* shader_file_path, video::IDriver* driver)
 {
 	const char* source_fmt =
