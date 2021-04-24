@@ -353,7 +353,7 @@ public:
         }
 
         //nasty trick
-        reinterpret_cast<SViewAliasTextureData*>(&aliasAddr)[0];
+        return reinterpret_cast<SViewAliasTextureData*>(&aliasAddr)[0];
     }
 
     bool free(const SMasterTextureData& _addr) override
