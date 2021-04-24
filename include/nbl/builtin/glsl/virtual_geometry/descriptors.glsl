@@ -60,25 +60,29 @@ layout(set = _NBL_VG_DESCRIPTOR_SET, binding = _NBL_VG_UINT_BUFFERS_BINDING) uni
 #endif
 
 #ifdef _NBL_VG_USE_SSBO_UVEC4
-layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC4_BINDING) readonly buffer MeshPackedDataAsUvec4
+layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC4_BINDING, std430) readonly buffer MeshPackedDataAsUvec4
 {
     uvec4 attribData[];
 } meshPackedDataUvec4Buffer;
 #endif
 #ifdef _NBL_VG_USE_SSBO_UVEC3
-layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC3_BINDING) readonly buffer MeshPackedDataAsUvec3
+struct Packed_uvec3_t
 {
-    uvec3 attribData[];
+    uint x,y,z;
+};
+layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC3_BINDING, std430) readonly buffer MeshPackedDataAsUvec3
+{
+    Packed_uvec3_t attribData[];
 } meshPackedDataUvec3Buffer;
 #endif
 #ifdef _NBL_VG_USE_SSBO_UVEC2
-layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC2_BINDING) readonly buffer MeshPackedDataAsUvec2
+layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC2_BINDING, std430) readonly buffer MeshPackedDataAsUvec2
 {
     uvec2 attribData[];
 } meshPackedDataUvec2Buffer;
 #endif
 #ifdef _NBL_VG_USE_SSBO_UINT
-layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UINT_BINDING) readonly buffer MeshPackedDataAsUint
+layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UINT_BINDING, std430) readonly buffer MeshPackedDataAsUint
 {
     uint attribData[];
 } meshPackedDataUintBuffer;

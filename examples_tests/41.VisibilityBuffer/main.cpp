@@ -240,8 +240,8 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
 {
     assert(ranges.size()>=2u);
 
-    constexpr uint16_t minTrisBatch = 64u;
-    constexpr uint16_t maxTrisBatch = 128u;//std::numeric_limits<uint16_t>::max() / 3u; 
+    constexpr uint16_t minTrisBatch = std::numeric_limits<uint16_t>::max() / 3u; //64u;
+    constexpr uint16_t maxTrisBatch = std::numeric_limits<uint16_t>::max() / 3u; //128u
 
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
@@ -430,7 +430,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
-inline constexpr bool useSSBO() { return true; }
+inline constexpr bool useSSBO() { return false; }
 
 void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs, core::vector<MbPipelineRange>& ranges, DrawData& drawData, const GPUMeshPacker& mp)
 {

@@ -253,10 +253,19 @@ public:
     };
 
     //TODO: if we use SSBO then there is no need for `arrayElement`
-    struct VirtualAttribute
+    /*struct VirtualAttribute
     {
         uint32_t arrayElement : 4;
         uint32_t offset : 28;
+    };*/
+
+    struct VirtualAttribute
+    {
+        inline void setArrayElement(uint16_t arrayElement) { va |= static_cast<uint32_t>(arrayElement) << 28u; }
+        inline void setOffset(uint32_t offset) { assert((offset & 0xF0000000u) == 0u); va |= offset; }
+        
+    private:
+        uint32_t va = 0u;
     };
 
     struct CombinedDataOffsetTable
@@ -481,7 +490,11 @@ protected:
     template <typename DSlayout>
     uint32_t getDSlayoutBindingsForSSBO_internal(typename DSlayout::SBinding* outBindings, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
     {
-        const uint32_t bindingCount = uintBufferBinding + uvec2BufferBinding + uvec3BufferBinding + uvec4BufferBinding;
+        const uint32_t bindingCount = 
+            m_virtualAttribConfig.isUintBufferUsed +
+            m_virtualAttribConfig.isUvec2BufferUsed +
+            m_virtualAttribConfig.isUvec3BufferUsed +
+            m_virtualAttribConfig.isUvec4BufferUsed;
 
         if (!outBindings)
             return bindingCount;
@@ -524,7 +537,11 @@ protected:
     template <typename DS>
     uint32_t getDescriptorSetWritesForSSBO_internal(typename DS::SWriteDescriptorSet* outWrites, typename DS::SDescriptorInfo* outInfo,  DS* dstSet, core::smart_refctd_ptr<IBuffer> vtxBuffer, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
     {
-        const uint32_t writeAndInfoCount = uintBufferBinding + uvec2BufferBinding + uvec3BufferBinding + uvec4BufferBinding;
+        const uint32_t writeAndInfoCount = 
+            m_virtualAttribConfig.isUintBufferUsed +
+            m_virtualAttribConfig.isUvec2BufferUsed +
+            m_virtualAttribConfig.isUvec3BufferUsed +
+            m_virtualAttribConfig.isUvec4BufferUsed;
 
         if (!outWrites || !outInfo)
             return writeAndInfoCount;
