@@ -247,7 +247,6 @@ int main()
 	
 	auto ds_scatter = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
 	auto scatter_pipeline = sorter->getDefaultScatterPipeline();
-
 	
 	{
 		driver->beginScene(true);

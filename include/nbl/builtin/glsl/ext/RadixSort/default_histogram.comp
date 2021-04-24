@@ -103,6 +103,8 @@ void nbl_glsl_ext_RadixSort_setHistogram(in uint idx, in uint val)
 #define _NBL_GLSL_EXT_RADIXSORT_HISTOGRAM_SET_HISTOGRAM_DEFINED_
 #endif
 
+#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
+
 #define _NBL_GLSL_EXT_RADIXSORT_SHARED_SIZE_NEEDED_ (_NBL_GLSL_WORKGROUP_SIZE_ * 2)
 
 #ifdef _NBL_GLSL_SCRATCH_SHARED_DEFINED_
@@ -126,11 +128,29 @@ void main()
 
 	groupMemoryBarrier();
 
-	uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompact(digit);
+	uint local_histogram[_NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_];
+	uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompactAndHistogram(digit, local_histogram);
 
-	// Here I am assuming scratch_shared has exclusive prefix sum of local histogram
-	// we could change the name of `nbl_glsl_ext_RadixSort_workgroupCompact` to reflect that
+	uint last_of_wg_idx = min((gl_WorkGroupID.x + 1u) * _NBL_GLSL_WORKGROUP_SIZE_ - 1u, nbl_glsl_ext_RadixSort_Parameters_t_getElementCountTotal() - 1u);
+	if (gl_GlobalInvocationID.x == last_of_wg_idx)
+	{
+		for (int i = 0; i < _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_; ++i)
+		{
+			nbl_glsl_ext_RadixSort_setHistogram(i * gl_NumWorkGroups.x + gl_WorkGroupID.x, local_histogram[i]);
+			_NBL_GLSL_SCRATCH_SHARED_DEFINED_[i] = local_histogram[i];
+		}
+	}
+	barrier();
 
+	{
+		uint data = 0u;
+		if (gl_LocalInvocationIndex < _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_)
+			data = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex];
+
+		nbl_glsl_workgroupExclusiveAdd(data);
+	}
+
+	// Todo: It would be nicer to wrap it up in a scatter function
 	const uint local_offset = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[digit];
 	scatter_idx += local_offset;
 	barrier();
