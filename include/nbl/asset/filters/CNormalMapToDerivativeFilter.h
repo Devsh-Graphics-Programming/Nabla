@@ -19,11 +19,11 @@ namespace nbl
 namespace asset
 {
 
-template<typename Swizzle>
-class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>
+template<typename Swizzle, typename Dither>
+class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>
 {
 	public:
-		class CNormalMapToDerivativeStateBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>::state_type
+		class CNormalMapToDerivativeStateBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>::state_type
 		{
 			public:
 
@@ -50,19 +50,13 @@ class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableF
 					Layer ID is relative to outBaseLayer in state
 				*/
 
-				enum E_SCALE_FACTOR
-				{
-					ESF_X,
-					ESF_Y,
-					ESF_COUNT
-				};
-
-				const float getAbsoluteLayerScaleValue(size_t layer, E_SCALE_FACTOR scaleFactor)
+				const core::vectorSIMDf getAbsoluteLayerScaleValues(size_t layer)
 				{
 					if (!scaleValuesPointer)
 					{
-						auto offset = layer * forcedScratchChannelAmount + scaleFactor == ESF_X ? 0 : 1;
-						return *(scaleValuesPointer + offset);
+						auto offset = layer * forcedScratchChannelAmount;
+						auto* data = scaleValuesPointer + offset;
+						return core::vectorSIMDf (*data, *(data + 1));
 					}
 					else
 						return 0; // or maybe assert?
@@ -90,7 +84,7 @@ class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableF
 			if (state->scratchMemoryByteSize == 0)
 				return false;
 
-			if (!impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>::validate(state))
+			if (!impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>::validate(state))
 				return false;
 
 			return true;
@@ -102,13 +96,13 @@ class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableF
 	
 */
 
-template<typename Swizzle = DefaultSwizzle>
-class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, public CNormalMapToDerivativeFilterBase<Swizzle>
+template<typename Swizzle = DefaultSwizzle, typename Dither = IdentityDither>
+class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, public CNormalMapToDerivativeFilterBase<Swizzle, Dither>
 {
 	public:
 		virtual ~CNormalMapToDerivativeFilter() {}
 
-		class CStateBase : public CMatchedSizeInOutImageFilterCommon::state_type, public CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase
+		class CStateBase : public CMatchedSizeInOutImageFilterCommon::state_type, public CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase
 		{ 
 			public:
 				CStateBase() = default;
@@ -135,7 +129,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
 				return false;
 
-			if (!CNormalMapToDerivativeFilterBase<Swizzle>::validate(state))
+			if (!CNormalMapToDerivativeFilterBase<Swizzle, Dither>::validate(state))
 				return false;
 			
 			const ICPUImage::SCreationParams& inParams = state->inImage->getCreationParameters();
@@ -194,7 +188,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 
 			for (uint16_t w = 0u; w < copyLayerCount; ++w)
 			{
-				float* decodeAbsValuesOffset = state->scaleValuesPointer + (w * CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount);
+				float* decodeAbsValuesOffset = state->scaleValuesPointer + (w * CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount);
 
 				auto& xMaxDecodeAbsValue = *decodeAbsValuesOffset;
 				auto& yMaxDecodeAbsValue = *(decodeAbsValuesOffset + 1);
@@ -225,6 +219,15 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 
 								*data = -xDecode / zDecode;
 								*(data + 1) = -yDecode / zDecode;
+
+								auto absoluteX = core::abs(*data);
+								auto absoluteY = core::abs(*(data + 1));
+
+								if (xMaxDecodeAbsValue < absoluteX)
+									xMaxDecodeAbsValue = absoluteX;
+
+								if (yMaxDecodeAbsValue < absoluteY)
+									yMaxDecodeAbsValue = absoluteY;
 							}
 					};
 
@@ -237,34 +240,11 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 				}
 
 				{
-					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase::decodeType*
+					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*
 					{
 						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(readBlockPos.x, readBlockPos.y, readBlockPos.z, 0), scratchByteStrides); // TODO
-						return reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+						return reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 					};
-
-					auto computeMaxAbs = [&](core::vectorSIMDi32 readBlockPos) -> void
-					{
-						auto* current = getScratchPixel(readBlockPos);
-						auto& [x, y] = std::make_tuple(*current, *(current + 1));
-
-						auto absoluteX = core::abs(x);
-						auto absoluteY = core::abs(y);
-
-						if (xMaxDecodeAbsValue < absoluteX)
-							xMaxDecodeAbsValue = absoluteX;
-
-						if (yMaxDecodeAbsValue < absoluteY)
-							yMaxDecodeAbsValue = absoluteY;
-					};
-
-					{
-						core::vector3du32_SIMD localCoord;
-						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
-							for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
-								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
-									computeMaxAbs(core::vectorSIMDu32(x, y, z));
-					}
 
 					auto normalizeScratch = [&](bool isSigned)
 					{
@@ -274,13 +254,13 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 								{
 									const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(localCoord, scratchByteStrides);
-									auto* entryScratchAdress = reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+									auto* entryScratchAdress = reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 
 									if (isSigned)
-										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
+										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
 											entryScratchAdress[channel] = entryScratchAdress[channel] / decodeAbsValuesOffset[channel];
 									else
-										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
+										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
 											entryScratchAdress[channel] = entryScratchAdress[channel] * 0.5f / decodeAbsValuesOffset[channel] + 0.5f;
 								}
 					};
@@ -301,7 +281,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 							const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, scratchByteStrides);
 							auto* data = reinterpret_cast<uint8_t*>(state->scratchMemory) + offset;
 
-							impl::CSwizzleAndConvertImageFilterBase<false, false, Swizzle, IdentityDither>::onEncode(outFormat, state, outDataAdress, data, localOutPos, 0, 0, CNormalMapToDerivativeFilterBase<Swizzle>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
+							impl::CSwizzleAndConvertImageFilterBase<false, false, Swizzle, IdentityDither>::onEncode(outFormat, state, outDataAdress, data, localOutPos, 0, 0, CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
 						};
 
 						IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u), state->outMipLevel, state->outBaseLayer, 1 };
