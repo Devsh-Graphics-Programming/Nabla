@@ -60,10 +60,9 @@ namespace nbl
             //static_assert(sizeof(SGLTFMaterialParameters) == (sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::baseColorFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::metallicFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::roughnessFactor) + sizeof(SGLTFMaterialParameters::emissiveFactor) + sizeof(SGLTFMaterialParameters::alphaMode) + sizeof(SGLTFMaterialParameters::alphaCutoff)), "Something went wrong");
 
             CGLTFPipelineMetadata(const SGLTFMaterialParameters& materialParams, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
-                : m_materialParams(materialParams), m_shaderInputs(std::move(_inputs)) {}
+                : m_materialParams(materialParams), IRenderpassIndependentPipelineMetadata(core::SRange<const IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(_inputs->begin(), _inputs->end())) {}
 
             SGLTFMaterialParameters m_materialParams;
-            core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
 
             _NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CGLTFLoader";
             const char* getLoaderName() const override { return loaderName; }

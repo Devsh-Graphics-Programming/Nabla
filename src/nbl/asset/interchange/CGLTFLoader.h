@@ -146,12 +146,23 @@ namespace nbl
 
 							struct SGLTFAccessor
 							{
+								enum SGLTFType
+								{
+									SGLTFT_SCALAR,
+									SGLTFT_VEC2,
+									SGLTFT_VEC3,
+									SGLTFT_VEC4,
+									SGLTFT_MAT2,
+									SGLTFT_MAT3,
+									SGLTFT_MAT4
+								};
+
 								std::optional<uint32_t> bufferView;
 								std::optional<uint32_t> byteOffset;
 								std::optional<uint32_t> componentType;
 								std::optional<bool> normalized;
 								std::optional<uint32_t> count;
-								std::optional<std::string> type;
+								std::optional<SGLTFType> type;
 								std::optional<std::vector<double>> max; // todo - common number types
 								std::optional<std::vector<double>> min; // todo - common number types
 								// TODO - sparse;
@@ -196,13 +207,37 @@ namespace nbl
 								}
 							};
 
+							enum SGLTFAttribute : uint8_t
+							{
+								SGLTFA_INDEX,
+								SGLTFA_POSITION,
+								SGLTFA_NORMAL,
+								SGLTFA_TANGENT,
+								SGLTFA_TEXCOORD,
+								SGLTFA_COLOR,
+								SGLTFA_JOINTS,
+								SGLTFA_WEIGHTS
+							};
+
+							struct AccessorHash 
+							{
+								template <class T1, class T2>
+								std::size_t operator () (const std::pair<T1, T2>& p) const 
+								{
+									auto h1 = std::hash<T1>{}(p.first);
+									auto h2 = std::hash<T2>{}(p.second);
+
+									return h1 ^ h2;
+								}
+							};
+
 							/*
 								Valid attribute semantic property names include POSITION, NORMAL, TANGENT, TEXCOORD_0, TEXCOORD_1, COLOR_0, JOINTS_0, and WEIGHTS_0.
 								Application-specific semantics must start with an underscore, e.g., _TEMPERATURE. TEXCOORD, COLOR, JOINTS, and WEIGHTS attribute
 								semantic property names must be of the form [semantic]_[set_index], e.g., TEXCOORD_0, TEXCOORD_1, COLOR_0.
 							*/
 
-							std::unordered_map<std::string, SGLTFAccessor> accessors; //! An accessor is queried with an atribute name (like POSITION)
+							std::unordered_map<std::pair<SGLTFAttribute, uint8_t>, SGLTFAccessor, AccessorHash> accessors; //! An accessor is queried with an atribute name (like POSITION)
 
 							enum SGLTFPrimitiveTopology
 							{
@@ -474,11 +509,11 @@ namespace nbl
 							
 						};
 
-						struct SAlphaMode
+						enum E_ALPHA_MODE : uint32_t
 						{
-							_NBL_STATIC_INLINE_CONSTEXPR std::string_view OPAQUE_MODE = "OPAQUE";
-							_NBL_STATIC_INLINE_CONSTEXPR std::string_view MASK_MODE = "MASK";
-							_NBL_STATIC_INLINE_CONSTEXPR std::string_view BLEND_MODE = "BLEND";
+							EAM_OPAQUE = core::createBitmask({ 0 }),
+							EAM_MASK = core::createBitmask({ 1 }),
+							EAM_BLEND = core::createBitmask({ 2 })
 						};
 
 						std::optional<std::string> name;
@@ -487,7 +522,7 @@ namespace nbl
 						std::optional<SOcclusionTexture> occlusionTexture;
 						std::optional<SEmissiveTexture> emissiveTexture;
 						std::optional<std::array<double, 3>> emissiveFactor;
-						std::optional<std::string> alphaMode;
+						std::optional<E_ALPHA_MODE> alphaMode;
 						std::optional<double> alphaCutoff;
 						std::optional<bool> doubleSided;
 					};

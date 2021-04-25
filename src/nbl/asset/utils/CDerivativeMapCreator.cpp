@@ -245,7 +245,7 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
 	newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
 
-	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle>;
+	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle, asset::IdentityDither>;
 	DerivativeNormalMapFilter derivativeNormalFilter;
 	DerivativeNormalMapFilter::state_type state;
 

@@ -386,115 +386,115 @@ namespace nbl
 
 					auto handleAccessor = [&](SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {})
 					{
-						auto getFormat = [&](uint32_t componentType, std::string type)
+						auto getFormat = [&](uint32_t componentType, SGLTFAccessor::SGLTFType type)
 						{
 							switch (componentType)
 							{
 								case SGLTFAccessor::SCT_BYTE:
 								{
-									if (type == SGLTFAccessor::SType::SCALAR.data())
+									if (type == SGLTFAccessor::SGLTFT_SCALAR)
 										return EF_R8_SINT;
-									else if (type == SGLTFAccessor::SType::VEC2.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC2)
 										return EF_R8G8_SINT;
-									else if (type == SGLTFAccessor::SType::VEC3.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC3)
 										return EF_R8G8B8_SINT;
-									else if (type == SGLTFAccessor::SType::VEC4.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC4)
 										return EF_R8G8B8A8_SINT;
-									else if (type == SGLTFAccessor::SType::MAT2.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT2)
 										return EF_R8G8B8A8_SINT;
-									else if (type == SGLTFAccessor::SType::MAT3.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT3)
 										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SType::MAT4.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT4)
 										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_FLOAT:
 								{
-									if (type == SGLTFAccessor::SType::SCALAR.data())
+									if (type == SGLTFAccessor::SGLTFT_SCALAR)
 										return EF_R32_SFLOAT;
-									else if (type == SGLTFAccessor::SType::VEC2.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC2)
 										return EF_R32G32_SFLOAT;
-									else if (type == SGLTFAccessor::SType::VEC3.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC3)
 										return EF_R32G32B32_SFLOAT;
-									else if (type == SGLTFAccessor::SType::VEC4.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC4)
 										return EF_R32G32B32A32_SFLOAT;
-									else if (type == SGLTFAccessor::SType::MAT2.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT2)
 										return EF_R32G32B32A32_SFLOAT;
-									else if (type == SGLTFAccessor::SType::MAT3.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT3)
 										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SType::MAT4.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT4)
 										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_SHORT:
 								{
-									if (type == SGLTFAccessor::SType::SCALAR.data())
+									if (type == SGLTFAccessor::SGLTFT_SCALAR)
 										return EF_R16_SINT;
-									else if (type == SGLTFAccessor::SType::VEC2.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC2)
 										return EF_R16G16_SINT;
-									else if (type == SGLTFAccessor::SType::VEC3.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC3)
 										return EF_R16G16B16_SINT;
-									else if (type == SGLTFAccessor::SType::VEC4.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC4)
 										return EF_R16G16B16A16_SINT;
-									else if (type == SGLTFAccessor::SType::MAT2.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT2)
 										return EF_R16G16B16A16_SINT;
-									else if (type == SGLTFAccessor::SType::MAT3.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT3)
 										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SType::MAT4.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT4)
 										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_UNSIGNED_BYTE:
 								{
-									if (type == SGLTFAccessor::SType::SCALAR.data())
+									if (type == SGLTFAccessor::SGLTFT_SCALAR)
 										return EF_R8_UINT;
-									else if (type == SGLTFAccessor::SType::VEC2.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC2)
 										return EF_R8G8_UINT;
-									else if (type == SGLTFAccessor::SType::VEC3.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC3)
 										return EF_R8G8B8_UINT;
-									else if (type == SGLTFAccessor::SType::VEC4.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC4)
 										return EF_R8G8B8A8_UINT;
-									else if (type == SGLTFAccessor::SType::MAT2.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT2)
 										return EF_R8G8B8A8_UINT;
-									else if (type == SGLTFAccessor::SType::MAT3.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT3)
 										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SType::MAT4.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT4)
 										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_UNSIGNED_INT:
 								{
-									if (type == SGLTFAccessor::SType::SCALAR.data())
+									if (type == SGLTFAccessor::SGLTFT_SCALAR)
 										return EF_R32_UINT;
-									else if (type == SGLTFAccessor::SType::VEC2.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC2)
 										return EF_R32G32_UINT;
-									else if (type == SGLTFAccessor::SType::VEC3.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC3)
 										return EF_R32G32B32_UINT;
-									else if (type == SGLTFAccessor::SType::VEC4.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC4)
 										return EF_R32G32B32A32_UINT;
-									else if (type == SGLTFAccessor::SType::MAT2.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT2)
 										return EF_R32G32B32A32_UINT;
-									else if (type == SGLTFAccessor::SType::MAT3.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT3)
 										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SType::MAT4.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT4)
 										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_UNSIGNED_SHORT:
 								{
-									if (type == SGLTFAccessor::SType::SCALAR.data())
+									if (type == SGLTFAccessor::SGLTFT_SCALAR)
 										return EF_R16_UINT;
-									else if (type == SGLTFAccessor::SType::VEC2.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC2)
 										return EF_R16G16_UINT;
-									else if (type == SGLTFAccessor::SType::VEC3.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC3)
 										return EF_R16G16B16_UINT;
-									else if (type == SGLTFAccessor::SType::VEC4.data())
+									else if (type == SGLTFAccessor::SGLTFT_VEC4)
 										return EF_R16G16B16A16_UINT;
-									else if (type == SGLTFAccessor::SType::MAT2.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT2)
 										return EF_R16G16B16A16_UINT;
-									else if (type == SGLTFAccessor::SType::MAT3.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT3)
 										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SType::MAT4.data())
+									else if (type == SGLTFAccessor::SGLTFT_MAT4)
 										return EF_UNKNOWN; // ?
 								} break;
 							}
@@ -555,10 +555,10 @@ namespace nbl
 
 					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
 					primitiveAssemblyParams.primitiveType = primitiveTopology;
-
+					
 					if (glTFprimitive.indices.has_value())
 					{
-						auto& glTFIndexAccessor = glTFprimitive.accessors["INDEX"];
+						auto& glTFIndexAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_INDEX, 0)];
 						handleAccessor(glTFIndexAccessor);
 
 						switch (glTFIndexAccessor.componentType.value())
@@ -577,10 +577,10 @@ namespace nbl
 						cpuMeshBuffer->setIndexCount(glTFIndexAccessor.count.value());
 					}
 
-					auto statusPosition = glTFprimitive.accessors.find("POSITION");
+					auto statusPosition = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_POSITION, 0));
 					if (statusPosition != glTFprimitive.accessors.end())
 					{
-						auto& glTFPositionAccessor = glTFprimitive.accessors["POSITION"];
+						auto& glTFPositionAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_POSITION, 0)];
 						handleAccessor(glTFPositionAccessor, SAttributes::POSITION_ATTRIBUTE_ID);
 
 						if(!glTFprimitive.indices.has_value())
@@ -589,59 +589,59 @@ namespace nbl
 					else
 						return {};
 
-					auto statusNormal = glTFprimitive.accessors.find("NORMAL");
+					auto statusNormal = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_NORMAL, 0));
 					if (statusNormal != glTFprimitive.accessors.end())
 					{
-						auto& glTFNormalAccessor = glTFprimitive.accessors["NORMAL"];
+						auto& glTFNormalAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_NORMAL, 0)];
 						handleAccessor(glTFNormalAccessor, SAttributes::NORMAL_ATTRIBUTE_ID);
 					}
 
 					for (uint32_t i = 0; i < SAttributes::MAX_UV_ATTRIBUTES; ++i)
 					{
-						auto statusTexcoord = glTFprimitive.accessors.find("TEXCOORD_" + std::to_string(i));
+						auto statusTexcoord = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_TEXCOORD, i));
 						if (statusTexcoord == glTFprimitive.accessors.end())
 							break;
 						else
 						{
 							hasUV = true;
-							auto& glTFTexcoordXAccessor = glTFprimitive.accessors["TEXCOORD_" + std::to_string(i)];
+							auto& glTFTexcoordXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_TEXCOORD, i)];
 							handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
 
 					for (uint32_t i = 0; i < SAttributes::MAX_COLOR_ATTRIBUTES; ++i)
 					{
-						auto statusColor = glTFprimitive.accessors.find("COLOR_" + std::to_string(i));
+						auto statusColor = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_COLOR, i));
 						if (statusColor == glTFprimitive.accessors.end())
 							break;
 						else
 						{
 							hasColor = true;
-							auto& glTFColorXAccessor = glTFprimitive.accessors["COLOR_" + std::to_string(i)];
+							auto& glTFColorXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_COLOR, i)];
 							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
 
 					for (uint32_t i = 0; i < SAttributes::MAX_JOINTS_ATTRIBUTES; ++i)
 					{
-						auto statusJoints = glTFprimitive.accessors.find("JOINTS_" + std::to_string(i));
+						auto statusJoints = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_JOINTS, i));
 						if (statusJoints == glTFprimitive.accessors.end())
 							break;
 						else
 						{
-							auto& glTFJointsXAccessor = glTFprimitive.accessors["JOINTS_" + std::to_string(i)];
+							auto& glTFJointsXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_JOINTS, i)];
 							handleAccessor(glTFJointsXAccessor, SAttributes::JOINTS_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
 
 					for (uint32_t i = 0; i < SAttributes::MAX_WEIGHTS_ATTRIBUTES; ++i)
 					{
-						auto statusWeights = glTFprimitive.accessors.find("WEIGHTS_" + std::to_string(i));
+						auto statusWeights = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_WEIGHTS, i));
 						if (statusWeights == glTFprimitive.accessors.end())
 							break;
 						else
 						{
-							auto& glTFWeightsXAccessor = glTFprimitive.accessors["WEIGHTS_" + std::to_string(i)];
+							auto& glTFWeightsXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_WEIGHTS, i)];
 							handleAccessor(glTFWeightsXAccessor, SAttributes::WEIGHTS_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
@@ -716,15 +716,27 @@ namespace nbl
 									if (materialDependencyData.glTFMaterial->alphaCutoff.has_value())
 										pushConstants.alphaCutoff = materialDependencyData.glTFMaterial->alphaCutoff.value();
 
+									CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE alphaModeStream = decltype(alphaModeStream)::EAM_OPAQUE;
+
 									if (materialDependencyData.glTFMaterial->alphaMode.has_value())
+										alphaModeStream = materialDependencyData.glTFMaterial->alphaMode.value();
+
+									switch (alphaModeStream)
 									{
-										const std::string& alphaModeStream = materialDependencyData.glTFMaterial->alphaMode.value();
-										if (alphaModeStream == SGLTF::SGLTFMaterial::SAlphaMode::OPAQUE_MODE.data())
+										case decltype(alphaModeStream)::EAM_OPAQUE:
+										{
 											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_OPAQUE;
-										else if (alphaModeStream == SGLTF::SGLTFMaterial::SAlphaMode::MASK_MODE.data())
+										} break;
+
+										case decltype(alphaModeStream)::EAM_MASK:
+										{
 											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_MASK;
-										else if (alphaModeStream == SGLTF::SGLTFMaterial::SAlphaMode::BLEND_MODE.data())
+										} break;
+
+										case decltype(alphaModeStream)::EAM_BLEND:
+										{
 											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_BLEND;
+										} break;
 									}
 
 									if (materialDependencyData.glTFMaterial->emissiveFactor.has_value())
@@ -1085,7 +1097,17 @@ namespace nbl
 					}
 						
 					if (alphaMode.error() != simdjson::error_code::NO_SUCH_FIELD)
-						glTFMaterial.alphaMode = alphaMode.get_string().value().data();
+					{
+						auto streamAlphaMode = alphaMode.get_string().value().data();
+
+						if (streamAlphaMode == "EAM_OPAQUE")
+							glTFMaterial.alphaMode = CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE::EAM_OPAQUE;
+						else if (streamAlphaMode == "EAM_MASK")
+							glTFMaterial.alphaMode = CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE::EAM_MASK;
+						else if (streamAlphaMode == "EAM_OPAQUE")
+							glTFMaterial.alphaMode = CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE::EAM_BLEND;
+					}
+						
 
 					if (alphaCutoff.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFMaterial.alphaCutoff = alphaCutoff.get_double().value();
@@ -1237,11 +1259,51 @@ namespace nbl
 
 										auto insertAccessorIntoGLTFCache = [&](const std::string_view& cacheKey, const uint32_t accessorID)
 										{
+											auto getAttributeIdPair = [&]() -> std::pair<SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAttribute, uint8_t>
+											{
+												std::string key = cacheKey.data();
+
+												std::pair<std::string, uint8_t> attribute = [&]()
+												{
+													auto foundIndexAttribute = key.find_last_of("_");
+
+													if (foundIndexAttribute != std::string::npos)
+														return std::make_pair(key.substr(0, foundIndexAttribute), std::stoi(key.substr(foundIndexAttribute + 1)));
+													else
+														return std::make_pair(key, 0);
+												}();
+
+												bool status = true;
+
+												if (attribute.first == "INDEX")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_INDEX, attribute.second);
+												else if(attribute.first == "POSITION")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_POSITION, attribute.second);
+												else if(attribute.first == "NORMAL")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_NORMAL, attribute.second);
+												else if(attribute.first == "TANGENT")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_TANGENT, attribute.second);
+												else if(attribute.first == "TEXCOORD")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_TEXCOORD, attribute.second);
+												else if(attribute.first == "COLOR")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_COLOR, attribute.second);
+												else if(attribute.first == "JOINTS")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_JOINTS, attribute.second);
+												else if(attribute.first == "WEIGHTS")
+													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_WEIGHTS, attribute.second);
+												else
+												{
+													status = false;
+													assert(status);
+												}
+
+											};
+
 											auto& jsonAccessor = accessors.get_array().at(accessorID);
 
 											if (jsonAccessor.error() != simdjson::NO_SUCH_FIELD)
 											{
-												auto& glTFAccessor = glTFPrimitive.accessors[cacheKey.data()];
+												auto& glTFAccessor = glTFPrimitive.accessors[getAttributeIdPair()];
 
 												auto& bufferView = jsonAccessor.at_key("bufferView");
 												auto& byteOffset = jsonAccessor.at_key("byteOffset");
@@ -1272,7 +1334,31 @@ namespace nbl
 													glTFAccessor.count = count.get_uint64().value();
 
 												if (type.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.type = type.get_string().value();
+												{
+													bool status = true;
+													std::string typeStream = type.get_string().value().data();
+
+													if (typeStream == "SCALAR")
+														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_SCALAR;
+													else if(typeStream == "VEC2")
+														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_VEC2;
+													else if(typeStream == "VEC3")
+														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_VEC3;
+													else if (typeStream == "VEC4")
+														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_VEC4;
+													else if(typeStream == "MAT2")
+														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_MAT2;
+													else if(typeStream == "MAT3")
+														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_MAT3;
+													else if(typeStream == "MAT4")
+														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_MAT4;
+													else
+													{
+														status = false;
+														assert(status);
+													}
+												}
+													
 
 												if (max.error() != simdjson::error_code::NO_SUCH_FIELD)
 												{
