@@ -240,8 +240,8 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
 {
     assert(ranges.size()>=2u);
 
-    constexpr uint16_t minTrisBatch = std::numeric_limits<uint16_t>::max() / 3u; //64u;
-    constexpr uint16_t maxTrisBatch = std::numeric_limits<uint16_t>::max() / 3u; //128u
+    constexpr uint16_t minTrisBatch = 64u; //std::numeric_limits<uint16_t>::max() / 3u; 
+    constexpr uint16_t maxTrisBatch = 128u;
 
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;

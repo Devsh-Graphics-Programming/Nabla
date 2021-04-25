@@ -253,19 +253,24 @@ public:
     };
 
     //TODO: if we use SSBO then there is no need for `arrayElement`
-    /*struct VirtualAttribute
-    {
-        uint32_t arrayElement : 4;
-        uint32_t offset : 28;
-    };*/
-
     struct VirtualAttribute
     {
+        VirtualAttribute() : va(0u) {};
+
+        VirtualAttribute(uint16_t arrayElement, uint32_t offset)
+            :va(0u)
+        {
+            assert((offset & 0xF0000000u) == 0u); 
+
+            va |= static_cast<uint32_t>(arrayElement) << 28u;
+            va |= offset;
+        }
+        
         inline void setArrayElement(uint16_t arrayElement) { va |= static_cast<uint32_t>(arrayElement) << 28u; }
         inline void setOffset(uint32_t offset) { assert((offset & 0xF0000000u) == 0u); va |= offset; }
-        
+
     private:
-        uint32_t va = 0u;
+        uint32_t va;
     };
 
     struct CombinedDataOffsetTable

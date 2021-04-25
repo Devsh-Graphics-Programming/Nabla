@@ -165,12 +165,15 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
                 if (vtxFormatInfo == m_virtualAttribConfig.map.end())
                     return 0u;
 
-                cdotOut->attribInfo[location].setArrayElement(vtxFormatInfo->second.second);
+                uint16_t vaArrayElement = vtxFormatInfo->second.second;
+                uint32_t vaOffset;
 
                 if (inputRate == EVIR_PER_VERTEX)
-                    cdotOut->attribInfo[location].setOffset(ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt);
+                    vaOffset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
                 if (inputRate == EVIR_PER_INSTANCE)
-                    cdotOut->attribInfo[location].setOffset(ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt);
+                    vaOffset = ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt;
+
+                cdotOut->attribInfo[location] = VirtualAttribute(vaArrayElement, vaOffset);
 
             }
 

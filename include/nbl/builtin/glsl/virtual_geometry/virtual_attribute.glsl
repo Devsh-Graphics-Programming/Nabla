@@ -23,8 +23,6 @@ nbl_glsl_VG_VirtualAttribute nbl_glsl_VG_unpackVirtualAttribute(in nbl_glsl_VG_V
 {
 #ifndef _NBL_VG_USE_SSBO
     nbl_glsl_VG_VirtualAttribute result;
-    //result.binding = bitfieldExtract(vaPacked, 0, 4);
-    //result.offset = int(bitfieldExtract(vaPacked, 4, 28));
     result.binding = vaPacked >> 28;
     result.offset = int(vaPacked & 0x0FFFFFFF);
     
