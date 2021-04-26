@@ -448,19 +448,19 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 					};
 					//
 					constexpr uint32_t batch_dims = 2u;
-					const uint32_t batchExtent[] = {intermediateExtent[axis][loopCoordID[0]],intermediateExtent[axis][loopCoordID[1]]};
+					const uint32_t batchExtent[batch_dims] = {intermediateExtent[axis][loopCoordID[0]],intermediateExtent[axis][loopCoordID[1]]};
 					CBasicImageFilterCommon::BlockIterator<batch_dims> begin(batchExtent);
-					const uint32_t spaceFillingEnd[] = {0u,batchExtent[1]};
-					CBasicImageFilterCommon::BlockIterator<batch_dims> end(begin.getRemainingExtents(),spaceFillingEnd);
-					std::for_each(policy,begin,end,[&](const core::vectorSIMDu32& jk) -> void
+					const uint32_t spaceFillingEnd[batch_dims] = {0u,batchExtent[1]};
+					CBasicImageFilterCommon::BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd);
+					std::for_each(policy,begin,end,[&](const uint32_t* batchCoord) -> void
 					{
 						// we need some tmp memory for threads in the first pass so that they dont step on each other
 						uint32_t decode_offset;
 						// whole line plus window borders
 						value_type* lineBuffer;
 						core::vectorSIMDi32 localTexCoord;
-						localTexCoord[loopCoordID[0]] = jk[2+0];
-						localTexCoord[loopCoordID[1]] = jk[2+1];
+						localTexCoord[loopCoordID[0]] = batchCoord[0];
+						localTexCoord[loopCoordID[1]] = batchCoord[1];
 						if (axis!=IImage::ET_1D)
 							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
 						else
