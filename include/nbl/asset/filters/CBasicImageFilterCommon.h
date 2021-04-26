@@ -121,6 +121,7 @@ class CBasicImageFilterCommon
 					return toLinearAddress()-other.toLinearAddress();
 				}
 				
+				inline const uint32_t* getRemainingExtents() const {return remainingExtents;}
 			private:
 				uint32_t remainingExtents[iterator_dims];
 				uint32_t localCoord[iterator_dims];
@@ -192,7 +193,7 @@ class CBasicImageFilterCommon
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 			};
 
-			constexpr uint32_t batchSizeThreshold = 0x100u;
+			constexpr uint32_t batchSizeThreshold = 0x80u;
 			const core::vectorSIMDu32 spaceFillingEnd(0u,0u,0u,trueExtent.w);
 			if (std::is_same_v<ExecutionPolicy,std::execution::sequenced_policy> || trueExtent.x*trueExtent.y<batchSizeThreshold)
 			{

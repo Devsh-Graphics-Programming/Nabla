@@ -83,7 +83,8 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			return true; // CBlit already checks kernel
 		}
 
-		static inline bool execute(state_type* state)
+		template<class ExecutionPolicy>
+		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
 		{
 			if (!validate(state))
 				return false;
@@ -91,10 +92,14 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
 			{
 				auto blit = buildBlitState(state, inMipLevel);
-				if (!CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::execute(&blit))
+				if (!CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
 					return false;
 			}
 			return true;
+		}
+		static inline bool execute(state_type* state)
+		{
+			return execute(std::execution::seq,state);
 		}
 
 	protected:

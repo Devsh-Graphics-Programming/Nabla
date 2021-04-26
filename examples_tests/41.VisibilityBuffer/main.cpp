@@ -707,7 +707,7 @@ int main()
         // createVirtualTexture
         [driver,&meshBuffers,&meshes_bundle,&vt,&drawData]() -> void
         {
-            core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap;
+            core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap; // TODO: rewrite this to allow to call `createPoTPaddedSquareImageWithMipLevels` in parallel
 
             core::vector<commit_t> vt_commits;
             //modifying push constants and default fragment shader for VT
@@ -770,9 +770,7 @@ int main()
 
             vt->shrink();
             for (const auto& cm : vt_commits)
-            {
                 vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
-            }
 
             drawData.vt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
         }();

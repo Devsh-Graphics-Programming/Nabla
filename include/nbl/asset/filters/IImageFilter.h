@@ -158,7 +158,7 @@ class IImageFilter
 		virtual bool pExecute(const std::execution::parallel_policy&, IState* state) const = 0;
 		virtual bool pExecute(const std::execution::parallel_unsequenced_policy&, IState* state) const = 0;
 
-		//virtual bool pExecute(IState* state) const {return pExecute(std::execution::seq,state);}
+		virtual bool pExecute(IState* state) const {return pExecute(std::execution::seq,state);}
 };
 
 /*
@@ -191,15 +191,15 @@ class CImageFilter : public IImageFilter
 
 		inline bool pExecute(const std::execution::sequenced_policy& policy, IState* state) const override
 		{
-			return false;// execute(policy, state);
+			return execute(policy, state);
 		}
 		inline bool pExecute(const std::execution::parallel_policy& policy, IState* state) const override
 		{
-			return false;//execute(policy,state);
+			return execute(policy,state);
 		}
 		inline bool pExecute(const std::execution::parallel_unsequenced_policy& policy, IState* state) const override
 		{
-			return false;//execute(policy,state);
+			return execute(policy,state);
 		}
 };
 
