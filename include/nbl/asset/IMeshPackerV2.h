@@ -106,15 +106,23 @@ protected:
 
             map.insert(std::make_pair(format, std::make_pair(utbArrayType, arrayElement)));
 
-            switch (format)
+            const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
+            constexpr uint32_t uvec4Size = 4u * 4u;
+            constexpr uint32_t uvec3Size = 4u * 3u;
+            constexpr uint32_t uvec2Size = 4u * 2u;
+            constexpr uint32_t uintSize  = 4u;
+            switch (attribSize)
             {
-            case E_FORMAT::EF_R32G32B32_SFLOAT:
+            case uvec4Size:
+                isUvec4BufferUsed = true;
+                break;
+            case uvec3Size:
                 isUvec3BufferUsed = true;
                 break;
-            case E_FORMAT::EF_R32G32_SFLOAT:
+            case uvec2Size:
                 isUvec2BufferUsed = true;
                 break;
-            case E_FORMAT::EF_A2B10G10R10_SNORM_PACK32:
+            case uintSize:
                 isUintBufferUsed = true;
                 break;
             default:

@@ -430,7 +430,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
-inline constexpr bool useSSBO() { return false; }
+inline constexpr bool useSSBO() { return true; }
 
 void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs, core::vector<MbPipelineRange>& ranges, DrawData& drawData, const GPUMeshPacker& mp)
 {
