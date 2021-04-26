@@ -106,15 +106,23 @@ protected:
 
             map.insert(std::make_pair(format, std::make_pair(utbArrayType, arrayElement)));
 
-            switch (format)
+            const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
+            constexpr uint32_t uvec4Size = 4u * 4u;
+            constexpr uint32_t uvec3Size = 4u * 3u;
+            constexpr uint32_t uvec2Size = 4u * 2u;
+            constexpr uint32_t uintSize  = 4u;
+            switch (attribSize)
             {
-            case E_FORMAT::EF_R32G32B32_SFLOAT:
+            case uvec4Size:
+                isUvec4BufferUsed = true;
+                break;
+            case uvec3Size:
                 isUvec3BufferUsed = true;
                 break;
-            case E_FORMAT::EF_R32G32_SFLOAT:
+            case uvec2Size:
                 isUvec2BufferUsed = true;
                 break;
-            case E_FORMAT::EF_A2B10G10R10_SNORM_PACK32:
+            case uintSize:
                 isUintBufferUsed = true;
                 break;
             default:
@@ -255,8 +263,22 @@ public:
     //TODO: if we use SSBO then there is no need for `arrayElement`
     struct VirtualAttribute
     {
-        uint32_t arrayElement : 4;
-        uint32_t offset : 28;
+        VirtualAttribute() : va(0u) {};
+
+        VirtualAttribute(uint16_t arrayElement, uint32_t offset)
+            :va(0u)
+        {
+            assert((offset & 0xF0000000u) == 0u); 
+
+            va |= static_cast<uint32_t>(arrayElement) << 28u;
+            va |= offset;
+        }
+        
+        inline void setArrayElement(uint16_t arrayElement) { va |= static_cast<uint32_t>(arrayElement) << 28u; }
+        inline void setOffset(uint32_t offset) { assert((offset & 0xF0000000u) == 0u); va |= offset; }
+
+    private:
+        uint32_t va;
     };
 
     struct CombinedDataOffsetTable
@@ -274,7 +296,7 @@ public:
     inline uint32_t getIntBufferBindingsCnt() { return m_virtualAttribConfig.intArrayElementsCnt; }
     inline uint32_t getUintBufferBindingsCnt() { return m_virtualAttribConfig.uintArrayElementsCnt; }
 
-    std::string getGLSLWithUTB(uint32_t descriptorSet = 0u, uint32_t floatArrayBinding = 0u, uint32_t intArrayBinding = 1u, uint32_t uintArrayBinding = 2u)
+    std::string getGLSLForUTB(uint32_t descriptorSet = 0u, uint32_t floatArrayBinding = 0u, uint32_t intArrayBinding = 1u, uint32_t uintArrayBinding = 2u)
     {
         std::string result = "#define _NBL_VG_DESCRIPTOR_SET " + std::to_string(descriptorSet) + '\n';
 
@@ -304,7 +326,7 @@ public:
         return result;
     }
 
-    std::string getGLSLWithSSBO(uint32_t descriptorSet = 0u, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u)
+    std::string getGLSLForSSBO(uint32_t descriptorSet = 0u, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u)
     {
         std::string result = "#define _NBL_VG_USE_SSBO\n";
         result += "#define _NBL_VG_SSBO_DESCRIPTOR_SET " + std::to_string(descriptorSet) + '\n';
@@ -347,7 +369,7 @@ protected:
     };
 
     template <typename DSlayout>
-    uint32_t getDSlayoutBindings_internal(typename DSlayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    uint32_t getDSlayoutBindingsForUTB_internal(typename DSlayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
     {
         const uint32_t bindingCount = 
             (m_virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
@@ -387,7 +409,7 @@ protected:
     }
 
     template <typename DS, typename BufferView>
-    std::pair<uint32_t, uint32_t> getDescriptorSetWrites_internal(typename DS::SWriteDescriptorSet* outWrites, typename DS::SDescriptorInfo* outInfo, DS* dstSet, std::function<core::smart_refctd_ptr<BufferView>(E_FORMAT)> createBufferView, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    std::pair<uint32_t, uint32_t> getDescriptorSetWritesForUTB_internal(typename DS::SWriteDescriptorSet* outWrites, typename DS::SDescriptorInfo* outInfo, DS* dstSet, std::function<core::smart_refctd_ptr<BufferView>(E_FORMAT)> createBufferView, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
     {
         const uint32_t writeCount = 
             (m_virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
@@ -476,6 +498,109 @@ protected:
         }
 
         return std::make_pair(writeCount, infoCount);
+    }
+
+    template <typename DSlayout>
+    uint32_t getDSlayoutBindingsForSSBO_internal(typename DSlayout::SBinding* outBindings, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
+    {
+        const uint32_t bindingCount = 
+            m_virtualAttribConfig.isUintBufferUsed +
+            m_virtualAttribConfig.isUvec2BufferUsed +
+            m_virtualAttribConfig.isUvec3BufferUsed +
+            m_virtualAttribConfig.isUvec4BufferUsed;
+
+        if (!outBindings)
+            return bindingCount;
+
+        auto* bindings = outBindings;
+
+        auto fillBinding = [](auto& bnd, uint32_t binding) {
+            bnd.binding = binding;
+            bnd.count = 1u;
+            bnd.stageFlags = asset::ISpecializedShader::ESS_ALL;
+            bnd.type = asset::EDT_STORAGE_BUFFER;
+            bnd.samplers = nullptr;
+        };
+
+        uint32_t i = 0u;
+        if (m_virtualAttribConfig.isUintBufferUsed)
+        {
+            fillBinding(bindings[i], uintBufferBinding);
+            ++i;
+        }
+        if (m_virtualAttribConfig.isUvec2BufferUsed)
+        {
+            fillBinding(bindings[i], uvec2BufferBinding);
+            ++i;
+        }
+        if (m_virtualAttribConfig.isUvec3BufferUsed)
+        {
+            fillBinding(bindings[i], uvec3BufferBinding);
+            ++i;
+        }
+        if (m_virtualAttribConfig.isUvec4BufferUsed)
+        {
+            fillBinding(bindings[i], uvec4BufferBinding);
+            ++i;
+        }
+
+        return bindingCount;
+    }
+
+    template <typename DS>
+    uint32_t getDescriptorSetWritesForSSBO_internal(typename DS::SWriteDescriptorSet* outWrites, typename DS::SDescriptorInfo* outInfo,  DS* dstSet, core::smart_refctd_ptr<IBuffer> vtxBuffer, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
+    {
+        const uint32_t writeAndInfoCount = 
+            m_virtualAttribConfig.isUintBufferUsed +
+            m_virtualAttribConfig.isUvec2BufferUsed +
+            m_virtualAttribConfig.isUvec3BufferUsed +
+            m_virtualAttribConfig.isUvec4BufferUsed;
+
+        if (!outWrites || !outInfo)
+            return writeAndInfoCount;
+
+        auto* writes = outWrites;
+        auto* infos = outInfo;
+
+        //TODO: single info struct?
+        auto fillWriteStruct = [&](uint32_t binding, auto& write, auto& info)
+        {
+            write.binding = binding;
+            write.arrayElement = 0u;
+            write.count = 1u;
+            write.descriptorType = EDT_STORAGE_BUFFER;
+            write.dstSet = dstSet;
+
+            info.desc = vtxBuffer;
+            info.buffer.offset = 0u;
+            info.buffer.size = m_packerDataStore.vertexBuffer->getSize();
+
+            write.info = &info;
+        };
+
+        uint32_t i = 0u;
+        if (m_virtualAttribConfig.isUintBufferUsed)
+        {
+            fillWriteStruct(uintBufferBinding, writes[i], infos[i]);
+            i++;
+        }
+        if (m_virtualAttribConfig.isUvec2BufferUsed)
+        {
+            fillWriteStruct(uvec2BufferBinding, writes[i], infos[i]);
+            i++;
+        }
+        if (m_virtualAttribConfig.isUvec3BufferUsed)
+        {
+            fillWriteStruct(uvec3BufferBinding, writes[i], infos[i]);
+            i++;
+        }
+        if (m_virtualAttribConfig.isUvec4BufferUsed)
+        {
+            fillWriteStruct(uvec4BufferBinding, writes[i], infos[i]);
+            i++;
+        }
+
+        return writeAndInfoCount;
     }
 
 public:

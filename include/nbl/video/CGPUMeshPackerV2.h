@@ -76,19 +76,29 @@ public:
     template <typename MeshBufferIterator>
     bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-    uint32_t getDSlayoutBindings(IGPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    uint32_t getDSlayoutBindingsForUTB(IGPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
     {
-        return getDSlayoutBindings_internal<IGPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
+        return getDSlayoutBindingsForUTB_internal<IGPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
     }
 
-    std::pair<uint32_t, uint32_t> getDescriptorSetWrites(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    std::pair<uint32_t, uint32_t> getDescriptorSetWritesForUTB(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
     {
         auto createBufferView = [&](E_FORMAT format) -> core::smart_refctd_ptr<IGPUBufferView>
         {
             return m_driver->createGPUBufferView(m_packerDataStore.vertexBuffer.get(), format);
         };
 
-        return getDescriptorSetWrites_internal<IGPUDescriptorSet, IGPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+        return getDescriptorSetWritesForUTB_internal<IGPUDescriptorSet, IGPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+    }
+
+    uint32_t getDSlayoutBindingsForSSBO(IGPUDescriptorSetLayout::SBinding* outBindings, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
+    {
+        return getDSlayoutBindingsForSSBO_internal<IGPUDescriptorSetLayout>(outBindings, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
+    }
+
+    uint32_t getDescriptorSetWritesForSSBO(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
+    {
+        return getDescriptorSetWritesForSSBO_internal<IGPUDescriptorSet>(outWrites, outInfo, dstSet, m_packerDataStore.vertexBuffer, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
     }
 
 private:

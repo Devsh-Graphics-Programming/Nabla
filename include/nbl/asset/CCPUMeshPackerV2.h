@@ -53,20 +53,30 @@ public:
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
-    uint32_t getDSlayoutBindings(ICPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+    uint32_t getDSlayoutBindingsForUTB(ICPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u)
     {
-        return getDSlayoutBindings_internal<ICPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
+        return getDSlayoutBindingsForUTB_internal<ICPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
     }
 
     // cannot be called before 'instantiateDataStorage'
-    std::pair<uint32_t, uint32_t> getDescriptorSetWrites(ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
+    std::pair<uint32_t, uint32_t> getDescriptorSetWritesForUTB(ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
     {
         auto createBufferView = [&](E_FORMAT format)
         {
             return core::make_smart_refctd_ptr<ICPUBufferView>(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer), format);
         };
 
-        return getDescriptorSetWrites_internal<ICPUDescriptorSet, ICPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+        return getDescriptorSetWritesForUTB_internal<ICPUDescriptorSet, ICPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+    }
+
+    uint32_t getDSlayoutBindingsForSSBO(ICPUDescriptorSetLayout::SBinding* outBindings, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
+    {
+        return getDSlayoutBindingsForUTB_internal<ICPUDescriptorSetLayout>(outBindings, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
+    }
+
+    uint32_t getDescriptorSetWritesForSSBO(ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
+    {
+        return getDescriptorSetWritesForUTB_internal<ICPUDescriptorSet>(outWrites, outInfo, dstSet, m_packerDataStore.vertexBuffer, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
     }
 
 };
@@ -155,12 +165,15 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
                 if (vtxFormatInfo == m_virtualAttribConfig.map.end())
                     return 0u;
 
-                cdotOut->attribInfo[location].arrayElement = vtxFormatInfo->second.second;
+                uint16_t vaArrayElement = vtxFormatInfo->second.second;
+                uint32_t vaOffset;
 
                 if (inputRate == EVIR_PER_VERTEX)
-                    cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
+                    vaOffset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
                 if (inputRate == EVIR_PER_INSTANCE)
-                    cdotOut->attribInfo[location].offset = ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt;
+                    vaOffset = ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt;
+
+                cdotOut->attribInfo[location] = VirtualAttribute(vaArrayElement, vaOffset);
 
             }
 
