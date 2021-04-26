@@ -9,13 +9,11 @@
 
 #include <nbl/builtin/glsl/math/functions.glsl>
 
-// TODO: investigate covariance rendering and maybe kill this struct
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct nbl_glsl_DirAndDifferential
 {
    vec3 dir;
-   // differentials at origin, I'd much prefer them to be differentials of barycentrics instead of position in the future
-   mat2x3 dPosdScreen;
+   // TODO: investigate covariance rendering and maybe kill this struct
 };
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
@@ -134,12 +132,10 @@ mat2x4 nbl_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen
    return dFdG*dGdScreen;
 }
 
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _Normal, in mat2x3 dpd_)
+nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _Normal)
 {
     nbl_glsl_IsotropicViewSurfaceInteraction interaction;
     interaction.V.dir = _View;
-    interaction.V.dPosdScreen[0] = dpd_[0];
-    interaction.V.dPosdScreen[1] = dpd_[1];
     interaction.N = _Normal;
     float invlenV2 = inversesqrt(dot(interaction.V.dir, interaction.V.dir));
     float invlenN2 = inversesqrt(dot(interaction.N, interaction.N));
@@ -149,10 +145,10 @@ nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteractionFromView
     interaction.NdotV_squared = interaction.NdotV * interaction.NdotV;
     return interaction;
 }
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal, in mat2x3 dpd_)
+nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
 {
     vec3 V = _CamPos - _SurfacePos;
-    return nbl_glsl_calcSurfaceInteractionFromViewVector(V, _Normal, dpd_);
+    return nbl_glsl_calcSurfaceInteractionFromViewVector(V, _Normal);
 }
 
 nbl_glsl_AnisotropicViewSurfaceInteraction nbl_glsl_calcAnisotropicInteraction(in nbl_glsl_IsotropicViewSurfaceInteraction isotropic, in vec3 T, in vec3 B)

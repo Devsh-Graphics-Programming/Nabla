@@ -5,6 +5,7 @@
 #ifndef _NBL_BUILTIN_GLSL_BUMP_MAPPING_UTILS_INCLUDED_
 #define _NBL_BUILTIN_GLSL_BUMP_MAPPING_UTILS_INCLUDED_
 
+
 vec3 nbl_glsl_perturbNormal_heightMap(in vec3 vtxN, in mat2x3 dPdQ, in vec2 dHdQ)
 {
     vec3 r1 = cross(dPdQ[1],vtxN);
@@ -19,5 +20,12 @@ vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 vtxN, in vec2 dhdUV, in mat2x3
     const vec2 dHdQ = vec2(dot(dhdUV,dUVdQ[0]), dot(dhdUV,dUVdQ[1]));
     return nbl_glsl_perturbNormal_heightMap(vtxN,dPdQ,dHdQ);
 }
+
+#ifdef _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_
+vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 vtxN, in vec2 dhdUV)
+{
+    return nbl_glsl_perturbNormal_derivativeMap(vtxN,dhdUV,nbl_glsl_perturbNormal_dPdSomething(),nbl_glsl_perturbNormal_dUVdSomething());
+}
+#endif
 
 #endif
