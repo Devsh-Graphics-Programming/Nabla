@@ -112,7 +112,7 @@ void main()
 	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), dUV, precomp);
 #endif
 
 

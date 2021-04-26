@@ -332,7 +332,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 	conv.inImage = _img;
 	conv.outImage = outImg.get();
 
-	if (!convert_filter_t::execute(&conv))
+	if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
 	{
 		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
 		_NBL_DEBUG_BREAK_IF(true);
@@ -1077,7 +1077,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							conv.outImage = outImg.get();
 
 							viewParams.components = asset::ICPUImageView::SComponentMapping{};
-							if (!convert_filter_t::execute(&conv))
+							if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
 								_NBL_DEBUG_BREAK_IF(true);
 							viewParams.format = outImg->getCreationParameters().format;
 							viewParams.image = std::move(outImg);
