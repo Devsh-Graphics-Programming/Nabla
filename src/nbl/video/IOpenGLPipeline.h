@@ -31,6 +31,8 @@ class IOpenGLPipeline
     private:
         using base_instance_cache_t = SBaseInstance;
 
+        _NBL_STATIC_INLINE_CONSTEXPR GLenum GraphicsPipelineStages[5] = { GL_VERTEX_SHADER, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_GEOMETRY_SHADER, GL_FRAGMENT_SHADER };
+
         _NBL_STATIC_INLINE_CONSTEXPR bool       IsComputePipelineBase =             (_STAGE_COUNT == 1u);
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t   BaseInstancePerContextCacheSize =   IsComputePipelineBase ? 0ull : sizeof(base_instance_cache_t);
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t   UniformsPerContextCacheSize =       _STAGE_COUNT*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE + BaseInstancePerContextCacheSize;
@@ -61,8 +63,19 @@ class IOpenGLPipeline
                     const auto& bin = _binaries[j];
                     if (!bin.binary)
                         continue;
-                    const GLuint GLname = gl->glShader.pglCreateProgram();
-                    gl->glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), static_cast<GLsizei>(bin.binary->size()));
+                    GLuint GLname = 0u;
+                    if (!gl->getFeatures()->runningInRenderDoc)
+                    {
+                        GLname = gl->glShader.pglCreateProgram();
+                        gl->glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), static_cast<GLsizei>(bin.binary->size()));
+                    }
+                    else
+                    {
+                        // RenderDoc doesnt support program binaries, so in case of running in renderdoc, "binary" is GLSL string
+
+                        const char* glsl = reinterpret_cast<char*>(bin.binary->data());
+                        GLname = gl->glShader.pglCreateShaderProgramv(IsComputePipelineBase ? GL_COMPUTE_SHADER : GraphicsPipelineStages[j], 1u, &glsl);
+                    }
                     (*m_GLprograms)[i*_STAGE_COUNT+j].GLname = GLname;
                 }
 

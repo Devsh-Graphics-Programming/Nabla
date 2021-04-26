@@ -354,6 +354,19 @@ public:
 			m_glfeatures.DimSmoothedPoint[1] = 0;
 		}
 
+		bool runningInRenderDoc = false;
+#ifdef _NBL_PLATFORM_WINDOWS_
+		if (GetModuleHandleA("renderdoc.dll"))
+#elif defined(_NBL_PLATFORM_ANDROID_)
+		if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
+#elif defined(_NBL_PLATFORM_LINUX_)
+		if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
+#else
+		if (false)
+#endif
+			runningInRenderDoc = true;
+		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
+
 		// physical device features
 		{
 			m_features.logicOp = !IsGLES;

@@ -187,7 +187,7 @@ auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipC
 	impl::specialize(comp, m_specInfo);
 	impl::reorderBindings(comp, _layout);
 
-	std::string glslCode = comp.compile();
+	const std::string glslCode = comp.compile();
 	const char* glslCode_cstr = glslCode.c_str();
 
 	GLuint GLname = gl->glShader.pglCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
@@ -201,10 +201,22 @@ auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipC
 		gatherUniformLocations(gl, GLname);
 
 	SProgramBinary binary;
-	GLint binaryLength = 0;
-	gl->glShader.pglGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
-	binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
-	gl->glShader.pglGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
+	if (!gl->getFeatures()->runningInRenderDoc)
+	{
+		GLint binaryLength = 0;
+		gl->glShader.pglGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
+		binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
+		gl->glShader.pglGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
+	}
+	else
+	{
+		// RenderDoc doesnt support program binaries, so in case of running in renderdoc we put GLSL as a "binary"
+
+		const size_t len = glslCode.size() + 1ull;
+		binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(len);
+		memcpy(binary.binary->data(), glslCode.c_str(), len);
+		binary.format = 0;
+	}
 
 	return {GLname, std::move(binary)};
 }
