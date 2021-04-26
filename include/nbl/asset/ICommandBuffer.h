@@ -191,6 +191,8 @@ public:
         const SImageMemoryBarrier* imgBarriers;
     };
 
+    E_STATE getState() const { return m_state; }
+
     E_LEVEL getLevel() const { return m_level; }
 
     // hm now i think having begin(), reset() and end() as command buffer API is a little weird
