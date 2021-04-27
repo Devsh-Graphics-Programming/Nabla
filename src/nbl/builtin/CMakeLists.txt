@@ -152,5 +152,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
   "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
   "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
+  "nbl/builtin/glsl/virtual_geometry/util.glsl"
 PARENT_SCOPE)
 

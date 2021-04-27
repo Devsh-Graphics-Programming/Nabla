@@ -11,15 +11,15 @@
 #define _NBL_VG_DESCRIPTOR_SET 0
 #endif
 #ifndef _NBL_VG_FLOAT_BUFFERS
-#define _NBL_VG_FLOAT_BUFFERS_BINDING 1 
-#define _NBL_VG_FLOAT_BUFFERS_COUNT 15
+#define _NBL_VG_FLOAT_BUFFERS_BINDING 0 
+#define _NBL_VG_FLOAT_BUFFERS_COUNT 4
 #endif
 #ifndef _NBL_VG_INT_BUFFERS
-#define _NBL_VG_INT_BUFFERS_BINDING 2
+#define _NBL_VG_INT_BUFFERS_BINDING 1
 #define _NBL_VG_INT_BUFFERS_COUNT 0
 #endif
 #ifndef _NBL_VG_UINT_BUFFERS
-#define _NBL_VG_UINT_BUFFERS_BINDING 3
+#define _NBL_VG_UINT_BUFFERS_BINDING 2
 #define _NBL_VG_UINT_BUFFERS_COUNT 0
 #endif
 
@@ -66,13 +66,10 @@ layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC4_BINDING, 
 } meshPackedDataUvec4Buffer;
 #endif
 #ifdef _NBL_VG_USE_SSBO_UVEC3
-struct Packed_uvec3_t
-{
-    uint x,y,z;
-};
+#include <nbl/builtin/glsl/virtual_geometry/util.glsl>
 layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC3_BINDING, std430) readonly buffer MeshPackedDataAsUvec3
 {
-    Packed_uvec3_t attribData[];
+    nbl_glsl_Packed_uvec3_t attribData[];
 } meshPackedDataUvec3Buffer;
 #endif
 #ifdef _NBL_VG_USE_SSBO_UVEC2

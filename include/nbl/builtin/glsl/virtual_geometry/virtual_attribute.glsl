@@ -51,7 +51,7 @@ vec3 nbl_glsl_VG_attribFetch3f(in nbl_glsl_VG_VirtualAttributePacked_t attr, in 
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
 #ifdef _NBL_VG_USE_SSBO
-  Packed_uvec3_t attrLocal = meshPackedDataUvec3Buffer.attribData[va + vertexID];
+  nbl_glsl_Packed_uvec3_t attrLocal = meshPackedDataUvec3Buffer.attribData[va + vertexID];
   return vec3(uintBitsToFloat(attrLocal.x), uintBitsToFloat(attrLocal.y), uintBitsToFloat(attrLocal.z));
 #else
   const int addr = va.offset+int(vertexID);
@@ -105,7 +105,7 @@ ivec3 nbl_glsl_VG_attribFetch3i(in nbl_glsl_VG_VirtualAttributePacked_t attr, in
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
 #ifdef _NBL_VG_USE_SSBO
-  Packed_uvec3_t attrLocal = meshPackedDataUvec3Buffer.attribData[va + vertexID];
+  nbl_glsl_Packed_uvec3_t attrLocal = meshPackedDataUvec3Buffer.attribData[va + vertexID];
   return ivec3(int(attrLocal.x), int(attrLocal.y), int(attrLocal.z));
 #else
   const int addr = va.offset+int(vertexID);
@@ -157,7 +157,7 @@ uvec3 nbl_glsl_VG_attribFetch3u(in nbl_glsl_VG_VirtualAttributePacked_t attr, in
 {
   const nbl_glsl_VG_VirtualAttribute va = nbl_glsl_VG_unpackVirtualAttribute(attr);
 #ifdef _NBL_VG_USE_SSBO
-  Packed_uvec3_t attrLocal = meshPackedDataUvec3Buffer.attribData[va + vertexID];
+  nbl_glsl_Packed_uvec3_t attrLocal = meshPackedDataUvec3Buffer.attribData[va + vertexID];
   return uvec3(attrLocal.x, attrLocal.y, attrLocal.z);
 #else
   const int addr = va.offset+int(vertexID);

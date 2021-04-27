@@ -430,7 +430,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
-inline constexpr bool useSSBO() { return true; }
+inline constexpr bool useSSBO() { return false; }
 
 void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs, core::vector<MbPipelineRange>& ranges, DrawData& drawData, const GPUMeshPacker& mp)
 {
@@ -844,6 +844,7 @@ int main()
             };
 
             std::string vertPrelude = getGLSL();
+
             vertPrelude += VERTEX_SHADER_OVERRIDES;
             core::smart_refctd_ptr<ICPUSpecializedShader> vs = overrideShaderJustAfterVersionDirective(pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX),vertPrelude);
 
