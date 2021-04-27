@@ -271,13 +271,10 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
-inline constexpr bool useSSBO() { return true; }
+constexpr bool useSSBO = true;
 
-void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs, core::vector<MbPipelineRange>& ranges, DrawData& drawData, const GPUMeshPacker& mp)
+auto createPipelineLayout(IVideoDriver* driver, DrawData& drawData, const GPUMeshPacker& mp)
 {
-    ICPUSpecializedShader* cpuShaders[2] = { vs, fs };
-    auto gpuShaders = driver->getGPUObjectsFromAssets(cpuShaders, cpuShaders + 2);
-
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds0Layout;
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds1Layout;
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds2Layout;
@@ -286,7 +283,7 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
 
         auto getMpBindingsCnt = [&mp]()->uint32_t
         {
-            if constexpr (useSSBO())
+            if constexpr (useSSBO)
                 return mp.getDSlayoutBindingsForSSBO(nullptr);
             else
                 return mp.getDSlayoutBindingsForUTB(nullptr);
@@ -294,15 +291,15 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
 
         const uint32_t mpBindingsCnt = getMpBindingsCnt();
         const auto vtBindingsCnt = drawData.vt->getDSlayoutBindings(nullptr, nullptr);
-        
+
         auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout::SBinding>>(mpBindingsCnt + vtBindingsCnt.first);
         auto vtSamplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUSampler>>>(vtBindingsCnt.second);
 
         IGPUDescriptorSetLayout::SBinding* b = bindings->data();
         IGPUDescriptorSetLayout::SBinding* mpBindingsPtr = b;
         IGPUDescriptorSetLayout::SBinding* vtBindingsPtr = b + mpBindingsCnt;
-        
-        if constexpr (useSSBO())
+
+        if constexpr (useSSBO)
             mp.getDSlayoutBindingsForSSBO(mpBindingsPtr);
         else
             mp.getDSlayoutBindingsForUTB(mpBindingsPtr);
@@ -314,7 +311,7 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
             mpBindingsPtr->stageFlags = ISpecializedShader::ESS_VERTEX;
             mpBindingsPtr++;
         }
-        
+
         for (uint32_t i = 0u; i < vtBindingsCnt.first; i++)
         {
             vtBindingsPtr->stageFlags = ISpecializedShader::ESS_FRAGMENT;
@@ -362,128 +359,110 @@ void createPipeline(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecial
     pcRange.offset = 0u;
     pcRange.stageFlags = ISpecializedShader::ESS_ALL;
 
-    auto pipelineLayout = driver->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(ds0Layout), 
-        core::smart_refctd_ptr(ds1Layout), core::smart_refctd_ptr(ds2Layout), core::smart_refctd_ptr(ds3Layout));
+    return driver->createGPUPipelineLayout(&pcRange,&pcRange+1,std::move(ds0Layout),std::move(ds1Layout),std::move(ds2Layout),std::move(ds3Layout));
+}
 
-    drawData.ds[0] = driver->createGPUDescriptorSet(std::move(ds0Layout));
-    drawData.ds[1] = driver->createGPUDescriptorSet(std::move(ds1Layout));
-    drawData.ds[2] = driver->createGPUDescriptorSet(std::move(ds2Layout));
-    drawData.ds[3] = driver->createGPUDescriptorSet(std::move(ds3Layout));
-    {
-        auto getMpWriteAndInfoSize = [&mp]() -> std::pair<uint32_t, uint32_t>
-        {
-            if constexpr (useSSBO())
-            {
-                uint32_t writeAndInfoSize = mp.getDescriptorSetWritesForSSBO(nullptr, nullptr, nullptr);
-                return std::make_pair(writeAndInfoSize, writeAndInfoSize);
-            }
-            else
-                return mp.getDescriptorSetWritesForUTB(nullptr, nullptr, nullptr);
-        };
-
-        //mesh packing stuff
-        auto sizesMP = getMpWriteAndInfoSize();
-        auto writesMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>>(sizesMP.first);
-        auto infoMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorInfo>>(sizesMP.second);
-
-        auto writesPtr = writesMP->data();
-        auto infoPtr = infoMP->data();
-
-        if constexpr (useSSBO())
-            mp.getDescriptorSetWritesForSSBO(writesMP->data(), infoMP->data(), drawData.ds[0].get());
-        else
-            mp.getDescriptorSetWritesForUTB(writesMP->data(), infoMP->data(), drawData.ds[0].get());
-
-        driver->updateDescriptorSets(writesMP->size(), writesMP->data(), 0u, nullptr);
-
-        IGPUDescriptorSet::SWriteDescriptorSet w1;
-        w1.arrayElement = 0u;
-        w1.count = 1u;
-        w1.binding = 0u;
-        w1.descriptorType = EDT_UNIFORM_BUFFER;
-        w1.dstSet = drawData.ds[1].get();
-
-        drawData.ubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
-
-        IGPUDescriptorSet::SDescriptorInfo info1;
-        info1.buffer.offset = 0u;
-        info1.buffer.size = drawData.ubo->getSize();
-        info1.desc = core::smart_refctd_ptr(drawData.ubo);
-        w1.info = &info1;
-
-        driver->updateDescriptorSets(1u, &w1, 0u, nullptr);
-
-        IGPUDescriptorSet::SWriteDescriptorSet w3;
-        w3.arrayElement = 0u;
-        w3.count = 1u;
-        w3.binding = 0u;
-        w3.descriptorType = EDT_STORAGE_BUFFER;
-        w3.dstSet = drawData.ds[3].get();
-
-        IGPUDescriptorSet::SDescriptorInfo info3;
-        info3.buffer.offset = 0u;
-        info3.buffer.size = drawData.virtualAttribTable->getSize();
-        info3.desc = core::smart_refctd_ptr(drawData.virtualAttribTable);
-        w3.info = &info3;
-
-        driver->updateDescriptorSets(1u, &w3, 0u, nullptr);
-
-        //vt stuff
-        auto sizesVT = drawData.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
-        auto writesVT = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SWriteDescriptorSet>>(sizesVT.first);
-        auto infoVT = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SDescriptorInfo>>(sizesVT.second);
-
-        drawData.vt->getDescriptorSetWrites(writesVT->data(), infoVT->data(), drawData.ds[0].get(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
-
-        driver->updateDescriptorSets(writesVT->size(), writesVT->data(), 0u, nullptr);
-
-        IGPUDescriptorSet::SWriteDescriptorSet w2[2];
-        w2[0].arrayElement = 0u;
-        w2[0].count = 1u;
-        w2[0].binding = 0u;
-        w2[0].descriptorType = EDT_STORAGE_BUFFER;
-        w2[0].dstSet = drawData.ds[2].get();
-
-        w2[1].arrayElement = 0u;
-        w2[1].count = 1u;
-        w2[1].binding = 1u;
-        w2[1].descriptorType = EDT_STORAGE_BUFFER;
-        w2[1].dstSet = drawData.ds[2].get();
-
-        core::smart_refctd_ptr<video::IGPUBuffer> buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(video::IGPUVirtualTexture::SPrecomputedData), &drawData.vt->getPrecomputedData());
-
-        IGPUDescriptorSet::SDescriptorInfo info2[2];
-        info2[0].buffer.offset = 0u;
-        info2[0].buffer.size = sizeof(video::IGPUVirtualTexture::SPrecomputedData);
-        info2[0].desc = buffer;
-
-        info2[1].buffer.offset = 0u;
-        info2[1].buffer.size = drawData.vtDataSSBO->getSize();
-        info2[1].desc = drawData.vtDataSSBO; // TODO: rename vtData to materialData
-
-        w2[0].info = &info2[0];
-        w2[1].info = &info2[1];
-
-        driver->updateDescriptorSets(2u,w2,0u,nullptr);
-    }
-
-    IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
+void createDescriptorSets(IVideoDriver* driver, const IGPUPipelineLayout* pplnLayout, DrawData& drawData, const GPUMeshPacker& mp)
+{
+    drawData.ds[0] = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(pplnLayout->getDescriptorSetLayout(0))); // global
+    drawData.ds[1] = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(pplnLayout->getDescriptorSetLayout(1))); // per-frame
+    drawData.ds[2] = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(pplnLayout->getDescriptorSetLayout(2)));
     
-    auto it = ranges.begin();
-    drawData.gpuPipelines.resize(ranges.size()-1u);
-    for (auto& gpuPpln : drawData.gpuPipelines)
+    auto getMpWriteAndInfoSize = [&mp]() -> std::pair<uint32_t, uint32_t>
     {
-        auto cpuPipeline = (it++)->first;
+        if constexpr (useSSBO)
+        {
+            uint32_t writeAndInfoSize = mp.getDescriptorSetWritesForSSBO(nullptr, nullptr, nullptr);
+            return std::make_pair(writeAndInfoSize, writeAndInfoSize);
+        }
+        else
+            return mp.getDescriptorSetWritesForUTB(nullptr, nullptr, nullptr);
+    };
 
-        gpuPpln = driver->createGPURenderpassIndependentPipeline(
-            nullptr, core::smart_refctd_ptr(pipelineLayout),
-            shaders, shaders+2u,
-            cpuPipeline->getVertexInputParams(),
-            cpuPipeline->getBlendParams(), 
-            cpuPipeline->getPrimitiveAssemblyParams(), 
-            cpuPipeline->getRasterizationParams()
-        );
-    }
+    //mesh packing stuff
+    auto sizesMP = getMpWriteAndInfoSize();
+    auto writesMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>>(sizesMP.first);
+    auto infoMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorInfo>>(sizesMP.second);
+
+    auto writesPtr = writesMP->data();
+    auto infoPtr = infoMP->data();
+
+    if constexpr (useSSBO)
+        mp.getDescriptorSetWritesForSSBO(writesMP->data(), infoMP->data(), drawData.ds[0].get());
+    else
+        mp.getDescriptorSetWritesForUTB(writesMP->data(), infoMP->data(), drawData.ds[0].get());
+
+    driver->updateDescriptorSets(writesMP->size(), writesMP->data(), 0u, nullptr);
+
+    IGPUDescriptorSet::SWriteDescriptorSet w1;
+    w1.arrayElement = 0u;
+    w1.count = 1u;
+    w1.binding = 0u;
+    w1.descriptorType = EDT_UNIFORM_BUFFER;
+    w1.dstSet = drawData.ds[1].get();
+
+    drawData.ubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+
+    IGPUDescriptorSet::SDescriptorInfo info1;
+    info1.buffer.offset = 0u;
+    info1.buffer.size = drawData.ubo->getSize();
+    info1.desc = core::smart_refctd_ptr(drawData.ubo);
+    w1.info = &info1;
+
+    driver->updateDescriptorSets(1u, &w1, 0u, nullptr);
+
+    IGPUDescriptorSet::SWriteDescriptorSet w3;
+    w3.arrayElement = 0u;
+    w3.count = 1u;
+    w3.binding = 0u;
+    w3.descriptorType = EDT_STORAGE_BUFFER;
+    w3.dstSet = drawData.ds[3].get();
+
+    IGPUDescriptorSet::SDescriptorInfo info3;
+    info3.buffer.offset = 0u;
+    info3.buffer.size = drawData.virtualAttribTable->getSize();
+    info3.desc = core::smart_refctd_ptr(drawData.virtualAttribTable);
+    w3.info = &info3;
+
+    driver->updateDescriptorSets(1u, &w3, 0u, nullptr);
+
+    //vt stuff
+    auto sizesVT = drawData.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
+    auto writesVT = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SWriteDescriptorSet>>(sizesVT.first);
+    auto infoVT = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SDescriptorInfo>>(sizesVT.second);
+
+    drawData.vt->getDescriptorSetWrites(writesVT->data(), infoVT->data(), drawData.ds[0].get(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
+
+    driver->updateDescriptorSets(writesVT->size(), writesVT->data(), 0u, nullptr);
+
+    IGPUDescriptorSet::SWriteDescriptorSet w2[2];
+    w2[0].arrayElement = 0u;
+    w2[0].count = 1u;
+    w2[0].binding = 0u;
+    w2[0].descriptorType = EDT_STORAGE_BUFFER;
+    w2[0].dstSet = drawData.ds[2].get();
+
+    w2[1].arrayElement = 0u;
+    w2[1].count = 1u;
+    w2[1].binding = 1u;
+    w2[1].descriptorType = EDT_STORAGE_BUFFER;
+    w2[1].dstSet = drawData.ds[2].get();
+
+    core::smart_refctd_ptr<video::IGPUBuffer> buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(video::IGPUVirtualTexture::SPrecomputedData), &drawData.vt->getPrecomputedData());
+
+    IGPUDescriptorSet::SDescriptorInfo info2[2];
+    info2[0].buffer.offset = 0u;
+    info2[0].buffer.size = sizeof(video::IGPUVirtualTexture::SPrecomputedData);
+    info2[0].desc = buffer;
+
+    info2[1].buffer.offset = 0u;
+    info2[1].buffer.size = drawData.vtDataSSBO->getSize();
+    info2[1].desc = drawData.vtDataSSBO; // TODO: rename vtData to materialData
+
+    w2[0].info = &info2[0];
+    w2[1].info = &info2[1];
+
+    driver->updateDescriptorSets(2u,w2,0u,nullptr);
 }
 
 int main()
@@ -519,12 +498,43 @@ int main()
     auto* fs = am->getFileSystem();
 
     //
+    auto createScreenSizedImage = [driver,&params](const E_FORMAT format) -> auto
+    {
+        IGPUImage::SCreationParams param;
+        param.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+        param.type = IImage::ET_2D;
+        param.format = format;
+        param.extent = {params.WindowSize.Width,params.WindowSize.Height,1u};
+        param.mipLevels = 1u;
+        param.arrayLayers = 1u;
+        param.samples = IImage::ESCF_1_BIT;
+        return driver->createDeviceLocalGPUImageOnDedMem(std::move(param));
+    };
+    auto framebuffer = createScreenSizedImage(EF_R8G8B8A8_SRGB);
+    auto createImageView = [driver,&params](smart_refctd_ptr<IGPUImage>&& image, const E_FORMAT format=EF_UNKNOWN) -> auto
+    {
+        IGPUImageView::SCreationParams params;
+        params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+        params.image = std::move(image);
+        params.viewType = IGPUImageView::ET_2D;
+        params.format = format!=EF_UNKNOWN ? format:params.image->getCreationParameters().format;
+        params.components = {};
+        params.subresourceRange = {};
+        params.subresourceRange.levelCount = 1u;
+        params.subresourceRange.layerCount = 1u;
+        return driver->createGPUImageView(std::move(params));
+    };
+    auto framebufferStorageView = createImageView(core::smart_refctd_ptr(framebuffer),EF_R8G8B8A8_UNORM);
+    auto visbufferView = createImageView(createScreenSizedImage(EF_R32G32B32A32_UINT));
+
+    auto visbuffer = driver->addFrameBuffer();
+    visbuffer->attach(EFAP_COLOR_ATTACHMENT0,core::smart_refctd_ptr(visbufferView));
+    auto fb = driver->addFrameBuffer();
+    fb->attach(EFAP_COLOR_ATTACHMENT0,createImageView(std::move(framebuffer)));
+
+    //
     DrawData drawData;
     {
-        asset::IAssetLoader::SAssetLoadParams lp;
-        //
-        am->getAsset("",lp);
-
         //
         auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
         //loading cache from file
@@ -532,7 +542,7 @@ int main()
 
         // register the zip
         device->getFileSystem()->addFileArchive("../../media/sponza.zip");
-
+        asset::IAssetLoader::SAssetLoadParams lp;
         auto meshes_bundle = am->getAsset("sponza.obj", lp);
         assert(!meshes_bundle.getContents().empty());
         auto mesh_raw = static_cast<asset::ICPUMesh*>(meshes_bundle.getContents().begin()->get());
@@ -578,8 +588,7 @@ int main()
         }();
 
         core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>([](asset::E_FORMAT_CLASS) -> uint32_t { return TILES_PER_DIM_LOG2; }, PAGE_SZ_LOG2, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
-        // createVirtualTexture
-        [driver,&meshBuffers,&meshes_bundle,&vt,&drawData]() -> void
+
         {
             core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap; // TODO: rewrite this to allow to call `createPoTPaddedSquareImageWithMipLevels` in parallel
 
@@ -647,55 +656,55 @@ int main()
                 vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
 
             drawData.vt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
-        }();
-#if 0
-        {
-            // all pipelines refer to the same shader
-            const auto& pipeline = pipelineMeshBufferRanges.front().first;
-
-            auto overrideShaderJustAfterVersionDirective = [](const ICPUSpecializedShader* _specShader, const std::string& extraCode)
-            {
-                const asset::ICPUShader* unspec = _specShader->getUnspecialized();
-                assert(unspec->containsGLSL());
-
-                auto begin = reinterpret_cast<const char*>(unspec->getSPVorGLSL()->getPointer());
-                const std::string_view origSource(begin,unspec->getSPVorGLSL()->getSize());
-
-                const size_t firstNewlineAfterVersion = origSource.find("\n",origSource.find("#version "));
-                assert(firstNewlineAfterVersion!=std::string_view::npos);
-                const std::string_view sourceWithoutVersion(begin+firstNewlineAfterVersion,origSource.size()-firstNewlineAfterVersion);
-
-                std::string newSource("#version 460 core\n");
-                newSource += extraCode;
-                newSource += sourceWithoutVersion;
-
-                auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(newSource.c_str());
-                auto specinfo = _specShader->getSpecializationInfo();
-
-                return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
-            };
-
-            GPUMeshPacker mp = packMeshBuffers(driver, pipelineMeshBufferRanges, drawData);
-            
-            auto getGLSL = [&mp]() -> std::string
-            {
-                if constexpr (useSSBO())
-                    return mp.getGLSLForSSBO();
-                else
-                    return mp.getGLSLForUTB();
-            };
-
-            std::string vertPrelude = getGLSL();
-            vertPrelude += VERTEX_SHADER_OVERRIDES;
-            core::smart_refctd_ptr<ICPUSpecializedShader> vs = overrideShaderJustAfterVersionDirective(pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX),vertPrelude);
-
-            std::string fragPrelude(strlen(FRAGMENT_SHADER_OVERRIDES)+500u,'\0');
-            sprintf(fragPrelude.data(),FRAGMENT_SHADER_OVERRIDES,drawData.vt->getFloatViews().size(),drawData.vt->getGLSLFunctionsIncludePath().c_str());
-            fragPrelude.resize(strlen(fragPrelude.c_str()));
-            core::smart_refctd_ptr<ICPUSpecializedShader> fs = overrideShaderJustAfterVersionDirective(pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX),fragPrelude);
-
-            createPipeline(driver, vs.get(), fs.get(), pipelineMeshBufferRanges, drawData, mp);
         }
+
+        // the vertex packing
+        GPUMeshPacker mp = packMeshBuffers(driver,pipelineMeshBufferRanges,drawData);
+
+        //
+        auto overrideShaderJustAfterVersionDirective = [am, driver](const char* path, const std::string& extraCode)
+        {
+            asset::IAssetLoader::SAssetLoadParams lp;
+            auto _specShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset(path, lp).getContents().begin());
+            assert(_specShader);
+            const asset::ICPUShader* unspec = _specShader->getUnspecialized();
+            assert(unspec->containsGLSL());
+
+            auto begin = reinterpret_cast<const char*>(unspec->getSPVorGLSL()->getPointer());
+            const std::string_view origSource(begin, unspec->getSPVorGLSL()->getSize());
+
+            const size_t firstNewlineAfterVersion = origSource.find("\n", origSource.find("#version "));
+            assert(firstNewlineAfterVersion != std::string_view::npos);
+            const std::string_view sourceWithoutVersion(begin + firstNewlineAfterVersion, origSource.size() - firstNewlineAfterVersion);
+
+            std::string newSource("#version 460 core\n");
+            newSource += extraCode;
+            newSource += sourceWithoutVersion;
+
+            auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(newSource.c_str());
+            auto specinfo = _specShader->getSpecializationInfo();
+
+            auto newSpecShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
+            auto gpuSpecShaders = driver->getGPUObjectsFromAssets(&newSpecShader.get(), &newSpecShader.get() + 1u);
+            return std::move(gpuSpecShaders->begin()[0]);
+        };
+#if 0
+        std::string extraDefines = useSSBO ? mp.getGLSLForSSBO():mp.getGLSLForUTB();
+        // TODO: sprintf(fragPrelude.data(), FRAGMENT_SHADER_OVERRIDES, drawData.vt->getFloatViews().size(), drawData.vt->getGLSLFunctionsIncludePath().c_str());
+        smart_refctd_ptr<IGPUSpecializedShader> fillShaders[2] = {
+            overrideShaderJustAfterVersionDirective("fillVBuffer.vert",extraDefines),
+            overrideShaderJustAfterVersionDirective("fillVBuffer.frag",extraDefines)
+        };
+        //
+        auto pipelineLayout = createPipelineLayout(driver,drawData,mp);
+        auto gfxPpln = driver->createGPURenderpassIndependentPipeline(
+            nullptr, std::move(pipelineLayout),
+            &fillShaders[0].get(), &fillShaders[0].get() + 2u,
+            SVertexInputParams{},
+            SBlendParams{},
+            SPrimitiveAssemblyParams{},
+            SRasterizationParams{}
+        );
 #endif
     }
 
@@ -708,9 +717,6 @@ int main()
     camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
-
-    //all pipelines share the same layout
-    const video::IGPUDescriptorSet* ds[]{ drawData.ds[0].get(), drawData.ds[1].get(), drawData.ds[2].get(), drawData.ds[3].get() };
     
 
     uint64_t lastFPSTime = 0;
@@ -721,31 +727,41 @@ int main()
         //! This animates (moves) the camera and sets the transforms
         camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
         camera->render();
-        
-        ICPUBufferView* bufferView;
 
         SBasicViewParameters uboData;
         memcpy(uboData.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(core::matrix4SIMD));
         memcpy(uboData.MV, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
         memcpy(uboData.NormalMat, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
-
         driver->updateBufferRangeViaStagingBuffer(drawData.ubo.get(), 0u, sizeof(SBasicViewParameters), &uboData);
 
-        uint32_t i = 0u;
-        for (auto pipeline : drawData.gpuPipelines)
+        driver->setRenderTarget(visbuffer);
+        driver->clearZBuffer();
+        const uint32_t invalidObjectCode[4] = {~0u,0u,0u,0u};
+        driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0,invalidObjectCode);
+        //driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 4u, ds, nullptr);
+        // fill visibility buffer
+        //driver->bindGraphicsPipeline();
+        for (auto i = 0u; i<drawData.gpuPipelines.size(); i++) // TODO: use a thinner vector
         {
-            driver->bindGraphicsPipeline(pipeline.get());
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 4u, ds, nullptr);
+#if 0
+            driver->pushConstants(pipeline->getLayout(),IGPUSpecializedShader::ESS_ALL,0u,sizeof(uint32_t),&drawData.pushConstantsData[i]);
 
-            driver->pushConstants(pipeline->getLayout(), IGPUSpecializedShader::ESS_ALL, 0u, sizeof(uint32_t), &drawData.pushConstantsData[i]);
-
-            driver->drawIndexedIndirect(drawData.vtxBindings, DrawIndexedIndirectInput::mode, DrawIndexedIndirectInput::indexType, 
-                drawData.idxBuffer.get(), drawData.mdiBuffer.get(), drawData.drawIndirectInput[i].offset, 
-                drawData.drawIndirectInput[i].maxCount, DrawIndexedIndirectInput::stride);
-
-            i++;
+            driver->drawIndexedIndirect(
+                drawData.vtxBindings,DrawIndexedIndirectInput::mode,DrawIndexedIndirectInput::indexType, 
+                drawData.idxBuffer.get(),drawData.mdiBuffer.get(),drawData.drawIndirectInput[i].offset, 
+                drawData.drawIndirectInput[i].maxCount,DrawIndexedIndirectInput::stride
+            );
+#endif
         }
 
+        // shade
+        // driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 4u, ds, nullptr);
+        // driver->bindComputePipeline();
+        // driver->dispatch();
+        COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+
+        // blit
+        driver->blitRenderTargets(fb,0);
         driver->endScene();
 
         // display frames per second in window title
@@ -753,10 +769,11 @@ int main()
         if (time - lastFPSTime > 1000)
         {
             std::wostringstream str;
-            str << L"Meshloaders Demo - IrrlichtBAW Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+            str << L"Visibility Buffer - Nabla Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
             device->setWindowCaption(str.str().c_str());
             lastFPSTime = time;
         }
     }
+    driver->removeAllFrameBuffers();
 }
