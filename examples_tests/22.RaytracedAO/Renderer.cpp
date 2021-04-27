@@ -47,7 +47,7 @@ auto fillIotaDescriptorBindingDeclarations = [](auto* outBindings, ISpecializedS
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::ISceneManager* _smgr, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
-	#ifdef _IRR_BUILD_OPTIX_
+	#ifdef _NBL_BUILD_OPTIX_
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
 		rrShapeCache(), rrInstances(), m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
@@ -60,7 +60,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	while (m_useDenoiser)
 	{
 		m_useDenoiser = false;
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 		m_optixManager = ext::OptiX::Manager::create(m_driver, m_assetManager->getFileSystem());
 		if (!m_optixManager)
 			break;
@@ -70,12 +70,12 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_optixContext = m_optixManager->createContext(0);
 		if (!m_optixContext)
 			break;
-		OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL,OPTIX_PIXEL_FORMAT_HALF3};
+		OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL};
 		m_denoiser = m_optixContext->createDenoiser(&opts);
 		if (!m_denoiser)
 			break;
 
-		m_useDenoiser = true;
+		m_useDenoiser = false; // TODO
 #endif
 		break;
 	}
@@ -913,7 +913,7 @@ void Renderer::deinit()
 
 	glFinish();
 
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 	if (m_cudaStream)
 		cuda::CCUDAHandler::cuda.pcuStreamSynchronize(m_cudaStream);
 	m_denoiserInputBuffer = {};
