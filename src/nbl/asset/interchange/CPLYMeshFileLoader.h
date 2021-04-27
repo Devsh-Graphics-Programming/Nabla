@@ -30,7 +30,7 @@ enum E_PLY_PROPERTY_TYPE
 };
 
 //! Meshloader capable of loading obj meshes.
-class CPLYMeshFileLoader : public IRenderpassIndependentPipelineLoader
+class CPLYMeshFileLoader : public IAssetLoader, public IRenderpassIndependentPipelineLoader
 {
 protected:
 	//! Destructor
@@ -81,7 +81,6 @@ private:
 				assert(status);
 			}
 			}
-			return (const char*)nullptr;
 		};
 
 		return getTypeHash() + (indexBufferBindingAvailable ? "triangle_list" : "point_list");

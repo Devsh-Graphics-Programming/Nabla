@@ -51,19 +51,14 @@ class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<
 			return true;
 		}
 
-		template<class ExecutionPolicy>
-		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
+		static inline bool execute(state_type* state)
 		{
 			if (!validate(state))
 				return false;
 
-			CBasicImageFilterCommon::executePerBlock<ExecutionPolicy,Functor>(std::forward<ExecutionPolicy>(policy),state->image,*state->regionIterator,state->functor);
+			CBasicImageFilterCommon::executePerBlock<Functor>(state->image, *state->regionIterator, state->functor);
 
 			return true;
-		}
-		static inline bool execute(state_type* state)
-		{
-			return execute(std::execution::seq,state);
 		}
 };
 

@@ -162,7 +162,7 @@ namespace nbl
 				{
 					using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
 					StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
-					StreamFromEXR::execute(std::execution::par_unseq,&state);
+					StreamFromEXR::execute(&state);
 				}
 
 				inline void operator()(uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord)

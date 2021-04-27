@@ -52,8 +52,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 			return true;
 		}
 
-		template<class ExecutionPolicy>
-		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
+		static inline bool execute(state_type* state)
 		{
 			if (!validate(state))
 				return false;
@@ -157,14 +156,10 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				copy.outMipLevel = rit->imageSubresource.mipLevel;
 				copy.inImage = inImg;
 				copy.outImage = outImg;
-				if (!CCopyImageFilter::execute(policy,&copy))
+				if (!CCopyImageFilter::execute(&copy))
 					return false;
 			}
 			return true;
-		}
-		static inline bool execute(state_type* state)
-		{
-			return execute(std::execution::seq,state);
 		}
 };
 
