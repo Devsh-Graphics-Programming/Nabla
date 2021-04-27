@@ -18,166 +18,7 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
-constexpr const char* VERTEX_SHADER_OVERRIDES =
-R"(
-#define _NBL_VERT_INPUTS_DEFINED_
-
-layout(location = 4) flat out uint drawID;
-
-layout(set = 3, binding = 0) readonly buffer VirtualAttributes
-{
-    nbl_glsl_VG_VirtualAttributePacked_t vAttr[][3];
-} virtualAttribTable;
-
-layout (push_constant) uniform Block 
-{
-    uint dataBufferOffset;
-} pc;
-
-vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in uint drawID)
-{
-    nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][0];
-    return nbl_glsl_VG_attribFetch_RGB32_SFLOAT(va, vtxID);
-}
-
-vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawID)
-{
-    nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][1];
-    return nbl_glsl_VG_attribFetch_RG32_SFLOAT(va, vtxID);
-}
-
-vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawID)
-{
-    nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawID + pc.dataBufferOffset][2];
-    return nbl_glsl_VG_attribFetch_RGB10A2_SNORM(va, vtxID).xyz;
-}
-
-#define _NBL_BASIC_VTX_ATTRIB_FETCH_FUCTIONS_DEFINED_
-#define _NBL_POS_FETCH_FUNCTION_DEFINED
-#define _NBL_UV_FETCH_FUNCTION_DEFINED
-#define _NBL_NORMAL_FETCH_FUNCTION_DEFINED
-
-)";
-
-constexpr const char* FRAGMENT_SHADER_OVERRIDES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
-R"(
-layout(location = 4) flat in uint drawID;
-
-#ifndef _NO_UV
-    #include <nbl/builtin/glsl/virtual_texturing/extensions.glsl>
-
-    #define _NBL_VT_DESCRIPTOR_SET 0
-    #define _NBL_VT_PAGE_TABLE_BINDING 4
-
-    #define _NBL_VT_FLOAT_VIEWS_BINDING 5 
-    #define _NBL_VT_FLOAT_VIEWS_COUNT %u
-    #define _NBL_VT_FLOAT_VIEWS
-
-    #define _NBL_VT_INT_VIEWS_BINDING 6
-    #define _NBL_VT_INT_VIEWS_COUNT 0
-    #define _NBL_VT_INT_VIEWS
-
-    #define _NBL_VT_UINT_VIEWS_BINDING 7
-    #define _NBL_VT_UINT_VIEWS_COUNT 0
-    #define _NBL_VT_UINT_VIEWS
-    #include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
-
-    layout (set = 2, binding = 0, std430) restrict readonly buffer PrecomputedStuffSSBO
-    {
-        uint pgtab_sz_log2;
-        float vtex_sz_rcp;
-        float phys_pg_tex_sz_rcp[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
-        uint layer_to_sampler_ix[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
-    } precomputed;
-#endif
-#define _NBL_FRAG_SET3_BINDINGS_DEFINED_
-
-struct MaterialParams
-{
-    vec3 Ka;
-    vec3 Kd;
-    vec3 Ks;
-    vec3 Ke;
-    uvec2 map_Ka_data;
-    uvec2 map_Kd_data;
-    uvec2 map_Ks_data;
-    uvec2 map_Ns_data;
-    uvec2 map_d_data;
-    uvec2 map_bump_data;
-    float Ns;
-    float d;
-    float Ni;
-    uint extra; //flags copied from MTL metadata
-};
-
-layout(set = 2, binding = 1, std430) readonly buffer MaterialBuffer
-{
-    MaterialParams materialData[];
-};
-
-layout (push_constant) uniform Block 
-{
-    uint dataBufferOffset;
-} pc;
-#define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
-
-#include <nbl/builtin/glsl/loader/mtl/common.glsl>
-nbl_glsl_MTLMaterialParameters nbl_glsl_getMaterialParameters() // this function is for MTL's shader only
-{
-    MaterialParams params = materialData[drawID+pc.dataBufferOffset];
-
-    nbl_glsl_MTLMaterialParameters mtl_params;
-    mtl_params.Ka = params.Ka;
-    mtl_params.Kd = params.Kd;
-    mtl_params.Ks = params.Ks;
-    mtl_params.Ke = params.Ke;
-    mtl_params.Ns = params.Ns;
-    mtl_params.d = params.d;
-    mtl_params.Ni = params.Ni;
-    mtl_params.extra = params.extra;
-    return mtl_params;
-}
-#define _NBL_FRAG_GET_MATERIAL_PARAMETERS_FUNCTION_DEFINED_
-
-#ifndef _NO_UV
-    uint nbl_glsl_VT_layer2pid(in uint layer)
-    {
-        return precomputed.layer_to_sampler_ix[layer];
-    }
-    uint nbl_glsl_VT_getPgTabSzLog2()
-    {
-        return precomputed.pgtab_sz_log2;
-    }
-    float nbl_glsl_VT_getPhysPgTexSzRcp(in uint layer)
-    {
-        return precomputed.phys_pg_tex_sz_rcp[layer];
-    }
-    float nbl_glsl_VT_getVTexSzRcp()
-    {
-        return precomputed.vtex_sz_rcp;
-    }
-    #define _NBL_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-
-    //nbl/builtin/glsl/virtual_texturing/functions.glsl/...
-    #include <%s>
-#endif
-
-
-#ifndef _NO_UV
-    vec4 nbl_sample_Ka(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(materialData[drawID+pc.dataBufferOffset].map_Ka_data, uv, dUV); }
-
-    vec4 nbl_sample_Kd(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(materialData[drawID+pc.dataBufferOffset].map_Kd_data, uv, dUV); }
-
-    vec4 nbl_sample_Ks(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(materialData[drawID+pc.dataBufferOffset].map_Ks_data, uv, dUV); }
-
-    vec4 nbl_sample_Ns(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(materialData[drawID+pc.dataBufferOffset].map_Ns_data, uv, dUV); }
-
-    vec4 nbl_sample_d(in vec2 uv, in mat2 dUV)    { return nbl_glsl_vTextureGrad(materialData[drawID+pc.dataBufferOffset].map_d_data, uv, dUV); }
-
-    vec4 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(materialData[drawID+pc.dataBufferOffset].map_bump_data, uv, dUV); }
-#endif
-#define _NBL_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
-)";
+#include "common.h"
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u; 
 #include "nbl/nblpack.h"
@@ -240,12 +81,13 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
 {
     assert(ranges.size()>=2u);
 
-    constexpr uint16_t minTrisBatch = 64u; //std::numeric_limits<uint16_t>::max() / 3u; 
-    constexpr uint16_t maxTrisBatch = 128u;
+    constexpr uint16_t minTrisBatch = 256u; 
+    constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
 
+    constexpr uint32_t kVerticesPerTriangle = 3u;
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
-    allocParams.indexBufferMinAllocCnt = minTrisBatch*3u;
+    allocParams.indexBufferMinAllocCnt = minTrisBatch*kVerticesPerTriangle;
     allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
     allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
     allocParams.MDIDataBuffSupportedCnt = 8192u;
@@ -285,8 +127,7 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
     mp.instantiateDataStorage();
     MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
     
-    constexpr uint32_t attribCntPerMeshBuffer = 3u;
-    const uint32_t offsetTableSz = mdiCntTotal * attribCntPerMeshBuffer;
+    const uint32_t offsetTableSz = mdiCntTotal * USED_ATTRIBUTES;
     core::vector<MeshPacker::VirtualAttribute> offsetTableLocal;
     offsetTableLocal.reserve(offsetTableSz);
 
@@ -680,6 +521,10 @@ int main()
     //
     DrawData drawData;
     {
+        asset::IAssetLoader::SAssetLoadParams lp;
+        //
+        am->getAsset("",lp);
+
         //
         auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
         //loading cache from file
@@ -688,7 +533,6 @@ int main()
         // register the zip
         device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
-        asset::IAssetLoader::SAssetLoadParams lp;
         auto meshes_bundle = am->getAsset("sponza.obj", lp);
         assert(!meshes_bundle.getContents().empty());
         auto mesh_raw = static_cast<asset::ICPUMesh*>(meshes_bundle.getContents().begin()->get());
@@ -804,7 +648,7 @@ int main()
 
             drawData.vt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
         }();
-
+#if 0
         {
             // all pipelines refer to the same shader
             const auto& pipeline = pipelineMeshBufferRanges.front().first;
@@ -852,6 +696,7 @@ int main()
 
             createPipeline(driver, vs.get(), fs.get(), pipelineMeshBufferRanges, drawData, mp);
         }
+#endif
     }
 
     //! we want to move around the scene and view it from different angles

@@ -152,36 +152,6 @@ nbl_glsl_AnisotropicViewSurfaceInteraction nbl_glsl_calcAnisotropicInteraction(i
     mat2x3 TB = nbl_glsl_frisvad(isotropic.N);
     return nbl_glsl_calcAnisotropicInteraction(isotropic, TB[0], TB[1]);
 }
-/*
-//TODO it doesnt compile, lots of undefined symbols
-// when you know the projected positions of your triangles (TODO: should probably make a function like this that also computes barycentrics)
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcBarycentricSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos[3], in vec3 _Normal[3], in float _Barycentrics[2], in vec2 _ProjectedPos[3])
-{
-   nbl_glsl_IsotropicViewSurfaceInteraction interaction;
-
-   // Barycentric interpolation = b0*attr0+b1*attr1+attr2*(1-b0-b1)
-   vec3 b = vec3(_Barycentrics[0],_Barycentrics[1],1.0-_Barycentrics[0]-_Barycentrics[1]);
-   mat3 vertexAttrMatrix = mat3(_SurfacePos[0],_SurfacePos[1],_SurfacePos[2]);
-   interaction.V.dir = _CamPos-vertexAttrMatrix*b;
-
-   vertexAttrMatrix = mat3(_Normal[0],_Normal[1],_Normal[2]);
-   interaction.N = vertexAttrMatrix*b;
-
-   return interaction;
-}
-// when you know the ray and triangle it hits
-nbl_glsl_IsotropicViewSurfaceInteraction  nbl_glsl_calcRaySurfaceInteraction(in nbl_glsl_DirAndDifferential _rayTowardsSurface, in vec3 _SurfacePos[3], in vec3 _Normal[3], in float _Barycentrics[2])
-{
-   nbl_glsl_IsotropicViewSurfaceInteraction interaction;
-   // flip ray
-   interaction.V.dir = -_rayTowardsSurface.dir;
-
-   vertexAttrMatrix = mat3(_Normal[0],_Normal[1],_Normal[2]);
-   interaction.N = vertexAttrMatrix*b;
-
-   return interaction;
-}
-*/
 
 
 // do not use this struct in SSBO or UBO, its wasteful on memory

@@ -3,6 +3,12 @@
 
 #include "common.h"
 
+// defines for buffer fill pipeline
+#define NBL_GLSL_BARYCENTRIC_VERT_POS_OUTPUT_LOC 1
+#define NBL_GLSL_BARYCENTRIC_VERT_PROVOKINGPOS_OUTPUT_LOC 2
+#define NBL_GLSL_BARYCENTRIC_FRAG_POS_INPUT_LOC NBL_GLSL_BARYCENTRIC_VERT_POS_OUTPUT_LOC
+#define NBL_GLSL_BARYCENTRIC_FRAG_PROVOKINGPOS_INPUT_LOC NBL_GLSL_BARYCENTRIC_VERT_PROVOKINGPOS_OUTPUT_LOC
+
 // descriptors
 #include <nbl/builtin/glsl/utils/common.glsl>
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
