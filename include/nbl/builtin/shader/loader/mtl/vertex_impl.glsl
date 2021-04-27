@@ -24,6 +24,18 @@ layout (location = 3) out vec2 UV;
 #include <nbl/builtin/glsl/utils/common.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
+#ifndef _NBL_BASIC_VTX_ATTRIB_FETCH_FUCTIONS_DEFINED_
+#ifndef _NBL_POS_FETCH_FUNCTION_DEFINED
+vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in uint drawID)    { return vPos; }
+#endif
+#if !defined(_NBL_UV_FETCH_FUNCTION_DEFINED) && !defined(_NO_UV)
+vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawID)     { return vUV; }
+#endif
+#ifndef _NBL_NORMAL_FETCH_FUNCTION_DEFINED
+vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawID) { return vNormal; }
+#endif
+#endif
+
 #ifndef _NBL_VERT_SET1_BINDINGS_DEFINED_
 #define _NBL_VERT_SET1_BINDINGS_DEFINED_
 layout (set = 1, binding = 0, row_major, std140) uniform UBO
@@ -36,13 +48,13 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO
 #define _NBL_VERT_MAIN_DEFINED_
 void main()
 {
-    LocalPos = vPos;
-    gl_Position = nbl_glsl_pseudoMul4x4with3x1(CamData.params.MVP, vPos);
-    ViewPos = nbl_glsl_pseudoMul3x4with3x1(CamData.params.MV, vPos);
+    LocalPos = nbl_glsl_fetchVtxPos(gl_VertexIndex, gl_DrawID);
+    gl_Position = nbl_glsl_pseudoMul4x4with3x1(CamData.params.MVP, LocalPos);
+    ViewPos = nbl_glsl_pseudoMul3x4with3x1(CamData.params.MV, LocalPos);
     mat3 normalMat = nbl_glsl_SBasicViewParameters_GetNormalMat(CamData.params.NormalMatAndEyePos);
-    Normal = normalMat*normalize(vNormal);
+    Normal = normalMat*normalize(nbl_glsl_fetchVtxNormal(gl_VertexIndex, gl_DrawID));
 #ifndef _NO_UV
-    UV = vUV;
+    UV = nbl_glsl_fetchVtxUV(gl_VertexIndex, gl_DrawID);
 #endif
 }
 #endif //_NBL_VERT_MAIN_DEFINED_

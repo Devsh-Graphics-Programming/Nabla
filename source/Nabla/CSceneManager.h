@@ -18,12 +18,10 @@ namespace nbl
 	class ITimer;
 namespace io
 {
-	class IXMLWriter;
 	class IFileSystem;
 }
 namespace scene
 {
-	class IAnimatedMeshSceneNode;
 
 	/*!
 		The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.

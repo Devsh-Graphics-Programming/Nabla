@@ -34,7 +34,7 @@ void main()
     const float ay = pc.a.y;
     const mat2x3 ior = mat2x3(vec3(1.02,1.3,1.02), vec3(1.0,2.0,1.0));
     vec3 u = vec3(gl_FragCoord.xy/screenSz,0.0); // random sapling would be useful
-    nbl_glsl_IsotropicViewSurfaceInteraction inter_ = nbl_glsl_calcSurfaceInteraction(vec3(1.0), vec3(0.0), vec3(0.0,0.0,1.0), mat2x3(0.0));
+    nbl_glsl_IsotropicViewSurfaceInteraction inter_ = nbl_glsl_calcSurfaceInteraction(vec3(1.0), vec3(0.0), vec3(0.0,0.0,1.0));
     nbl_glsl_AnisotropicViewSurfaceInteraction inter = nbl_glsl_calcAnisotropicInteraction(inter_, vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     nbl_glsl_LightSample s;
     float pdf = 0.0;

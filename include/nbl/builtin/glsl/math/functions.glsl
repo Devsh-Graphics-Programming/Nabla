@@ -7,6 +7,14 @@
 
 #include <nbl/builtin/glsl/math/constants.glsl>
 
+int nbl_glsl_dot(in ivec2 a, in ivec2 b) {return a.x*b.x+a.y*b.y;}
+uint nbl_glsl_dot(in uvec2 a, in uvec2 b) {return a.x*b.x+a.y*b.y;}
+int nbl_glsl_dot(in ivec3 a, in ivec3 b) {return a.x*b.x+a.y*b.y+a.z*b.z;}
+uint nbl_glsl_dot(in uvec3 a, in uvec3 b) {return a.x*b.x+a.y*b.y+a.z*b.z;}
+int nbl_glsl_dot(in ivec4 a, in ivec4 b) {return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w;}
+uint nbl_glsl_dot(in uvec4 a, in uvec4 b) {return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w;}
+
+//
 float nbl_glsl_erf(in float _x)
 {
     const float a1 = 0.254829592;
@@ -191,7 +199,8 @@ void nbl_glsl_sincos(in float theta, out float s, out float c)
 {
     c = cos(theta);
     s = sqrt(1.0-c*c);
-    s = theta<0.0 ? -s:s; // TODO: do with XOR
+    s = theta<0.0 ? -s:s; // TODO: test with XOR
+    //s = uintBitsToFloat(floatBitsToUint(s)^(floatBitsToUint(theta)&0x80000000u));
 }
 
 mat2x3 nbl_glsl_frisvad(in vec3 n)
@@ -238,20 +247,36 @@ vec4 nbl_glsl_conditionalAbsOrMax(in bool cond, in vec4 x, in vec4 limit)
     return max(condAbs,limit);
 }
 
-//
+//! Integer
 uint nbl_glsl_rotl(in uint x, in uint k)
 {
 	return (x<<k) | (x>>(32u-k));
 }
 
-// Count Leading Zeroes (naive?)
+// Count Leading Zeroes
 uint nbl_glsl_clz(in uint x) 
 {
     return 31u - findMSB(x);
 }
 
+// GLSL's builtin is badly named
+uint nbl_glsl_bitfieldOverwrite(in uint base, in uint value, in uint offset, in uint count)
+{
+    return bitfieldInsert(base,value,int(offset),int(count));
+}
 
-// trig
+uint nbl_glsl_bitfieldInsert_impl(in uint base, in uint shifted_masked_value, in uint lo, in uint count)
+{
+    const uint hi = base^lo;
+    return (hi<<count)|shifted_masked_value|lo;
+}
+uint nbl_glsl_bitfieldInsert(in uint base, uint value, in uint offset, in uint count)
+{
+    const uint shifted_masked_value = (value&((0x1u<<count)-1u))<<offset;
+    return nbl_glsl_bitfieldInsert_impl(base,shifted_masked_value,base&((0x1u<<offset)-1u),count);
+}
+
+//! Trig
 
 // returns `acos(acos(A)+acos(B)+acos(C))-PI` but requires `sinA,sinB,sinC` are all positive
 float nbl_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float cosC, in float sinA, in float sinB, in float sinC)
@@ -264,6 +289,296 @@ float nbl_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float
 	// apply triple angle formula
 	const float absArccosSumABC = acos(cosSumAB*cosC-(cosA*sinB+sinA*cosB)*sinC);
 	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? nbl_glsl_PI:(-nbl_glsl_PI));
+}
+
+
+//! MVC
+
+// return dFdR (TODO: a completely separate include for this)
+float nbl_glsl_applyChainRule1D(in float dFdG, in float dGdR)
+{
+   return dFdG*dGdR;
+}
+vec2 nbl_glsl_applyChainRule1D(in vec2 dFdG, in float dGdR)
+{
+   return dFdG*dGdR;
+}
+vec3 nbl_glsl_applyChainRule1D(in vec3 dFdG, in float dGdR)
+{
+   return dFdG*dGdR;
+}
+vec4 nbl_glsl_applyChainRule1D(in vec4 dFdG, in float dGdR)
+{
+   return dFdG*dGdR;
+}
+/* TODO
+mat2x1 nbl_glsl_applyChainRule1D(in float dFdG, in mat2x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2 nbl_glsl_applyChainRule1D(in vec2 dFdG, in mat2x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x3 nbl_glsl_applyChainRule1D(in vec3 dFdG, in mat2x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x4 nbl_glsl_applyChainRule1D(in vec4 dFdG, in mat2x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3x1 nbl_glsl_applyChainRule1D(in float dFdG, in mat3x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3x2 nbl_glsl_applyChainRule1D(in vec2 dFdG, in mat3x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3x3 nbl_glsl_applyChainRule1D(in vec3 dFdG, in mat3x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3x4 nbl_glsl_applyChainRule1D(in vec4 dFdG, in mat3x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4x1 nbl_glsl_applyChainRule1D(in float dFdG, in mat4x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4x2 nbl_glsl_applyChainRule1D(in vec2 dFdG, in mat4x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4x3 nbl_glsl_applyChainRule1D(in vec3 dFdG, in mat4x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4 nbl_glsl_applyChainRule1D(in vec4 dFdG, in mat4x1 dGdR)
+{
+   return dFdG*dGdR;
+}
+
+
+float nbl_glsl_applyChainRule2D(in mat2x1 dFdG, in vec2 dGdR)
+{
+   return dFdG*dGdR;
+}*/
+vec2 nbl_glsl_applyChainRule2D(in mat2 dFdG, in vec2 dGdR)
+{
+   return dFdG*dGdR;
+}
+vec3 nbl_glsl_applyChainRule2D(in mat2x3 dFdG, in vec2 dGdR)
+{
+   return dFdG*dGdR;
+}
+vec4 nbl_glsl_applyChainRule2D(in mat2x4 dFdG, in vec2 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat2x1 nbl_glsl_applyChainRule2D(in mat2x1 dFdG, in mat2 dGdR) // needed for deriv map
+{
+   return dFdG*dGdR;
+}
+*/
+mat2 nbl_glsl_applyChainRule2D(in mat2 dFdG, in mat2 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x3 nbl_glsl_applyChainRule2D(in mat2x3 dFdG, in mat2 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x4 nbl_glsl_applyChainRule2D(in mat2x4 dFdG, in mat2 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat3x1 nbl_glsl_applyChainRule2D(in mat2x1 dFdG, in mat3x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat3x2 nbl_glsl_applyChainRule2D(in mat2 dFdG, in mat3x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3 nbl_glsl_applyChainRule2D(in mat2x3 dFdG, in mat3x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3x4 nbl_glsl_applyChainRule2D(in mat2x4 dFdG, in mat3x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat4x1 nbl_glsl_applyChainRule2D(in mat2x1 dFdG, in mat4x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat4x2 nbl_glsl_applyChainRule2D(in mat2 dFdG, in mat4x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4x3 nbl_glsl_applyChainRule2D(in mat2x3 dFdG, in mat4x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4 nbl_glsl_applyChainRule2D(in mat2x4 dFdG, in mat4x2 dGdR)
+{
+   return dFdG*dGdR;
+}
+
+
+/*
+float nbl_glsl_applyChainRule3D(in mat3x1 dFdG, in vec3 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+vec2 nbl_glsl_applyChainRule3D(in mat3x2 dFdG, in vec3 dGdR)
+{
+   return dFdG*dGdR;
+}
+vec3 nbl_glsl_applyChainRule3D(in mat3 dFdG, in vec3 dGdR)
+{
+   return dFdG*dGdR;
+}
+vec4 nbl_glsl_applyChainRule3D(in mat3x4 dFdG, in vec3 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat2x1 nbl_glsl_applyChainRule3D(in mat3x1 dFdG, in mat2x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat2 nbl_glsl_applyChainRule3D(in mat3x2 dFdG, in mat2x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x3 nbl_glsl_applyChainRule3D(in mat3 dFdG, in mat2x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x4 nbl_glsl_applyChainRule3D(in mat3x4 dFdG, in mat2x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat3x1 nbl_glsl_applyChainRule3D(in mat3x1 dFdG, in mat3 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat3x2 nbl_glsl_applyChainRule3D(in mat3x2 dFdG, in mat3 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3 nbl_glsl_applyChainRule3D(in mat3 dFdG, in mat3 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3x4 nbl_glsl_applyChainRule3D(in mat3x4 dFdG, in mat3 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat4x1 nbl_glsl_applyChainRule3D(in mat3x1 dFdG, in mat4x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat4x2 nbl_glsl_applyChainRule3D(in mat3x2 dFdG, in mat4x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4x3 nbl_glsl_applyChainRule3D(in mat3 dFdG, in mat4x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4 nbl_glsl_applyChainRule3D(in mat3x4 dFdG, in mat4x3 dGdR)
+{
+   return dFdG*dGdR;
+}
+
+
+/*
+float nbl_glsl_applyChainRule4D(in mat4x1 dFdG, in vec4 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+vec2 nbl_glsl_applyChainRule4D(in mat4x2 dFdG, in vec4 dGdR)
+{
+   return dFdG*dGdR;
+}
+vec3 nbl_glsl_applyChainRule4D(in mat4x3 dFdG, in vec4 dGdR)
+{
+   return dFdG*dGdR;
+}
+vec4 nbl_glsl_applyChainRule4D(in mat4 dFdG, in vec4 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat2x1 nbl_glsl_applyChainRule4D(in mat4x1 dFdG, in mat2x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat2 nbl_glsl_applyChainRule4D(in mat4x2 dFdG, in mat2x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x3 nbl_glsl_applyChainRule4D(in mat4x3 dFdG, in mat2x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat2x4 nbl_glsl_applyChainRule4D(in mat4 dFdG, in mat2x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat3x1 nbl_glsl_applyChainRule4D(in mat4x1 dFdG, in mat3x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat3x2 nbl_glsl_applyChainRule4D(in mat4x2 dFdG, in mat3x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3 nbl_glsl_applyChainRule4D(in mat4x3 dFdG, in mat3x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat3x4 nbl_glsl_applyChainRule4D(in mat4 dFdG, in mat3x4 dGdR)
+{
+   return dFdG*dGdR;
+}
+/*
+mat4x1 nbl_glsl_applyChainRule4D(in mat4x1 dFdG, in mat4 dGdR)
+{
+   return dFdG*dGdR;
+}
+*/
+mat4x2 nbl_glsl_applyChainRule4D(in mat4x2 dFdG, in mat4 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4x3 nbl_glsl_applyChainRule4D(in mat4x3 dFdG, in mat4 dGdR)
+{
+   return dFdG*dGdR;
+}
+mat4 nbl_glsl_applyChainRule4D(in mat4 dFdG, in mat4 dGdR)
+{
+   return dFdG*dGdR;
 }
 
 #endif

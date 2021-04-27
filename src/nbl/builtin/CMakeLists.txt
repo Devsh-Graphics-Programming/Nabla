@@ -114,6 +114,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/subgroup/basic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
+  ##"nbl/builtin/glsl/subgroup/fft.glsl"
   # utilities
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
@@ -129,6 +130,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/shared_arithmetic.glsl"
   "nbl/builtin/glsl/workgroup/shared_ballot.glsl"
   "nbl/builtin/glsl/workgroup/shared_clustered.glsl"
+  "nbl/builtin/glsl/workgroup/shared_fft.glsl"
   "nbl/builtin/glsl/workgroup/shared_shuffle.glsl"
   "nbl/builtin/glsl/workgroup/shared_shuffle_relative.glsl"
   "nbl/builtin/glsl/workgroup/shared_vote.glsl"
@@ -136,6 +138,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/ballot.glsl"
   "nbl/builtin/glsl/workgroup/basic.glsl"
   "nbl/builtin/glsl/workgroup/clustered.glsl"
+  "nbl/builtin/glsl/workgroup/fft.glsl"
   "nbl/builtin/glsl/workgroup/shuffle.glsl"
   "nbl/builtin/glsl/workgroup/shuffle_relative.glsl"
   "nbl/builtin/glsl/workgroup/vote.glsl"
@@ -143,8 +146,9 @@ set(nbl_resources_to_embed
   #"nbl/builtin/glsl/ext/.glsl"
   "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
+  "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters.glsl"
-  "nbl/builtin/glsl/ext/FFT/normalization.comp"
+  "nbl/builtin/glsl/ext/FFT/types.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
@@ -153,5 +157,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
+  # virtual geometry
+  "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
 PARENT_SCOPE)
 

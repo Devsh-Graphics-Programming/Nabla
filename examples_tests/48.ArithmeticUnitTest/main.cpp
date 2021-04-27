@@ -9,13 +9,28 @@ using namespace core;
 using namespace video;
 using namespace asset;
 
+template <class To, class From>
+typename std::enable_if_t<
+	std::is_trivially_copyable_v<From> &&
+	std::is_trivially_copyable_v<To>,
+	To>
+	// constexpr support needs compiler magic
+	bit_cast(const From& src) noexcept
+{
+	static_assert(std::is_trivially_constructible_v<To>,
+		"This implementation additionally requires destination type to be trivially constructible");
+
+	To dst;
+	std::memcpy(&dst, &src, sizeof(To));
+	return dst;
+}
 
 
 template<typename T>
 struct and
 {
 	using type_t = T;
-	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = ~0ull; // this should be a reinterpret cast
+	static inline const T IdentityElement = bit_cast<T>(~0ull); // until C++20 std::bit_cast this cannot be a constexpr
 
 	inline T operator()(T left, T right) { return left & right; }
 	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
@@ -25,7 +40,7 @@ template<typename T>
 struct xor
 {
 	using type_t = T;
-	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+	static inline const T IdentityElement = bit_cast<T>(0ull); // until C++20 std::bit_cast this cannot be a constexpr
 
 	inline T operator()(T left, T right) { return left ^ right; }
 	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
@@ -35,7 +50,7 @@ template<typename T>
 struct or
 {
 	using type_t = T;
-	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+	static inline const T IdentityElement = bit_cast<T>(0ull); // until C++20 std::bit_cast this cannot be a constexpr
 
 	inline T operator()(T left, T right) { return left | right; }
 	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
@@ -186,7 +201,7 @@ struct emulatedWorkgroupScanInclusive
 
 
 #include "common.glsl"
-constexpr uint32_t kBufferSize = BUFFER_DWORD_COUNT*sizeof(uint32_t);
+constexpr uint32_t kBufferSize = (1u+BUFFER_DWORD_COUNT)*sizeof(uint32_t);
 
 
 //returns true if result matches
@@ -221,9 +236,9 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, con
 			driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,kBufferSize} });
 
 		auto dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address);
+		const uint32_t subgroupSize = (*dataFromBuffer++);
 
 		// now check if the data obtained has valid values
-		constexpr uint32_t subgroupSize = 4u;
 		uint32_t* tmp = new uint32_t[workgroupSize];
 		uint32_t* ballotInput = new uint32_t[workgroupSize];
 		for (uint32_t workgroupID=0u; success&&workgroupID<workgroupCount; workgroupID++)
@@ -303,11 +318,8 @@ int main()
 	uint32_t* inputData = new uint32_t[BUFFER_DWORD_COUNT];
 	{
 		std::mt19937 randGenerator(std::time(0));
-		for (uint32_t i=0u; i<BUFFER_DWORD_COUNT; i++)
-		{
-			// TODO: use random numbers, but right now I need to see whats going on in order to debug
+		for (uint32_t i = 0u; i < BUFFER_DWORD_COUNT; i++)
 			inputData[i] = randGenerator();
-		}
 	}
 	auto gpuinputDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(kBufferSize, inputData);
 	

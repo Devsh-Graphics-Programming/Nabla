@@ -102,7 +102,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::scene::ISceneManager* m_smgr;
 
 		nbl::core::smart_refctd_ptr<nbl::ext::RadeonRays::Manager> m_rrManager;
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::Manager> m_optixManager;
 		CUstream m_cudaStream;
 		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IContext> m_optixContext;
@@ -164,7 +164,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_accumulation,m_tonemapOutput;
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer,* tmpTonemapBuffer;
 
-	#ifdef _IRR_BUILD_OPTIX_
+	#ifdef _NBL_BUILD_OPTIX_
 		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IDenoiser> m_denoiser;
 		OptixDenoiserSizes m_denoiserMemReqs;
 		nbl::cuda::CCUDAHandler::GraphicsAPIObjLink<nbl::video::IGPUBuffer> m_denoiserInputBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;

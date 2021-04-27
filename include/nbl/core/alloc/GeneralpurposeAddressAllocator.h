@@ -440,8 +440,6 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
-
         #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
@@ -465,7 +463,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                     AllocStrategy(newBuffSz-Base::alignOffset,std::move(other),newReservedSpc)
         {
         }
-        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
         GeneralpurposeAddressAllocator(size_type newBuffSz, GeneralpurposeAddressAllocator&& other, void* newReservedSpc, Args&&... args) noexcept :
                     Base(std::move(other),newReservedSpc,std::forward<Args>(args)...),

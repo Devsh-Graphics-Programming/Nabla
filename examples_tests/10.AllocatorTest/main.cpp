@@ -106,9 +106,8 @@ public:
 				alctr = AlctrType(reservedSpace, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
 			}
 
-			// variable shadowing and other problems @Przemog
-			testsCnt = rng.getRndAllocCnt();
-			for (size_t i = 0; i < testsCnt; i++)
+			uint32_t subTestsCnt = rng.getRndAllocCnt();
+			for (size_t i = 0; i < subTestsCnt; i++)
 				executeForFrame(alctr, randAllocParams);
 
 			if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
@@ -122,6 +121,19 @@ private:
 		uint32_t outAddr = AlctrType::invalid_address;
 		uint32_t size = 0u;
 		uint32_t align = 0u;
+
+		inline bool operator==(const AllocationData& other) const
+		{
+			return outAddr==other.outAddr;
+		}
+
+		struct Hash
+		{
+			inline size_t operator()(const AllocationData& _this) const
+			{
+				return std::hash<uint32_t>()(_this.outAddr);
+			}
+		};
 	};
 
 	struct RandParams
@@ -146,11 +158,13 @@ private:
 			Traits::multi_alloc_addr(alctr, addressesToAllcate, allocDataSoA.outAddresses.data(), allocDataSoA.sizes.data(), allocDataSoA.alignments.data());
 
 			// record all successful alloc addresses to the `core::vector`
+			if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
 			for (uint32_t j = 0u; j < allocDataSoA.size; j++)
 			{
 				if (allocDataSoA.outAddresses[j] != AlctrType::invalid_address)
 					results.push_back({ allocDataSoA.outAddresses[j], allocDataSoA.sizes[j], allocDataSoA.alignments[j] });
 			}
+			checkStillIteratable(alctr);
 
 			// run random dealloc function
 			randFreeAllocatedAddresses(alctr);
@@ -173,10 +187,7 @@ private:
 			}
 		}
 		else
-		{
 			alctr.reset();
-			results.clear();
-		}
 	}
 
 	// random dealloc function
@@ -188,10 +199,8 @@ private:
 		// randomly decide how many calls to `multi_free`
 		const uint32_t multiFreeCnt = rng.getRandomNumber(1u, results.size());
 
-		if (std::is_same<AlctrType, core::GeneralpurposeAddressAllocator<uint32_t>>::value)
-		{
+		if constexpr (Traits::supportsArbitraryOrderFrees)
 			std::shuffle(results.begin(), results.end(), rng.getMt());
-		}
 
 		for (uint32_t i = 0u; (i < multiFreeCnt) && results.size(); i++)
 		{
@@ -210,6 +219,7 @@ private:
 
 			Traits::multi_free_addr(alctr, addressesToFreeCnt, allocDataSoA.outAddresses.data(), allocDataSoA.sizes.data());
 			results.erase(results.end() - addressesToFreeCnt, results.end());
+			checkStillIteratable(alctr);
 		}
 	}
 	
@@ -231,6 +241,19 @@ private:
 
 private:
 	core::vector<AllocationData> results;
+	inline void checkStillIteratable(const AlctrType& alctr)
+	{
+		if constexpr (std::is_same<AlctrType, core::IteratablePoolAddressAllocator<uint32_t>>::value)
+		{
+			core::unordered_set<AllocationData,AllocationData::Hash> allocationSet(results.begin(),results.end());
+			for (auto addr : alctr)
+			{
+				AllocationData dummy; dummy.outAddr = addr;
+				if (allocationSet.find(dummy)==allocationSet.end())
+					exit(34);
+			}
+		}
+	}
 
 	//these hold inputs for `multi_alloc_addr` and `multi_free_addr`
 
@@ -247,7 +270,7 @@ private:
 			{
 				// randomly decide sizes (but always less than `address_allocator_traits::max_size`)
 
-				if constexpr (std::is_same<AlctrType, core::PoolAddressAllocator<uint32_t>>::value)
+				if constexpr (std::is_same_v<AlctrType,core::PoolAddressAllocator<uint32_t>>||std::is_same_v<AlctrType,core::IteratablePoolAddressAllocator<uint32_t>>)
 				{
 					sizes[j] = randAllocParams.blockSz;
 					alignments[j] = randAllocParams.blockSz;
@@ -311,6 +334,11 @@ int main()
 		}
 
 		{
+			AllocatorHandler<core::IteratablePoolAddressAllocator<uint32_t>> iterPoolAlctrHandler;
+			iterPoolAlctrHandler.executeAllocatorTest();
+		}
+
+		{
 			AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler;
 			linearAlctrHandler.executeAllocatorTest();
 		}
@@ -336,6 +364,8 @@ int main()
 		nbl::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
 		printf("Pool \n");
 		nbl::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
+		printf("IteratablePool \n");
+		nbl::core::address_allocator_traits<core::IteratablePoolAddressAllocatorST<uint32_t> >::printDebugInfo();
 		printf("General \n");
 		nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
 
@@ -344,6 +374,8 @@ int main()
 		nbl::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 		printf("Pool \n");
 		nbl::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+		printf("Iteratable Pool \n");
+		nbl::core::address_allocator_traits<core::IteratablePoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 		printf("General \n");
 		nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 	}

@@ -173,7 +173,7 @@ class IGPUObjectFromAssetConverter
 	protected:
         virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj)
         {
-            if (_asset)
+            if (_asset && _gpuobj)
                 m_assetManager->convertAssetToEmptyCacheHandle(_asset,core::smart_refctd_ptr(_gpuobj));
         }
 
@@ -216,7 +216,7 @@ class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
 	protected:
         virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj) override
         {
-            if (_asset)
+            if (_asset && _gpuobj)
                 m_assetManager->insertGPUObjectIntoCache(_asset,core::smart_refctd_ptr(_gpuobj));
         }
 };
@@ -300,34 +300,51 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
             std::max<uint64_t>(m_driver->getRequiredTBOAlignment(), m_driver->getRequiredUBOAlignment()),
             std::max<uint64_t>(m_driver->getRequiredSSBOAlignment(), _NBL_SIMD_ALIGNMENT)
         );
-
-
-    core::LinearAddressAllocator<uint64_t> addrAllctr(nullptr, 0u, 0u, alignment, m_driver->getMaxBufferSize());
-    uint64_t addr = 0ull;
-	for (auto i=0u; i<assetCount; i++)
-    {
-        const uint64_t addr = addrAllctr.alloc_addr(_begin[i]->getSize(), alignment);
-        assert(addr != decltype(addrAllctr)::invalid_address); // fix this to work better with really large buffers in the future
-        if (addr == decltype(addrAllctr)::invalid_address)
-            return {};
-		res->operator[](i) = core::make_smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType>(addr);
-    }
+    
 
     auto reqs = m_driver->getDeviceLocalGPUMemoryReqs();
-    reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
     reqs.vulkanReqs.alignment = alignment;
-
-	auto gpubuffer = m_driver->createGPUBufferOnDedMem(reqs);
-
-    for (size_t i = 0u; i < res->size(); ++i)
+    const uint64_t maxBufferSize = m_driver->getMaxBufferSize();
+    auto out = res->begin();
+    auto firstInBlock = out;
+    auto newBlock = [&]() -> auto
     {
-		auto& output = res->operator[](i);
-		if (!output)
-			continue;
+        return core::LinearAddressAllocator<uint64_t>(nullptr, 0u, 0u, alignment, maxBufferSize);
+    };
+    auto addrAllctr = newBlock();
+    auto finalizeBlock = [&]() -> void
+    {
+        reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
+        if (reqs.vulkanReqs.size==0u)
+            return;
+        
+        auto gpubuffer = m_driver->createGPUBufferOnDedMem(reqs);
+        for (auto it=firstInBlock; it!=out; it++)
+        if (auto output = *it)
+        {
+            auto cpubuffer = _begin[std::distance(res->begin(),it)];
+            m_driver->updateBufferRangeViaStagingBuffer(gpubuffer.get(),output->getOffset(),cpubuffer->getSize(),cpubuffer->getPointer());
+            output->setBuffer(core::smart_refctd_ptr(gpubuffer));
+        }
+    };
+    for (auto it=_begin; it!=_end; it++,out++)
+    {
+        auto cpubuffer = *it;
+        if (cpubuffer->getSize()>maxBufferSize)
+            continue;
 
-		m_driver->updateBufferRangeViaStagingBuffer(gpubuffer.get(), output->getOffset(), _begin[i]->getSize(), _begin[i]->getPointer());
-        output->setBuffer(core::smart_refctd_ptr(gpubuffer));
+        uint64_t addr = addrAllctr.alloc_addr(cpubuffer->getSize(),alignment);
+        if (addr==decltype(addrAllctr)::invalid_address)
+        {
+            finalizeBlock();
+            firstInBlock = out;
+            addrAllctr = newBlock();
+            addr = addrAllctr.alloc_addr(cpubuffer->getSize(),alignment);
+        }
+        assert(addr != decltype(addrAllctr)::invalid_address);
+        *out = core::make_smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType>(addr);
     }
+    finalizeBlock();
 
     return res;
 }
