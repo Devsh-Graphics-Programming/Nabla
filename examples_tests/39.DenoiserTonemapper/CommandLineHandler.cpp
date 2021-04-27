@@ -29,7 +29,6 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	mitsubaLoader->initialize();
 	am->addAssetLoader(std::move(mitsubaLoader));
 
-	assetManager->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, fs));
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
 	auto pushArgvList = [&](auto argvStream, auto variableCount)

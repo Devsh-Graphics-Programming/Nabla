@@ -64,11 +64,9 @@ bool check_error(bool cond, const char* message)
 }
 
 constexpr uint32_t overlap = 64;
-//constexpr uint32_t tileWidth = 1920/2, tileHeight = 1080/2;
 constexpr uint32_t tileWidth = 1024, tileHeight = 1024;
-constexpr uint32_t tileWidthWithOverlap = tileWidth + overlap * 2;
-constexpr uint32_t tileHeightWithOverlap = tileHeight + overlap * 2;
-constexpr uint32_t outputDimensions[] = { tileWidth ,tileHeight };
+constexpr uint32_t denoiseTileDims[] = { tileWidth ,tileHeight };
+constexpr uint32_t denoiseTileDimsWithOverlap[] = { tileWidth+overlap*2,tileHeight+overlap*2 };
 
 int main(int argc, char* argv[])
 {
@@ -890,6 +888,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	core::vector<ImageToDenoise> images(inputFilesAmount);
 	// load images
 	uint32_t maxResolution[2] = { 0,0 };
+	uint32_t fftScratchSize = 0u;
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
 		auto default_kernel_image_bundle = am->getAsset("../../media/kernels/physical_flare_512.exr",lp); // TODO: make it a builtins?
@@ -925,14 +924,16 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					for (auto& asset : contents)
 					{
 						assert(asset);
+						
+						const auto* bundleMeta = assetBundle.getMetadata();
+						const auto* exrmeta = static_cast<const COpenEXRMetadata*>(bundleMeta);
+						const auto* metadata = static_cast<const COpenEXRMetadata::CImage*>(exrmeta->getAssetSpecificMetadata(core::smart_refctd_ptr_static_cast<ICPUImage>(asset).get()));
 
-						auto metadata = asset->getMetadata();
-						const auto exrmeta = static_cast<const COpenEXRImageMetadata*>(metadata);
-						if (strcmp(metadata->getLoaderName(), COpenEXRImageMetadata::LoaderName) != 0)
+						if (strcmp(exrmeta->getLoaderName(), COpenEXRMetadata::LoaderName) != 0)
 							continue;
 						else
 						{
-							const auto& assetMetaChannelName = exrmeta->getName();
+							const auto& assetMetaChannelName = metadata->m_name;
 							auto found = assetMetaChannelName.find(channelName.value());
 							if (found >= firstChannelNameOccurence)
 								continue;
@@ -1025,10 +1026,63 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					outParam.colorTexelSize = asset::getTexelOrBlockBytesize(colorCreationParams.format);
 				}
 
+				const float bloomRelativeScale = bloomRelativeScaleBundle[i].value();
+				{
+					auto kerDim = outParam.kernel->getCreationParameters().extent;
+					float kernelScale;
+					if (extent.width<extent.height)
+						kernelScale = float(extent.width)*bloomRelativeScale/float(kerDim.width);
+					else
+						kernelScale = float(extent.height)*bloomRelativeScale/float(kerDim.height);
+					if (kernelScale>1.f)
+						os::Printer::log(imageIDString + "Bloom Kernel loose sharpness, increase resolution of bloom kernel or reduce its relative scale!", ELL_WARNING);
+					outParam.scaledKernelExtent.width = core::ceil(float(kerDim.width)*kernelScale);
+					outParam.scaledKernelExtent.height = core::ceil(float(kerDim.height)*kernelScale);
+					outParam.scaledKernelExtent.depth = 1u;
+				}
+				const auto marginSrcDim = [extent,outParam]() -> auto
+				{
+					auto tmp = extent;
+					for (auto i=0u; i<3u; i++)
+					{
+						const auto coord = (&outParam.scaledKernelExtent.width)[i];
+						if (coord>1u)
+							(&tmp.width)[i] += coord-1u;
+					}
+					return tmp;
+				}();
+				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,outParam.scaledKernelExtent,colorChannelsFFT)*2u,fftScratchSize);
+				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,marginSrcDim,colorChannelsFFT),fftScratchSize);
+				// TODO: maybe move them to nested loop and compute JIT
+				{
+					auto* fftPushConstants = outParam.fftPushConstants;
+					auto* fftDispatchInfo = outParam.fftDispatchInfo;
+					const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
+					const auto passes = FFTClass::buildParameters<false>(false,colorChannelsFFT,extent,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
+					{
+						// override for less work and storage (dont need to store the extra padding of the last axis after iFFT)
+						fftPushConstants[1].output_strides.x = fftPushConstants[0].input_strides.x;
+						fftPushConstants[1].output_strides.y = fftPushConstants[0].input_strides.y;
+						fftPushConstants[1].output_strides.z = fftPushConstants[1].input_strides.z;
+						fftPushConstants[1].output_strides.w = fftPushConstants[1].input_strides.w;
+						// iFFT
+						fftPushConstants[2].input_dimensions = fftPushConstants[1].input_dimensions;
+						{
+							fftPushConstants[2].input_dimensions.w = fftPushConstants[0].input_dimensions.w^0x80000000u;
+							fftPushConstants[2].input_strides = fftPushConstants[1].output_strides;
+							fftPushConstants[2].output_strides = fftPushConstants[0].input_strides;
+						}
+						fftDispatchInfo[2] = fftDispatchInfo[0];
+					}
+					assert(passes==2);
+				}
+
 				outParam.denoiserType = EII_COLOR;
 
 				outParam.width = extent.width;
 				outParam.height = extent.height;
+
+				outParam.bloomIntensity = bloomIntensityBundle[i].value();
 
 				maxResolution[0] = core::max(maxResolution[0], outParam.width);
 				maxResolution[1] = core::max(maxResolution[1], outParam.height);
@@ -1074,8 +1128,12 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	constexpr size_t IntensityValuesSize = sizeof(float);
 	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
-	auto& temporaryPixelBuffer = bufferLinks[1];
-	auto& imagePixelBuffer = bufferLinks[2]; // buffer to store result of denoising of a tile/image
+	auto& scratch = bufferLinks[1];
+	auto& temporaryPixelBuffer = bufferLinks[2];
+	auto& colorPixelBuffer = bufferLinks[3];
+	auto& albedoPixelBuffer = bufferLinks[4];
+	auto& normalPixelBuffer = bufferLinks[5];
+	//auto denoised;
 	size_t denoiserStateBufferSize = 0ull;
 	{
 		size_t scratchBufferSize = fftScratchSize;
@@ -1085,7 +1143,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 			auto& denoiser = denoisers[i].m_denoiser;
 
 			OptixDenoiserSizes m_denoiserMemReqs;
-			if (denoiser->computeMemoryResources(&m_denoiserMemReqs, outputDimensions)!=OPTIX_SUCCESS)
+			if (denoiser->computeMemoryResources(&m_denoiserMemReqs, denoiseTileDims)!=OPTIX_SUCCESS)
 			{
 				static const char* errorMsgs[EII_COUNT] = {	"Failed to compute Color-Denoiser Memory Requirements!",
 															"Failed to compute Color-Albedo-Denoiser Memory Requirements!",
@@ -1098,8 +1156,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 			denoisers[i].stateOffset = denoiserStateBufferSize;
 			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
 			scratchBufferSize = core::max(scratchBufferSize, denoisers[i].scratchSize = m_denoiserMemReqs.withOverlapScratchSizeInBytes);
-			pixelBufferSize = core::max(pixelBufferSize, core::max(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT), (i + 1u) * forcedOptiXFormatPixelStride) * maxResolution[0] * maxResolution[1]);
-
+			tempBufferSize = core::max(tempBufferSize,forcedOptiXFormatPixelStride*(i+1)*maxResolution[0]*maxResolution[1]);
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
 		os::Printer::log(message+std::to_string(denoiserStateBufferSize+scratchBufferSize+tempBufferSize), ELL_INFORMATION);
@@ -1434,12 +1491,9 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				};
 				core::SRAIIBasedExiter<decltype(unmapBuffers)> exitRoutine(unmapBuffers);
 
-				cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> fakeScratchLink;
-				fakeScratchLink.asBuffer.pointer = denoiserScratch;
-
 				// set up denoiser
 				auto& denoiser = denoisers[param.denoiserType];
-				if (denoiser.m_denoiser->setup(m_cudaStream, outputDimensions, denoiserState, denoiser.stateSize, fakeScratchLink, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
+				if (denoiser.m_denoiser->setup(m_cudaStream, denoiseTileDimsWithOverlap, denoiserState, denoiser.stateSize, scratch, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
 				{
 					os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 					continue;
@@ -1454,10 +1508,10 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				//input with RGB, Albedo, Normals
 				OptixImage2D denoiserInputs[EII_COUNT];
 				OptixImage2D denoiserOutput;
-
+				
 				for (size_t k = 0; k < denoiserInputCount; k++)
 				{
-					denoiserInputs[k].data = temporaryPixelBuffer.asBuffer.pointer + shaderConstants.outImageOffset[k] * sizeof(uint16_t);
+					denoiserInputs[k].data = temporaryPixelBuffer.asBuffer.pointer+outImageByteOffset[k];
 					denoiserInputs[k].width = param.width;
 					denoiserInputs[k].height = param.height;
 					denoiserInputs[k].rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
@@ -1466,12 +1520,13 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 				}
 
-				denoiserOutput.data = imagePixelBuffer.asBuffer.pointer + shaderConstants.inImageTexelOffset[EII_COLOR];
+				denoiserOutput.data = colorPixelBuffer.asBuffer.pointer+inImageByteOffset[EII_COLOR];
 				denoiserOutput.width = param.width;
 				denoiserOutput.height = param.height;
 				denoiserOutput.rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
 				denoiserOutput.format = forcedOptiXFormat;
 				denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride;
+#if 1 // for easy debug with renderdoc disable optix stuff
 				//invoke
 				if (denoiser.m_denoiser->tileAndInvoke(
 					m_cudaStream,
@@ -1479,7 +1534,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					denoiserInputs,
 					denoiserInputCount,
 					&denoiserOutput,
-					fakeScratchLink,
+					scratch,
 					denoiser.scratchSize,
 					overlap,
 					tileWidth,
@@ -1489,6 +1544,9 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					os::Printer::log(makeImageIDString(i) + "Could not invoke the denoiser sucessfully, skipping image!", ELL_ERROR);
 					continue;
 				}
+#else
+				driver->copyBuffer(temporaryPixelBuffer.getObject(),colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],outImageByteOffset[EII_COLOR],denoiserInputs[EII_COLOR].rowStrideInBytes*param.height);
+#endif
 			}
 
 			// compute post-processing
