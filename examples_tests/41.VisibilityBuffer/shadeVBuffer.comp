@@ -1,7 +1,7 @@
 //
 
 #include "common.glsl"
-//layout in
+layout (local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 2, binding = 1, std430) readonly buffer IndexBuffer
 {
@@ -39,6 +39,9 @@ layout (set = 2, binding = 3, std430) restrict readonly buffer PrecomputedStuffS
     float phys_pg_tex_sz_rcp[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
     uint layer_to_sampler_ix[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
 } precomputed;
+
+layout(set = 3, binding = 0) sampler2D vBuffer;
+layout(set = 3, binding = 1) image2D frameBuffer;
 
 #include <nbl/builtin/glsl/loader/mtl/common.glsl>
 uint drawGUID;
@@ -110,33 +113,43 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 
 void main()
 {
+    // TODO: out of bounds check and return
+    const ivec2 fragCoord = ivec2(gl_GlobalInvocationID);
+    uvec4 triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2 = texelFetch(vBuffer,fragCoord,0);
+
     drawGUID = 0xdeadbeefu;
     const uint triangleID = 0xdeadbeefu;
+    const vec2 bary = unpackUnorm2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[1]);
+    const mat2 dBary = mat2(
+        unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[2]),
+        unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[3])
+    );
+
     const Packed_uvec3_t vertices; // TODO: = indexBuffer[triangleID+virtualAttribTable.baseVertex[drawGUID]];
 
     vec3 pos,normal;
     vec2 uv;
+    mat2 dUVdScreen;
     {
         vec3 positions[3];
         vec2 uvs[3];
+        // wrap this up into a template macro?
         for (int i=0; i<3; i++)
         {
             positions[i] = nbl_glsl_fetchVtxPos(vertices[i],drawGUID);
             uvs[i] = nbl_glsl_fetchVtxUV(vertices[i],drawGUID);
         }
 
-
-        const uvec2 bary = solveForBarycentrics(reconstructedPos,positions);
-
-
+        // maybe could wrap this up into a function
         dPdBary[0] = positions[1]-positions[0];
         dPdBary[1] = positions[2]-positions[0];
-        pos = dPdBary*bary;
+        pos = dPdBary*bary+positions[0];
 
         dUVdBary[0] = uvs[1]-uvs[0];
         dUVdBary[1] = uvs[2]-uvs[0];
-        uv = dUVdBary*bary;
+        uv = dUVdBary*bary+uvs[0];
 
+        dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBary);
 
         const float lastBary = 1.f-bary.x-bay.y;
 
@@ -145,4 +158,8 @@ void main()
         normal += nbl_glsl_fetchVtxNormal(vertices[1],drawGUID)*bary.y;
         normal += nbl_glsl_fetchVtxNormal(vertices[2],drawGUID)*lastBary;
     }
+
+    vec4 color; // TODO: shading
+
+    imageStore(frameBuffer,fragCoord,color);
 }
