@@ -25,7 +25,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         //! _binaries' elements are getting move()'d!
         COpenGLRenderpassIndependentPipeline(
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
