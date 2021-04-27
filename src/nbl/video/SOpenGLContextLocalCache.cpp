@@ -16,7 +16,7 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURende
         nextState.pipeline.graphics.usedShadersHash = hash;
         return;
     }
-    SOpenGLState::SGraphicsPipelineHash hash = nextState.pipeline.graphics.pipeline->getPipelineHash(/*ctxid*/0);//TODO change back to ctxid
+    SOpenGLState::SGraphicsPipelineHash hash = nextState.pipeline.graphics.pipeline->getPipelineHash(ctxid);
     nextState.pipeline.graphics.usedShadersHash = hash;
 
     const auto& ppln = nextState.pipeline.graphics.pipeline;
@@ -142,19 +142,20 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                 nextState.descriptorsParams[_pbp].descSets[i].set->getMultibindParams() :
                 COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
-            // TODO we cannot assume presence of ARB_multi_bind on GLES !!!!!!!!!!
             const GLsizei localStorageImageCount = newImgCount - first_count.textureImages.first;
             if (localStorageImageCount)
             {
                 assert(multibind_params.textureImages.textures);
-                gl->extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+                //formats must be provided since we dont have ARB_multi_bind on ES
+                gl->extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, multibind_params.textureImages.formats);
             }
 
             const GLsizei localTextureCount = newTexCount - first_count.textures.first;
             if (localTextureCount)
             {
                 assert(multibind_params.textures.textures && multibind_params.textures.samplers);
-                gl->extGlBindTextures(first_count.textures.first, localTextureCount, multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+                //targets must be provided since we dont have ARB_multi_bind on ES
+                gl->extGlBindTextures(first_count.textures.first, localTextureCount, multibind_params.textures.textures, multibind_params.textures.targets);
                 gl->extGlBindSamplers(first_count.textures.first, localTextureCount, multibind_params.textures.samplers);
             }
 
