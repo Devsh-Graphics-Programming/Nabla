@@ -87,13 +87,6 @@ namespace nbl
 					std::optional<uint32_t> skin;					//!< The index of the skin referenced by this node.
 					std::optional<uint32_t> weights;				//!< The weights of the instantiated Morph Target. Number of elements must match number of Morph Targets of used mesh.
 
-					struct SGLTFNTransformationTRS
-					{
-						core::vector3df_SIMD translation;			//!< The node's translation along the x, y, and z axes.
-						core::vector3df_SIMD scale;					//!< The node's non-uniform scale, given as the scaling factors along the x, y, and z axes.
-						core::vector4df_SIMD rotation;				//!< The node's unit quaternion rotation in the order (x, y, z, w), where w is the scalar.
-					};
-
 					union SGLTFTransformation
 					{
 						SGLTFTransformation() {}
@@ -120,9 +113,8 @@ namespace nbl
 							std::memmove(this, &copy, sizeof(SGLTFTransformation));
 							return *this;
 						}
-
-						SGLTFNTransformationTRS trs;	
-						core::matrix4SIMD matrix;		//!< A floating-point 4x4 transformation matrix stored in column-major order.
+	
+						core::matrix3x4SIMD matrix;
 					} transformation;
 
 					/*
@@ -370,12 +362,6 @@ namespace nbl
 
 					struct SGLTFSampler
 					{
-						std::optional<uint32_t> magFilter;
-						std::optional<uint32_t> minFilter;
-						std::optional<uint32_t> wrapS;
-						std::optional<uint32_t> wrapT;
-						std::optional<std::string> name;
-
 						enum STextureParameter
 						{
 							STP_NEAREST = 9728,
@@ -388,6 +374,12 @@ namespace nbl
 							STP_MIRRORED_REPEAT = 33648,
 							STP_REPEAT = 10497
 						};
+
+						uint32_t magFilter = STP_NEAREST;
+						uint32_t minFilter = STP_NEAREST;
+						uint32_t wrapS = STP_REPEAT;
+						uint32_t wrapT = STP_REPEAT;
+						std::optional<std::string> name;
 					};
 
 					struct SGLTFTexture

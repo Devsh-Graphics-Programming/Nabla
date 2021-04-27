@@ -195,107 +195,91 @@ namespace nbl
 
 					ICPUSampler::SParams samplerParams;
 
-					if (glTFSampler.magFilter.has_value())
+					switch (glTFSampler.magFilter)
 					{
-						switch (glTFSampler.magFilter.value())
+						case SGLTFSampler::STP_NEAREST:
 						{
-							case SGLTFSampler::STP_NEAREST:
-							{
-								samplerParams.MaxFilter = ISampler::ETF_NEAREST;
-							} break;
+							samplerParams.MaxFilter = ISampler::ETF_NEAREST;
+						} break;
 
-							case SGLTFSampler::STP_LINEAR:
-							{
-								samplerParams.MaxFilter = ISampler::ETF_LINEAR;
-							} break;
-						}
+						case SGLTFSampler::STP_LINEAR:
+						{
+							samplerParams.MaxFilter = ISampler::ETF_LINEAR;
+						} break;
 					}
 
-					if (glTFSampler.minFilter.has_value())
+					switch (glTFSampler.minFilter)
 					{
-						switch (glTFSampler.minFilter.value())
+						case SGLTFSampler::STP_NEAREST:
 						{
-							case SGLTFSampler::STP_NEAREST:
-							{
-								samplerParams.MinFilter = ISampler::ETF_NEAREST;
-							} break;
+							samplerParams.MinFilter = ISampler::ETF_NEAREST;
+						} break;
 
-							case SGLTFSampler::STP_LINEAR:
-							{
-								samplerParams.MinFilter = ISampler::ETF_LINEAR;
-							} break;
+						case SGLTFSampler::STP_LINEAR:
+						{
+							samplerParams.MinFilter = ISampler::ETF_LINEAR;
+						} break;
 
-							case SGLTFSampler::STP_NEAREST_MIPMAP_NEAREST:
-							{
-								samplerParams.MinFilter = ISampler::ETF_NEAREST;
-								samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-							} break;
+						case SGLTFSampler::STP_NEAREST_MIPMAP_NEAREST:
+						{
+							samplerParams.MinFilter = ISampler::ETF_NEAREST;
+							samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+						} break;
 
-							case SGLTFSampler::STP_LINEAR_MIPMAP_NEAREST:
-							{
-								samplerParams.MinFilter = ISampler::ETF_LINEAR;
-								samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-							} break;
+						case SGLTFSampler::STP_LINEAR_MIPMAP_NEAREST:
+						{
+							samplerParams.MinFilter = ISampler::ETF_LINEAR;
+							samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+						} break;
 
-							case SGLTFSampler::STP_NEAREST_MIPMAP_LINEAR:
-							{
-								samplerParams.MinFilter = ISampler::ETF_NEAREST;
-								samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
-							} break;
+						case SGLTFSampler::STP_NEAREST_MIPMAP_LINEAR:
+						{
+							samplerParams.MinFilter = ISampler::ETF_NEAREST;
+							samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
+						} break;
 
-							case SGLTFSampler::STP_LINEAR_MIPMAP_LINEAR:
-							{
-								samplerParams.MinFilter = ISampler::ETF_LINEAR;
-								samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
-							} break;
-						}
+						case SGLTFSampler::STP_LINEAR_MIPMAP_LINEAR:
+						{
+							samplerParams.MinFilter = ISampler::ETF_LINEAR;
+							samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
+						} break;
 					}
 					
-					if (glTFSampler.wrapS.has_value())
+					switch (glTFSampler.wrapS)
 					{
-						switch (glTFSampler.wrapS.value())
+						case SGLTFSampler::STP_CLAMP_TO_EDGE:
 						{
-							case SGLTFSampler::STP_CLAMP_TO_EDGE:
-							{
-								samplerParams.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
-							} break;
+							samplerParams.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
+						} break;
 
-							case SGLTFSampler::STP_MIRRORED_REPEAT:
-							{
-								samplerParams.TextureWrapU = ISampler::ETC_MIRROR;
-							} break;
+						case SGLTFSampler::STP_MIRRORED_REPEAT:
+						{
+							samplerParams.TextureWrapU = ISampler::ETC_MIRROR;
+						} break;
 
-							case SGLTFSampler::STP_REPEAT:
-							{
-								samplerParams.TextureWrapU = ISampler::ETC_REPEAT;
-							} break;
-						}
+						case SGLTFSampler::STP_REPEAT:
+						{
+							samplerParams.TextureWrapU = ISampler::ETC_REPEAT;
+						} break;
 					}
-					else
-						samplerParams.TextureWrapU = ISampler::ETC_REPEAT;
 
-					if (glTFSampler.wrapT.has_value())
+					switch (glTFSampler.wrapT)
 					{
-						switch (glTFSampler.wrapT.value())
+						case SGLTFSampler::STP_CLAMP_TO_EDGE:
 						{
-							case SGLTFSampler::STP_CLAMP_TO_EDGE:
-							{
-								samplerParams.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
-							} break;
+							samplerParams.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
+						} break;
 
-							case SGLTFSampler::STP_MIRRORED_REPEAT:
-							{
-								samplerParams.TextureWrapV = ISampler::ETC_MIRROR;
-							} break;
+						case SGLTFSampler::STP_MIRRORED_REPEAT:
+						{
+							samplerParams.TextureWrapV = ISampler::ETC_MIRROR;
+						} break;
 
-							case SGLTFSampler::STP_REPEAT:
-							{
-								samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
-							} break;
-						}
+						case SGLTFSampler::STP_REPEAT:
+						{
+							samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
+						} break;
 					}
-					else
-						samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
 
 					const std::string cacheKey = getSamplerCacheKey(samplerParams);
 					cpuSamplers.push_back(cacheKey);
@@ -1165,17 +1149,24 @@ namespace nbl
 
 							// TODO tmpMatrix (coulmn major) to row major (currentNode.matrix)
 
-							glTFnode.transformation.matrix = tmpMatrix;
+							glTFnode.transformation.matrix = tmpMatrix.extractSub3x4();
 						}
 						else
 						{
+							struct SGLTFNTransformationTRS
+							{
+								core::vector3df_SIMD translation;			//!< The node's translation along the x, y, and z axes.
+								core::vector3df_SIMD scale;					//!< The node's non-uniform scale, given as the scaling factors along the x, y, and z axes.
+								core::vector4df_SIMD rotation;				//!< The node's unit quaternion rotation in the order (x, y, z, w), where w is the scalar.
+							} trs;
+
 							if (translation.error() != simdjson::error_code::NO_SUCH_FIELD)
 							{
 								auto& translationArray = translation.get_array();
 								for (auto& val : translationArray)
 								{
 									size_t index = &val - &(*translationArray.begin());
-									glTFnode.transformation.trs.translation[index] = val.get_double().value();
+									trs.translation[index] = val.get_double().value();
 								}
 							}
 
@@ -1185,7 +1176,7 @@ namespace nbl
 								for (auto& val : rotationArray)
 								{
 									size_t index = &val - &(*rotationArray.begin());
-									glTFnode.transformation.trs.rotation[index] = val.get_double().value();
+									trs.rotation[index] = val.get_double().value();
 								}
 							}
 
@@ -1195,9 +1186,12 @@ namespace nbl
 								for (auto& val : scaleArray)
 								{
 									size_t index = &val - &(*scaleArray.begin());
-									glTFnode.transformation.trs.scale[index] = val.get_double().value();
+									trs.scale[index] = val.get_double().value();
 								}
 							}
+
+							core::quaternion quaterion = core::quaternion(trs.rotation.x, trs.rotation.y, trs.rotation.z, trs.rotation.w);
+							glTFnode.transformation.matrix.setScaleRotationAndTranslation(trs.scale, quaterion, trs.translation);
 						}
 
 						if (mesh.error() != simdjson::error_code::NO_SUCH_FIELD)
