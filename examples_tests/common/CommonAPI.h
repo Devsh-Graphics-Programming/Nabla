@@ -177,9 +177,9 @@ public:
 	}
 
 	template<size_t imageCount>
-	static void Present(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
-		const nbl::core::smart_refctd_ptr<nbl::video::ISwapchain>& sc,
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[imageCount],
+	static void Present(nbl::video::ILogicalDevice* device,
+		nbl::video::ISwapchain* sc,
+		nbl::video::IGPUCommandBuffer* cmdbuf[imageCount],
 		nbl::video::IGPUQueue* queue)
 	{
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
