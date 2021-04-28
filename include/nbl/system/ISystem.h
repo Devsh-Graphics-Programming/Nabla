@@ -201,7 +201,7 @@ protected:
     }
 
 public:
-    explicit ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(std::move(caller))
+    explicit ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(this, std::move(caller))
     {
 
     }
