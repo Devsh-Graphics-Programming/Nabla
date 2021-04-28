@@ -1101,6 +1101,106 @@ namespace nbl
 				}
 			}
 
+			if (animations.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& animationsData = animations.get_array();
+				for (auto& animation : animationsData)
+				{
+					auto& gltfAnimation = glTF.animations.emplace_back();
+
+					auto& channels = animation.at_key("channels");
+					auto& samplers = animation.at_key("samplers");
+					auto& name = animation.at_key("name");
+
+					if(channels.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& channelsData = channels.get_array();
+						for (auto& channel : channelsData)
+						{
+							auto& gltfChannel = gltfAnimation.channels.emplace_back();
+
+							auto& sampler = channel.at_key("sampler");
+							auto& target = channel.at_key("target");
+
+							if (sampler.error() != simdjson::error_code::NO_SUCH_FIELD)
+								gltfChannel.sampler = sampler.get_uint64().value();	
+
+							if (target.error() != simdjson::error_code::NO_SUCH_FIELD)
+							{
+								auto& targetData = target.get_object();
+
+								auto& node = targetData.at_key("node");
+								auto& path = targetData.at_key("path");
+
+								if (node.error() != simdjson::error_code::NO_SUCH_FIELD)
+									gltfChannel.target.node = node.get_uint64().value();
+
+								if (path.error() != simdjson::error_code::NO_SUCH_FIELD)
+								{
+									const std::string gltfPath = path.get_string().value().data();
+									bool status = true;
+
+									if (gltfPath == "transaltion")
+										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_TRANSLATION;
+									else if (gltfPath == "rotation")
+										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_ROTATION;
+									else if (gltfPath == "scale")
+										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_SCALE;
+									else if (gltfPath == "weights")
+										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_WEIGHTS;
+									else
+									{
+										status = false;
+										assert(status);
+									}
+								}
+							}
+						}
+					}
+
+					if(samplers.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& samplersData = samplers.get_array();
+						for (auto& sampler : samplersData)
+						{
+							auto& gltfSampler = gltfAnimation.samplers.emplace_back();
+
+							auto& gltfInput = sampler.at_key("input");
+							auto& gltfOutput = sampler.at_key("output");
+							auto& gltfInterpolation = sampler.at_key("interpolation");
+
+							if (gltfInput.error() != simdjson::error_code::NO_SUCH_FIELD)
+								gltfSampler.input = gltfInput.get_uint64().value();
+
+							if (gltfOutput.error() != simdjson::error_code::NO_SUCH_FIELD)
+								gltfSampler.output = gltfOutput.get_uint64().value();
+
+							if (gltfInterpolation.error() != simdjson::error_code::NO_SUCH_FIELD)
+							{
+								const std::string interpolation = gltfInterpolation.get_string().value().data();
+								bool status = true;
+
+								if (interpolation == "LINEAR")
+									gltfSampler.interpolation = SGLTF::SGLTFAnimation::SGLTFSampler::SGLTFI_LINEAR;
+								if (interpolation == "STEP")
+									gltfSampler.interpolation = SGLTF::SGLTFAnimation::SGLTFSampler::SGLTFI_STEP;
+								if (interpolation == "CUBICSPLINE")
+									gltfSampler.interpolation = SGLTF::SGLTFAnimation::SGLTFSampler::SGLTFI_CUBICSPLINE;
+								else
+								{
+									status = false;
+									assert(status);
+								}
+							}
+
+						}
+					}
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						gltfAnimation.name = name.get_string().value();
+				}
+			}
+
 			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
 				auto& nData = nodes.get_array();

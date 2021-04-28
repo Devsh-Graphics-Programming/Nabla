@@ -518,6 +518,72 @@ namespace nbl
 						std::optional<double> alphaCutoff;
 						std::optional<bool> doubleSided;
 					};
+					
+					struct SGLTFAnimation
+					{
+						struct SGLTFChannel
+						{
+							enum SGLTFPath
+							{
+								SGLTFP_TRANSLATION,
+								SGLTFP_ROTATION,
+								SGLTFP_SCALE,
+								SGLTFP_WEIGHTS
+							};
+
+							struct SGLTFTarget
+							{
+								std::optional<size_t> node;					//!< The index of the node to target.
+								SGLTFPath path;								//!< The name of the node's TRS property to modify, or the "weights" of the Morph Targets it instantiates. For the "translation" property, the values that are provided by the sampler are the translation along the x, y, and z axes. For the "rotation" property, the values are a quaternion in the order (x, y, z, w), where w is the scalar. For the "scale" property, the values are the scaling factors along the x, y, and z axes.
+								std::optional<std::string> extensions;	
+								std::optional<std::string> extras;
+							};
+
+							SGLTFTarget target;
+							size_t sampler;									//!< Summarizes the actual animation data 
+						};
+
+						struct SGLTFSampler
+						{
+							enum SGLTFInterpolation
+							{
+								/*
+									The animated values are linearly interpolated between keyframes.
+									When targeting a rotation, spherical linear interpolation (slerp) should be used 
+									to interpolate quaternions. The number output of elements must equal the number of input elements.
+								*/
+
+								SGLTFI_LINEAR,
+
+								/*
+									The animated values remain constant to the output of the first keyframe, 
+									until the next keyframe. The number of output elements must equal the number of input elements.
+								*/
+								
+								SGLTFI_STEP,
+
+								/*
+									The animation's interpolation is computed using a cubic spline with specified tangents.
+									The number of output elements must equal three times the number of input elements. 
+									For each input element, the output stores three elements, an in-tangent, a spline vertex,
+									and an out-tangent. There must be at least two keyframes when using this interpolation.
+								*/
+
+								SGLTFI_CUBICSPLINE
+							};
+
+							size_t input;												//!< The index of an accessor containing keyframe input values, e.g., time.	
+							SGLTFInterpolation interpolation = SGLTFI_LINEAR;			//!< Interpolation algorithm.
+							size_t output;												//!< The index of an accessor, containing keyframe output values.
+							std::optional<std::string> extensions;
+						};
+
+						std::optional<std::string> name;
+						std::vector<SGLTFChannel> channels;
+						std::vector<SGLTFSampler> samplers;
+						std::optional<std::string> extensions;
+						std::optional<std::string> extras;
+					};
 
 					/*
 						Various resources referenced by accessors, etc and may be the same,
@@ -530,6 +596,7 @@ namespace nbl
 					std::vector<SGLTFSampler> samplers;
 					std::vector<SGLTFTexture> textures;
 					std::vector<SGLTFMaterial> materials;
+					std::vector<SGLTFAnimation> animations;
 				};
 
 				struct SContext
