@@ -19,10 +19,20 @@ namespace impl
             // wait on this for result to be ready
             std::condition_variable cvar;
             bool ready = false;
+
+            void lock() {}
+            void unlock() {}
         };
     };
 }
 
+/**
+* Provided RequestType may optionally define 2 member functions:
+* void lock();
+* void unlock();
+* lock() will be called just before processing the request, and unlock() will be called just after processing the request.
+* Those are to enable safe external write access to the request struct for user-defined purposes.
+*/
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
 class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, public impl::IAsyncQueueDispatcherBase
 {
@@ -62,6 +72,7 @@ public:
     //void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
 
     //void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request()
+    //bool process_request_predicate(const request_t& req); // optional, always true if not provided
     //void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
     ///////
 
@@ -90,6 +101,12 @@ public:
         assert(req.ready);
     }
 
+protected:
+    bool process_request_predicate(const request_t& req)
+    {
+        return true;
+    }
+
 private:
     template <typename... Args>
     void work(lock_t& lock, Args&&... optional_internal_state)
@@ -99,7 +116,12 @@ private:
         request_t& req = request_pool[cb_begin];
         cb_begin = incAndWrapAround(cb_begin);
 
-        static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
+        req.lock();
+        if (static_cast<CRTP*>(this)->process_request_predicate(req))
+        {
+            static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
+        }
+        req.unlock();
 
         req.ready = true;
         // moving unlock before the switch (but after cb_begin increment) probably wouldnt hurt
