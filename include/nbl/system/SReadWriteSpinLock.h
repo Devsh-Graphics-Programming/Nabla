@@ -14,14 +14,14 @@ namespace impl
     struct SReadWriteSpinLockBase
     {
         static inline constexpr uint32_t LockWriteVal = (1u << 31);
+
+        std::atomic_uint32_t m_lock = 0u;
     };
 
 }
 
 struct SReadWriteSpinLock : protected impl::SReadWriteSpinLockBase
 {
-    SReadWriteSpinLock() : m_lock(0u) {}
-
     void lock_read(std::memory_order order = std::memory_order_seq_cst)
     {
         if (m_lock.fetch_add(1u, order) > (LockWriteVal-1u))
@@ -50,9 +50,6 @@ struct SReadWriteSpinLock : protected impl::SReadWriteSpinLockBase
     {
         m_lock.fetch_sub(LockWriteVal, order);
     }
-
-protected:
-    std::atomic_uint32_t m_lock;
 };
 
 
