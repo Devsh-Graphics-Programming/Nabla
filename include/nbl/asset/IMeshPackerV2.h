@@ -230,7 +230,7 @@ protected:
 };
 
 template <typename BufferType, typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
-class IMeshPackerV2 : public IMeshPacker<MeshBufferType, MDIStructType>, public IMeshPackerV2Base
+class IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public IMeshPackerV2Base
 {
     static_assert(std::is_base_of<IBuffer, BufferType>::value);
 

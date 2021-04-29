@@ -150,129 +150,6 @@ struct SceneData
 using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 using GPUMeshPacker = CGPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 
-#if 0
-GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<const core::smart_refctd_ptr<ICPUMeshBuffer>*>& ranges, SceneData& sceneData)
-{
-    assert(ranges.size()>=2u);
-
-    constexpr uint16_t minTrisBatch = 256u; 
-    constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
-
-    constexpr uint32_t kVerticesPerTriangle = 3u;
-    MeshPacker::AllocationParams allocParams;
-    allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
-    allocParams.indexBufferMinAllocCnt = minTrisBatch*kVerticesPerTriangle;
-    allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
-    allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
-    allocParams.MDIDataBuffSupportedCnt = 8192u;
-    allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory (TODO: WTF NO!)
-    
-    CCPUMeshPackerV2 mp(allocParams,minTrisBatch,maxTrisBatch);
-
-    auto wholeMbRangeBegin = ranges.front();
-    auto wholeMbRangeEnd = ranges.back();
-    const uint32_t meshBufferCnt = std::distance(wholeMbRangeBegin,wholeMbRangeEnd);
-
-    const uint32_t mdiCntBound = mp.calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd); // TODO rename
-
-    auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
-
-    core::vector<uint32_t> allocDataOffsetForDrawCall(ranges.size());
-    allocDataOffsetForDrawCall[0] = 0u;
-    uint32_t i = 0u;
-    for (auto it=ranges.begin(); it!=ranges.end()-1u; )
-    {
-        auto mbRangeBegin = &it->get();
-        auto mbRangeEnd = &(++it)->get();
-
-        bool allocSuccessfull = mp.alloc(allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
-        if (!allocSuccessfull)
-        {
-            std::cout << "Alloc failed \n";
-            _NBL_DEBUG_BREAK_IF(true);
-        }
-
-        const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
-        allocDataOffsetForDrawCall[i + 1] = allocDataOffsetForDrawCall[i] + mdiMaxCnt;
-        i++;
-    }
-    
-    mp.shrinkOutputBuffersSize();
-    mp.instantiateDataStorage();
-    MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
-
-    core::vector<BatchInstanceData> batchData;
-    batchData.reserve(mdiCntTotal);
-
-    core::vector<uint32_t> mdiCntForMeshBuffer;
-    mdiCntForMeshBuffer.reserve(meshBufferCnt);
-
-    uint32_t offsetForDrawCall = 0u;
-    i = 0u;
-    for (auto it=ranges.begin(); it!=ranges.end()-1u;)
-    {
-        auto mbRangeBegin = &it->get();
-        auto mbRangeEnd = &(++it)->get();
-
-        const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin, mbRangeEnd);
-        core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiMaxCnt); //why mdiMaxCnt and not meshBuffersInRangeCnt??????????
-        core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiMaxCnt);
-
-        uint32_t mdiCnt = mp.commit(pmbd.data(), cdot.data(), allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
-        if (mdiCnt == 0u)
-        {
-            std::cout << "Commit failed \n";
-            _NBL_DEBUG_BREAK_IF(true);
-        }
-
-        sceneData.pushConstantsData.push_back(offsetForDrawCall);
-        offsetForDrawCall += mdiCnt;
-
-        DrawIndexedIndirectInput mdiCallInput;
-        mdiCallInput.maxCount = mdiCnt;
-        mdiCallInput.offset = pmbd[0].mdiParameterOffset * sizeof(DrawElementsIndirectCommand_t);
-
-        sceneData.drawIndirectInput.push_back(mdiCallInput);
-
-        const uint32_t mbInRangeCnt = std::distance(mbRangeBegin, mbRangeEnd);
-        for (uint32_t j = 0u; j < mbInRangeCnt; j++)
-        {
-            mdiCntForMeshBuffer.push_back(pmbd[j].mdiParameterCount);
-        }
-
-        //setOffsetTables
-        for (uint32_t j = 0u; j < mdiCnt; j++)
-        {
-            MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[j];
-
-            offsetTableLocal.push_back(virtualAttribTable.attribInfo[0]);
-            offsetTableLocal.push_back(virtualAttribTable.attribInfo[2]);
-            offsetTableLocal.push_back(virtualAttribTable.attribInfo[3]);
-        }
-
-        i++;
-    }
-
-    //prepare data for (set = 1, binding = 0) shader ssbo
-    {
-
-        uint32_t i = 0u;
-        for (auto it = wholeMbRangeBegin; it != wholeMbRangeEnd; it++)
-        {
-            const uint32_t mdiCntForThisMb = mdiCntForMeshBuffer[i];
-            for (uint32_t i = 0u; i < mdiCntForThisMb; i++)
-                vtData.push_back(*reinterpret_cast<MaterialParams*>((*it)->getPushConstantsDataPtr()));
-
-            i++;
-        }
-
-        sceneData.vtDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
-    }
-
-    return GPUMeshPacker(driver,std::move(mp));
-}
-#endif
-
 STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
     const auto& extent = _img->getCreationParameters().extent;
@@ -583,6 +460,128 @@ int main()
             return output;
         }();
 
+        // the vertex packing
+        smart_refctd_ptr<GPUMeshPacker> gpump;
+        {
+            assert(ranges.size()>=2u);
+
+            constexpr uint16_t minTrisBatch = 256u; 
+            constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
+
+            constexpr uint32_t kVerticesPerTriangle = 3u;
+            MeshPacker::AllocationParams allocParams;
+            allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
+            allocParams.indexBufferMinAllocCnt = minTrisBatch*kVerticesPerTriangle;
+            allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
+            allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
+            allocParams.MDIDataBuffSupportedCnt = 8192u;
+            allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory (TODO: WTF NO!)
+    
+            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2>(allocParams,minTrisBatch,maxTrisBatch);
+#if 0
+            auto wholeMbRangeBegin = ranges.front();
+            auto wholeMbRangeEnd = ranges.back();
+            const uint32_t meshBufferCnt = std::distance(wholeMbRangeBegin,wholeMbRangeEnd);
+
+            const uint32_t mdiCntBound = mp.calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd); // TODO rename
+
+            auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
+
+            core::vector<uint32_t> allocDataOffsetForDrawCall(ranges.size());
+            allocDataOffsetForDrawCall[0] = 0u;
+            uint32_t i = 0u;
+            for (auto it=ranges.begin(); it!=ranges.end()-1u; )
+            {
+                auto mbRangeBegin = &it->get();
+                auto mbRangeEnd = &(++it)->get();
+
+                bool allocSuccessfull = mp.alloc(allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
+                if (!allocSuccessfull)
+                {
+                    std::cout << "Alloc failed \n";
+                    _NBL_DEBUG_BREAK_IF(true);
+                }
+
+                const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
+                allocDataOffsetForDrawCall[i + 1] = allocDataOffsetForDrawCall[i] + mdiMaxCnt;
+                i++;
+            }
+    
+            mp.shrinkOutputBuffersSize();
+            mp.instantiateDataStorage();
+            MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
+
+            core::vector<BatchInstanceData> batchData;
+            batchData.reserve(mdiCntTotal);
+
+            core::vector<uint32_t> mdiCntForMeshBuffer;
+            mdiCntForMeshBuffer.reserve(meshBufferCnt);
+
+            uint32_t offsetForDrawCall = 0u;
+            i = 0u;
+            for (auto it=ranges.begin(); it!=ranges.end()-1u;)
+            {
+                auto mbRangeBegin = &it->get();
+                auto mbRangeEnd = &(++it)->get();
+
+                const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin, mbRangeEnd);
+                core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiMaxCnt); //why mdiMaxCnt and not meshBuffersInRangeCnt??????????
+                core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiMaxCnt);
+
+                uint32_t mdiCnt = mp.commit(pmbd.data(), cdot.data(), allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
+                if (mdiCnt == 0u)
+                {
+                    std::cout << "Commit failed \n";
+                    _NBL_DEBUG_BREAK_IF(true);
+                }
+
+                sceneData.pushConstantsData.push_back(offsetForDrawCall);
+                offsetForDrawCall += mdiCnt;
+
+                DrawIndexedIndirectInput mdiCallInput;
+                mdiCallInput.maxCount = mdiCnt;
+                mdiCallInput.offset = pmbd[0].mdiParameterOffset * sizeof(DrawElementsIndirectCommand_t);
+
+                sceneData.drawIndirectInput.push_back(mdiCallInput);
+
+                const uint32_t mbInRangeCnt = std::distance(mbRangeBegin, mbRangeEnd);
+                for (uint32_t j = 0u; j < mbInRangeCnt; j++)
+                {
+                    mdiCntForMeshBuffer.push_back(pmbd[j].mdiParameterCount);
+                }
+
+                //setOffsetTables
+                for (uint32_t j = 0u; j < mdiCnt; j++)
+                {
+                    MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[j];
+
+                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[0]);
+                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[2]);
+                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[3]);
+                }
+
+                i++;
+            }
+
+            //prepare data for (set = 1, binding = 0) shader ssbo
+            {
+
+                uint32_t i = 0u;
+                for (auto it = wholeMbRangeBegin; it != wholeMbRangeEnd; it++)
+                {
+                    const uint32_t mdiCntForThisMb = mdiCntForMeshBuffer[i];
+                    for (uint32_t i = 0u; i < mdiCntForThisMb; i++)
+                        vtData.push_back(*reinterpret_cast<MaterialParams*>((*it)->getPushConstantsDataPtr()));
+
+                    i++;
+                }
+
+                sceneData.vtDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
+            }
+#endif
+        }
+
+        // the texture packing
         smart_refctd_ptr<IGPUVirtualTexture> gpuvt;
         {
             smart_refctd_ptr<ICPUVirtualTexture> vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>([](asset::E_FORMAT_CLASS) -> uint32_t { return TILES_PER_DIM_LOG2; }, PAGE_SZ_LOG2, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
@@ -651,10 +650,7 @@ int main()
 
             gpuvt = core::make_smart_refctd_ptr<IGPUVirtualTexture>(driver, vt.get());
         }
-#if 0
-        // the vertex packing
-        GPUMeshPacker mp = packMeshBuffers(driver,pipelineMeshBufferRanges,sceneData);
-#endif
+        am->clearAllAssetCache();
 
         //
         smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout,vgDSLayout;

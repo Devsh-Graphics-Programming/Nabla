@@ -12,103 +12,103 @@ namespace nbl
 namespace asset
 {
 
-class IMeshPackerBase
+class IMeshPackerBase : public virtual core::IReferenceCounted
 {
-public:
-    struct PackedMeshBufferData
-    {
-        uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
-        uint32_t mdiParameterCount;
-
-        inline bool isValid()
+    public:
+        struct PackedMeshBufferData
         {
-            return this->mdiParameterOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-        }
-    };
+            uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
+            uint32_t mdiParameterCount;
 
-protected:
-    IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-        :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
-         m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
-         m_MDIDataAlctrResSpc(nullptr),
-         m_idxBuffAlctrResSpc(nullptr),
-         m_vtxBuffAlctrResSpc(nullptr)
-    {
-        assert(minTriangleCountPerMDIData <= 21845u);
-        assert(maxTriangleCountPerMDIData <= 21845u);
-        assert(minTriangleCountPerMDIData <= maxTriangleCountPerMDIData);
-        assert(minTriangleCountPerMDIData > 0u);
-        assert(maxTriangleCountPerMDIData > 0u);
-    };
+            inline bool isValid()
+            {
+                return this->mdiParameterOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+            }
+        };
 
-    virtual ~IMeshPackerBase()
-    {
-        _NBL_ALIGNED_FREE(m_MDIDataAlctrResSpc);
-        _NBL_ALIGNED_FREE(m_idxBuffAlctrResSpc);
-        _NBL_ALIGNED_FREE(m_vtxBuffAlctrResSpc);
-    }
-
-    struct AllocationParamsCommon
-    {
-        // Maximum number of 16 bit indicies that may be allocated
-        size_t indexBuffSupportedCnt = 67108864ull;                    /*   128MB*/
-
-        /* Maximum byte size for vertex data allocation
-           For `CCPUMeshPackerV1` this will be maximum byte size of buffer containing only attributes with EVIR_PER_VERTEX input rate.
-           For `CCPUMeshPackerV2` this will be maximum byte size of buffer containing attributes with both EVIR_PER_VERTEX and EVIR_PER_INSTANCE input rate.
-        */
-        size_t vertexBuffSupportedByteSize = 134217728ull;                 /*   128MB*/
-
-        // Maximum number of MDI structs that may be allocated
-        size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
-
-        // Minimum count of 16 bit indicies allocated per allocation
-        size_t indexBufferMinAllocCnt = 256ull;
-
-        // Minimum bytes of vertex data allocated per allocation
-        size_t vertexBufferMinAllocByteSize = 32ull;
-
-        // Minimum count of MDI structs allocated per allocation
-        size_t MDIDataBuffMinAllocCnt = 32ull;
-    };
-
-    void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
-    {
-        if (allocParams.indexBuffSupportedCnt)
+    protected:
+        IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+            :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
+             m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
+             m_MDIDataAlctrResSpc(nullptr),
+             m_idxBuffAlctrResSpc(nullptr),
+             m_vtxBuffAlctrResSpc(nullptr)
         {
-            m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt), _NBL_SIMD_ALIGNMENT);
-            _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
-            assert(m_idxBuffAlctrResSpc != nullptr);
-            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
+            assert(minTriangleCountPerMDIData <= 21845u);
+            assert(maxTriangleCountPerMDIData <= 21845u);
+            assert(minTriangleCountPerMDIData <= maxTriangleCountPerMDIData);
+            assert(minTriangleCountPerMDIData > 0u);
+            assert(maxTriangleCountPerMDIData > 0u);
+        };
+
+        virtual ~IMeshPackerBase()
+        {
+            _NBL_ALIGNED_FREE(m_MDIDataAlctrResSpc);
+            _NBL_ALIGNED_FREE(m_idxBuffAlctrResSpc);
+            _NBL_ALIGNED_FREE(m_vtxBuffAlctrResSpc);
         }
 
-        if (allocParams.vertexBuffSupportedByteSize)
+        struct AllocationParamsCommon
         {
-            m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
-            _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
-            assert(m_vtxBuffAlctrResSpc != nullptr);
-            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize);
+            // Maximum number of 16 bit indicies that may be allocated
+            size_t indexBuffSupportedCnt = 67108864ull;                    /*   128MB*/
+
+            /* Maximum byte size for vertex data allocation
+               For `CCPUMeshPackerV1` this will be maximum byte size of buffer containing only attributes with EVIR_PER_VERTEX input rate.
+               For `CCPUMeshPackerV2` this will be maximum byte size of buffer containing attributes with both EVIR_PER_VERTEX and EVIR_PER_INSTANCE input rate.
+            */
+            size_t vertexBuffSupportedByteSize = 134217728ull;                 /*   128MB*/
+
+            // Maximum number of MDI structs that may be allocated
+            size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
+
+            // Minimum count of 16 bit indicies allocated per allocation
+            size_t indexBufferMinAllocCnt = 256ull;
+
+            // Minimum bytes of vertex data allocated per allocation
+            size_t vertexBufferMinAllocByteSize = 32ull;
+
+            // Minimum count of MDI structs allocated per allocation
+            size_t MDIDataBuffMinAllocCnt = 32ull;
+        };
+
+        void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
+        {
+            if (allocParams.indexBuffSupportedCnt)
+            {
+                m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt), _NBL_SIMD_ALIGNMENT);
+                _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
+                assert(m_idxBuffAlctrResSpc != nullptr);
+                m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
+            }
+
+            if (allocParams.vertexBuffSupportedByteSize)
+            {
+                m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
+                _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
+                assert(m_vtxBuffAlctrResSpc != nullptr);
+                m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize);
+            }
+
+            if (allocParams.MDIDataBuffSupportedCnt)
+            {
+                m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt), _NBL_SIMD_ALIGNMENT);
+                _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
+                assert(m_MDIDataAlctrResSpc != nullptr);
+                m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt);
+            }
         }
 
-        if (allocParams.MDIDataBuffSupportedCnt)
-        {
-            m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt), _NBL_SIMD_ALIGNMENT);
-            _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
-            assert(m_MDIDataAlctrResSpc != nullptr);
-            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt);
-        }
-    }
+    protected:
+        void* m_MDIDataAlctrResSpc;
+        void* m_idxBuffAlctrResSpc;
+        void* m_vtxBuffAlctrResSpc;
+        core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
+        core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
+        core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
 
-protected:
-    void* m_MDIDataAlctrResSpc;
-    void* m_idxBuffAlctrResSpc;
-    void* m_vtxBuffAlctrResSpc;
-    core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
-    core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
-    core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
-
-    const uint16_t m_minTriangleCountPerMDIData;
-    const uint16_t m_maxTriangleCountPerMDIData;
+        const uint16_t m_minTriangleCountPerMDIData;
+        const uint16_t m_maxTriangleCountPerMDIData;
 
 };
 
