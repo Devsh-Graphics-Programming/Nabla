@@ -4,4 +4,7 @@
 #define USED_ATTRIBUTES 3
 #define MAX_TRIANGLES_IN_BATCH 1024
 
+#define SHADING_WG_SIZE_X 16
+#define SHADING_WG_SIZE_Y 16
+
 #endif
