@@ -20,10 +20,55 @@ using namespace nbl::video;
 
 #include "common.h"
 
-constexpr uint32_t TEX_OF_INTEREST_CNT = 6u; 
+//vt stuff
+using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
+
+constexpr uint32_t PAGE_SZ_LOG2 = 7u;
+constexpr uint32_t TILES_PER_DIM_LOG2 = 4u;
+constexpr uint32_t PAGE_PADDING = 8u;
+constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
+
+constexpr uint32_t VT_SET = 0u;
+constexpr uint32_t PGTAB_BINDING = 4u;
+constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 5u;
+
+struct commit_t
+{
+    STextureData addr;
+    core::smart_refctd_ptr<asset::ICPUImage> texture;
+    asset::ICPUImage::SSubresourceRange subresource;
+    asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
+    asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
+    asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
+};
+
+constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
+constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT] =
+{
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_DIFFUSE,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_SPECULAR,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHININESS,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY,
+    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP
+};
+
 #include "nbl/nblpack.h"
 struct BatchInstanceData
 {
+    BatchInstanceData() : shininess(32.f), opacity(1.f), IoR(1.6f), extra(0u)
+    {
+        ambient = vector3df_SIMD(0.f);
+        diffuse = vector3df_SIMD(1.f);
+        specular = vector3df_SIMD(0.f);
+        emissive = vector3df_SIMD(0.f);
+        const auto invalid_tex = STextureData::invalid();
+        std::fill_n(map_data,TEX_OF_INTEREST_CNT,reinterpret_cast<const uint64_t&>(invalid_tex));
+    }
+    ~BatchInstanceData()
+    {
+    }
+
     union
     {
         //Ka
@@ -66,11 +111,11 @@ struct BatchInstanceData
     };
     uint64_t map_data[TEX_OF_INTEREST_CNT];
     //Ns, specular exponent in phong model
-    float shininess = 32.f;
+    float shininess;
     //d
-    float opacity = 1.f;
+    float opacity;
     //Ni, index of refraction
-    float IoR = 1.6f;
+    float IoR;
     uint32_t extra;
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
@@ -85,8 +130,6 @@ struct DrawIndexedIndirectInput
     static constexpr asset::E_PRIMITIVE_TOPOLOGY mode = asset::EPT_TRIANGLE_LIST;
     static constexpr asset::E_INDEX_TYPE indexType = asset::EIT_16BIT;
 };
-
-using MbPipelineRange = std::pair<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>,const core::smart_refctd_ptr<ICPUMeshBuffer>*>;
 
 
 struct SceneData
@@ -107,7 +150,8 @@ struct SceneData
 using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 using GPUMeshPacker = CGPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 
-GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipelineRange>& ranges, SceneData& sceneData)
+#if 0
+GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<const core::smart_refctd_ptr<ICPUMeshBuffer>*>& ranges, SceneData& sceneData)
 {
     assert(ranges.size()>=2u);
 
@@ -125,21 +169,21 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
     
     CCPUMeshPackerV2 mp(allocParams,minTrisBatch,maxTrisBatch);
 
-    auto wholeMbRangeBegin = ranges.front().second;
-    auto wholeMbRangeEnd = ranges.back().second;
+    auto wholeMbRangeBegin = ranges.front();
+    auto wholeMbRangeEnd = ranges.back();
     const uint32_t meshBufferCnt = std::distance(wholeMbRangeBegin,wholeMbRangeEnd);
 
-    const uint32_t mdiCntTotal = mp.calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd); // TODO rename
+    const uint32_t mdiCntBound = mp.calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd); // TODO rename
 
-    auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntTotal);
+    auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
 
     core::vector<uint32_t> allocDataOffsetForDrawCall(ranges.size());
     allocDataOffsetForDrawCall[0] = 0u;
     uint32_t i = 0u;
     for (auto it=ranges.begin(); it!=ranges.end()-1u; )
     {
-        auto mbRangeBegin = &it->second->get();
-        auto mbRangeEnd = &(++it)->second->get();
+        auto mbRangeBegin = &it->get();
+        auto mbRangeEnd = &(++it)->get();
 
         bool allocSuccessfull = mp.alloc(allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
         if (!allocSuccessfull)
@@ -167,8 +211,8 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
     i = 0u;
     for (auto it=ranges.begin(); it!=ranges.end()-1u;)
     {
-        auto mbRangeBegin = &it->second->get();
-        auto mbRangeEnd = &(++it)->second->get();
+        auto mbRangeBegin = &it->get();
+        auto mbRangeEnd = &(++it)->get();
 
         const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin, mbRangeEnd);
         core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiMaxCnt); //why mdiMaxCnt and not meshBuffersInRangeCnt??????????
@@ -227,38 +271,7 @@ GPUMeshPacker packMeshBuffers(video::IVideoDriver* driver, core::vector<MbPipeli
 
     return GPUMeshPacker(driver,std::move(mp));
 }
-
-//vt stuff
-using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
-
-constexpr uint32_t PAGE_SZ_LOG2 = 7u;
-constexpr uint32_t TILES_PER_DIM_LOG2 = 4u;
-constexpr uint32_t PAGE_PADDING = 8u;
-constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
-
-constexpr uint32_t VT_SET = 0u;
-constexpr uint32_t PGTAB_BINDING = 4u;
-constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 5u;
-
-struct commit_t
-{
-    STextureData addr;
-    core::smart_refctd_ptr<asset::ICPUImage> texture;
-    asset::ICPUImage::SSubresourceRange subresource;
-    asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
-    asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
-    asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
-};
-
-constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT] =
-{
-    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT,
-    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_DIFFUSE,
-    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_SPECULAR,
-    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHININESS,
-    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY,
-    asset::CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP
-};
+#endif
 
 STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
@@ -539,34 +552,34 @@ int main()
         //
         auto meshBuffers = mesh_raw->getMeshBufferVector();
 
-        auto pipelineMeshBufferRanges = [&meshBuffers]() -> core::vector<MbPipelineRange>
+        auto pipelineMeshBufferRanges = [&meshBuffers]() -> auto
         {
-            if (meshBuffers.empty())
-                return {};
-
-            // sort meshbuffers by pipeline
-            std::sort(meshBuffers.begin(),meshBuffers.end(),[](const auto& lhs, const auto& rhs)
-                {
-                    auto lPpln = lhs->getPipeline();
-                    auto rPpln = rhs->getPipeline();
-                    // render non-transparent things first
-                    if (lPpln->getBlendParams().blendParams[0].blendEnable < rPpln->getBlendParams().blendParams[0].blendEnable)
-                        return true;
-                    if (lPpln->getBlendParams().blendParams[0].blendEnable == rPpln->getBlendParams().blendParams[0].blendEnable)
-                        return lPpln < rPpln;
-                    return false;
-                }
-            );
-
-            core::vector<MbPipelineRange> output;
-            smart_refctd_ptr<ICPURenderpassIndependentPipeline> mbPipeline = nullptr;
-            for (const auto& mb : meshBuffers)
-            if (mb->getPipeline()!=mbPipeline.get())
+            core::vector<const core::smart_refctd_ptr<ICPUMeshBuffer>*> output;
+            if (!meshBuffers.empty())
             {
-                mbPipeline = core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(mb->getPipeline());
-                output.emplace_back(core::smart_refctd_ptr(mbPipeline),&mb);
+                // sort meshbuffers by pipeline
+                std::sort(meshBuffers.begin(),meshBuffers.end(),[](const auto& lhs, const auto& rhs)
+                    {
+                        auto lPpln = lhs->getPipeline();
+                        auto rPpln = rhs->getPipeline();
+                        // render non-transparent things first
+                        if (lPpln->getBlendParams().blendParams[0].blendEnable < rPpln->getBlendParams().blendParams[0].blendEnable)
+                            return true;
+                        if (lPpln->getBlendParams().blendParams[0].blendEnable == rPpln->getBlendParams().blendParams[0].blendEnable)
+                            return lPpln < rPpln;
+                        return false;
+                    }
+                );
+
+                const ICPURenderpassIndependentPipeline* mbPipeline = nullptr;
+                for (const auto& mb : meshBuffers)
+                if (mb->getPipeline()!=mbPipeline)
+                {
+                    mbPipeline = mb->getPipeline();
+                    output.push_back(&mb);
+                }
+                output.push_back(meshBuffers.data()+meshBuffers.size());
             }
-            output.emplace_back(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(),meshBuffers.data()+meshBuffers.size());
             return output;
         }();
 
@@ -574,49 +587,45 @@ int main()
         {
             smart_refctd_ptr<ICPUVirtualTexture> vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>([](asset::E_FORMAT_CLASS) -> uint32_t { return TILES_PER_DIM_LOG2; }, PAGE_SZ_LOG2, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
             {
-                core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>,STextureData> VTtexDataMap;
-
                 core::vector<commit_t> vt_commits;
-                //modifying push constants and default fragment shader for VT
-                for (auto it = meshBuffers.begin(); it != meshBuffers.end(); it++)
-                {
-                    MaterialParams pushConsts;
-                    memset(pushConsts.map_data, 0xff, TEX_OF_INTEREST_CNT * sizeof(pushConsts.map_data[0]));
-                    pushConsts.extra = 0u;
 
-                    auto* ds = (*it)->getAttachedDescriptorSet();
+                core::unordered_map<smart_refctd_ptr<const asset::ICPUImage>,STextureData> VTtexDataMap;
+                //modifying push constants and default fragment shader for VT
+                for (const auto& meshbuffer : meshBuffers)
+                {
+                    BatchInstanceData pushConsts;
+
+                    auto* ds = meshbuffer->getAttachedDescriptorSet();
                     if (!ds)
                         continue;
-                    for (uint32_t k = 0u; k < TEX_OF_INTEREST_CNT; ++k)
-                    {
-                        uint32_t j = texturesOfInterest[k];
 
-                        auto* view = static_cast<asset::ICPUImageView*>(ds->getDescriptors(j).begin()->desc.get());
-                        auto* smplr = ds->getLayout()->getBindings().begin()[j].samplers[0].get();
-                        const auto uwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(smplr->getParams().TextureWrapU);
-                        const auto vwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(smplr->getParams().TextureWrapV);
-                        const auto borderColor = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(smplr->getParams().BorderColor);
+                    std::for_each_n(texturesOfInterest,TEX_OF_INTEREST_CNT,[&](auto textureOfInterest)
+                    {
+                        const auto* view = static_cast<asset::ICPUImageView*>(ds->getDescriptors(textureOfInterest).begin()->desc.get());
                         auto img = view->getCreationParameters().image;
                         auto extent = img->getCreationParameters().extent;
-                        if (extent.width <= 2u || extent.height <= 2u)//dummy 2x2
-                            continue;
-                        STextureData texData = STextureData::invalid();
+                        if (extent.width<=2u||extent.height<=2u) //dummy 2x2, TODO: compare by finding it in the cache!
+                            return;
+
+                        auto& texData = reinterpret_cast<STextureData&>(pushConsts.map_data[textureOfInterest]);
+                        static_assert(sizeof(STextureData)==sizeof(pushConsts.map_data[0]),"wrong reinterpret_cast");
+
                         auto found = VTtexDataMap.find(img);
-                        if (found != VTtexDataMap.end())
+                        if (found!=VTtexDataMap.end())
                             texData = found->second;
                         else
                         {
-                            const asset::E_FORMAT fmt = img->getCreationParameters().format;
-                            texData = getTextureData(vt_commits, img.get(), vt.get(), uwrap, vwrap, borderColor);
-                            VTtexDataMap.insert({ img,texData });
+                            const auto* smplr = ds->getLayout()->getBindings().begin()[textureOfInterest].samplers[0].get();
+                            const auto uwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(smplr->getParams().TextureWrapU);
+                            const auto vwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(smplr->getParams().TextureWrapV);
+                            const auto borderColor = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(smplr->getParams().BorderColor);
+                            texData = getTextureData(vt_commits,img.get(),vt.get(),uwrap,vwrap,borderColor);
+                            VTtexDataMap.insert({img,texData});
                         }
-
-                        static_assert(sizeof(texData) == sizeof(pushConsts.map_data[0]), "wrong reinterpret_cast");
-                        pushConsts.map_data[k] = reinterpret_cast<uint64_t*>(&texData)[0];
-                    }
+                    });
 
                     // all pipelines will have the same metadata
-                    auto pipelineMetadata = static_cast<const asset::CMTLMetadata::CRenderpassIndependentPipeline*>(meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>()->getAssetSpecificMetadata((*it)->getPipeline()));
+                    const asset::CMTLMetadata::CRenderpassIndependentPipeline* pipelineMetadata = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>()->getAssetSpecificMetadata(meshbuffer->getPipeline());
                     assert(pipelineMetadata);
 
                     //copy texture presence flags
@@ -628,11 +637,11 @@ int main()
                     pushConsts.IoR = pipelineMetadata->m_materialParams.IoR;
                     pushConsts.opacity = pipelineMetadata->m_materialParams.opacity;
                     pushConsts.shininess = pipelineMetadata->m_materialParams.shininess;
-                    memcpy((*it)->getPushConstantsDataPtr(), &pushConsts, sizeof(pushConsts));
+                    memcpy(meshbuffer->getPushConstantsDataPtr(),&pushConsts,sizeof(pushConsts));
 
                     //we dont want this DS to be converted into GPU DS, so set to nullptr
                     //dont worry about deletion of textures (invalidation of pointers), they're grabbed in VTtexDataMap
-                    (*it)->setAttachedDescriptorSet(nullptr);
+                    meshbuffer->setAttachedDescriptorSet(nullptr);
                 }
 
                 vt->shrink();
@@ -642,12 +651,35 @@ int main()
 
             gpuvt = core::make_smart_refctd_ptr<IGPUVirtualTexture>(driver, vt.get());
         }
-
+#if 0
         // the vertex packing
         GPUMeshPacker mp = packMeshBuffers(driver,pipelineMeshBufferRanges,sceneData);
+#endif
 
         //
-        auto overrideShaderJustAfterVersionDirective = [am, driver](const char* path, const std::string& extraCode)
+        smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout,vgDSLayout;
+        {
+#if 0
+            auto xxxx = gpuvt->getDSlayoutBindings(nullptr,nullptr);
+            core::vector<IGPUDescriptorSetLayout::SBinding> vtBindings();
+            gpuvt->getDSlayoutBindings(vtBindings.data(),vtSamplers->data(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
+            for (auto& binding : vtBindings)
+                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);
+
+            core::vector<IGPUDescriptorSetLayout::SBinding> vgBindings(useSSBO ? mp.getDSlayoutBindingsForSSBO(nullptr):mp.getDSlayoutBindingsForUTB(nullptr));
+            if constexpr (useSSBO)
+                mp.getDSlayoutBindingsForSSBO(vgBindings.data());
+            else
+                mp.getDSlayoutBindingsForUTB(vgBindings.data());
+            for (auto& binding : vgBindings)
+                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);});
+#endif
+        }
+
+        //
+        std::string extraCode;// = useSSBO ? mp.getGLSLForSSBO() : mp.getGLSLForUTB();
+        // TODO: sprintf(fragPrelude.data(), FRAGMENT_SHADER_OVERRIDES, sceneData.vt->getFloatViews().size(), sceneData.vt->getGLSLFunctionsIncludePath().c_str());
+        auto overrideShaderJustAfterVersionDirective = [am,driver,extraCode](const char* path)
         {
             asset::IAssetLoader::SAssetLoadParams lp;
             auto _specShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset(path, lp).getContents().begin());
@@ -673,25 +705,6 @@ int main()
             auto gpuSpecShaders = driver->getGPUObjectsFromAssets(&newSpecShader.get(), &newSpecShader.get() + 1u);
             return std::move(gpuSpecShaders->begin()[0]);
         };
-        smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout,vgDSLayout;
-        {
-            auto xxxx = gpuvt->getDSlayoutBindings(nullptr,nullptr);
-            core::vector<IGPUDescriptorSetLayout::SBinding> vtBindings();
-            gpuvt->getDSlayoutBindings(vtBindings.data(),vtSamplers->data(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
-            for (auto& binding : vtBindings)
-                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);
-
-            core::vector<IGPUDescriptorSetLayout::SBinding> vgBindings(useSSBO ? mp.getDSlayoutBindingsForSSBO(nullptr):mp.getDSlayoutBindingsForUTB(nullptr));
-            if constexpr (useSSBO)
-                mp.getDSlayoutBindingsForSSBO(vgBindings.data());
-            else
-                mp.getDSlayoutBindingsForUTB(vgBindings.data());
-            for (auto& binding : vgBindings)
-                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);});
-        }
-        //
-        std::string extraCode = useSSBO ? mp.getGLSLForSSBO() : mp.getGLSLForUTB();
-        // TODO: sprintf(fragPrelude.data(), FRAGMENT_SHADER_OVERRIDES, sceneData.vt->getFloatViews().size(), sceneData.vt->getGLSLFunctionsIncludePath().c_str());
         //
         {
             SPushConstantRange pcRange;
@@ -700,8 +713,8 @@ int main()
             pcRange.stageFlags = ISpecializedShader::ESS_VERTEX;
 
             smart_refctd_ptr<IGPUSpecializedShader> fillShaders[2] = {
-                overrideShaderJustAfterVersionDirective("fillVBuffer.vert",extraCode),
-                overrideShaderJustAfterVersionDirective("fillVBuffer.frag",extraCode)
+                overrideShaderJustAfterVersionDirective("fillVBuffer.vert"),
+                overrideShaderJustAfterVersionDirective("fillVBuffer.frag")
             };
 
             sceneData.fillVBufferPpln = driver->createGPURenderpassIndependentPipeline(
@@ -721,7 +734,7 @@ int main()
 
             sceneData.shadeVBufferPpln = driver->createGPUComputePipeline(
                 nullptr,driver->createGPUPipelineLayout(&pcRange,&pcRange+1,std::move(vtDSLayout),std::move(vgDSLayout),std::move(perFrameDSLayout),std::move(shadingDSLayout)),
-                overrideShaderJustAfterVersionDirective("shadeVBuffer.comp",extraCode)
+                overrideShaderJustAfterVersionDirective("shadeVBuffer.comp")
             );
         }
     }
