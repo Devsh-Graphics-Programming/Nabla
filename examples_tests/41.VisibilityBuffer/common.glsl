@@ -9,42 +9,65 @@
 #define NBL_GLSL_BARYCENTRIC_FRAG_POS_INPUT_LOC NBL_GLSL_BARYCENTRIC_VERT_POS_OUTPUT_LOC
 #define NBL_GLSL_BARYCENTRIC_FRAG_PROVOKINGPOS_INPUT_LOC NBL_GLSL_BARYCENTRIC_VERT_PROVOKINGPOS_OUTPUT_LOC
 
-// descriptors
+#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl>
+struct BatchInstanceData
+{
+    vec3 Ka;
+    uint baseVertex;
+    vec3 Kd;
+    nbl_glsl_VG_VirtualAttributePacked_t vAttrPos;
+    vec3 Ks;
+    nbl_glsl_VG_VirtualAttributePacked_t vAttrUV;
+    vec3 Ke;
+    nbl_glsl_VG_VirtualAttributePacked_t vAttrNormal;
+    uvec2 map_Ka_data;
+    uvec2 map_Kd_data;
+    uvec2 map_Ks_data;
+    uvec2 map_Ns_data;
+    uvec2 map_d_data;
+    uvec2 map_bump_data;
+    float Ns;
+    float d;
+    float Ni;
+    uint extra; //flags copied from MTL metadata
+};
+
+layout(set = 1, binding = 0, std430) readonly buffer BatchInstanceBuffer
+{
+    BatchInstanceData batchInstanceData[];
+};
+#if 0
+// VG
+layout(set = 1, binding = 1, std430) readonly buffer IndexBuffer // TODO: VG descriptor include
+{
+    uint indexBuffer[];
+};
+#endif
+
+// non-global descriptors
 #include <nbl/builtin/glsl/utils/common.glsl>
-layout(set = 1, binding = 0, row_major, std140) uniform UBO
+layout(set = 2, binding = 0, row_major, std140) uniform UBO
 {
     nbl_glsl_SBasicViewParameters params;
 } CamData;
-
-#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl>
-struct MeshBuffer_t
-{
-    nbl_glsl_VG_VirtualAttributePacked_t vAttr[USED_ATTRIBUTES];
-    uint baseVertex;
-};
-layout(set = 2, binding = 0) readonly buffer VirtualAttributes
-{
-    nbl_glsl_VG_VirtualAttributePacked_t vAttr[][USED_ATTRIBUTES]; // TODO: replace
-} virtualAttribTable;
-
 
 // functions
 #include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>
 vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in uint drawGUID)
 {
-    nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawGUID][0];
+    nbl_glsl_VG_VirtualAttributePacked_t va = batchInstanceData[drawGUID].vAttrPos;
     return nbl_glsl_VG_attribFetch_RGB32_SFLOAT(va,vtxID);
 }
 
 vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawGUID)
 {
-    nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawGUID][1];
+    nbl_glsl_VG_VirtualAttributePacked_t va = batchInstanceData[drawGUID].vAttrUV;
     return nbl_glsl_VG_attribFetch_RG32_SFLOAT(va,vtxID);
 }
 
 vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawGUID)
 {
-    nbl_glsl_VG_VirtualAttributePacked_t va = virtualAttribTable.vAttr[drawGUID][2];
+    nbl_glsl_VG_VirtualAttributePacked_t va = batchInstanceData[drawGUID].vAttrNormal;
     return nbl_glsl_VG_attribFetch_RGB10A2_SNORM(va,vtxID).xyz;
 }
 

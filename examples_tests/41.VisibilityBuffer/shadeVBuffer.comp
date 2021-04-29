@@ -1,34 +1,7 @@
-//
+#version 430 core
 
 #include "common.glsl"
 layout (local_size_x = 16, local_size_y = 16) in;
-
-layout(set = 2, binding = 1, std430) readonly buffer IndexBuffer
-{
-    Packed_uvec3_t indexBuffer[];
-};
-
-struct MaterialParams
-{
-    vec3 Ka;
-    vec3 Kd;
-    vec3 Ks;
-    vec3 Ke;
-    uvec2 map_Ka_data;
-    uvec2 map_Kd_data;
-    uvec2 map_Ks_data;
-    uvec2 map_Ns_data;
-    uvec2 map_d_data;
-    uvec2 map_bump_data;
-    float Ns;
-    float d;
-    float Ni;
-    uint extra; //flags copied from MTL metadata
-};
-layout(set = 2, binding = 2, std430) readonly buffer MaterialBuffer
-{
-    MaterialParams materialData[];
-};
 
 #include <nbl/builtin/glsl/virtual_texturing/extensions.glsl>
 #include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
@@ -40,24 +13,22 @@ layout (set = 2, binding = 3, std430) restrict readonly buffer PrecomputedStuffS
     uint layer_to_sampler_ix[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
 } precomputed;
 
-layout(set = 3, binding = 0) sampler2D vBuffer;
-layout(set = 3, binding = 1) image2D frameBuffer;
+layout(set = 3, binding = 0) uniform sampler2D vBuffer;
+layout(set = 3, binding = 1, r32ui) uniform uimage2D frameBuffer;
 
 #include <nbl/builtin/glsl/loader/mtl/common.glsl>
-uint drawGUID;
+BatchInstanceData gBatchInstance;
 nbl_glsl_MTLMaterialParameters nbl_glsl_getMaterialParameters() // this function is for MTL's shader only
 {
-    MaterialParams params = materialData[drawGUID];
-
     nbl_glsl_MTLMaterialParameters mtl_params;
-    mtl_params.Ka = params.Ka;
-    mtl_params.Kd = params.Kd;
-    mtl_params.Ks = params.Ks;
-    mtl_params.Ke = params.Ke;
-    mtl_params.Ns = params.Ns;
-    mtl_params.d = params.d;
-    mtl_params.Ni = params.Ni;
-    mtl_params.extra = params.extra;
+    mtl_params.Ka = gBatchInstance.Ka;
+    mtl_params.Kd = gBatchInstance.Kd;
+    mtl_params.Ks = gBatchInstance.Ks;
+    mtl_params.Ke = gBatchInstance.Ke;
+    mtl_params.Ns = gBatchInstance.Ns;
+    mtl_params.d = gBatchInstance.d;
+    mtl_params.Ni = gBatchInstance.Ni;
+    mtl_params.extra = gBatchInstance.extra;
     return mtl_params;
 }
 #define _NBL_FRAG_GET_MATERIAL_PARAMETERS_FUNCTION_DEFINED_
@@ -115,17 +86,22 @@ void main()
 {
     // TODO: out of bounds check and return
     const ivec2 fragCoord = ivec2(gl_GlobalInvocationID);
-    uvec4 triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2 = texelFetch(vBuffer,fragCoord,0);
+    if (any(greaterThanEqual(fragCoord,textureSize(vBuffer,0))))
+        return;
 
-    drawGUID = 0xdeadbeefu;
-    const uint triangleID = 0xdeadbeefu;
+    const uvec4 triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2 = texelFetch(vBuffer,fragCoord,0);
+    
+    const uint drawGUID = bitfieldExtract(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0],MAX_TRIANGLES_IN_BATCH,32-MAX_TRIANGLES_IN_BATCH);
+    const uint triangleID = bitfieldExtract(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0],0,MAX_TRIANGLES_IN_BATCH);
     const vec2 bary = unpackUnorm2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[1]);
     const mat2 dBary = mat2(
         unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[2]),
         unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[3])
     );
 
-    const Packed_uvec3_t vertices; // TODO: = indexBuffer[triangleID+virtualAttribTable.baseVertex[drawGUID]];
+    gBatchInstance = batchInstanceData[drawID];
+    const uint indexOffset = triangleID*3u+batchInstanceData.baseVertex;
+    const uint vertexIDs[3] = {indexBuffer[indexOffset+0u],indexBuffer[indexOffset+1u],indexBuffer[indexOffset+2u]};
 
     vec3 pos,normal;
     vec2 uv;
@@ -136,14 +112,14 @@ void main()
         // wrap this up into a template macro?
         for (int i=0; i<3; i++)
         {
-            positions[i] = nbl_glsl_fetchVtxPos(vertices[i],drawGUID);
-            uvs[i] = nbl_glsl_fetchVtxUV(vertices[i],drawGUID);
+            positions[i] = nbl_glsl_fetchVtxPos(vertexIDs[i],drawGUID);
+            uvs[i] = nbl_glsl_fetchVtxUV(vertexIDs[i],drawGUID);
         }
 
         // maybe could wrap this up into a function
         dPdBary[0] = positions[1]-positions[0];
         dPdBary[1] = positions[2]-positions[0];
-        pos = dPdBary*bary+positions[0];
+        pos = dPdBary*bary+positions[0]; // TODO: compute from depth buffer or from barycentric? [Need Vib benchmark]
 
         dUVdBary[0] = uvs[1]-uvs[0];
         dUVdBary[1] = uvs[2]-uvs[0];
@@ -151,7 +127,7 @@ void main()
 
         dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBary);
 
-        const float lastBary = 1.f-bary.x-bay.y;
+        const float lastBary = 1.f-bary.x-bary.y;
 
 
         normal = nbl_glsl_fetchVtxNormal(vertices[0],drawGUID)*bary.x;
