@@ -3,7 +3,7 @@
 
 #include <variant>
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl/system/ISkippableAsyncQueueDispatcher.h"
+#include "nbl/system/ICancelableAsyncQueueDispatcher.h"
 //#include "nbl/system/IFileArchive.h"
 #include "nbl/system/IFile.h"
 
@@ -112,7 +112,7 @@ protected:
         size_t offset;
         size_t size;
     };
-    struct SRequestType : SSkippableRequestBase
+    struct SRequestType : SCancelableRequestBase
     {
         SFutureBase* future = nullptr;
         void* retval_storage = nullptr;
@@ -131,9 +131,9 @@ protected:
         }
     };
 
-    class CAsyncQueue : public ISkippableAsyncQueueDispatcher<CAsyncQueue, SRequestType, 256u>
+    class CAsyncQueue : public ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, 256u>
     {
-        using base_t = ISkippableAsyncQueueDispatcher<CAsyncQueue, SRequestType, 256u>;
+        using base_t = ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, 256u>;
 
     public:
         CAsyncQueue(ISystem* owner, core::smart_refctd_ptr<ISystemCaller>&& caller) : m_owner(owner), m_caller(std::move(caller)) {}
