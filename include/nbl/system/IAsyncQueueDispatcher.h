@@ -116,6 +116,9 @@ private:
         request_t& req = request_pool[cb_begin];
         cb_begin = incAndWrapAround(cb_begin);
 
+        // unlock global lock when request is being processed
+        lock.unlock();
+
         req.lock();
         if (static_cast<CRTP*>(this)->process_request_predicate(req))
         {
@@ -123,11 +126,11 @@ private:
         }
         req.unlock();
 
+        // lock before condition change
+        // https://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex
+        lock.lock();
         req.ready = true;
-        // moving unlock before the switch (but after cb_begin increment) probably wouldnt hurt
-        lock.unlock(); // unlock so that notified thread wont immidiately block again
         req.cvar.notify_all(); //notify_one() would do as well, but lets call notify_all() in case something went horribly wrong (theoretically not possible) and multiple threads are waiting for single request
-        lock.lock(); // reacquire (must be locked at the exit of this function -- see system::IThreadHandler docs)
     }
 
     bool wakeupPredicate() const { return (cb_begin != cb_end); }

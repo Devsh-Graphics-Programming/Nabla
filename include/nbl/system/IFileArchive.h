@@ -54,7 +54,7 @@ class IFileArchive : public virtual core::IReferenceCounted
 public:
 	struct SOpenFileParams
 	{
-		std::string password;
+		std::string_view password;
 	};
 
 	//! Opens a file based on its name
