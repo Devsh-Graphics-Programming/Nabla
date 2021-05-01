@@ -37,14 +37,14 @@ class CGPUMeshPackerV2 final : public IMeshPackerV2<video::IGPUBuffer,video::IGP
         {}
 
         CGPUMeshPackerV2(video::IVideoDriver* driver, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
-            :IMeshPackerV2<video::IGPUBuffer,video::IGPUMeshBuffer,MDIStructType>(cpuMP.m_allocParams, cpuMP.m_minTriangleCountPerMDIData, cpuMP.m_maxTriangleCountPerMDIData),
+            :IMeshPackerV2<video::IGPUBuffer,video::IGPUMeshBuffer,MDIStructType>(cpuMP->m_allocParams,cpuMP->m_minTriangleCountPerMDIData,cpuMP->m_maxTriangleCountPerMDIData),
              m_driver(driver)
         {
-            m_virtualAttribConfig = cpuMP.m_virtualAttribConfig;
+            m_virtualAttribConfig = cpuMP->m_virtualAttribConfig;
 
-            auto& cpuMDIBuff = cpuMP.m_packerDataStore.MDIDataBuffer;
-            auto& cpuIdxBuff = cpuMP.m_packerDataStore.indexBuffer;
-            auto& cpuVtxBuff = cpuMP.m_packerDataStore.vertexBuffer;
+            auto& cpuMDIBuff = cpuMP->m_packerDataStore.MDIDataBuffer;
+            auto& cpuIdxBuff = cpuMP->m_packerDataStore.indexBuffer;
+            auto& cpuVtxBuff = cpuMP->m_packerDataStore.vertexBuffer;
 
             // TODO: why are the allocators not copied!?
 
