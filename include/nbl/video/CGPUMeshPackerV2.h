@@ -36,6 +36,7 @@ class CGPUMeshPackerV2 final : public IMeshPackerV2<video::IGPUBuffer,video::IGP
              m_driver(driver)
         {}
 
+        // TODO: protect against empty cpuMP (no allocations and then shrinked)
         CGPUMeshPackerV2(video::IVideoDriver* driver, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
             :IMeshPackerV2<video::IGPUBuffer,video::IGPUMeshBuffer,MDIStructType>(cpuMP->m_allocParams,cpuMP->m_minTriangleCountPerMDIData,cpuMP->m_maxTriangleCountPerMDIData),
              m_driver(driver)

@@ -9,9 +9,6 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "nbl/asset/utils/CCPUMeshPackerV1.h"
-#include "nbl/asset/CCPUMeshPackerV2.h"
-#include "nbl/video/CGPUMeshPackerV2.h"
 
 using namespace nbl;
 using namespace nbl::core;
@@ -28,9 +25,8 @@ constexpr uint32_t TILES_PER_DIM_LOG2 = 4u;
 constexpr uint32_t PAGE_PADDING = 8u;
 constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
 
-constexpr uint32_t VT_SET = 0u;
-constexpr uint32_t PGTAB_BINDING = 4u;
-constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 5u;
+constexpr uint32_t PGTAB_BINDING = 0u;
+constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 1u;
 
 struct commit_t
 {
@@ -215,44 +211,6 @@ void createDescriptorSets(IVideoDriver* driver, const IGPUPipelineLayout* pplnLa
     w3.info = &info3;
 
     driver->updateDescriptorSets(1u, &w3, 0u, nullptr);
-
-    //vt stuff
-    auto sizesVT = sceneData.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
-    auto writesVT = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SWriteDescriptorSet>>(sizesVT.first);
-    auto infoVT = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SDescriptorInfo>>(sizesVT.second);
-
-    sceneData.vt->getDescriptorSetWrites(writesVT->data(), infoVT->data(), sceneData.ds[0].get(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
-
-    driver->updateDescriptorSets(writesVT->size(), writesVT->data(), 0u, nullptr);
-
-    IGPUDescriptorSet::SWriteDescriptorSet w2[2];
-    w2[0].arrayElement = 0u;
-    w2[0].count = 1u;
-    w2[0].binding = 0u;
-    w2[0].descriptorType = EDT_STORAGE_BUFFER;
-    w2[0].dstSet = sceneData.ds[2].get();
-
-    w2[1].arrayElement = 0u;
-    w2[1].count = 1u;
-    w2[1].binding = 1u;
-    w2[1].descriptorType = EDT_STORAGE_BUFFER;
-    w2[1].dstSet = sceneData.ds[2].get();
-
-    core::smart_refctd_ptr<video::IGPUBuffer> buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(video::IGPUVirtualTexture::SPrecomputedData), &sceneData.vt->getPrecomputedData());
-
-    IGPUDescriptorSet::SDescriptorInfo info2[2];
-    info2[0].buffer.offset = 0u;
-    info2[0].buffer.size = sizeof(video::IGPUVirtualTexture::SPrecomputedData);
-    info2[0].desc = buffer;
-
-    info2[1].buffer.offset = 0u;
-    info2[1].buffer.size = sceneData.vtDataSSBO->getSize();
-    info2[1].desc = sceneData.vtDataSSBO; // TODO: rename vtData to materialData
-
-    w2[0].info = &info2[0];
-    w2[1].info = &info2[1];
-
-    driver->updateDescriptorSets(2u,w2,0u,nullptr);
 }
 #endif
 
@@ -459,128 +417,7 @@ int main()
             }
             return output;
         }();
-
-        // the vertex packing
-        smart_refctd_ptr<GPUMeshPacker> gpump;
-        {
-            assert(ranges.size()>=2u);
-
-            constexpr uint16_t minTrisBatch = 256u; 
-            constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
-
-            constexpr uint32_t kVerticesPerTriangle = 3u;
-            MeshPacker::AllocationParams allocParams;
-            allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
-            allocParams.indexBufferMinAllocCnt = minTrisBatch*kVerticesPerTriangle;
-            allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
-            allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
-            allocParams.MDIDataBuffSupportedCnt = 8192u;
-            allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs are adjacent in memory (TODO: WTF NO!)
-    
-            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2>(allocParams,minTrisBatch,maxTrisBatch);
-#if 0
-            auto wholeMbRangeBegin = ranges.front();
-            auto wholeMbRangeEnd = ranges.back();
-            const uint32_t meshBufferCnt = std::distance(wholeMbRangeBegin,wholeMbRangeEnd);
-
-            const uint32_t mdiCntBound = mp.calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd); // TODO rename
-
-            auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
-
-            core::vector<uint32_t> allocDataOffsetForDrawCall(ranges.size());
-            allocDataOffsetForDrawCall[0] = 0u;
-            uint32_t i = 0u;
-            for (auto it=ranges.begin(); it!=ranges.end()-1u; )
-            {
-                auto mbRangeBegin = &it->get();
-                auto mbRangeEnd = &(++it)->get();
-
-                bool allocSuccessfull = mp.alloc(allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
-                if (!allocSuccessfull)
-                {
-                    std::cout << "Alloc failed \n";
-                    _NBL_DEBUG_BREAK_IF(true);
-                }
-
-                const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
-                allocDataOffsetForDrawCall[i + 1] = allocDataOffsetForDrawCall[i] + mdiMaxCnt;
-                i++;
-            }
-    
-            mp.shrinkOutputBuffersSize();
-            mp.instantiateDataStorage();
-            MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
-
-            core::vector<BatchInstanceData> batchData;
-            batchData.reserve(mdiCntTotal);
-
-            core::vector<uint32_t> mdiCntForMeshBuffer;
-            mdiCntForMeshBuffer.reserve(meshBufferCnt);
-
-            uint32_t offsetForDrawCall = 0u;
-            i = 0u;
-            for (auto it=ranges.begin(); it!=ranges.end()-1u;)
-            {
-                auto mbRangeBegin = &it->get();
-                auto mbRangeEnd = &(++it)->get();
-
-                const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin, mbRangeEnd);
-                core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiMaxCnt); //why mdiMaxCnt and not meshBuffersInRangeCnt??????????
-                core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiMaxCnt);
-
-                uint32_t mdiCnt = mp.commit(pmbd.data(), cdot.data(), allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
-                if (mdiCnt == 0u)
-                {
-                    std::cout << "Commit failed \n";
-                    _NBL_DEBUG_BREAK_IF(true);
-                }
-
-                sceneData.pushConstantsData.push_back(offsetForDrawCall);
-                offsetForDrawCall += mdiCnt;
-
-                DrawIndexedIndirectInput mdiCallInput;
-                mdiCallInput.maxCount = mdiCnt;
-                mdiCallInput.offset = pmbd[0].mdiParameterOffset * sizeof(DrawElementsIndirectCommand_t);
-
-                sceneData.drawIndirectInput.push_back(mdiCallInput);
-
-                const uint32_t mbInRangeCnt = std::distance(mbRangeBegin, mbRangeEnd);
-                for (uint32_t j = 0u; j < mbInRangeCnt; j++)
-                {
-                    mdiCntForMeshBuffer.push_back(pmbd[j].mdiParameterCount);
-                }
-
-                //setOffsetTables
-                for (uint32_t j = 0u; j < mdiCnt; j++)
-                {
-                    MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[j];
-
-                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[0]);
-                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[2]);
-                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[3]);
-                }
-
-                i++;
-            }
-
-            //prepare data for (set = 1, binding = 0) shader ssbo
-            {
-
-                uint32_t i = 0u;
-                for (auto it = wholeMbRangeBegin; it != wholeMbRangeEnd; it++)
-                {
-                    const uint32_t mdiCntForThisMb = mdiCntForMeshBuffer[i];
-                    for (uint32_t i = 0u; i < mdiCntForThisMb; i++)
-                        vtData.push_back(*reinterpret_cast<MaterialParams*>((*it)->getPushConstantsDataPtr()));
-
-                    i++;
-                }
-
-                sceneData.vtDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
-            }
-#endif
-        }
-
+        
         // the texture packing
         smart_refctd_ptr<IGPUVirtualTexture> gpuvt;
         {
@@ -650,35 +487,198 @@ int main()
 
             gpuvt = core::make_smart_refctd_ptr<IGPUVirtualTexture>(driver, vt.get());
         }
+
+        // the vertex packing
+        smart_refctd_ptr<GPUMeshPacker> gpump;
+        {
+            assert(ranges.size()>=2u);
+
+            constexpr uint16_t minTrisBatch = 256u; 
+            constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
+
+            constexpr uint32_t kVerticesPerTriangle = 3u;
+            MeshPacker::AllocationParams allocParams;
+            allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
+            allocParams.indexBufferMinAllocCnt = minTrisBatch*kVerticesPerTriangle;
+            allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
+            allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
+            allocParams.MDIDataBuffSupportedCnt = 8192u;
+            allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
+    
+            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
+
+            auto wholeMbRangeBegin = pipelineMeshBufferRanges.front();
+            auto wholeMbRangeEnd = pipelineMeshBufferRanges.back();
+            const uint32_t meshBufferCnt = std::distance(wholeMbRangeBegin,wholeMbRangeEnd);
+
+            const uint32_t mdiCntBound = mp->calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd);
+
+            auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
+            core::vector<uint32_t> allocDataOffsetForDrawCall(pipelineMeshBufferRanges.size(),0u);
+            auto allocOffsetIt = allocDataOffsetForDrawCall.begin();
+            for (auto it=pipelineMeshBufferRanges.begin(); it!=pipelineMeshBufferRanges.end()-1u; )
+            {
+                auto mbRangeBegin = &(*it)->get();
+                auto mbRangeEnd = &(*(++it))->get();
+
+                bool allocSuccessfull = mp->alloc(allocData->data()+*allocOffsetIt,mbRangeBegin,mbRangeEnd);
+                if (!allocSuccessfull)
+                {
+                    std::cout << "Alloc failed \n";
+                    _NBL_DEBUG_BREAK_IF(true);
+                }
+
+                *allocOffsetIt = *(allocOffsetIt++)+mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
+            }
+            mp->shrinkOutputBuffersSize();
+            mp->instantiateDataStorage();
+#if 0
+            core::vector<BatchInstanceData> batchData;
+            batchData.reserve(mdiCntTotal);
+
+            core::vector<uint32_t> mdiCntForMeshBuffer;
+            mdiCntForMeshBuffer.reserve(meshBufferCnt);
+
+            uint32_t offsetForDrawCall = 0u;
+            i = 0u;
+            for (auto it=ranges.begin(); it!=ranges.end()-1u;)
+            {
+                auto mbRangeBegin = &it->get();
+                auto mbRangeEnd = &(++it)->get();
+
+                const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin, mbRangeEnd);
+                core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiMaxCnt); //why mdiMaxCnt and not meshBuffersInRangeCnt??????????
+                core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiMaxCnt);
+
+                uint32_t mdiCnt = mp.commit(pmbd.data(), cdot.data(), allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
+                if (mdiCnt == 0u)
+                {
+                    std::cout << "Commit failed \n";
+                    _NBL_DEBUG_BREAK_IF(true);
+                }
+
+                sceneData.pushConstantsData.push_back(offsetForDrawCall);
+                offsetForDrawCall += mdiCnt;
+
+                DrawIndexedIndirectInput mdiCallInput;
+                mdiCallInput.maxCount = mdiCnt;
+                mdiCallInput.offset = pmbd[0].mdiParameterOffset * sizeof(DrawElementsIndirectCommand_t);
+
+                sceneData.drawIndirectInput.push_back(mdiCallInput);
+
+                const uint32_t mbInRangeCnt = std::distance(mbRangeBegin, mbRangeEnd);
+                for (uint32_t j = 0u; j < mbInRangeCnt; j++)
+                {
+                    mdiCntForMeshBuffer.push_back(pmbd[j].mdiParameterCount);
+                }
+
+                //setOffsetTables
+                for (uint32_t j = 0u; j < mdiCnt; j++)
+                {
+                    MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[j];
+
+                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[0]);
+                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[2]);
+                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[3]);
+                }
+
+                i++;
+            }
+
+            //prepare data for (set = 1, binding = 0) shader ssbo
+            {
+
+                uint32_t i = 0u;
+                for (auto it = wholeMbRangeBegin; it != wholeMbRangeEnd; it++)
+                {
+                    const uint32_t mdiCntForThisMb = mdiCntForMeshBuffer[i];
+                    for (uint32_t i = 0u; i < mdiCntForThisMb; i++)
+                        vtData.push_back(*reinterpret_cast<MaterialParams*>((*it)->getPushConstantsDataPtr()));
+
+                    i++;
+                }
+
+                sceneData.vtDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
+            }
+#endif
+            gpump = core::make_smart_refctd_ptr<CGPUMeshPackerV2<>>(driver,mp.get());
+        }
         am->clearAllAssetCache();
 
         //
-        smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout,vgDSLayout;
+        smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout;
         {
-#if 0
-            auto xxxx = gpuvt->getDSlayoutBindings(nullptr,nullptr);
-            core::vector<IGPUDescriptorSetLayout::SBinding> vtBindings();
-            gpuvt->getDSlayoutBindings(vtBindings.data(),vtSamplers->data(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
+            // layout
+            auto binding_and_sampler_count = gpuvt->getDSlayoutBindings(nullptr,nullptr);
+            core::vector<IGPUDescriptorSetLayout::SBinding> vtBindings(binding_and_sampler_count.first);
+            core::vector<smart_refctd_ptr<IGPUSampler>> vtSamplers(binding_and_sampler_count.second);
+            gpuvt->getDSlayoutBindings(vtBindings.data(),vtSamplers.data(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
+            auto& precomputedBinding = vtBindings.emplace_back();
+            precomputedBinding.binding = 2u;
+            precomputedBinding.type = EDT_STORAGE_BUFFER;
+            precomputedBinding.count = 1u;
+            precomputedBinding.samplers = nullptr; // ssbo
             for (auto& binding : vtBindings)
                 binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);
 
-            core::vector<IGPUDescriptorSetLayout::SBinding> vgBindings(useSSBO ? mp.getDSlayoutBindingsForSSBO(nullptr):mp.getDSlayoutBindingsForUTB(nullptr));
+            vtDSLayout = driver->createGPUDescriptorSetLayout(vtBindings.data(),vtBindings.data()+vtBindings.size());
+
+            // write
+            sceneData.vtDS = driver->createGPUDescriptorSet(smart_refctd_ptr(vtDSLayout));
+
+            auto sizesVT = gpuvt->getDescriptorSetWrites(nullptr,nullptr,nullptr);
+            core::vector<video::IGPUDescriptorSet::SWriteDescriptorSet> writesVT(sizesVT.first+1u);
+            core::vector<video::IGPUDescriptorSet::SDescriptorInfo> infoVT(sizesVT.second+1u);
+            gpuvt->getDescriptorSetWrites(writesVT.data(),infoVT.data(),sceneData.vtDS.get(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
+
+            auto& precomp = gpuvt->getPrecomputedData();
+            infoVT.back().desc = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(precomp),&precomp);
+            infoVT.back().buffer.offset = 0u;
+            infoVT.back().buffer.size = sizeof(video::IGPUVirtualTexture::SPrecomputedData);
+            writesVT.back().dstSet = sceneData.vtDS.get();
+            writesVT.back().binding = 2u;
+            writesVT.back().arrayElement = 0u;
+            writesVT.back().count = 1u;
+            writesVT.back().descriptorType = EDT_STORAGE_BUFFER;
+            writesVT.back().info = &infoVT.back();
+
+            driver->updateDescriptorSets(writesVT.size(),writesVT.data(),0u,nullptr);
+        }
+        smart_refctd_ptr<IGPUDescriptorSetLayout> vgDSLayout;
+        {
+#if 0
+            IGPUDescriptorSet::SWriteDescriptorSet w2[2];
+            w2[0].arrayElement = 0u;
+            w2[0].count = 1u;
+            w2[0].binding = 0u;
+            w2[0].descriptorType = EDT_STORAGE_BUFFER;
+            w2[0].dstSet = sceneData.ds[2].get();
+
+            IGPUDescriptorSet::SDescriptorInfo info2[2];
+            info2[1].buffer.offset = 0u;
+            info2[1].buffer.size = sceneData.vtDataSSBO->getSize();
+            info2[1].desc = sceneData.vtDataSSBO; // TODO: rename vtData to materialData
+
+            driver->updateDescriptorSets(2u, w2, 0u, nullptr);
+            core::vector<IGPUDescriptorSetLayout::SBinding> vgBindings(useSSBO ? mp.getDSlayoutBindingsForSSBO(nullptr) : mp.getDSlayoutBindingsForUTB(nullptr));
             if constexpr (useSSBO)
                 mp.getDSlayoutBindingsForSSBO(vgBindings.data());
             else
                 mp.getDSlayoutBindingsForUTB(vgBindings.data());
             for (auto& binding : vgBindings)
-                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);});
+                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_VERTEX | ISpecializedShader::ESS_COMPUTE | ISpecializedShader::ESS_FRAGMENT); });
+
+                vtDSLayout = driver->createGPUDescriptorSetLayout(vtBindings.data(), vtBindings.data() + vtBindings.size());
 #endif
         }
 
         //
-        std::string extraCode;// = useSSBO ? mp.getGLSLForSSBO() : mp.getGLSLForUTB();
+        std::string extraCode = useSSBO ? gpump->getGLSLForSSBO():gpump->getGLSLForUTB();
         // TODO: sprintf(fragPrelude.data(), FRAGMENT_SHADER_OVERRIDES, sceneData.vt->getFloatViews().size(), sceneData.vt->getGLSLFunctionsIncludePath().c_str());
         auto overrideShaderJustAfterVersionDirective = [am,driver,extraCode](const char* path)
         {
             asset::IAssetLoader::SAssetLoadParams lp;
-            auto _specShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset(path, lp).getContents().begin());
+            auto _specShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset(path,lp).getContents().begin());
             assert(_specShader);
             const asset::ICPUShader* unspec = _specShader->getUnspecialized();
             assert(unspec->containsGLSL());
@@ -709,8 +709,8 @@ int main()
             pcRange.stageFlags = ISpecializedShader::ESS_VERTEX;
 
             smart_refctd_ptr<IGPUSpecializedShader> fillShaders[2] = {
-                overrideShaderJustAfterVersionDirective("fillVBuffer.vert"),
-                overrideShaderJustAfterVersionDirective("fillVBuffer.frag")
+                overrideShaderJustAfterVersionDirective("../fillVBuffer.vert"),
+                overrideShaderJustAfterVersionDirective("../fillVBuffer.frag")
             };
 
             sceneData.fillVBufferPpln = driver->createGPURenderpassIndependentPipeline(
