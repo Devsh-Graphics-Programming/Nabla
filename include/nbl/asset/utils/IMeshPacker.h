@@ -48,6 +48,17 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             _NBL_ALIGNED_FREE(m_vtxBuffAlctrResSpc);
         }
 
+        struct MinimumAllocationParamsCommon
+        {
+            // Minimum count of 16 bit indicies allocated per allocation
+            size_t indexBufferMinAllocCnt = 256ull;
+
+            // Minimum bytes of vertex data allocated per allocation
+            size_t vertexBufferMinAllocByteSize = 32ull;
+
+            // Minimum count of MDI structs allocated per allocation
+            size_t MDIDataBuffMinAllocCnt = 32ull;
+        };
         struct AllocationParamsCommon
         {
             // Maximum number of 16 bit indicies that may be allocated
@@ -62,6 +73,9 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             // Maximum number of MDI structs that may be allocated
             size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
 
+            // TODO: get rid of these, replace with
+            // MinimumAllocationParamsCommon minAllocParams;
+            // 
             // Minimum count of 16 bit indicies allocated per allocation
             size_t indexBufferMinAllocCnt = 256ull;
 
@@ -72,6 +86,7 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             size_t MDIDataBuffMinAllocCnt = 32ull;
         };
 
+        // TODO: make a function which initializes allocators as a copy (incl resized copy)
         void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
         {
             if (allocParams.indexBuffSupportedCnt)

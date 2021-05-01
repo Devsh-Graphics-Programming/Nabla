@@ -40,9 +40,10 @@ public:
     //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
     void shrinkOutputBuffersSize()
     {
-        m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
-        m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u, 1u);
-        m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
+        m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u,1u);
+        m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u,1u);
+        m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u,1u);
+        // TODO: SHRINK ACTUAL ALLOCATORS AND THEIR RESERVED SPACES! (CREATE NEW ALLOCATORS WITH NEW RESERVED SPACES, THEN DELETE OLD RESERVED, THEN SWAP ALLOCATOR AND RESERVED MEMBERS)
     }
 
     /**

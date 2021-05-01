@@ -11,8 +11,6 @@
 
 //AFTER SAFE SHRINK FIX TODO LIST:
 //1. new size for buffers (obviously)
-//3. Chandle case where (maxIdx - minIdx) > 0xFFFF
-//4. fix handling of per instance attributes 
 //5. make it work for multiple `alloc` calls
 //6. provide `free` method
 //7. assertions on buffer overflow
@@ -73,6 +71,7 @@ class CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 	using IdxBufferParams = typename base_t::IdxBufferParams;
 
 public:
+	// TODO: dont track the supported bytesize after constructing the mesh packer, its redundant information... its in your per_instance allocator size
 	struct AllocationParams : IMeshPackerBase::AllocationParamsCommon
 	{
 		// Maximum byte size of per instance vertex data allocation
@@ -126,7 +125,7 @@ public:
 	ReservedAllocationMeshBuffers alloc(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
 	//TODO: test
-	void free(const ReservedAllocationMeshBuffers& ramb)
+	void free(const ReservedAllocationMeshBuffers& ramb)  // TODO: this isn't special so do it in the base class
 	{
 		if (ramb.indexAllocationOffset != INVALID_ADDRESS)
 			m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
@@ -157,12 +156,13 @@ public:
 		MeshPackerConfigParams<Iterator>* packerParamsOut);
 
 	//! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
-	void shrinkOutputBuffersSize()
+	void shrinkOutputBuffersSize() // TODO: shrink isn't special, can only happen before data storage is instantiated, so do it in the base class
 	{
 		m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
 		m_allocParams.perInstanceVertexBuffSupportedByteSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, 1u);
 		m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u, 1u);
 		m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
+		// TODO: SHRINK ACTUAL ALLOCATORS AND THEIR RESERVED SPACES! (CREATE NEW ALLOCATORS WITH NEW RESERVED SPACES, THEN DELETE OLD RESERVED, THEN SWAP ALLOCATOR AND RESERVED MEMBERS) 
 	}
 
 private:
@@ -173,7 +173,7 @@ private:
 
 	uint32_t m_vtxSize;
 	uint32_t m_perInsVtxSize;
-	AllocationParams m_allocParams;
+	AllocationParams m_allocParams; // TODO: only track the min sizes, the other stuff is redundant with allocators
 
 	bool isInstancingEnabled;
 	void* m_perInsVtxBuffAlctrResSpc;
@@ -233,6 +233,7 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 	);
 }
 
+// TODO: why cant this implementation of `alloc` be common to both CPU and CPU?
 template <typename MDIStructType>
 //`Iterator` may be only an Iterator or pointer to pointer
 template <typename MeshBufferIterator>
@@ -245,7 +246,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 
 	//TODO:
 	//allocation should be happening even if processed mesh buffer doesn't have attribute that was declared in pre defined `SVertexInputParams`, if mesh buffer has any attributes that are not declared in pre defined `SVertexInputParams` then these should be always ignored
-	//include it in the ducumentation? 
+	//include it in the ducumentation? YES
 
 	//validation
 	for (auto it = mbBegin; it != mbEnd; it++)

@@ -235,6 +235,7 @@ class IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public I
     static_assert(std::is_base_of<IBuffer, BufferType>::value);
 
 	using base_t = IMeshPacker<MeshBufferType, MDIStructType>;
+    using MinimumAllocationParams = IMeshPackerBase::MinimumAllocationParamsCommon;
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
 
 public:
@@ -632,11 +633,8 @@ public:
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
 protected:
-    //core::vector<VirtualAttribute> virtualAttribTable; // Is this variable even used!?
-    //uint16_t enabledAttribFlagsCombined = 0u; // Is this variable even used!?
-
     PackerDataStore m_packerDataStore;
-    AllocationParams m_allocParams;
+    AllocationParams m_allocParams; // TODO: only hold onto MinimumAllocationParams, derive rest from the allocator sizes! (if you even need to)
 
 };
 
