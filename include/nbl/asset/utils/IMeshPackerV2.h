@@ -321,8 +321,6 @@ public:
             result += "#define _NBL_VG_UINT_BUFFERS_COUNT " + std::to_string(getUintBufferBindingsCnt()) + '\n';
         }
 
-        result += "#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>\n";
-
         return result;
     }
 
@@ -354,8 +352,6 @@ public:
             result += "#define _NBL_VG_USE_SSBO_UVEC4\n";
             result += "#define _NBL_VG_SSBO_UVEC4_BINDING " + std::to_string(uvec4BufferBinding) + '\n';
         }
-
-        result += "#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>\n";
 
         return result;
     }
@@ -636,8 +632,8 @@ public:
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
 protected:
-    core::vector<VirtualAttribute> virtualAttribTable;
-    uint16_t enabledAttribFlagsCombined = 0u;
+    //core::vector<VirtualAttribute> virtualAttribTable; // Is this variable even used!?
+    //uint16_t enabledAttribFlagsCombined = 0u; // Is this variable even used!?
 
     PackerDataStore m_packerDataStore;
     AllocationParams m_allocParams;
