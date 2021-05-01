@@ -33,6 +33,7 @@
 #include "nbl/video/IGPUObjectFromAssetConverter.h"
 
 //VT
+#include "nbl/video/CGPUMeshPackerV2.h"
 #include "nbl/video/IGPUVirtualTexture.h"
 
 #endif
