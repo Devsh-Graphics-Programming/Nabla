@@ -7,6 +7,8 @@
 #include "../common/QToQuitEventReceiver.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
+#include "glm/glm.hpp"
+
 using namespace nbl;
 using namespace nbl::core;
 using namespace nbl::asset;
@@ -65,8 +67,14 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
     {
         for (int i = 0; i < buffer_count; ++i)
         {
-            if (abs(downloaded_buffer[i] - cpu_buffer[i]) >= 1.f)
+            const glm::vec4 error(1e-4f);
+            glm::bvec4 result = glm::greaterThanEqual(glm::abs(downloaded_buffer[i] - cpu_buffer[i]), error);
+            if (result.x || result.y || result.z)
                 __debugbreak();
+
+            // const float error = 1e-4f;
+            // if (abs(downloaded_buffer[i] - cpu_buffer[i]) >= error)
+            //     __debugbreak();
         }
 
         std::cout << "PASS" << std::endl;
@@ -109,14 +117,18 @@ int main()
     nbl::io::IFileSystem* filesystem = device->getFileSystem();
     asset::IAssetManager* am = device->getAssetManager();
 
-    const uint32_t in_count = 4096; // 9;
-    const size_t in_size = in_count * sizeof(uint32_t);
+    const uint32_t in_count = 4096;
+    const size_t in_size = in_count * sizeof(glm::vec4);
+    // const size_t in_size = in_count * sizeof(float);
 
-    float in[in_count]; // = { 1.f, 0.f, 2.f, 2.f, 3.f, 4.f, 1.f, 0.f, 2.f };
+    std::vector<glm::vec4> in(in_count);
+    // std::vector<float> in(in_count);
     for (uint32_t i = 0; i < in_count; ++i)
-        in[i] = float(i);
+        // in[i] = float(i) / float(in_count);
+        // in[i] = { float(i) / float(in_count), 2.f * float(i) / float(in_count), 3.f * float(i) / float(in_count) };
+        in[i] = { float(i) / float(in_count), 0.f, 0.f, 0.f };
 
-    auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+    auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in.data());
     auto out_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_size);
 
     smart_refctd_ptr<IGPUDescriptorSet> ds = nullptr;
@@ -163,54 +175,66 @@ int main()
     }
     driver->endScene();
 
-    float* out = DebugGPUBufferDownload<float>(out_gpu, out_gpu->getSize(), driver);
+    glm::vec4* out = DebugGPUBufferDownload<glm::vec4>(out_gpu, out_gpu->getSize(), driver);
+    // float* out = DebugGPUBufferDownload<float>(out_gpu, out_gpu->getSize(), driver);
 
-    float prefix_sum[in_count];
+    std::vector<glm::vec4> blurred(in_count);
+    memcpy(blurred.data(), in.data(), in_count * sizeof(glm::vec4));
+    // std::vector<float> blurred(in_count);
+    // memcpy(blurred.data(), in.data(), in_count * sizeof(float));
+
+    const uint32_t channel_count = 3u;
+    const uint32_t pass_count = 3u;
+    for (uint32_t ch = 0; ch < channel_count; ++ch)
     {
-        float scan = 0.f;
-        for (uint32_t i = 0; i < in_count; ++i)
+        for (uint32_t pass = 0; pass < pass_count; ++pass)
         {
-            scan += in[i];
-            prefix_sum[i] = scan;
+            float prefix_sum[in_count];
+            float scan = 0.f;
+            for (uint32_t i = 0; i < in_count; ++i)
+            {
+                scan += blurred[i][ch];
+                // scan += blurred[i];
+                prefix_sum[i] = scan;
+            }
+
+            const float RADIUS = 1.73f;
+            const uint32_t last = in_count - 1u;
+
+            for (uint32_t idx = 0; idx < in_count; ++idx)
+            {
+                float left = float(idx) - RADIUS - 1.f;
+                float right = float(idx) + RADIUS;
+
+                float result;
+                if (right > last)
+                {
+                    result = (right - float(last)) * (prefix_sum[last] - prefix_sum[last - 1u]) + prefix_sum[last];
+                }
+                else
+                {
+                    uint32_t floored = uint32_t(floor(right));
+                    result = prefix_sum[floored] * (1.f - fract(right)) + prefix_sum[floored + 1u] * fract(right);
+                }
+
+                if (left < 0)
+                {
+                    result -= (1.f - abs(left)) * prefix_sum[0u];
+                }
+                else
+                {
+                    uint32_t floored = uint32_t(floor(left));
+                    result -= prefix_sum[floored] * (1.f - fract(left)) + prefix_sum[floored + 1u] * fract(left);
+                }
+
+                blurred[idx][ch] = result / (2.f * RADIUS + 1.f);
+                // blurred[idx] = result / (2.f * RADIUS + 1.f);
+            }
         }
     }
     
-    float blurred[in_count];
-    {
-        const float RADIUS = 1.73f;
-        const uint32_t last = in_count - 1u;
-
-        for (uint32_t idx = 0; idx < in_count; ++idx)
-        {
-            float left = float(idx) - RADIUS - 1.f;
-            float right = float(idx) + RADIUS;
-
-            float result;
-            if (right > last)
-            {
-                result = (right - float(last)) * (prefix_sum[last] - prefix_sum[last - 1u]) + prefix_sum[last];
-            }
-            else
-            {
-                uint32_t floored = uint32_t(floor(right));
-                result = prefix_sum[floored] * (1.f - fract(right)) + prefix_sum[floored + 1u] * fract(right);
-            }
-
-            if (left < 0)
-            {
-                result -= (1.f - abs(left)) * prefix_sum[0u];
-            }
-            else
-            {
-                uint32_t floored = uint32_t(floor(left));
-                result -= prefix_sum[floored] * (1.f - fract(left)) + prefix_sum[floored + 1u] * fract(left);
-            }
-
-            blurred[idx] = result / (2.f * RADIUS + 1.f);
-        }
-    }
-    
-    DebugCompareGPUvsCPU<float>(out_gpu, prefix_sum, out_gpu->getSize(), driver);
+    DebugCompareGPUvsCPU<glm::vec4>(out_gpu, blurred.data(), out_gpu->getSize(), driver);
+    // DebugCompareGPUvsCPU<float>(out_gpu, blurred.data(), out_gpu->getSize(), driver);
 
 
 #if 0
