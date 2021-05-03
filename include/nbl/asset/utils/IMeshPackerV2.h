@@ -466,6 +466,7 @@ public:
             result += "#define _NBL_VG_SSBO_UVEC4_BINDING " + std::to_string(params.uvec4BufferBinding) + '\n';
         }
 
+        result += "#define _NBL_VG_USE_SSBO_INDEX\n";
         result += "#define _NBL_VG_SSBO_INDEX_BINDING " + std::to_string(params.indexBufferBinding) + '\n';
         return result;
     }
@@ -504,20 +505,18 @@ public:
         return bindingCount;
     }
 
+    // info count is always 2
     inline uint32_t getDescriptorSetWritesForSSBO(
         typename DescriptorSetType::SWriteDescriptorSet* outWrites, typename DescriptorSetType::SDescriptorInfo* outInfo, DescriptorSetType* dstSet,
         const DSLayoutParamsSSBO& params = {}
     ) const
     {
-        const uint32_t writeAndInfoCount = getDSlayoutBindingsForSSBO(nullptr);
+        const uint32_t writeCount = getDSlayoutBindingsForSSBO(nullptr);
         if (!outWrites || !outInfo)
-            return writeAndInfoCount;
-
-        outInfo->desc = vtxBuffer;
-        outInfo->buffer.offset = 0u;
-        outInfo->buffer.size = m_packerDataStore.vertexBuffer->getSize();
+            return writeCount;
 
         auto* write = outWrites;
+        auto info = outInfo;
         auto fillWriteStruct = [&](uint32_t binding)
         {
             write->binding = binding;
@@ -525,10 +524,9 @@ public:
             write->count = 1u;
             write->descriptorType = EDT_STORAGE_BUFFER;
             write->dstSet = dstSet;
-            write->info = outInfo;
+            write->info = info;
             write++;
         };
-
         if (m_virtualAttribConfig.isUintBufferUsed)
             fillWriteStruct(params.uintBufferBinding);
         if (m_virtualAttribConfig.isUvec2BufferUsed)
@@ -537,8 +535,18 @@ public:
             fillWriteStruct(params.uvec3BufferBinding);
         if (m_virtualAttribConfig.isUvec4BufferUsed)
             fillWriteStruct(params.uvec4BufferBinding);
+        info->desc = m_packerDataStore.vertexBuffer;
+        info->buffer.offset = 0u;
+        info->buffer.size = m_packerDataStore.vertexBuffer->getSize();
+        info++;
+        
+        fillWriteStruct(params.indexBufferBinding);
+        info->desc = m_packerDataStore.indexBuffer;
+        info->buffer.offset = 0u;
+        info->buffer.size = m_packerDataStore.indexBuffer->getSize();
+        info++;
 
-        return writeAndInfoCount;
+        return writeCount;
     }
 
 	template <typename MeshBufferIterator>

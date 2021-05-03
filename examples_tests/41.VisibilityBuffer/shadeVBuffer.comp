@@ -53,8 +53,6 @@ float nbl_glsl_VT_getVTexSzRcp()
 #define _NBL_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
 
-vec4 nbl_glsl_vTextureGrad
-
 
 vec4 nbl_sample_Ka(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(materialData[drawGUID].map_Ka_data, uv, dUV); }
 

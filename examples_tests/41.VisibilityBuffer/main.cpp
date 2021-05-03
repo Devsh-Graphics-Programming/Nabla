@@ -80,7 +80,7 @@ struct BatchInstanceData
         struct
         {
             uint32_t invalid_0[3];
-            uint32_t baseTriangle;
+            uint32_t baseVertex;
         };
     };
     union
@@ -173,7 +173,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
-constexpr bool useSSBO = false;
+constexpr bool useSSBO = true;
 
 int main()
 {
@@ -646,7 +646,10 @@ int main()
 
             uint32_t writeCount,infoCount;
             if constexpr (useSSBO)
-                writeCount = infoCount = gpump->getDescriptorSetWritesForSSBO(nullptr,nullptr,nullptr);
+            {
+                writeCount = gpump->getDescriptorSetWritesForSSBO(nullptr,nullptr,nullptr);
+                infoCount = 2u;
+            }
             else
                 std::tie(writeCount,infoCount) = gpump->getDescriptorSetWritesForUTB(nullptr,nullptr,nullptr);
             vector<IGPUDescriptorSet::SWriteDescriptorSet> writesVG(++writeCount);
@@ -722,6 +725,7 @@ int main()
                 SRasterizationParams{}
             );
         }
+#if 0
         {
             SPushConstantRange pcRange;
             pcRange.size = sizeof(core::vectorSIMDf); // TODO: send camera data
@@ -730,9 +734,10 @@ int main()
 
             sceneData.shadeVBufferPpln = driver->createGPUComputePipeline(
                 nullptr,driver->createGPUPipelineLayout(&pcRange,&pcRange+1,std::move(vtDSLayout),std::move(vgDSLayout),std::move(perFrameDSLayout),std::move(shadingDSLayout)),
-                overrideShaderJustAfterVersionDirective("shadeVBuffer.comp")
+                overrideShaderJustAfterVersionDirective("../shadeVBuffer.comp")
             );
         }
+#endif
     }
 
     //! we want to move around the scene and view it from different angles
@@ -784,13 +789,13 @@ int main()
                 sizeof(DrawElementsIndirectCommand_t)
             );
         }
-
+#if 0
         // shade
         driver->bindDescriptorSets(video::EPBP_COMPUTE,sceneData.shadeVBufferPpln->getLayout(),0u,4u,ds,nullptr);
         driver->bindComputePipeline(sceneData.shadeVBufferPpln.get());
         driver->dispatch((params.WindowSize.Width-1u)/SHADING_WG_SIZE_X+1u,(params.WindowSize.Height-1u)/SHADING_WG_SIZE_Y+1u,1u);
         COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
-
+#endif
         // blit
         driver->blitRenderTargets(fb,0);
         driver->endScene();

@@ -29,8 +29,8 @@ vec2 nbl_glsl_barycentric_frag_get();
 #define NBL_GLSL_BARYCENTRIC_FRAG_POS_INPUT
 #ifndef NBL_GLSL_BARYCENTRIC_FRAG_POS_INPUT_LOC
 #define NBL_GLSL_BARYCENTRIC_FRAG_POS_INPUT_LOC 0
-layout(location = NBL_GLSL_BARYCENTRIC_FRAG_POS_INPUT_LOC) in vec3 nbl_glsl_barycentric_frag_pos;
 #endif
+layout(location = NBL_GLSL_BARYCENTRIC_FRAG_POS_INPUT_LOC) in vec3 nbl_glsl_barycentric_frag_pos;
 #endif
 #ifndef NBL_GLSL_BARYCENTRIC_FRAG_PROVOKINGPOS_INPUT
 #define NBL_GLSL_BARYCENTRIC_FRAG_PROVOKINGPOS_INPUT
