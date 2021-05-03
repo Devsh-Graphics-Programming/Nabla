@@ -63,7 +63,7 @@ struct SFileListEntry
 //! Provides a list of files and folders.
 /** File lists usually contain a list of all files in a given folder,
 but can also contain a complete directory structure. */
-class IFileList : public virtual core::IReferenceCounted
+class IFileList : public core::IReferenceCounted
 {
 public:
     typedef core::vector<SFileListEntry>::const_iterator ListCIterator;

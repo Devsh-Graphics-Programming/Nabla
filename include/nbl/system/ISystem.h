@@ -4,8 +4,9 @@
 #include <variant>
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/system/ICancelableAsyncQueueDispatcher.h"
-//#include "nbl/system/IFileArchive.h"
+#include "nbl/system/IFileArchive.h"
 #include "nbl/system/IFile.h"
+#include "CObjectCache.h"
 
 namespace nbl {
 namespace system
@@ -21,64 +22,12 @@ public:
 
     public:
         virtual core::smart_refctd_ptr<IFile> createFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
-        virtual uint32_t read(IFile* file, void* buffer, size_t offset, size_t size) = 0;
-        virtual uint32_t write(IFile* file, const void* buffer, size_t offset, size_t size) = 0;
+        virtual size_t read(IFile* file, void* buffer, size_t offset, size_t size) = 0;
+        virtual size_t write(IFile* file, const void* buffer, size_t offset, size_t size) = 0;
     };
 
-protected:
-    struct SRequestType;
-    class CAsyncQueue;
-
-    class SFutureBase
-    {
-        friend ISystem;
-
-    protected:
-        bool valid_flag = false;
-        SRequestType* request;
-        CAsyncQueue* asyncQ;
-
-    public:
-        // SFuture is non-copyable and non-movable
-        SFutureBase(const SFutureBase&) = delete;
-
-        ~SFutureBase()
-        {
-            request->set_skip();
-        }
-
-        bool ready() const { return !request || request->ready; }
-        bool valid() const { return valid_flag; }
-
-        void wait()
-        {
-            if (!ready())
-                request->wait();
-        }
-    };
-
-    template <typename T>
-    class SFuture : public SFutureBase
-    {
-        alignas(T) uint8_t storage[sizeof(T)];
-
-    public:
-        ~SFuture()
-        {
-            if (valid_flag)
-                getStorage()->~T();
-        }
-
-        T* getStorage() { return reinterpret_cast<T*>(storage); }
-        T get()
-        {
-            wait();
-            assert(valid_flag);
-            valid_flag = false;
-            T* ptr = getStorage();
-            return std::move(ptr[0]);
-        }
-    };
+private:
+    static inline constexpr uint32_t CircularBufferSize = 256u;
 
     // @sadiuk add more request types if needed
     enum E_REQUEST_TYPE
@@ -91,8 +40,6 @@ protected:
     struct SRequestParamsBase
     {
         static inline constexpr E_REQUEST_TYPE type = RT;
-        SFutureBase* future;
-        void* retval_storage;
     };
     struct SRequestParams_CREATE_FILE : SRequestParamsBase<ERT_CREATE_FILE>
     {
@@ -113,39 +60,30 @@ protected:
         size_t offset;
         size_t size;
     };
-    struct SRequestType : SCancelableRequestBase
+    struct SRequestType : impl::ICancelableAsyncQueueDispatcherBase::request_base_t
     {
-        SFutureBase* future = nullptr;
-        void* retval_storage = nullptr;
         E_REQUEST_TYPE type;
         std::variant<
             SRequestParams_CREATE_FILE,
             SRequestParams_READ,
             SRequestParams_WRITE
         > params;
-
-        void set_skip()
-        {
-            write_lock_guard<> lk(rwlock);
-            set_skip_no_lock();
-            future->request = nullptr;
-        }
     };
 
-    class CAsyncQueue : public ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, 256u>
+    class CAsyncQueue : public ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, CircularBufferSize>
     {
-        using base_t = ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, 256u>;
+        using base_t = ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, CircularBufferSize>;
+        friend base_t;
 
     public:
         CAsyncQueue(ISystem* owner, core::smart_refctd_ptr<ISystemCaller>&& caller) : m_owner(owner), m_caller(std::move(caller)) {}
 
-        template <typename RequestParams>
-        void request_impl(SRequestType& req, RequestParams&& params)
+        template <typename FutureType, typename RequestParams>
+        void request_impl(SRequestType& req, FutureType& future, RequestParams&& params)
         {
             req.type = params.type;
             req.params = std::move(params);
-            req.future = params.future;
-            req.retval_storage = params.retval_storage;
+            base_t::associate_request_with_future(req, future);
         }
 
         void process_request(SRequestType& req)
@@ -155,19 +93,19 @@ protected:
             case ERT_CREATE_FILE:
             {
                 auto& p = std::get<SRequestParams_CREATE_FILE>(req.params);
-                reinterpret_cast<core::smart_refctd_ptr<IFile>*>(req.retval_storage)[0] = m_caller->createFile(m_owner, p.filename, p.flags);
+                base_t::notify_future<core::smart_refctd_ptr<IFile>>(req, m_caller->createFile(m_owner, p.filename, p.flags));
             }
                 break;
             case ERT_READ:
             {
                 auto& p = std::get<SRequestParams_READ>(req.params);
-                reinterpret_cast<uint32_t*>(req.retval_storage)[0] = m_caller->read(p.file, p.buffer, p.offset, p.size);
+                base_t::notify_future<size_t>(req, m_caller->read(p.file, p.buffer, p.offset, p.size));
             }
                 break;
             case ERT_WRITE:
             {
                 auto& p = std::get<SRequestParams_WRITE>(req.params);
-                reinterpret_cast<uint32_t*>(req.retval_storage)[0] = m_caller->write(p.file, p.buffer, p.offset, p.size);
+                base_t::notify_future<size_t>(req, m_caller->write(p.file, p.buffer, p.offset, p.size));
             }
                 break;
             }
@@ -178,41 +116,63 @@ protected:
         core::smart_refctd_ptr<ISystemCaller> m_caller;
     };
 
+    struct Loaders {
+        core::vector<core::smart_refctd_ptr<IArchiveLoader> > vector;
+        //! The key is file extension
+        core::CMultiObjectCache<std::string, core::smart_refctd_ptr<IArchiveLoader>, std::vector> perFileExt;
+
+        void pushToVector(core::smart_refctd_ptr<IArchiveLoader>&& _loader)
+        {
+            vector.push_back(std::move(_loader));
+        }
+        void eraseFromVector(decltype(vector)::const_iterator _loaderItr)
+        {
+            vector.erase(_loaderItr);
+        }
+    } m_loaders;
+
     CAsyncQueue m_dispatcher;
 
-
-    template <typename FutureType, typename RequestParamsType>
-    void requestAndPrepareFuture(SFuture<FutureType>& future, RequestParamsType&& params)
-    {
-        auto& req = m_dispatcher.request(std::move(params));
-        future.asyncQ = &m_dispatcher;
-        future.request = &req;
-    }
-
 public:
+    template <typename T>
+    using future_t = CAsyncQueue::future_t<T>;
+
     explicit ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(this, std::move(caller))
     {
-
+        // add all possible archive loaders to m_loaders containers here
+        // @sadiuk see IAssetManager for reference
     }
 
-    bool createFile(SFuture<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags)
+    uint32_t addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
+    {
+        const char** exts = loader->getAssociatedFileExtensions();
+        uint32_t i = 0u;
+        while (const char* e = exts[i++])
+            m_loaders.perFileExt.insert(e, core::smart_refctd_ptr(loader));
+        m_loaders.pushToVector(std::move(loader));
+
+        return m_loaders.vector.size() - 1u;
+    }
+
+    bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags)
     {
         SRequestParams_CREATE_FILE params;
         params.filename = filename;
-        params.future = static_cast<SFutureBase*>(&future);
-        params.retval_storage = future.getStorage();
+        params.flags = flags;
         
-        requestAndPrepareFuture<core::smart_refctd_ptr<IFile>, SRequestParams_CREATE_FILE>(future, std::move(params));
+        m_dispatcher.request(future, params);
+
+        return true;
     }
 
     // @sadiuk Implement the rest of functions in manner analogous to createReadFile
 
-    bool readFile(SFuture<uint32_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
+    bool readFile(future_t<uint32_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
     {
 
     }
 
-    bool writeFile(SFuture<uint32_t>& future, IFile* file, const void* buffer, size_t offset, size_t size)
+    bool writeFile(future_t<uint32_t>& future, IFile* file, const void* buffer, size_t offset, size_t size)
     {
 
     }
@@ -220,6 +180,26 @@ public:
     // @sadiuk add more methods taken from IFileSystem and IOSOperator
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
+
+    core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename)
+    {
+        future_t<core::smart_refctd_ptr<IFile>> future;
+        if (!createFile(future, filename, IFile::ECF_READ))
+            return nullptr;
+
+        auto file = std::move(future.get());
+
+        return createFileArchive(file.get());
+    }
+    core::smart_refctd_ptr<IFileArchive> createFileArchive(IFile* file)
+    {
+        if (file->getFlags() & IFile::ECF_READ == 0)
+            return nullptr;
+
+        // @sadiuk implement in manner similar to IAssetManager::getAsset
+
+        return nullptr;
+    }
 };
 
 }
