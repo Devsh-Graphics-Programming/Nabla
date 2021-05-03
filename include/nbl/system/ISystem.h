@@ -181,6 +181,7 @@ public:
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
 
+    //! Warning: blocking call
     core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename)
     {
         future_t<core::smart_refctd_ptr<IFile>> future;
