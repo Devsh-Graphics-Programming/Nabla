@@ -40,9 +40,9 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
             : base_t(cpuMP), m_driver(driver)
         {
             // TODO: protect against unitiliazed storage of cpuMP
-            auto& cpuMDIBuff = cpuMP->getPackerDataStore().MDIDataBuffer;
-            auto& cpuIdxBuff = cpuMP->getPackerDataStore().indexBuffer;
-            auto& cpuVtxBuff = cpuMP->getPackerDataStore().vertexBuffer;
+            const auto& cpuMDIBuff = cpuMP->getPackerDataStore().MDIDataBuffer;
+            const auto& cpuIdxBuff = cpuMP->getPackerDataStore().indexBuffer;
+            const auto& cpuVtxBuff = cpuMP->getPackerDataStore().vertexBuffer;
 
             // TODO: why are the allocators not copied!?
 

@@ -229,6 +229,8 @@ protected:
     }
 
     VirtualAttribConfig m_virtualAttribConfig;
+public:
+    const VirtualAttribConfig& getVirtualAttribConfig() const {return m_virtualAttribConfig;}
 };
 
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
@@ -568,8 +570,10 @@ public:
     template <typename MeshBufferIterator>
     uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-    inline const PackerDataStore& getPackerDataStore() { return m_packerDataStore; };
+    inline const PackerDataStore& getPackerDataStore() const { return m_packerDataStore; }
     
+    inline const AllocationParams& getAllocParams() const { return m_allocParams; }
+
 protected:
 	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
 		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_allocParams(allocParams)
@@ -578,9 +582,10 @@ protected:
     };
     template<class OtherBufferType, class OtherDescriptorSetType, class OtherMeshBufferType>
 	explicit IMeshPackerV2(const IMeshPackerV2<OtherBufferType,OtherDescriptorSetType,OtherMeshBufferType,MDIStructType>* otherMp)
-		: base_t(cpuMP->m_minTriangleCountPerMDIData,cpuMP->m_maxTriangleCountPerMDIData), IMeshPackerV2Base(cpuMP->m_virtualAttribConfig), m_allocParams(otherMp->m_allocParams)
+		: base_t(otherMp->getMinTriangleCountPerMDI(),otherMp->getMaxTriangleCountPerMDI()),
+        IMeshPackerV2Base(otherMp->getVirtualAttribConfig()), m_allocParams(otherMp->getAllocParams())
 	{
-        initializeCommonAllocators(allocParams);
+        initializeCommonAllocators(m_allocParams);
     };
 
     PackerDataStore m_packerDataStore;

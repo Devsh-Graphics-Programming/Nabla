@@ -61,6 +61,14 @@ struct BatchInstanceData
         const auto invalid_tex = STextureData::invalid();
         std::fill_n(map_data,TEX_OF_INTEREST_CNT,reinterpret_cast<const uint64_t&>(invalid_tex));
     }
+    BatchInstanceData(const BatchInstanceData& other) : shininess(other.shininess), opacity(other.opacity), IoR(other.IoR), extra(other.extra)
+    {
+        ambient = other.ambient;
+        diffuse = other.diffuse;
+        specular = other.specular;
+        emissive = other.emissive;
+        std::copy_n(other.map_data,TEX_OF_INTEREST_CNT,map_data);
+    }
     ~BatchInstanceData()
     {
     }
@@ -72,7 +80,7 @@ struct BatchInstanceData
         struct
         {
             uint32_t invalid_0[3];
-            uint32_t baseVertex;
+            uint32_t baseTriangle;
         };
     };
     union
@@ -140,7 +148,6 @@ struct SceneData
     core::vector<uint32_t> pushConstantsData;
 
     smart_refctd_ptr<IGPUBuffer> ubo;
-
 };
 
 using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
@@ -166,53 +173,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
-constexpr bool useSSBO = true;
-
-#if 0
-void createDescriptorSets(IVideoDriver* driver, const IGPUPipelineLayout* pplnLayout, SceneData& sceneData, const GPUMeshPacker& mp)
-{    
-    auto getMpWriteAndInfoSize = [&mp]() -> std::pair<uint32_t, uint32_t>
-    {
-        if constexpr (useSSBO)
-        {
-            uint32_t writeAndInfoSize = mp.getDescriptorSetWritesForSSBO(nullptr, nullptr, nullptr);
-            return std::make_pair(writeAndInfoSize, writeAndInfoSize);
-        }
-        else
-            return mp.getDescriptorSetWritesForUTB(nullptr, nullptr, nullptr);
-    };
-
-    //mesh packing stuff
-    auto sizesMP = getMpWriteAndInfoSize();
-    auto writesMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>>(sizesMP.first);
-    auto infoMP = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorInfo>>(sizesMP.second);
-
-    auto writesPtr = writesMP->data();
-    auto infoPtr = infoMP->data();
-
-    if constexpr (useSSBO)
-        mp.getDescriptorSetWritesForSSBO(writesMP->data(), infoMP->data(), sceneData.ds[0].get());
-    else
-        mp.getDescriptorSetWritesForUTB(writesMP->data(), infoMP->data(), sceneData.ds[0].get());
-
-    driver->updateDescriptorSets(writesMP->size(), writesMP->data(), 0u, nullptr);
-
-    IGPUDescriptorSet::SWriteDescriptorSet w3;
-    w3.arrayElement = 0u;
-    w3.count = 1u;
-    w3.binding = 0u;
-    w3.descriptorType = EDT_STORAGE_BUFFER;
-    w3.dstSet = sceneData.ds[3].get();
-
-    IGPUDescriptorSet::SDescriptorInfo info3;
-    info3.buffer.offset = 0u;
-    info3.buffer.size = sceneData.virtualAttribTable->getSize();
-    info3.desc = core::smart_refctd_ptr(sceneData.virtualAttribTable);
-    w3.info = &info3;
-
-    driver->updateDescriptorSets(1u, &w3, 0u, nullptr);
-}
-#endif
+constexpr bool useSSBO = false;
 
 int main()
 {
@@ -490,6 +451,7 @@ int main()
 
         // the vertex packing
         smart_refctd_ptr<GPUMeshPacker> gpump;
+        smart_refctd_ptr<IGPUBuffer> batchDataSSBO;
         {
             assert(ranges.size()>=2u);
 
@@ -532,10 +494,10 @@ int main()
             }
             mp->shrinkOutputBuffersSize();
             mp->instantiateDataStorage();
-#if 0
-            core::vector<BatchInstanceData> batchData;
-            batchData.reserve(mdiCntTotal);
 
+            core::vector<BatchInstanceData> batchData;
+            batchData.reserve(mdiCntBound);
+#if 0
             core::vector<uint32_t> mdiCntForMeshBuffer;
             mdiCntForMeshBuffer.reserve(meshBufferCnt);
 
@@ -597,11 +559,13 @@ int main()
 
                     i++;
                 }
-
-                sceneData.vtDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
             }
 #endif
+            batchDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
+
             gpump = core::make_smart_refctd_ptr<CGPUMeshPackerV2<>>(driver,mp.get());
+            sceneData.mdiBuffer = gpump->getPackerDataStore().MDIDataBuffer;
+            sceneData.idxBuffer = gpump->getPackerDataStore().indexBuffer;
         }
         am->clearAllAssetCache();
 
@@ -626,7 +590,7 @@ int main()
             // write
             sceneData.vtDS = driver->createGPUDescriptorSet(smart_refctd_ptr(vtDSLayout));
 
-            auto sizesVT = gpuvt->getDescriptorSetWrites(nullptr,nullptr,nullptr);
+            const auto sizesVT = gpuvt->getDescriptorSetWrites(nullptr,nullptr,nullptr);
             core::vector<video::IGPUDescriptorSet::SWriteDescriptorSet> writesVT(sizesVT.first+1u);
             core::vector<video::IGPUDescriptorSet::SDescriptorInfo> infoVT(sizesVT.second+1u);
             gpuvt->getDescriptorSetWrites(writesVT.data(),infoVT.data(),sceneData.vtDS.get(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
@@ -646,30 +610,52 @@ int main()
         }
         smart_refctd_ptr<IGPUDescriptorSetLayout> vgDSLayout;
         {
-#if 0
-            IGPUDescriptorSet::SWriteDescriptorSet w2[2];
-            w2[0].arrayElement = 0u;
-            w2[0].count = 1u;
-            w2[0].binding = 0u;
-            w2[0].descriptorType = EDT_STORAGE_BUFFER;
-            w2[0].dstSet = sceneData.ds[2].get();
-
-            IGPUDescriptorSet::SDescriptorInfo info2[2];
-            info2[1].buffer.offset = 0u;
-            info2[1].buffer.size = sceneData.vtDataSSBO->getSize();
-            info2[1].desc = sceneData.vtDataSSBO; // TODO: rename vtData to materialData
-
-            driver->updateDescriptorSets(2u, w2, 0u, nullptr);
-            core::vector<IGPUDescriptorSetLayout::SBinding> vgBindings(useSSBO ? mp.getDSlayoutBindingsForSSBO(nullptr) : mp.getDSlayoutBindingsForUTB(nullptr));
+            // layout
+            core::vector<IGPUDescriptorSetLayout::SBinding> vgBindings((useSSBO ? gpump->getDSlayoutBindingsForSSBO(nullptr):gpump->getDSlayoutBindingsForUTB(nullptr))+1u);
+            auto& materialDataBinding = vgBindings.front();
+            materialDataBinding.binding = 0u;
+            materialDataBinding.type = EDT_STORAGE_BUFFER;
+            materialDataBinding.count = 1u;
+            materialDataBinding.samplers = nullptr; // not sampler interpolated
+            auto* actualVGBindings = vgBindings.data()+1u;
             if constexpr (useSSBO)
-                mp.getDSlayoutBindingsForSSBO(vgBindings.data());
+                gpump->getDSlayoutBindingsForSSBO(actualVGBindings);
             else
-                mp.getDSlayoutBindingsForUTB(vgBindings.data());
+                gpump->getDSlayoutBindingsForUTB(actualVGBindings);
             for (auto& binding : vgBindings)
-                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_VERTEX | ISpecializedShader::ESS_COMPUTE | ISpecializedShader::ESS_FRAGMENT); });
+                binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);
 
-                vtDSLayout = driver->createGPUDescriptorSetLayout(vtBindings.data(), vtBindings.data() + vtBindings.size());
-#endif
+            vgDSLayout = driver->createGPUDescriptorSetLayout(vgBindings.data(),vgBindings.data()+vgBindings.size());
+
+            // write
+            sceneData.vgDS = driver->createGPUDescriptorSet(smart_refctd_ptr(vgDSLayout));
+
+            uint32_t writeCount,infoCount;
+            if constexpr (useSSBO)
+                writeCount = infoCount = gpump->getDescriptorSetWritesForSSBO(nullptr,nullptr,nullptr);
+            else
+                std::tie(writeCount,infoCount) = gpump->getDescriptorSetWritesForUTB(nullptr,nullptr,nullptr);
+            vector<IGPUDescriptorSet::SWriteDescriptorSet> writesVG(++writeCount);
+            vector<IGPUDescriptorSet::SDescriptorInfo> infosVG(++infoCount);
+
+            auto writes = writesVG.data();
+            auto infos = infosVG.data();
+            writes->dstSet = sceneData.vgDS.get();
+            writes->binding = 0u;
+            writes->arrayElement = 0u;
+            writes->count = 1u;
+            writes->descriptorType = EDT_STORAGE_BUFFER;
+            writes->info = infos;
+            writes++;
+            infos->buffer.offset = 0u;
+            infos->buffer.size = batchDataSSBO->getSize();
+            infos->desc = std::move(batchDataSSBO);
+            infos++;
+            if constexpr (useSSBO)
+                gpump->getDescriptorSetWritesForSSBO(writes,infos,sceneData.vgDS.get());
+            else
+                gpump->getDescriptorSetWritesForUTB(writes,infos,sceneData.vgDS.get());
+            driver->updateDescriptorSets(writeCount,writesVG.data(),0u,nullptr);
         }
 
         //

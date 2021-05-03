@@ -26,6 +26,9 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             }
         };
 
+        inline uint16_t getMinTriangleCountPerMDI() const { return m_minTriangleCountPerMDIData; }
+        inline uint16_t getMaxTriangleCountPerMDI() const { return m_maxTriangleCountPerMDIData; }
+
     protected:
         IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
             :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
@@ -115,6 +118,7 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
         }
 
     protected:
+        // TODO: don't hold the reserved spaces, they're held by the allocators anyway
         void* m_MDIDataAlctrResSpc;
         void* m_idxBuffAlctrResSpc;
         void* m_vtxBuffAlctrResSpc;
