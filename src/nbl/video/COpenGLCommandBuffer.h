@@ -262,7 +262,6 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_WAIT_EVENTS)
     {
-        core::smart_refctd_ptr<IGPUEvent> event;
         GLbitfield barrier;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_PIPELINE_BARRIER)
@@ -861,14 +860,14 @@ public:
         for (uint32_t i = 0u; i < eventCount; ++i)
             if (!this->isCompatibleDevicewise(pEvents[i]))
                 return false;
+        SCmd<impl::ECT_WAIT_EVENTS> cmd;
+        cmd.barrier = 0;
         for (uint32_t i = 0u; i < eventCount; ++i)
         {
-            SCmd<impl::ECT_WAIT_EVENTS> cmd;
-            cmd.event = core::smart_refctd_ptr<event_t>(pEvents[i]);
             auto& dep = depInfos[i];
-            cmd.barrier = barriersToMemBarrierBits(dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
-            pushCommand(std::move(cmd));
+            cmd.barrier |= barriersToMemBarrierBits(dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
         }
+        pushCommand(std::move(cmd));
         return true;
     }
 

@@ -99,6 +99,7 @@ else()
 endif()]]
 # EGL
 set(EGL_NO_GLEW ON)
+
 #if (OpenGL_EGL_FOUND AND WAYLAND_CLIENT_FOUND AND UNIX AND NOT APPLE)
 #	set(EGL_UNIX_USE_WAYLAND ON)
 #endif()

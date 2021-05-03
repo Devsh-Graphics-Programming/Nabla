@@ -2,11 +2,11 @@
 #include <nabla.h>
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/system/CWindowWin32.h>
-using CWindowT = nbl::system::CWindowWin32;
+#include <nbl/ui/CWindowWin32.h>
+using CWindowT = nbl::ui::CWindowWin32;
 #elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/system/CWindowLinux.h>
-using CWindowT = nbl::system::CWindowLinux;
+#include <nbl/ui/CWindowX11.h>
+using CWindowT = nbl::ui::CWindowLinux;
 #endif
 
 
@@ -33,7 +33,7 @@ public:
 	{
 		using namespace nbl;
 		InitOutput<sc_image_count> result = {};
-		result.window = CWindowT::create(window_width, window_height, system::IWindow::ECF_NONE);
+		result.window = CWindowT::create(window_width, window_height, ui::IWindow::ECF_NONE);
 
 		video::SDebugCallback dbgcb;
 		dbgcb.callback = &defaultDebugCallback;

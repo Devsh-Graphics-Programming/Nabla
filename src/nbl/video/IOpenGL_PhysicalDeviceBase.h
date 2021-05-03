@@ -32,6 +32,35 @@ protected:
 		EGLint major;
 		EGLint minor;
 	};
+#if 0
+	static void print_cfg(const egl::CEGL* _egl, EGLConfig cfg)
+	{
+		auto getAttrib = [&] (EGLint a) -> EGLint
+		{
+			EGLint val;
+			_egl->call.peglGetConfigAttrib(_egl->display, cfg, a, &val);
+			return val;
+		};
+		EGLint alpha = getAttrib(EGL_ALPHA_SIZE);
+		EGLint blue = getAttrib(EGL_BLUE_SIZE);
+		EGLint conformant = getAttrib(EGL_CONFORMANT);
+		EGLint green = getAttrib(EGL_GREEN_SIZE);
+		EGLint red = getAttrib(EGL_RED_SIZE);
+		EGLint renderable = getAttrib(EGL_RENDERABLE_TYPE);
+		EGLint surface = getAttrib(EGL_SURFACE_TYPE);
+		EGLint colorbuf = getAttrib(EGL_COLOR_BUFFER_TYPE);
+
+		if (colorbuf != EGL_RGB_BUFFER || !(conformant&EGL_OPENGL_ES3_BIT) || !(renderable&EGL_OPENGL_ES3_BIT))
+			return;
+
+		printf("alpha=%d\nred=%d\ngreen=%d\nblue=%d\n", alpha, red, green, blue);
+		if (surface&EGL_PBUFFER_BIT)
+			printf("pbuffer, ");
+		if (surface&EGL_WINDOW_BIT)
+			printf("window");
+		printf("\n");
+	}
+#endif
 	static SInitResult createContext(const egl::CEGL* _egl, EGLenum api_type, const std::pair<EGLint, EGLint>& bestApiVer, EGLint minMinorVer)
 	{
 		// TODO those params should be somehow sourced externally
@@ -50,7 +79,7 @@ protected:
 			EGL_RED_SIZE, red,
 			EGL_GREEN_SIZE, green,
 			EGL_BLUE_SIZE, blue,
-			EGL_BUFFER_SIZE, bufsz,
+			//EGL_BUFFER_SIZE, bufsz,
 			EGL_DEPTH_SIZE, depth,
 			EGL_STENCIL_SIZE, stencil,
 			EGL_ALPHA_SIZE, alpha,
@@ -70,8 +99,19 @@ protected:
 		res.major = 0;
 		res.minor = 0;
 
+#if 0
+		EGLConfig cfgs[1024];
+		EGLint cfgs_count;
+		_egl->call.peglGetConfigs(_egl->display, cfgs, 1024, &cfgs_count);
+		for (int i = 0; i < cfgs_count; ++i)
+		{
+			printf("PRINTING CONFIG %d\n", i);
+			print_cfg(_egl, cfgs[i]);
+		}
+#endif
+
 		EGLint ccnt = 1;
-		_egl->call.peglChooseConfig(_egl->display, egl_attributes, &res.config, 1, &ccnt);
+		int chCfgRes = _egl->call.peglChooseConfig(_egl->display, egl_attributes, &res.config, 1, &ccnt);
 		if (ccnt < 1)
 			return res;
 

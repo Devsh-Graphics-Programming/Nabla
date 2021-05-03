@@ -412,7 +412,7 @@ class IImage : public IDescriptor
 						assert(false);
 						return false;
 					}
-					if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= srcImage->getCreationParameters().arrayLayers)
+					if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount > srcImage->getCreationParameters().arrayLayers)
 					{
 						assert(false);
 						return false;
