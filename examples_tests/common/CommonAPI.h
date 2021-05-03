@@ -5,7 +5,7 @@
 #include <nbl/ui/CWindowWin32.h>
 using CWindowT = nbl::ui::CWindowWin32;
 #elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/ui/CWindowX11.h>
+#include <nbl/ui/CWindowLinux.h>
 using CWindowT = nbl::ui::CWindowLinux;
 #endif
 
@@ -179,7 +179,7 @@ public:
 	template<size_t imageCount>
 	static void Present(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
-		nbl::video::IGPUCommandBuffer* cmdbuf[imageCount],
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer>* cmdbuf,
 		nbl::video::IGPUQueue* queue)
 	{
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
@@ -210,7 +210,7 @@ public:
 		{
 			present.swapchainCount = 1u;
 			present.imgIndices = &imgnum;
-			video::ISwapchain* swapchain = sc.get();
+			video::ISwapchain* swapchain = sc;
 			present.swapchains = &swapchain;
 			video::IGPUSemaphore* waitsem = render_finished_sem.get();
 			present.waitSemaphoreCount = 1u;
