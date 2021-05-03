@@ -427,7 +427,7 @@ protected:
         template <typename RequestParams>
         void waitForRequestCompletion(SRequest& req)
         {
-            base_t::waitForRequestCompletion(req);
+            auto lk = req.wait();
 
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
             std::get<RequestParams>(req.params_variant) = RequestParams{};
