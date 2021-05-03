@@ -363,7 +363,7 @@ public:
 
     inline std::pair<uint32_t,uint32_t> getDescriptorSetWritesForUTB(
         typename DescriptorSetType::SWriteDescriptorSet* outWrites, typename DescriptorSetType::SDescriptorInfo* outInfo, DescriptorSetType* dstSet,
-        std::function<core::smart_refctd_ptr<IDescriptor>(E_FORMAT)> createBufferView, const DSLayoutParamsUTB& params = {}
+        std::function<core::smart_refctd_ptr<IDescriptor>(core::smart_refctd_ptr<BufferType>&&,E_FORMAT)> createBufferView, const DSLayoutParamsUTB& params = {}
     ) const
     {
         const uint32_t writeCount = getDSlayoutBindingsForUTB(nullptr);
@@ -391,7 +391,7 @@ public:
                     default:
                         break;
                 }
-                info->desc = createBufferView(format);
+                info->desc = createBufferView(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer),format);
                 info->buffer.offset = 0u;
                 info->buffer.size = m_packerDataStore.vertexBuffer->getSize();
                 info++;
@@ -413,18 +413,18 @@ public:
         writeBinding(params.usamplersBinding,1u+m_virtualAttribConfig.uintArrayElementsCnt);
         if (m_virtualAttribConfig.uintArrayElementsCnt)
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_UINT);
-        info->desc = createBufferView(EF_R16G16_UINT);
+        info->desc = createBufferView(core::smart_refctd_ptr(m_packerDataStore.indexBuffer),EF_R16_UINT);
         info->buffer.offset = 0u;
         info->buffer.size = m_packerDataStore.indexBuffer->getSize();
         info++;
         if (m_virtualAttribConfig.floatArrayElementsCnt)
         {
-            writeBinding(params.fsamplersBinding,1u+m_virtualAttribConfig.floatArrayElementsCnt);
+            writeBinding(params.fsamplersBinding,m_virtualAttribConfig.floatArrayElementsCnt);
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_FLOAT);
         }
         if (m_virtualAttribConfig.intArrayElementsCnt)
         {
-            writeBinding(params.isamplersBinding,1u+m_virtualAttribConfig.intArrayElementsCnt);
+            writeBinding(params.isamplersBinding,m_virtualAttribConfig.intArrayElementsCnt);
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_INT);
         }
 

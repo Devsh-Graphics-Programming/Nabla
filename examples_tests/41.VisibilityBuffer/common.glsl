@@ -15,7 +15,7 @@
 struct BatchInstanceData
 {
     vec3 Ka;
-    uint baseTriangle;
+    uint baseVertex;
     vec3 Kd;
     nbl_glsl_VG_VirtualAttributePacked_t vAttrPos;
     vec3 Ks;

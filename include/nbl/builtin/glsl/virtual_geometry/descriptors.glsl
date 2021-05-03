@@ -29,9 +29,9 @@
 
 #if _NBL_VG_UINT_BUFFERS_COUNT
 layout(set = _NBL_VG_DESCRIPTOR_SET, binding = _NBL_VG_UINT_BUFFERS_BINDING) uniform usamplerBuffer MeshPackedDataUintSample[_NBL_VG_UINT_BUFFERS_COUNT];
-uvec3 nbl_glsl_VG_fetchTriangle(in uint baseVertex)
+uint nbl_glsl_VG_fetchTriangleVertexIndex(in uint baseVertex, in uint triangleVx)
 {
-    return texelFetch(MeshPackedDataUintSample[_NBL_VG_UINT_BUFFERS_COUNT-1u],baseVertex).xyz;
+    return texelFetch(MeshPackedDataUintSample[_NBL_VG_UINT_BUFFERS_COUNT-1u],int(baseVertex+triangleVx)).x;
 }
 #endif
 #if _NBL_VG_FLOAT_BUFFERS_COUNT
@@ -106,11 +106,11 @@ layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC4_BINDING, 
 #ifdef _NBL_VG_USE_SSBO_INDEX
 layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_INDEX_BINDING, std430) readonly buffer TrianglePackedData
 {
-    u16vec3 indices[];
+    uint16_t indices[];
 } trianglePackedData;
-uvec3 nbl_glsl_VG_fetchTriangle(in uint baseTriangle)
+uint nbl_glsl_VG_fetchTriangleVertexIndex(in uint baseVertex, in uint triangleVx)
 {
-    return uvec3(trianglePackedData.indices[baseTriangle]);
+    return uint(trianglePackedData.indices[baseVertex+triangleVx]);
 }
 #endif
 

@@ -609,6 +609,9 @@ int main()
             driver->updateDescriptorSets(writesVT.size(),writesVT.data(),0u,nullptr);
         }
         smart_refctd_ptr<IGPUDescriptorSetLayout> vgDSLayout;
+        // msvc is incredibly dumb and complains about type mismatches in code sections guarded by if constexpr
+        std::conditional_t<useSSBO,GPUMeshPacker::DSLayoutParamsSSBO,GPUMeshPacker::DSLayoutParamsUTB> tmp;
+        [&](auto& layoutParams) -> void
         {
             // layout
             core::vector<IGPUDescriptorSetLayout::SBinding> vgBindings((useSSBO ? gpump->getDSlayoutBindingsForSSBO(nullptr):gpump->getDSlayoutBindingsForUTB(nullptr))+1u);
@@ -619,9 +622,20 @@ int main()
             materialDataBinding.samplers = nullptr; // not sampler interpolated
             auto* actualVGBindings = vgBindings.data()+1u;
             if constexpr (useSSBO)
-                gpump->getDSlayoutBindingsForSSBO(actualVGBindings);
+            {
+                layoutParams.uintBufferBinding = 1u;
+                layoutParams.uvec2BufferBinding = 2u;
+                layoutParams.uvec3BufferBinding = 3u;
+                layoutParams.uvec4BufferBinding = 4u;
+                layoutParams.indexBufferBinding = 5u;
+                gpump->getDSlayoutBindingsForSSBO(actualVGBindings,layoutParams);
+            }
             else
-                gpump->getDSlayoutBindingsForUTB(actualVGBindings);
+            {
+                layoutParams.usamplersBinding = 1u;
+                layoutParams.fsamplersBinding = 2u;
+                gpump->getDSlayoutBindingsForUTB(actualVGBindings,layoutParams);
+            }
             for (auto& binding : vgBindings)
                 binding.stageFlags = static_cast<ISpecializedShader::E_SHADER_STAGE>(ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_FRAGMENT);
 
@@ -652,11 +666,11 @@ int main()
             infos->desc = std::move(batchDataSSBO);
             infos++;
             if constexpr (useSSBO)
-                gpump->getDescriptorSetWritesForSSBO(writes,infos,sceneData.vgDS.get());
+                gpump->getDescriptorSetWritesForSSBO(writes,infos,sceneData.vgDS.get(),layoutParams);
             else
-                gpump->getDescriptorSetWritesForUTB(writes,infos,sceneData.vgDS.get());
+                gpump->getDescriptorSetWritesForUTB(writes,infos,sceneData.vgDS.get(),layoutParams);
             driver->updateDescriptorSets(writeCount,writesVG.data(),0u,nullptr);
-        }
+        }(tmp);
 
         //
         std::string extraCode = useSSBO ? gpump->getGLSLForSSBO():gpump->getGLSLForUTB();

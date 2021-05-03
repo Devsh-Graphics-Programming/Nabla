@@ -55,9 +55,9 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet
             const typename base_t::DSLayoutParamsUTB& params = {}
         ) const
         {
-            auto createBufferView = [&](E_FORMAT format) -> core::smart_refctd_ptr<IDescriptor>
+            auto createBufferView = [&](core::smart_refctd_ptr<ICPUBuffer>&& buff, E_FORMAT format) -> core::smart_refctd_ptr<IDescriptor>
             {
-                return core::make_smart_refctd_ptr<ICPUBufferView>(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer),format);
+                return core::make_smart_refctd_ptr<ICPUBufferView>(std::move(buff),format);
             };
             return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
         }
