@@ -49,6 +49,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 {
     static_assert(std::is_base_of_v<impl::IAsyncQueueDispatcherBase::request_base_t, RequestType>, "Request type must derive from request_base_t!");
     static_assert(BufferSize>0u, "BufferSize must not be 0!");
+    static_assert(core::isPoT(BufferSize), "BufferSize must be power of two!");
 
     using base_t = IThreadHandler<CRTP, InternalStateType>;
     friend base_t;
@@ -64,15 +65,8 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
     static inline counter_t wrapAround(counter_t x)
     {
-        if constexpr (core::isPoT(BufferSize))
-        {
-            constexpr counter_t Mask = static_cast<counter_t>(BufferSize) - static_cast<counter_t>(1);
-            return x & Mask;
-        }
-        else
-        {
-            return x % BufferSize;
-        }
+        constexpr counter_t Mask = static_cast<counter_t>(BufferSize) - static_cast<counter_t>(1);
+        return x & Mask;
     }
 
 public:

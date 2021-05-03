@@ -52,7 +52,8 @@ protected:
 
         void wait()
         {
-            asyncQ->waitForRequestCompletion(request[0]);
+            if (!ready())
+                request->wait();
         }
     };
 
