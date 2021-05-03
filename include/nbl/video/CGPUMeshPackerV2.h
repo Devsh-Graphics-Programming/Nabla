@@ -14,31 +14,31 @@ using namespace nbl::video;
 
 namespace nbl
 {
-namespace asset
+namespace video
 {
 
-template <typename MDIStructType = DrawElementsIndirectCommand_t>
-class CGPUMeshPackerV2 final : public IMeshPackerV2<video::IGPUBuffer,video::IGPUMeshBuffer,MDIStructType>
+template <typename MDIStructType = asset::DrawElementsIndirectCommand_t>
+class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
 {
-        using base_t = IMeshPackerV2<video::IGPUBuffer,video::IGPUMeshBuffer,MDIStructType>;
+        using base_t = asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>;
         using Triangle = typename base_t::Triangle;
         using TriangleBatches = typename base_t::TriangleBatches;
 
     public:
-        using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
+        using AllocationParams = typename base_t::AllocationParamsCommon;
         using PackerDataStore = typename base_t::PackerDataStore;
         using ReservedAllocationMeshBuffers = typename base_t::ReservedAllocationMeshBuffers;
         using AttribAllocParams = typename base_t::AttribAllocParams;
 
     public:
-        CGPUMeshPackerV2(video::IVideoDriver* driver, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-            :IMeshPackerV2<video::IGPUBuffer, video::IGPUMeshBuffer, MDIStructType>(allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
+        CGPUMeshPackerV2(IVideoDriver* driver, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+            :IMeshPackerV2<IGPUBuffer, IGPUMeshBuffer, MDIStructType>(allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
              m_driver(driver)
         {}
 
         // TODO: protect against empty cpuMP (no allocations and then shrinked)
-        CGPUMeshPackerV2(video::IVideoDriver* driver, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
-            :IMeshPackerV2<video::IGPUBuffer,video::IGPUMeshBuffer,MDIStructType>(cpuMP->m_allocParams,cpuMP->m_minTriangleCountPerMDIData,cpuMP->m_maxTriangleCountPerMDIData),
+        CGPUMeshPackerV2(IVideoDriver* driver, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
+            :IMeshPackerV2<IGPUBuffer,IGPUMeshBuffer,MDIStructType>(cpuMP->m_allocParams,cpuMP->m_minTriangleCountPerMDIData,cpuMP->m_maxTriangleCountPerMDIData),
              m_driver(driver)
         {
             m_virtualAttribConfig = cpuMP->m_virtualAttribConfig;
@@ -58,35 +58,21 @@ class CGPUMeshPackerV2 final : public IMeshPackerV2<video::IGPUBuffer,video::IGP
         void instantiateDataStorage();
 
         template <typename MeshBufferIterator>
-        bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
-
-        uint32_t getDSlayoutBindingsForUTB(IGPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u) const
+        bool commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+        
+        inline std::pair<uint32_t,uint32_t> getDescriptorSetWritesForUTB(
+            IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet,
+            const typename base_t::DSLayoutParamsUTB& params = {}
+        ) const
         {
-            return getDSlayoutBindingsForUTB_internal<IGPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
-        }
-
-        std::pair<uint32_t, uint32_t> getDescriptorSetWritesForUTB(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
-        {
-            auto createBufferView = [&](E_FORMAT format) -> core::smart_refctd_ptr<IGPUBufferView>
+            auto createBufferView = [&](E_FORMAT format) -> core::smart_refctd_ptr<IDescriptor>
             {
-                return m_driver->createGPUBufferView(m_packerDataStore.vertexBuffer.get(), format);
+                return m_driver->createGPUBufferView(m_packerDataStore.vertexBuffer.get(),format);
             };
-
-            return getDescriptorSetWritesForUTB_internal<IGPUDescriptorSet, IGPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
+            return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
         }
-
-        uint32_t getDSlayoutBindingsForSSBO(IGPUDescriptorSetLayout::SBinding* outBindings, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
-        {
-            return getDSlayoutBindingsForSSBO_internal<IGPUDescriptorSetLayout>(outBindings, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
-        }
-
-        uint32_t getDescriptorSetWritesForSSBO(IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
-        {
-            return getDescriptorSetWritesForSSBO_internal<IGPUDescriptorSet>(outWrites, outInfo, dstSet, m_packerDataStore.vertexBuffer, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
-        }
-
     private:
-        video::IVideoDriver* m_driver;
+        IVideoDriver* m_driver;
 
 };
 
@@ -100,7 +86,7 @@ void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-bool CGPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     assert(0);
     return false;

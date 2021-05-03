@@ -14,72 +14,53 @@ namespace asset
 {
 
 template <typename MDIStructType = DrawElementsIndirectCommand_t>
-class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>
+class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet,ICPUMeshBuffer,MDIStructType>
 {
-    using base_t = IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>;
-    using Triangle = typename base_t::Triangle;
-    using TriangleBatches = typename base_t::TriangleBatches;
-    using IdxBufferParams = typename base_t::base_t::IdxBufferParams;
+        using base_t = IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet,ICPUMeshBuffer,MDIStructType>;
+        using Triangle = typename base_t::Triangle;
+        using TriangleBatches = typename base_t::TriangleBatches;
+        using IdxBufferParams = typename base_t::base_t::IdxBufferParams;
 
-    template<typename> friend class CGPUMeshPackerV2; //TODO: this will allow CGPUMeshPackerV2 with every template parameter to be a friend of this class, fix it
+    public:
+        using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
+        using PackerDataStore = typename base_t::PackerDataStore;
+        using ReservedAllocationMeshBuffers = typename base_t::ReservedAllocationMeshBuffers;
+        using AttribAllocParams = typename base_t::AttribAllocParams;
+        using CombinedDataOffsetTable = typename base_t::CombinedDataOffsetTable;
 
-public:
-    using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
-    using PackerDataStore = typename base_t::PackerDataStore;
-    using ReservedAllocationMeshBuffers = typename base_t::ReservedAllocationMeshBuffers;
-    using AttribAllocParams = typename base_t::AttribAllocParams;
-    using CombinedDataOffsetTable = typename base_t::CombinedDataOffsetTable;
+    public:
+        CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+            :IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>(allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
+        {}
 
-public:
-    CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-        :IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>(allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
-    {}
+        void instantiateDataStorage();
 
-    void instantiateDataStorage();
-
-    //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
-    void shrinkOutputBuffersSize()
-    {
-        m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u,1u);
-        m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u,1u);
-        m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u,1u);
-        // TODO: SHRINK ACTUAL ALLOCATORS AND THEIR RESERVED SPACES! (CREATE NEW ALLOCATORS WITH NEW RESERVED SPACES, THEN DELETE OLD RESERVED, THEN SWAP ALLOCATOR AND RESERVED MEMBERS)
-    }
-
-    /**
-    \return number of mdi structs created for mesh buffer range described by mbBegin .. mbEnd, 0 if commit failed or mbBegin == mbEnd
-    */
-    template <typename MeshBufferIterator>
-    uint32_t commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
-
-    inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
-
-    uint32_t getDSlayoutBindingsForUTB(ICPUDescriptorSetLayout::SBinding* outBindings, uint32_t fsamplersBinding = 0u, uint32_t isamplersBinding = 1u, uint32_t usamplersBinding = 2u)
-    {
-        return getDSlayoutBindingsForUTB_internal<ICPUDescriptorSetLayout>(outBindings, fsamplersBinding, isamplersBinding, usamplersBinding);
-    }
-
-    // cannot be called before 'instantiateDataStorage'
-    std::pair<uint32_t, uint32_t> getDescriptorSetWritesForUTB(ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet, uint32_t fBuffersBinding = 0u, uint32_t iBuffersBinding = 1u, uint32_t uBuffersBinding = 2u) const
-    {
-        auto createBufferView = [&](E_FORMAT format)
+        //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
+        void shrinkOutputBuffersSize()
         {
-            return core::make_smart_refctd_ptr<ICPUBufferView>(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer), format);
-        };
+            m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u,1u);
+            m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u,1u);
+            m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u,1u);
+            // TODO: SHRINK ACTUAL ALLOCATORS AND THEIR RESERVED SPACES! (CREATE NEW ALLOCATORS WITH NEW RESERVED SPACES, THEN DELETE OLD RESERVED, THEN SWAP ALLOCATOR AND RESERVED MEMBERS)
+        }
 
-        return getDescriptorSetWritesForUTB_internal<ICPUDescriptorSet, ICPUBufferView>(outWrites, outInfo, dstSet, createBufferView, fBuffersBinding, iBuffersBinding, uBuffersBinding);
-    }
+        /**
+        \return number of mdi structs created for mesh buffer range described by mbBegin .. mbEnd, 0 if commit failed or mbBegin == mbEnd
+        */
+        template <typename MeshBufferIterator>
+        uint32_t commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-    uint32_t getDSlayoutBindingsForSSBO(ICPUDescriptorSetLayout::SBinding* outBindings, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
-    {
-        return getDSlayoutBindingsForUTB_internal<ICPUDescriptorSetLayout>(outBindings, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
-    }
-
-    uint32_t getDescriptorSetWritesForSSBO(ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet, uint32_t uintBufferBinding = 0u, uint32_t uvec2BufferBinding = 1u, uint32_t uvec3BufferBinding = 2u, uint32_t uvec4BufferBinding = 3u) const
-    {
-        return getDescriptorSetWritesForUTB_internal<ICPUDescriptorSet>(outWrites, outInfo, dstSet, m_packerDataStore.vertexBuffer, uintBufferBinding, uvec2BufferBinding, uvec3BufferBinding, uvec4BufferBinding);
-    }
-
+        inline std::pair<uint32_t,uint32_t> getDescriptorSetWritesForUTB(
+            ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet,
+            const typename base_t::DSLayoutParamsUTB& params = {}
+        ) const
+        {
+            auto createBufferView = [&](E_FORMAT format) -> core::smart_refctd_ptr<IDescriptor>
+            {
+                return core::make_smart_refctd_ptr<ICPUBufferView>(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer),format);
+            };
+            return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
+        }
 };
 
 template <typename MDIStructType>
