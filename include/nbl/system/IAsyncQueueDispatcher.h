@@ -22,6 +22,8 @@ namespace impl
             std::condition_variable cvar;
             std::atomic_bool ready = false;
 
+            std::atomic_bool ready_for_work = false;
+
             std::unique_lock<std::mutex> lock()
             {
                 return std::unique_lock<std::mutex>(mtx);
@@ -110,6 +112,10 @@ public:
         static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
         // unlock request after we've written everything into it
         lk.unlock();
+        req.ready_for_work = true;
+#if __cplusplus >= 202002L
+        req.ready_for_work.notify_one();
+#endif
         // wake up queue thread
         base_t::m_cvar.notify_one();
 
@@ -129,10 +135,17 @@ private:
         r_id = wrapAround(r_id);
 
         request_t& req = request_pool[r_id];
+#if __cplusplus >= 202002L
+        req.ready_for_work.wait(false);
+#else
+        while (!req.ready_for_work.load())
+            std::this_thread::yield();
+#endif
         auto lk = req.lock();
 
         static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
 
+        req.ready_for_work = false;
         req.ready = true;
         req.cvar.notify_all();
     }
