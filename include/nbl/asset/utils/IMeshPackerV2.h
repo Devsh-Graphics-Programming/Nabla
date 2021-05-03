@@ -222,6 +222,12 @@ protected:
         }
     };
 
+    IMeshPackerV2Base() : m_virtualAttribConfig() {}
+    explicit IMeshPackerV2Base(const VirtualAttribConfig& cfg) : m_virtualAttribConfig()
+    {
+        m_virtualAttribConfig = cfg;
+    }
+
     VirtualAttribConfig m_virtualAttribConfig;
 };
 
@@ -358,7 +364,7 @@ public:
         std::function<core::smart_refctd_ptr<IDescriptor>(E_FORMAT)> createBufferView, const DSLayoutParamsUTB& params = {}
     ) const
     {
-        const uint32_t writeCount = getDSlayoutBindingsForUTB_internal(nullptr);
+        const uint32_t writeCount = getDSlayoutBindingsForUTB(nullptr);
         const uint32_t infoCount = 1u + // for the index buffer
             m_virtualAttribConfig.uintArrayElementsCnt +
             m_virtualAttribConfig.floatArrayElementsCnt +
@@ -391,7 +397,7 @@ public:
         };
 
         auto* write = outWrites;
-        auto writeBinding = [&bnd,dstSet,&info](uint32_t binding, uint32_t count)
+        auto writeBinding = [&write,dstSet,&info](uint32_t binding, uint32_t count)
         {
             write->binding = binding;
             write->arrayElement = 0u;
@@ -399,12 +405,12 @@ public:
             write->descriptorType = asset::EDT_UNIFORM_TEXEL_BUFFER;
             write->dstSet = dstSet;
             write->info = info;
-            write++
+            write++;
         };
 
         writeBinding(params.usamplersBinding,1u+m_virtualAttribConfig.uintArrayElementsCnt);
         if (m_virtualAttribConfig.uintArrayElementsCnt)
-            fillInfoStruct(EUAT_INT);
+            fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_UINT);
         info->desc = createBufferView(EF_R16G16_UINT);
         info->buffer.offset = 0u;
         info->buffer.size = m_packerDataStore.indexBuffer->getSize();
@@ -412,12 +418,12 @@ public:
         if (m_virtualAttribConfig.floatArrayElementsCnt)
         {
             writeBinding(params.fsamplersBinding,1u+m_virtualAttribConfig.floatArrayElementsCnt);
-            fillInfoStruct(EUAT_FLOAT);
+            fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_FLOAT);
         }
         if (m_virtualAttribConfig.intArrayElementsCnt)
         {
             writeBinding(params.isamplersBinding,1u+m_virtualAttribConfig.intArrayElementsCnt);
-            fillInfoStruct(EUAT_INT);
+            fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_INT);
         }
 
         return std::make_pair(writeCount, infoCount);
@@ -566,8 +572,13 @@ public:
     
 protected:
 	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-		:base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
-         m_allocParams(allocParams)
+		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_allocParams(allocParams)
+	{
+        initializeCommonAllocators(allocParams);
+    };
+    template<class OtherBufferType, class OtherDescriptorSetType, class OtherMeshBufferType>
+	explicit IMeshPackerV2(const IMeshPackerV2<OtherBufferType,OtherDescriptorSetType,OtherMeshBufferType,MDIStructType>* otherMp)
+		: base_t(cpuMP->m_minTriangleCountPerMDIData,cpuMP->m_maxTriangleCountPerMDIData), IMeshPackerV2Base(cpuMP->m_virtualAttribConfig), m_allocParams(otherMp->m_allocParams)
 	{
         initializeCommonAllocators(allocParams);
     };

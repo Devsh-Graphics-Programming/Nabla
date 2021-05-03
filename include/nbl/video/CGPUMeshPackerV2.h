@@ -32,24 +32,21 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
 
     public:
         CGPUMeshPackerV2(IVideoDriver* driver, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-            :IMeshPackerV2<IGPUBuffer, IGPUMeshBuffer, MDIStructType>(allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
-             m_driver(driver)
+            : base_t(allocParams,minTriangleCountPerMDIData,maxTriangleCountPerMDIData), m_driver(driver)
         {}
 
         // TODO: protect against empty cpuMP (no allocations and then shrinked)
         CGPUMeshPackerV2(IVideoDriver* driver, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
-            :IMeshPackerV2<IGPUBuffer,IGPUMeshBuffer,MDIStructType>(cpuMP->m_allocParams,cpuMP->m_minTriangleCountPerMDIData,cpuMP->m_maxTriangleCountPerMDIData),
-             m_driver(driver)
+            : base_t(cpuMP), m_driver(driver)
         {
-            m_virtualAttribConfig = cpuMP->m_virtualAttribConfig;
-
-            auto& cpuMDIBuff = cpuMP->m_packerDataStore.MDIDataBuffer;
-            auto& cpuIdxBuff = cpuMP->m_packerDataStore.indexBuffer;
-            auto& cpuVtxBuff = cpuMP->m_packerDataStore.vertexBuffer;
+            // TODO: protect against unitiliazed storage of cpuMP
+            auto& cpuMDIBuff = cpuMP->getPackerDataStore().MDIDataBuffer;
+            auto& cpuIdxBuff = cpuMP->getPackerDataStore().indexBuffer;
+            auto& cpuVtxBuff = cpuMP->getPackerDataStore().vertexBuffer;
 
             // TODO: why are the allocators not copied!?
 
-            // TODO: call instantiateDataStorage() here and then copy CPU data to the initialized storage
+            // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
             m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
             m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
             m_packerDataStore.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());

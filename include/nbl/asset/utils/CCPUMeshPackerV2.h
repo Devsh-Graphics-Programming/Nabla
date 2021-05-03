@@ -30,7 +30,7 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet
 
     public:
         CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-            :IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>(allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
+            : base_t(allocParams,minTriangleCountPerMDIData,maxTriangleCountPerMDIData)
         {}
 
         void instantiateDataStorage();
