@@ -1,6 +1,8 @@
 #ifndef _COMMON_GLSL_INCLUDED_
 #define _COMMON_GLSL_INCLUDED_
 
+#extension GL_EXT_shader_16bit_storage: require
+
 #include "common.h"
 
 // defines for buffer fill pipeline
@@ -13,7 +15,7 @@
 struct BatchInstanceData
 {
     vec3 Ka;
-    uint baseVertex;
+    uint baseTriangle;
     vec3 Kd;
     nbl_glsl_VG_VirtualAttributePacked_t vAttrPos;
     vec3 Ks;
@@ -36,13 +38,6 @@ layout(set = 1, binding = 0, std430) readonly buffer BatchInstanceBuffer
 {
     BatchInstanceData batchInstanceData[];
 };
-#if 0
-// VG
-layout(set = 1, binding = 1, std430) readonly buffer IndexBuffer // TODO: VG descriptor include
-{
-    uint indexBuffer[];
-};
-#endif
 
 // non-global descriptors
 #include <nbl/builtin/glsl/utils/common.glsl>

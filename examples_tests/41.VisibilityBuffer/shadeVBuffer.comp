@@ -85,7 +85,6 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 #include <nbl/builtin/glsl/colorspace/OETF.glsl>
 void main()
 {
-    // TODO: out of bounds check and return
     const ivec2 fragCoord = ivec2(gl_GlobalInvocationID);
     if (any(greaterThanEqual(fragCoord,textureSize(vBuffer,0))))
         return;
@@ -101,8 +100,7 @@ void main()
     );
 
     gBatchInstance = batchInstanceData[drawID];
-    const uint indexOffset = triangleID*3u+batchInstanceData.baseVertex;
-    const uint vertexIDs[3] = {indexBuffer[indexOffset+0u],indexBuffer[indexOffset+1u],indexBuffer[indexOffset+2u]};
+    const uvec3 vertexIDs = nbl_glsl_VG_fetchTriangle(triangleID+gBatchInstance.baseTriangle);
 
     vec3 pos,normal;
     vec2 uv;
