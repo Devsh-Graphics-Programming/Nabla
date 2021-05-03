@@ -1,6 +1,7 @@
 #ifndef __NBL_I_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
 #define __NBL_I_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
 
+#include <atomic>
 #include "nbl/system/IThreadHandler.h"
 #include "nbl/core/Types.h"
 #include "nbl/core/math/intutil.h"
@@ -16,9 +17,22 @@ namespace impl
     public:
         struct request_base_t
         {
+            std::mutex mtx;
             // wait on this for result to be ready
             std::condition_variable cvar;
-            bool ready = false;
+            std::atomic_bool ready = false;
+
+            std::unique_lock<std::mutex> lock()
+            {
+                return std::unique_lock<std::mutex>(mtx);
+            }
+
+            std::unique_lock<std::mutex> wait()
+            {
+                std::unique_lock<std::mutex> lk(mtx);
+                cvar.wait(lk, [this]() { return this->ready.load(); });
+                return lk;
+            }
         };
     };
 }
@@ -34,16 +48,24 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
     constexpr static inline uint32_t MaxRequestCount = BufferSize;
 
-    RequestType request_pool[MaxRequestCount];
-    uint32_t cb_begin = 0u;
-    uint32_t cb_end = 0u;
+    using atomic_counter_t = std::atomic_uint64_t;
+    using counter_t = atomic_counter_t::value_type;
 
-    static inline uint32_t incAndWrapAround(uint32_t x)
+    RequestType request_pool[MaxRequestCount];
+    atomic_counter_t cb_begin = 0u;
+    atomic_counter_t cb_end = 0u;
+
+    static inline counter_t wrapAround(counter_t x)
     {
         if constexpr (core::isPoT(BufferSize))
-            return (x + 1u) & (BufferSize - 1u);
+        {
+            constexpr counter_t Mask = static_cast<counter_t>(BufferSize) - static_cast<counter_t>(1);
+            return x & Mask;
+        }
         else
-            return (x + 1u) % BufferSize;
+        {
+            return x % BufferSize;
+        }
     }
 
 public:
@@ -68,26 +90,30 @@ public:
     template <typename... Args>
     request_t& request(Args&&... args)
     {
-        //auto lk = createLock();
-        //raii_dispatch_handler_t raii_handler(std::move(lk), m_cvar);
-        auto raii_handler = base_t::createRAIIDispatchHandler();
+        auto virtualIx = cb_end++;
+        auto safe_begin = virtualIx<MaxRequestCount ? static_cast<counter_t>(0) : (virtualIx-MaxRequestCount+1u);
 
-        const uint32_t r_id = cb_end;
-        cb_end = incAndWrapAround(cb_end);
+        for (counter_t old_begin; (old_begin = cb_begin.load()) < safe_begin; )
+        {
+#if __cplusplus >= 202002L
+            cb_begin.wait(old_begin);
+#else
+            std::this_thread::yield();
+#endif
+        }
+
+        const auto r_id = wrapAround(virtualIx);
 
         request_t& req = request_pool[r_id];
+        auto lk = req.lock();
         req.ready = false;
         static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
+        // unlock request after we've written everything into it
+        lk.unlock();
+        // wake up queue thread
+        base_t::m_cvar.notify_one();
 
         return req;
-    }
-
-    void waitForRequestCompletion(request_t& req)
-    {
-        auto lk = base_t::createLock();
-        req.cvar.wait(lk, [&req]() -> bool { return req.ready; });
-
-        assert(req.ready);
     }
 
 private:
@@ -96,16 +122,19 @@ private:
     {
         static_assert(sizeof...(optional_internal_state) <= 1u, "How did this happen");
 
-        request_t& req = request_pool[cb_begin];
-        cb_begin = incAndWrapAround(cb_begin);
+        auto r_id = cb_begin++;
+#if __cplusplus >= 202002L
+        cb_begin.notify_one();
+#endif
+        r_id = wrapAround(r_id);
+
+        request_t& req = request_pool[r_id];
+        auto lk = req.lock();
 
         static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
 
         req.ready = true;
-        // moving unlock before the switch (but after cb_begin increment) probably wouldnt hurt
-        lock.unlock(); // unlock so that notified thread wont immidiately block again
-        req.cvar.notify_all(); //notify_one() would do as well, but lets call notify_all() in case something went horribly wrong (theoretically not possible) and multiple threads are waiting for single request
-        lock.lock(); // reacquire (must be locked at the exit of this function -- see system::IThreadHandler docs)
+        req.cvar.notify_all();
     }
 
     bool wakeupPredicate() const { return (cb_begin != cb_end); }

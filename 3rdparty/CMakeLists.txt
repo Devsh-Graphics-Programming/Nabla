@@ -98,12 +98,13 @@ else()
 	message(FATAL_ERROR "COULDNT FIND EGL!!")
 endif()]]
 # EGL
-set(EGL_NO_GLEW ON)
+set(EGL_NO_GLEW ON FORCE)
 
 #if (OpenGL_EGL_FOUND AND WAYLAND_CLIENT_FOUND AND UNIX AND NOT APPLE)
-#	set(EGL_UNIX_USE_WAYLAND ON)
+#	set(EGL_PASSTHROUGH ON FORCE)
+#	set(EGL_USE_WAYLAND ON FORCE)
 #endif()
-set(EGL_UNIX_USE_WAYLAND OFF)
+set(EGL_USE_WAYLAND OFF FORCE)
 add_subdirectory(EGL/EGL)
 
 # zlib (target is zlibstatic)

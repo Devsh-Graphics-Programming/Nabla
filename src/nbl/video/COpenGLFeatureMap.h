@@ -1207,6 +1207,8 @@ public:
 	// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)
 	bool needsDSAFramebufferHack = true;
 
+	bool runningInRenderDoc = false;
+
 	COpenGLFeatureMap()
 	{
 		memset(FeatureAvailable, 0, sizeof(FeatureAvailable));

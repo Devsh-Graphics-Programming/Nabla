@@ -88,32 +88,20 @@ public:
 
         m_threadHandler.start();
 
-        bool runningInRenderDoc = false;
-#ifdef _NBL_PLATFORM_WINDOWS_
-        if (GetModuleHandleA("renderdoc.dll"))
-#elif defined(_NBL_PLATFORM_ANDROID_)
-        if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
-#elif defined(_NBL_PLATFORM_LINUX_)
-        if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
-#else
-        if (false)
-#endif
-            runningInRenderDoc = true;
-
         constexpr size_t GLSLcnt = std::extent<decltype(FeaturesType::m_GLSLExtensions)>::value;
         if (!m_supportedGLSLExtsNames)
         {
             size_t cnt = 0ull;
             for (size_t i = 0ull; i < GLSLcnt; ++i)
                 cnt += _features->isFeatureAvailable(_features->m_GLSLExtensions[i]);
-            if (runningInRenderDoc)
+            if (_features->runningInRenderDoc)
                 ++cnt;
             m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
             size_t i = 0ull;
             for (size_t j = 0ull; j < GLSLcnt; ++j)
                 if (_features->isFeatureAvailable(_features->m_GLSLExtensions[j]))
                     (*m_supportedGLSLExtsNames)[i++] = _features->OpenGLFeatureStrings[_features->m_GLSLExtensions[j]];
-            if (runningInRenderDoc)
+            if (_features->runningInRenderDoc)
                 (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
         }
 
