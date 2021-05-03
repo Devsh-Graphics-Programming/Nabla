@@ -157,9 +157,10 @@ int main()
     matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
     matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(0, 0, -10), core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
     auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
+    draw3DLine->setData(viewProj, lines);
     for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
     {
-        draw3DLine->draw(viewProj, lines);
+        draw3DLine->draw();
     }
 
     device->waitIdle();

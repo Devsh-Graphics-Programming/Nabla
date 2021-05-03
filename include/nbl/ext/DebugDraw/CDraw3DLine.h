@@ -32,19 +32,41 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			video::IGPUQueue* queue,
 			video::ISwapchain* swapchain,
 			video::IGPURenderpass* renderpass,
-			core::smart_refctd_ptr<video::IGPUCommandBuffer>* commandBuffers,
+			core::smart_refctd_ptr<video::IGPUCommandBuffer>* commandBuffers, //TODO: create own command buffer, not take the existing one
 			core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos)
 		{
 			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device, queue, swapchain, renderpass, commandBuffers, fbos, W, H, SC_IMAGE_COUNT), core::dont_grab);
 		}
 
-        void draw(const core::matrix4SIMD& viewProjMat,
-            float fromX, float fromY, float fromZ,
-            float toX, float toY, float toZ,
-            float r, float g, float b, float a
-        );
+        void draw();
 
-        void draw(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData);
+		void setData(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
+		{
+			m_viewProj = viewProjMat;
+			m_lines = linesData;
+			recordToCommandBuffer();
+		}
+
+		void setLine(const core::matrix4SIMD& viewProjMat,
+			float fromX, float fromY, float fromZ,
+			float toX, float toY, float toZ,
+			float r, float g, float b, float a
+		)
+		{
+			m_lines = core::vector<std::pair<S3DLineVertex, S3DLineVertex>>{ std::pair(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }}) };
+		}
+
+		void setLinesData(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
+		{
+			m_lines = linesData;
+			recordToCommandBuffer();
+		}
+
+		void setViewProjMatrix(const core::matrix4SIMD& viewProjMat)
+		{
+			m_viewProj = viewProjMat;
+			recordToCommandBuffer();
+		}
 
 		inline void enqueueBox(core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData, const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
 		{
@@ -85,8 +107,8 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			uint32_t H,
 			uint32_t SC_IMAGE_COUNT);
 		virtual ~CDraw3DLine() {}
-		void recordToCommandBuffer(const core::matrix4SIMD& viewProjMat, uint32_t vtxCount);
-
+		void recordToCommandBuffer();
+		//TODO: smart_ptr
         video::ILogicalDevice* m_device;
 		video::IGPUQueue* m_queue;
 		video::ISwapchain* m_swapchain;
@@ -98,6 +120,9 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		core::smart_refctd_ptr<video::IGPUCommandBuffer>* m_commandBuffers;
 		core::smart_refctd_ptr<video::IGPUFramebuffer>* m_framebuffers;
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
+
+		core::matrix4SIMD m_viewProj;
+		core::vector<std::pair<S3DLineVertex, S3DLineVertex>> m_lines;
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
 };
 

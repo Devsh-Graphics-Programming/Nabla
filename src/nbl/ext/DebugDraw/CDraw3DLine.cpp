@@ -95,20 +95,21 @@ CDraw3DLine::CDraw3DLine(video::ILogicalDevice* device,
 	m_meshBuffer->setIndexCount(2);
 }
 
-void CDraw3DLine::recordToCommandBuffer(const core::matrix4SIMD& viewProjMat, uint32_t vtxCount)
+void CDraw3DLine::recordToCommandBuffer()
 {
 	for (uint32_t i = 0u; i < m_scImageCount; ++i)
 	{
 		auto cb = m_commandBuffers[i];
 		auto fb = m_framebuffers[i];
+		cb->reset(0);
 		cb->begin(0);
 
 		auto* buf = m_meshBuffer->getVertexBufferBindings()->buffer.get();
 		size_t offset = 0u;
 		//TODO: change the interfaces to take const pointer
 		cb->bindVertexBuffers(0u, 1u, const_cast<video::IGPUBuffer**>(&buf), &offset);
+		cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_meshBuffer->getPipeline()->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
 		cb->bindGraphicsPipeline(m_pipeline.get());
-		cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_meshBuffer->getPipeline()->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(viewProjMat), &viewProjMat);
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::VkRect2D area;
 		area.offset = { 0, 0 };
@@ -119,59 +120,21 @@ void CDraw3DLine::recordToCommandBuffer(const core::matrix4SIMD& viewProjMat, ui
 		info.clearValues = nullptr;
 		info.renderArea = area;
 		cb->beginRenderPass(&info, asset::ESC_INLINE);
-		cb->draw(vtxCount, 1u, 0u, 0u);
+		cb->draw(m_lines.size() * 2, 1u, 0u, 0u);
 		cb->endRenderPass();
 
 		cb->end();
 	}
-
-
 }
 
-void CDraw3DLine::draw(const core::matrix4SIMD& viewProjMat,
-	float fromX, float fromY, float fromZ,
-	float toX, float toY, float toZ,
-	float r, float g, float b, float a)
-{
-	S3DLineVertex vertices[2] = {
-		{{ fromX, fromY, fromZ }, { r, g, b, a }},
-		{{ toX, toY, toZ }, { r, g, b, a }}
-	};
-
-	auto upStreamBuff = m_device->getDefaultUpStreamingBuffer();
-	void* lineData[1] = { vertices };
-
-	static const uint32_t sizes[1] = { sizeof(S3DLineVertex) * 2 };
-	uint32_t offset[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
-	upStreamBuff->multi_place(1u, (const void* const*)lineData, (uint32_t*)&offset, (uint32_t*)&sizes, (uint32_t*)&alignments);
-	if (upStreamBuff->needsManualFlushOrInvalidate())
-	{
-		auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-		const video::IDriverMemoryAllocation::MappedMemoryRange mappedRange(upStreamMem, offset[0], sizes[0]);
-		core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> range(&mappedRange, &mappedRange + 1);
-		m_device->flushMappedMemoryRanges(range);
-	}
-
-	m_meshBuffer->setBaseVertex(offset[0] / sizeof(S3DLineVertex));
-
-
-	recordToCommandBuffer(viewProjMat, 2);
-	//TODO: real image count
-	CommonAPI::Present<3>(m_device, m_swapchain, m_commandBuffers, m_queue);
-
-	
-	upStreamBuff->multi_free(1u, (uint32_t*)&offset, (uint32_t*)&sizes, m_device->createFence(video::IGPUFence::ECF_SIGNALED_BIT));
-
-}
-
-void CDraw3DLine::draw(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
+void CDraw3DLine::draw()
 {
 	static size_t frame;
 
 	auto upStreamBuff = m_device->getDefaultUpStreamingBuffer();
-	const void* lineData[1] = { linesData.data() };
+	const void* lineData[1] = { m_lines.data() };
 
-	const uint32_t sizes[1] = { sizeof(S3DLineVertex) * linesData.size() * 2 };
+	const uint32_t sizes[1] = { sizeof(S3DLineVertex) * m_lines.size() * 2 };
 	uint32_t offset[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
 	upStreamBuff->multi_place(1u, (const void* const*)lineData, (uint32_t*)&offset, (uint32_t*)&sizes, (uint32_t*)&alignments);
 	if (upStreamBuff->needsManualFlushOrInvalidate())
@@ -183,11 +146,10 @@ void CDraw3DLine::draw(const core::matrix4SIMD& viewProjMat, const core::vector<
 	}
 
 	m_meshBuffer->setBaseVertex(offset[0] / sizeof(S3DLineVertex));
-	m_meshBuffer->setIndexCount(linesData.size() * 2);
+	m_meshBuffer->setIndexCount(m_lines.size() * 2);
 
-	//TODO: get rid of this / separate Command buffer
-	if(frame == 0)
-	recordToCommandBuffer(viewProjMat, linesData.size() * 2);
+	recordToCommandBuffer();
+
 	//TODO: real image count
 	CommonAPI::Present<3>(m_device, m_swapchain, m_commandBuffers, m_queue);
 
