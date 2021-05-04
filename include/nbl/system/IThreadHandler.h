@@ -59,8 +59,8 @@ protected:
         raii_dispatch_handler_t(mutex_t& _mtx, cvar_t& _cv) : lk(_mtx), cv(_cv) {}
         ~raii_dispatch_handler_t()
         {
-            lk.unlock();
             cv.notify_one();
+            // raii-style unlock happens after notification
         }
 
     private:
@@ -68,7 +68,8 @@ protected:
         cvar_t& cv;
     };
 
-    inline lock_t createLock() { return lock_t{ m_mutex }; }
+    inline lock_t createLock() { return lock_t(m_mutex); }
+    inline lock_t tryCreateLock() { return lock_t(m_mutex, std::try_lock); }
     inline raii_dispatch_handler_t createRAIIDispatchHandler() { return raii_dispatch_handler_t(m_mutex, m_cvar); }
 
     // Required accessible methods of class being CRTP parameter:
@@ -135,6 +136,12 @@ public:
         return false;
     }
 
+    ~IThreadHandler()
+    {
+        terminate();
+    }
+
+protected:
     void thread()
     {
         CRTP* this_ = static_cast<CRTP*>(this);
@@ -174,12 +181,6 @@ public:
         }
     }
 
-    ~IThreadHandler()
-    {
-        terminate();
-    }
-
-protected:
     mutex_t m_mutex;
     cvar_t m_cvar;
     bool m_quit = false;

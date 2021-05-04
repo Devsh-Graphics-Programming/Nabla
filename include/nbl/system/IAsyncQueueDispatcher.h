@@ -17,6 +17,8 @@ namespace impl
     public:
         struct request_base_t
         {
+            // TODO since c++20 we can get rid of both mutex and cvar
+            // and do wait/notify on atomic itself
             std::mutex mtx;
             // wait on this for result to be ready
             std::condition_variable cvar;
@@ -91,9 +93,20 @@ public:
     //void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
     ///////
 
+    using base_t::base_t;
+
     template <typename... Args>
     request_t& request(Args&&... args)
     {
+        // should acquire mutex only in case of queue thread being asleep
+        // + allows for concurrent requests submission
+        // this is needed so that queue thread wakeup signal is not missed
+        // https://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex
+        // but still not 100% safe:
+        // * try_lock() w/o a reason
+        // * queue thread might start waiting on cvar between try_lock() and notify()
+        auto queue_thread_lk = base_t::tryCreateLock();
+
         auto virtualIx = cb_end++;
         auto safe_begin = virtualIx<MaxRequestCount ? static_cast<counter_t>(0) : (virtualIx-MaxRequestCount+1u);
 

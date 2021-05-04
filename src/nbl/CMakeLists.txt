@@ -160,7 +160,6 @@ set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 set(NABLA_HEADERS_PUBLIC
-	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
 	"${NBL_ROOT_PATH}/source/Nabla/os.h"
 	"${NBL_ROOT_PATH}/source/Nabla/CLogger.h" 
 )
@@ -291,7 +290,6 @@ set(NBL_VIDEO_SOURCES
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
 #${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES

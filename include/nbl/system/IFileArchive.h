@@ -7,7 +7,6 @@
 #define __NBL_I_FILE_ARCHIVE_H_INCLUDED__
 
 #include "nbl/system/IFile.h"
-#include "nbl/system/IFileList.h"
 
 namespace nbl
 {
@@ -21,20 +20,12 @@ class IFileArchive : public core::IReferenceCounted
 public:
 	struct SOpenFileParams
 	{
+		std::filesystem::path filename;
 		std::string_view password;
 	};
 
 	//! Opens a file based on its name
-	/** Creates and returns a new IFile for a file in the archive.
-	\param filename The file to open
-	\return Returns A pointer to the created file on success,
-	or 0 on failure. */
-	virtual core::smart_refctd_ptr<IFile> readFile(const std::filesystem::path& filename, const SOpenFileParams& params) = 0;
-
-	//! Returns the complete file tree
-	/** \return Returns the complete directory tree for the archive,
-	including all files and folders */
-	virtual const IFileList* getFileList() const = 0;
+	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) = 0;
 };
 
 

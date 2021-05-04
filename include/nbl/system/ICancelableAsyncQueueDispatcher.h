@@ -52,8 +52,9 @@ namespace impl
             future_base_t() = default;
             ~future_base_t()
             {
-                if (request)
-                    request.load()->set_cancel();
+                request_base_t* req = request.exchange(nullptr);
+                if (req)
+                    req->set_cancel();
             }
 
             bool ready() const { return !request.load() || request.load()->ready; }
@@ -132,6 +133,8 @@ public:
             return (ptr[0]);
         }
     };
+
+    using base_t::base_t;
 
 protected:
     bool process_request_predicate(const RequestType& req)

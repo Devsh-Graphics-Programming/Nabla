@@ -43,7 +43,7 @@ private:
     };
     struct SRequestParams_CREATE_FILE : SRequestParamsBase<ERT_CREATE_FILE>
     {
-        std::filesystem::path filename;
+        char filename[512] {};
         IFile::E_CREATE_FLAGS flags;
     };
     struct SRequestParams_READ : SRequestParamsBase<ERT_READ>
@@ -76,7 +76,7 @@ private:
         friend base_t;
 
     public:
-        CAsyncQueue(ISystem* owner, core::smart_refctd_ptr<ISystemCaller>&& caller) : m_owner(owner), m_caller(std::move(caller)) {}
+        CAsyncQueue(ISystem* owner, core::smart_refctd_ptr<ISystemCaller>&& caller) : base_t(base_t::start_on_construction), m_owner(owner), m_caller(std::move(caller)) {}
 
         template <typename FutureType, typename RequestParams>
         void request_impl(SRequestType& req, FutureType& future, RequestParams&& params)
@@ -157,7 +157,7 @@ public:
     bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags)
     {
         SRequestParams_CREATE_FILE params;
-        params.filename = filename;
+        strcpy(params.filename, filename.string().c_str());
         params.flags = flags;
         
         m_dispatcher.request(future, params);

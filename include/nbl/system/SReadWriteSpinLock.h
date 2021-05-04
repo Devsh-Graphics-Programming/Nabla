@@ -23,51 +23,57 @@ namespace impl
 
 }
 
-template <std::memory_order>
+template <std::memory_order, std::memory_order>
 class read_lock_guard;
-template <std::memory_order>
+template <std::memory_order, std::memory_order>
 class write_lock_guard;
 
 class SReadWriteSpinLock : protected impl::SReadWriteSpinLockBase
 {
-    void lock_write_impl(const uint32_t _expected, std::memory_order order)
+    static inline constexpr uint32_t SpinsBeforeYield = 5000u;
+
+    void lock_write_impl(const uint32_t _expected, std::memory_order rmw_order)
     {
         uint32_t expected = _expected;
-        while (!m_lock.compare_exchange_strong(expected, LockWriteVal, order))
+        uint32_t i = 0u;
+        while (!m_lock.compare_exchange_strong(expected, LockWriteVal, rmw_order))
         {
             expected = _expected;
-            std::this_thread::yield();
-        }
-    }
-
-public:
-    template <std::memory_order>
-    friend class read_lock_guard;
-    template <std::memory_order>
-    friend class write_lock_guard;
-
-    void lock_read(std::memory_order order = std::memory_order_seq_cst)
-    {
-        if (m_lock.fetch_add(1u, order) > (LockWriteVal-1u))
-        {
-            while (m_lock.load(order) >= LockWriteVal)
+            if (i++ >= SpinsBeforeYield)
                 std::this_thread::yield();
         }
     }
 
-    void unlock_read(std::memory_order order = std::memory_order_seq_cst)
+public:
+    template <std::memory_order, std::memory_order>
+    friend class read_lock_guard;
+    template <std::memory_order, std::memory_order>
+    friend class write_lock_guard;
+
+    void lock_read(std::memory_order rmw_order = std::memory_order_seq_cst, std::memory_order ld_order = std::memory_order_seq_cst)
     {
-        m_lock.fetch_sub(1u, order);
+        if (m_lock.fetch_add(1u, rmw_order) > (LockWriteVal-1u))
+        {
+            uint32_t i = 0u;
+            while (m_lock.load(ld_order) >= LockWriteVal)
+                if (i++ >= SpinsBeforeYield)
+                    std::this_thread::yield();
+        }
     }
 
-    void lock_write(std::memory_order order = std::memory_order_seq_cst)
+    void unlock_read(std::memory_order rmw_order = std::memory_order_seq_cst)
     {
-        lock_write_impl(0u, order);
+        m_lock.fetch_sub(1u, rmw_order);
     }
 
-    void unlock_write(std::memory_order order = std::memory_order_seq_cst)
+    void lock_write(std::memory_order rmw_order = std::memory_order_seq_cst)
     {
-        m_lock.fetch_sub(LockWriteVal, order);
+        lock_write_impl(0u, rmw_order);
+    }
+
+    void unlock_write(std::memory_order rmw_order = std::memory_order_seq_cst)
+    {
+        m_lock.fetch_sub(LockWriteVal, rmw_order);
     }
 };
 
@@ -98,56 +104,52 @@ namespace impl
     };
 }
 
-template <std::memory_order Order = std::memory_order_seq_cst>
+template <std::memory_order LoadOrder = std::memory_order_seq_cst, std::memory_order ReadModWriteOrder = std::memory_order_seq_cst>
 class read_lock_guard : public impl::rw_lock_guard_base
 {
-    read_lock_guard() : m_lock(nullptr) {}
-
 public:
     read_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}
     explicit read_lock_guard(SReadWriteSpinLock& lk) : read_lock_guard(lk, adopt_lock)
     {
-        m_lock->lock_read(Order);
+        m_lock->lock_read(ReadModWriteOrder, LoadOrder);
     }
-    explicit read_lock_guard(write_lock_guard<Order>&& wl);
+    explicit read_lock_guard(write_lock_guard<LoadOrder, ReadModWriteOrder>&& wl);
 
     ~read_lock_guard()
     {
         if (m_lock)
-            m_lock->unlock_read(Order);
+            m_lock->unlock_read(ReadModWriteOrder);
     }
 };
 
-template <std::memory_order Order = std::memory_order_seq_cst>
+template <std::memory_order LoadOrder = std::memory_order_seq_cst, std::memory_order ReadModWriteOrder = std::memory_order_seq_cst>
 class write_lock_guard : public impl::rw_lock_guard_base
 {
-    write_lock_guard() : m_lock(nullptr) {}
-
 public:
     write_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}
     explicit write_lock_guard(SReadWriteSpinLock& lk) : write_lock_guard(lk, adopt_lock)
     {
-        m_lock->lock_write(Order);
+        m_lock->lock_write(ReadModWriteOrder);
     }
-    explicit write_lock_guard(read_lock_guard<Order>&& rl);
+    explicit write_lock_guard(read_lock_guard<LoadOrder, ReadModWriteOrder>&& rl);
 
     ~write_lock_guard()
     {
         if (m_lock)
-            m_lock->unlock_write(Order);
+            m_lock->unlock_write(ReadModWriteOrder);
     }
 };
 
-template <std::memory_order Order>
-inline read_lock_guard<Order>::read_lock_guard(write_lock_guard<Order>&& wl) : impl::rw_lock_guard_base(std::move(wl))
+template <std::memory_order LoadOrder, std::memory_order ReadModWriteOrder>
+inline read_lock_guard<LoadOrder, ReadModWriteOrder>::read_lock_guard(write_lock_guard<LoadOrder, ReadModWriteOrder>&& wl) : impl::rw_lock_guard_base(std::move(wl))
 {
-    m_lock->m_lock.fetch_sub(LockWriteVal - 1u);
+    m_lock->m_lock.fetch_sub(LockWriteVal - 1u, ReadModWriteOrder);
 }
 
-template <std::memory_order Order>
-inline write_lock_guard<Order>::write_lock_guard(read_lock_guard<Order>&& rl) : impl::rw_lock_guard_base(std::move(rl))
+template <std::memory_order LoadOrder, std::memory_order ReadModWriteOrder>
+inline write_lock_guard<LoadOrder, ReadModWriteOrder>::write_lock_guard(read_lock_guard<LoadOrder, ReadModWriteOrder>&& rl) : impl::rw_lock_guard_base(std::move(rl))
 {
-    m_lock->lock_write_impl(1u, Order);
+    m_lock->lock_write_impl(1u, ReadModWriteOrder);
 }
 
 }

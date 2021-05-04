@@ -33,7 +33,6 @@
 #include "IDummyTransformationSceneNode.h"
 #include "IEventReceiver.h"
 #include "IFileArchive.h"
-#include "IFileList.h"
 #include "IFileSystem.h"
 #include "IFrameBuffer.h"
 #include "IGPUBuffer.h"
@@ -107,7 +106,6 @@
 #include "CTarReader.h"
 #include "CWriteFile.h"
 #include "CZipReader.h"
-#include "FW_Mutex.h" // refactor
 #include "os.h"
 */
 
