@@ -28,14 +28,14 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 {
     public:
 		template<uint32_t SC_IMAGE_COUNT, uint32_t W, uint32_t H>	
-		static core::smart_refctd_ptr<CDraw3DLine> create(video::ILogicalDevice* device,
+		static core::smart_refctd_ptr<CDraw3DLine> create(const core::smart_refctd_ptr<video::ILogicalDevice>& device,
+			const core::smart_refctd_ptr<video::ISwapchain>& swapchain,
+			const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
 			video::IGPUQueue* queue,
-			video::ISwapchain* swapchain,
-			video::IGPURenderpass* renderpass,
 			video::IGPUCommandPool* commandPool,
 			core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos)
 		{
-			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device, queue, swapchain, renderpass, commandPool, fbos, W, H, SC_IMAGE_COUNT), core::dont_grab);
+			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device, swapchain, renderpass, queue, commandPool, fbos, W, H, SC_IMAGE_COUNT), core::dont_grab);
 		}
 
         void draw(video::IGPUSemaphore* imgAcqSem, video::IGPUSemaphore* renderFinishedSem, uint32_t imgNum);
@@ -98,10 +98,10 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
     private:
-		CDraw3DLine(video::ILogicalDevice* _device,
+		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device,
+			const core::smart_refctd_ptr<video::ISwapchain>& swapchain,
+			const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
 			video::IGPUQueue* queue,
-			video::ISwapchain* swapchain,
-			video::IGPURenderpass* renderpass,
 			video::IGPUCommandPool* commandPool,
 			core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos,
 			uint32_t W,
@@ -109,17 +109,15 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			uint32_t SC_IMAGE_COUNT);
 		virtual ~CDraw3DLine() {}
 		void recordToCommandBuffer();
-		//TODO: smart_ptr
-        video::ILogicalDevice* m_device;
+		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
+		core::smart_refctd_ptr<video::ISwapchain> m_swapchain;
+		core::smart_refctd_ptr<video::IGPURenderpass> m_renderpass;
 		video::IGPUQueue* m_queue;
-		video::ISwapchain* m_swapchain;
-		video::IGPURenderpass* m_renderpass;
-		video::IGPUCommandPool* m_commandPool;
         nbl::core::smart_refctd_ptr<video::IGPUMeshBuffer> m_meshBuffer;
 		uint32_t m_scImageCount;
 		core::vector2di m_imgSize;
 		core::vector<core::smart_refctd_ptr<video::IGPUCommandBuffer>> m_commandBuffers;
-		core::smart_refctd_ptr<video::IGPUFramebuffer>* m_framebuffers;
+		std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>> m_framebuffers;
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
 
 		core::matrix4SIMD m_viewProj;

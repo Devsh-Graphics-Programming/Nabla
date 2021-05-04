@@ -13,21 +13,26 @@ using namespace ext;
 using namespace DebugDraw;
 
 
-CDraw3DLine::CDraw3DLine(video::ILogicalDevice* device,
+CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device,
+	const core::smart_refctd_ptr<video::ISwapchain>& swapchain,
+	const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
 	video::IGPUQueue* queue,
-	video::ISwapchain* swapchain,
-	video::IGPURenderpass* renderpass,
 	video::IGPUCommandPool* cmdPool,
 	core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos,
 	uint32_t W,
 	uint32_t H,
 	uint32_t SC_IMAGE_COUNT) :
-	m_device(device), m_queue(queue),
-	m_swapchain(swapchain), m_renderpass(renderpass),
-	m_scImageCount(SC_IMAGE_COUNT), m_framebuffers(fbos),
-	m_imgSize(W, H), m_commandBuffers(SC_IMAGE_COUNT)
+	m_device(core::smart_refctd_ptr<video::ILogicalDevice>(device)),
+	m_swapchain(core::smart_refctd_ptr<video::ISwapchain>(swapchain)),
+	m_renderpass(core::smart_refctd_ptr<video::IGPURenderpass>(renderpass)),
+	m_queue(queue),
+	m_framebuffers(SC_IMAGE_COUNT),
+	m_scImageCount(SC_IMAGE_COUNT), 
+	m_imgSize(W, H),
+	m_commandBuffers(SC_IMAGE_COUNT)
 {
 	m_device->createCommandBuffers(cmdPool, video::IGPUCommandBuffer::EL_PRIMARY, SC_IMAGE_COUNT, m_commandBuffers.data());
+	for (int i = 0; i < SC_IMAGE_COUNT; i++) m_framebuffers[i] = core::smart_refctd_ptr<IGPUFramebuffer>(fbos[i]);
 
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> layout;
 	{
@@ -107,8 +112,7 @@ void CDraw3DLine::recordToCommandBuffer()
 
 		auto* buf = m_meshBuffer->getVertexBufferBindings()->buffer.get();
 		size_t offset = 0u;
-		//TODO: change the interfaces to take const pointer
-		cb->bindVertexBuffers(0u, 1u, const_cast<video::IGPUBuffer**>(&buf), &offset);
+		cb->bindVertexBuffers(0u, 1u, &buf, &offset);
 		cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_meshBuffer->getPipeline()->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
 		cb->bindGraphicsPipeline(m_pipeline.get());
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
@@ -147,7 +151,7 @@ void CDraw3DLine::draw(video::IGPUSemaphore* waitSem, video::IGPUSemaphore* sign
 	m_meshBuffer->setBaseVertex(offset[0] / sizeof(S3DLineVertex));
 	m_meshBuffer->setIndexCount(m_lines.size() * 2);
 
-	CommonAPI::Submit(m_device, m_swapchain, m_commandBuffers.data(), m_queue, waitSem, signalSem, m_scImageCount, imgNum);
+	CommonAPI::Submit(m_device.get(), m_swapchain.get(), m_commandBuffers.data(), m_queue, waitSem, signalSem, m_scImageCount, imgNum);
 
 	upStreamBuff->multi_free(1u, (uint32_t*)&offset, (uint32_t*)&sizes, m_device->createFence(video::IGPUFence::ECF_SIGNALED_BIT));
 }
