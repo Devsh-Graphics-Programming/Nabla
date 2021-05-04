@@ -17,16 +17,17 @@ CDraw3DLine::CDraw3DLine(video::ILogicalDevice* device,
 	video::IGPUQueue* queue,
 	video::ISwapchain* swapchain,
 	video::IGPURenderpass* renderpass,
-	core::smart_refctd_ptr<video::IGPUCommandBuffer>* commandBuffers,
+	video::IGPUCommandPool* cmdPool,
 	core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos,
 	uint32_t W,
 	uint32_t H,
 	uint32_t SC_IMAGE_COUNT) :
 	m_device(device), m_queue(queue),
-	m_swapchain(swapchain), m_renderpass(renderpass), m_scImageCount(SC_IMAGE_COUNT), m_framebuffers(fbos), m_imgSize(W, H)
+	m_swapchain(swapchain), m_renderpass(renderpass),
+	m_scImageCount(SC_IMAGE_COUNT), m_framebuffers(fbos),
+	m_imgSize(W, H), m_commandBuffers(SC_IMAGE_COUNT)
 {
-	m_commandBuffers = commandBuffers;
-
+	m_device->createCommandBuffers(cmdPool, video::IGPUCommandBuffer::EL_PRIMARY, SC_IMAGE_COUNT, m_commandBuffers.data());
 
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> layout;
 	{
@@ -127,10 +128,8 @@ void CDraw3DLine::recordToCommandBuffer()
 	}
 }
 
-void CDraw3DLine::draw()
+void CDraw3DLine::draw(video::IGPUSemaphore* waitSem, video::IGPUSemaphore* signalSem, uint32_t imgNum)
 {
-	static size_t frame;
-
 	auto upStreamBuff = m_device->getDefaultUpStreamingBuffer();
 	const void* lineData[1] = { m_lines.data() };
 
@@ -148,12 +147,7 @@ void CDraw3DLine::draw()
 	m_meshBuffer->setBaseVertex(offset[0] / sizeof(S3DLineVertex));
 	m_meshBuffer->setIndexCount(m_lines.size() * 2);
 
-	recordToCommandBuffer();
-
-	//TODO: real image count
-	CommonAPI::Present<3>(m_device, m_swapchain, m_commandBuffers, m_queue);
-
+	CommonAPI::Submit(m_device, m_swapchain, m_commandBuffers.data(), m_queue, waitSem, signalSem, m_scImageCount, imgNum);
 
 	upStreamBuff->multi_free(1u, (uint32_t*)&offset, (uint32_t*)&sizes, m_device->createFence(video::IGPUFence::ECF_SIGNALED_BIT));
-	frame++;
 }

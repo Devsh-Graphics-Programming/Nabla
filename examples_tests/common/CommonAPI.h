@@ -176,28 +176,25 @@ public:
 		return fbo;
 	}
 
-	template<size_t imageCount>
-	static void Present(nbl::video::ILogicalDevice* device,
+	static void Submit(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer>* cmdbuf,
-		nbl::video::IGPUQueue* queue)
+		nbl::video::IGPUQueue* queue,
+		nbl::video::IGPUSemaphore* imgAcqSemaphore,
+		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
+		size_t imageCount,
+		uint32_t imgNum)
 	{
-		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
-		auto img_acq_sem = device->createSemaphore();
-		auto render_finished_sem = device->createSemaphore();
-
-		uint32_t imgnum = 0u;
-		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-
+		using namespace nbl;
 		video::IGPUQueue::SSubmitInfo submit;
 		{
-			auto* cb = cmdbuf[imgnum].get();
+			auto* cb = cmdbuf[imgNum].get();
 			submit.commandBufferCount = 1u;
 			submit.commandBuffers = &cb;
-			video::IGPUSemaphore* signalsem = render_finished_sem.get();
+			video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
 			submit.signalSemaphoreCount = 1u;
 			submit.pSignalSemaphores = &signalsem;
-			video::IGPUSemaphore* waitsem = img_acq_sem.get();
+			video::IGPUSemaphore* waitsem = imgAcqSemaphore;
 			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
 			submit.waitSemaphoreCount = 1u;
 			submit.pWaitSemaphores = &waitsem;
@@ -205,14 +202,22 @@ public:
 
 			queue->submit(1u, &submit, nullptr);
 		}
+	}
 
+	static void Present(nbl::video::ILogicalDevice* device,
+		nbl::video::ISwapchain* sc,
+		nbl::video::IGPUQueue* queue,
+		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
+		uint32_t imageNum)
+	{
+		using namespace nbl;
 		video::IGPUQueue::SPresentInfo present;
 		{
 			present.swapchainCount = 1u;
-			present.imgIndices = &imgnum;
+			present.imgIndices = &imageNum;
 			video::ISwapchain* swapchain = sc;
 			present.swapchains = &swapchain;
-			video::IGPUSemaphore* waitsem = render_finished_sem.get();
+			video::IGPUSemaphore* waitsem = renderFinishedSemaphore;
 			present.waitSemaphoreCount = 1u;
 			present.waitSemaphores = &waitsem;
 

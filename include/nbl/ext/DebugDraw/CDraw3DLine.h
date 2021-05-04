@@ -32,13 +32,13 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			video::IGPUQueue* queue,
 			video::ISwapchain* swapchain,
 			video::IGPURenderpass* renderpass,
-			core::smart_refctd_ptr<video::IGPUCommandBuffer>* commandBuffers, //TODO: create own command buffer, not take the existing one
+			video::IGPUCommandPool* commandPool,
 			core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos)
 		{
-			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device, queue, swapchain, renderpass, commandBuffers, fbos, W, H, SC_IMAGE_COUNT), core::dont_grab);
+			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device, queue, swapchain, renderpass, commandPool, fbos, W, H, SC_IMAGE_COUNT), core::dont_grab);
 		}
 
-        void draw();
+        void draw(video::IGPUSemaphore* imgAcqSem, video::IGPUSemaphore* renderFinishedSem, uint32_t imgNum);
 
 		void setData(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
 		{
@@ -54,6 +54,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		)
 		{
 			m_lines = core::vector<std::pair<S3DLineVertex, S3DLineVertex>>{ std::pair(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }}) };
+			recordToCommandBuffer();
 		}
 
 		void setLinesData(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
@@ -101,7 +102,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			video::IGPUQueue* queue,
 			video::ISwapchain* swapchain,
 			video::IGPURenderpass* renderpass,
-			core::smart_refctd_ptr<video::IGPUCommandBuffer>* commandBuffers,
+			video::IGPUCommandPool* commandPool,
 			core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos,
 			uint32_t W,
 			uint32_t H,
@@ -117,7 +118,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         nbl::core::smart_refctd_ptr<video::IGPUMeshBuffer> m_meshBuffer;
 		uint32_t m_scImageCount;
 		core::vector2di m_imgSize;
-		core::smart_refctd_ptr<video::IGPUCommandBuffer>* m_commandBuffers;
+		core::vector<core::smart_refctd_ptr<video::IGPUCommandBuffer>> m_commandBuffers;
 		core::smart_refctd_ptr<video::IGPUFramebuffer>* m_framebuffers;
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
 
