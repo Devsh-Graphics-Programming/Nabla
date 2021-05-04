@@ -1,0 +1,34 @@
+#version 450 
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 0, binding = 0) uniform sampler2D heightmap;
+layout (set = 0, binding = 1, rgba16) uniform writeonly image2D normalmap;
+
+layout(push_constant) uniform PUSH_CONSTANTS
+{
+	uvec2 IMAGE_SIZE;
+} u_pc;
+
+void main()
+{
+	if(all(lessThan(gl_GlobalInvocationID.xy, u_pc.IMAGE_SIZE)))
+	{
+        ivec2 x = ivec2(gl_GlobalInvocationID.xy);
+        vec2  tex_coord = gl_GlobalInvocationID.xy / float(u_pc.IMAGE_SIZE.x);
+
+        vec2 texel_size = 1.0 / u_pc.IMAGE_SIZE;
+
+        vec4 l_u = textureGather(heightmap, tex_coord + vec2(-texel_size.x, texel_size.y) / 2, 2);
+        vec4 l_d = textureGather(heightmap, tex_coord + vec2(-texel_size.x, -texel_size.y) / 2, 2);
+        vec4 r_u = textureGather(heightmap, tex_coord + vec2(texel_size.x, texel_size.y) / 2, 2);
+        vec4 r_d = textureGather(heightmap, tex_coord + vec2(texel_size.x, -texel_size.y) / 2, 2);
+        
+        vec3 normal;
+        normal.z = -(r_u[1] - l_u[0] + 2 * (r_u[2] -l_u[3]) + r_d[2] - l_d[3]);
+        normal.x = -(l_d[3] - l_u[0] + 2 * (l_d[2] -l_u[1]) + r_d[2] - r_u[1]);
+        normal.y = 1.0;
+
+	    imageStore(normalmap, ivec2(gl_GlobalInvocationID.xy), vec4(normalize(normal), 1));
+	}
+}
