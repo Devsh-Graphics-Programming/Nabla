@@ -8,6 +8,9 @@ namespace nbl {
 namespace ui
 {
 
+// TODO @sadiuk
+// we will need those to be moved to system or ui namespace
+// because X11 clipboard manager will need to use X11 calls
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoader
     ,XSetErrorHandler
     ,XOpenDisplay
@@ -74,7 +77,7 @@ int CWindowX11::printXErrorCallback(Display *Display, XErrorEvent *event)
     return 0;
 }
 
-CWindowX11::CWindowX11(Display* dpy, native_handle_t win) : m_dpy(dpy), m_native(win)
+CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* dpy, native_handle_t win) : IWindowX11(std::move(sys)), m_dpy(dpy), m_native(win)
 {
     Window tmp;
     int x, y;
@@ -88,7 +91,7 @@ CWindowX11::CWindowX11(Display* dpy, native_handle_t win) : m_dpy(dpy), m_native
     // TODO m_flags
 }
 
-CWindowX11::CWindowX11(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowX11(_w, _h, _flags), m_dpy(NULL), m_native(NULL)
+CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowX11(std::move(sys), _w, _h, _flags), m_dpy(NULL), m_native(NULL)
 {
     // XInitThreads() call not needed unless windows are created concurrently, spoof EGL synchronizes per-display access itself
     //"If all calls to Xlib functions are protected by some other access mechanism 

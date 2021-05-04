@@ -16,7 +16,7 @@ class CWindowWin32 final : public IWindowWin32
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 public:
-	explicit CWindowWin32(native_handle_t hwnd) : m_native(hwnd)
+	explicit CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, native_handle_t hwnd) : IWindowWin32(std::move(sys)), m_native(hwnd)
 	{
 		RECT rect;
 		GetWindowRect(hwnd, &rect);
@@ -29,17 +29,17 @@ public:
 
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowWin32> create(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+	static core::smart_refctd_ptr<CWindowWin32> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
 	{
 		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
 
-		CWindowWin32* win = new CWindowWin32(_w, _h, _flags);
+		CWindowWin32* win = new CWindowWin32(std::move(sys), _w, _h, _flags);
 		return core::smart_refctd_ptr<CWindowWin32>(win, core::dont_grab);
 	}
 
 private:
-    CWindowWin32(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowWin32(_w, _h, _flags), m_native(NULL)
+    CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowWin32(std::move(sys), _w, _h, _flags), m_native(NULL)
     {
 		// get process handle
 		HINSTANCE hinstance = GetModuleHandle(NULL);

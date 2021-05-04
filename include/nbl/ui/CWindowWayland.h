@@ -18,22 +18,22 @@ class CWindowWayland : public IWindowWayland
     static const struct wl_registry_listener s_listener;
 
 public:
-	explicit CWindowWayland(wl_display* dpy, native_handle_t win);
+	explicit CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, wl_display* dpy, native_handle_t win);
 
     struct wl_display* getDisplay() const override { return m_dpy; }
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowWayland> create(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+	static core::smart_refctd_ptr<CWindowWayland> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
 	{
 		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
 
-		CWindowWayland* win = new CWindowWayland(_w, _h, _flags);
+		CWindowWayland* win = new CWindowWayland(std::move(sys), _w, _h, _flags);
 		return core::smart_refctd_ptr<CWindowWayland>(win, core::dont_grab);
 	}
 
 private:
-    CWindowWayland(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
+    CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
 
     struct wl_display* m_dpy;
     native_handle_t m_native;

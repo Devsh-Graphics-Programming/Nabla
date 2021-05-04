@@ -2,6 +2,8 @@
 #define __NBL_I_WINDOW_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/system/ISystem.h"
+#include "nbl/ui/IClipboardManager.h"
 
 namespace nbl {
 namespace ui
@@ -43,16 +45,18 @@ public:
     inline uint32_t getWidth() const { return m_width; }
     inline uint32_t getHeight() const { return m_height; }
 
+    virtual IClipboardManager* getClipboardManager() = 0;
+
 protected:
-    IWindow(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) :
-        m_width(_w), m_height(_h), m_flags(_flags)
+    IWindow(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w = 0u, uint32_t _h = 0u, E_CREATE_FLAGS _flags = static_cast<E_CREATE_FLAGS>(0)) :
+        m_sys(std::move(sys)), m_width(_w), m_height(_h), m_flags(_flags)
     {
 
     }
-    IWindow() = default;
 
     virtual ~IWindow() = default;
 
+    core::smart_refctd_ptr<system::ISystem> m_sys;
     uint32_t m_width = 0u, m_height = 0u;
     E_CREATE_FLAGS m_flags = static_cast<E_CREATE_FLAGS>(0);
 };

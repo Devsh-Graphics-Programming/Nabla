@@ -23,22 +23,22 @@ class CWindowX11 final : public IWindowX11
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
 
 public:
-	explicit CWindowX11(Display* dpy, native_handle_t win);
+	explicit CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* dpy, native_handle_t win);
 
     Display* getDisplay() const override { return m_dpy; }
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowX11> create(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+	static core::smart_refctd_ptr<CWindowX11> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
 	{
 		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
 
-		CWindowX11* win = new CWindowX11(_w, _h, _flags);
+		CWindowX11* win = new CWindowX11(std::move(sys), _w, _h, _flags);
 		return core::smart_refctd_ptr<CWindowX11>(win, core::dont_grab);
 	}
 
 private:
-    CWindowX11(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
+    CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
 
     Display* m_dpy;
     native_handle_t m_native;
