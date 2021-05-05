@@ -14,7 +14,7 @@ namespace nbl::video
         core::smart_refctd_ptr<IGPUQueue> originalQueue = nullptr;
         std::mutex m;
     public:
-        CThreadSafeGPUQueueAdapter(nbl::core::smart_refctd_ptr<IGPUQueue>&& original) : IGPUQueue(nullptr, original->getFamilyIndex(), original->getFlags(), original->getPriority()),
+        CThreadSafeGPUQueueAdapter(nbl::core::smart_refctd_ptr<IGPUQueue>&& original, video::ILogicalDevice* device) : IGPUQueue(device, original->getFamilyIndex(), original->getFlags(), original->getPriority()),
             originalQueue(std::move(original)) {}        
 
         CThreadSafeGPUQueueAdapter() : IGPUQueue(nullptr, 0, E_CREATE_FLAGS::ECF_PROTECTED_BIT, 0.f) {};
