@@ -14,73 +14,6 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
-template <typename T>
-static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download, size_t buffer_size, IVideoDriver* driver)
-{
-    constexpr uint64_t timeout_ns = 15000000000u;
-    const uint32_t alignment = uint32_t(sizeof(T));
-    auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
-    auto downBuffer = downloadStagingArea->getBuffer();
-
-    bool success = false;
-
-    uint32_t array_size_32 = uint32_t(buffer_size);
-    uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
-    auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &array_size_32, &alignment);
-    if (unallocatedSize)
-    {
-        os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
-        exit(420);
-    }
-
-    driver->copyBuffer(buffer_to_download.get(), downBuffer, 0, address, array_size_32);
-
-    auto downloadFence = driver->placeFence(true);
-    auto result = downloadFence->waitCPU(timeout_ns, true);
-
-    T* dataFromBuffer = nullptr;
-    if (result != video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED && result != video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
-    {
-        if (downloadStagingArea->needsManualFlushOrInvalidate())
-            driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,array_size_32} });
-
-        dataFromBuffer = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
-    }
-    else
-    {
-        os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
-    }
-
-    downloadStagingArea->multi_free(1u, &address, &array_size_32, nullptr);
-
-    return dataFromBuffer;
-}
-
-template <typename T>
-static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu_buffer, size_t buffer_size, IVideoDriver* driver)
-{
-    T* downloaded_buffer = DebugGPUBufferDownload<T>(gpu_buffer, buffer_size, driver);
-
-    size_t buffer_count = buffer_size / sizeof(T);
-
-    if (downloaded_buffer)
-    {
-        for (int i = 0; i < buffer_count; ++i)
-        {
-            const glm::vec4 error(1e-4f);
-            glm::bvec4 result = glm::greaterThanEqual(glm::abs(downloaded_buffer[i] - cpu_buffer[i]), error);
-            if (result.x || result.y || result.z)
-                __debugbreak();
-
-            // const float error = 1e-4f;
-            // if (abs(downloaded_buffer[i] - cpu_buffer[i]) >= error)
-            //     __debugbreak();
-        }
-
-        std::cout << "PASS" << std::endl;
-    }
-}
-
 smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_file_path, IVideoDriver* driver, io::IFileSystem* filesystem, asset::IAssetManager* am)
 {
     auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile(shader_file_path));
@@ -117,127 +50,6 @@ int main()
     nbl::io::IFileSystem* filesystem = device->getFileSystem();
     asset::IAssetManager* am = device->getAssetManager();
 
-    const uint32_t in_count = 4096;
-    const size_t in_size = in_count * sizeof(glm::vec4);
-    // const size_t in_size = in_count * sizeof(float);
-
-    std::vector<glm::vec4> in(in_count);
-    // std::vector<float> in(in_count);
-    for (uint32_t i = 0; i < in_count; ++i)
-        // in[i] = float(i) / float(in_count);
-        // in[i] = { float(i) / float(in_count), 2.f * float(i) / float(in_count), 3.f * float(i) / float(in_count) };
-        in[i] = { float(i) / float(in_count), 0.f, 0.f, 0.f };
-
-    auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in.data());
-    auto out_gpu = driver->createDeviceLocalGPUBufferOnDedMem(in_size);
-
-    smart_refctd_ptr<IGPUDescriptorSet> ds = nullptr;
-    smart_refctd_ptr<IGPUComputePipeline> pipeline = nullptr;
-    {
-        const uint32_t count = 2u;
-        video::IGPUDescriptorSetLayout::SBinding binding[count];
-        for (uint32_t i = 0; i < count; ++i)
-            binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-
-        auto ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
-        auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(ds_layout));
-
-        ds = driver->createGPUDescriptorSet(ds_layout);
-        pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipeline_layout),
-            createShader("../BlurPass.comp", driver, filesystem, am));
-    }
-
-    driver->beginScene();
-    {
-        {
-            const uint32_t count = 2u;
-            video::IGPUDescriptorSet::SDescriptorInfo ds_info[count];
-
-            ds_info[0].desc = in_gpu;
-            ds_info[0].buffer = { 0, in_gpu->getSize() };
-
-            ds_info[1].desc = out_gpu;
-            ds_info[1].buffer = { 0, out_gpu->getSize() };
-
-            video::IGPUDescriptorSet::SWriteDescriptorSet writes[count];
-
-            for (uint32_t i = 0; i < count; ++i)
-                writes[i] = { ds.get(), i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
-
-            driver->updateDescriptorSets(count, writes, 0u, nullptr);
-        }
-
-        driver->bindComputePipeline(pipeline.get());
-        driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get(), nullptr);
-        driver->dispatch(1u, 1u, 1u);
-
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    }
-    driver->endScene();
-
-    glm::vec4* out = DebugGPUBufferDownload<glm::vec4>(out_gpu, out_gpu->getSize(), driver);
-    // float* out = DebugGPUBufferDownload<float>(out_gpu, out_gpu->getSize(), driver);
-
-    std::vector<glm::vec4> blurred(in_count);
-    memcpy(blurred.data(), in.data(), in_count * sizeof(glm::vec4));
-    // std::vector<float> blurred(in_count);
-    // memcpy(blurred.data(), in.data(), in_count * sizeof(float));
-
-    const uint32_t channel_count = 3u;
-    const uint32_t pass_count = 3u;
-    for (uint32_t ch = 0; ch < channel_count; ++ch)
-    {
-        for (uint32_t pass = 0; pass < pass_count; ++pass)
-        {
-            float prefix_sum[in_count];
-            float scan = 0.f;
-            for (uint32_t i = 0; i < in_count; ++i)
-            {
-                scan += blurred[i][ch];
-                // scan += blurred[i];
-                prefix_sum[i] = scan;
-            }
-
-            const float RADIUS = 1.73f;
-            const uint32_t last = in_count - 1u;
-
-            for (uint32_t idx = 0; idx < in_count; ++idx)
-            {
-                float left = float(idx) - RADIUS - 1.f;
-                float right = float(idx) + RADIUS;
-
-                float result;
-                if (right > last)
-                {
-                    result = (right - float(last)) * (prefix_sum[last] - prefix_sum[last - 1u]) + prefix_sum[last];
-                }
-                else
-                {
-                    uint32_t floored = uint32_t(floor(right));
-                    result = prefix_sum[floored] * (1.f - fract(right)) + prefix_sum[floored + 1u] * fract(right);
-                }
-
-                if (left < 0)
-                {
-                    result -= (1.f - abs(left)) * prefix_sum[0u];
-                }
-                else
-                {
-                    uint32_t floored = uint32_t(floor(left));
-                    result -= prefix_sum[floored] * (1.f - fract(left)) + prefix_sum[floored + 1u] * fract(left);
-                }
-
-                blurred[idx][ch] = result / (2.f * RADIUS + 1.f);
-                // blurred[idx] = result / (2.f * RADIUS + 1.f);
-            }
-        }
-    }
-    
-    DebugCompareGPUvsCPU<glm::vec4>(out_gpu, blurred.data(), out_gpu->getSize(), driver);
-    // DebugCompareGPUvsCPU<float>(out_gpu, blurred.data(), out_gpu->getSize(), driver);
-
-
-#if 0
     IAssetLoader::SAssetLoadParams lp;
     auto in_image_bundle = am->getAsset("../tex.jpg", lp);
 
@@ -260,8 +72,8 @@ int main()
         in_image_view = driver->createGPUImageView(std::move(in_image_view_info));
     }
 
-    const vector2d<uint32_t> blur_ds_factor = { 7u, 3u };
-    const float blur_radius = 0.01f;
+    const vector2d<uint32_t> blur_ds_factor = { 1u, 1u };// { 7u, 3u };
+    // const float blur_radius = 0.01f;
     const uint32_t passes_per_axis = 3u;
 
     auto in_dim = in_image_view->getCreationParameters().image->getCreationParameters().extent;
@@ -329,7 +141,7 @@ int main()
         ds = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
 
         auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, std::move(ds_layout));
-        pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), createShader("../BlurPass.comp", driver, filesystem, am));
+        pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), createShader("../BlurPassHorizontal.comp", driver, filesystem, am));
     }
 
     auto blit_fbo = driver->addFrameBuffer();
@@ -390,16 +202,15 @@ int main()
 
         driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get(), nullptr);
         driver->bindComputePipeline(pipeline.get());
-        driver->dispatch(1, out_dim.Y, 1);
+        driver->dispatch(out_dim.Y, 1, 1);
 
-        // Todo: You might also want to use texture fetch barrier bit
+        // Todo(achal): You might also want to use texture fetch barrier bit
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 
         driver->blitRenderTargets(blit_fbo, nullptr, false, false);
 
         driver->endScene();
     }
-#endif
 
     return 0;
 }

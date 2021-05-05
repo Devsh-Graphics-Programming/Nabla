@@ -1,33 +1,23 @@
 #version 430 core
 
+// For a 1024x1024 image
+// WG_SIZE = 256x1x1
+// VT = 4
+// Number of workgroups = 1024
+
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 
 // Todo: DRY!!
-#define COUNT 4096
-#define RADIUS 1.73f
+#define COUNT 1024
+#define RADIUS 15.73f
 
 // This would probably be a push constant
-#define VT 16
+#define VT 4
 
-layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_, local_size_y = 1) in;
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_)in;
 
-#if 0
 layout (set = 0, binding = 0) uniform sampler2D in_image;
-
 layout (set = 0, binding = 1, rgba16f) writeonly uniform image2D out_image;
-#endif
-
-layout (set = 0, binding = 0) readonly buffer in_buffer
-{
-	// float in_values[];
-	vec4 in_values[];
-};
-
-layout (set = 0, binding = 1) writeonly buffer out_buffer
-{
-	// float out_values[];
-	vec4 out_values[];
-};
 
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
 
@@ -65,43 +55,32 @@ layout (set = 0, binding = 1) writeonly buffer out_buffer
 #define scratch_shared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
 // Note: This function depends on `scratch_shared` to be properly initialized with inclusive prefix sums
-// You can't have it depend on `scratch_shared`
+// Todo(achal): You can't have it depend on `scratch_shared` --das not gud
 float getInterpolatedPrefixSums(float idx)
 {
 	uint floored = uint(floor(idx));
 	return mix(uintBitsToFloat(scratch_shared[floored]), uintBitsToFloat(scratch_shared[floored + 1u]), fract(idx));
 }
 
-#if 0
-float getPaddedData(in uint i)
-{
-	uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-
-	float data = 0.f;
-	if (idx < COUNT)
-		data = in_values[idx];
-
-	return data;
-}
-#else
 vec3 getPaddedData(in uint i)
 {
-	uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+	uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // this is the x coordinate
 
 	vec4 data = vec4(0.f);
-	if (idx < COUNT)
-		data = in_values[idx];
+	if (idx < COUNT && gl_WorkGroupID.x < COUNT)
+	{
+		vec2 tex_coords = vec2(float(idx)/float(COUNT), float(gl_WorkGroupID.x)/float(COUNT));
+		data = texture(in_image, tex_coords);
+	}
 
 	return data.rgb;
 }
-#endif
 
 void main()
 {
 	const uint channel_count = 3u;
 	const uint pass_count = 3u;
 
-#if 1
 	vec3 blurred[VT];
 	for (uint i = 0u; i < VT; ++i)
 		blurred[i] = getPaddedData(i);
@@ -158,68 +137,12 @@ void main()
 			}
 		}
 	}
-#else
-	float blurred[VT];
-	for (uint i = 0u; i < VT; ++i)
-		blurred[i] = getPaddedData(i);
-	
-	for (uint pass = 0; pass < pass_count; ++pass)
-	{
-		float previous_block_sum = 0.f;
-	
-		float spill[_NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_];
-		for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
-		{
-		    spill[i] = nbl_glsl_workgroupInclusiveAdd(blurred[i]) + previous_block_sum;
-		    previous_block_sum = nbl_glsl_workgroupBroadcast(spill[i], _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
-		}
-	
-		for (uint i = _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; i < VT; ++i)
-		{
-		    float scan_result = nbl_glsl_workgroupInclusiveAdd(blurred[i]) + previous_block_sum;
-		    previous_block_sum = nbl_glsl_workgroupBroadcast(scan_result,  _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
-	
-			uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-		    scratch_shared[idx] = floatBitsToUint(scan_result);
-		}
-	
-		for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
-		    scratch_shared[(i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex] = floatBitsToUint(spill[i]);
-		barrier();
-		
-		for (uint i = 0; i < VT; ++i)
-		{
-			uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-			if (idx < COUNT)
-			{
-				float left = float(idx) - RADIUS - 1.f;
-				float right = float(idx) + RADIUS;
-	
-				const uint last = COUNT - 1u;
-	
-				float result;
-				if (right > last)
-					result = (right - float(last)) * (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last - 1u])) + uintBitsToFloat(scratch_shared[last]);
-				else
-					result = getInterpolatedPrefixSums(right);
-	
-				if (left < 0)
-					result -= (1.f - abs(left)) * uintBitsToFloat(scratch_shared[0u]);
-				else
-					result -= getInterpolatedPrefixSums(left);
-	
-				blurred[i] = result/(2.f*RADIUS + 1.f);
-			}
-		}
-	}
-#endif
 
-	// Temporary
 	for (uint i = 0; i < VT; ++i)
 	{
 		uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-		if (idx < COUNT)
-			out_values[idx] = vec4(blurred[i], -77.f); // uintBitsToFloat(scratch_shared[idx]);
+		if (idx < COUNT && gl_WorkGroupID.x < COUNT)
+			imageStore(out_image, ivec2(idx, gl_WorkGroupID.x), vec4(blurred[i], 1.f));
 	}
 }
 
