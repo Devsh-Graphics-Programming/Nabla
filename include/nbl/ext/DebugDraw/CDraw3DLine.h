@@ -27,24 +27,23 @@ struct S3DLineVertex
 class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmovable
 {
     public:
-		template<uint32_t SC_IMAGE_COUNT, uint32_t W, uint32_t H>	
-		static core::smart_refctd_ptr<CDraw3DLine> create(const core::smart_refctd_ptr<video::ILogicalDevice>& device,
-			const core::smart_refctd_ptr<video::ISwapchain>& swapchain,
-			const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
-			video::IGPUQueue* queue,
-			video::IGPUCommandPool* commandPool,
-			core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos)
+		static core::smart_refctd_ptr<CDraw3DLine> create(const core::smart_refctd_ptr<video::ILogicalDevice>& device)
 		{
-			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device, swapchain, renderpass, queue, commandPool, fbos, W, H, SC_IMAGE_COUNT), core::dont_grab);
+			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device), core::dont_grab);
 		}
 
-        void draw(video::IGPUSemaphore* imgAcqSem, video::IGPUSemaphore* renderFinishedSem, uint32_t imgNum);
 
 		void setData(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
 		{
 			m_viewProj = viewProjMat;
 			m_lines = linesData;
-			recordToCommandBuffer();
+			updateMeshBuffer();
+
+		}
+
+		void clearData()
+		{
+			m_lines.clear();
 		}
 
 		void setLine(const core::matrix4SIMD& viewProjMat,
@@ -54,26 +53,55 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		)
 		{
 			m_lines = core::vector<std::pair<S3DLineVertex, S3DLineVertex>>{ std::pair(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }}) };
-			recordToCommandBuffer();
+			updateMeshBuffer();
+		}
+
+		void addLine(const core::matrix4SIMD& viewProjMat,
+			float fromX, float fromY, float fromZ,
+			float toX, float toY, float toZ,
+			float r, float g, float b, float a
+		)
+		{
+			m_lines.emplace_back(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }});
+			updateMeshBuffer();
 		}
 
 		void setLinesData(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
 		{
 			m_lines = linesData;
-			recordToCommandBuffer();
+			updateMeshBuffer();
+		}
+
+		void addLines(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
+		{
+			m_lines.insert(m_lines.end(), linesData.begin(), linesData.end());
+			updateMeshBuffer();
 		}
 
 		void setViewProjMatrix(const core::matrix4SIMD& viewProjMat)
 		{
 			m_viewProj = viewProjMat;
-			recordToCommandBuffer();
+			updateMeshBuffer();
 		}
 
-		inline void enqueueBox(core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData, const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
+		video::IGPURenderpassIndependentPipeline* getRenderpassIndependentPipeline()
+		{
+			return const_cast<video::IGPURenderpassIndependentPipeline*>(m_meshBuffer->getPipeline());
+		}
+		/*
+			The function which records the debug draw call into the command buffer @cmdBuffer.
+			The function assumes that the cmdBuffer is in the recording state, so you should call cmdBuffer->beginRenderPass() 
+			before calling CDraw3DLine::recordToCommandBuffer.
+			The @graphics_pipeline parameter is the graphics pipeline, built up on the renderpass independent pipeline? which you can 
+			retrieve with CDraw3DLine::getRenderpassIndependentPipeline()
+		*/
+		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline);
+
+		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
 		{
 			auto addLine = [&](auto s, auto e) -> void
 			{
-				linesData.emplace_back(S3DLineVertex{{s.X,s.Y,s.Z},{r,g,b,a}},S3DLineVertex{{e.X,e.Y,e.Z},{r,g,b,a}});
+				m_lines.emplace_back(S3DLineVertex{{s.X,s.Y,s.Z},{r,g,b,a}},S3DLineVertex{{e.X,e.Y,e.Z},{r,g,b,a}});
 			};
 
 			core::vectorSIMDf verts[8];
@@ -98,27 +126,12 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
     private:
-		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device,
-			const core::smart_refctd_ptr<video::ISwapchain>& swapchain,
-			const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
-			video::IGPUQueue* queue,
-			video::IGPUCommandPool* commandPool,
-			core::smart_refctd_ptr<video::IGPUFramebuffer>* fbos,
-			uint32_t W,
-			uint32_t H,
-			uint32_t SC_IMAGE_COUNT);
+		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device);
 		virtual ~CDraw3DLine() {}
-		void recordToCommandBuffer();
+        void updateMeshBuffer();
+	private:
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-		core::smart_refctd_ptr<video::ISwapchain> m_swapchain;
-		core::smart_refctd_ptr<video::IGPURenderpass> m_renderpass;
-		video::IGPUQueue* m_queue;
         nbl::core::smart_refctd_ptr<video::IGPUMeshBuffer> m_meshBuffer;
-		uint32_t m_scImageCount;
-		core::vector2di m_imgSize;
-		core::vector<core::smart_refctd_ptr<video::IGPUCommandBuffer>> m_commandBuffers;
-		std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>> m_framebuffers;
-		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
 
 		core::matrix4SIMD m_viewProj;
 		core::vector<std::pair<S3DLineVertex, S3DLineVertex>> m_lines;
