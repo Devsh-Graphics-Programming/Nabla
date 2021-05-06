@@ -142,12 +142,12 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
                     deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
                 }
 
-                auto vtxFormatInfo = m_virtualAttribConfig.map.find(attribFormat);
-
-                if (vtxFormatInfo == m_virtualAttribConfig.map.end())
+                auto& utb = m_virtualAttribConfig.utbs[VirtualAttribConfig::getUTBArrayTypeFromFormat(attribFormat)];
+                auto vtxFormatInfo = utb.find(attribFormat);
+                if (vtxFormatInfo==utb.end())
                     return 0u;
 
-                uint16_t vaArrayElement = vtxFormatInfo->second.second;
+                uint16_t vaArrayElement = vtxFormatInfo->second;
                 uint32_t vaOffset;
 
                 if (inputRate == EVIR_PER_VERTEX)
@@ -155,7 +155,7 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
                 if (inputRate == EVIR_PER_INSTANCE)
                     vaOffset = ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt;
 
-                cdotOut->attribInfo[location] = VirtualAttribute(vaArrayElement, vaOffset);
+                cdotOut->attribInfo[location] = VirtualAttribute(vaArrayElement,vaOffset);
 
             }
 

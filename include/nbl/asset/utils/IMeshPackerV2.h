@@ -14,223 +14,191 @@ namespace asset
 
 class IMeshPackerV2Base
 {
-protected:
-    enum class E_UTB_ARRAY_TYPE
-    {
-        EUAT_FLOAT,
-        EUAT_INT,
-        EUAT_UINT,
-        EUAT_UNKNOWN
-    };
-
-    struct VirtualAttribConfig
-    {
-        core::unordered_map<E_FORMAT,E_UTB_ARRAY_TYPE> map;
-        uint16_t floatArrayElementsCnt = 0u;
-        uint16_t intArrayElementsCnt = 0u;
-        uint16_t uintArrayElementsCnt = 0u;
-        bool isUintBufferUsed = false;
-        bool isUvec2BufferUsed = false;
-        bool isUvec3BufferUsed = false;
-        bool isUvec4BufferUsed = false;
-
-        VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
+    public:
+        enum E_UTB_ARRAY_TYPE : uint8_t
         {
-            map = other.map;
-            floatArrayElementsCnt = other.floatArrayElementsCnt;
-            intArrayElementsCnt = other.intArrayElementsCnt;
-            uintArrayElementsCnt = other.uintArrayElementsCnt;
-
-            isUintBufferUsed = other.isUintBufferUsed;
-            isUvec2BufferUsed = other.isUvec2BufferUsed;
-            isUvec3BufferUsed = other.isUvec3BufferUsed;
-            isUvec4BufferUsed = other.isUvec4BufferUsed;
-
-            return *this;
-        }
-
-        VirtualAttribConfig& operator=(VirtualAttribConfig&& other)
+            EUAT_FLOAT,
+            EUAT_INT,
+            EUAT_UINT,
+            EUAT_UNKNOWN
+        };
+        struct VirtualAttribConfig
         {
-            map = std::move(other.map);
-            floatArrayElementsCnt = other.floatArrayElementsCnt;
-            intArrayElementsCnt = other.intArrayElementsCnt;
-            uintArrayElementsCnt = other.uintArrayElementsCnt;
+            core::unordered_map<E_FORMAT,uint8_t> utbs[EUAT_UNKNOWN];
+            bool isUintBufferUsed = false;
+            bool isUvec2BufferUsed = false;
+            bool isUvec3BufferUsed = false;
+            bool isUvec4BufferUsed = false;
 
-            isUintBufferUsed = other.isUintBufferUsed;
-            isUvec2BufferUsed = other.isUvec2BufferUsed;
-            isUvec3BufferUsed = other.isUvec3BufferUsed;
-            isUvec4BufferUsed = other.isUvec4BufferUsed;
+            VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
+            {
+                std::copy_n(other.utbs,EUAT_UNKNOWN,utbs);
 
-            other.floatArrayElementsCnt = 0u;
-            other.intArrayElementsCnt = 0u;
-            other.uintArrayElementsCnt = 0u;
+                isUintBufferUsed = other.isUintBufferUsed;
+                isUvec2BufferUsed = other.isUvec2BufferUsed;
+                isUvec3BufferUsed = other.isUvec3BufferUsed;
+                isUvec4BufferUsed = other.isUvec4BufferUsed;
 
-            other.isUintBufferUsed = false;
-            other.isUvec2BufferUsed = false;
-            other.isUvec3BufferUsed = false;
-            other.isUvec4BufferUsed = false;
+                return *this;
+            }
 
-            return *this;
-        }
+            VirtualAttribConfig& operator=(VirtualAttribConfig&& other)
+            {
+                for (auto i=0u; i<EUAT_UNKNOWN; i++)
+                    utbs[i] = std::move(other.utbs[i]);
 
-        inline bool insertAttribFormat(E_FORMAT format)
-        {
-            auto lookupResult = map.find(format);
-            if (lookupResult != map.end())
+                isUintBufferUsed = other.isUintBufferUsed;
+                isUvec2BufferUsed = other.isUvec2BufferUsed;
+                isUvec3BufferUsed = other.isUvec3BufferUsed;
+                isUvec4BufferUsed = other.isUvec4BufferUsed;
+
+                other.isUintBufferUsed = false;
+                other.isUvec2BufferUsed = false;
+                other.isUvec3BufferUsed = false;
+                other.isUvec4BufferUsed = false;
+
+                return *this;
+            }
+
+            inline bool insertAttribFormat(E_FORMAT format)
+            {
+                auto& utb = utbs[getUTBArrayTypeFromFormat(format)];
+                auto lookupResult = utb.find(format);
+                if (lookupResult!=utb.end())
+                    return true;
+
+                utb.insert(std::make_pair(format,utb.size()));
+
+                const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
+                constexpr uint32_t uvec4Size = 4u * 4u;
+                constexpr uint32_t uvec3Size = 4u * 3u;
+                constexpr uint32_t uvec2Size = 4u * 2u;
+                constexpr uint32_t uintSize  = 4u;
+                switch (attribSize)
+                {
+                    case uvec4Size:
+                        isUvec4BufferUsed = true;
+                        break;
+                    case uvec3Size:
+                        isUvec3BufferUsed = true;
+                        break;
+                    case uvec2Size:
+                        isUvec2BufferUsed = true;
+                        break;
+                    case uintSize:
+                        isUintBufferUsed = true;
+                        break;
+                    default:
+                        assert(false);
+                        return true; //tmp
+                }
+
                 return true;
-
-            E_UTB_ARRAY_TYPE utbArrayType = getUTBArrayTypeFromFormat(format);
-
-            switch (utbArrayType)
-            {
-                case E_UTB_ARRAY_TYPE::EUAT_FLOAT:
-                    floatArrayElementsCnt++;
-                    break;
-
-                case E_UTB_ARRAY_TYPE::EUAT_INT:
-                    intArrayElementsCnt++;
-                    break;
-
-                case E_UTB_ARRAY_TYPE::EUAT_UINT:
-                    uintArrayElementsCnt++;
-                    break;
-
-                case E_UTB_ARRAY_TYPE::EUAT_UNKNOWN:
-                    assert(false);
-                    return false;
             }
 
-            map.insert(std::make_pair(format,utbArrayType));
-
-            const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
-            constexpr uint32_t uvec4Size = 4u * 4u;
-            constexpr uint32_t uvec3Size = 4u * 3u;
-            constexpr uint32_t uvec2Size = 4u * 2u;
-            constexpr uint32_t uintSize  = 4u;
-            switch (attribSize)
+            static inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
             {
-                case uvec4Size:
-                    isUvec4BufferUsed = true;
-                    break;
-                case uvec3Size:
-                    isUvec3BufferUsed = true;
-                    break;
-                case uvec2Size:
-                    isUvec2BufferUsed = true;
-                    break;
-                case uintSize:
-                    isUintBufferUsed = true;
-                    break;
-                default:
-                    assert(false);
-                    return true; //tmp
+                switch (format)
+                {
+                     //float formats
+                    case EF_R8_UNORM:
+                    case EF_R8_SNORM:
+                    case EF_R8_USCALED:
+                    case EF_R8_SSCALED:
+                    case EF_R8G8_UNORM:
+                    case EF_R8G8_SNORM:
+                    case EF_R8G8_USCALED:
+                    case EF_R8G8_SSCALED:
+                    case EF_R8G8B8_UNORM:
+                    case EF_R8G8B8_SNORM:
+                    case EF_R8G8B8_USCALED:
+                    case EF_R8G8B8_SSCALED:
+                    case EF_R8G8B8A8_UNORM:
+                    case EF_R8G8B8A8_SNORM:
+                    case EF_R8G8B8A8_USCALED:
+                    case EF_R8G8B8A8_SSCALED:
+                    case EF_R16_UNORM:
+                    case EF_R16_SNORM:
+                    case EF_R16_USCALED:
+                    case EF_R16_SSCALED:
+                    case EF_R16_SFLOAT:
+                    case EF_R16G16_UNORM:
+                    case EF_R16G16_SNORM:
+                    case EF_R16G16_USCALED:
+                    case EF_R16G16_SSCALED:
+                    case EF_R16G16_SFLOAT:
+                    case EF_R16G16B16_UNORM:
+                    case EF_R16G16B16_SNORM:
+                    case EF_R16G16B16_USCALED:
+                    case EF_R16G16B16_SSCALED:
+                    case EF_R16G16B16_SFLOAT:
+                    case EF_R16G16B16A16_UNORM:
+                    case EF_R16G16B16A16_SNORM:
+                    case EF_R16G16B16A16_USCALED:
+                    case EF_R16G16B16A16_SSCALED:
+                    case EF_R16G16B16A16_SFLOAT:
+                    case EF_R32_SFLOAT:
+                    case EF_R32G32_SFLOAT:
+                    case EF_R32G32B32_SFLOAT:
+                    case EF_R32G32B32A32_SFLOAT:
+                    case EF_B10G11R11_UFLOAT_PACK32:
+                    case EF_A2B10G10R10_UNORM_PACK32:
+                    case EF_A8B8G8R8_UNORM_PACK32:
+                    case EF_A8B8G8R8_SNORM_PACK32:
+                    case EF_A8B8G8R8_USCALED_PACK32:
+                    case EF_A8B8G8R8_SSCALED_PACK32:
+                        return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
+
+                     //int formats
+                    case EF_R8_SINT:
+                    case EF_R8G8_SINT:
+                    case EF_R8G8B8_SINT:
+                    case EF_R8G8B8A8_SINT:
+                    case EF_R16_SINT:
+                    case EF_R16G16_SINT:
+                    case EF_R16G16B16_SINT:
+                    case EF_R16G16B16A16_SINT:
+                    case EF_R32_SINT:
+                    case EF_R32G32_SINT:
+                    case EF_R32G32B32_SINT:
+                    case EF_R32G32B32A32_SINT:
+                    case EF_A8B8G8R8_SINT_PACK32:
+                        return E_UTB_ARRAY_TYPE::EUAT_INT;
+
+                     //uint formats
+                    case EF_R8_UINT:
+                    case EF_R8G8_UINT:
+                    case EF_R8G8B8_UINT:
+                    case EF_R8G8B8A8_UINT:
+                    case EF_R16_UINT:
+                    case EF_R16G16_UINT:
+                    case EF_R16G16B16_UINT:
+                    case EF_R16G16B16A16_UINT:
+                    case EF_R32_UINT:
+                    case EF_R32G32_UINT:
+                    case EF_R32G32B32_UINT:
+                    case EF_R32G32B32A32_UINT:
+                    case EF_A2B10G10R10_SNORM_PACK32:
+                    case EF_A2B10G10R10_UINT_PACK32:
+                    case EF_A8B8G8R8_UINT_PACK32:
+                        return E_UTB_ARRAY_TYPE::EUAT_UINT;
+
+                    default:
+                        return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
+                }
             }
+        };
 
-            return true;
-        }
+        const VirtualAttribConfig& getVirtualAttribConfig() const { return m_virtualAttribConfig; }
 
-        inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
+    protected:
+        IMeshPackerV2Base() : m_virtualAttribConfig() {}
+        explicit IMeshPackerV2Base(const VirtualAttribConfig& cfg) : m_virtualAttribConfig()
         {
-            switch (format)
-            {
-             //float formats
-            case EF_R8_UNORM:
-            case EF_R8_SNORM:
-            case EF_R8_USCALED:
-            case EF_R8_SSCALED:
-            case EF_R8G8_UNORM:
-            case EF_R8G8_SNORM:
-            case EF_R8G8_USCALED:
-            case EF_R8G8_SSCALED:
-            case EF_R8G8B8_UNORM:
-            case EF_R8G8B8_SNORM:
-            case EF_R8G8B8_USCALED:
-            case EF_R8G8B8_SSCALED:
-            case EF_R8G8B8A8_UNORM:
-            case EF_R8G8B8A8_SNORM:
-            case EF_R8G8B8A8_USCALED:
-            case EF_R8G8B8A8_SSCALED:
-            case EF_R16_UNORM:
-            case EF_R16_SNORM:
-            case EF_R16_USCALED:
-            case EF_R16_SSCALED:
-            case EF_R16_SFLOAT:
-            case EF_R16G16_UNORM:
-            case EF_R16G16_SNORM:
-            case EF_R16G16_USCALED:
-            case EF_R16G16_SSCALED:
-            case EF_R16G16_SFLOAT:
-            case EF_R16G16B16_UNORM:
-            case EF_R16G16B16_SNORM:
-            case EF_R16G16B16_USCALED:
-            case EF_R16G16B16_SSCALED:
-            case EF_R16G16B16_SFLOAT:
-            case EF_R16G16B16A16_UNORM:
-            case EF_R16G16B16A16_SNORM:
-            case EF_R16G16B16A16_USCALED:
-            case EF_R16G16B16A16_SSCALED:
-            case EF_R16G16B16A16_SFLOAT:
-            case EF_R32_SFLOAT:
-            case EF_R32G32_SFLOAT:
-            case EF_R32G32B32_SFLOAT:
-            case EF_R32G32B32A32_SFLOAT:
-            case EF_B10G11R11_UFLOAT_PACK32:
-            case EF_A2B10G10R10_UNORM_PACK32:
-            case EF_A8B8G8R8_UNORM_PACK32:
-            case EF_A8B8G8R8_SNORM_PACK32:
-            case EF_A8B8G8R8_USCALED_PACK32:
-            case EF_A8B8G8R8_SSCALED_PACK32:
-                return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
-
-             //int formats
-            case EF_R8_SINT:
-            case EF_R8G8_SINT:
-            case EF_R8G8B8_SINT:
-            case EF_R8G8B8A8_SINT:
-            case EF_R16_SINT:
-            case EF_R16G16_SINT:
-            case EF_R16G16B16_SINT:
-            case EF_R16G16B16A16_SINT:
-            case EF_R32_SINT:
-            case EF_R32G32_SINT:
-            case EF_R32G32B32_SINT:
-            case EF_R32G32B32A32_SINT:
-            case EF_A8B8G8R8_SINT_PACK32:
-                return E_UTB_ARRAY_TYPE::EUAT_INT;
-
-             //uint formats
-            case EF_R8_UINT:
-            case EF_R8G8_UINT:
-            case EF_R8G8B8_UINT:
-            case EF_R8G8B8A8_UINT:
-            case EF_R16_UINT:
-            case EF_R16G16_UINT:
-            case EF_R16G16B16_UINT:
-            case EF_R16G16B16A16_UINT:
-            case EF_R32_UINT:
-            case EF_R32G32_UINT:
-            case EF_R32G32B32_UINT:
-            case EF_R32G32B32A32_UINT:
-            case EF_A2B10G10R10_SNORM_PACK32:
-            case EF_A2B10G10R10_UINT_PACK32:
-            case EF_A8B8G8R8_UINT_PACK32:
-                return E_UTB_ARRAY_TYPE::EUAT_UINT;
-
-            default:
-                return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
-            }
+            m_virtualAttribConfig = cfg;
         }
-    };
 
-    IMeshPackerV2Base() : m_virtualAttribConfig() {}
-    explicit IMeshPackerV2Base(const VirtualAttribConfig& cfg) : m_virtualAttribConfig()
-    {
-        m_virtualAttribConfig = cfg;
-    }
-
-    VirtualAttribConfig m_virtualAttribConfig;
-public:
-    const VirtualAttribConfig& getVirtualAttribConfig() const {return m_virtualAttribConfig;}
+        VirtualAttribConfig m_virtualAttribConfig;
 };
 
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
@@ -298,10 +266,10 @@ public:
         core::smart_refctd_ptr<BufferType> indexBuffer;
     };
 
-    inline uint32_t getFloatBufferBindingsCnt() { return m_virtualAttribConfig.floatArrayElementsCnt;  }
-    inline uint32_t getIntBufferBindingsCnt() { return m_virtualAttribConfig.intArrayElementsCnt; }
+    inline uint32_t getFloatBufferBindingsCnt() const { return m_virtualAttribConfig.utbs[EUAT_FLOAT].size();  }
+    inline uint32_t getIntBufferBindingsCnt() const { return m_virtualAttribConfig.utbs[EUAT_INT].size(); }
     // not including the UTB for the index buffer
-    inline uint32_t getUintBufferBindingsCnt() { return m_virtualAttribConfig.uintArrayElementsCnt; }
+    inline uint32_t getUintBufferBindingsCnt() const { return m_virtualAttribConfig.utbs[EUAT_UINT].size(); }
 
     // the following cannot be called before 'instantiateDataStorage'
     struct DSLayoutParamsUTB
@@ -336,8 +304,8 @@ public:
     inline uint32_t getDSlayoutBindingsForUTB(typename DescriptorSetLayoutType::SBinding* outBindings, const DSLayoutParamsUTB& params = {}) const
     {
         const uint32_t bindingCount = 1u + // for the always present uint index buffer
-            (m_virtualAttribConfig.floatArrayElementsCnt ? 1u : 0u) + 
-            (m_virtualAttribConfig.intArrayElementsCnt ? 1u : 0u);
+            (getFloatBufferBindingsCnt() ? 1u : 0u) +
+            (getIntBufferBindingsCnt() ? 1u : 0u);
 
         if (outBindings)
         {
@@ -352,11 +320,11 @@ public:
                 bnd++;
             };
 
-            fillBinding(params.usamplersBinding, 1u+m_virtualAttribConfig.uintArrayElementsCnt);
-            if (m_virtualAttribConfig.floatArrayElementsCnt)
-                fillBinding(params.fsamplersBinding, m_virtualAttribConfig.floatArrayElementsCnt);
-            if (m_virtualAttribConfig.intArrayElementsCnt)
-                fillBinding(params.isamplersBinding, m_virtualAttribConfig.intArrayElementsCnt);
+            fillBinding(params.usamplersBinding,getUintBufferBindingsCnt()+1u);
+            if (getFloatBufferBindingsCnt())
+                fillBinding(params.fsamplersBinding,getFloatBufferBindingsCnt());
+            if (getIntBufferBindingsCnt())
+                fillBinding(params.isamplersBinding,getIntBufferBindingsCnt());
         }
         return bindingCount;
     }
@@ -377,11 +345,8 @@ public:
         auto* info = outInfo;
         auto fillInfoStruct = [&](E_UTB_ARRAY_TYPE utbArrayType)
         {
-            for (auto virtualAttribData : m_virtualAttribConfig.map)
+            for (auto virtualAttribData : m_virtualAttribConfig.utbs[utbArrayType])
             {
-                if (virtualAttribData.second!=utbArrayType)
-                    continue;
-
                 E_FORMAT format = virtualAttribData.first;
                 switch (format)
                 {
@@ -391,11 +356,11 @@ public:
                     default:
                         break;
                 }
-                info->desc = createBufferView(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer),format);
-                info->buffer.offset = 0u;
-                info->buffer.size = m_packerDataStore.vertexBuffer->getSize();
-                info++;
+                info[virtualAttribData.second].desc = createBufferView(core::smart_refctd_ptr(m_packerDataStore.vertexBuffer),format);
+                info[virtualAttribData.second].buffer.offset = 0u;
+                info[virtualAttribData.second].buffer.size = m_packerDataStore.vertexBuffer->getSize();
             }
+            info += m_virtualAttribConfig.utbs[utbArrayType].size();
         };
 
         auto* write = outWrites;
