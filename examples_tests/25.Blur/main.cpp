@@ -26,6 +26,42 @@ smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_file_pat
     return driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
 }
 
+void updateDescriptorSet(IGPUDescriptorSet* ds, smart_refctd_ptr<IGPUImageView> desc0, smart_refctd_ptr<IGPUImageView> desc1, smart_refctd_ptr<IGPUSampler> sampler,
+    IVideoDriver* driver)
+{
+    constexpr uint32_t descriptor_count = 2u;
+    IGPUDescriptorSet::SDescriptorInfo ds_infos[descriptor_count];
+    IGPUDescriptorSet::SWriteDescriptorSet ds_writes[descriptor_count];
+
+    for (uint32_t i = 0; i < descriptor_count; ++i)
+    {
+        ds_writes[i].dstSet = ds;
+        ds_writes[i].arrayElement = 0u;
+        ds_writes[i].count = 1u;
+        ds_writes[i].info = ds_infos + i;
+    }
+
+    // Input sampler2D
+    ds_writes[0].binding = 0;
+    ds_writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+    ds_writes[0].count = 1;
+
+    ds_infos[0].desc = desc0;
+    ds_infos[0].image.sampler = sampler;
+    ds_infos[0].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+
+    // Output image2D 
+    ds_writes[1].binding = 1;
+    ds_writes[1].descriptorType = asset::EDT_STORAGE_IMAGE;
+    ds_writes[1].count = 1;
+
+    ds_infos[1].desc = desc1;
+    ds_infos[1].image.sampler = nullptr;
+    ds_infos[1].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+
+    driver->updateDescriptorSets(descriptor_count, ds_writes, 0u, nullptr);
+}
+
 int main()
 {
     nbl::SIrrlichtCreationParameters deviceParams;
@@ -115,8 +151,12 @@ int main()
         out_image_view = driver->createGPUImageView(IGPUImageView::SCreationParams(out_image_view_info));
     }
 
-    smart_refctd_ptr<IGPUDescriptorSet> ds = nullptr;
-    smart_refctd_ptr<IGPUComputePipeline> pipeline = nullptr;
+    const size_t scratch_samples_size = out_dim.X * out_dim.Y * sizeof(vector2d<uint32_t>);
+    auto scratch_samples_gpu = driver->createDeviceLocalGPUBufferOnDedMem(scratch_samples_size);
+
+    // sampler2D -> SSBO
+    smart_refctd_ptr<IGPUDescriptorSet> ds_horizontal = nullptr;
+    smart_refctd_ptr<IGPUComputePipeline> pipeline_horizontal = nullptr;
     {
         const uint32_t count = 2u;
         IGPUDescriptorSetLayout::SBinding binding[count] =
@@ -124,6 +164,37 @@ int main()
             {
                 0u,
                 EDT_COMBINED_IMAGE_SAMPLER,
+                1u,
+                ISpecializedShader::ESS_COMPUTE,
+                nullptr
+            },
+            {
+                1u,
+                EDT_STORAGE_BUFFER,
+                1u,
+                ISpecializedShader::ESS_COMPUTE,
+                nullptr
+            }
+        };
+
+        auto ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
+        ds_horizontal = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
+
+        auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, std::move(ds_layout));
+        pipeline_horizontal = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassHorizontal.comp", driver, filesystem, am));
+    }
+
+
+    // SSBO -> image2D
+    smart_refctd_ptr<IGPUDescriptorSet> ds_vertical = nullptr;
+    smart_refctd_ptr<IGPUComputePipeline> pipeline_vertical = nullptr;
+    {
+        const uint32_t count = 2u;
+        IGPUDescriptorSetLayout::SBinding binding[count] =
+        {
+            {
+                0u,
+                EDT_STORAGE_BUFFER,
                 1u,
                 ISpecializedShader::ESS_COMPUTE,
                 nullptr
@@ -138,19 +209,13 @@ int main()
         };
 
         auto ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
-        ds = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
+        ds_vertical = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
 
         auto pipeline_layout = driver->createGPUPipelineLayout(nullptr, nullptr, std::move(ds_layout));
-        pipeline = driver->createGPUComputePipeline(nullptr, std::move(pipeline_layout), createShader("../BlurPassHorizontal.comp", driver, filesystem, am));
+        pipeline_vertical = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassVertical.comp", driver, filesystem, am));
     }
-
-    auto blit_fbo = driver->addFrameBuffer();
-    blit_fbo->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(out_image_view));
-
-    while (device->run() && receiver.keepOpen())
+    
     {
-        driver->beginScene(false, false);
-
         IGPUSampler::SParams params =
         {
             {
@@ -168,43 +233,84 @@ int main()
         };
         auto sampler = driver->createGPUSampler(std::move(params));
 
-        constexpr auto descriptor_count = 2u;
-        video::IGPUDescriptorSet::SDescriptorInfo ds_infos[descriptor_count];
-        video::IGPUDescriptorSet::SWriteDescriptorSet ds_writes[descriptor_count];
+        constexpr uint32_t descriptor_count = 2u;
+        IGPUDescriptorSet::SDescriptorInfo ds_infos[descriptor_count];
+        IGPUDescriptorSet::SWriteDescriptorSet ds_writes[descriptor_count];
 
         for (uint32_t i = 0; i < descriptor_count; ++i)
         {
-            ds_writes[i].dstSet = ds.get();
+            ds_writes[i].dstSet = ds_horizontal.get();
             ds_writes[i].arrayElement = 0u;
             ds_writes[i].count = 1u;
             ds_writes[i].info = ds_infos + i;
         }
 
         // Input sampler2D
-        ds_writes[0].binding = 0;
-        ds_writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
-        ds_writes[0].count = 1;
-
         ds_infos[0].desc = in_image_view;
         ds_infos[0].image.sampler = sampler;
         ds_infos[0].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
 
-        // Output image2D 
+        ds_writes[0].binding = 0;
+        ds_writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+
+        // Output SSBO 
+        ds_infos[1].desc = scratch_samples_gpu;
+        ds_infos[1].buffer = { 0u, scratch_samples_gpu->getSize() };
+
+        ds_writes[1].binding = 1;
+        ds_writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+
+        driver->updateDescriptorSets(descriptor_count, ds_writes, 0u, nullptr);
+    }
+
+    {
+        constexpr uint32_t descriptor_count = 2u;
+        IGPUDescriptorSet::SDescriptorInfo ds_infos[descriptor_count];
+        IGPUDescriptorSet::SWriteDescriptorSet ds_writes[descriptor_count];
+
+        for (uint32_t i = 0; i < descriptor_count; ++i)
+        {
+            ds_writes[i].dstSet = ds_vertical.get();
+            ds_writes[i].arrayElement = 0u;
+            ds_writes[i].count = 1u;
+            ds_writes[i].info = ds_infos + i;
+        }
+
+        // Input SSBO
+        ds_infos[0].desc = scratch_samples_gpu;
+        ds_infos[0].buffer = { 0u, scratch_samples_gpu->getSize() };
+
+        ds_writes[0].binding = 0;
+        ds_writes[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+
+        // Output image2D
         ds_writes[1].binding = 1;
         ds_writes[1].descriptorType = asset::EDT_STORAGE_IMAGE;
-        ds_writes[1].count = 1;
 
         ds_infos[1].desc = out_image_view;
         ds_infos[1].image.sampler = nullptr;
         ds_infos[1].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
 
-        driver->updateDescriptorSets(2u, ds_writes, 0u, nullptr);
+        driver->updateDescriptorSets(descriptor_count, ds_writes, 0u, nullptr);
+    }
 
-        driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get(), nullptr);
-        driver->bindComputePipeline(pipeline.get());
+    auto blit_fbo = driver->addFrameBuffer();
+    blit_fbo->attach(video::EFAP_COLOR_ATTACHMENT0, smart_refctd_ptr(out_image_view));
+
+    while (device->run() && receiver.keepOpen())
+    {
+        driver->beginScene(false, false);
+
+        driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline_horizontal->getLayout(), 0u, 1u, &ds_horizontal.get(), nullptr);
+        driver->bindComputePipeline(pipeline_horizontal.get());
         driver->dispatch(out_dim.Y, 1, 1);
+        
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        // Todo(achal): You might also want to use texture fetch barrier bit
+        driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline_vertical->getLayout(), 0u, 1u, &ds_vertical.get(), nullptr);
+        driver->bindComputePipeline(pipeline_vertical.get());
+        driver->dispatch(out_dim.X, 1, 1);
+
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 
         driver->blitRenderTargets(blit_fbo, nullptr, false, false);

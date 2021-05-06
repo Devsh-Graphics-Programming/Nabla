@@ -17,28 +17,28 @@
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
-layout (set = 0, binding = 0) uniform sampler2D in_image;
-
-layout (set = 0, binding = 1, std430) restrict writeonly buffer samples_buffer
+layout (set = 0, binding = 0, std430) restrict readonly buffer samples_buffer
 {
 	uvec2 sample_values[];
 };
 
-uvec2 encodeRGB(vec3 val)
+layout (set = 0, binding = 1, rgba16f) writeonly uniform image2D out_image;
+
+vec3 decodeRGB(uvec2 val)
 {
-    uvec2 result;
-    result.x = packHalf2x16(val.rg);
-    result.y = packHalf2x16(vec2(val.b, 0.f));
+    vec3 result;
+    result.rg = unpackHalf2x16(val.x);
+    result.b = unpackHalf2x16(val.y).x;
 
     return result;
 }
 
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
 
-#if WIDTH < _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
+#if HEIGHT < _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
 	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
 #else
-	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ WIDTH
+	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ HEIGHT
 #endif
 
 #ifdef _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_
@@ -68,7 +68,7 @@ uvec2 encodeRGB(vec3 val)
 // Convenience thing
 #define scratch_shared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
-// Note(achal): This function depends on `scratch_shared` to be properly initialized with inclusive prefix sums
+// Note: This function depends on `scratch_shared` to be properly initialized with inclusive prefix sums
 // Todo(achal): You can't have it depend on `scratch_shared` --das not gud
 float getInterpolatedPrefixSums(float idx)
 {
@@ -78,16 +78,13 @@ float getInterpolatedPrefixSums(float idx)
 
 vec3 getPaddedData(in uint i)
 {
-	uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // this is the x coordinate
+	uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // y coordinate
 
-	vec4 data = vec4(0.f);
-	if (idx < WIDTH && gl_WorkGroupID.x < HEIGHT)
-	{
-		vec2 tex_coords = vec2(float(idx)/float(WIDTH), float(gl_WorkGroupID.x)/float(HEIGHT));
-		data = texture(in_image, tex_coords);
-	}
+	vec3 data = vec3(0.f);
+	if (idx < HEIGHT && gl_WorkGroupID.x < WIDTH)
+		data = decodeRGB(sample_values[idx * WIDTH + gl_WorkGroupID.x]);
 
-	return data.rgb;
+	return data;
 }
 
 void main()
@@ -128,12 +125,12 @@ void main()
 			for (uint i = 0; i < VT; ++i)
 			{
 				uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-				if (idx < WIDTH)
+				if (idx < HEIGHT)
 				{
 					float left = float(idx) - RADIUS - 1.f;
 					float right = float(idx) + RADIUS;
 	
-					const uint last = WIDTH - 1u;
+					const uint last = HEIGHT - 1u;
 	
 					float result;
 					if (right > last)
@@ -155,12 +152,8 @@ void main()
 	for (uint i = 0; i < VT; ++i)
 	{
 		uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-		if (idx < WIDTH && gl_WorkGroupID.x < HEIGHT)
-		{
-			uvec2 encoded = encodeRGB(blurred[i]);
-			sample_values[gl_WorkGroupID.x * WIDTH + idx] = encoded;
-			// imageStore(out_image, ivec2(idx, gl_WorkGroupID.x), vec4(blurred[i], 1.f));
-		}
+		if (idx < HEIGHT && gl_WorkGroupID.x < WIDTH)
+			imageStore(out_image, ivec2(gl_WorkGroupID.x, idx), vec4(blurred[i], 1.f));
 	}
 }
 
