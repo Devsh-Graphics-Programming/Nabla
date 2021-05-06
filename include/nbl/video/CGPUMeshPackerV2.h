@@ -47,9 +47,9 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
             // TODO: why are the allocators not copied!?
 
             // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
-            m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
-            m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
-            m_packerDataStore.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+            m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
+            m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuIdxBuff->getSize(),cpuIdxBuff->getPointer());
+            m_packerDataStore.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuVtxBuff->getSize(),cpuVtxBuff->getPointer());
         }
 
         void instantiateDataStorage();
