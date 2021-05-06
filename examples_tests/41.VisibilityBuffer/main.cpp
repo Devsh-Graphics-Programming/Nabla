@@ -244,10 +244,12 @@ int main()
         params.subresourceRange.layerCount = 1u;
         return driver->createGPUImageView(std::move(params));
     };
-    auto visbufferView = createImageView(createScreenSizedImage(EF_R32G32B32A32_UINT));
+    auto depthBufferView = createImageView(createScreenSizedImage(EF_D32_SFLOAT));
+    auto visBufferView = createImageView(createScreenSizedImage(EF_R32G32B32A32_UINT));
 
-    auto visbuffer = driver->addFrameBuffer();
-    visbuffer->attach(EFAP_COLOR_ATTACHMENT0,smart_refctd_ptr(visbufferView));
+    auto visBuffer = driver->addFrameBuffer();
+    visBuffer->attach(EFAP_DEPTH_ATTACHMENT,smart_refctd_ptr(depthBufferView));
+    visBuffer->attach(EFAP_COLOR_ATTACHMENT0,smart_refctd_ptr(visBufferView));
     auto fb = driver->addFrameBuffer();
     fb->attach(EFAP_COLOR_ATTACHMENT0,createImageView(smart_refctd_ptr(framebuffer)));
 
@@ -314,7 +316,7 @@ int main()
             }
             {
                 IGPUDescriptorSet::SDescriptorInfo infos[2];
-                infos[0].desc = core::smart_refctd_ptr(visbufferView);
+                infos[0].desc = core::smart_refctd_ptr(visBufferView);
                 //infos[0].image.imageLayout = ?;
                 infos[0].image.sampler = nullptr; // used immutable in the layout
                 infos[1].desc = createImageView(std::move(framebuffer),EF_R8G8B8A8_UNORM);
@@ -598,6 +600,7 @@ int main()
             driver->updateDescriptorSets(writesVT.size(),writesVT.data(),0u,nullptr);
         }
         smart_refctd_ptr<IGPUDescriptorSetLayout> vgDSLayout;
+        std::string extraCode;
         // msvc is incredibly dumb and complains about type mismatches in code sections guarded by if constexpr
         std::conditional_t<useSSBO,GPUMeshPacker::DSLayoutParamsSSBO,GPUMeshPacker::DSLayoutParamsUTB> tmp;
         [&](auto& layoutParams) -> void
@@ -657,15 +660,20 @@ int main()
             infos->buffer.size = batchDataSSBO->getSize();
             infos->desc = std::move(batchDataSSBO);
             infos++;
+
+            constexpr uint32_t vgDescriptorSetIx = 1u;
             if constexpr (useSSBO)
+            {
+                extraCode = gpump->getGLSLForSSBO(vgDescriptorSetIx,layoutParams);
                 gpump->getDescriptorSetWritesForSSBO(writes,infos,sceneData.vgDS.get(),layoutParams);
+            }
             else
+            {
+                extraCode = gpump->getGLSLForUTB(vgDescriptorSetIx, layoutParams);
                 gpump->getDescriptorSetWritesForUTB(writes,infos,sceneData.vgDS.get(),layoutParams);
+            }
             driver->updateDescriptorSets(writeCount,writesVG.data(),0u,nullptr);
         }(tmp);
-
-        //
-        std::string extraCode = useSSBO ? gpump->getGLSLForSSBO():gpump->getGLSLForUTB();
         // TODO: sprintf(fragPrelude.data(), FRAGMENT_SHADER_OVERRIDES, sceneData.vt->getFloatViews().size(), sceneData.vt->getGLSLFunctionsIncludePath().c_str());
         auto overrideShaderJustAfterVersionDirective = [am,driver,extraCode](const char* path)
         {
@@ -757,7 +765,7 @@ int main()
 
         // TODO: Cull MDIs
 
-        driver->setRenderTarget(visbuffer);
+        driver->setRenderTarget(visBuffer);
         driver->clearZBuffer();
         const uint32_t invalidObjectCode[4] = {~0u,0u,0u,0u};
         driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0,invalidObjectCode);
