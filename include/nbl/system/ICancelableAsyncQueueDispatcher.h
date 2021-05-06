@@ -57,8 +57,12 @@ namespace impl
                     req->set_cancel();
             }
 
-            bool ready() const { return !request.load() || request.load()->ready; }
-            bool valid() const { return valid_flag; }
+            bool ready() const 
+            { 
+                request_base_t* req = request.load();
+                return !req || req->ready; 
+            }
+            bool valid() const { return valid_flag.load(); }
 
             void wait()
             {
