@@ -61,16 +61,26 @@ struct BatchInstanceData
         const auto invalid_tex = STextureData::invalid();
         std::fill_n(map_data,TEX_OF_INTEREST_CNT,reinterpret_cast<const uint64_t&>(invalid_tex));
     }
-    BatchInstanceData(const BatchInstanceData& other) : shininess(other.shininess), opacity(other.opacity), IoR(other.IoR), extra(other.extra)
+    BatchInstanceData(const BatchInstanceData& other) : BatchInstanceData()
+    {
+        this->operator=(other);
+    }
+    ~BatchInstanceData()
+    {
+    }
+
+    BatchInstanceData& operator=(const BatchInstanceData& other)
     {
         ambient = other.ambient;
         diffuse = other.diffuse;
         specular = other.specular;
         emissive = other.emissive;
         std::copy_n(other.map_data,TEX_OF_INTEREST_CNT,map_data);
-    }
-    ~BatchInstanceData()
-    {
+        shininess = other.shininess;
+        opacity = other.opacity;
+        IoR = other.IoR;
+        extra = other.extra;
+        return *this;
     }
 
     union
@@ -80,7 +90,7 @@ struct BatchInstanceData
         struct
         {
             uint32_t invalid_0[3];
-            uint32_t baseVertex;
+            uint32_t firstIndex;
         };
     };
     union
@@ -471,96 +481,75 @@ int main()
 
             auto wholeMbRangeBegin = pipelineMeshBufferRanges.front();
             auto wholeMbRangeEnd = pipelineMeshBufferRanges.back();
-            const uint32_t meshBufferCnt = std::distance(wholeMbRangeBegin,wholeMbRangeEnd);
-
             const uint32_t mdiCntBound = mp->calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd);
 
             auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
-            core::vector<uint32_t> allocDataOffsetForDrawCall(pipelineMeshBufferRanges.size(),0u);
-            auto allocOffsetIt = allocDataOffsetForDrawCall.begin();
+            auto allocDataIt = allocData->begin();
             for (auto it=pipelineMeshBufferRanges.begin(); it!=pipelineMeshBufferRanges.end()-1u; )
             {
                 auto mbRangeBegin = &(*it)->get();
                 auto mbRangeEnd = &(*(++it))->get();
 
-                bool allocSuccessfull = mp->alloc(allocData->data()+*allocOffsetIt,mbRangeBegin,mbRangeEnd);
+                bool allocSuccessfull = mp->alloc(&*allocDataIt,mbRangeBegin,mbRangeEnd);
                 if (!allocSuccessfull)
                 {
                     std::cout << "Alloc failed \n";
                     _NBL_DEBUG_BREAK_IF(true);
                 }
-
-                *allocOffsetIt = *(allocOffsetIt++)+mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
+                allocDataIt += mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
             }
             mp->shrinkOutputBuffersSize();
             mp->instantiateDataStorage();
 
             core::vector<BatchInstanceData> batchData;
             batchData.reserve(mdiCntBound);
-#if 0
-            core::vector<uint32_t> mdiCntForMeshBuffer;
-            mdiCntForMeshBuffer.reserve(meshBufferCnt);
 
-            uint32_t offsetForDrawCall = 0u;
-            i = 0u;
-            for (auto it=ranges.begin(); it!=ranges.end()-1u;)
+            allocDataIt = allocData->begin();
+            uint32_t mdiListOffset = 0u;
+            for (auto it=pipelineMeshBufferRanges.begin(); it!=pipelineMeshBufferRanges.end()-1u; )
             {
-                auto mbRangeBegin = &it->get();
-                auto mbRangeEnd = &(++it)->get();
+                auto mbRangeBegin = &(*it)->get();
+                auto mbRangeEnd = &(*(++it))->get();
 
-                const uint32_t mdiMaxCnt = mp.calcMDIStructMaxCount(mbRangeBegin, mbRangeEnd);
-                core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(mdiMaxCnt); //why mdiMaxCnt and not meshBuffersInRangeCnt??????????
-                core::vector<MeshPacker::CombinedDataOffsetTable> cdot(mdiMaxCnt);
+                const uint32_t meshMdiBound = mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
+                core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(std::distance(mbRangeBegin,mbRangeEnd));
+                core::vector<MeshPacker::CombinedDataOffsetTable> cdot(meshMdiBound);
+                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),&*allocDataIt,mbRangeBegin,mbRangeEnd);
+                allocDataIt += meshMdiBound;
 
-                uint32_t mdiCnt = mp.commit(pmbd.data(), cdot.data(), allocData->data() + allocDataOffsetForDrawCall[i], mbRangeBegin, mbRangeEnd);
-                if (mdiCnt == 0u)
+                if (actualMdiCnt==0u)
                 {
                     std::cout << "Commit failed \n";
                     _NBL_DEBUG_BREAK_IF(true);
                 }
 
-                sceneData.pushConstantsData.push_back(offsetForDrawCall);
-                offsetForDrawCall += mdiCnt;
+                sceneData.pushConstantsData.push_back(mdiListOffset);
+                mdiListOffset += actualMdiCnt;
 
-                DrawIndexedIndirectInput mdiCallInput;
-                mdiCallInput.maxCount = mdiCnt;
-                mdiCallInput.offset = pmbd[0].mdiParameterOffset * sizeof(DrawElementsIndirectCommand_t);
+                DrawIndexedIndirectInput& mdiCallInput = sceneData.drawIndirectInput.emplace_back();
+                mdiCallInput.maxCount = actualMdiCnt;
+                mdiCallInput.offset = pmbd.front().mdiParameterOffset*sizeof(DrawElementsIndirectCommand_t);
 
-                sceneData.drawIndirectInput.push_back(mdiCallInput);
-
-                const uint32_t mbInRangeCnt = std::distance(mbRangeBegin, mbRangeEnd);
-                for (uint32_t j = 0u; j < mbInRangeCnt; j++)
+                auto pmbdIt = pmbd.begin();
+                auto cdotIt = cdot.begin();
+                for (auto mbIt=mbRangeBegin; mbIt!=mbRangeEnd; mbIt++)
                 {
-                    mdiCntForMeshBuffer.push_back(pmbd[j].mdiParameterCount);
-                }
+                    const auto& material = *reinterpret_cast<BatchInstanceData*>((*mbIt)->getPushConstantsDataPtr());
+                    const IMeshPackerBase::PackedMeshBufferData& packedData = *(pmbdIt++);
+                    for (uint32_t mdi=0u; mdi<packedData.mdiParameterCount; mdi++)
+                    {
+                        auto& batch = batchData.emplace_back();
+                        batch = material;
+                        batch.firstIndex = reinterpret_cast<const DrawElementsIndirectCommand_t*>(mp->getPackerDataStore().MDIDataBuffer->getPointer())[packedData.mdiParameterOffset+mdi].firstIndex;
 
-                //setOffsetTables
-                for (uint32_t j = 0u; j < mdiCnt; j++)
-                {
-                    MeshPacker::CombinedDataOffsetTable& virtualAttribTable = cdot[j];
-
-                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[0]);
-                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[2]);
-                    offsetTableLocal.push_back(virtualAttribTable.attribInfo[3]);
-                }
-
-                i++;
-            }
-
-            //prepare data for (set = 1, binding = 0) shader ssbo
-            {
-
-                uint32_t i = 0u;
-                for (auto it = wholeMbRangeBegin; it != wholeMbRangeEnd; it++)
-                {
-                    const uint32_t mdiCntForThisMb = mdiCntForMeshBuffer[i];
-                    for (uint32_t i = 0u; i < mdiCntForThisMb; i++)
-                        vtData.push_back(*reinterpret_cast<MaterialParams*>((*it)->getPushConstantsDataPtr()));
-
-                    i++;
+                        MeshPacker::CombinedDataOffsetTable& virtualAttribTable = *(cdotIt++);
+                        constexpr auto UVAttributeIx = 2;
+                        batch.vAttrPos = reinterpret_cast<const uint32_t&>(virtualAttribTable.attribInfo[(*mbIt)->getPositionAttributeIx()]);
+                        batch.vAttrUV = reinterpret_cast<const uint32_t&>(virtualAttribTable.attribInfo[UVAttributeIx]);
+                        batch.vAttrNormal = reinterpret_cast<const uint32_t&>(virtualAttribTable.attribInfo[(*mbIt)->getNormalAttributeIx()]);
+                    }
                 }
             }
-#endif
             batchDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
 
             gpump = core::make_smart_refctd_ptr<CGPUMeshPackerV2<>>(driver,mp.get());

@@ -99,7 +99,7 @@ void main()
 
     gBatchInstance = batchInstanceData[drawID];
     uvec3 vertexIDs;
-    const uint baseTriangleVertex = triangleID*3u+gBatchInstance.baseTriangle;
+    const uint baseTriangleVertex = triangleID*3u+gBatchInstance.firstIndex;
     for (uint i=0u; i<3u; i++)
         vertexIDs[i] = nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,i)
 

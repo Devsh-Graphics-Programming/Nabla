@@ -11,7 +11,7 @@ layout(location = 0) out uvec4 triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2;
 uint nbl_glsl_barycentric_frag_getDrawID() {return drawGUID;}
 vec3 nbl_glsl_barycentric_frag_getVertexPos(in uint drawID, in uint primID, in uint primsVx)
 {
-    const uint ix = nbl_glsl_VG_fetchTriangleVertexIndex(primID*3u+batchInstanceData[drawID].baseVertex,primsVx);
+    const uint ix = nbl_glsl_VG_fetchTriangleVertexIndex(primID*3u+batchInstanceData[drawID].firstIndex,primsVx);
     return nbl_glsl_fetchVtxPos(ix,drawID);
 }
 
