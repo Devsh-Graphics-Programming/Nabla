@@ -100,10 +100,8 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
         size_t instancesAddedCnt = 0u;
-        uint32_t batchesAddedCnt = 0u;
 
         const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
-        batchCntTotal += batchCnt;
         for (uint32_t i = 0u; i < batchCnt; i++)
         {
             auto batchBegin = triangleBatches.ranges[i];
@@ -176,10 +174,10 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
             batchFirstIdx += idxInBatchCnt;
         }
 
-        instancesAddedCnt += insCnt;
+        instancesAddedCnt += insCnt; // TODO: this a local variable... bug!
 
-        pmbd = { rambIn->mdiAllocationOffset + batchesAddedCnt, static_cast<uint32_t>(batchCnt) };
-        batchesAddedCnt += batchCnt;
+        pmbd = { rambIn->mdiAllocationOffset+batchCntTotal, static_cast<uint32_t>(batchCnt) };
+        batchCntTotal += batchCnt;
 
         i++;
     }
