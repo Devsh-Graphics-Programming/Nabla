@@ -1,32 +1,7 @@
-// Todo(achal): DRY!!
-#define WIDTH 1024
-#define HEIGHT 1024
-#define RADIUS 15.73f
-#define VT 4
-
-#define _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_ 0
-#define _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_ 1
-
-layout (set = _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_, rgba16f) writeonly uniform image2D out_image;
-#define _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
-
-void nbl_glsl_ext_Blur_setData(in uint idx, in vec4 val)
-{
-	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-
-	if (strided_idx < HEIGHT && gl_WorkGroupID.x < WIDTH)
-		imageStore(out_image, ivec2(gl_WorkGroupID.x, strided_idx), vec4(val.rgb, 1.f));
-}
-#define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
-
-#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/default_compute_blur.comp"
-
-#if 0
-
-
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
-
-layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+// For a 1024x1024 image
+// WG_SIZE = 256x1x1
+// VT = 4
+// Number of workgroups = 1024
 
 // Todo: DRY!!
 #define WIDTH 1024
@@ -34,28 +9,89 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 #define RADIUS 15.73f
 #define VT 4
 
-layout (set = 0, binding = 0, std430) restrict readonly buffer samples_buffer
+#ifndef _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_INPUT_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_INPUT_BINDING_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_ 1
+#endif
+
+#define nbl_glsl_ext_Blur_Storage_t uvec2
+
+nbl_glsl_ext_Blur_Storage_t nbl_glsl_ext_Blur_Storage_t_get(vec4 val)
 {
-	uvec2 sample_values[];
+	return nbl_glsl_ext_Blur_Storage_t(packHalf2x16(val.rg), packHalf2x16(val.ba));
+}
+
+vec4 nbl_glsl_ext_Blur_Storage_t_set(nbl_glsl_ext_Blur_Storage_t val)
+{
+	return vec4(unpackHalf2x16(val.x), unpackHalf2x16(val.y));
+}
+
+#ifndef _NBL_GLSL_EXT_BLUR_INPUT_DESCRIPTOR_DEFINED_
+
+layout (set = _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLUR_INPUT_BINDING_DEFINED_, std430) restrict readonly buffer InputBuffer
+{
+	nbl_glsl_ext_Blur_Storage_t in_values[];
 };
 
-layout (set = 0, binding = 1, rgba16f) writeonly uniform image2D out_image;
+#define _NBL_GLSL_EXT_BLUR_INPUT_DESCRIPTOR_DEFINED_
+#endif
 
-vec3 decodeRGB(uvec2 val)
+#ifndef _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
+
+layout (set = _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_, std430) restrict writeonly buffer OutputBuffer
 {
-    vec3 result;
-    result.rg = unpackHalf2x16(val.x);
-    result.b = unpackHalf2x16(val.y).x;
+	nbl_glsl_ext_Blur_Storage_t out_values[];
+};
 
-    return result;
+#define _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
+
+vec4 nbl_glsl_ext_Blur_getPaddedData(in uint idx)
+{
+	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // y coordinate
+
+	vec4 data = vec4(0.f);
+	if (strided_idx < HEIGHT && gl_WorkGroupID.x < WIDTH)
+		data = nbl_glsl_ext_Blur_Storage_t_set(in_values[strided_idx * WIDTH + gl_WorkGroupID.x]);
+
+	return data;
 }
+
+#define _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
+
+void nbl_glsl_ext_Blur_setData(in uint idx, in vec4 val)
+{
+	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+
+	if (strided_idx < WIDTH && gl_WorkGroupID.x < HEIGHT)
+		out_values[gl_WorkGroupID.x * WIDTH + strided_idx] = nbl_glsl_ext_Blur_Storage_t_get(val);
+}
+
+#define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
+#endif
 
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
 
-#if HEIGHT < _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
+#if WIDTH < _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
 	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
 #else
-	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ HEIGHT
+	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ WIDTH
 #endif
 
 #ifdef _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_
@@ -85,7 +121,7 @@ vec3 decodeRGB(uvec2 val)
 // Convenience thing
 #define scratch_shared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
-// Note: This function depends on `scratch_shared` to be properly initialized with inclusive prefix sums
+// Note(achal): This function depends on `scratch_shared` to be properly initialized with inclusive prefix sums
 // Todo(achal): You can't have it depend on `scratch_shared` --das not gud
 float getInterpolatedPrefixSums(float idx)
 {
@@ -93,25 +129,14 @@ float getInterpolatedPrefixSums(float idx)
 	return mix(uintBitsToFloat(scratch_shared[floored]), uintBitsToFloat(scratch_shared[floored + 1u]), fract(idx));
 }
 
-vec3 getPaddedData(in uint i)
-{
-	uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // y coordinate
-
-	vec3 data = vec3(0.f);
-	if (idx < HEIGHT && gl_WorkGroupID.x < WIDTH)
-		data = decodeRGB(sample_values[idx * WIDTH + gl_WorkGroupID.x]);
-
-	return data;
-}
-
 void main()
 {
 	const uint channel_count = 3u;
 	const uint pass_count = 3u;
 
-	vec3 blurred[VT];
+	vec4 blurred[VT];
 	for (uint i = 0u; i < VT; ++i)
-		blurred[i] = getPaddedData(i);
+		blurred[i] = nbl_glsl_ext_Blur_getPaddedData(i);
 
 	for (uint ch = 0; ch < channel_count; ++ch)
 	{
@@ -142,12 +167,12 @@ void main()
 			for (uint i = 0; i < VT; ++i)
 			{
 				uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-				if (idx < HEIGHT)
+				if (idx < WIDTH)
 				{
 					float left = float(idx) - RADIUS - 1.f;
 					float right = float(idx) + RADIUS;
 	
-					const uint last = HEIGHT - 1u;
+					const uint last = WIDTH - 1u;
 	
 					float result;
 					if (right > last)
@@ -167,11 +192,5 @@ void main()
 	}
 
 	for (uint i = 0; i < VT; ++i)
-	{
-		uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-		if (idx < HEIGHT && gl_WorkGroupID.x < WIDTH)
-			imageStore(out_image, ivec2(gl_WorkGroupID.x, idx), vec4(blurred[i], 1.f));
-	}
+		nbl_glsl_ext_Blur_setData(i, blurred[i]);
 }
-
-#endif
