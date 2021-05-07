@@ -48,13 +48,11 @@ vec3 nbl_glsl_barycentric_frag_getVertexPos(in uint drawID, in uint primID, in u
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 vec2 nbl_glsl_barycentric_frag_get()
 {
-    return nbl_glsl_barycentric_reconstructBarycentrics(
-        nbl_glsl_barycentric_frag_pos-nbl_glsl_barycentric_frag_provokingPos,
-        mat2x3(
-            nbl_glsl_barycentric_frag_getVertexPos(nbl_glsl_barycentric_frag_getDrawID(),gl_PrimitiveID,1u)-nbl_glsl_barycentric_frag_provokingPos,
-            nbl_glsl_barycentric_frag_getVertexPos(nbl_glsl_barycentric_frag_getDrawID(),gl_PrimitiveID,2u)-nbl_glsl_barycentric_frag_provokingPos
-        )
-    );
+    return nbl_glsl_barycentric_reconstructBarycentrics(nbl_glsl_barycentric_frag_pos,mat3(
+        nbl_glsl_barycentric_frag_provokingPos,
+        nbl_glsl_barycentric_frag_getVertexPos(nbl_glsl_barycentric_frag_getDrawID(),gl_PrimitiveID,1u),
+        nbl_glsl_barycentric_frag_getVertexPos(nbl_glsl_barycentric_frag_getDrawID(),gl_PrimitiveID,2u)
+    ));
 }
 #define _NBL_BUILTIN_GLSL_BARYCENTRIC_FRAG_GET_DEFINED_
 #endif

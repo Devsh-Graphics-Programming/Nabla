@@ -19,7 +19,8 @@ void main()
 {
     vec2 bary = nbl_glsl_barycentric_frag_get();
 
-    triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0] = bitfieldInsert(gl_PrimitiveID,drawGUID,MAX_TRIANGLES_IN_BATCH,32-MAX_TRIANGLES_IN_BATCH);
+    const int triangleIDBitcount = findMSB(MAX_TRIANGLES_IN_BATCH-1)+1;
+    triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0] = bitfieldInsert(gl_PrimitiveID,drawGUID,triangleIDBitcount,32-triangleIDBitcount);
     triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[1] = packUnorm2x16(bary);
     triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[2] = packHalf2x16(dFdx(bary));
     triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[3] = packHalf2x16(dFdy(bary));

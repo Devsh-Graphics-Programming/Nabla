@@ -13,14 +13,14 @@ vec2 nbl_glsl_barycentric_reconstructBarycentrics(in vec3 positionRelativeToV0, 
 
     const float qe0 = dot(positionRelativeToV0,edges[0]);
     const float qe1 = dot(positionRelativeToV0,edges[1]);
-    vec2 protoBary = vec2(qe0*e1_2-qe1*e0e1,qe1*e0_2-qe0*e0e1);
+    const vec2 protoBary = vec2(qe0*e1_2-qe1*e0e1,qe1*e0_2-qe0*e0e1);
 
-    const float rcp_dep = 1.f/(e0_2*e1_2+e0e1*e0e1);
+    const float rcp_dep = 1.f/(e0_2*e1_2-e0e1*e0e1);
     return protoBary*rcp_dep;
 }
 vec2 nbl_glsl_barycentric_reconstructBarycentrics(in vec3 pointPosition, in mat3 vertexPositions)
 {
-    return nbl_glsl_barycentric_reconstructBarycentrics(pointPosition-vertexPositions[0],mat2x3(vertexPositions[1]-vertexPositions[0],vertexPositions[2]-vertexPositions[0]));
+    return nbl_glsl_barycentric_reconstructBarycentrics(pointPosition-vertexPositions[2],mat2x3(vertexPositions[0]-vertexPositions[2],vertexPositions[1]-vertexPositions[2]));
 }
 
 vec3 nbl_glsl_barycentric_expand(in vec2 compactBarycentrics)
