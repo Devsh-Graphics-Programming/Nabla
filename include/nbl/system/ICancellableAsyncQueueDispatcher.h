@@ -1,5 +1,5 @@
-#ifndef __NBL_I_CANCELABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
-#define __NBL_I_CANCELABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
+#ifndef __NBL_I_CANCELLABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
+#define __NBL_I_CANCELLABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
 
 #include "nbl/system/IAsyncQueueDispatcher.h"
 #include "nbl/system/SReadWriteSpinLock.h"
@@ -10,7 +10,7 @@ namespace system
 
 namespace impl
 {
-    class ICancelableAsyncQueueDispatcherBase
+    class ICancellableAsyncQueueDispatcherBase
     {
     public:
         class future_base_t;
@@ -26,9 +26,9 @@ namespace impl
 
         private:
             friend future_base_t;
-            friend ICancelableAsyncQueueDispatcherBase;
+            friend ICancellableAsyncQueueDispatcherBase;
 
-            //! See ICancelableAsyncQueueDispatcher::associate_request_with_future() docs
+            //! See ICancellableAsyncQueueDispatcher::associate_request_with_future() docs
             void associate_future_object(future_base_t* _future)
             {
                 future = _future;
@@ -80,9 +80,9 @@ namespace impl
 }
 
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
-class ICancelableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>, public impl::ICancelableAsyncQueueDispatcherBase
+class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>, public impl::ICancellableAsyncQueueDispatcherBase
 {
-    using this_async_queue_t = ICancelableAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>;
+    using this_async_queue_t = ICancellableAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>;
     using base_t = IAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>;
     friend base_t;
 
@@ -96,12 +96,12 @@ class ICancelableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Reque
     };
 
 public:
-    using request_base_t = impl::ICancelableAsyncQueueDispatcherBase::request_base_t;
+    using request_base_t = impl::ICancellableAsyncQueueDispatcherBase::request_base_t;
 
     static_assert(std::is_base_of_v<request_base_t, RequestType>, "Request type must derive from request_base_t!");
 
     template <typename T>
-    class future_t : private future_storage_t<T>, public impl::ICancelableAsyncQueueDispatcherBase::future_base_t
+    class future_t : private future_storage_t<T>, public impl::ICancellableAsyncQueueDispatcherBase::future_base_t
     {
         friend this_async_queue_t;
 
@@ -112,7 +112,7 @@ public:
             valid_flag = true;
         }
 
-        //! See ICancelableAsyncQueueDispatcher::associate_request_with_future() docs
+        //! See ICancellableAsyncQueueDispatcher::associate_request_with_future() docs
         void associate_request(RequestType* req)
         {
             request = req;
@@ -165,12 +165,12 @@ protected:
     {
         assert(!future.valid());
         future_base_t* future_ptr = static_cast<future_base_t*>(&future);
-        impl::ICancelableAsyncQueueDispatcherBase::request_associate_future_object(static_cast<request_base_t&>(req), future_ptr);
+        impl::ICancellableAsyncQueueDispatcherBase::request_associate_future_object(static_cast<request_base_t&>(req), future_ptr);
         future.associate_request(&req);
     }
 };
 
-inline bool impl::ICancelableAsyncQueueDispatcherBase::request_base_t::set_cancel()
+inline bool impl::ICancellableAsyncQueueDispatcherBase::request_base_t::set_cancel()
 {
     auto lk = lock();
     if (ready.load())

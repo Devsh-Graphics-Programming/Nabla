@@ -3,7 +3,7 @@
 
 #include <variant>
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl/system/ICancelableAsyncQueueDispatcher.h"
+#include "nbl/system/ICancellableAsyncQueueDispatcher.h"
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IFile.h"
 #include "CObjectCache.h"
@@ -60,7 +60,7 @@ private:
         size_t offset;
         size_t size;
     };
-    struct SRequestType : impl::ICancelableAsyncQueueDispatcherBase::request_base_t
+    struct SRequestType : impl::ICancellableAsyncQueueDispatcherBase::request_base_t
     {
         E_REQUEST_TYPE type;
         std::variant<
@@ -70,9 +70,9 @@ private:
         > params;
     };
 
-    class CAsyncQueue : public ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, CircularBufferSize>
+    class CAsyncQueue : public ICancellableAsyncQueueDispatcher<CAsyncQueue, SRequestType, CircularBufferSize>
     {
-        using base_t = ICancelableAsyncQueueDispatcher<CAsyncQueue, SRequestType, CircularBufferSize>;
+        using base_t = ICancellableAsyncQueueDispatcher<CAsyncQueue, SRequestType, CircularBufferSize>;
         friend base_t;
 
     public:
