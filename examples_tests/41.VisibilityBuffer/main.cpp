@@ -721,7 +721,7 @@ int main()
             std::cout << gpuvt->getGLSLFunctionsIncludePath().c_str() << std::endl;
 
             SPushConstantRange pcRange;
-            pcRange.size = sizeof(core::vectorSIMDf); // TODO: send camera data
+            pcRange.size = sizeof(core::vector3df);
             pcRange.offset = 0u;
             pcRange.stageFlags = ISpecializedShader::ESS_COMPUTE;
 
@@ -785,6 +785,10 @@ int main()
         // shade
         driver->bindDescriptorSets(video::EPBP_COMPUTE,sceneData.shadeVBufferPpln->getLayout(),0u,4u,ds,nullptr);
         driver->bindComputePipeline(sceneData.shadeVBufferPpln.get());
+        {
+            auto camPos = camera->getAbsolutePosition();
+            driver->pushConstants(sceneData.shadeVBufferPpln->getLayout(),IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(camPos),&camPos.X);
+        }
         driver->dispatch((params.WindowSize.Width-1u)/SHADING_WG_SIZE_X+1u,(params.WindowSize.Height-1u)/SHADING_WG_SIZE_Y+1u,1u);
         COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 

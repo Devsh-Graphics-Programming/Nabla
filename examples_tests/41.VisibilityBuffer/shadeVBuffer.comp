@@ -63,10 +63,6 @@ float nbl_glsl_VT_getVTexSzRcp()
 #endif
 #include <nbl/builtin/glsl/virtual_texturing/functions.glsl/7/8>
 
-
-#define _NBL_FRAG_SET3_BINDINGS_DEFINED_
-#define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
-
 vec4 nbl_sample_Ka(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(gBatchInstance.map_Ka_data, uv, dUV); }
 vec4 nbl_sample_Kd(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(gBatchInstance.map_Kd_data, uv, dUV); }
 vec4 nbl_sample_Ks(in vec2 uv, in mat2 dUV)   { return nbl_glsl_vTextureGrad(gBatchInstance.map_Ks_data, uv, dUV); }
@@ -87,6 +83,27 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
     return dUVdBary;
 }
 #define _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_
+
+layout (push_constant) uniform Block 
+{
+    vec3 camPos;
+} pc;
+#define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
+
+#define _NBL_FRAG_INPUTS_DEFINED_
+#define _NBL_FRAG_OUTPUTS_DEFINED_
+#define _NBL_FRAG_SET3_BINDINGS_DEFINED_
+#define _NBL_FRAG_MAIN_DEFINED_
+vec2 UV;
+mat2 dUVdScreen;
+mat2 nbl_glsl_dUVdScreen()
+{
+    return dUVdScreen;
+}
+#define _NBL_FRAG_GET_UV_DERIVATIVES_FUNCTION_DEFINED_
+// weird globals for the overriden MTL fragment shader
+vec3 ViewPos;
+#include <nbl/builtin/shader/loader/mtl/fragment_impl.glsl>
 
 
 #include <nbl/builtin/glsl/colorspace/OETF.glsl>
@@ -123,8 +140,6 @@ void main()
             vertexIDs[i] = nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,i);
 
         vec3 pos,normal;
-        vec2 uv;
-        mat2 dUVdScreen;
         {
             vec3 positions[3];
             vec2 uvs[3];
@@ -142,7 +157,7 @@ void main()
 
             dUVdBary[0] = uvs[0]-uvs[2];
             dUVdBary[1] = uvs[1]-uvs[2];
-            uv = dUVdBary*bary+uvs[2];
+            UV = dUVdBary*bary+uvs[2];
 
             dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBary);
 
@@ -152,12 +167,13 @@ void main()
             normal = nbl_glsl_fetchVtxNormal(vertexIDs[0],drawGUID)*bary.x;
             normal += nbl_glsl_fetchVtxNormal(vertexIDs[1],drawGUID)*bary.y;
             normal += nbl_glsl_fetchVtxNormal(vertexIDs[2],drawGUID)*lastBary;
+            normal = normalize(normal);
         }
-
-        // deferred texturing
-        color.rgb = nbl_sample_Kd(uv,dUVdScreen).rgb;
-        // TODO: normals seem be to screwed
-        color.rgb = 0.5*normal+vec3(0.5);
+        
+        // the lighting is completely meh (note: we assume there's no modelspace to world transform)
+        ViewPos = pos-pc.camPos; // weird global for MTL shader
+        nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(pc.camPos,pos,normal);
+        color.rgb = nbl_computeLighting(interaction);
     }
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));
