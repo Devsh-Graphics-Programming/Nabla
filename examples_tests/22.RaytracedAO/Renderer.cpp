@@ -27,10 +27,10 @@ core::smart_refctd_ptr<IGPUSpecializedShader> gpuSpecializedShaderFromFile(IAsse
 {
 	auto shader = specializedShaderFromFile(assetManager,path);
 	// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
-	//return std::move(m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
+	//return std::move(driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
 	return driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0);
 }
-// TODO: make these util function in `IDescriptorSetLayout` -> Assign: @Hazardu
+// TODO: make these util function in `IDescriptorSetLayout` -> Assign: @Vib
 auto fillIotaDescriptorBindingDeclarations = [](auto* outBindings, ISpecializedShader::E_SHADER_STAGE accessFlags, uint32_t count, asset::E_DESCRIPTOR_TYPE descType=asset::EDT_INVALID, uint32_t startIndex=0u) -> void
 {
 	for (auto i=0u; i<count; i++)
@@ -100,8 +100,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
 		//m_visibilityBufferFillPipelineLayoutGPU = std::move(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
 		m_visibilityBufferFillPipelineLayoutGPU = core::smart_refctd_ptr(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
-		// TODO: @Crisspl make it so that I can create GPU pipeline with `const` smartpointer layouts as arguments!
-		m_perCameraRasterDSLayout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(const_cast<video::IGPUDescriptorSetLayout*>(m_visibilityBufferFillPipelineLayoutGPU->getDescriptorSetLayout(1u)));
+		m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(m_visibilityBufferFillPipelineLayoutGPU->getDescriptorSetLayout(1u));
 	}
 	
 	{
