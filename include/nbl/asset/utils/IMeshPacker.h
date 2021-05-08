@@ -320,7 +320,7 @@ protected:
         //aabb batch division
         {
             triangleBatches.ranges.push_back(triangleArrayBegin);
-            for (auto nextTriangle = triangleArrayBegin; nextTriangle < triangleArrayEnd; nextTriangle++)
+            for (auto nextTriangle = triangleArrayBegin; nextTriangle < triangleArrayEnd; )
             {
                 const Triangle* batchBegin = *(triangleBatches.ranges.end() - 1u);
                 const Triangle* batchEnd = batchBegin + m_minTriangleCountPerMDIData;
