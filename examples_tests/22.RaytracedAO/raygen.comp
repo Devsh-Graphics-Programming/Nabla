@@ -30,7 +30,10 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 	return normalizedN;
 }
 // TODO: compute from barycentrics
-mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(0.0);}
+mat2x3 nbl_glsl_perturbNormal_dPdSomething()
+{
+	return mat2x3(0.0);
+}
 mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
     return mat2(0.0);

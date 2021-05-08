@@ -115,7 +115,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::asset::ICPUSpecializedShader> m_visibilityBufferFillShaders[2];
 		nbl::core::smart_refctd_ptr<nbl::asset::ICPUPipelineLayout> m_visibilityBufferFillPipelineLayoutCPU;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
+		nbl::core::smart_refctd_ptr<const nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_commonRaytracingDSLayout, m_raygenDSLayout, m_resolveDSLayout;
 
