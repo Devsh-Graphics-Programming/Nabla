@@ -20,13 +20,8 @@ using namespace nbl::video;
 //vt stuff
 using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
 
-constexpr uint32_t PAGE_SZ_LOG2 = 7u;
 constexpr uint32_t TILES_PER_DIM_LOG2 = 4u;
-constexpr uint32_t PAGE_PADDING = 8u;
 constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
-
-constexpr uint32_t PGTAB_BINDING = 0u;
-constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 1u;
 
 struct commit_t
 {
@@ -567,7 +562,7 @@ int main()
             auto binding_and_sampler_count = gpuvt->getDSlayoutBindings(nullptr,nullptr);
             core::vector<IGPUDescriptorSetLayout::SBinding> vtBindings(binding_and_sampler_count.first);
             core::vector<smart_refctd_ptr<IGPUSampler>> vtSamplers(binding_and_sampler_count.second);
-            gpuvt->getDSlayoutBindings(vtBindings.data(),vtSamplers.data(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
+            gpuvt->getDSlayoutBindings(vtBindings.data(),vtSamplers.data(),_NBL_VT_PAGE_TABLE_BINDING,_NBL_VT_FLOAT_VIEWS_BINDING);
             auto& precomputedBinding = vtBindings.emplace_back();
             precomputedBinding.binding = 2u;
             precomputedBinding.type = EDT_STORAGE_BUFFER;
@@ -584,7 +579,7 @@ int main()
             const auto sizesVT = gpuvt->getDescriptorSetWrites(nullptr,nullptr,nullptr);
             core::vector<video::IGPUDescriptorSet::SWriteDescriptorSet> writesVT(sizesVT.first+1u);
             core::vector<video::IGPUDescriptorSet::SDescriptorInfo> infoVT(sizesVT.second+1u);
-            gpuvt->getDescriptorSetWrites(writesVT.data(),infoVT.data(),sceneData.vtDS.get(),PGTAB_BINDING,PHYSICAL_STORAGE_VIEWS_BINDING);
+            gpuvt->getDescriptorSetWrites(writesVT.data(),infoVT.data(),sceneData.vtDS.get(),_NBL_VT_PAGE_TABLE_BINDING,_NBL_VT_FLOAT_VIEWS_BINDING);
 
             auto& precomp = gpuvt->getPrecomputedData();
             infoVT.back().desc = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(precomp),&precomp);
@@ -674,8 +669,7 @@ int main()
             }
             driver->updateDescriptorSets(writeCount,writesVG.data(),0u,nullptr);
         }(tmp);
-        // TODO: sprintf(fragPrelude.data(), FRAGMENT_SHADER_OVERRIDES, sceneData.vt->getFloatViews().size(), sceneData.vt->getGLSLFunctionsIncludePath().c_str());
-        auto overrideShaderJustAfterVersionDirective = [am,driver,extraCode](const char* path)
+        auto overrideShaderJustAfterVersionDirective = [am,driver,&extraCode](const char* path)
         {
             asset::IAssetLoader::SAssetLoadParams lp;
             auto _specShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset(path,lp).getContents().begin());
@@ -722,8 +716,10 @@ int main()
                 SRasterizationParams{}
             );
         }
-#if 0
         {
+            extraCode += "#define _NBL_VT_FLOAT_VIEWS_COUNT "+std::to_string(gpuvt->getFloatViews().size())+"\n";
+            std::cout << gpuvt->getGLSLFunctionsIncludePath().c_str() << std::endl;
+
             SPushConstantRange pcRange;
             pcRange.size = sizeof(core::vectorSIMDf); // TODO: send camera data
             pcRange.offset = 0u;
@@ -734,7 +730,6 @@ int main()
                 overrideShaderJustAfterVersionDirective("../shadeVBuffer.comp")
             );
         }
-#endif
     }
 
     //! we want to move around the scene and view it from different angles
@@ -786,13 +781,13 @@ int main()
                 sizeof(DrawElementsIndirectCommand_t)
             );
         }
-#if 0
+
         // shade
         driver->bindDescriptorSets(video::EPBP_COMPUTE,sceneData.shadeVBufferPpln->getLayout(),0u,4u,ds,nullptr);
         driver->bindComputePipeline(sceneData.shadeVBufferPpln.get());
         driver->dispatch((params.WindowSize.Width-1u)/SHADING_WG_SIZE_X+1u,(params.WindowSize.Height-1u)/SHADING_WG_SIZE_Y+1u,1u);
         COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
-#endif
+
         // blit
         driver->blitRenderTargets(fb,0);
         driver->endScene();
