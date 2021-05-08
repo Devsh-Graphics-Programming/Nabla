@@ -218,20 +218,18 @@ protected:
 
             MortonTriangle(uint16_t fixedPointPos[3], float area)
             {
-                key = core::Float16Compressor::compress(area);
-                key <<= 48ull;
-                
-                key |= core::morton3d_encode(fixedPointPos[0], fixedPointPos[1], fixedPointPos[2]);
+                auto tmp = reinterpret_cast<uint16_t*>(key);
+                std::copy_n(fixedPointPos,3u,tmp);
+                tmp[3] = core::Float16Compressor::compress(area);
             }
 
-            //TODO: maybe investigate morton 4d, where `logRelArea` is "4th" coord
             void complete(float maxArea)
             {
-                const float area = core::Float16Compressor::decompress(key >> 48ull);
-                key &= 0x0000ffffFFFFffffu;
-                const float scale = -0.5f; // square root
-                uint64_t logRelArea = uint64_t(65535.5f - core::clamp(scale * std::log2f(area / maxArea), 0.f, 65535.5f));
-                key |= logRelArea << 48ull;
+                auto tmp = reinterpret_cast<const uint16_t*>(key);
+                const float area = core::Float16Compressor::decompress(tmp[3]);
+                const float scale = 0.5f; // square root
+                uint16_t logRelArea = uint16_t(65535.5f+core::clamp(scale*std::log2f(area/maxArea),-65535.5f,0.f));
+                key = core::morton4d_encode(tmp[0],tmp[1],tmp[2],logRelArea);
             }
 
             uint64_t key;
