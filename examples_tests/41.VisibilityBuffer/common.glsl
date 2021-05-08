@@ -63,7 +63,6 @@ vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawGUID)
 vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawGUID)
 {
     nbl_glsl_VG_VirtualAttributePacked_t va = batchInstanceData[drawGUID].vAttrNormal;
-    return nbl_glsl_VG_attribFetch_RGB10A2_SNORM(va,vtxID).xyz;
+    return normalize(nbl_glsl_VG_attribFetch_RGB10A2_SNORM(va,vtxID).xyz);
 }
-
 #endif

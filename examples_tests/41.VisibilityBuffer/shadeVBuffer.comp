@@ -102,61 +102,64 @@ void main()
     if (any(greaterThanEqual(fragCoord,textureSize(vBuffer,0))))
         return;
 
+    vec4 color = vec4(0,0,0,1);
+
     const uvec4 triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2 = texelFetch(vBuffer,fragCoord,0);
-    
-    const int triangleIDBitcount = findMSB(MAX_TRIANGLES_IN_BATCH-1)+1;
-    const uint drawGUID = bitfieldExtract(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0],triangleIDBitcount,32-triangleIDBitcount);
-    const uint triangleID = bitfieldExtract(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0],0,triangleIDBitcount);
-    const vec2 bary = unpackUnorm2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[1]);
-    const mat2 dBary = mat2(
-        unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[2]),
-        unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[3])
-    );
-
-    gBatchInstance = batchInstanceData[drawGUID];
-    uvec3 vertexIDs;
-    const uint baseTriangleVertex = triangleID*3u+gBatchInstance.firstIndex;
-    for (uint i=0u; i<3u; i++)
-        vertexIDs[i] = nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,i);
-
-    vec3 pos,normal;
-    vec2 uv;
-    mat2 dUVdScreen;
+    if (triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0] != 0xffFFffFFu)
     {
-        vec3 positions[3];
-        vec2 uvs[3];
-        // wrap this up into a template macro?
-        for (int i=0; i<3; i++)
+        const int triangleIDBitcount = findMSB(MAX_TRIANGLES_IN_BATCH-1)+1;
+        const uint drawGUID = bitfieldExtract(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0],triangleIDBitcount,32-triangleIDBitcount);
+        const uint triangleID = bitfieldExtract(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[0],0,triangleIDBitcount);
+        const vec2 bary = unpackUnorm2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[1]);
+        const mat2 dBary = mat2(
+            unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[2]),
+            unpackHalf2x16(triangleIDdrawID_unorm16Bary_dBarydScreenHalf2x2[3])
+        );
+
+        gBatchInstance = batchInstanceData[drawGUID];
+        uvec3 vertexIDs;
+        const uint baseTriangleVertex = triangleID*3u+gBatchInstance.firstIndex;
+        for (uint i=0u; i<3u; i++)
+            vertexIDs[i] = nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,i);
+
+        vec3 pos,normal;
+        vec2 uv;
+        mat2 dUVdScreen;
         {
-            positions[i] = nbl_glsl_fetchVtxPos(vertexIDs[i],drawGUID);
-            uvs[i] = nbl_glsl_fetchVtxUV(vertexIDs[i],drawGUID);
+            vec3 positions[3];
+            vec2 uvs[3];
+            // wrap this up into a template macro?
+            for (int i=0; i<3; i++)
+            {
+                positions[i] = nbl_glsl_fetchVtxPos(vertexIDs[i],drawGUID);
+                uvs[i] = nbl_glsl_fetchVtxUV(vertexIDs[i],drawGUID);
+            }
+
+            // maybe could wrap this up into a function
+            dPdBary[0] = positions[0]-positions[2];
+            dPdBary[1] = positions[1]-positions[2];
+            pos = dPdBary*bary+positions[2]; // TODO: compute from depth buffer or from barycentric? [Need Vib benchmark]
+
+            dUVdBary[0] = uvs[0]-uvs[2];
+            dUVdBary[1] = uvs[1]-uvs[2];
+            uv = dUVdBary*bary+uvs[2];
+
+            dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBary);
+
+
+            const float lastBary = 1.f-bary.x-bary.y;
+
+            normal = nbl_glsl_fetchVtxNormal(vertexIDs[0],drawGUID)*bary.x;
+            normal += nbl_glsl_fetchVtxNormal(vertexIDs[1],drawGUID)*bary.y;
+            normal += nbl_glsl_fetchVtxNormal(vertexIDs[2],drawGUID)*lastBary;
         }
 
-        // maybe could wrap this up into a function
-        dPdBary[0] = positions[1]-positions[0];
-        dPdBary[1] = positions[2]-positions[0];
-        pos = dPdBary*bary+positions[0]; // TODO: compute from depth buffer or from barycentric? [Need Vib benchmark]
-
-        dUVdBary[0] = uvs[1]-uvs[0];
-        dUVdBary[1] = uvs[2]-uvs[0];
-        uv = dUVdBary*bary+uvs[0];
-
-        dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBary);
-
-        const float lastBary = 1.f-bary.x-bary.y;
-
-
-        normal = nbl_glsl_fetchVtxNormal(vertexIDs[0],drawGUID)*bary.x;
-        normal += nbl_glsl_fetchVtxNormal(vertexIDs[1],drawGUID)*bary.y;
-        normal += nbl_glsl_fetchVtxNormal(vertexIDs[2],drawGUID)*lastBary;
+        color.rgb = uintIDToColor(drawGUID);
+        color.rgb = uintIDToColor(triangleID);
+        color.rgb = pos;
+        color.rgb = nbl_sample_Kd(uv,dUVdScreen).rgb;
+        //color.rgb = 0.5*normal+vec3(0.5);
     }
-
-    vec4 color; // TODO: shading
-
-    color = vec4(0,0,0,1);
-    color.rgb = uintIDToColor(drawGUID);
-    //color.rgb = 0.5*normal+vec3(0.5);
-    //color.rgb = ;
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));
 }
