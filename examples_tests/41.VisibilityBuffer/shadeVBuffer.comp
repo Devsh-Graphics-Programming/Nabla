@@ -154,11 +154,10 @@ void main()
             normal += nbl_glsl_fetchVtxNormal(vertexIDs[2],drawGUID)*lastBary;
         }
 
-        color.rgb = uintIDToColor(drawGUID);
-        color.rgb = uintIDToColor(triangleID);
-        color.rgb = pos;
+        // deferred texturing
         color.rgb = nbl_sample_Kd(uv,dUVdScreen).rgb;
-        //color.rgb = 0.5*normal+vec3(0.5);
+        // TODO: normals seem be to screwed
+        color.rgb = 0.5*normal+vec3(0.5);
     }
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));
