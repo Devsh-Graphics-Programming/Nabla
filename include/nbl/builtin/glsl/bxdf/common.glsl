@@ -9,13 +9,11 @@
 
 #include <nbl/builtin/glsl/math/functions.glsl>
 
-// TODO: investigate covariance rendering and maybe kill this struct
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct nbl_glsl_DirAndDifferential
 {
    vec3 dir;
-   // differentials at origin, I'd much prefer them to be differentials of barycentrics instead of position in the future
-   mat2x3 dPosdScreen;
+   // TODO: investigate covariance rendering and maybe kill this struct
 };
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
@@ -115,31 +113,10 @@ vec3 nbl_glsl_getTangentSpaceL(in nbl_glsl_LightSample s)
     return vec3(s.TdotL, s.BdotL, s.NdotL);
 }
 
-//TODO move to different glsl header @Crisspl (The code is not DRY, you have something similar in material compiler!)
-// chain rule on various functions (usually vertex attributes and barycentrics)
-vec2 nbl_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
-{
-   return vec2(dot(dFdG,dGdScreen[0]),dot(dFdG,dGdScreen[1]));
-}
-mat2 nbl_glsl_applyScreenSpaceChainRule2D3(in mat3x2 dFdG, in mat2x3 dGdScreen)
-{
-   return dFdG*dGdScreen;
-}
-mat2x3 nbl_glsl_applyScreenSpaceChainRule3D3(in mat3 dFdG, in mat2x3 dGdScreen)
-{
-   return dFdG*dGdScreen;
-}
-mat2x4 nbl_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen)
-{
-   return dFdG*dGdScreen;
-}
-
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _Normal, in mat2x3 dpd_)
+nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _Normal)
 {
     nbl_glsl_IsotropicViewSurfaceInteraction interaction;
     interaction.V.dir = _View;
-    interaction.V.dPosdScreen[0] = dpd_[0];
-    interaction.V.dPosdScreen[1] = dpd_[1];
     interaction.N = _Normal;
     float invlenV2 = inversesqrt(dot(interaction.V.dir, interaction.V.dir));
     float invlenN2 = inversesqrt(dot(interaction.N, interaction.N));
@@ -149,10 +126,10 @@ nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteractionFromView
     interaction.NdotV_squared = interaction.NdotV * interaction.NdotV;
     return interaction;
 }
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal, in mat2x3 dpd_)
+nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
 {
     vec3 V = _CamPos - _SurfacePos;
-    return nbl_glsl_calcSurfaceInteractionFromViewVector(V, _Normal, dpd_);
+    return nbl_glsl_calcSurfaceInteractionFromViewVector(V, _Normal);
 }
 
 nbl_glsl_AnisotropicViewSurfaceInteraction nbl_glsl_calcAnisotropicInteraction(in nbl_glsl_IsotropicViewSurfaceInteraction isotropic, in vec3 T, in vec3 B)
@@ -175,47 +152,6 @@ nbl_glsl_AnisotropicViewSurfaceInteraction nbl_glsl_calcAnisotropicInteraction(i
     mat2x3 TB = nbl_glsl_frisvad(isotropic.N);
     return nbl_glsl_calcAnisotropicInteraction(isotropic, TB[0], TB[1]);
 }
-/*
-//TODO it doesnt compile, lots of undefined symbols
-// when you know the projected positions of your triangles (TODO: should probably make a function like this that also computes barycentrics)
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcBarycentricSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos[3], in vec3 _Normal[3], in float _Barycentrics[2], in vec2 _ProjectedPos[3])
-{
-   nbl_glsl_IsotropicViewSurfaceInteraction interaction;
-
-   // Barycentric interpolation = b0*attr0+b1*attr1+attr2*(1-b0-b1)
-   vec3 b = vec3(_Barycentrics[0],_Barycentrics[1],1.0-_Barycentrics[0]-_Barycentrics[1]);
-   mat3 vertexAttrMatrix = mat3(_SurfacePos[0],_SurfacePos[1],_SurfacePos[2]);
-   interaction.V.dir = _CamPos-vertexAttrMatrix*b;
-   // Schied's derivation - modified
-   vec2 to2 = _ProjectedPos[2]-_ProjectedPos[1];
-   vec2 to1 = _ProjectedPos[0]-_ProjectedPos[1];
-   float d = 1.0/determinant(mat2(to2,to1)); // TODO double check all this
-   mat2x3 dBaryd = mat2x3(vec3(v[1].y-v[2].y,to2.y,to0.y)*d,-vec3(v[1].x-v[2].x,to2.x,t0.x)*d);
-   //
-   interaction.dPosdScreen = nbl_glsl_applyScreenSpaceChainRule3D3(vertexAttrMatrix,dBaryd);
-
-   vertexAttrMatrix = mat3(_Normal[0],_Normal[1],_Normal[2]);
-   interaction.N = vertexAttrMatrix*b;
-
-   return interaction;
-}
-// when you know the ray and triangle it hits
-nbl_glsl_IsotropicViewSurfaceInteraction  nbl_glsl_calcRaySurfaceInteraction(in nbl_glsl_DirAndDifferential _rayTowardsSurface, in vec3 _SurfacePos[3], in vec3 _Normal[3], in float _Barycentrics[2])
-{
-   nbl_glsl_IsotropicViewSurfaceInteraction interaction;
-   // flip ray
-   interaction.V.dir = -_rayTowardsSurface.dir;
-   // do some hardcore shizz to transform a differential at origin into a differential at surface
-   // also in barycentrics preferably (turn world pos diff into bary diff with applyScreenSpaceChainRule3D3)
-   //interaction.V.dPosdx = TODO;
-   //interaction.V.dPosdy = TODO;
-
-   vertexAttrMatrix = mat3(_Normal[0],_Normal[1],_Normal[2]);
-   interaction.N = vertexAttrMatrix*b;
-
-   return interaction;
-}
-*/
 
 
 // do not use this struct in SSBO or UBO, its wasteful on memory

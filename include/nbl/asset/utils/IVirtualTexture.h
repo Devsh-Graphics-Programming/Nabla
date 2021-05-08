@@ -1020,7 +1020,7 @@ protected:
             bnd.samplers = _samplers;
         };
 
-        fillBinding(bindings[0], _pgtBinding, 1u, samplers);
+        fillBinding(bindings[0], _pgtBinding, 1u, samplers); // @Crisspl why is the count hardcoded to 1 !?
 
         uint32_t i = 1u;
         if (getFloatViews().size())
@@ -1030,12 +1030,12 @@ protected:
         }
         if (getIntViews().size())
         {
-            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1);
+            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1); // @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
             ++i;
         }
         if (getUintViews().size())
         {
-            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1);
+            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1); // @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
         }
 
         return std::make_pair(bindingCount, samplerCount);

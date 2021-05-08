@@ -105,22 +105,27 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			return true;
 		}
 
-		static inline bool execute(state_type* state)
+		template<class ExecutionPolicy>
+		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
 		{
 			if (!validate(state))
 				return false;
 
 			auto checkFormat = state->inImage->getCreationParameters().format;
 			if (isIntegerFormat(checkFormat))
-				return executeInterprated(state, reinterpret_cast<uint64_t*>(state->scratchMemory));
+				return executeInterprated(std::forward<ExecutionPolicy>(policy), state, reinterpret_cast<uint64_t*>(state->scratchMemory));
 			else
-				return executeInterprated(state, reinterpret_cast<double*>(state->scratchMemory));
+				return executeInterprated(std::forward<ExecutionPolicy>(policy), state, reinterpret_cast<double*>(state->scratchMemory));
 		}	
+		static inline bool execute(state_type* state)
+		{
+			return execute(std::execution::seq,state);
+		}
 
 	private:
 
-		template<typename decodeType> //!< double or uint64_t
-		static inline bool executeInterprated(state_type* state, decodeType* scratchMemory)
+		template<class ExecutionPolicy, typename decodeType> //!< double or uint64_t
+		static inline bool executeInterprated(ExecutionPolicy&& policy, state_type* state, decodeType* scratchMemory)
 		{
 			const asset::E_FORMAT inFormat = state->inImage->getCreationParameters().format;
 			const asset::E_FORMAT outFormat = state->outImage->getCreationParameters().format;
@@ -172,7 +177,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				state->layerCount = copyLayerCount;
 			};
 
-			for (uint16_t w = 0u; w < copyLayerCount; ++w)
+			for (uint16_t w = 0u; w < copyLayerCount; ++w) // this could be parallelized
 			{
 				std::array<decodeType, maxChannels> minDecodeValues = {};
 				std::array<decodeType, maxChannels> maxDecodeValues = {};
@@ -235,12 +240,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, inFormat);
 
 					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
-					CBasicImageFilterCommon::executePerRegion(state->inImage, decode, inRegions.begin(), inRegions.end(), clipFunctor);
+					CBasicImageFilterCommon::executePerRegion(policy, state->inImage, decode, inRegions.begin(), inRegions.end(), clipFunctor);
 
 					if constexpr (ExclusiveMode)
 					{
 						core::vector3du32_SIMD localCoord;
-						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
+						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z) // TODO: parallelize
 							for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 								{
@@ -338,7 +343,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 					{
 						core::vector3du32_SIMD localCoord;
-						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
+						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)  // TODO: parallelize (will be tough!)
 							for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 									sum(core::vectorSIMDu32(x, y, z));
@@ -347,7 +352,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					auto normalizeScratch = [&](bool isSignedFormat)
 					{
 						core::vector3du32_SIMD localCoord;
-							for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
+							for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z) // TODO: parallelize
 								for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
 									for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 									{
@@ -385,7 +390,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, outFormat);
 
 						auto& outRegions = state->outImage->getRegions(state->outMipLevel);
-						CBasicImageFilterCommon::executePerRegion(state->outImage, encode, outRegions.begin(), outRegions.end(), clipFunctor);
+						CBasicImageFilterCommon::executePerRegion(policy,state->outImage, encode, outRegions.begin(), outRegions.end(), clipFunctor);
 					}
 				}
 

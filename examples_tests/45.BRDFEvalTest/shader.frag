@@ -34,7 +34,7 @@ void main()
     vec3 N = normalize(Normal);
     if (dot(N,Lnorm)>0.0)
     {
-        nbl_glsl_IsotropicViewSurfaceInteraction inter_ = nbl_glsl_calcSurfaceInteraction(pc.campos, Pos, N, mat2x3(dFdx(Pos),dFdy(Pos)));
+        nbl_glsl_IsotropicViewSurfaceInteraction inter_ = nbl_glsl_calcSurfaceInteraction(pc.campos, Pos, N);
         nbl_glsl_AnisotropicViewSurfaceInteraction inter = nbl_glsl_calcAnisotropicInteraction(inter_);
 
         nbl_glsl_LightSample _sample = nbl_glsl_createLightSample(Lnorm,inter);

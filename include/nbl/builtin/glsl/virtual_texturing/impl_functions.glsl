@@ -32,8 +32,8 @@ uint nbl_glsl_unpackMaxMipInVT(in uvec2 texData)
 }
 vec3 nbl_glsl_unpackVirtualUV(in uvec2 texData)
 {
-    // assert that PAGE_SZ_LOG2<8 , or change the line to uvec3(texData.yy<<uvec2(PAGE_SZ_LOG2,PAGE_SZ_LOG2-8u),texData.y>>16u)
-    uvec3 unnormCoords = uvec3(texData.y << PAGE_SZ_LOG2, texData.yy >> uvec2(8u - PAGE_SZ_LOG2, 16u))& uvec3(uvec2(0xffu) << PAGE_SZ_LOG2, 0xffu);
+    // assert that _NBL_VT_IMPL_PAGE_SZ_LOG2<8 , or change the line to uvec3(texData.yy<<uvec2(_NBL_VT_IMPL_PAGE_SZ_LOG2,_NBL_VT_IMPL_PAGE_SZ_LOG2-8u),texData.y>>16u)
+    uvec3 unnormCoords = uvec3(texData.y<<_NBL_VT_IMPL_PAGE_SZ_LOG2, texData.yy >> uvec2(8u-_NBL_VT_IMPL_PAGE_SZ_LOG2, 16u))& uvec3(uvec2(0xffu)<<_NBL_VT_IMPL_PAGE_SZ_LOG2, 0xffu);
     return vec3(unnormCoords);
 }
 vec2 nbl_glsl_unpackSize(in uvec2 texData)
@@ -70,12 +70,12 @@ vec3 nbl_glsl_vTexture_helper(in uint formatID, in vec3 virtualUV, in int clippe
 
 	vec2 tileCoordinate = uintBitsToFloat(floatBitsToUint(virtualUV.xy)+thisLevelTableSize);
 	tileCoordinate = fract(tileCoordinate); // optimize this fract at some point
-	tileCoordinate = uintBitsToFloat(floatBitsToUint(tileCoordinate)+uint((PAGE_SZ_LOG2-levelInTail)<<23));
+	tileCoordinate = uintBitsToFloat(floatBitsToUint(tileCoordinate)+uint((_NBL_VT_IMPL_PAGE_SZ_LOG2-levelInTail)<<23));
     tileCoordinate += packingOffsets[levelInTail];
 	tileCoordinate *= phys_pg_tex_sz_rcp;
 
 	vec3 physicalUV = nbl_glsl_unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
-	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)*phys_pg_tex_sz_rcp;
+	physicalUV.xy *= vec2(_NBL_VT_IMPL_PAGE_SZ+2*_NBL_VT_IMPL_TILE_PADDING)*phys_pg_tex_sz_rcp;
 
 	// add the in-tile coordinate
 	physicalUV.xy += tileCoordinate;
@@ -90,7 +90,7 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 {
 	// returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
 	// https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
-	const float kMaxAnisotropy = float(2u*TILE_PADDING);
+	const float kMaxAnisotropy = float(2u*_NBL_VT_IMPL_TILE_PADDING);
 	// you can use an approx `log2` if you know one
 #ifdef _NBL_APPROXIMATE_TEXEL_FOOTPRINT_FROM_DERIVATIVE_CACL_
 	// bounded by sqrt(2)
@@ -123,8 +123,8 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	// if minification is being performaed then get tail position
 	int levelInTail = LoD_high-clippedLoD;
 	// have to do trilinear only if doing minification AND larger than 1x1 footprint
-	bool haveToDoTrilinear = levelInTail<int(PAGE_SZ_LOG2) && positiveLoD;
-	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(PAGE_SZ_LOG2):0);
+	bool haveToDoTrilinear = levelInTail<int(_NBL_VT_IMPL_PAGE_SZ_LOG2) && positiveLoD;
+	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(_NBL_VT_IMPL_PAGE_SZ_LOG2):0);
 
 	// get the higher resolution mip-map level
 	vec3 hiPhysCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);

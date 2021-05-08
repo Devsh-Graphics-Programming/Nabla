@@ -4,8 +4,9 @@
 #include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 
 #ifndef _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
-	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()', 'mat2x3 nbl_glsl_MC_getdPos()' functions above"
+	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()', 'mat2x3 nbl_glsl_perturbNormal_dPdSomething()', and 'mat2 nbl_glsl_perturbNormal_dUVdSomething()' functions above"
 #endif
+#define _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_
 
 #include <nbl/builtin/glsl/math/functions.glsl>
 #include <nbl/builtin/glsl/format/decode.glsl>
@@ -340,8 +341,7 @@ mat2x4 nbl_glsl_MC_instr_fetchSrcRegs(in nbl_glsl_MC_instr_t i)
 
 void nbl_glsl_MC_setCurrInteraction(in vec3 N, in vec3 V)
 {
-	mat2x3 dp = nbl_glsl_MC_getdPos();
-	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteractionFromViewVector(V, N, dp);
+	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteractionFromViewVector(V, N);
 	currInteraction.inner = nbl_glsl_calcAnisotropicInteraction(interaction);
 	nbl_glsl_MC_finalizeInteraction(currInteraction);
 }
@@ -504,7 +504,7 @@ void nbl_glsl_MC_runTexPrefetchStream(in nbl_glsl_MC_instr_stream_t stream, in v
 	}
 }
 
-void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
+void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in nbl_glsl_MC_precomputed_t precomp)
 {
 	nbl_glsl_MC_setCurrInteraction(precomp);
 	for (uint i = 0u; i < stream.count; ++i)
@@ -518,9 +518,7 @@ void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in
 
 		vec2 dh = nbl_glsl_MC_readReg2(srcreg);
 		
-		nbl_glsl_MC_writeReg(dstreg,
-			nbl_glsl_perturbNormal_derivativeMap(currInteraction.inner.isotropic.N, dh, currInteraction.inner.isotropic.V.dPosdScreen, dUV)
-		);
+		nbl_glsl_MC_writeReg(dstreg,nbl_glsl_perturbNormal_derivativeMap(currInteraction.inner.isotropic.N, dh));
 	}
 }
 

@@ -1,0 +1,20 @@
+#ifndef _COMMON_H_INCLUDED_
+#define _COMMON_H_INCLUDED_
+
+
+#define PAGE_SZ_LOG2 7
+#define PAGE_PADDING 8
+
+#define _NBL_VT_PAGE_TABLE_BINDING 0
+#define _NBL_VT_FLOAT_VIEWS_BINDING 1
+
+
+#define USED_ATTRIBUTES 3
+#define MAX_TRIANGLES_IN_BATCH 1024
+
+
+#define SHADING_WG_SIZE_X 16
+#define SHADING_WG_SIZE_Y 16
+
+
+#endif

@@ -5,19 +5,27 @@
 #ifndef _NBL_BUILTIN_GLSL_BUMP_MAPPING_UTILS_INCLUDED_
 #define _NBL_BUILTIN_GLSL_BUMP_MAPPING_UTILS_INCLUDED_
 
-vec3 nbl_glsl_perturbNormal_heightMap(in vec3 vtxN, in mat2x3 dPdScreen, in vec2 dHdScreen)
+
+vec3 nbl_glsl_perturbNormal_heightMap(in vec3 vtxN, in mat2x3 dPdQ, in vec2 dHdQ)
 {
-    vec3 r1 = cross(dPdScreen[1], vtxN);
-    vec3 r2 = cross(vtxN, dPdScreen[0]);
-    vec3 surfGrad = (r1 * dHdScreen.x + r2 * dHdScreen.y) / dot(dPdScreen[0], r1);
-    return normalize(vtxN - surfGrad);
+    vec3 r1 = cross(dPdQ[1],vtxN);
+    vec3 r2 = cross(vtxN,dPdQ[0]);
+    vec3 surfGrad = (r1*dHdQ.x+r2*dHdQ.y)/dot(dPdQ[0],r1);
+    return normalize(vtxN-surfGrad);
 }
 
-vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 normal, in vec2 dh, in mat2x3 dPdScreen, in mat2 dUVdScreen)
+vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 vtxN, in vec2 dhdUV, in mat2x3 dPdQ, in mat2 dUVdQ)
 {
-    vec2 dHdScreen = vec2(dot(dh, dUVdScreen[0]), dot(dh, dUVdScreen[1]));//apply chain rule
-
-    return nbl_glsl_perturbNormal_heightMap(normal, dPdScreen, dHdScreen);
+    // apply the chain rule
+    const vec2 dHdQ = vec2(dot(dhdUV,dUVdQ[0]), dot(dhdUV,dUVdQ[1]));
+    return nbl_glsl_perturbNormal_heightMap(vtxN,dPdQ,dHdQ);
 }
+
+#ifdef _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_
+vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 vtxN, in vec2 dhdUV)
+{
+    return nbl_glsl_perturbNormal_derivativeMap(vtxN,dhdUV,nbl_glsl_perturbNormal_dPdSomething(),nbl_glsl_perturbNormal_dUVdSomething());
+}
+#endif
 
 #endif

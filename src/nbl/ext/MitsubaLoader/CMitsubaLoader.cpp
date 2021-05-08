@@ -100,9 +100,10 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
-mat2x3 nbl_glsl_MC_getdPos()
+mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(dFdx(WorldPos),dFdy(WorldPos));}
+mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
-	return mat2x3(dFdx(WorldPos), dFdy(WorldPos));
+    return mat2(dFdx(UV),dFdy(UV));
 }
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
@@ -117,7 +118,7 @@ _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
 nbl_glsl_MC_precomputed_t precomp;
 nbl_glsl_MC_oriented_material_t material;
-Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_AnisotropicViewSurfaceInteraction inter, in mat2 dummy_dUV)
+Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_AnisotropicViewSurfaceInteraction inter)
 {
 	nbl_glsl_MC_instr_stream_t eis = nbl_glsl_MC_oriented_material_t_getEvalStream(material);
 
@@ -127,13 +128,13 @@ Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_Anisotro
 
 #ifndef _NBL_COMPUTE_LIGHTING_DEFINED_
 #define _NBL_COMPUTE_LIGHTING_DEFINED_
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dummy_dUV)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction)
 {
 	vec3 campos = nbl_glsl_MC_getCamPos();
-	out_interaction = nbl_glsl_calcSurfaceInteraction(campos,WorldPos,normalize(Normal),mat2x3(dFdx(WorldPos),dFdy(WorldPos)));
+	out_interaction = nbl_glsl_calcSurfaceInteraction(campos,WorldPos,normalize(Normal));
 
 	nbl_glsl_LightSample _sample = nbl_glsl_createLightSample(precomp.V,1.0,precomp.N);
-	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction,dummy_dUV)/dot(interaction.V.dir,interaction.V.dir);
+	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction)/dot(interaction.V.dir,interaction.V.dir);
 }
 #endif
 
@@ -151,12 +152,12 @@ void main()
 	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), precomp);
 #endif
 
 
 	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
-	vec3 color = nbl_computeLighting(inter, dUV);
+	vec3 color = nbl_computeLighting(inter);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -332,7 +333,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 	conv.inImage = _img;
 	conv.outImage = outImg.get();
 
-	if (!convert_filter_t::execute(&conv))
+	if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
 	{
 		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
 		_NBL_DEBUG_BREAK_IF(true);
@@ -1077,7 +1078,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							conv.outImage = outImg.get();
 
 							viewParams.components = asset::ICPUImageView::SComponentMapping{};
-							if (!convert_filter_t::execute(&conv))
+							if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
 								_NBL_DEBUG_BREAK_IF(true);
 							viewParams.format = outImg->getCreationParameters().format;
 							viewParams.image = std::move(outImg);
