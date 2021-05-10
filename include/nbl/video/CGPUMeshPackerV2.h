@@ -7,8 +7,8 @@
 
 #include <nbl/video/IGPUMesh.h>
 #include <nbl/video/IGPUDescriptorSetLayout.h>
-#include <nbl/asset/IMeshPackerV2.h>
-#include <nbl/asset/CCPUMeshPackerV2.h>
+#include <nbl/asset/utils/IMeshPackerV2.h>
+#include <nbl/asset/utils/CCPUMeshPackerV2.h>
 
 using namespace nbl::video;
 

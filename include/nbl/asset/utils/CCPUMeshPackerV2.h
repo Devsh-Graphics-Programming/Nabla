@@ -6,7 +6,7 @@
 #define __NBL_ASSET_C_CPU_MESH_PACKER_V2_H_INCLUDED__
 
 #include <nbl/asset/ICPUMesh.h>
-#include <nbl/asset/IMeshPackerV2.h>
+#include <nbl/asset/utils/IMeshPackerV2.h>
 
 namespace nbl
 {

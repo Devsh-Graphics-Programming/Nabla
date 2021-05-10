@@ -10,7 +10,7 @@
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 #include "nbl/asset/utils/CCPUMeshPackerV1.h"
-#include "nbl/asset/CCPUMeshPackerV2.h"
+#include "nbl/asset/utils/CCPUMeshPackerV2.h"
 #include "nbl/video/CGPUMeshPackerV2.h"
 
 using namespace nbl;
