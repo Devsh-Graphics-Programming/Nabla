@@ -1,0 +1,60 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_PCH_ASSET_H_INCLUDED__
+#define __NBL_ASSET_PCH_ASSET_H_INCLUDED__
+
+#include "nbl/asset/asset.h"
+
+// private headers (would be useful to cleanup the folders a bit)
+
+// buffers
+// loaders
+#include "nbl/asset/interchange/CBufferLoaderBIN.h"
+
+// image
+// loaders
+#include "nbl/asset/interchange/CImageLoaderJPG.h"
+#include "nbl/asset/interchange/CImageLoaderPNG.h"
+#include "nbl/asset/interchange/CImageLoaderTGA.h"
+#include "nbl/asset/interchange/CImageLoaderOpenEXR.h"
+#include "nbl/asset/interchange/CGLILoader.h"
+// writers
+#include "nbl/asset/interchange/CImageWriterJPG.h"
+#include "nbl/asset/interchange/CImageWriterPNG.h"
+#include "nbl/asset/interchange/CImageWriterTGA.h"
+#include "nbl/asset/interchange/CImageWriterOpenEXR.h"
+#include "nbl/asset/interchange/CGLIWriter.h"
+
+// shaders
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/CIncludeHandler.h"
+#include "nbl/asset/utils/CBuiltinIncluder.h"
+#include "nbl/asset/utils/CFilesystemIncluder.h"
+
+// builtins/headers
+#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
+
+	
+// mesh
+#include "nbl/asset/utils/CGeometryCreator.h"
+// loaders
+#include "nbl/asset/interchange/COBJMeshFileLoader.h"
+#include "nbl/asset/interchange/CPLYMeshFileLoader.h"
+#include "nbl/asset/interchange/CSTLMeshFileLoader.h"
+// writers
+#include "nbl/asset/interchange/CPLYMeshWriter.h"
+#include "nbl/asset/interchange/CSTLMeshWriter.h"
+// manipulation
+#include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
+#include "nbl/asset/utils/CSmoothNormalGenerator.h"
+#include "nbl/asset/utils/COverdrawMeshOptimizer.h"
+#include "nbl/asset/utils/CMeshManipulator.h"
+
+// baw file format
+#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
+#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
+#include "nbl/asset/bawformat/CBAWMeshWriter.h"
+
+#endif

@@ -1,19 +1,20 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_FILE_SYSTEM_H_INCLUDED__
-#define __I_FILE_SYSTEM_H_INCLUDED__
+#ifndef __NBL_I_FILE_SYSTEM_H_INCLUDED__
+#define __NBL_I_FILE_SYSTEM_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "IFileArchive.h"
-#include "irr/asset/ICPUBuffer.h"
-#include "irr/core/core.h"
+#include "nbl/asset/ICPUBuffer.h"
+#include "nbl/core/core.h"
+#include "nbl/asset/compile_config.h"
 
-#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
-#include "irr/builtin/common.h"
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#include "nbl/builtin/common.h"
 #endif
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -244,11 +245,11 @@ class IFileSystem : public virtual core::IReferenceCounted
 		virtual bool existFile(const path& filename) const =0;
 
 
-		//! Run-time resource ID, `builtinPath` includes the "irr/builtin" prefix
+		//! Run-time resource ID, `builtinPath` includes the "nbl/builtin" prefix
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
 		{
-			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
-				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource_runtime(builtinPath);
+			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+				std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(builtinPath);
 				if (found.first && found.second)
 				{
 					auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
@@ -257,7 +258,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 				}
 				return nullptr;
 			#else
-				constexpr auto pathPrefix = "irr/builtin/";
+				constexpr auto pathPrefix = "nbl/builtin/";
 				auto pos = builtinPath.find(pathPrefix);
 				std::string path;
 				if (pos!=std::string::npos)
@@ -280,8 +281,8 @@ class IFileSystem : public virtual core::IReferenceCounted
 		template<typename StringUniqueType>
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
 		{
-			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
-				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
+			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+				std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
 				if (found.first && found.second)
 				{
 					auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
@@ -328,7 +329,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 			{
 				subdir = directory.subString(lastpos, pos - lastpos + 1);
 
-				if (subdir == _IRR_TEXT("../"))
+				if (subdir == "../")
 				{
 					if (lastWasRealDir)
 					{
@@ -341,11 +342,11 @@ class IFileSystem : public virtual core::IReferenceCounted
 						lastWasRealDir = false;
 					}
 				}
-				else if (subdir == _IRR_TEXT("/"))
+				else if (subdir == "/")
 				{
 					dir = root;
 				}
-				else if (subdir != _IRR_TEXT("./"))
+				else if (subdir != "./")
 				{
 					dir.append(subdir);
 					lastWasRealDir = true;
@@ -406,7 +407,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

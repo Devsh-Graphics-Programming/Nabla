@@ -1,15 +1,14 @@
-// Copyright (C) 2016 Mateusz "DeVsh" Kielan
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_DRIVER_MEMORY_BACKED_H_INCLUDED__
-#define __I_DRIVER_MEMORY_BACKED_H_INCLUDED__
+#ifndef __NBL_I_DRIVER_MEMORY_BACKED_H_INCLUDED__
+#define __NBL_I_DRIVER_MEMORY_BACKED_H_INCLUDED__
 
 #include <algorithm>
 #include "IDriverMemoryAllocation.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -99,6 +98,6 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif

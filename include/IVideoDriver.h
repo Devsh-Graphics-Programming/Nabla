@@ -1,9 +1,10 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __IRR_I_VIDEO_DRIVER_H_INCLUDED__
-#define __IRR_I_VIDEO_DRIVER_H_INCLUDED__
+#ifndef __NBL_I_VIDEO_DRIVER_H_INCLUDED__
+#define __NBL_I_VIDEO_DRIVER_H_INCLUDED__
 
 #include "rect.h"
 #include "SColor.h"
@@ -13,11 +14,10 @@
 #include "IDriverFence.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
-#include "irr/video/CDerivativeMapCreator.h"
-#include "irr/video/IGPUBufferView.h"
-#include "irr/video/IGPURenderpassIndependentPipeline.h"
+#include "nbl/video/IGPUBufferView.h"
+#include "nbl/video/IGPURenderpassIndependentPipeline.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -28,6 +28,7 @@ namespace video
 		ESB_BACK_LEFT,
 		ESB_BACK_RIGHT
 	};
+	//TODO move to IGPUCommandBuffer.h or higher level header
     enum E_PIPELINE_BIND_POINT
     {
         EPBP_GRAPHICS = 0,
@@ -90,7 +91,25 @@ namespace video
 		//!
 		virtual void issueGPUTextureBarrier() =0;
 
-		//!
+		//! Allows data in one framebuffer to be blitted to another framebuffer
+		/** 
+			A blit operation is a special form of copy operation. It copies a
+			rectangular area of pixels from one framebuffer to another. Note that
+			you should take care of your attachement inputs, so if for instance
+			their depth attachements don't match - you must not try to copy depth
+			between them.
+
+			\param in Specifies an in framebuffer which data will be copied to out framebuffer.
+			\param out Specifies an out framebuffer that will be taking data from in framebuffer.
+			\param copyDepth Specifies whether depth attachement should be copied.
+			\param copyStencil Specifies whether stencil attachement should be copied.
+			\param srcRect Rectangular area in pixels for original source needed to copy to \bdstRect\b.
+			\param dstRect Rectangular area in pixels for destination source where \bsrcRect\b is a reference.
+
+			It is perfectly valid to blit from or to the Default Framebuffer,
+			in such a case use \bnullptr\b.
+		*/
+
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
@@ -147,12 +166,30 @@ namespace video
 		virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		inline void drawArraysIndirect(	const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u)
+		{
+			return drawArraysIndirect(reinterpret_cast<const asset::SBufferBinding<const IGPUBuffer>*>(_vtxBindings),mode,indirectDrawBuff,offset,maxCount,stride,countBuffer,countOffset);
+		}
+		virtual void drawArraysIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
                                         const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) = 0;
-		virtual void drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		
+		inline void drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u)
+		{
+			return drawIndexedIndirect(reinterpret_cast<const asset::SBufferBinding<const IGPUBuffer>*>(_vtxBindings),mode,indexType,indexBuff,indirectDrawBuff,offset,maxCount,stride,countBuffer,countOffset);
+		}
+		virtual void drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
@@ -205,11 +242,10 @@ namespace video
 		it. */
 		virtual void enableClipPlane(uint32_t index, bool enable) {}
 
-        virtual const CDerivativeMapCreator* getDerivativeMapCreator() const { return nullptr; }
 	};
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

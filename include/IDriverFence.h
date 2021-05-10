@@ -1,16 +1,15 @@
-// Copyright (C) 2016 Mateusz "DeVsh" Kielan
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_DRIVER_FENCE_H_INCLUDED__
-#define __I_DRIVER_FENCE_H_INCLUDED__
+#ifndef __NBL_I_DRIVER_FENCE_H_INCLUDED__
+#define __NBL_I_DRIVER_FENCE_H_INCLUDED__
 
 #include <chrono>
-#include "irr/core/BaseClasses.h"
-#include "irr/core/EventDeferredHandler.h"
+#include "nbl/core/BaseClasses.h"
+#include "nbl/core/EventDeferredHandler.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -27,10 +26,65 @@ enum E_DRIVER_FENCE_RETVAL
     EDFR_ALREADY_SIGNALED
 };
 
-//! Persistently Mapped buffer
+//! Base class for Fences, persistently Mapped buffer
+/*
+    Using fences is neccesarry while requesting operation for
+    GPU depended on CPU side, like fetching mapped GPU buffer.
+    It's significant because CPU and GPU execute processes asynchronously,
+    so before the CPU does anything for instance to mapped memory the GPU
+    has been writing to, waiting on a fence is needed and then if the mapped memory
+    needs to be invalidated before CPU reads it.
+
+    So basically you should use \bcanDeferredFlush()\b.
+    It is a property of \bIDriverFence\b and it tells you whether 
+    the \bwaitCPU()\b method can accept a 
+    
+    \code{.cpp}
+    flush = true
+    \endcode
+  
+    parameter (which performs an implicit \bglFlush\b on the context you've placed 
+    the fence on just before you actually start witing on the fence)
+
+    @see waitCPU
+
+    A pipeline/context flush (\bglFlush\b) flushes the driver-CPU-side queue onto the 
+    GPU device for execution. If you place a fence but don't flush you can end up in a 
+    deadlock. Generally each time you call \bwaitCPU()\b it will time-out because the work 
+    has not been sent to the GPU for execution 100% (it's stuck in transit).
+
+    So you either need to perform a \bglFlush\b (but on the same thread and context that 
+    placed the fence) after placing the fence, but before \bwaitCPU()\b execution (on any 
+    thread) or use that implicit flush functionality (but only if setting thread is the 
+    waiting thread).
+
+    One of example of fence usage is as follows when writing to GPU buffer
+    with screen shot extension:
+
+    \code{.cpp}
+    auto fence = ext::ScreenShot::createScreenShot(driver, gpuimg, buffer.get());
+    while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED)
+    {
+        // do something while waiting on GPU
+    }
+    \endcode
+
+    Also you should look at IDriver::flushMappedMemoryRanges function. 
+    It flushes when CPU is writing and GPU is reading.
+
+    @see IDriver::flushMappedMemoryRanges
+
+    Notes:
+
+    - if you're not confident controlling cache coherency manually then use the \bCOHERENT\b 
+    memory type when creating mappable IGPUBuffers
+
+    @see IGPUBuffer
+*/
+
 class IDriverFence : public core::IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(IDriverFence) {}
+	    _NBL_INTERFACE_CHILD(IDriverFence) {}
     public:
         //! This tells us if we can set the `flush` argument of the `waitCPU` function to true
         virtual bool canDeferredFlush() const = 0;
@@ -79,8 +133,13 @@ class GPUEventWrapper : public core::Uncopyable
             return *this;
         }
 
-        template<class Clock, class Duration>
-        inline bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time)
+        template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration>
+        inline static std::chrono::time_point<Clock,Duration> default_wait()
+        {
+            return std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
+        }
+        template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration>
+        inline bool wait_until(const std::chrono::time_point<Clock,Duration>& timeout_time)
         {
             auto currentClockTime = Clock::now();
             do
@@ -134,7 +193,7 @@ template<class Functor>
 using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

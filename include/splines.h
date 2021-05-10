@@ -1,30 +1,45 @@
-// Copyright (C) 2014 Mateusz 'DevSH' Kielan
-// This file is part of the "Irrlicht Engine".
-// Contributed from "Build a World"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SPLINES_H_INCLUDED__
-#define __IRR_SPLINES_H_INCLUDED__
+#ifndef __NBL_SPLINES_H_INCLUDED__
+#define __NBL_SPLINES_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include <cmath>       /* sqrt */
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
 #include <vector>
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
 
-
+// TODO @Przemog
+// TODO: Refactor the base into an interpolator so we can use it for rotations too (in `core`)
+    // control points
+    // looping, finishing or pingponging (repeat, clamp or mirror)
+    // do what `getPos_fromParameter` does but call it `getValue`
+    // do what `getUnnormDirection_fromParameter` does but call it `getDerivativeAndTangent`
+// TODO: Refactor the other functionality Follow Curve Animator (in `scene`)
+    // need `getSplineLength` as `getCurveLength`
+    // info about segments
+    // info about arclength being precise (for many splines its not because arclength integrals are not fun)
+    // for the Follow Spine Animators (derived from interpolator)
+        // implement `_fromParameter` as simple passthroughs
+        // remember that `getPos` and `getUnnormDirection` need to be implemented in arclength (so the object can follow at constant speed)
+// TODO: Implement a FollowCircle or FollowEllipsoid derived from Follow Curve Animator
+    // 
+// TODO: Refactor the `BlockChange` stuff into an ext::baw::Animators
+    // all the methods with `BlockChange` in the name
 class ISpline// : public AllocationOverrideDefault
 {
     public:
         virtual ~ISpline() {}
 
-        //
+        // TODO: add pingpong option
         virtual bool        isLooping() const {return isLoop;}
         virtual size_t      getSegmentCount() const = 0;
         virtual float       getSplineLength() const = 0;
@@ -590,7 +605,7 @@ class CQuadraticSpline : public ISpline
 					}
 					else
 					{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 						assert(integrationConstants[0] < 10000000.f);
 						assert(integrationConstants[2] >= 0.f);
 #endif

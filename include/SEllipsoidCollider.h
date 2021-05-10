@@ -1,10 +1,14 @@
-#ifndef __S_ELLIPSOID_COLLIDER_H_INCLUDED__
-#define __S_ELLIPSOID_COLLIDER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_S_ELLIPSOID_COLLIDER_H_INCLUDED__
+#define __NBL_S_ELLIPSOID_COLLIDER_H_INCLUDED__
 
 #include "vectorSIMD.h"
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

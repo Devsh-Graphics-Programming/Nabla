@@ -25,13 +25,13 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_BRDF_EXPLORER_APP_INCLUDED_
-#define _IRR_BRDF_EXPLORER_APP_INCLUDED_
+#ifndef _NBL_BRDF_EXPLORER_APP_INCLUDED_
+#define _NBL_BRDF_EXPLORER_APP_INCLUDED_
 
 #include <map>
 #include <string>
 #include <vector>
-#include <irr/video/IGPUMesh.h>
+#include <nbl/video/IGPUMesh.h>
 #include <SMaterial.h>
 #include <ICameraSceneNode.h>
 
@@ -43,7 +43,7 @@ namespace CEGUI
 class EventArgs;
 }
 
-namespace irr
+namespace nbl
 {
 class IrrlichtDevice;
 namespace video
@@ -81,7 +81,7 @@ class BRDFExplorerApp {
             TEXTURE_SLOT_4,
         };
 
-        using TTextureSlotMap = irr::core::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
+        using TTextureSlotMap = nbl::core::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
 
         enum E_DROPDOWN_STATE
         {
@@ -131,8 +131,8 @@ class BRDFExplorerApp {
         };
         struct SLightAnimData {
             float Radius;
-            irr::core::vector2df Center;
-            irr::core::vector3df Position;
+            nbl::core::vector2df Center;
+            nbl::core::vector3df Position;
             TimePoint StartTime = Clock::now();
 
             inline void update() {
@@ -145,7 +145,7 @@ class BRDFExplorerApp {
         };
 
     public:
-        BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraSceneNode* _camera);
+        BRDFExplorerApp(IrrlichtDevice* device, nbl::scene::ICameraSceneNode* _camera);
         ~BRDFExplorerApp();
 
         void renderGUI();
@@ -156,16 +156,16 @@ class BRDFExplorerApp {
         // Loads a given texture buffer into slot of type T.
         // T can be one of the TextureType enum types.
         // Caller is responsible for freeing the buffer afterwards.
-        //void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
-        void loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName);
-        void loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _cputexture);
+        //void loadTextureSlot(ETEXTURE_SLOT slot, nbl::asset::ICPUTexture* _texture);
+        void loadTextureSlot(ETEXTURE_SLOT slot, nbl::video::IVirtualTexture* _texture, const std::string& _texName);
+        void loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, nbl::asset::ICPUTexture* _cputexture);
 
     private:
-        irr::asset::ICPUTexture* loadCPUTexture(const std::string& _path);
+        nbl::asset::ICPUTexture* loadCPUTexture(const std::string& _path);
 
         struct SCPUGPUMesh {
-            irr::asset::ICPUMesh* cpu;
-            irr::video::IGPUMesh* gpu;
+            nbl::asset::ICPUMesh* cpu;
+            nbl::video::IGPUMesh* gpu;
         };
         SCPUGPUMesh loadMesh(const std::string& _path);
         void loadMeshAndReplaceTextures(const std::string& _path);
@@ -188,7 +188,7 @@ class BRDFExplorerApp {
         // used when IoR-source is set back to texture (from constant)
         void resetGUIAfterConstantIoR();
 
-        void setLightPosition(const irr::core::vector3df& _lightPos);
+        void setLightPosition(const nbl::core::vector3df& _lightPos);
 
         void updateTooltip(const char* name, const char* text);
         void eventAOTextureBrowse(const ::CEGUI::EventArgs&);
@@ -239,9 +239,9 @@ class BRDFExplorerApp {
         TTextureSlotMap TextureSlotMap;
 
         struct {
-            irr::video::IVirtualTexture* TextureViewer[4]{};
-            irr::video::IVirtualTexture* AO = nullptr;
-            irr::video::IVirtualTexture* BumpMap = nullptr;
+            nbl::video::IVirtualTexture* TextureViewer[4]{};
+            nbl::video::IVirtualTexture* AO = nullptr;
+            nbl::video::IVirtualTexture* BumpMap = nullptr;
         } Textures;
 
         struct {
@@ -253,15 +253,15 @@ class BRDFExplorerApp {
 
         SLightAnimData LightAnimData;
 
-        irr::video::IGPUMesh* Mesh = nullptr;
-        irr::video::SGPUMaterial Material;
+        nbl::video::IGPUMesh* Mesh = nullptr;
+        nbl::video::SGPUMaterial Material;
 
-        irr::video::IVirtualTexture* DefaultTexture = nullptr;
-        irr::video::IGPUMesh* DefaultMesh = nullptr;
+        nbl::video::IVirtualTexture* DefaultTexture = nullptr;
+        nbl::video::IGPUMesh* DefaultMesh = nullptr;
 
         CShaderManager* ShaderManager = nullptr;
         CDerivativeMapManager* DerivativeMapManager = nullptr;
 };
 
-} // namespace irr
-#endif // _IRR_BRDF_EXPLORER_APP_INCLUDED_
+} // namespace nbl
+#endif

@@ -1,11 +1,15 @@
-#ifndef __S_COLLISION_ENGINE_H_INCLUDED__
-#define __S_COLLISION_ENGINE_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irrlicht.h"
+#ifndef __NBL_S_COLLISION_ENGINE_H_INCLUDED__
+#define __NBL_S_COLLISION_ENGINE_H_INCLUDED__
+
+#include "nabla.h"
 #include "SCompoundCollider.h"
 #include "SViewFrustum.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -1,15 +1,16 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __IRR_I_DRIVER_H_INCLUDED__
-#define __IRR_I_DRIVER_H_INCLUDED__
+#ifndef __NBL_I_DRIVER_H_INCLUDED__
+#define __NBL_I_DRIVER_H_INCLUDED__
 
-#include "irr/asset/asset.h"
-#include "irr/video/asset_traits.h"
-#include "irr/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/asset/asset.h"
+#include "nbl/video/asset_traits.h"
+#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
-namespace irr
+namespace nbl
 {
 	class IrrlichtDevice;
 
@@ -17,18 +18,21 @@ namespace video
 {
 	class IGPUMeshDataFormatDesc;
 	class IGPUObjectFromAssetConverter;
+	class CPropertyPoolHandler;
 }
 }
 
-#include "irr/video/IGPUPipelineCache.h"
-#include "irr/video/IGPUImageView.h"
+#include "nbl/video/IGPUPipelineCache.h"
+#include "nbl/video/IGPUImageView.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
+
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
 #include "IGPUTimestampQuery.h"
 #include "IDriverFence.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -278,7 +282,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) { return nullptr; }
 
 		//! Specialize the plain shader (@see ICPUSpecializedShader)
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) { return nullptr; }
 
 		//! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) { return nullptr; }
@@ -296,7 +300,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader*const * _shaders, IGPUSpecializedShader*const * _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -339,7 +343,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
                 uint32_t alignment = 64u; // smallest mapping alignment capability
                 uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
 
-                defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
+                defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                 // keep trying again
                 if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
                     continue;
@@ -361,6 +365,9 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		//! Fill out the descriptor sets with descriptors
 		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
 
+
+		//!
+		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 	//====================== THIS STUFF NEEDS A REWRITE =====================
         //! Creates a framebuffer object with no attachments
@@ -389,7 +396,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
         //!
         template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const AssetType* const* const _begin, const AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 		//! 
 		template<typename AssetType>
 		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
@@ -424,7 +431,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

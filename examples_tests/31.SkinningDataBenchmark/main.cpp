@@ -1,23 +1,27 @@
-#define _IRR_STATIC_LIB_
-#include <iostream>
-#include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irrlicht.h>
+#define _NBL_STATIC_LIB_
+#include <iostream>
+#include <nabla.h>
+#include "../source/Nabla/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLBuffer.h"
+#include "../source/Nabla/COpenGLDriver.h"
+
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <random>
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
 
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 struct Vertex
 {
     uint32_t boneID;
@@ -26,9 +30,9 @@ struct Vertex
     uint8_t uv[2];
     float normal[3];
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 
-#include <irr/asset/CCPUMeshPacker.h>
+#include "nbl/asset/utils/CCPUMeshPacker.h"
 #include "common.glsl"
 
 template<typename T>
@@ -79,15 +83,18 @@ IFrameBuffer* createDepthOnlyFrameBuffer(video::IVideoDriver* driver)
     return frameBuffer;
 }
 
+constexpr uint32_t TEST_CASE_COUNT = 5u;
+constexpr uint32_t TEST_CASE_SUBGROUPS = 4u;
+
 int main()
 {
     // create device with full flexibility over creation parameters
-    // you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-    irr::SIrrlichtCreationParameters params;
+    // you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+    nbl::SIrrlichtCreationParameters params;
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     params.WindowSize = dimension2d<uint32_t>(1280, 720);
 #else
     params.WindowSize = dimension2d<uint32_t>(64, 64);
@@ -107,24 +114,26 @@ int main()
     auto* am = device->getAssetManager();
     video::IVideoDriver* driver = device->getVideoDriver();
 
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
     auto* depthFBO = createDepthOnlyFrameBuffer(driver);
 #endif
 
     IAssetLoader::SAssetLoadParams lp;
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     auto vertexShaderBundle_1 = am->getAsset("../test_1.vert", lp);
     auto vertexShaderBundle_2 = am->getAsset("../test_2.vert", lp);
     auto vertexShaderBundle_3 = am->getAsset("../test_3.vert", lp);
     auto vertexShaderBundle_4 = am->getAsset("../test_4.vert", lp);
+    auto vertexShaderBundle_5 = am->getAsset("../test_5.vert", lp);
 #else
     auto vertexShaderBundle_1 = am->getAsset("../benchmark_1.vert", lp);
     auto vertexShaderBundle_2 = am->getAsset("../benchmark_2.vert", lp);
     auto vertexShaderBundle_3 = am->getAsset("../benchmark_3.vert", lp);
     auto vertexShaderBundle_4 = am->getAsset("../benchmark_4.vert", lp);
+    auto vertexShaderBundle_5 = am->getAsset("../benchmark_5.vert", lp);
 #endif
     auto fragShaderBundle = am->getAsset("../dirLight.frag", lp);
-    ICPUSpecializedShader* shaders[4][2];
+    ICPUSpecializedShader* shaders[TEST_CASE_COUNT][2];
     shaders[0][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle_1.getContents().begin()->get());
     shaders[0][1] = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
     shaders[1][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle_2.getContents().begin()->get());
@@ -133,6 +142,8 @@ int main()
     shaders[2][1] = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
     shaders[3][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle_4.getContents().begin()->get());
     shaders[3][1] = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
+    shaders[4][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle_5.getContents().begin()->get());
+    shaders[4][1] = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
 
     core::vector<uint16_t> boneMatMaxCnt;
 
@@ -154,15 +165,17 @@ int main()
         newInputParams.attributes[4].format = EF_R32_UINT;
         newInputParams.attributes[4].relativeOffset = 0u;
 
+        const auto vertexUpperBound = asset::IMeshManipulator::upperBoundVertexID(meshBuffer.get());
+
         SBufferBinding<ICPUBuffer> boneIDBuffer;
         boneIDBuffer.offset = 0u;
-        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(meshBuffer->calcVertexCount() * sizeof(uint32_t));
+        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexUpperBound*sizeof(uint32_t));
 
         uint32_t* buffPtr = static_cast<uint32_t*>(boneIDBuffer.buffer->getPointer());
-        for (int i = 0; i < meshBuffer->calcVertexCount(); i++)
+        for (auto i=0u; i<vertexUpperBound; i++)
             buffPtr[i] = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
         // don't want total random access to bones, sort roughly 
-        std::sort(buffPtr,buffPtr+meshBuffer->calcVertexCount());
+        std::sort(buffPtr,buffPtr+vertexUpperBound);
 
         meshBuffer->setVertexBufferBinding(std::move(boneIDBuffer), 1);
 
@@ -170,7 +183,7 @@ int main()
         meshBuffer->setPipeline(std::move(pipeline));
     };
     const auto MaxBufferSize = driver->getMaxSSBOSize();
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
 #else
     const uint32_t multiplier = core::min<uint32_t>(MAX_OBJ_CNT*(MaxBufferSize>>20u)/(0x1u<<10u),MAX_OBJ_CNT);
@@ -183,7 +196,7 @@ int main()
 
     std::vector<uint16_t> tesselation(diskCount);
     
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     constexpr uint32_t maxTesselation = 32u;
 #else
     constexpr uint32_t maxTesselation = 16000u;
@@ -207,7 +220,7 @@ int main()
     core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> disks(diskCount);
     std::generate(disks.begin(), disks.end(), []() { return core::make_smart_refctd_ptr<ICPUMeshBuffer>(); });
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
     {
         auto disk = am->getGeometryCreator()->createDiskMesh(0.5f, tesselation[i]);
@@ -226,9 +239,10 @@ int main()
         disk.inputParams = SVertexInputParams();
         for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
         {
-            auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), tesselation[i] + 2u, EIT_16BIT);
+            size_t indexCount = tesselation[i]+2u;
+            auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), indexCount, EIT_16BIT, EIT_16BIT);
             disk.indexBuffer = { 0ull, newIdxBuffer };
-            disk.indexCount = newIdxBuffer->getSize() / sizeof(uint16_t);
+            disk.indexCount = indexCount;
             disk.indexType = EIT_16BIT;
             disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
             createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);
@@ -247,7 +261,7 @@ int main()
     MeshPackerBase::PackedMeshBufferData mb;
     {
         auto allocParams = MeshPackerBase::AllocationParams();
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
         allocParams.MDIDataBuffSupportedCnt = 1024;
         allocParams.MDIDataBuffMinAllocSize = 512;
         allocParams.indexBuffSupportedCnt = 8192 * 2;
@@ -267,7 +281,7 @@ int main()
 
         auto resParams = packer.alloc(disks.begin(), disks.end());
 
-        _IRR_DEBUG_BREAK_IF(resParams.isValid() == false);
+        _NBL_DEBUG_BREAK_IF(resParams.isValid() == false);
 
         packer.instantiateDataStorage();
 
@@ -275,8 +289,8 @@ int main()
 
         packedMeshBuffer = packer.getPackedMeshBuffer();
 
-        _IRR_DEBUG_BREAK_IF(mb.isValid() == false);
-        _IRR_DEBUG_BREAK_IF(packedMeshBuffer.isValid() == false);
+        _NBL_DEBUG_BREAK_IF(mb.isValid() == false);
+        _NBL_DEBUG_BREAK_IF(packedMeshBuffer.isValid() == false);
     }
 
     disks.clear();
@@ -302,7 +316,7 @@ int main()
     {
         mdi.indexBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packedMeshBuffer.indexBuffer.buffer->getSize(), packedMeshBuffer.indexBuffer.buffer->getPointer());
 
-        _IRR_DEBUG_BREAK_IF(mb.mdiParameterCount == 0u);
+        _NBL_DEBUG_BREAK_IF(mb.mdiParameterCount == 0u);
         mdi.indirectDrawBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)* mb.mdiParameterCount, packedMeshBuffer.MDIDataBuffer->getPointer());
 
         auto& cpuVtxBuff = packedMeshBuffer.vertexBufferBindings[4].buffer;
@@ -320,7 +334,7 @@ int main()
         core::matrix4SIMD boneMatrix;
         core::matrix3x4SIMD normalMatrix;
     };
-    core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer[4];
+    core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer[TEST_CASE_COUNT];
     vector<core::matrix3x4SIMD> translationMatrices_2(diskCount);
     core::vector<core::matrix4SIMD> boneMatrices(boneMatrixCnt);
     core::vector<core::matrix3x4SIMD> normalMatrices(boneMatrixCnt);
@@ -350,6 +364,8 @@ int main()
 
         //as floats
         drawDataBuffer[3] = driver->createDeviceLocalGPUBufferOnDedMem((BONE_COMP_MAX_CNT + NORM_COMP_MAX_CNT) * sizeof(float));
+
+        drawDataBuffer[TEST_CASE_SUBGROUPS] = drawDataBuffer[0];
     }
 
     
@@ -367,9 +383,10 @@ int main()
         uint32_t matrixOffsets[16];
     };
 
-    core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout[4];
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline[4];
-    core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet[4];
+    //TODO
+    core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout[TEST_CASE_COUNT];
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline[TEST_CASE_COUNT];
+    core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet[TEST_CASE_COUNT];
 
     Shader3PushConstants s3pc;
     s3pc.matrixOffsets = core::vector4du32_SIMD(0u, boneMatrixCnt, boneMatrixCnt * 2, boneMatrixCnt * 3);
@@ -379,42 +396,50 @@ int main()
         s4pc.matrixOffsets[i] = i * boneMatrixCnt;
 
     {
-        asset::SPushConstantRange range[4] = {
+        asset::SPushConstantRange range[TEST_CASE_COUNT] = {
             asset::ISpecializedShader::ESS_UNKNOWN, 0u, 0u,
             asset::ISpecializedShader::ESS_UNKNOWN, 0u, 0u,
             asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants),
-            asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader4PushConstants)
+            asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader4PushConstants),
+            asset::ISpecializedShader::ESS_UNKNOWN, 0u, 0u
         };
 
-        for (uint32_t i = 0u; i < 4u; i++)
+        //TODO
+        for (uint32_t i = 0u; i < TEST_CASE_COUNT; i++)
         {
             core::smart_refctd_ptr<IGPUDescriptorSetLayout> layout;
             {
-                video::IGPUDescriptorSetLayout::SBinding b[1];
+                video::IGPUDescriptorSetLayout::SBinding b[2];
                 b[0].binding = 0u;
                 b[0].count = 1u;
                 b[0].type = EDT_STORAGE_BUFFER;
+                b[1] = b[0];
+                b[1].binding = 1u;
 
-                layout = driver->createGPUDescriptorSetLayout(b, b + 1);
+                uint32_t count = i == TEST_CASE_SUBGROUPS ? 2u : 1u;
+                layout = driver->createGPUDescriptorSetLayout(b, b + count);
             }
 
             descriptorSet[i] = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
             {
-                video::IGPUDescriptorSet::SWriteDescriptorSet w;
-                w.binding = 0u;
-                w.arrayElement = 0u;
-                w.count = 1u;
-                w.descriptorType = EDT_STORAGE_BUFFER;
-                w.dstSet = descriptorSet[i].get();
+                video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
+                w[0].binding = 0u;
+                w[0].arrayElement = 0u;
+                w[0].count = 1u;
+                w[0].descriptorType = EDT_STORAGE_BUFFER;
+                w[0].dstSet = descriptorSet[i].get();
+                w[1] = w[0];
 
                 video::IGPUDescriptorSet::SDescriptorInfo info;
                 info.buffer.offset = 0u;
                 info.buffer.size = drawDataBuffer[i]->getSize();
                 info.desc = drawDataBuffer[i];
 
-                w.info = &info;
+                w[0].info = &info;
+                w[1].info = &info;
 
-                driver->updateDescriptorSets(1u, &w, 0u, nullptr);
+                uint32_t count = i == TEST_CASE_SUBGROUPS ? 2u : 1u;
+                driver->updateDescriptorSets(count, w, 0u, nullptr);
             }
             
             auto gpuShaders = driver->getGPUObjectsFromAssets(shaders[i], shaders[i] + 2);
@@ -427,18 +452,18 @@ int main()
 
             asset::SRasterizationParams rasterParams;
             rasterParams.faceCullingMode = asset::EFCM_NONE;
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             rasterParams.faceCullingMode = asset::EFCM_BACK_BIT;
             rasterParams.depthTestEnable = true;
             rasterParams.depthWriteEnable = false;
 #endif
 
             SBlendParams blendParams;
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             blendParams.blendParams[0].colorWriteMask = 0u;
 #endif
 
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             constexpr uint32_t shaderCnt = 1u;
 #else
             constexpr uint32_t shaderCnt = 2u;
@@ -520,8 +545,9 @@ int main()
     {
         switch (caseID)
         {
-        case 0:
-        case 1:
+        case 0: [[fallthrough]];
+        case 1: [[fallthrough]];
+        case TEST_CASE_SUBGROUPS:
         break;
         case 2:
             driver->pushConstants(gpuPipelineLayout[2].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants), &s3pc);
@@ -538,7 +564,8 @@ int main()
     {
         switch (caseID)
         {
-        case 0:
+        case 0: [[fallthrough]];
+        case TEST_CASE_SUBGROUPS:
         {
             const size_t matricesByteSize = sizeof(BoneNormalMatPair) * boneAndNormalMatrices.size();
 
@@ -581,7 +608,7 @@ int main()
     };
 
     std::function<bool()> exitCondition;
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     exitCondition = [&]() { return device->run() && receiver.keepOpen(); };
 #else
     exitCondition = []() { return true; };
@@ -591,7 +618,7 @@ int main()
 
     constexpr uint32_t iterationCnt = 1000u;
     constexpr uint32_t warmupIterationCnt = iterationCnt / 10u;
-    for (uint32_t caseID = 0u; caseID < 4u; caseID++)
+    for (uint32_t caseID = 0u; caseID < TEST_CASE_COUNT; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
 
@@ -599,7 +626,7 @@ int main()
         driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[caseID]->getLayout(), 0u, 1u, &descriptorSet[caseID].get(), nullptr);
         updatePushConstants(caseID);
 
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
         driver->setRenderTarget(depthFBO);
         driver->clearZBuffer(1.0f);
@@ -614,7 +641,7 @@ int main()
             driver->beginQuery(query);
             for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
             {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
                 driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
                 timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
 
@@ -626,7 +653,7 @@ int main()
                 updateSSBO(caseID);
 #endif
                 driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
                 driver->endScene();
 #endif
             }
@@ -646,7 +673,7 @@ int main()
         }
 
     }
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
     os::Printer::print(std::string("Type Something to Exit:"));
     std::cin.get();
 #endif

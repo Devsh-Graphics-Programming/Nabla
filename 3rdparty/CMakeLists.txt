@@ -1,16 +1,6 @@
-# Copyright (c) 2019 DevSH Graphics Programming Sp. z O.O.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# This file is part of the "Nabla Engine".
+# For conditions of distribution and use, see copyright notice in nabla.h
 
 include(../cmake/common.cmake)
 
@@ -34,6 +24,7 @@ update_git_submodule(./openssl)
 update_git_submodule(./libjpeg-turbo)
 update_git_submodule(./libjpeg) # soon to be killed
 update_git_submodule(./parallel-hashmap)
+update_git_submodule(./gli)
 # exceptions that get automatically cloned
 update_git_submodule(./glm)
 update_git_submodule(./freetype2)
@@ -135,6 +126,8 @@ set(ENABLE_SPVREMAPPER OFF CACHE BOOL "SPVRemapper is a spirv compression experi
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Build glslangValidator and spirv-remap?")
 set(BUILD_TESTING OFF CACHE BOOL "Enable glslang build testing?")
 add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
+# because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
+target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 
 set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?")
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?")
@@ -178,8 +171,8 @@ set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 #gli
-option(_IRR_COMPILE_WITH_GLI_ "Build with GLI library" ON)
-if(_IRR_COMPILE_WITH_GLI_)
+option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
+if(_NBL_COMPILE_WITH_GLI_)
 	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
 	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
@@ -192,7 +185,7 @@ if(_IRR_COMPILE_WITH_GLI_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
-irr_adjust_flags()
+nbl_adjust_flags()
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
@@ -245,13 +238,13 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
-if (IRR_BUILD_CEGUI) # I absolutely hate and despise GLM
+if (NBL_BUILD_CEGUI) # I absolutely hate and despise GLM
 	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
 	set(BUILD_SHARED_LIBS OFF)
 	set(BUILD_STATIC_LIBS OFF)
 	option(GLM_TEST_ENABLE_CXX_14 "Enable C++ 14" ON)
-	if (IRR_FAST_MATH)
+	if (NBL_FAST_MATH)
 	   option(GLM_TEST_ENABLE_FAST_MATH "Enable fast math optimizations" ON)
 	endif()
 	option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
@@ -267,7 +260,7 @@ option(GLM_TEST_ENABLE "Build unit tests" OFF)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
-if (IRR_BUILD_MITSUBA_LOADER)
+if (NBL_BUILD_MITSUBA_LOADER)
    update_git_submodule(./libexpat)
 
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
@@ -290,7 +283,7 @@ if (IRR_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-if (IRR_BUILD_CEGUI)
+if (NBL_BUILD_CEGUI)
 	update_git_submodule(./libexpat)
 	update_git_submodule(./CEGUI/pcre)
 	update_git_submodule(./CEGUI/glew)
@@ -347,22 +340,22 @@ if (IRR_BUILD_CEGUI)
 	#[[ unsure if needed for now
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
-			DESTINATION ./include/irr/ext/CEGUI/3rdparty
+			DESTINATION ./include/nbl/ext/CEGUI/3rdparty
 			CONFIGURATIONS Release
 		)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
-			DESTINATION ./debug/include/irr/ext/CEGUI/3rdparty
+			DESTINATION ./debug/include/nbl/ext/CEGUI/3rdparty
 			CONFIGURATIONS Debug
 		)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
-			DESTINATION ./lib/irr/ext/CEGUI
+			DESTINATION ./lib/nbl/ext/CEGUI
 			CONFIGURATIONS Release
 		)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
-			DESTINATION ./debug/lib/irr/ext/CEGUI
+			DESTINATION ./debug/lib/nbl/ext/CEGUI
 			CONFIGURATIONS Debug
 		)
 	]]#
@@ -370,54 +363,54 @@ if (IRR_BUILD_CEGUI)
 	# CEGUI headers
 	install(
 		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./include/irr/ext/CEGUI
+		DESTINATION ./include/nbl/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./debug/include/irr/ext/CEGUI
+		DESTINATION ./debug/include/nbl/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		DESTINATION ./relwithdebinfo/include/nbl/ext/CEGUI
 		CONFIGURATIONS RelWithDebInfo
 	)
 	# CEGUI generated headers
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./include/irr/ext/CEGUI
+		DESTINATION ./include/nbl/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./debug/include/irr/ext/CEGUI
+		DESTINATION ./debug/include/nbl/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		DESTINATION ./relwithdebinfo/include/nbl/ext/CEGUI
 		CONFIGURATIONS RelWithDebInfo
 	)
 	# CEGUI libs
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
-		DESTINATION ./lib/irr/ext/CEGUI
+		DESTINATION ./lib/nbl/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
-		DESTINATION ./debug/lib/irr/ext/CEGUI
+		DESTINATION ./debug/lib/nbl/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
-		DESTINATION ./relwithdebinfo/lib/irr/ext/CEGUI
+		DESTINATION ./relwithdebinfo/lib/nbl/ext/CEGUI
 		CONFIGURATIONS RelWithDebInfo
 	)
 endif()
 
-if (IRR_BUILD_RADEON_RAYS)
+if (NBL_BUILD_RADEON_RAYS)
 	update_git_submodule(./radeonrays)
 
 	option(RR_NO_TESTS "RADEON_RAYS: don't do tests" ON)
@@ -429,6 +422,8 @@ if (IRR_BUILD_RADEON_RAYS)
 
 	set(RADEON_RAYS_DEPENDENTS
 		RadeonRays
+		CLW
+		Calc
 	)
 	set(RADEON_RAYS_DEPENDENTS ${RADEON_RAYS_DEPENDENTS} PARENT_SCOPE)
 	set(RADEON_RAYS_DEPENDENT_LIBS
@@ -437,7 +432,7 @@ if (IRR_BUILD_RADEON_RAYS)
 	set(RADEON_RAYS_DEPENDENT_LIBS ${RADEON_RAYS_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-if (IRR_BUILD_BULLET)
+if (NBL_BUILD_BULLET)
 	update_git_submodule(./bullet3)
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
@@ -447,11 +442,11 @@ if (IRR_BUILD_BULLET)
 endif()
 
 
-if (IRR_COMPILE_WITH_CUDA)
+if (NBL_COMPILE_WITH_CUDA)
 	update_git_submodule(./jitify)
 endif()
 
-set(IRR_3RDPARTY_TARGETS
+set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
@@ -470,19 +465,24 @@ set(IRR_3RDPARTY_TARGETS
 				glslang
 				OGLCompiler 
 				OSDependent
+				MachineIndependent
+				GenericCodeGen
 				SPIRV 
 				Iex
 				IexMath
 				SPIRV-Tools
 				SPIRV-Tools-opt )
 #TODO insert more targets that are conditionally built
-if (IRR_BUILD_MITSUBA_LOADER)
-	list(APPEND IRR_3RDPARTY_TARGETS expat)
+if (NBL_BUILD_MITSUBA_LOADER)
+	list(APPEND NBL_3RDPARTY_TARGETS expat)
+endif()
+if (NBL_BUILD_RADEON_RAYS)
+	list(APPEND NBL_3RDPARTY_TARGETS ${RADEON_RAYS_DEPENDENTS})
 endif()
 if(ENABLE_HLSL)
-	list(APPEND IRR_3RDPARTY_TARGETS HLSL)
+	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
-foreach(trgt IN LISTS IRR_3RDPARTY_TARGETS)
+foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endforeach()

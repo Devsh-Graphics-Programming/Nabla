@@ -1,10 +1,14 @@
-#ifndef __I_QUERY_OBJECT_H_INCLUDED__
-#define __I_QUERY_OBJECT_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/core/Types.h"
-#include "irr/core/IReferenceCounted.h"
+#ifndef __NBL_I_QUERY_OBJECT_H_INCLUDED__
+#define __NBL_I_QUERY_OBJECT_H_INCLUDED__
 
-namespace irr
+#include "nbl/core/Types.h"
+#include "nbl/core/IReferenceCounted.h"
+
+namespace nbl
 {
 namespace video
 {
@@ -22,7 +26,7 @@ enum E_QUERY_OBJECT_TYPE
 
 class IQueryObject : public core::IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(IQueryObject) {}
+	    _NBL_INTERFACE_CHILD(IQueryObject) {}
     public:
         /// ALL will STALL CPU IF QUERY NOT READY
 		virtual void getQueryResult(uint32_t* queryResult) = 0;
@@ -44,5 +48,5 @@ class IQueryObject : public core::IReferenceCounted
 }
 }
 
-#endif // __I_QUERY_OBJECT_H_INCLUDED__
+#endif
 

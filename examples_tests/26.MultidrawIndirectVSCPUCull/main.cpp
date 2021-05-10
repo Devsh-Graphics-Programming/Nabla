@@ -1,12 +1,16 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <random>
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
@@ -25,16 +29,16 @@ public:
 
 	bool OnEvent(const SEvent& event)
 	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+        if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
         {
             switch (event.KeyInput.Key)
             {
-            case irr::KEY_KEY_Q: // so we can quit
+            case nbl::KEY_KEY_Q: // so we can quit
 				return QToQuitEventReceiver::OnEvent(event);
-            case irr::KEY_KEY_C: // so we can quit
+            case nbl::KEY_KEY_C: // so we can quit
                 doCulling = !doCulling; // Not enabled/necessary yet
                 return true;
-            case irr::KEY_SPACE: // toggle between gpu and cpu cull
+            case nbl::KEY_SPACE: // toggle between gpu and cpu cull
                 useDrawIndirect = !useDrawIndirect;
                 return true;
             default:
@@ -55,8 +59,8 @@ private:
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -97,7 +101,7 @@ int main()
     
     auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
     //loading cache from file
-    if (!qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true))
+    if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse"))
         os::Printer::log("Failed to load cache.");
 
     constexpr auto kInstanceCount = 8192;
@@ -198,7 +202,7 @@ int main()
         }
         
         //! cache results -- speeds up mesh generation on second run
-        qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+        qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
         
         //
         gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);

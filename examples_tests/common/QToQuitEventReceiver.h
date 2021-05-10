@@ -1,23 +1,27 @@
-#ifndef __Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
-#define __Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irrlicht.h"
+#ifndef __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
+#define __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
+
+#include "nabla.h"
 
 //! Simple event receiver for most examples that closes the engine when Q is pressed
-class QToQuitEventReceiver : public irr::IEventReceiver
+class QToQuitEventReceiver : public nbl::IEventReceiver
 {
 	public:
 		QToQuitEventReceiver() : running(true)
 		{
 		}
 
-		bool OnEvent(const irr::SEvent& event)
+		bool OnEvent(const nbl::SEvent& event)
 		{
-			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 			{
 				switch (event.KeyInput.Key)
 				{
-					case irr::KEY_KEY_Q: // switch wire frame mode
+					case nbl::KEY_KEY_Q: // switch wire frame mode
 						running = false;
 						return true;
 					default:
