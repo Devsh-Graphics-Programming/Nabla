@@ -345,6 +345,8 @@ if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
 endif()
 
+add_subdirectory(android-sample EXCLUDE_FROM_ALL)
+
 if(NBL_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()
