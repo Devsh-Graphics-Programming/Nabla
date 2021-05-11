@@ -1,13 +1,15 @@
-// For a 1024x1024 image
-// WG_SIZE = 256x1x1
-// VT = 4
-// Number of workgroups = 1024
+// Todo(achal): Need to be in a separate `types.glsl` file like the FFT
+#define nbl_glsl_ext_Blur_Storage_t uvec2
 
-// Todo: DRY!!
-#define WIDTH 1024
-#define HEIGHT 1024
-#define RADIUS 15.73f
-#define VT 4
+nbl_glsl_ext_Blur_Storage_t nbl_glsl_ext_Blur_Storage_t_get(vec4 val)
+{
+	return nbl_glsl_ext_Blur_Storage_t(packHalf2x16(val.rg), packHalf2x16(val.ba));
+}
+
+vec4 nbl_glsl_ext_Blur_Storage_t_set(nbl_glsl_ext_Blur_Storage_t val)
+{
+	return vec4(unpackHalf2x16(val.x), unpackHalf2x16(val.y));
+}
 
 #ifndef _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_
 #define _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_ 0
@@ -24,18 +26,6 @@
 #ifndef _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_
 #define _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_ 1
 #endif
-
-#define nbl_glsl_ext_Blur_Storage_t uvec2
-
-nbl_glsl_ext_Blur_Storage_t nbl_glsl_ext_Blur_Storage_t_get(vec4 val)
-{
-	return nbl_glsl_ext_Blur_Storage_t(packHalf2x16(val.rg), packHalf2x16(val.ba));
-}
-
-vec4 nbl_glsl_ext_Blur_Storage_t_set(nbl_glsl_ext_Blur_Storage_t val)
-{
-	return vec4(unpackHalf2x16(val.x), unpackHalf2x16(val.y));
-}
 
 #ifndef _NBL_GLSL_EXT_BLUR_INPUT_DESCRIPTOR_DEFINED_
 
@@ -57,15 +47,40 @@ layout (set = _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BL
 #define _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
 #endif
 
+#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters.glsl"
+
+#ifndef _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
+
+layout (push_constant) uniform PushConstants
+{
+	layout (offset = 0) nbl_glsl_ext_Blur_Parameters_t params;
+} pc;
+
+#define _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_GET_PARAMETERS_DEFINED_
+
+nbl_glsl_ext_Blur_Parameters_t nbl_glsl_ext_Blur_getParameters()
+{
+	return pc.params;
+}
+
+#define _NBL_GLSL_EXT_BLUR_GET_PARAMETERS_DEFINED_
+#endif
+
 #ifndef _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
 
 vec4 nbl_glsl_ext_Blur_getPaddedData(in uint idx)
 {
 	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // y coordinate
 
+	const uint width = nbl_glsl_ext_Blur_Parameters_t_getWidth();
+	const uint height = nbl_glsl_ext_Blur_Parameters_t_getHeight();
+
 	vec4 data = vec4(0.f);
-	if (strided_idx < HEIGHT && gl_WorkGroupID.x < WIDTH)
-		data = nbl_glsl_ext_Blur_Storage_t_set(in_values[strided_idx * WIDTH + gl_WorkGroupID.x]);
+	if (strided_idx < height && gl_WorkGroupID.x < width)
+		data = nbl_glsl_ext_Blur_Storage_t_set(in_values[strided_idx * width + gl_WorkGroupID.x]);
 
 	return data;
 }
@@ -79,40 +94,26 @@ void nbl_glsl_ext_Blur_setData(in uint idx, in vec4 val)
 {
 	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
 
-	if (strided_idx < WIDTH && gl_WorkGroupID.x < HEIGHT)
-		out_values[gl_WorkGroupID.x * WIDTH + strided_idx] = nbl_glsl_ext_Blur_Storage_t_get(val);
+	const uint width = nbl_glsl_ext_Blur_Parameters_t_getWidth();
+	const uint height = nbl_glsl_ext_Blur_Parameters_t_getHeight();
+
+	if (strided_idx < width && gl_WorkGroupID.x < height)
+		out_values[gl_WorkGroupID.x * width + strided_idx] = nbl_glsl_ext_Blur_Storage_t_get(val);
 }
 
 #define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
 #endif
 
-#include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
-
-#if WIDTH < _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
-	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
-#else
-	#define _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_ WIDTH
-#endif
+#include "nbl/builtin/glsl/workgroup/shared_blur.glsl"
 
 #ifdef _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_
-	#if NBL_GLSL_EVAL(_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_) < NBL_GLSL_EVAL(_NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_)
-		#error "Not enough shared memory declared"
-	#endif
+    #if NBL_GLSL_EVAL(_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_) < NBL_GLSL_EVAL(_NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_)
+        #error "Not enough shared memory declared"
+    #endif
 #else
     #define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_
     #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_ext_Blur_scratchShared
-	shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
-#endif
-
-// Todo: Need to test and tighten this whole spillage calculation up
-#define _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ ((_NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_-1)/_NBL_GLSL_WORKGROUP_SIZE_+1)
-
-#if _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ > VT
-	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ VT
-#elif _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ < (VT/4)
-	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ (VT/4)
-#else
-	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_
+    shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
 #endif
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
@@ -121,21 +122,30 @@ void nbl_glsl_ext_Blur_setData(in uint idx, in vec4 val)
 // Convenience thing
 #define scratch_shared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
-// Note(achal): This function depends on `scratch_shared` to be properly initialized with inclusive prefix sums
-// Todo(achal): You can't have it depend on `scratch_shared` --das not gud
-float getInterpolatedPrefixSums(float idx)
-{
-	uint floored = uint(floor(idx));
-	return mix(uintBitsToFloat(scratch_shared[floored]), uintBitsToFloat(scratch_shared[floored + 1u]), fract(idx));
-}
+#define _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_ (_NBL_GLSL_EXT_BLUR_AXIS_DIM_ + _NBL_GLSL_WORKGROUP_SIZE_ - 1)/_NBL_GLSL_WORKGROUP_SIZE_
+
+// Todo: This spillage calculation is very hacky! The lower bound of `(3*_NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)` is just an adhoc
+// thing which happens to work for all images until now but it could just break for the next image.
+// This:
+// `#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_`
+// seems to be a safe lower bound, however, it must very inefficient.
+#define _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ ((_NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_-1)/_NBL_GLSL_WORKGROUP_SIZE_+1)
+
+#if _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ > _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_
+	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_
+#elif _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ < (3 * _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)
+    #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ (3 * _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)
+#else
+	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_
+#endif
 
 void main()
 {
 	const uint channel_count = 3u;
 	const uint pass_count = 3u;
 
-	vec4 blurred[VT];
-	for (uint i = 0u; i < VT; ++i)
+	vec4 blurred[_NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_];
+	for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
 		blurred[i] = nbl_glsl_ext_Blur_getPaddedData(i);
 
 	for (uint ch = 0; ch < channel_count; ++ch)
@@ -151,7 +161,7 @@ void main()
 			    previous_block_sum = nbl_glsl_workgroupBroadcast(spill[i], _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
 			}
 	
-			for (uint i = _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; i < VT; ++i)
+			for (uint i = _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
 			{
 			    float scan_result = nbl_glsl_workgroupInclusiveAdd(blurred[i][ch]) + previous_block_sum;
 			    previous_block_sum = nbl_glsl_workgroupBroadcast(scan_result,  _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
@@ -164,33 +174,46 @@ void main()
 			    scratch_shared[(i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex] = floatBitsToUint(spill[i]);
 			barrier();
 			
-			for (uint i = 0; i < VT; ++i)
+			for (uint i = 0; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
 			{
 				uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-				if (idx < WIDTH)
+
+				if (idx < _NBL_GLSL_EXT_BLUR_AXIS_DIM_)
 				{
-					float left = float(idx) - RADIUS - 1.f;
-					float right = float(idx) + RADIUS;
+					const float radius = nbl_glsl_ext_Blur_Parameters_t_getRadius();
+					float left = float(idx) - radius - 1.f;
+					float right = float(idx) + radius;
 	
-					const uint last = WIDTH - 1u;
+					const uint last = _NBL_GLSL_EXT_BLUR_AXIS_DIM_ - 1u;
 	
 					float result;
+					
 					if (right > last)
+					{
 						result = (right - float(last)) * (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last - 1u])) + uintBitsToFloat(scratch_shared[last]);
+					}
 					else
-						result = getInterpolatedPrefixSums(right);
+					{
+						uint floored = uint(floor(right));
+						result = mix(uintBitsToFloat(scratch_shared[floored]), uintBitsToFloat(scratch_shared[floored + 1u]), fract(right));
+					}
 	
 					if (left < 0)
+					{
 						result -= (1.f - abs(left)) * uintBitsToFloat(scratch_shared[0u]);
+					}
 					else
-						result -= getInterpolatedPrefixSums(left);
+					{
+						uint floored = uint(floor(left));
+						result -= mix(uintBitsToFloat(scratch_shared[floored]), uintBitsToFloat(scratch_shared[floored + 1u]), fract(left));
+					}
 	
-					blurred[i][ch] = result/(2.f*RADIUS + 1.f);
+					blurred[i][ch] = result/(2.f*radius + 1.f);
 				}
 			}
 		}
 	}
 
-	for (uint i = 0; i < VT; ++i)
+	for (uint i = 0; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
 		nbl_glsl_ext_Blur_setData(i, blurred[i]);
 }

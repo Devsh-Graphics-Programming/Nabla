@@ -1,3 +1,5 @@
+#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters.glsl"
+
 #define _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_ 0
 #define _NBL_GLSL_EXT_BLUR_INPUT_BINDING_DEFINED_ 0
 
@@ -6,15 +8,17 @@ layout (set = _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLU
 
 vec4 nbl_glsl_ext_Blur_getPaddedData(in uint idx)
 {
-	const ivec2 image_dims = textureSize(in_image, 0);
-
 	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // x coordinate
 
+	const uint width = nbl_glsl_ext_Blur_Parameters_t_getWidth();
+	const uint height = nbl_glsl_ext_Blur_Parameters_t_getHeight();
+
 	vec4 data = vec4(0.f);
-	if (strided_idx < image_dims.x && gl_WorkGroupID.x < image_dims.y)
+	if (strided_idx < width && gl_WorkGroupID.x < height)
 	{
-		vec2 tex_coords = vec2(float(strided_idx)/float(image_dims.x), float(gl_WorkGroupID.x)/float(image_dims.y));
-		data = texture(in_image, tex_coords);
+		vec2 tex_coords = vec2(float(strided_idx), float(gl_WorkGroupID.x)) / vec2(width, height);
+		data = (texture(in_image, tex_coords) + textureOffset(in_image, tex_coords, ivec2(1, 0)) + textureOffset(in_image, tex_coords, ivec2(0, 1)) +
+			textureOffset(in_image, tex_coords, ivec2(1, 1))) / 4.f;
 	}
 
 	return data;
