@@ -11,6 +11,11 @@ set(OpenGL_GL_PREFERENCE LEGACY)
 option(NBL_BUILD_ANDROID "Build for Android?" OFF)
 
 if(NBL_BUILD_ANDROID)
+	# assert that cross-compile host OS is always Linux
+	if (NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux")
+		message(FATAL_ERROR "Cross-compile for Android is available on Linux only as a host OS!")
+	endif()
+
     if(NOT DEFINED ENV{JAVA_HOME})
         message(FATAL_ERROR "JAVA_HOME environment variable must be defined for Android build")
     endif()
@@ -62,10 +67,15 @@ if(NBL_BUILD_ANDROID)
 
     #option(STRIP_ANDROID_LIBRARY "Strip the resulting android library" OFF)
 
-    # Set default API level to 21 if not configured explicitly
     if(NOT ANDROID_PLATFORM)
         set(ANDROID_PLATFORM "android-25")
     endif()
+	string(SUBSTRING
+		"${ANDROID_PLATFORM}"
+		8  # length of "android-"
+		-1 # take remainder
+		ANDROID_API_LEVEL
+	)
     
     # default to libc++_static as the other options can cause crashes
     if(NOT ANDROID_STL)
@@ -74,9 +84,7 @@ if(NBL_BUILD_ANDROID)
 
     # Choose clang if the NDK has both gcc and clang, since gcc sometimes fails
     set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION "clang")
-
-    # Default to arm32 if nothing is specified on the command line.
-    # Options are {armeabi-v7a,arm64-v8a}
+	
     set(ANDROID_ABI "x86_64" CACHE STRING "The Android ABI to build for")
 endif()
 
@@ -91,6 +99,14 @@ endif()
 
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" ON)
+
+#if (ANDROID)
+#message(FATAL_ERROR "ANDROID")
+#else()
+#message(FATAL_ERROR "NOT ANDROID")
+#endif()
+#message("C compiler=${CMAKE_C_COMPILER}")
+#message(FATAL_ERROR "CXX compiler=${CMAKE_CXX_COMPILER}")
 
 # CUDA test
 include(CheckLanguage)

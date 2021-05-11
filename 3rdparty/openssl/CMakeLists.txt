@@ -14,8 +14,6 @@ if(GIT_FOUND)
 else()
 	message(WARNING "Git not found! Might be you have to update git-submodules manually")
 endif()
-# maybe you (Crisspl) can patch the OpenSSL source for the preprocessor MSVC bug here?
-
 
 if(WIN32)
 	find_package(Perl REQUIRED)
@@ -46,6 +44,23 @@ if(WIN32)
 		VERBATIM
 	)
 	add_custom_target(openssl_build DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libeay32.lib" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/ssleay32.lib")
+elseif(ANDROID) # cross-compile
+	find_package(Perl REQUIRED)
+
+	set(ENV{ANDROID_NDK_ROOT} "$ENV{ANDROID_NDK}")
+	set(ENV{PATH} "$ENV{ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin:$ENV{ANDROID_NDK_ROOT}/toolchains/x86_64-4.9/prebuilt/linux-86_64/bin:$ENV{ANDROID_NDK_ROOT}")
+	add_custom_command(
+		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a"
+		COMMAND make clean
+		# not sure if linux-generic64 is right (https://stackoverflow.com/questions/26779531/openssl-for-android-x86-64-and-mips64)
+		# but android-x86_64 is not even recognized (should be according to this https://github.com/openssl/openssl/blob/master/NOTES-ANDROID.md)
+		COMMAND "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/openssl/Configure" linux-generic64 no-asm no-shared -D__ANDROID_API__=${ANDROID_API_LEVEL} --openssldir=${CMAKE_CURRENT_BINARY_DIR}/build
+		COMMAND make -j64
+		COMMAND make install
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
+		VERBATIM
+	)
+	add_custom_target(openssl_build DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a")
 else()
 	add_custom_command(
 		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a"
