@@ -83,9 +83,62 @@ if(NBL_BUILD_ANDROID)
     endif()
 
     # Choose clang if the NDK has both gcc and clang, since gcc sometimes fails
+	# iirc api levels > 21 have only clang available
     set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION "clang")
 	
     set(ANDROID_ABI "x86_64" CACHE STRING "The Android ABI to build for")
+
+	#
+	# android-specific utils and build tools
+	#
+    set(ANDROID_BUILD_TOOLS_VERSION "" CACHE STRING "Version of Android build-tools to use instead of the default")
+	# take most recent version of build tools, if not set explicitely
+    if(ANDROID_BUILD_TOOLS_VERSION STREQUAL "")
+        file(GLOB __buildTools RELATIVE "${ANDROID_SDK_ROOT_PATH}/build-tools" "${ANDROID_SDK_ROOT_PATH}/build-tools/*")
+        list(SORT __buildTools)
+
+        list(GET __buildTools -1 ANDROID_BUILD_TOOLS_VERSION)
+
+        unset(__buildTools)
+    endif()
+	set(ANDROID_BUILD_TOOLS "$ENV{ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+	set(ANDROID_JAVA_BIN "$ENV{JAVA_HOME}/bin")
+	set(ANDROID_JAVA_RT_JAR "$ENV{JAVA_HOME}/jre/lib/rt.jar")
+
+	set(ANDROID_APK_TARGET_ID "" CACHE STRING "The Target ID to build the APK for like 'android-99', use <android list targets> to choose another one.")
+    if(ANDROID_APK_TARGET_ID STREQUAL "")
+        # This seems different from the platform we're targetting,
+        # default to the latest available that's greater or equal to our target platform
+        file(GLOB __platforms RELATIVE "${ANDROID_SDK_ROOT_PATH}/platforms" "${ANDROID_SDK_ROOT_PATH}/platforms/*")
+        list(SORT __platforms)
+
+        # In case we don't find one, target the latest platform
+        list(GET __platforms -1 ANDROID_APK_TARGET_ID)
+
+        string(REPLACE "android-" "" __targetPlat "${ANDROID_PLATFORM}")
+
+		# TODO we might want to adjust min version in the future
+        # We require at least android 23 for Activity.requestPermissions
+        if(__targetPlat LESS 23)
+            set(__targetPlat 23)
+        endif()
+
+        foreach( __plat ${__platforms})
+            string(REPLACE "android-" "" __curPlat "${__plat}")
+
+            if(NOT (__curPlat LESS __targetPlat) )
+                set(ANDROID_APK_TARGET_ID "android-${__curPlat}")
+                break()
+            endif()
+        endforeach()
+
+        unset(__platforms)
+        unset(__targetPlat)
+        unset(__curPlat)
+    endif()
+
+    message(STATUS "Using android.jar from platform ${ANDROID_APK_TARGET_ID}")
+	set(ANDROID_JAR "$ENV{ANDROID_SDK}/platforms/${ANDROID_APK_TARGET_ID}/android.jar")
 endif()
 
 project(Nabla LANGUAGES CXX C)
