@@ -4,14 +4,12 @@
 layout (set = _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_, rgba16f) writeonly uniform image2D out_image;
 #define _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
 
-void nbl_glsl_ext_Blur_setData(in uint idx, in vec4 val)
+void nbl_glsl_ext_Blur_setData(in uvec2 coordinate, in vec4 val)
 {
 	const ivec2 image_dims = imageSize(out_image);
 
-	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-
-	if (strided_idx < image_dims.y && gl_WorkGroupID.x < image_dims.x)
-		imageStore(out_image, ivec2(gl_WorkGroupID.x, strided_idx), val);
+	if (all(lessThan(coordinate, image_dims)))
+		imageStore(out_image, ivec2(coordinate), val);
 }
 #define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
 

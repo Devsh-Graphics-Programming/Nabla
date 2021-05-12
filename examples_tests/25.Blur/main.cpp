@@ -120,7 +120,7 @@ int main()
     asset::IAssetManager* am = device->getAssetManager();
 
     IAssetLoader::SAssetLoadParams lp;
-    auto in_image_bundle = am->getAsset("../tex.jpg", lp);
+    auto in_image_bundle = am->getAsset("../wiki_test.jpg", lp);
 
     // Todo: Flip the image
 
@@ -144,8 +144,6 @@ int main()
     const vector2d<uint32_t> blur_ds_factor = { 2u, 2u };
     const float blur_radius = 15.73f;
     const uint32_t passes_per_axis = 3u;
-
-    // Todo(achal): Query `GL_MIN_PROGRAM_TEXEL_OFFSET` to know how much we can downscale
 
     auto in_dim = in_image_view->getCreationParameters().image->getCreationParameters().extent;
     vector2d<uint32_t> out_dim = vector2d<uint32_t>(in_dim.width, in_dim.height) / blur_ds_factor;
@@ -345,6 +343,8 @@ int main()
     while (device->run() && receiver.keepOpen())
     {
         driver->beginScene(false, false);
+
+        blur_params.direction = 0u;
 
         driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline_horizontal->getLayout(), 0u, 1u, &ds_horizontal.get(), nullptr);
         driver->bindComputePipeline(pipeline_horizontal.get());

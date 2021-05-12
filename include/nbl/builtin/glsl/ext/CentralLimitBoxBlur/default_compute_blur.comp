@@ -49,6 +49,14 @@ layout (set = _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BL
 
 #include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters.glsl"
 
+uvec2 nbl_glsl_ext_Blur_getCoordinates(in uint tidx)
+{
+    const uint direction = nbl_glsl_ext_Blur_Parameters_t_getDirection();
+    uvec2 tmp = uvec2(gl_WorkGroupID.x);
+    tmp[direction] = (tidx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+    return tmp;
+}
+
 #ifndef _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
 
 layout (push_constant) uniform PushConstants
@@ -71,16 +79,13 @@ nbl_glsl_ext_Blur_Parameters_t nbl_glsl_ext_Blur_getParameters()
 
 #ifndef _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
 
-vec4 nbl_glsl_ext_Blur_getPaddedData(in uint idx)
+vec4 nbl_glsl_ext_Blur_getPaddedData(in uvec2 coordinate)
 {
-	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex; // y coordinate
-
-	const uint width = nbl_glsl_ext_Blur_Parameters_t_getWidth();
-	const uint height = nbl_glsl_ext_Blur_Parameters_t_getHeight();
+	const uvec2 image_dims = uvec2(nbl_glsl_ext_Blur_Parameters_t_getWidth(), nbl_glsl_ext_Blur_Parameters_t_getHeight());
 
 	vec4 data = vec4(0.f);
-	if (strided_idx < height && gl_WorkGroupID.x < width)
-		data = nbl_glsl_ext_Blur_Storage_t_set(in_values[strided_idx * width + gl_WorkGroupID.x]);
+	if (all(lessThan(coordinate, image_dims)))
+		data = nbl_glsl_ext_Blur_Storage_t_set(in_values[coordinate.y * image_dims.x + coordinate.x]);
 
 	return data;
 }
@@ -90,15 +95,12 @@ vec4 nbl_glsl_ext_Blur_getPaddedData(in uint idx)
 
 #ifndef _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
 
-void nbl_glsl_ext_Blur_setData(in uint idx, in vec4 val)
+void nbl_glsl_ext_Blur_setData(in uvec2 coordinate, in vec4 val)
 {
-	uint strided_idx = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+	const uvec2 image_dims = uvec2(nbl_glsl_ext_Blur_Parameters_t_getWidth(), nbl_glsl_ext_Blur_Parameters_t_getHeight());
 
-	const uint width = nbl_glsl_ext_Blur_Parameters_t_getWidth();
-	const uint height = nbl_glsl_ext_Blur_Parameters_t_getHeight();
-
-	if (strided_idx < width && gl_WorkGroupID.x < height)
-		out_values[gl_WorkGroupID.x * width + strided_idx] = nbl_glsl_ext_Blur_Storage_t_get(val);
+	if (all(lessThan(coordinate, image_dims)))
+		out_values[coordinate.y * image_dims.x + coordinate.x] = nbl_glsl_ext_Blur_Storage_t_get(val);
 }
 
 #define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
@@ -124,20 +126,23 @@ void nbl_glsl_ext_Blur_setData(in uint idx, in vec4 val)
 
 #define _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_ (_NBL_GLSL_EXT_BLUR_AXIS_DIM_ + _NBL_GLSL_WORKGROUP_SIZE_ - 1)/_NBL_GLSL_WORKGROUP_SIZE_
 
-// Todo: This spillage calculation is very hacky! The lower bound of `(3*_NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)` is just an adhoc
-// thing which happens to work for all images until now but it could just break for the next image.
+// Todo: This spillage calculation is hacky! The lower bound of `_NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_` is just an adhoc
+// thing which happens to work for all images until now but it could very well break for the next image.
 // This:
 // `#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_`
-// seems to be a safe lower bound, however, it must very inefficient.
+// seems to be a safe lower bound, however, it must be inefficient.
+#define _NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_ (_NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)
+
 #define _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ ((_NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_-1)/_NBL_GLSL_WORKGROUP_SIZE_+1)
 
 #if _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ > _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_
 	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_
-#elif _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ < (3 * _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)
-    #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ (3 * _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)
+#elif _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ < _NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_
+    #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_
 #else
 	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_
 #endif
+
 
 void main()
 {
@@ -146,7 +151,7 @@ void main()
 
 	vec4 blurred[_NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_];
 	for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
-		blurred[i] = nbl_glsl_ext_Blur_getPaddedData(i);
+		blurred[i] = nbl_glsl_ext_Blur_getPaddedData(nbl_glsl_ext_Blur_getCoordinates(i));
 
 	for (uint ch = 0; ch < channel_count; ++ch)
 	{
@@ -215,5 +220,5 @@ void main()
 	}
 
 	for (uint i = 0; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
-		nbl_glsl_ext_Blur_setData(i, blurred[i]);
+		nbl_glsl_ext_Blur_setData(nbl_glsl_ext_Blur_getCoordinates(i), blurred[i]);
 }

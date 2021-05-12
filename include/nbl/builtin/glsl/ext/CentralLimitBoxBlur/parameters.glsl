@@ -28,6 +28,12 @@ float nbl_glsl_ext_Blur_Parameters_t_getRadius()
     return params.radius;
 }
 
+uint nbl_glsl_ext_Blur_Parameters_t_getDirection()
+{
+    nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
+    return params.direction;
+}
+
 #define _NBL_GLSL_EXT_BLUR_PARAMETERS_METHODS_DEFINED_
 #endif
 

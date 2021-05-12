@@ -6,6 +6,7 @@ struct nbl_glsl_ext_Blur_Parameters_t
 	uint width;
 	uint height;
 	float radius;
+	uint direction;
 };
 
 #endif
