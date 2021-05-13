@@ -3,10 +3,10 @@
 
 struct nbl_glsl_ext_Blur_Parameters_t
 {
-	uint width;
-	uint height;
+	uvec4 input_dimensions;
+	uvec4 input_strides;
+	uvec4 output_strides;
 	float radius;
-	uint direction;
 };
 
 #endif

@@ -6,21 +6,20 @@
 layout (set = _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLUR_INPUT_BINDING_DEFINED_) uniform sampler2D in_image;
 #define _NBL_GLSL_EXT_BLUR_INPUT_DESCRIPTOR_DEFINED_
 
-vec4 downscale(in vec2 tex_coords)
+float downscale(in vec2 tex_coords, in uint channel)
 {
-	return (texture(in_image, tex_coords) + textureOffset(in_image, tex_coords, ivec2(1, 0)) + textureOffset(in_image, tex_coords, ivec2(0, 1))
-			+ textureOffset(in_image, tex_coords, ivec2(1, 1))) / 4.f;
+	return (texture(in_image, tex_coords)[channel] + textureOffset(in_image, tex_coords, ivec2(1, 0))[channel] + textureOffset(in_image, tex_coords, ivec2(0, 1))[channel]
+			+ textureOffset(in_image, tex_coords, ivec2(1, 1))[channel]) / 4.f;
 }
 
-vec4 nbl_glsl_ext_Blur_getPaddedData(in uvec2 coordinate)
+float nbl_glsl_ext_Blur_getPaddedData(in uvec3 coordinate, in uint channel)
 {
-	const uvec2 image_dims = uvec2(nbl_glsl_ext_Blur_Parameters_t_getWidth(), nbl_glsl_ext_Blur_Parameters_t_getHeight());
-
-	vec4 data = vec4(0.f);
-	if (all(lessThan(coordinate, image_dims)))
+	const uvec2 image_dims = nbl_glsl_ext_Blur_Parameters_t_getDimensions().xy;
+	float data = 0.f;
+	if (all(lessThan(coordinate.xy, image_dims)))
 	{
-		vec2 tex_coords = vec2(coordinate) / vec2(image_dims);
-		data = downscale(tex_coords);
+		vec2 tex_coords = vec2(coordinate.xy) / vec2(image_dims);
+		data = downscale(tex_coords, channel);
 	}
 
 	return data;

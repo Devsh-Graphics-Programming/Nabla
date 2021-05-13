@@ -10,16 +10,10 @@ nbl_glsl_ext_Blur_Parameters_t nbl_glsl_ext_Blur_getParameters();
 
 #ifndef _NBL_GLSL_EXT_BLUR_PARAMETERS_METHODS_DEFINED_
 
-uint nbl_glsl_ext_Blur_Parameters_t_getWidth()
+uvec3 nbl_glsl_ext_Blur_Parameters_t_getDimensions()
 {
     nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
-    return params.width;
-}
-
-uint nbl_glsl_ext_Blur_Parameters_t_getHeight()
-{
-    nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
-    return params.height;
+    return params.input_dimensions.xyz;
 }
 
 float nbl_glsl_ext_Blur_Parameters_t_getRadius()
@@ -31,7 +25,13 @@ float nbl_glsl_ext_Blur_Parameters_t_getRadius()
 uint nbl_glsl_ext_Blur_Parameters_t_getDirection()
 {
     nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
-    return params.direction;
+    return (params.input_dimensions.w >> 30) & 0x3u;
+}
+
+uint nbl_glsl_ext_Blur_Parameters_t_getChannelCount()
+{
+    nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
+    return (params.input_dimensions.w >> 28) & 0x3u;
 }
 
 #define _NBL_GLSL_EXT_BLUR_PARAMETERS_METHODS_DEFINED_

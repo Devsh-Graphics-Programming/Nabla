@@ -7,39 +7,31 @@
 #include "../common/QToQuitEventReceiver.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
-#define WG_SIZE 256
+typedef uint32_t uint;
+struct alignas(16) uvec4
+{
+    uint x, y, z, w;
+};
+#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters_struct.glsl"
+typedef nbl_glsl_ext_Blur_Parameters_t Parameters_t;
 
 using namespace nbl;
 using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
-struct Parameters_t
-{
-    uint32_t width;
-    uint32_t height;
-    float radius;
-    uint32_t direction;
-};
 
-smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_file_path, IVideoDriver* driver, io::IFileSystem* filesystem, asset::IAssetManager* am)
-{
-    auto file = smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile(shader_file_path));
+#define WG_SIZE 256
+#define PASS_COUNT 3
 
-    asset::IAssetLoader::SAssetLoadParams lp;
-    auto cs_bundle = am->getAsset(shader_file_path, lp);
-    auto cs = smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-    auto cs_rawptr = cs.get();
-
-    return driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-}
-
-smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_include_path, const uint32_t axis_dim, IVideoDriver* driver)
+smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_include_path, const uint32_t axis_dim, const bool use_half_storage, IVideoDriver* driver)
 {
     const char* source_fmt =
 R"===(#version 430 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
+#define _NBL_GLSL_EXT_BLUR_PASS_COUNT_ %u
 #define _NBL_GLSL_EXT_BLUR_AXIS_DIM_ %u
+#define _NBL_GLSL_EXT_BLUR_HALF_STORAGE_ %u
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
  
 #include "%s"
@@ -49,7 +41,8 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
     const size_t extraSize = 4u + 8u + 8u + 128u;
 
     auto shader = core::make_smart_refctd_ptr<asset::ICPUBuffer>(strlen(source_fmt) + extraSize + 1u);
-    snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, WG_SIZE, axis_dim, shader_include_path);
+    snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, WG_SIZE, PASS_COUNT, axis_dim, use_half_storage ? 1u : 0u,
+        shader_include_path);
 
     auto cpu_specialized_shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
         core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shader), asset::ICPUShader::buffer_contains_glsl),
@@ -120,7 +113,7 @@ int main()
     asset::IAssetManager* am = device->getAssetManager();
 
     IAssetLoader::SAssetLoadParams lp;
-    auto in_image_bundle = am->getAsset("../wiki_test.jpg", lp);
+    auto in_image_bundle = am->getAsset("../tex.jpg", lp);
 
     // Todo: Flip the image
 
@@ -144,6 +137,9 @@ int main()
     const vector2d<uint32_t> blur_ds_factor = { 2u, 2u };
     const float blur_radius = 15.73f;
     const uint32_t passes_per_axis = 3u;
+    const bool use_half_storage = false;
+    const uint32_t channel_count = getFormatChannelCount(in_image_view->getCreationParameters().format);
+    uint32_t blur_direction = 0u;
 
     auto in_dim = in_image_view->getCreationParameters().image->getCreationParameters().extent;
     vector2d<uint32_t> out_dim = vector2d<uint32_t>(in_dim.width, in_dim.height) / blur_ds_factor;
@@ -184,7 +180,7 @@ int main()
         out_image_view = driver->createGPUImageView(IGPUImageView::SCreationParams(out_image_view_info));
     }
 
-    const size_t scratch_samples_size = out_dim.X * out_dim.Y * sizeof(vector2d<uint32_t>);
+    const size_t scratch_samples_size = out_dim.X * out_dim.Y * channel_count * sizeof(float);
     auto scratch_samples_gpu = driver->createDeviceLocalGPUBufferOnDedMem(scratch_samples_size);
 
     const SPushConstantRange pc_range = { ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t) };
@@ -216,7 +212,7 @@ int main()
         ds_horizontal = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
 
         auto pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, std::move(ds_layout));
-        pipeline_horizontal = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassHorizontal.comp", out_dim.X, driver));
+        pipeline_horizontal = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassHorizontal.comp", out_dim.X, use_half_storage, driver));
     }
 
     // SSBO -> image2D
@@ -246,15 +242,18 @@ int main()
         ds_vertical = driver->createGPUDescriptorSet(smart_refctd_ptr(ds_layout));
 
         auto pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, std::move(ds_layout));
-        pipeline_vertical = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassVertical.comp", out_dim.Y, driver));
+        pipeline_vertical = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassVertical.comp", out_dim.Y, use_half_storage, driver));
     }
 
-    // Build push constants
+    // buildParameters
     Parameters_t blur_params = {};
-    blur_params.width = out_dim.X;
-    blur_params.height = out_dim.Y;
+    blur_params.input_dimensions = { out_dim.X, out_dim.Y, 1 };
+    blur_params.input_dimensions.w = (blur_direction << 30) | (channel_count << 28);
     blur_params.radius = blur_radius;
-    blur_params.direction = 0u;
+    
+
+    // blur_params.input_strides = ;
+    // blur_params.output_strides = ;
     
     // Update descriptor sets
     {
@@ -344,16 +343,18 @@ int main()
     {
         driver->beginScene(false, false);
 
-        blur_params.direction = 0u;
+        blur_direction = 0u;
+        blur_params.input_dimensions.w = (blur_direction << 30) | (channel_count << 28);
 
         driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline_horizontal->getLayout(), 0u, 1u, &ds_horizontal.get(), nullptr);
         driver->bindComputePipeline(pipeline_horizontal.get());
         driver->pushConstants(pipeline_horizontal->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &blur_params);
-        driver->dispatch(out_dim.Y, 1, 1);
+        driver->dispatch(1, out_dim.Y, 1);
         
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        blur_params.direction = 1u;
+        blur_direction = 1u;
+        blur_params.input_dimensions.w = (blur_direction << 30) | (channel_count << 28);
 
         driver->bindDescriptorSets(video::EPBP_COMPUTE, pipeline_vertical->getLayout(), 0u, 1u, &ds_vertical.get(), nullptr);
         driver->bindComputePipeline(pipeline_vertical.get());
@@ -367,7 +368,7 @@ int main()
         driver->endScene();
     }
 
-    if (!ext::ScreenShot::createScreenShot(driver, am, out_image_view.get(), "../screenshot.png", asset::EF_R8G8B8A8_SRGB))
+    if (!ext::ScreenShot::createScreenShot(driver, am, out_image_view.get(), "../screenshot.png", asset::EF_R8G8B8_SRGB))
         std::cout << "Unable to create screenshot" << std::endl;
 
     return 0;

@@ -150,6 +150,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/CentralLimitBoxBlur/default_compute_blur.comp"
   "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters.glsl"
   "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters_struct.glsl"
+  "nbl/builtin/glsl/ext/CentralLimitBoxBlur/types.glsl"
 
   "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
