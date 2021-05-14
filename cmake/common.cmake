@@ -283,9 +283,8 @@ endfunction()
 
 function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 	get_target_property(TARGET_NAME ${_TARGET} NAME)
-	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME)
-	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME}")
-	set(SO_NAME ${TARGET_NAME})
+	# TARGET_NAME_IDENTIFIER is identifier that can be used in code
+	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
 
 	math(EXPR GLES_VER "(${_GLES_VER_MAJOR}<<16) | ${_GLES_VER_MINOR}" OUTPUT_FORMAT HEXADECIMAL)
 
@@ -294,13 +293,16 @@ function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
 
+	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME_IDENTIFIER}")
+	set(APP_NAME ${TARGET_NAME_IDENTIFIER})
+	set(SO_NAME ${TARGET_NAME})
 	configure_file(${CMAKE_SOURCE_DIR}/android/Loader.java ${CMAKE_CURRENT_BINARY_DIR}/src/eu/devsh/${TARGET_NAME}/Loader.java)
 	configure_file(${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
 	# configure_file(android/icon.png ${CMAKE_CURRENT_BINARY_DIR}/res/drawable/icon.png COPYONLY)
 
 	# need to sign the apk in order for android device not to refuse it
 	set(KEYSTORE_FILE ${CMAKE_CURRENT_BINARY_DIR}/debug.keystore)
-	set(KEY_ENTRY_ALIAS ${TARGET_NAME}_apk_key)
+	set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
 	add_custom_command(
 		OUTPUT ${KEYSTORE_FILE}
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
@@ -311,6 +313,8 @@ function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 		OUTPUT ${APK_FILE}
 		DEPENDS ${_TARGET}
 		DEPENDS ${KEYSTORE_FILE}
+		DEPENDS ${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml
+		DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 		COMMENT "Creating ${APK_FILE_NAME} ..."
 		COMMAND ${CMAKE_COMMAND} -E make_directory lib/x86_64
@@ -321,7 +325,6 @@ function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" -sourcepath src src/eu/devsh/${TARGET_NAME}/Loader.java
 		COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
 		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin lib/x86_64 # --version-code SOME-VERSION-CODE -S res
-		# not sure if i need zipalign
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
