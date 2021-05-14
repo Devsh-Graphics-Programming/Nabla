@@ -20,7 +20,6 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
-
 #define WG_SIZE 256
 #define PASS_COUNT 3
 
@@ -113,7 +112,7 @@ int main()
     asset::IAssetManager* am = device->getAssetManager();
 
     IAssetLoader::SAssetLoadParams lp;
-    auto in_image_bundle = am->getAsset("../tex.jpg", lp);
+    auto in_image_bundle = am->getAsset("../wiki_test.jpg", lp);
 
     // Todo: Flip the image
 
@@ -250,11 +249,9 @@ int main()
     blur_params.input_dimensions = { out_dim.X, out_dim.Y, 1 };
     blur_params.input_dimensions.w = (blur_direction << 30) | (channel_count << 28);
     blur_params.radius = blur_radius;
-    
+    blur_params.input_strides = { 1, out_dim.X, out_dim.X * out_dim.Y, out_dim.X * out_dim.Y * 1 };
+    blur_params.output_strides = blur_params.input_strides;
 
-    // blur_params.input_strides = ;
-    // blur_params.output_strides = ;
-    
     // Update descriptor sets
     {
         IGPUSampler::SParams params =

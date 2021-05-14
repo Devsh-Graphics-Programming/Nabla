@@ -75,7 +75,7 @@ float nbl_glsl_ext_Blur_getPaddedData(in uvec3 coordinate, in uint channel)
 	const uint channel_count = nbl_glsl_ext_Blur_Parameters_t_getChannelCount();
 	const uvec3 dims = nbl_glsl_ext_Blur_Parameters_t_getDimensions();
 
-	uint strided_idx = (coordinate.y * dims.x * channel_count + coordinate.x * channel_count + channel);
+	const uint strided_idx = nbl_glsl_dot(uvec4(coordinate, channel), nbl_glsl_ext_Blur_Parameters_t_getInputStrides());
 
 	float data = 0.f;
 	if (all(lessThan(coordinate, dims)))
@@ -96,8 +96,7 @@ void nbl_glsl_ext_Blur_setData(in uvec3 coordinate, in uint channel, in float va
 
 	if (all(lessThan(coordinate, dims)))
 	{
-		// nbl_glsl_dot( {coordinate.x, coordinate.y, coordinate.z, channel}, {dims.y * dims.x * channel_count, dims.x * channel_count, channel_count, 1})
-		uint strided_idx = (coordinate.y * dims.x * channel_count + coordinate.x * channel_count + channel);
+		const uint strided_idx = nbl_glsl_dot(uvec4(coordinate, channel), nbl_glsl_ext_Blur_Parameters_t_getOutputStrides());
 		out_values[strided_idx] = val;
 	}
 }

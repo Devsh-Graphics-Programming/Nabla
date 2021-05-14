@@ -34,6 +34,18 @@ uint nbl_glsl_ext_Blur_Parameters_t_getChannelCount()
     return (params.input_dimensions.w >> 28) & 0x3u;
 }
 
+uvec4 nbl_glsl_ext_Blur_Parameters_t_getInputStrides()
+{
+    nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
+    return params.input_strides;
+}
+
+uvec4 nbl_glsl_ext_Blur_Parameters_t_getOutputStrides()
+{
+    nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
+    return params.output_strides;
+}
+
 #define _NBL_GLSL_EXT_BLUR_PARAMETERS_METHODS_DEFINED_
 #endif
 
