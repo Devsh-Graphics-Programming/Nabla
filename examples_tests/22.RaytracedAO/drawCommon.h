@@ -1,7 +1,7 @@
 #ifndef _INSTANCE_DATA_PER_CAMERA_INCLUDED_
 #define _INSTANCE_DATA_PER_CAMERA_INCLUDED_
 
-#include "common.glsl"
+#include "common.h"
 
 struct CullShaderData_t
 {

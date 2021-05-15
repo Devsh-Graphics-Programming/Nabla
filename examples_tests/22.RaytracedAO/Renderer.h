@@ -19,8 +19,8 @@
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
     public:
-		#include "drawCommon.glsl"
-		#include "raytraceCommon.glsl"
+		#include "drawCommon.h"
+		#include "raytraceCommon.h"
 		#ifdef __cplusplus
 			#undef uint
 			#undef mat4
