@@ -7,13 +7,13 @@
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
 // rng
-layout(set = 2, binding = 0) uniform usamplerBuffer sampleSequence;
-layout(set = 2, binding = 1) uniform usampler2D scramblebuf;
+layout(set = 3, binding = 0) uniform usamplerBuffer sampleSequence;
+layout(set = 3, binding = 1) uniform usampler2D scramblebuf;
 // vis buffer
-layout(set = 2, binding = 2) uniform sampler2D depthbuf;
-layout(set = 2, binding = 3) uniform usampler2D frontFacing_Object_Triangle;
-layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
-layout(set = 2, binding = 5) uniform sampler2D uvCoords;
+layout(set = 3, binding = 2) uniform sampler2D depthbuf;
+layout(set = 3, binding = 3) uniform usampler2D frontFacing_Object_Triangle;
+layout(set = 3, binding = 4) uniform sampler2D encodedNormal;
+layout(set = 3, binding = 5) uniform sampler2D uvCoords;
 //layout(set = 2, binding = 6) uniform sampler2D barycentricDerivatives; // in the future we shall compute them from triangle vertex positions
 
 

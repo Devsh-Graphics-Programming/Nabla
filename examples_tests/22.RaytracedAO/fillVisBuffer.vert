@@ -1,6 +1,6 @@
 #version 430 core
 
-#include "drawCommon.glsl"
+#include "drawCommon.h"
 layout(set=1, binding=0, row_major) readonly restrict buffer PerInstancePerCamera
 {
     DrawData_t data[];
