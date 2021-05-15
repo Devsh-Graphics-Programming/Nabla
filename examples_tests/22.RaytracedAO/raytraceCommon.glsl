@@ -8,7 +8,7 @@
 #extension GL_EXT_shader_16bit_storage : require
 layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
-
+#define _NBL_VG_SSBO_DESCRIPTOR_SET 1
 #include "virtualGeometry.glsl"
 // lights
 layout(set = 1, binding = 4, std430) restrict readonly buffer CumulativeLightPDF
