@@ -19,7 +19,7 @@
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
     public:
-		#include "drawCommon.h"
+		#include "rasterizationCommon.h"
 		#include "raytraceCommon.h"
 		#ifdef __cplusplus
 			#undef uint

@@ -4,8 +4,9 @@
 
 #version 430 core
 
-#include <nbl/builtin/glsl/utils/normal_encode.glsl>
+//#include "virtualGeometry.glsl"
 
+#include <nbl/builtin/glsl/utils/normal_encode.glsl>
 
 layout(location = 0) flat in uint BackfacingBit_ObjectID;
 layout(location = 1) in vec3 Normal;

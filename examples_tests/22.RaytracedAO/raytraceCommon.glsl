@@ -9,22 +9,7 @@
 layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
 
-
-#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl>
-/*
-#define _NBL_VG_USE_SSBO
-#define _NBL_VG_SSBO_DESCRIPTOR_SET 1
-#define _NBL_VG_USE_SSBO_UINT
-#define _NBL_VG_SSBO_UINT_BINDING 0
-#define _NBL_VG_USE_SSBO_UVEC3
-#define _NBL_VG_SSBO_UVEC3_BINDING 1
-#define _NBL_VG_USE_SSBO_INDEX
-#define _NBL_VG_SSBO_INDEX_BINDING 2
-// TODO: remove after all quantization optimizations in CSerializedLoader and the like
-#define _NBL_VG_USE_SSBO_UVEC2
-#define _NBL_VG_SSBO_UVEC2_BINDING 3
-#include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>
-*/
+#include "virtualGeometry.glsl"
 // lights
 layout(set = 1, binding = 4, std430) restrict readonly buffer CumulativeLightPDF
 {
