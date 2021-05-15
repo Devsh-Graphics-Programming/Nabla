@@ -4,11 +4,11 @@
 #include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl>
 
 #include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
-layout(set = 2, binding = 0, std430) restrict buffer Queries
+layout(set = 3, binding = 0, std430) restrict buffer Queries
 {
 	nbl_glsl_ext_RadeonRays_Intersection hits[];
 };
-layout(set = 2, binding = 1, r32ui) restrict uniform uimage2D framebuffer;
+layout(set = 3, binding = 1, r32ui) restrict uniform uimage2D framebuffer;
 
 
 void main()

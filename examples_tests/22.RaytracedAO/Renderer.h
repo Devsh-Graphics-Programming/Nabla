@@ -117,7 +117,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
 		nbl::core::smart_refctd_ptr<const nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
 
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_commonRaytracingDSLayout, m_raygenDSLayout, m_resolveDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_additionalGlobalDSLayout,m_commonRaytracingDSLayout,m_raygenDSLayout,m_resolveDSLayout;
 
 
 		// scene specific data
@@ -148,7 +148,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout, m_raygenPipelineLayout, m_resolvePipelineLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline, m_raygenPipeline, m_resolvePipeline;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_commonRaytracingDS,m_raygenDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_additionalGlobalDS,m_commonRaytracingDS,m_raygenDS;
 		uint32_t m_raygenWorkGroups[2];
 
 		struct InteropBuffer
