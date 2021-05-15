@@ -1,10 +1,11 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #version 430 core
+#extension GL_EXT_shader_16bit_storage : require
 
-//#include "virtualGeometry.glsl"
+#define _NBL_VG_SSBO_DESCRIPTOR_SET 0
+#include "virtualGeometry.glsl"
 
 #include <nbl/builtin/glsl/utils/normal_encode.glsl>
 
