@@ -1073,7 +1073,7 @@ void Renderer::render(nbl::ITimer* timer)
 		IGPUDescriptorSet* descriptors[3] = { m_globalBackendDataDS.get(),m_cullDS.get(),nullptr };
 
 		m_driver->bindComputePipeline(m_cullPipeline.get());
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_cullPipelineLayout.get(),0u,2u,descriptors,nullptr);
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_cullPipelineLayout.get(),0u,3u,descriptors,nullptr);
 		{
 			m_cullPushConstants.viewProjMatrix = modifiedViewProj;
 			m_cullPushConstants.viewProjDeterminant = core::determinant(modifiedViewProj);
@@ -1092,7 +1092,7 @@ void Renderer::render(nbl::ITimer* timer)
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, zero);
 		}
-		m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipelineLayoutGPU.get(),1u,1u,descriptors+1u,nullptr);
+		m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipelineLayoutGPU.get(),0u,2u,descriptors,nullptr);
 		for (const auto& call : m_mdiDrawCalls)
 		{
 			m_driver->bindGraphicsPipeline(call.pipeline.get());
@@ -1110,8 +1110,8 @@ void Renderer::render(nbl::ITimer* timer)
 
 	// generate rays
 	{
-		IGPUDescriptorSet* descriptorSets[] = {m_commonRaytracingDS.get(),m_raygenDS.get()};
-		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenPipelineLayout.get(), 1, 2, descriptorSets, nullptr);
+		IGPUDescriptorSet* descriptorSets[] = { m_globalBackendDataDS.get(),m_commonRaytracingDS.get(),m_raygenDS.get()};
+		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenPipelineLayout.get(), 0, 3, descriptorSets, nullptr);
 		m_driver->bindComputePipeline(m_raygenPipeline.get());
 		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
 		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
