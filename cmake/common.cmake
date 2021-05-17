@@ -293,6 +293,12 @@ function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
 
+	string(SUBSTRING
+		"${ANDROID_APK_TARGET_ID}"
+		8  # length of "android-"
+		-1 # take remainder
+		TARGET_ANDROID_API_LEVEL
+	)
 	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME_IDENTIFIER}")
 	set(APP_NAME ${TARGET_NAME_IDENTIFIER})
 	set(SO_NAME ${TARGET_NAME})
@@ -317,14 +323,14 @@ function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 		#DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 		COMMENT "Creating ${APK_FILE_NAME} ..."
-		COMMAND ${CMAKE_COMMAND} -E make_directory lib/x86_64
-		COMMAND ${CMAKE_COMMAND} -E make_directory obj
-		COMMAND ${CMAKE_COMMAND} -E make_directory bin
-		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		#COMMAND ${CMAKE_COMMAND} -E make_directory obj
+		#COMMAND ${CMAKE_COMMAND} -E make_directory bin
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
 		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR} # -S res
-		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" # -sourcepath src src/eu/devsh/${TARGET_NAME}/Loader.java
-		COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin lib/x86_64 # --version-code SOME-VERSION-CODE -S res
+		#COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" # -sourcepath src src/eu/devsh/${TARGET_NAME}/Loader.java
+		#COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs # bin --version-code SOME-VERSION-CODE -S res
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
