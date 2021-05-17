@@ -15,4 +15,26 @@
 #include <nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl>
 
 
+#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl>
+
+
+vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in uint drawGUID)
+{
+    nbl_glsl_VG_VirtualAttributePacked_t va = InstData.data[drawGUID].padding0;
+    return nbl_glsl_VG_attribFetch_RGB32_SFLOAT(va,vtxID);
+}
+
+vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawGUID)
+{
+    nbl_glsl_VG_VirtualAttributePacked_t va = InstData.data[drawGUID].padding1;
+    return normalize(nbl_glsl_VG_attribFetch_RGB10A2_SNORM(va,vtxID).xyz);
+}
+
+vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawGUID)
+{
+    nbl_glsl_VG_VirtualAttributePacked_t va = InstData.data[drawGUID].determinantSignBit;
+    return nbl_glsl_VG_attribFetch_RG32_SFLOAT(va,vtxID);
+}
+
+
 #endif

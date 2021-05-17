@@ -65,7 +65,7 @@ void main()
                                                     +commandBuff[pc.data.currentCommandBufferIx].draws[drawID].baseInstance;
         
         instanceDataPerCamera.data[drawInstanceID].MVP = MVP;
-        float detMVP = pc.data.viewProjDeterminant*InstData.data[globalObjectID].determinant;
-        instanceDataPerCamera.data[drawInstanceID].backfacingBit_objectID = globalObjectID|(floatBitsToUint(detMVP)&0x80000000u); // use MSB to denote if face orientation should be flipped
+        // use the MSB to denote if face orientation should be flipped
+        instanceDataPerCamera.data[drawInstanceID].backfacingBit_objectID = globalObjectID|((InstData.data[globalObjectID].determinantSignBit^floatBitsToUint(pc.data.viewProjDeterminant))&0x80000000u);
     }
 }

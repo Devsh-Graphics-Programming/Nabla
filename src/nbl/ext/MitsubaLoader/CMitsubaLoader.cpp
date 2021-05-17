@@ -73,6 +73,7 @@ void main()
 
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
 R"(#version 430 core
+#extension GL_EXT_shader_integer_mix : require
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_INPUT_OUTPUT =
 R"(
@@ -145,7 +146,7 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = (!gl_FrontFacing) != (InstData.data[InstanceIndex].determinant < 0.0);
+	const bool front = bool((InstData.data[InstanceIndex].determinantSignBit^mix(~0u,0u,gl_FrontFacing))&0x80000000u);
 	precomp = nbl_glsl_MC_precomputeData(front);
 	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
@@ -1351,7 +1352,7 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 	vec3 normalMatrixRow1;
 	uint padding1;
 	vec3 normalMatrixRow2;
-	float determinant;
+	uint determinantSignBit;
 	nbl_glsl_MC_material_data_t material;
 };
 
@@ -1442,7 +1443,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 			instData.tform = baseInstanceDataIt->worldTform;
 			instData.tform.getSub3x3InverseTranspose(reinterpret_cast<core::matrix3x4SIMD&>(instData.normalMatrixRow0));
-			instData.determinant = instData.tform.getPseudoDeterminant().x;
+			reinterpret_cast<float&>(instData.determinantSignBit) = instData.tform.getPseudoDeterminant().x;
+			instData.determinantSignBit &= 0x80000000;
 
 			auto bsdf = inst.bsdf;
 			auto bsdf_front = bsdf.front;
