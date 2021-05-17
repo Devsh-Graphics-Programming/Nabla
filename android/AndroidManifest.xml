@@ -15,16 +15,15 @@
   <application 
     android:debuggable="true" 
     android:label="Nabla" 
-    android:hasCode="true"
+    android:hasCode="false"
   >
-    <!-- `exported` can be false i think -->
     <activity 
-      android:name=".Loader" 
+      android:name="android.app.NativeActivity" 
       android:label="@APP_NAME@"
-      android:exported="true" 
       android:screenOrientation="landscape" 
       android:configChanges="orientation|keyboardHidden"
     >
+      <meta-data android:name="android.app.lib_name" android:value="@SO_NAME@" />
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
