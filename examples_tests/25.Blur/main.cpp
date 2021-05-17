@@ -93,7 +93,7 @@ int main()
     deviceParams.Bits = 24; //may have to set to 32bit for some platforms
     deviceParams.ZBufferBits = 24; //we'd like 32bit here
     deviceParams.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-    deviceParams.WindowSize = dimension2d<uint32_t>(1024u, 1024u);
+    deviceParams.WindowSize = dimension2d<uint32_t>(1024, 1024);
     deviceParams.Fullscreen = false;
     deviceParams.Vsync = true; //! If supported by target platform
     deviceParams.Doublebuffer = true;
@@ -112,7 +112,7 @@ int main()
     asset::IAssetManager* am = device->getAssetManager();
 
     IAssetLoader::SAssetLoadParams lp;
-    auto in_image_bundle = am->getAsset("../wiki_test.jpg", lp);
+    auto in_image_bundle = am->getAsset("../cube_face.jpg", lp);
 
     // Todo: Flip the image
 
@@ -134,7 +134,7 @@ int main()
     }
 
     const vector2d<uint32_t> blur_ds_factor = { 2u, 2u };
-    const float blur_radius = 15.73f;
+    const float blur_radius = 25.f;
     const uint32_t passes_per_axis = 3u;
     const bool use_half_storage = false;
     const uint32_t channel_count = getFormatChannelCount(in_image_view->getCreationParameters().format);
@@ -168,7 +168,7 @@ int main()
         out_image_info.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
         out_image_info.type = IImage::ET_2D;
         out_image_info.format = asset::EF_R16G16B16A16_SFLOAT;
-        out_image_info.extent = { out_dim.X, out_dim.Y, 1u };
+        out_image_info.extent = { out_dim.X, out_dim.Y, 1u }; // { deviceParams.WindowSize.Width, deviceParams.WindowSize.Height, 1 };
         out_image_info.mipLevels = 1u;
         out_image_info.arrayLayers = 1u;
         out_image_info.samples = IImage::ESCF_1_BIT;
@@ -180,6 +180,7 @@ int main()
     }
 
     const size_t scratch_samples_size = out_dim.X * out_dim.Y * channel_count * sizeof(float);
+    // const size_t scratch_samples_size = deviceParams.WindowSize.Width * deviceParams.WindowSize.Height * channel_count * sizeof(float);
     auto scratch_samples_gpu = driver->createDeviceLocalGPUBufferOnDedMem(scratch_samples_size);
 
     const SPushConstantRange pc_range = { ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t) };
@@ -212,6 +213,7 @@ int main()
 
         auto pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, std::move(ds_layout));
         pipeline_horizontal = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassHorizontal.comp", out_dim.X, use_half_storage, driver));
+        // pipeline_horizontal = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassHorizontal.comp", deviceParams.WindowSize.Width, use_half_storage, driver));
     }
 
     // SSBO -> image2D
@@ -242,6 +244,7 @@ int main()
 
         auto pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, std::move(ds_layout));
         pipeline_vertical = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassVertical.comp", out_dim.Y, use_half_storage, driver));
+        // pipeline_vertical = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassVertical.comp", deviceParams.WindowSize.Height, use_half_storage, driver));
     }
 
     // buildParameters
@@ -249,7 +252,11 @@ int main()
     blur_params.input_dimensions = { out_dim.X, out_dim.Y, 1 };
     blur_params.input_dimensions.w = (blur_direction << 30) | (channel_count << 28);
     blur_params.radius = blur_radius;
+
+    // Todo(achal): This forces the user to do the operation in the axis order: XYZ --I think
+    // it could be more flexible?
     blur_params.input_strides = { 1, out_dim.X, out_dim.X * out_dim.Y, out_dim.X * out_dim.Y * 1 };
+    // blur_params.input_strides = { 1, deviceParams.WindowSize.Width, deviceParams.WindowSize.Width * deviceParams.WindowSize.Height, deviceParams.WindowSize.Width * deviceParams.WindowSize.Height * 1 };
     blur_params.output_strides = blur_params.input_strides;
 
     // Update descriptor sets
@@ -258,9 +265,18 @@ int main()
         {
             {
                 // Todo(achal): Current shader code says this should be clamp to edge
-                ISampler::ETC_CLAMP_TO_BORDER,
-                ISampler::ETC_CLAMP_TO_BORDER,
-                ISampler::ETC_CLAMP_TO_BORDER,
+                ISampler::ETC_CLAMP_TO_EDGE,
+                ISampler::ETC_CLAMP_TO_EDGE,
+                ISampler::ETC_CLAMP_TO_EDGE,
+                // 
+                // ISampler::ETC_CLAMP_TO_BORDER,
+                // ISampler::ETC_CLAMP_TO_BORDER,
+                // ISampler::ETC_CLAMP_TO_BORDER,
+                // 
+                // ISampler::ETC_REPEAT,
+                // ISampler::ETC_REPEAT,
+                // ISampler::ETC_REPEAT,
+
                 ISampler::ETBC_FLOAT_OPAQUE_BLACK,
                 ISampler::ETF_LINEAR,
                 ISampler::ETF_LINEAR,
@@ -347,6 +363,7 @@ int main()
         driver->bindComputePipeline(pipeline_horizontal.get());
         driver->pushConstants(pipeline_horizontal->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &blur_params);
         driver->dispatch(1, out_dim.Y, 1);
+        // driver->dispatch(1, deviceParams.WindowSize.Height, 1);
         
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
@@ -357,6 +374,7 @@ int main()
         driver->bindComputePipeline(pipeline_vertical.get());
         driver->pushConstants(pipeline_vertical->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &blur_params);
         driver->dispatch(out_dim.X, 1, 1);
+        // driver->dispatch(deviceParams.WindowSize.Width, 1, 1);
 
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 

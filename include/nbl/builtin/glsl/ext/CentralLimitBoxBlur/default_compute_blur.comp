@@ -190,30 +190,113 @@ void main()
 					const float radius = nbl_glsl_ext_Blur_Parameters_t_getRadius();
 					float left = float(idx) - radius - 1.f;
 					float right = float(idx) + radius;
-	
-					const uint last = _NBL_GLSL_EXT_BLUR_AXIS_DIM_ - 1u;
+					const uint N = _NBL_GLSL_EXT_BLUR_AXIS_DIM_;
+					const uint last = N-1u;
+
+					const uint WRAP_MODE = 1;
 	
 					float result;
-					
-					if (right > last)
+
+					if (right <= last)
 					{
-						result = (right - float(last)) * (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last - 1u])) + uintBitsToFloat(scratch_shared[last]);
+						result = mix(uintBitsToFloat(scratch_shared[uint(floor(right))]), uintBitsToFloat(scratch_shared[uint(ceil(right))]), fract(right));
 					}
 					else
 					{
-						uint floored = uint(floor(right));
-						result = mix(uintBitsToFloat(scratch_shared[floored]), uintBitsToFloat(scratch_shared[floored + 1u]), fract(right));
+						switch (WRAP_MODE)
+						{
+							case 0:		// CLAMP_TO_EDGE
+							{
+								result = (right-float(last)) * (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last-1u])) + uintBitsToFloat(scratch_shared[last]);
+							} break;
+
+							case 1:		// REPEAT
+							{
+								const float v_floored = ceil((floor(right)-last)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(floor(right)-N, N))]);
+								const float v_ceiled = ceil((ceil(right)-last)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(ceil(right)-N, N))]);
+								result = mix(v_floored, v_ceiled, fract(right));
+							} break;
+
+							// case 2:
+							// {
+							// };
+						}
 					}
-	
-					if (left < 0)
+
+					if (left >= 0)
 					{
-						result -= (1.f - abs(left)) * uintBitsToFloat(scratch_shared[0u]);
+						result -= mix(uintBitsToFloat(scratch_shared[uint(floor(left))]), uintBitsToFloat(scratch_shared[uint(ceil(left))]), fract(left));
 					}
 					else
 					{
-						uint floored = uint(floor(left));
-						result -= mix(uintBitsToFloat(scratch_shared[floored]), uintBitsToFloat(scratch_shared[floored + 1u]), fract(left));
+						switch (WRAP_MODE)
+						{
+							case 0:		// CLAMP_TO_EDGE
+							{
+								result -= (1.f - abs(left)) * uintBitsToFloat(scratch_shared[0]);
+							} break;
+
+							case 1:		// REPEAT
+							{
+								const float v_floored = floor(floor(left)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(floor(left), N))]);
+								const float v_ceiled = floor(ceil(left)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(ceil(left), N))]);
+								result -= mix(v_floored, v_ceiled, fract(left));
+							} break;
+						}
 					}
+
+					// MIRROR
+					// const uint N = _NBL_GLSL_EXT_BLUR_AXIS_DIM_;
+					// {
+					// 	const int floored = int(floor(right));
+					// 	float v1;
+					// 	if (floored < N)
+					// 	{
+					// 		v1 = uintBitsToFloat(scratch_shared[floored]);
+					// 	}
+					// 	else
+					// 	{
+					// 		v1 = (((floored - last) + 2*N - 1)/N)*uintBitsToFloat(scratch_shared[last]);
+					// 		if (mod(floored-last-1, 2N) < last)
+					// 			v1 -= sum[last - mod(floored-last, N)];
+					// 		else if (mod(floored-last-1, 2N) > last)
+					// 			v1 += sum[uint(mod(floored-last-1, N))];
+					// 	}
+					// 
+					// 	const int ceiled = int(ceil(right));
+					// 	float v2;
+					// 	if (ceiled < N)
+					// 	{
+					// 		v2 = uintBitsToFloat(scratch_shared[ceiled]);
+					// 	}
+					// 	else
+					// 	{
+					// 		v2 = (((ceiled - last) + 2*N - 1)/N)*uintBitsToFloat(scratch_shared[last]);
+					// 		if (mod(ceiled-last-1, 2N) < last)
+					// 			v2 -= sum[last - mod(ceiled-last, N)];
+					// 		else if (mod(floored-last-1, 2N) > last)
+					// 			v2 += sum[uint(mod(ceiled-last-1, N))];
+					// 	}
+					// 	result = mix(v1, v2, fract(right));
+					// }
+					// 
+					// {
+					// 	const int floored = int(floor(left));
+					// 	float v1;
+					// 	if (floored >= 0)
+					// 		v1 = uintBitsToFloat(scratch_shared[floored]);
+					// 	else
+					// 		v1 = /*USE THE FORMULA*/;
+					// 
+					// 	const int ceiled = int(ceil(left));
+					// 	float v2;
+					// 	if (ceiled >= 0)
+					// 		v2 = uintBitsToFloat(scratch_shared[ceiled]);
+					// 	else
+					// 		v2 = /*USE THE FORMULA*/;
+					// 
+					// 	result -= mix(v1, v2, fract(left));
+					// }
 	
 					blurred[i] = result/(2.f*radius + 1.f);
 				}
