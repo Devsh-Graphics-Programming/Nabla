@@ -188,8 +188,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	core::vector<CullData_t> cullData;
 	core::vector<std::pair<core::smart_refctd_ptr<IGPUMeshBuffer>,uint32_t>> gpuMeshBuffers;
 	{
-		core::vector<ICPUMesh*> meshesToProcess;
-		core::vector<ICPUMeshBuffer*> meshBuffersToProcess;
+		core::vector<const ICPUMesh*> meshesToProcess;
+		core::vector<const ICPUMeshBuffer*> meshBuffersToProcess;
+		core::vector<ICPUMeshBuffer*> _meshBuffersToProcess;
 		{
 			auto contents = meshes.getContents();
 
@@ -217,6 +218,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 			{
 				meshesToProcess.reserve(contents.size());
+				meshBuffersToProcess.reserve(contents.size());
 
 				uint32_t drawableCount = 0u; // TODO: redo
 				for (const auto& asset : contents)
@@ -225,11 +227,42 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					auto meshBuffers = cpumesh->getMeshBuffers();
 					assert(!meshBuffers.empty());
 
+					auto& meshbuffers = cpumesh->getMeshBufferVector();
+					for (auto mbIt = meshbuffers.begin(); mbIt!=meshbuffers.end(); mbIt++)
+						meshBuffersToProcess.push_back(mbIt->get());
+
 					meshesToProcess.push_back(cpumesh);
 
 					drawableCount += meshBuffers.size()*retval.globalMeta->getAssetSpecificMetadata(cpumesh)->m_instances.size(); // TODO: redo
 				}
 				cullData.resize(drawableCount); // TODO: redo
+			}
+			// split into packed batches
+			{
+				constexpr uint16_t minTrisBatch = 256u; 
+				constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
+				constexpr uint8_t minVertexSize = 
+					asset::getTexelOrBlockBytesize<asset::EF_R32G32B32_SFLOAT>()+
+					asset::getTexelOrBlockBytesize<asset::EF_A2R10G10B10_SNORM_PACK32>()+
+					asset::getTexelOrBlockBytesize<asset::EF_R32G32_SFLOAT>();
+
+				constexpr uint8_t kIndicesPerTriangle = 3u;
+				constexpr uint16_t minIndicesBatch = minTrisBatch*kIndicesPerTriangle;
+				
+				CPUMeshPacker::AllocationParams allocParams;
+				allocParams.vertexBuffSupportedByteSize = 1u<<31u;
+				allocParams.vertexBufferMinAllocByteSize = minTrisBatch*minVertexSize;
+				allocParams.indexBuffSupportedCnt = (allocParams.vertexBuffSupportedByteSize/allocParams.vertexBufferMinAllocByteSize)*minIndicesBatch;
+				allocParams.indexBufferMinAllocCnt = minIndicesBatch;
+				allocParams.MDIDataBuffSupportedCnt = allocParams.indexBuffSupportedCnt/minIndicesBatch;
+				allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
+    
+				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
+
+				core::vector<CPUMeshPacker::ReservedAllocationMeshBuffers> allocData(cpump->calcMDIStructMaxCount(meshBuffersToProcess.begin(),meshBuffersToProcess.end()));
+				printf("%d\n",allocData.size());
+				cpump->alloc(allocData.data(),meshBuffersToProcess.begin(),meshBuffersToProcess.end());
+				cpump->shrinkOutputBuffersSize();
 			}
 			auto cullDataIt = cullData.begin();
 			for (const auto& asset : contents)
@@ -282,10 +315,10 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						baseCullData.aabbMaxEdge.x = aabbOriginal.MaxEdge.X;
 						baseCullData.aabbMaxEdge.y = aabbOriginal.MaxEdge.Y;
 						baseCullData.aabbMaxEdge.z = aabbOriginal.MaxEdge.Z;
-						baseCullData.drawID = meshBuffersToProcess.size();
+						baseCullData.drawID = _meshBuffersToProcess.size();
 					}
 
-					meshBuffersToProcess.push_back(cpumb);
+					_meshBuffersToProcess.push_back(cpumb);
 				}
 
 				// set up scene bounds and lights
@@ -332,9 +365,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		}
 
 		// this wont get rid of identical pipelines
-		IMeshManipulator::homogenizePrimitiveTypeAndIndices(meshBuffersToProcess.begin(),meshBuffersToProcess.end(),EPT_TRIANGLE_LIST);
+		IMeshManipulator::homogenizePrimitiveTypeAndIndices(_meshBuffersToProcess.begin(),_meshBuffersToProcess.end(),EPT_TRIANGLE_LIST);
 		// set up BLAS
-		m_rrManager->makeRRShapes(rrShapeCache,meshBuffersToProcess.begin(),meshBuffersToProcess.end());
+		m_rrManager->makeRRShapes(rrShapeCache,_meshBuffersToProcess.begin(),_meshBuffersToProcess.end());
 
 		// convert to GPU objects
 		auto gpuMeshes = m_driver->getGPUObjectsFromAssets(meshesToProcess.data(),meshesToProcess.data()+meshesToProcess.size());
@@ -348,7 +381,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			}
 		}
 		// there should be usually no conversion going on here, just cache retrieval, we just do it to later sort by pipeline
-		auto gpuObjs = m_driver->getGPUObjectsFromAssets(meshBuffersToProcess.data(),meshBuffersToProcess.data()+meshBuffersToProcess.size());
+		auto gpuObjs = m_driver->getGPUObjectsFromAssets(_meshBuffersToProcess.data(),_meshBuffersToProcess.data()+_meshBuffersToProcess.size());
 		gpuMeshBuffers.resize(gpuObjs->size());
 		for (auto i=0u; i<gpuObjs->size(); i++)
 			gpuMeshBuffers[i] = {core::smart_refctd_ptr(gpuObjs->operator[](i)),i};
