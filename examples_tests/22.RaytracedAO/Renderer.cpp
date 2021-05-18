@@ -168,14 +168,21 @@ Renderer::~Renderer()
 
 Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& meshes)
 {
+	constexpr bool meshPackerUsesSSBO = true;
+	using CPUMeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
+	using GPUMeshPacker = CGPUMeshPackerV2<DrawElementsIndirectCommand_t>;
+
+	// get primary (texture and material) global DS
 	InitializationData retval;
 	retval.globalMeta = meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>();
 	assert(retval.globalMeta);
-	{
-		auto* glslMaterialBackendGlobalDS = retval.globalMeta->m_global.m_ds0.get();
-		m_globalBackendDataDS = m_driver->getGPUObjectsFromAssets(&glslMaterialBackendGlobalDS,&glslMaterialBackendGlobalDS+1)->front();
-	}
+	auto* _globalBackendDataDS = retval.globalMeta->m_global.m_ds0.get();
 
+	auto instanceDataDesc = _globalBackendDataDS->getDescriptors(5u).begin()->desc;
+	assert(instanceDataDesc->getTypeCategory()==IDescriptor::EC_BUFFER);
+	auto* instanceData = reinterpret_cast<const ext::MitsubaLoader::instance_data_t*>(static_cast<ICPUBuffer*>(instanceDataDesc.get())->getPointer());
+
+	// make secondary (geometry) DS
 	m_additionalGlobalDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_additionalGlobalDSLayout));
 	
 	core::vector<CullData_t> cullData;
@@ -206,12 +213,12 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					return std::hash<decltype(view)>()(view);
 				}
 			};
-			core::unordered_map<VisibilityBufferPipelineKey, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>, VisibilityBufferPipelineKeyHash> visibilityBufferFillPipelines;
+			core::unordered_map<VisibilityBufferPipelineKey,core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>,VisibilityBufferPipelineKeyHash> visibilityBufferFillPipelines;
 
 			{
 				meshesToProcess.reserve(contents.size());
 
-				uint32_t drawableCount = 0u;
+				uint32_t drawableCount = 0u; // TODO: redo
 				for (const auto& asset : contents)
 				{
 					auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
@@ -220,9 +227,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 					meshesToProcess.push_back(cpumesh);
 
-					drawableCount += meshBuffers.size()*retval.globalMeta->getAssetSpecificMetadata(cpumesh)->m_instances.size();
+					drawableCount += meshBuffers.size()*retval.globalMeta->getAssetSpecificMetadata(cpumesh)->m_instances.size(); // TODO: redo
 				}
-				cullData.resize(drawableCount);
+				cullData.resize(drawableCount); // TODO: redo
 			}
 			auto cullDataIt = cullData.begin();
 			for (const auto& asset : contents)
@@ -467,7 +474,8 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		setDstSetOnAllWrites(m_cullDS.get(),commonWrites,3u);
 		m_driver->updateDescriptorSets(3u,commonWrites,0u,nullptr);
 	}
-
+	
+	m_globalBackendDataDS = m_driver->getGPUObjectsFromAssets(&_globalBackendDataDS,&_globalBackendDataDS+1)->front();
 	return retval;
 }
 

@@ -4,17 +4,15 @@
 #include <nbl/core/IReferenceCounted.h>
 #include <nbl/asset/material_compiler/IR.h>
 
-namespace nbl {
-namespace asset {
-namespace material_compiler
+namespace nbl::asset::material_compiler
 {
 
 class IFrontend : public core::IReferenceCounted
 {
-public:
-    virtual core::smart_refctd_ptr<IR> compileToIR();
+    public:
+        virtual core::smart_refctd_ptr<IR> compileToIR();
 };
 
-}}}
+}
 
 #endif
