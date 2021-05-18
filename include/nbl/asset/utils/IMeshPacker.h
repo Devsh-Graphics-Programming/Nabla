@@ -463,7 +463,7 @@ protected:
         }
     }
 
-    uint32_t calcIdxCntAfterConversionToTriangleList(MeshBufferType* meshBuffer)
+    inline uint32_t calcIdxCntAfterConversionToTriangleList(const MeshBufferType* meshBuffer)
     {
         const auto& params = meshBuffer->getPipeline()->getPrimitiveAssemblyParams();
 
@@ -492,8 +492,11 @@ protected:
 
         return triCnt * 3;
     }
-
-    uint32_t calcIdxCntAfterConversionToTriangleList(core::smart_refctd_ptr<MeshBufferType> meshBuffer)
+    inline uint32_t calcIdxCntAfterConversionToTriangleList(const core::smart_refctd_ptr<MeshBufferType>& meshBuffer)
+    {
+        return calcIdxCntAfterConversionToTriangleList(meshBuffer.get());
+    }
+    inline uint32_t calcIdxCntAfterConversionToTriangleList(const core::smart_refctd_ptr<const MeshBufferType>& meshBuffer)
     {
         return calcIdxCntAfterConversionToTriangleList(meshBuffer.get());
     }
