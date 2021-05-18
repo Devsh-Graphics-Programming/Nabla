@@ -74,38 +74,34 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 	m_meshBuffer->setIndexCount(2);
 }
 
-void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline)
+void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, const IGPUBuffer* buffer, video::IGPUGraphicsPipeline* graphics_pipeline)
 {
 
 	auto cb = cmdBuffer;
 	assert(cb->getState() == IGPUCommandBuffer::ES_RECORDING);
-	auto* buf = m_meshBuffer->getVertexBufferBindings()->buffer.get();
 	size_t offset = 0u;
-	cb->bindVertexBuffers(0u, 1u, &buf, &offset);
+	cb->bindVertexBuffers(0u, 1u, &buffer, &offset);
 	cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_meshBuffer->getPipeline()->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
 	cb->bindGraphicsPipeline(graphics_pipeline);
 	cb->draw(m_lines.size() * 2, 1u, 0u, 0u);
 
 }
 
-void CDraw3DLine::updateMeshBuffer()
+void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, core::smart_refctd_ptr<IGPUBuffer>& buffer)
 {
-	auto upStreamBuff = m_device->getDefaultUpStreamingBuffer();
-	const void* lineData[1] = { m_lines.data() };
-
-	const uint32_t sizes[1] = { sizeof(S3DLineVertex) * m_lines.size() * 2 };
-	uint32_t offset[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
-	upStreamBuff->multi_place(1u, (const void* const*)lineData, (uint32_t*)&offset, (uint32_t*)&sizes, (uint32_t*)&alignments);
-	if (upStreamBuff->needsManualFlushOrInvalidate())
+	if (buffer.get() != nullptr)
 	{
-		auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-		const video::IDriverMemoryAllocation::MappedMemoryRange mappedRange(upStreamMem, offset[0], sizes[0]);
-		core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> range(&mappedRange, &mappedRange + 1);
-		m_device->flushMappedMemoryRanges(range);
+		size_t buffSize = buffer->getSize();
+		size_t minimalBuffSize = m_lines.size() * sizeof(std::pair<S3DLineVertex, S3DLineVertex>);
+		if (buffSize < minimalBuffSize)
+		{
+			buffer = m_device->createDeviceLocalGPUBufferOnDedMem(minimalBuffSize);
+			SBufferRange<IGPUBuffer> range; 
+			range.buffer = buffer;
+			range.offset = 0;
+			range.size = minimalBuffSize;
+			m_device->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
+		}
 	}
 
-	m_meshBuffer->setBaseVertex(offset[0] / sizeof(S3DLineVertex));
-	m_meshBuffer->setIndexCount(m_lines.size() * 2);
-
-	upStreamBuff->multi_free(1u, (uint32_t*)&offset, (uint32_t*)&sizes, m_device->createFence(video::IGPUFence::ECF_SIGNALED_BIT));
 }

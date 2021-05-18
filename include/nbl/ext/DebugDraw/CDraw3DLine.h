@@ -37,7 +37,6 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		{
 			m_viewProj = viewProjMat;
 			m_lines = linesData;
-			updateMeshBuffer();
 
 		}
 
@@ -53,7 +52,6 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		)
 		{
 			m_lines = core::vector<std::pair<S3DLineVertex, S3DLineVertex>>{ std::pair(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }}) };
-			updateMeshBuffer();
 		}
 
 		void addLine(const core::matrix4SIMD& viewProjMat,
@@ -63,25 +61,21 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		)
 		{
 			m_lines.emplace_back(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }});
-			updateMeshBuffer();
 		}
 
 		void setLinesData(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
 		{
 			m_lines = linesData;
-			updateMeshBuffer();
 		}
 
 		void addLines(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
 		{
 			m_lines.insert(m_lines.end(), linesData.begin(), linesData.end());
-			updateMeshBuffer();
 		}
 
 		void setViewProjMatrix(const core::matrix4SIMD& viewProjMat)
 		{
 			m_viewProj = viewProjMat;
-			updateMeshBuffer();
 		}
 
 		video::IGPURenderpassIndependentPipeline* getRenderpassIndependentPipeline()
@@ -95,7 +89,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			The @graphics_pipeline parameter is the graphics pipeline, built up on the renderpass independent pipeline? which you can 
 			retrieve with CDraw3DLine::getRenderpassIndependentPipeline()
 		*/
-		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline);
+		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, const video::IGPUBuffer* buffer, video::IGPUGraphicsPipeline* graphics_pipeline);
 
 		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
 		{
@@ -125,10 +119,10 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			addLine(verts[6], verts[7]);
 		}
 
+        void updateVertexBuffer(video::IGPUQueue* queue, nbl::core::smart_refctd_ptr<video::IGPUBuffer>& buffer);
     private:
 		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device);
 		virtual ~CDraw3DLine() {}
-        void updateMeshBuffer();
 	private:
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
         nbl::core::smart_refctd_ptr<video::IGPUMeshBuffer> m_meshBuffer;

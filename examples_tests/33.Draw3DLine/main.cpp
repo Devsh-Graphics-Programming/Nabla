@@ -62,33 +62,6 @@ int main()
 	}
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
 	device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT, cmdbuf);
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-	{
-		auto& cb = cmdbuf[i];
-		auto& fb = fbo[i];
-
-		cb->begin(0);
-
-		size_t offset = 0u;
-		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
-		asset::SClearValue clear;
-		asset::VkRect2D area;
-		area.offset = { 0, 0 };
-		area.extent = { WIN_W, WIN_H };
-		clear.color.float32[0] = 0.f;
-		clear.color.float32[1] = 1.f;
-		clear.color.float32[2] = 1.f;
-		clear.color.float32[3] = 1.f;
-		info.renderpass = renderpass;
-		info.framebuffer = fb;
-		info.clearValueCount = 1u;
-		info.clearValues = &clear;
-		info.renderArea = area;
-		cb->beginRenderPass(&info, asset::ESC_INLINE);
-		cb->endRenderPass();
-
-		cb->end();
-	}
 
 	auto draw3DLine = ext::DebugDraw::CDraw3DLine::create(device);
 
@@ -113,7 +86,9 @@ int main()
 	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(0, 0, -10), core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
+	auto lines_buffer = device->createDeviceLocalGPUBufferOnDedMem(10);
 	draw3DLine->setData(viewProj, lines);
+	draw3DLine->updateVertexBuffer(queue, lines_buffer);
 	{
 		auto* rpIndependentPipeline = draw3DLine->getRenderpassIndependentPipeline();
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
@@ -133,16 +108,21 @@ int main()
 
 		size_t offset = 0u;
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
+		asset::SClearValue clear;
 		asset::VkRect2D area;
 		area.offset = { 0, 0 };
 		area.extent = { WIN_W, WIN_H };
+		clear.color.float32[0] = 0.f;
+		clear.color.float32[1] = 1.f;
+		clear.color.float32[2] = 1.f;
+		clear.color.float32[3] = 1.f;
 		info.renderpass = renderpass;
 		info.framebuffer = fb;
-		info.clearValueCount = 0;
-		info.clearValues = nullptr;
+		info.clearValueCount = 1u;
+		info.clearValues = &clear;
 		info.renderArea = area;
 		cb->beginRenderPass(&info, asset::ESC_INLINE);
-		draw3DLine->recordToCommandBuffer(cb.get(), pipeline.get());
+		draw3DLine->recordToCommandBuffer(cb.get(), lines_buffer.get(), pipeline.get());
 		cb->endRenderPass();
 
 		cb->end();
@@ -155,7 +135,6 @@ int main()
 		uint32_t imgnum = 0u;
 		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
 
-		//draw3DLine->draw();
 		CommonAPI::Submit(device.get(), sc.get(), cmdbuf, queue, img_acq_sem.get(), render1_finished_sem.get(), SC_IMG_COUNT, imgnum);
 
 		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
