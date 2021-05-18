@@ -1307,25 +1307,10 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 
 
-// TODO: we need a GLSL to C++ compatibility wrapper
-//#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
-#define uint uint32_t
-#define uvec2 uint64_t
-#define mat4x3 nbl::core::matrix3x4SIMD
-struct nbl_glsl_MC_oriented_material_t
-{
-	uvec2 emissive;
-	uint prefetch_offset;
-	uint prefetch_count;
-	uint instr_offset;
-	uint rem_pdf_count;
-	uint nprecomp_count;
-	uint genchoice_count;
-};
 // TODO: this function shouldn't really exist because the backend should produce this directly @Crisspl
-nbl_glsl_MC_oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
+asset::material_compiler::oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
 {
-	nbl_glsl_MC_oriented_material_t orientedMaterial;
+	asset::material_compiler::oriented_material_t orientedMaterial;
 	orientedMaterial.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
 	orientedMaterial.prefetch_offset = streams.prefetch_offset;
 	orientedMaterial.prefetch_count = streams.tex_prefetch_count;
@@ -1335,26 +1320,6 @@ nbl_glsl_MC_oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf
 	orientedMaterial.genchoice_count = streams.gen_choice_count;
 	return orientedMaterial;
 }
-struct nbl_glsl_MC_material_data_t
-{
-	nbl_glsl_MC_oriented_material_t front;
-	nbl_glsl_MC_oriented_material_t back;
-};
-struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
-{
-	struct vec3
-	{
-		float x, y, z;
-	};
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint padding0;
-	vec3 normalMatrixRow1;
-	uint padding1;
-	vec3 normalMatrixRow2;
-	uint determinantSignBit;
-	nbl_glsl_MC_material_data_t material;
-};
 
 
 // Also sets instance data buffer offset into meshbuffers' base instance

@@ -12,7 +12,7 @@
 	#define uint uint32_t
 	struct uvec2
 	{
-		uint32_t x,y;
+		uint x,y;
 	};
 	struct vec2
 	{

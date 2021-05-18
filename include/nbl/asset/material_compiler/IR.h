@@ -11,9 +11,7 @@
 #include <nbl/asset/ICPUSampler.h>
 #include <nbl/core/alloc/LinearAddressAllocator.h>
 
-namespace nbl {
-namespace asset {
-namespace material_compiler
+namespace nbl::asset::material_compiler
 {
 
 class IR : public core::IReferenceCounted
@@ -619,6 +617,6 @@ public:
     uint32_t tmpSize = 0u;
 };
 
-}}}
+}
 
 #endif

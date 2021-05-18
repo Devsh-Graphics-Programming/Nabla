@@ -23,6 +23,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		#include "raytraceCommon.h"
 		#ifdef __cplusplus
 			#undef uint
+			#undef vec4
 			#undef mat4
 			#undef mat4x3
 		#endif
