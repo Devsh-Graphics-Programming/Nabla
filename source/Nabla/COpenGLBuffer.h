@@ -8,8 +8,6 @@
 #include "nbl/core/core.h"
 #include "IGPUBuffer.h"
 
-#include "FW_Mutex.h"
-
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include <assert.h>
 #include <atomic>

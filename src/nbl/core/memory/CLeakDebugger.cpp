@@ -6,7 +6,6 @@
 
 #include "utf8/unchecked.h"
 #include "ConvertUTF.h"
-#include "FW_Mutex.h"
 
 
 namespace std

@@ -22,14 +22,10 @@
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
-#if defined(_NBL_PLATFORM_LINUX_)// || defined(_NBL_PLATFORM_LINUX_)
-#   define _NBL_POSIX_API_
-#endif
-
-#if defined(_NBL_PLATFORM_WINDOWS_)
+#if defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
+#   define _NBL_POSIX_API_ // Android is not 100% POSIX, but it's close enough
+#elif defined(_NBL_PLATFORM_WINDOWS_)
 #   define _NBL_WINDOWS_API_
-#elif defined(_NBL_PLATFORM_ANDROID_)
-#   define _NBL_ANDROID_API_
 #endif
 
 #ifdef _NBL_TARGET_ARCH_ARM_

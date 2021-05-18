@@ -145,8 +145,10 @@ set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
 if (WAYLAND_CLIENT_FOUND AND OpenGL_EGL_FOUND)
 	set(_NBL_BUILD_WITH_WAYLAND 1)
+	#message(FATAL_ERROR "found wayland! ${WAYLAND_CLIENT_LIBRARY}")
 else()
 	set(_NBL_BUILD_WITH_WAYLAND 0)
+	#message(FATAL_ERROR "NOT found wayland!")
 endif()
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 set(_NBL_DEBUG 0)
@@ -160,7 +162,7 @@ set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 set(NABLA_HEADERS_PUBLIC
-	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
+#	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
 	"${NBL_ROOT_PATH}/source/Nabla/os.h"
 	"${NBL_ROOT_PATH}/source/Nabla/CLogger.h" 
 )
@@ -242,7 +244,7 @@ set(NBL_ASSET_SOURCES
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWLegacy.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp
@@ -368,7 +370,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 
 	# OpenCL
-	${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
+	# ${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
 )
 
 set(COMMON_INCLUDE_DIRS
@@ -554,8 +556,11 @@ endif()
 
 target_compile_definitions(Nabla 
 	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-	PUBLIC	UNW_LOCAL_ONLY # $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>
+	PUBLIC	UNW_LOCAL_ONLY
 )
+if (ANDROID)
+	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
+endif()
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)

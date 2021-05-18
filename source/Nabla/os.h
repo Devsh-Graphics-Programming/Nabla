@@ -39,8 +39,10 @@ namespace os
 			#include <sys/endian.h>
 			#define bswap_16(X) bswap16(X)
 			#define bswap_32(X) bswap32(X)
+			/*
 			#elif !defined(_NBL_SOLARIS_PLATFORM_) && !defined(__PPC__) && !defined(_NBL_WINDOWS_API_)
 			#include <byteswap.h>
+			*/
 			#else
 			#define bswap_16(X) ((((X)&0xFF) << 8) | (((X)&0xFF00) >> 8))
 			#define bswap_32(X) ( (((X)&0x000000FF)<<24) | (((X)&0xFF000000) >> 24) | (((X)&0x0000FF00) << 8) | (((X) &0x00FF0000) >> 8))

@@ -99,12 +99,18 @@ else()
 endif()]]
 # EGL
 set(EGL_NO_GLEW ON FORCE)
-
-#if (OpenGL_EGL_FOUND AND WAYLAND_CLIENT_FOUND AND UNIX AND NOT APPLE)
-#	set(EGL_PASSTHROUGH ON FORCE)
-#	set(EGL_USE_WAYLAND ON FORCE)
+#if (EGL_NO_GLEW)
+#	message(FATAL_ERROR "EGL_NO_GLEW")
+#else()
+#	message(FATAL_ERROR "NO EGL_NO_GLEW")
 #endif()
-set(EGL_USE_WAYLAND OFF FORCE)
+if (OpenGL_EGL_FOUND AND UNIX AND NOT APPLE)
+	set(EGL_PASSTHROUGH ON FORCE)
+	if (WAYLAND_CLIENT_FOUND)
+		set(EGL_USE_WAYLAND ON FORCE)
+		message(FATAL_ERROR "Using Wayland backend!!!")
+	endif()
+endif()
 add_subdirectory(EGL/EGL)
 
 # zlib (target is zlibstatic)
