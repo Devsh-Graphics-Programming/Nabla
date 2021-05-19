@@ -134,7 +134,7 @@ int main()
     }
 
     const vector2d<uint32_t> blur_ds_factor = { 2u, 2u };
-    const float blur_radius = 25.f;
+    const float blur_radius = 25.73f;
     const uint32_t passes_per_axis = 3u;
     const bool use_half_storage = false;
     const uint32_t channel_count = getFormatChannelCount(in_image_view->getCreationParameters().format);
