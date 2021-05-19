@@ -25,7 +25,6 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 		layout = device->createGPUPipelineLayout(&range, &range + 1);
 	}
 	assert(layout);
-	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpindependent_pipeline;
 	{
 
 		auto vs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader));
@@ -62,46 +61,42 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 		primitive.primitiveType = asset::EPT_LINE_LIST;
 
 		asset::SBlendParams blend;
-		
-		rpindependent_pipeline = m_device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blend, primitive, raster);
-		assert(rpindependent_pipeline);
+
+		m_rpindependent_pipeline = m_device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blend, primitive, raster);
+		assert(m_rpindependent_pipeline);
 	}
 
-	asset::SBufferBinding<video::IGPUBuffer> bindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-	bindings[0u] = { 0u,core::smart_refctd_ptr<video::IGPUBuffer>(m_device->getDefaultUpStreamingBuffer()->getBuffer()) };
-	m_meshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(rpindependent_pipeline), nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{});
-	m_meshBuffer->setIndexType(asset::EIT_UNKNOWN);
-	m_meshBuffer->setIndexCount(2);
 }
 
-void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, const IGPUBuffer* buffer, video::IGPUGraphicsPipeline* graphics_pipeline)
+void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline)
 {
-
 	auto cb = cmdBuffer;
 	assert(cb->getState() == IGPUCommandBuffer::ES_RECORDING);
 	size_t offset = 0u;
-	cb->bindVertexBuffers(0u, 1u, &buffer, &offset);
-	cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_meshBuffer->getPipeline()->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
+	cb->bindVertexBuffers(0u, 1u, const_cast<const video::IGPUBuffer**>(&m_linesBuffer.get()), &offset);
+	cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_rpindependent_pipeline->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
 	cb->bindGraphicsPipeline(graphics_pipeline);
 	cb->draw(m_lines.size() * 2, 1u, 0u, 0u);
-
 }
 
-void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, core::smart_refctd_ptr<IGPUBuffer>& buffer)
+void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, IGPUFence* fence)
 {
-	if (buffer.get() != nullptr)
+	size_t buffSize = m_linesBuffer.get() != nullptr ? m_linesBuffer->getSize() : 0;
+	size_t minimalBuffSize = m_lines.size() * sizeof(std::pair<S3DLineVertex, S3DLineVertex>);
+	if (buffSize < minimalBuffSize)
 	{
-		size_t buffSize = buffer->getSize();
-		size_t minimalBuffSize = m_lines.size() * sizeof(std::pair<S3DLineVertex, S3DLineVertex>);
-		if (buffSize < minimalBuffSize)
-		{
-			buffer = m_device->createDeviceLocalGPUBufferOnDedMem(minimalBuffSize);
-			SBufferRange<IGPUBuffer> range; 
-			range.buffer = buffer;
-			range.offset = 0;
-			range.size = minimalBuffSize;
-			m_device->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
-		}
+		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(minimalBuffSize);
 	}
-
+	SBufferRange<IGPUBuffer> range;
+	range.buffer = m_linesBuffer;
+	range.offset = 0;
+	range.size = minimalBuffSize;
+	if (!fence)
+	{
+		m_device->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
+	}
+	else
+	{
+		m_device->updateBufferRangeViaStagingBuffer(fence, queue, range, m_lines.data());
+	}
 }

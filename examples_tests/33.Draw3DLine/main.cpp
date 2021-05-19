@@ -86,9 +86,8 @@ int main()
 	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(0, 0, -10), core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
-	auto lines_buffer = device->createDeviceLocalGPUBufferOnDedMem(10);
 	draw3DLine->setData(viewProj, lines);
-	draw3DLine->updateVertexBuffer(queue, lines_buffer);
+	draw3DLine->updateVertexBuffer(queue);
 	{
 		auto* rpIndependentPipeline = draw3DLine->getRenderpassIndependentPipeline();
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
@@ -122,7 +121,7 @@ int main()
 		info.clearValues = &clear;
 		info.renderArea = area;
 		cb->beginRenderPass(&info, asset::ESC_INLINE);
-		draw3DLine->recordToCommandBuffer(cb.get(), lines_buffer.get(), pipeline.get());
+		draw3DLine->recordToCommandBuffer(cb.get(), pipeline.get());
 		cb->endRenderPass();
 
 		cb->end();

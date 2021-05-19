@@ -80,16 +80,16 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 
 		video::IGPURenderpassIndependentPipeline* getRenderpassIndependentPipeline()
 		{
-			return const_cast<video::IGPURenderpassIndependentPipeline*>(m_meshBuffer->getPipeline());
+			return m_rpindependent_pipeline.get();
 		}
 		/*
 			The function which records the debug draw call into the command buffer @cmdBuffer.
-			The function assumes that the cmdBuffer is in the recording state, so you should call cmdBuffer->beginRenderPass() 
+			The function assumes that the cmdBuffer is in the recording state, so you should call cmdBuffer->begin() 
 			before calling CDraw3DLine::recordToCommandBuffer.
-			The @graphics_pipeline parameter is the graphics pipeline, built up on the renderpass independent pipeline? which you can 
+			The @graphics_pipeline parameter is the graphics pipeline, built up on the renderpass independent pipeline, which you can 
 			retrieve with CDraw3DLine::getRenderpassIndependentPipeline()
 		*/
-		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, const video::IGPUBuffer* buffer, video::IGPUGraphicsPipeline* graphics_pipeline);
+		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline);
 
 		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
 		{
@@ -118,15 +118,16 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 			addLine(verts[5], verts[7]);
 			addLine(verts[6], verts[7]);
 		}
-
-        void updateVertexBuffer(video::IGPUQueue* queue, nbl::core::smart_refctd_ptr<video::IGPUBuffer>& buffer);
+		// If @fence is not nullptr, you'll get a new fence assigned to @fence that you can wait for,
+		// If @fence is nullptr, the function will automatically manage fence waiting
+        void updateVertexBuffer(video::IGPUQueue* queue, video::IGPUFence* fence = nullptr);
     private:
 		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device);
 		virtual ~CDraw3DLine() {}
 	private:
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-        nbl::core::smart_refctd_ptr<video::IGPUMeshBuffer> m_meshBuffer;
-
+		core::smart_refctd_ptr<video::IGPUBuffer> m_linesBuffer =  nullptr;
+		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_rpindependent_pipeline;
 		core::matrix4SIMD m_viewProj;
 		core::vector<std::pair<S3DLineVertex, S3DLineVertex>> m_lines;
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
