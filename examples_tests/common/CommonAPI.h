@@ -38,7 +38,7 @@ public:
 		video::SDebugCallback dbgcb;
 		dbgcb.callback = &defaultDebugCallback;
 		dbgcb.userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(api_type, 0, app_name.data(), &dbgcb);
+		result.apiConnection = video::IAPIConnection::create(api_type, 0, app_name.data(), dbgcb);
 		result.surface = result.apiConnection->createSurface(result.window.get());
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
