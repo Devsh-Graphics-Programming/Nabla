@@ -460,7 +460,7 @@ int main()
         smart_refctd_ptr<GPUMeshPacker> gpump;
         smart_refctd_ptr<IGPUBuffer> batchDataSSBO;
         {
-            assert(ranges.size()>=2u);
+            //assert(ranges.size()>=2u);
 
             constexpr uint16_t minTrisBatch = 256u; 
             constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;

@@ -46,9 +46,11 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
 
         virtual ~IMeshPackerBase()
         {
-            _NBL_ALIGNED_FREE(m_MDIDataAlctrResSpc);
-            _NBL_ALIGNED_FREE(m_idxBuffAlctrResSpc);
-            _NBL_ALIGNED_FREE(m_vtxBuffAlctrResSpc);
+            using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
+
+            _NBL_ALIGNED_FREE(const_cast<void*>(traits::getReservedSpacePtr(m_MDIDataAlctr)));
+            _NBL_ALIGNED_FREE(const_cast<void*>(traits::getReservedSpacePtr(m_idxBuffAlctr)));
+            _NBL_ALIGNED_FREE(const_cast<void*>(traits::getReservedSpacePtr(m_vtxBuffAlctr)));
         }
 
         struct MinimumAllocationParamsCommon

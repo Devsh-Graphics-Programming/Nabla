@@ -39,12 +39,27 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         CGPUMeshPackerV2(IVideoDriver* driver, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
             : base_t(cpuMP), m_driver(driver)
         {
+            using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
+
             // TODO: protect against unitiliazed storage of cpuMP
             const auto& cpuMDIBuff = cpuMP->getPackerDataStore().MDIDataBuffer;
             const auto& cpuIdxBuff = cpuMP->getPackerDataStore().indexBuffer;
             const auto& cpuVtxBuff = cpuMP->getPackerDataStore().vertexBuffer;
 
-            // TODO: why are the allocators not copied!?
+            const auto& cpuMDIAlctr = cpuMP->getMDIAllocator();
+            uint32_t alctrBuffSz = traits::get_total_size(cpuMDIAlctr);
+            void* resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, cpuMDIAlctr), _NBL_SIMD_ALIGNMENT);
+            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator(alctrBuffSz, cpuMDIAlctr, resSpcTmp);
+
+            const auto& cpuIdxAlctr = cpuMP->getIndexAllocator();
+            alctrBuffSz = traits::get_total_size(cpuIdxAlctr);
+            resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, cpuIdxAlctr), _NBL_SIMD_ALIGNMENT);
+            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator(alctrBuffSz, cpuIdxAlctr, resSpcTmp);
+            
+            const auto& cpuVtxAlctr = cpuMP->getVertexAllocator();
+            alctrBuffSz = traits::get_total_size(cpuVtxAlctr);
+            resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, cpuVtxAlctr), _NBL_SIMD_ALIGNMENT);
+            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator(alctrBuffSz, cpuVtxAlctr, resSpcTmp);
 
             // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
             m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
