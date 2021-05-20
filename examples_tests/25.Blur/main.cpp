@@ -23,6 +23,27 @@ using namespace nbl::video;
 #define WG_SIZE 256
 #define PASS_COUNT 3
 
+Parameters_t blur_params = {};
+
+class MouseEventReceiver : public IEventReceiver
+{
+    _NBL_STATIC_INLINE_CONSTEXPR float BLUR_RADIUS_MIN = 0.f, BLUR_RADIUS_MAX = 0.5f;
+
+public:
+    bool OnEvent(const SEvent& e)
+    {
+        if (e.EventType == nbl::EET_MOUSE_INPUT_EVENT)
+        {
+            const float r = blur_params.radius + e.MouseInput.Wheel / 500.f;
+            blur_params.radius = core::max(BLUR_RADIUS_MIN, core::min(r, BLUR_RADIUS_MAX));
+
+            // return true;
+        }
+
+        return false;
+    }
+};
+
 smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_include_path, const uint32_t axis_dim, const bool use_half_storage, IVideoDriver* driver)
 {
     const char* source_fmt =
@@ -103,7 +124,7 @@ int main()
     if (!device)
         return 1; // could not create selected driver.
 
-    QToQuitEventReceiver receiver;
+    MouseEventReceiver receiver;
     device->setEventReceiver(&receiver);
 
     video::IVideoDriver* driver = device->getVideoDriver();
@@ -134,7 +155,6 @@ int main()
     }
 
     const vector2d<uint32_t> blur_ds_factor = { 2u, 2u };
-    const float blur_radius = 25.73f;
     const uint32_t passes_per_axis = 3u;
     const bool use_half_storage = false;
     const uint32_t channel_count = getFormatChannelCount(in_image_view->getCreationParameters().format);
@@ -168,7 +188,7 @@ int main()
         out_image_info.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
         out_image_info.type = IImage::ET_2D;
         out_image_info.format = asset::EF_R16G16B16A16_SFLOAT;
-        out_image_info.extent = { out_dim.X, out_dim.Y, 1u }; // { deviceParams.WindowSize.Width, deviceParams.WindowSize.Height, 1 };
+        out_image_info.extent = { out_dim.X, out_dim.Y, 1u };
         out_image_info.mipLevels = 1u;
         out_image_info.arrayLayers = 1u;
         out_image_info.samples = IImage::ESCF_1_BIT;
@@ -180,7 +200,6 @@ int main()
     }
 
     const size_t scratch_samples_size = out_dim.X * out_dim.Y * channel_count * sizeof(float);
-    // const size_t scratch_samples_size = deviceParams.WindowSize.Width * deviceParams.WindowSize.Height * channel_count * sizeof(float);
     auto scratch_samples_gpu = driver->createDeviceLocalGPUBufferOnDedMem(scratch_samples_size);
 
     const SPushConstantRange pc_range = { ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t) };
@@ -213,7 +232,6 @@ int main()
 
         auto pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, std::move(ds_layout));
         pipeline_horizontal = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassHorizontal.comp", out_dim.X, use_half_storage, driver));
-        // pipeline_horizontal = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassHorizontal.comp", deviceParams.WindowSize.Width, use_half_storage, driver));
     }
 
     // SSBO -> image2D
@@ -244,19 +262,16 @@ int main()
 
         auto pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, std::move(ds_layout));
         pipeline_vertical = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassVertical.comp", out_dim.Y, use_half_storage, driver));
-        // pipeline_vertical = driver->createGPUComputePipeline(nullptr, smart_refctd_ptr(pipeline_layout), createShader("../BlurPassVertical.comp", deviceParams.WindowSize.Height, use_half_storage, driver));
     }
 
     // buildParameters
-    Parameters_t blur_params = {};
     blur_params.input_dimensions = { out_dim.X, out_dim.Y, 1 };
     blur_params.input_dimensions.w = (blur_direction << 30) | (channel_count << 28);
-    blur_params.radius = blur_radius;
+    blur_params.radius = 0.1f;
 
     // Todo(achal): This forces the user to do the operation in the axis order: XYZ --I think
     // it could be more flexible?
     blur_params.input_strides = { 1, out_dim.X, out_dim.X * out_dim.Y, out_dim.X * out_dim.Y * 1 };
-    // blur_params.input_strides = { 1, deviceParams.WindowSize.Width, deviceParams.WindowSize.Width * deviceParams.WindowSize.Height, deviceParams.WindowSize.Width * deviceParams.WindowSize.Height * 1 };
     blur_params.output_strides = blur_params.input_strides;
 
     // Update descriptor sets
@@ -264,18 +279,9 @@ int main()
         IGPUSampler::SParams params =
         {
             {
-                // Todo(achal): Current shader code says this should be clamp to edge
                 ISampler::ETC_CLAMP_TO_EDGE,
                 ISampler::ETC_CLAMP_TO_EDGE,
                 ISampler::ETC_CLAMP_TO_EDGE,
-                // 
-                // ISampler::ETC_CLAMP_TO_BORDER,
-                // ISampler::ETC_CLAMP_TO_BORDER,
-                // ISampler::ETC_CLAMP_TO_BORDER,
-                // 
-                // ISampler::ETC_REPEAT,
-                // ISampler::ETC_REPEAT,
-                // ISampler::ETC_REPEAT,
 
                 ISampler::ETBC_FLOAT_OPAQUE_BLACK,
                 ISampler::ETF_LINEAR,
@@ -352,7 +358,7 @@ int main()
     auto blit_fbo = driver->addFrameBuffer();
     blit_fbo->attach(video::EFAP_COLOR_ATTACHMENT0, smart_refctd_ptr(out_image_view));
 
-    while (device->run() && receiver.keepOpen())
+    while (device->run())
     {
         driver->beginScene(false, false);
 
@@ -363,7 +369,6 @@ int main()
         driver->bindComputePipeline(pipeline_horizontal.get());
         driver->pushConstants(pipeline_horizontal->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &blur_params);
         driver->dispatch(1, out_dim.Y, 1);
-        // driver->dispatch(1, deviceParams.WindowSize.Height, 1);
         
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
@@ -374,7 +379,6 @@ int main()
         driver->bindComputePipeline(pipeline_vertical.get());
         driver->pushConstants(pipeline_vertical->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &blur_params);
         driver->dispatch(out_dim.X, 1, 1);
-        // driver->dispatch(deviceParams.WindowSize.Width, 1, 1);
 
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 

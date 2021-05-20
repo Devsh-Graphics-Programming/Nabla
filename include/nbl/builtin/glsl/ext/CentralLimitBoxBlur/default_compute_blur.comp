@@ -190,12 +190,12 @@ void main()
 
 				if (idx < N)
 				{
-					const float radius = nbl_glsl_ext_Blur_Parameters_t_getRadius();
+					const float radius = nbl_glsl_ext_Blur_Parameters_t_getRadius() * N;
 					float left = float(idx) - radius - 1.f;
 					float right = float(idx) + radius;
 					const int last = N-1;
 
-					const uint WRAP_MODE = 3;
+					const uint WRAP_MODE = 0;
 	
 					float result;
 
