@@ -93,6 +93,10 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
     m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedByteSize);
 }
 
+/*
+    @param pmbdOut size of this array has to be >= std::distance(mbBegin, mbEnd)
+    @param cdotOut size of this array has to be >= IMeshPackerV2::calcMDIStructMaxCount(mbBegin, mbEnd)
+*/
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
 uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
@@ -121,7 +125,10 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
 
         size_t batchFirstIdx = ramb.indexAllocationOffset;
         size_t verticesAddedCnt = 0u;
-        size_t instancesAddedCnt = 0u;
+
+        //TODO: check if mpv1 does redundand copies
+        std::array<bool, 16> perInsAttribFromThisLocationWasCopied;
+        std::fill(perInsAttribFromThisLocationWasCopied.begin(), perInsAttribFromThisLocationWasCopied.end(), false);
 
         const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
         for (uint32_t i = 0u; i < batchCnt; i++)
@@ -157,9 +164,11 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
                 }
                 if (inputRate == EVIR_PER_INSTANCE)
                 {
-                    const uint32_t currBatchOffsetForPerInstanceAttribs = instancesAddedCnt * attribSize;
-                    dstAttrPtr += currBatchOffsetForPerInstanceAttribs;
-                    deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
+                    if (perInsAttribFromThisLocationWasCopied[location] == false)
+                    {
+                        deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
+                        perInsAttribFromThisLocationWasCopied[location] = true;
+                    }
                 }
 
                 auto& utb = m_virtualAttribConfig.utbs[VirtualAttribConfig::getUTBArrayTypeFromFormat(attribFormat)];
@@ -173,7 +182,7 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
                 if (inputRate == EVIR_PER_VERTEX)
                     vaOffset = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
                 if (inputRate == EVIR_PER_INSTANCE)
-                    vaOffset = ramb.attribAllocParams[location].offset / attribSize + instancesAddedCnt;
+                    vaOffset = ramb.attribAllocParams[location].offset / attribSize;
 
                 cdotOut->attribInfo[location] = VirtualAttribute(vaArrayElement,vaOffset);
 
@@ -195,8 +204,6 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
 
             batchFirstIdx += idxInBatchCnt;
         }
-
-        instancesAddedCnt += insCnt; // TODO: this a local variable... bug!
 
         pmbd = { rambIn->mdiAllocationOffset+batchCntTotal, static_cast<uint32_t>(batchCnt) };
         batchCntTotal += batchCnt;
