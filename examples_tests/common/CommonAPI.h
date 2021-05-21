@@ -21,6 +21,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
+		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
 		nbl::video::IGPUQueue* queue;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
@@ -71,6 +72,7 @@ public:
 
 		result.commandPool = result.logicalDevice->createCommandPool(familyIndex, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
 		assert(result.commandPool);
+		result.physicalDevice = std::move(gpu);
 
 
 		return result;

@@ -117,6 +117,8 @@ public:
     virtual void resetFences(uint32_t _count, IGPUFence** _fences) = 0;
     virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
 
+    virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
+
     bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
     {
         if (!_cmdPool->wasCreatedBy(this))
