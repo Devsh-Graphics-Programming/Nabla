@@ -141,7 +141,13 @@ void nbl_glsl_ext_Blur_setData(in uvec3 coordinate, in uint channel, in float va
 	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_
 #endif
 
-#ifndef _NBL_GLSL_EXT_BLUR_HISTOGRAM_MAIN_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_REPEAT_ 0
+#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_EDGE_ 1
+#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_BORDER_ 2
+#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_ 3
+
+#ifndef _NBL_GLSL_EXT_BLUR_MAIN_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_MAIN_DEFINED_
 
 #ifndef _NBL_GLSL_EXT_BLUR_PASS_COUNT_
 #error "You must define `_NBL_GLSL_EXT_BLUR_PASS_COUNT_`!"
@@ -181,12 +187,15 @@ void main()
 			    scratch_shared[(i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex] = floatBitsToUint(spill[i]);
 			barrier();
 
+			// Todo(achal): How to handle this?
 			const vec4 border_color = vec4(1.f, 0.f, 1.f, 0.f);
 			
 			for (uint i = 0; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
 			{
-				const int N = _NBL_GLSL_EXT_BLUR_AXIS_DIM_;
 				uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
+
+				const int N = _NBL_GLSL_EXT_BLUR_AXIS_DIM_;
+				const uint WRAP_MODE = nbl_glsl_ext_Blur_Parameters_t_getWrapMode();
 
 				if (idx < N)
 				{
@@ -194,10 +203,8 @@ void main()
 					float left = float(idx) - radius - 1.f;
 					float right = float(idx) + radius;
 					const int last = N-1;
-
-					const uint WRAP_MODE = 0;
 	
-					float result;
+					float result = 0.f;
 
 					if (right <= last)
 					{
@@ -207,12 +214,12 @@ void main()
 					{
 						switch (WRAP_MODE)
 						{
-							case 0:		// CLAMP_TO_EDGE
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_EDGE_:
 							{
 								result = (right-float(last)) * (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last-1u])) + uintBitsToFloat(scratch_shared[last]);
 							} break;
 
-							case 1:		// REPEAT
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_REPEAT_:
 							{
 								const float v_floored = ceil((floor(right)-last)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(floor(right)-N, N))]);
 								const float v_ceiled = ceil((ceil(right)-last)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(ceil(right)-N, N))]);
@@ -220,7 +227,7 @@ void main()
 							} break;
 
 							// Todo(achal): THIS IS SO BROKEN!!
-							case 2:		// MIRROR
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_:
 							{
 								float v_floored;
 								{
@@ -265,7 +272,7 @@ void main()
 								result = mix(v_floored, v_ceiled, fract(right));
 							} break;
 
-							case 3:
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_BORDER_:
 							{
 								result = uintBitsToFloat(scratch_shared[last]) + (right-last) * (border_color[ch]);
 							} break;
@@ -280,12 +287,12 @@ void main()
 					{
 						switch (WRAP_MODE)
 						{
-							case 0:		// CLAMP_TO_EDGE
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_EDGE_:
 							{
 								result -= (1.f - abs(left)) * uintBitsToFloat(scratch_shared[0]);
 							} break;
 
-							case 1:		// REPEAT
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_REPEAT_:
 							{
 								const float v_floored = floor(floor(left)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(floor(left), N))]);
 								const float v_ceiled = floor(ceil(left)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(ceil(left), N))]);
@@ -293,7 +300,7 @@ void main()
 							} break;
 							
 							// Todo(achal): THIS IS SO BROKEN!!
-							case 2:		// MIRROR
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_:
 							{
 								float v_floored;
 								{
@@ -338,7 +345,7 @@ void main()
 								result -= mix(v_floored, v_ceiled, fract(left));
 							} break;
 
-							case 3:
+							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_BORDER_:
 							{
 								result -= (left+1) * (border_color[ch]);
 							} break;
@@ -357,5 +364,4 @@ void main()
 	}
 }
 
-#define _NBL_GLSL_EXT_BLUR_HISTOGRAM_MAIN_DEFINED_
 #endif
