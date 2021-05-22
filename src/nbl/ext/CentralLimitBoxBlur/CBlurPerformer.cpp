@@ -35,8 +35,6 @@ CBlurPerformer::CBlurPerformer(video::IVideoDriver* driver, uint32_t maxDimensio
     auto pcRange = getDefaultPushConstantRanges();
     m_pplnLayout = driver->createGPUPipelineLayout(pcRange.begin(), pcRange.end(), core::smart_refctd_ptr(m_dsLayout));
 
-    // Todo(achal): Like in FFT, `_NBL_GLSL_EXT_BLUR_AXIS_DIM_` should be `_NBL_GLSL_EXT_BLUR_MAX_AXIS_DIM_`
-    // and you need to do virtual threads calculation in the shader.
     const char* sourceFmt =
 R"===(#version 430 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u

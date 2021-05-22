@@ -40,6 +40,12 @@ uint nbl_glsl_ext_Blur_Parameters_t_getWrapMode()
     return (params.input_dimensions.w >> 26) & 0x3u;
 }
 
+uint nbl_glsl_ext_Blur_Parameters_t_getBorderColor()
+{
+    nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
+    return (params.input_dimensions.w >> 23) & 0x7u;
+}
+
 uvec4 nbl_glsl_ext_Blur_Parameters_t_getInputStrides()
 {
     nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();

@@ -49,7 +49,7 @@ public:
     }
 
     static inline uint32_t buildParameters(uint32_t numChannels, const asset::VkExtent3D& inputDimensions, Parameters_t* outParams, DispatchInfo_t* outInfos,
-        const asset::ISampler::E_TEXTURE_CLAMP* wrappingType, const float radius)
+        const float radius, const asset::ISampler::E_TEXTURE_CLAMP* wrappingType, const asset::ISampler::E_TEXTURE_BORDER_COLOR* borderColor = nullptr)
     {
         uint32_t passesRequired = 0u;
         
@@ -76,8 +76,13 @@ public:
                 assert(wrappingType[i] <= asset::ISampler::ETC_MIRROR);
 
                 const auto passAxis = i;
-                const auto axisLen = (&inputDimensions.width)[passAxis]; // Todo(achal): For virtual threads calculation you need to send log2 of axis dim
                 params.input_dimensions.w = (passAxis << 30) | (numChannels << 28) | (wrappingType[i] << 26);
+
+                if (borderColor)
+                {
+                    assert(borderColor[i] <= asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_INT_OPAQUE_WHITE);
+                    params.input_dimensions.w |= borderColor[i] << 23;
+                }
         
                 params.input_strides.x = 1u;
                 params.input_strides.y = inputDimensions.width;

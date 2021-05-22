@@ -51,13 +51,11 @@ public:
 
 inline smart_refctd_ptr<IGPUSpecializedShader> createShader(const char* shader_include_path, const uint32_t axis_dim, const bool use_half_storage, IVideoDriver* driver)
 {
-    // Todo(achal): Like in FFT, `_NBL_GLSL_EXT_BLUR_AXIS_DIM_` should be `_NBL_GLSL_EXT_BLUR_MAX_AXIS_DIM_`
-    // and you need to do virtual threads calculation in the shader.
     const char* sourceFmt =
 R"===(#version 430 core
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ %u
-#define _NBL_GLSL_EXT_BLUR_PASS_COUNT_ %u
+#define _NBL_GLSL_EXT_BLUR_PASSES_PER_AXIS_ %u
 #define _NBL_GLSL_EXT_BLUR_AXIS_DIM_ %u
 #define _NBL_GLSL_EXT_BLUR_HALF_STORAGE_ %u
 
@@ -309,8 +307,9 @@ int main()
 
     BlurClass::Parameters_t pushConstants[2];
     BlurClass::DispatchInfo_t dispatchInfo[2];
-    const ISampler::E_TEXTURE_CLAMP blurWrapMode[2] = { ISampler::ETC_REPEAT, ISampler::ETC_REPEAT };
-    const uint32_t passCount = BlurClass::buildParameters(channelCount, out_dim, pushConstants, dispatchInfo, blurWrapMode, blurRadius);
+    const ISampler::E_TEXTURE_CLAMP blurWrapMode[2] = { ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_BORDER };
+    const ISampler::E_TEXTURE_BORDER_COLOR blurBorderColors[2] = { ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE, ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE };
+    const uint32_t passCount = BlurClass::buildParameters(channelCount, out_dim, pushConstants, dispatchInfo, blurRadius, blurWrapMode, blurBorderColors);
     assert(passCount == 2u);
 
     eventReceiver.pushConstants = pushConstants;

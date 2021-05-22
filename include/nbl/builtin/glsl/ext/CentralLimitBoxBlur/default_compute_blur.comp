@@ -1,5 +1,3 @@
-#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/types.glsl"
-
 #ifndef _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_
 #define _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_ 0
 #endif
@@ -17,58 +15,51 @@
 #endif
 
 #ifndef _NBL_GLSL_EXT_BLUR_INPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_INPUT_DESCRIPTOR_DEFINED_
 
 layout (set = _NBL_GLSL_EXT_BLUR_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLUR_INPUT_BINDING_DEFINED_, std430) restrict readonly buffer InputBuffer
 {
-	nbl_glsl_ext_Blur_Storage_t in_values[];
+	float in_values[];
 };
 
-#define _NBL_GLSL_EXT_BLUR_INPUT_DESCRIPTOR_DEFINED_
 #endif
 
 #ifndef _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
 
 layout (set = _NBL_GLSL_EXT_BLUR_OUTPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_BLUR_OUTPUT_BINDING_DEFINED_, std430) restrict writeonly buffer OutputBuffer
 {
-	nbl_glsl_ext_Blur_Storage_t out_values[];
+	float out_values[];
 };
 
-#define _NBL_GLSL_EXT_BLUR_OUTPUT_DESCRIPTOR_DEFINED_
 #endif
 
 #include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters.glsl"
 
-uvec3 nbl_glsl_ext_Blur_getCoordinates(in uint idx)
-{
-    const uint direction = nbl_glsl_ext_Blur_Parameters_t_getDirection();
-    uvec3 result = gl_WorkGroupID;
-    result[direction] = (idx * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-    return result;
-}
-
 #ifndef _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
 
 layout (push_constant) uniform PushConstants
 {
 	layout (offset = 0) nbl_glsl_ext_Blur_Parameters_t params;
 } pc;
 
-#define _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
 #endif
 
 #ifndef _NBL_GLSL_EXT_BLUR_GET_PARAMETERS_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_GET_PARAMETERS_DEFINED_
 
 nbl_glsl_ext_Blur_Parameters_t nbl_glsl_ext_Blur_getParameters()
 {
 	return pc.params;
 }
 
-#define _NBL_GLSL_EXT_BLUR_GET_PARAMETERS_DEFINED_
 #endif
 
 #include <nbl/builtin/glsl/math/functions.glsl>
 
 #ifndef _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
 
 float nbl_glsl_ext_Blur_getPaddedData(in uvec3 coordinate, in uint channel)
 {
@@ -79,15 +70,15 @@ float nbl_glsl_ext_Blur_getPaddedData(in uvec3 coordinate, in uint channel)
 
 	float data = 0.f;
 	if (all(lessThan(coordinate, dims)))
-		data = nbl_glsl_ext_Blur_Storage_t_set(in_values[strided_idx]);
+		data = in_values[strided_idx];
 
 	return data;
 }
 
-#define _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
 #endif
 
 #ifndef _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
 
 void nbl_glsl_ext_Blur_setData(in uvec3 coordinate, in uint channel, in float val)
 {
@@ -101,267 +92,17 @@ void nbl_glsl_ext_Blur_setData(in uvec3 coordinate, in uint channel, in float va
 	}
 }
 
-#define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
 #endif
 
-#include "nbl/builtin/glsl/workgroup/shared_blur.glsl"
-
-#ifdef _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_
-    #if NBL_GLSL_EVAL(_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_) < NBL_GLSL_EVAL(_NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_)
-        #error "Not enough shared memory declared"
-    #endif
-#else
-    #define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _NBL_GLSL_EXT_BLUR_SHARED_SIZE_NEEDED_
-    #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_ext_Blur_scratchShared
-    shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
-#endif
-
-#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
-#include <nbl/builtin/glsl/workgroup/ballot.glsl>
-
-// Convenience thing
-#define scratch_shared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
-
-#define _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_ (_NBL_GLSL_EXT_BLUR_AXIS_DIM_ + _NBL_GLSL_WORKGROUP_SIZE_ - 1)/_NBL_GLSL_WORKGROUP_SIZE_
-
-// Todo: This spillage calculation is hacky! The lower bound of `_NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_` is just an adhoc
-// thing which happens to work for all images until now but it could very well break for the next image.
-// This:
-// `#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_`
-// seems to be a safe lower bound, however, it must be inefficient.
-#define _NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_ (_NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_/4)
-
-#define _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ ((_NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_-1)/_NBL_GLSL_WORKGROUP_SIZE_+1)
-
-#if _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ > _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_
-	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_
-#elif _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_ < _NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_
-    #define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_
-#else
-	#define _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_ _NBL_GLSL_EXT_BLUR_IMPL_LOCAL_SPILLAGE_
-#endif
-
-#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_REPEAT_ 0
-#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_EDGE_ 1
-#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_BORDER_ 2
-#define _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_ 3
+#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/blur.glsl"
 
 #ifndef _NBL_GLSL_EXT_BLUR_MAIN_DEFINED_
 #define _NBL_GLSL_EXT_BLUR_MAIN_DEFINED_
 
-#ifndef _NBL_GLSL_EXT_BLUR_PASS_COUNT_
-#error "You must define `_NBL_GLSL_EXT_BLUR_PASS_COUNT_`!"
-#endif
-
 void main()
 {
-	const uint channel_count = nbl_glsl_ext_Blur_Parameters_t_getChannelCount();
-
-	for (uint ch = 0; ch < channel_count; ++ch)
-	{
-		float blurred[_NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_];
-		for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
-			blurred[i] = nbl_glsl_ext_Blur_getPaddedData(nbl_glsl_ext_Blur_getCoordinates(i), ch);
-
-		for (uint pass = 0; pass < _NBL_GLSL_EXT_BLUR_PASS_COUNT_; ++pass)
-		{
-			float previous_block_sum = 0.f;
-	
-			float spill[_NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_];
-			for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
-			{
-			    spill[i] = nbl_glsl_workgroupInclusiveAdd(blurred[i]) + previous_block_sum;
-			    previous_block_sum = nbl_glsl_workgroupBroadcast(spill[i], _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
-			}
-	
-			for (uint i = _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
-			{
-			    float scan_result = nbl_glsl_workgroupInclusiveAdd(blurred[i]) + previous_block_sum;
-			    previous_block_sum = nbl_glsl_workgroupBroadcast(scan_result,  _NBL_GLSL_WORKGROUP_SIZE_ - 1u);
-	
-				uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-			    scratch_shared[idx] = floatBitsToUint(scan_result);
-			}
-	
-			for (uint i = 0u; i < _NBL_GLSL_EXT_BLUR_LOCAL_SPILLAGE_; ++i)
-			    scratch_shared[(i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex] = floatBitsToUint(spill[i]);
-			barrier();
-
-			// Todo(achal): How to handle this?
-			const vec4 border_color = vec4(1.f, 0.f, 1.f, 0.f);
-			
-			for (uint i = 0; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
-			{
-				uint idx = (i * _NBL_GLSL_WORKGROUP_SIZE_) + gl_LocalInvocationIndex;
-
-				const int N = _NBL_GLSL_EXT_BLUR_AXIS_DIM_;
-				const uint WRAP_MODE = nbl_glsl_ext_Blur_Parameters_t_getWrapMode();
-
-				if (idx < N)
-				{
-					const float radius = nbl_glsl_ext_Blur_Parameters_t_getRadius() * N;
-					float left = float(idx) - radius - 1.f;
-					float right = float(idx) + radius;
-					const int last = N-1;
-	
-					float result = 0.f;
-
-					if (right <= last)
-					{
-						result = mix(uintBitsToFloat(scratch_shared[uint(floor(right))]), uintBitsToFloat(scratch_shared[uint(ceil(right))]), fract(right));
-					}
-					else
-					{
-						switch (WRAP_MODE)
-						{
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_EDGE_:
-							{
-								result = (right-float(last)) * (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last-1u])) + uintBitsToFloat(scratch_shared[last]);
-							} break;
-
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_REPEAT_:
-							{
-								const float v_floored = ceil((floor(right)-last)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(floor(right)-N, N))]);
-								const float v_ceiled = ceil((ceil(right)-last)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(ceil(right)-N, N))]);
-								result = mix(v_floored, v_ceiled, fract(right));
-							} break;
-
-							// Todo(achal): THIS IS SO BROKEN!!
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_:
-							{
-								float v_floored;
-								{
-									const int floored = int(floor(right));
-									const int d = floored-last; // distance from the right-most boundary, >=0
-
-									if (mod(d, 2*N) == N)
-									{
-										v_floored = ((d+N)/N)*uintBitsToFloat(scratch_shared[last]);
-									}
-									else
-									{
-										const uint period = uint(ceil(d/N));
-									
-										if ((period&0x1u)==1)
-											v_floored = period*uintBitsToFloat(scratch_shared[last]) + (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last-uint(mod(d, N))]));
-										else
-											v_floored = period*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(d-1,N))]);
-									}
-								}
-
-								float v_ceiled;
-								{
-									const int ceiled = int(ceil(right));
-									const int d = ceiled-last; // distance from the right-most boundary, >=0
-
-									if (mod(d, 2*N) == N)
-									{
-										v_ceiled = ((d+N)/N)*uintBitsToFloat(scratch_shared[last]);
-									}
-									else
-									{
-										const uint period = uint(ceil(d/N));
-									
-										if ((period&0x1u)==1)
-											v_ceiled = period*uintBitsToFloat(scratch_shared[last]) + (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last-uint(mod(d, N))]));
-										else
-											v_ceiled = period*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(d-1,N))]);
-									}
-								}
-
-								result = mix(v_floored, v_ceiled, fract(right));
-							} break;
-
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_BORDER_:
-							{
-								result = uintBitsToFloat(scratch_shared[last]) + (right-last) * (border_color[ch]);
-							} break;
-						}
-					}
-
-					if (left >= 0)
-					{
-						result -= mix(uintBitsToFloat(scratch_shared[uint(floor(left))]), uintBitsToFloat(scratch_shared[uint(ceil(left))]), fract(left));
-					}
-					else
-					{
-						switch (WRAP_MODE)
-						{
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_EDGE_:
-							{
-								result -= (1.f - abs(left)) * uintBitsToFloat(scratch_shared[0]);
-							} break;
-
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_REPEAT_:
-							{
-								const float v_floored = floor(floor(left)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(floor(left), N))]);
-								const float v_ceiled = floor(ceil(left)/N)*uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(ceil(left), N))]);
-								result -= mix(v_floored, v_ceiled, fract(left));
-							} break;
-							
-							// Todo(achal): THIS IS SO BROKEN!!
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_:
-							{
-								float v_floored;
-								{
-									const int floored = int(floor(left));
-									if (mod(abs(floored+1), 2*N)==0)
-									{
-										v_floored = -(abs(floored+1)/N)*uintBitsToFloat(scratch_shared[last]);
-									}
-									else
-									{
-										const uint period = uint(ceil(abs(floored+1)/N));
-									
-										if ((period&0x1u)==1)
-											v_floored = -(period-1)*uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(abs(floored+1)-1, N))]);
-										else
-											v_floored = -(period-1)*uintBitsToFloat(scratch_shared[last]) - (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(floored+1, N))-1]));
-									}
-								}
-
-								float v_ceiled;
-								{
-									const int ceiled = int(ceil(left));
-									if (ceiled == 0) // Special case, wouldn't be possible for `floored` above
-									{
-										v_ceiled = 0;
-									}
-									else if (mod(abs(ceiled+1), 2*N)==0)
-									{
-										v_ceiled = -(abs(ceiled+1)/N)*uintBitsToFloat(scratch_shared[last]);
-									}
-									else
-									{
-										const uint period = uint(ceil(abs(ceiled+1)/N));
-									
-										if ((period&0x1u)==1)
-											v_ceiled = -(period-1)*uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(abs(ceiled+1)-1, N))]);
-										else
-											v_ceiled = -(period-1)*uintBitsToFloat(scratch_shared[last]) - (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(ceiled+1, N))-1]));
-									}
-								}
-
-								result -= mix(v_floored, v_ceiled, fract(left));
-							} break;
-
-							case _NBL_GLSL_EXT_BLUR_WRAP_MODE_CLAMP_TO_BORDER_:
-							{
-								result -= (left+1) * (border_color[ch]);
-							} break;
-						}
-					}
-	
-					blurred[i] = result/(2.f*radius + 1.f);
-				}
-			}
-		}
-
-		// Todo(achal): This results in channel_count*2 loads and stores to global memory, can
-		// I get rid of this to make a single store?
-		for (uint i = 0; i < _NBL_GLSL_EXT_BLUR_ITEMS_PER_THREAD_; ++i)
-			nbl_glsl_ext_Blur_setData(nbl_glsl_ext_Blur_getCoordinates(i), ch, blurred[i]);
-	}
+	for (uint ch = 0; ch < nbl_glsl_ext_Blur_Parameters_t_getChannelCount(); ++ch)
+		nbl_glsl_ext_Blur(ch);
 }
 
 #endif
