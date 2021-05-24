@@ -79,7 +79,7 @@ void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, vid
 	cb->draw(m_lines.size() * 2, 1u, 0u, 0u);
 }
 
-void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, IGPUFence* fence)
+void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, core::smart_refctd_ptr<IGPUFence>* fence)
 {
 	size_t buffSize = m_linesBuffer.get() != nullptr ? m_linesBuffer->getSize() : 0;
 	size_t minimalBuffSize = m_lines.size() * sizeof(std::pair<S3DLineVertex, S3DLineVertex>);
@@ -97,6 +97,6 @@ void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, IGPUFence* fence)
 	}
 	else
 	{
-		m_device->updateBufferRangeViaStagingBuffer(fence, queue, range, m_lines.data());
+		m_device->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
 	}
 }
