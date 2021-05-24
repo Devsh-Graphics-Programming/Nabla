@@ -184,8 +184,6 @@ void nbl_glsl_ext_Blur(in uint ch)
 							result = mix(v_floored, v_ceiled, fract(right));
 						} break;
 
-#if 0
-					// Todo(achal): THIS IS SO BROKEN!!
 						case _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_:
 						{
 							float v_floored;
@@ -195,16 +193,16 @@ void nbl_glsl_ext_Blur(in uint ch)
 
 								if (mod(d, 2 * N) == N)
 								{
-									v_floored = ((d + N) / N) * uintBitsToFloat(scratch_shared[last]);
+									v_floored = ((d + N) / N) * PREFIX_SUM(last);
 								}
 								else
 								{
-									const uint period = uint(ceil(d / N));
+									const uint period = uint(ceil(float(d)/N));
 
 									if ((period & 0x1u) == 1)
-										v_floored = period * uintBitsToFloat(scratch_shared[last]) + (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last - uint(mod(d, N))]));
+										v_floored = period * PREFIX_SUM(last) + PREFIX_SUM(last) - PREFIX_SUM(last - uint(mod(d, N)));
 									else
-										v_floored = period * uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(d - 1, N))]);
+										v_floored = period * PREFIX_SUM(last) + PREFIX_SUM(mod(d - 1, N));
 								}
 							}
 
@@ -215,22 +213,21 @@ void nbl_glsl_ext_Blur(in uint ch)
 
 								if (mod(d, 2 * N) == N)
 								{
-									v_ceiled = ((d + N) / N) * uintBitsToFloat(scratch_shared[last]);
+									v_ceiled = ((d + N) / N) * PREFIX_SUM(last);
 								}
 								else
 								{
-									const uint period = uint(ceil(d / N));
+									const uint period = uint(ceil(float(d)/N));
 
 									if ((period & 0x1u) == 1)
-										v_ceiled = period * uintBitsToFloat(scratch_shared[last]) + (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[last - uint(mod(d, N))]));
+										v_ceiled = period * PREFIX_SUM(last) + PREFIX_SUM(last) - PREFIX_SUM(last - uint(mod(d, N)));
 									else
-										v_ceiled = period * uintBitsToFloat(scratch_shared[last]) + uintBitsToFloat(scratch_shared[uint(mod(d - 1, N))]);
+										v_ceiled = period * PREFIX_SUM(last) + PREFIX_SUM(mod(d - 1, N));
 								}
 							}
 
 							result = mix(v_floored, v_ceiled, fract(right));
 						} break;
-#endif
 					}
 				}
 
@@ -259,54 +256,50 @@ void nbl_glsl_ext_Blur(in uint ch)
 							result -= mix(v_floored, v_ceiled, fract(left));
 						} break;
 
-#if 0
-					// Todo(achal): THIS IS SO BROKEN!!
-					case _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_:
-					{
-						float v_floored;
+						case _NBL_GLSL_EXT_BLUR_WRAP_MODE_MIRROR_:
 						{
-							const int floored = int(floor(left));
-							if (mod(abs(floored + 1), 2 * N) == 0)
+							float v_floored;
 							{
-								v_floored = -(abs(floored + 1) / N) * uintBitsToFloat(scratch_shared[last]);
-							}
-							else
-							{
-								const uint period = uint(ceil(abs(floored + 1) / N));
-
-								if ((period & 0x1u) == 1)
-									v_floored = -(period - 1) * uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(abs(floored + 1) - 1, N))]);
+								const int floored = int(floor(left));
+								if (mod(abs(floored + 1), 2 * N) == 0)
+								{
+									v_floored = -(abs(floored + 1) / N) * PREFIX_SUM(last);
+								}
 								else
-									v_floored = -(period - 1) * uintBitsToFloat(scratch_shared[last]) - (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(floored + 1, N)) - 1]));
-							}
-						}
+								{
+									const uint period = uint(ceil(float(abs(floored + 1)) / N));
 
-						float v_ceiled;
-						{
-							const int ceiled = int(ceil(left));
-							if (ceiled == 0) // Special case, wouldn't be possible for `floored` above
-							{
-								v_ceiled = 0;
+									if ((period & 0x1u) == 1)
+										v_floored = -1*(period - 1) * PREFIX_SUM(last) - PREFIX_SUM(mod(abs(floored + 1) - 1, N));
+									else
+										v_floored = -1*(period - 1) * PREFIX_SUM(last) - (PREFIX_SUM(last) - PREFIX_SUM(mod(floored + 1, N) - 1));
+								}
 							}
-							else if (mod(abs(ceiled + 1), 2 * N) == 0)
-							{
-								v_ceiled = -(abs(ceiled + 1) / N) * uintBitsToFloat(scratch_shared[last]);
-							}
-							else
-							{
-								const uint period = uint(ceil(abs(ceiled + 1) / N));
 
-								if ((period & 0x1u) == 1)
-									v_ceiled = -(period - 1) * uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(abs(ceiled + 1) - 1, N))]);
+							float v_ceiled;
+							{
+								const int ceiled = int(ceil(left));
+								if (ceiled == 0) // Special case, wouldn't be possible for `floored` above
+								{
+									v_ceiled = 0;
+								}
+								else if (mod(abs(ceiled + 1), 2 * N) == 0)
+								{
+									v_ceiled = -(abs(ceiled + 1) / N) * PREFIX_SUM(last);
+								}
 								else
-									v_ceiled = -(period - 1) * uintBitsToFloat(scratch_shared[last]) - (uintBitsToFloat(scratch_shared[last]) - uintBitsToFloat(scratch_shared[uint(mod(ceiled + 1, N)) - 1]));
+								{
+									const uint period = uint(ceil(float(abs(ceiled + 1)) / N));
+
+									if ((period & 0x1u) == 1)
+										v_ceiled = -1*(period - 1) * PREFIX_SUM(last) - PREFIX_SUM(mod(abs(ceiled + 1) - 1, N));
+									else
+										v_ceiled = -1*(period - 1) * PREFIX_SUM(last) - (PREFIX_SUM(last) - PREFIX_SUM(mod(ceiled + 1, N) - 1));
+								}
 							}
-						}
 
-						result -= mix(v_floored, v_ceiled, fract(left));
-					} break;
-
-#endif
+							result -= mix(v_floored, v_ceiled, fract(left));
+						} break;
 					}
 				}
 

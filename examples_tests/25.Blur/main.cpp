@@ -307,7 +307,7 @@ int main()
 
     BlurClass::Parameters_t pushConstants[2];
     BlurClass::DispatchInfo_t dispatchInfo[2];
-    const ISampler::E_TEXTURE_CLAMP blurWrapMode[2] = { ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_BORDER };
+    const ISampler::E_TEXTURE_CLAMP blurWrapMode[2] = { ISampler::ETC_MIRROR, ISampler::ETC_MIRROR };
     const ISampler::E_TEXTURE_BORDER_COLOR blurBorderColors[2] = { ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE, ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE };
     const uint32_t passCount = BlurClass::buildParameters(channelCount, out_dim, pushConstants, dispatchInfo, blurRadius, blurWrapMode, blurBorderColors);
     assert(passCount == 2u);
