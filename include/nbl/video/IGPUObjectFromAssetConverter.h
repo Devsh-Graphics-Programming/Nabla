@@ -1269,6 +1269,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSpecializedShader** c
 
     for (ptrdiff_t i = 0; i < assetCount; ++i)
     {
+        auto a = gpuDeps->operator[](redirs[i]);
         res->operator[](i) = _params.device->createGPUSpecializedShader(gpuDeps->operator[](redirs[i]).get(), _begin[i]->getSpecializationInfo());
     }
 
@@ -1280,8 +1281,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUShader** const _begin
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUShader> >(assetCount);
 
-    //for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    //    res->operator[](i) = _params.device->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(_begin[i]));
+    for (ptrdiff_t i = 0u; i < assetCount; ++i)
+    {
+        res->operator[](i) = _params.device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(const_cast<asset::ICPUShader*>(_begin[i])));
+    }
 
     return res;
 }
