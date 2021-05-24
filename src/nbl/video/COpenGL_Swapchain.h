@@ -138,8 +138,9 @@ private:
             _egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
             const EGLint surface_attributes[] = {
-                EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SRGB,
                 EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
+                // EGL_GL_COLORSPACE is supported only for EGL 1.5 and later
+                _egl->version.minor>=5 ? EGL_GL_COLORSPACE : EGL_NONE, EGL_GL_COLORSPACE_SRGB,
 
                 EGL_NONE
             };

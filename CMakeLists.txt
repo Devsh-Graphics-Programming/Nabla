@@ -225,16 +225,12 @@ macro(nbl_adjust_flags)
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		
-		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-			add_compile_options("$<$<CONFIG:DEBUG>:-g>")
-		endif()
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
 			-fno-strict-aliasing
 			-msse4.2
 			-mfpmath=sse
-			-fuse-ld=gold
 			
 			-Wextra
 			-Wno-sequence-point
@@ -244,9 +240,10 @@ macro(nbl_adjust_flags)
 			-Wno-error=unused-parameter
 			
 			#"$<$<CONFIG:DEBUG>:-g>" # same as with -O3 below
-			"$<$<CONFIG:DEBUG>:-Wall>"
-			"$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>"
-			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
+			$<$<CONFIG:DEBUG>:-Wall>
+			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
+			$<$<CONFIG:DEBUG>:-fstack-protector-strong>
+			$<$<CONFIG:DEBUG>:-glldb>
 		)
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 			if (NOT NBL_BUILD_CEGUI)
@@ -272,9 +269,12 @@ macro(nbl_adjust_flags)
 			add_compile_options(-Wno-error=ignored-attributes)
 		endif()
 		
-		link_libraries(
-			-fuse-ld=gold
-		)
+		# https://github.com/android/ndk/issues/1426
+		if (NOT ANDROID)
+			link_libraries(
+				-fuse-ld=gold
+			)
+		endif()
 		if(FAST_MATH)
 			add_compile_options(
 				"$<$<CONFIG:RELEASE>:-ffast-math>"

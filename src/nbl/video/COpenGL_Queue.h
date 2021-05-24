@@ -301,6 +301,8 @@ class COpenGL_Queue final : public IGPUQueue
                 COpenGLFence* glfence = static_cast<COpenGLFence*>(_fence);
                 glfence->associateGLSync(std::move(sync)); // associate sync used for signal semaphores in last submit
             }
+
+            return true;
         }
 
         bool present(const SPresentInfo& info) override

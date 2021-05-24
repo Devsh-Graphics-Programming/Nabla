@@ -390,7 +390,7 @@ nbl_adjust_definitions() # macro defined in root CMakeLists
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
-	target_link_libraries(zlibstatic)
+	target_link_libraries(${_trgt} INTERFACE zlibstatic)
 
 	#target_link_libraries(${_trgt} INTERFACE
 	#	$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
@@ -497,11 +497,25 @@ add_library(Nabla STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
+if (ANDROID)
+	add_library(android_native_app_glue STATIC
+    	$ENV{ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c
+	)
+	target_link_libraries(Nabla PUBLIC 
+		android_native_app_glue
+		android
+		log
+	)
+	target_include_directories(Nabla PUBLIC
+    	$ENV{ANDROID_NDK}/sources/android/native_app_glue
+	)
+endif()
+
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Nabla openssl_build)
-nbl_target_link_zlib(Nabla)
+#nbl_target_link_zlib(Nabla)
 nbl_target_link_openssl(Nabla)
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg(Nabla)
@@ -525,8 +539,10 @@ if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
-		$<$<CONFIG:DEBUG>:-lunwind>
 	)
+	if (NOT ANDROID)
+		target_link_libraries(Nabla INTERFACE $<$<CONFIG:DEBUG>:-lunwind>)
+	endif()
 endif()
 
 target_include_directories(Nabla PUBLIC 

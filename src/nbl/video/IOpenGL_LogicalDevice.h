@@ -317,7 +317,7 @@ protected:
             EGL_CONTEXT_MAJOR_VERSION, major,
             EGL_CONTEXT_MINOR_VERSION, minor,
 #ifdef _NBL_DEBUG
-            EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+            //EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
 #endif
             //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
 

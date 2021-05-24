@@ -32,10 +32,15 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	get_filename_component(EXECUTABLE_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 	string(REGEX REPLACE "^[0-9]+\." "" EXECUTABLE_NAME ${EXECUTABLE_NAME})
 	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
+	string(MAKE_C_IDENTIFIER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
 
 	project(${EXECUTABLE_NAME})
 
-	add_executable(${EXECUTABLE_NAME} main.cpp ${_EXTRA_SOURCES})
+	if(ANDROID)
+		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
+	else()
+		add_executable(${EXECUTABLE_NAME} main.cpp ${_EXTRA_SOURCES})
+	endif()
 	
 	set_property(TARGET ${EXECUTABLE_NAME} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -281,17 +286,24 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
-function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
+function(nbl_android_create_apk _TARGET)
 	get_target_property(TARGET_NAME ${_TARGET} NAME)
 	# TARGET_NAME_IDENTIFIER is identifier that can be used in code
 	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
-
-	math(EXPR GLES_VER "(${_GLES_VER_MAJOR}<<16) | ${_GLES_VER_MINOR}" OUTPUT_FORMAT HEXADECIMAL)
 
 	set(APK_FILE_NAME ${TARGET_NAME}.apk)
 	set(APK_FILE ${CMAKE_CURRENT_BINARY_DIR}/bin/${APK_FILE_NAME})
 
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
+
+	get_target_property(SO_NAME ${_TARGET} OUTPUT_NAME)
+	if (NOT SO_NAME)
+		get_target_property(_DEBUG_POSTFIX ${_TARGET} DEBUG_POSTFIX)
+		if (NOT _DEBUG_POSTFIX)
+			set(_DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
+		endif()
+		set(SO_NAME ${TARGET_NAME}${_DEBUG_POSTFIX})
+	endif()
 
 	string(SUBSTRING
 		"${ANDROID_APK_TARGET_ID}"
@@ -301,7 +313,8 @@ function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 	)
 	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME_IDENTIFIER}")
 	set(APP_NAME ${TARGET_NAME_IDENTIFIER})
-	set(SO_NAME ${TARGET_NAME})
+	set(NATIVE_LIB_NAME ${SO_NAME})
+
 	#configure_file(${CMAKE_SOURCE_DIR}/android/Loader.java ${CMAKE_CURRENT_BINARY_DIR}/src/eu/devsh/${TARGET_NAME}/Loader.java)
 	configure_file(${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
 	# configure_file(android/icon.png ${CMAKE_CURRENT_BINARY_DIR}/res/drawable/icon.png COPYONLY)
@@ -320,6 +333,7 @@ function(nbl_android_create_apk _TARGET _GLES_VER_MAJOR _GLES_VER_MINOR)
 		DEPENDS ${_TARGET}
 		DEPENDS ${KEYSTORE_FILE}
 		DEPENDS ${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml
+		DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml
 		#DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 		COMMENT "Creating ${APK_FILE_NAME} ..."

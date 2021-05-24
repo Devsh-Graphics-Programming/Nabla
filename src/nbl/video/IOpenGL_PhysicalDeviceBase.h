@@ -12,6 +12,11 @@
 #undef GL_KHR_debug
 #include "GLES3/gl2ext.h"
 
+#include <android/log.h>
+#ifndef LOGI
+#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "native-activity", __VA_ARGS__))
+#endif
+
 namespace nbl { 
 namespace video
 {
@@ -94,7 +99,7 @@ protected:
 		};
 
 		SInitResult res;
-		res.config;
+		res.config = NULL;
 		res.ctx = EGL_NO_CONTEXT;
 		res.major = 0;
 		res.minor = 0;
@@ -113,13 +118,16 @@ protected:
 		EGLint ccnt = 1;
 		int chCfgRes = _egl->call.peglChooseConfig(_egl->display, egl_attributes, &res.config, 1, &ccnt);
 		if (ccnt < 1)
+		{
+			LOGI("Couldnt find EGL fb config!");
 			return res;
+		}
 
 		EGLint ctx_attributes[] = {
 			EGL_CONTEXT_MAJOR_VERSION, bestApiVer.first,
 			EGL_CONTEXT_MINOR_VERSION, bestApiVer.second,
 #ifdef _NBL_DEBUG
-			EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+			//EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
 #endif
 			//EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
 
@@ -133,11 +141,17 @@ protected:
 		{
 			res.ctx = _egl->call.peglCreateContext(_egl->display, res.config, EGL_NO_CONTEXT, ctx_attributes);
 			--gl_minor;
+			LOGI("eglCreateContext() tryout result = %d", res.ctx == EGL_NO_CONTEXT ? 0 : 1);
 		} while (res.ctx == EGL_NO_CONTEXT && gl_minor >= minMinorVer); // fail if cant create >=4.3 context
 		++gl_minor;
 
+		LOGI("glCreateContext() bestApiVer was { %u, %u }", bestApiVer.first, bestApiVer.second);
+		LOGI("glCreateContext() last tried api ver was { %d, %d }", gl_major, gl_minor);
 		if (res.ctx == EGL_NO_CONTEXT)
+		{
+			LOGI("Couldnt create context!");
 			return res;
+		}
 
 		res.major = gl_major;
 		res.minor = gl_minor;
