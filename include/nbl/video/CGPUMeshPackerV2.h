@@ -31,8 +31,8 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         using AttribAllocParams = typename base_t::AttribAllocParams;
 
     public:
-        CGPUMeshPackerV2(IVideoDriver* driver, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-            : base_t(allocParams,minTriangleCountPerMDIData,maxTriangleCountPerMDIData), m_driver(driver)
+        CGPUMeshPackerV2(IVideoDriver* driver, const AllocationParams& allocParams, const asset::IMeshPackerV2Base::SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+            : base_t(allocParams, formats, minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_driver(driver)
         {}
 
         // TODO: protect against empty cpuMP (no allocations and then shrinked)

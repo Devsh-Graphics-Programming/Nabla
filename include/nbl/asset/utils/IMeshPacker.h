@@ -15,6 +15,8 @@ namespace asset
 class IMeshPackerBase : public virtual core::IReferenceCounted
 {
     public:
+        constexpr static uint32_t MAX_TRIANGLES_IN_BATCH_CNT = 21845u;
+
         struct PackedMeshBufferData
         {
             uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
@@ -37,8 +39,8 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
              m_idxBuffAlctrResSpc(nullptr),
              m_vtxBuffAlctrResSpc(nullptr)
         {
-            assert(minTriangleCountPerMDIData <= 21845u);
-            assert(maxTriangleCountPerMDIData <= 21845u);
+            assert(minTriangleCountPerMDIData <= MAX_TRIANGLES_IN_BATCH_CNT);
+            assert(maxTriangleCountPerMDIData <= MAX_TRIANGLES_IN_BATCH_CNT);
             assert(minTriangleCountPerMDIData <= maxTriangleCountPerMDIData);
             assert(minTriangleCountPerMDIData > 0u);
             assert(maxTriangleCountPerMDIData > 0u);

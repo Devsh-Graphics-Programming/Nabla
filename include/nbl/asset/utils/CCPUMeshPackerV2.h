@@ -29,8 +29,8 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet
         using CombinedDataOffsetTable = typename base_t::CombinedDataOffsetTable;
 
     public:
-        CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-            : base_t(allocParams,minTriangleCountPerMDIData,maxTriangleCountPerMDIData)
+        CCPUMeshPackerV2(const AllocationParams& allocParams, const IMeshPackerV2Base::SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+            : base_t(allocParams, formats, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
         {}
 
         void instantiateDataStorage();

@@ -14,191 +14,265 @@ namespace asset
 
 class IMeshPackerV2Base
 {
+public:
+    class SupportedFormatsContainer
+    {
     public:
-        enum E_UTB_ARRAY_TYPE : uint8_t
+        template <typename MeshBufferIt>
+        void insertFormatsFromMeshBufferRange(MeshBufferIt mbBegin, MeshBufferIt mbEnd)
         {
-            EUAT_FLOAT,
-            EUAT_INT,
-            EUAT_UINT,
-            EUAT_UNKNOWN
-        };
-        struct VirtualAttribConfig
-        {
-            core::unordered_map<E_FORMAT,uint8_t> utbs[EUAT_UNKNOWN];
-            bool isUintBufferUsed = false;
-            bool isUvec2BufferUsed = false;
-            bool isUvec3BufferUsed = false;
-            bool isUvec4BufferUsed = false;
-
-            VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
+            for (auto it = mbBegin; it != mbEnd; it++)
             {
-                std::copy_n(other.utbs,EUAT_UNKNOWN,utbs);
-
-                isUintBufferUsed = other.isUintBufferUsed;
-                isUvec2BufferUsed = other.isUvec2BufferUsed;
-                isUvec3BufferUsed = other.isUvec3BufferUsed;
-                isUvec4BufferUsed = other.isUvec4BufferUsed;
-
-                return *this;
-            }
-
-            VirtualAttribConfig& operator=(VirtualAttribConfig&& other)
-            {
-                for (auto i=0u; i<EUAT_UNKNOWN; i++)
-                    utbs[i] = std::move(other.utbs[i]);
-
-                isUintBufferUsed = other.isUintBufferUsed;
-                isUvec2BufferUsed = other.isUvec2BufferUsed;
-                isUvec3BufferUsed = other.isUvec3BufferUsed;
-                isUvec4BufferUsed = other.isUvec4BufferUsed;
-
-                other.isUintBufferUsed = false;
-                other.isUvec2BufferUsed = false;
-                other.isUvec3BufferUsed = false;
-                other.isUvec4BufferUsed = false;
-
-                return *this;
-            }
-
-            inline bool insertAttribFormat(E_FORMAT format)
-            {
-                auto& utb = utbs[getUTBArrayTypeFromFormat(format)];
-                auto lookupResult = utb.find(format);
-                if (lookupResult!=utb.end())
-                    return true;
-
-                utb.insert(std::make_pair(format,utb.size()));
-
-                const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
-                constexpr uint32_t uvec4Size = 4u * 4u;
-                constexpr uint32_t uvec3Size = 4u * 3u;
-                constexpr uint32_t uvec2Size = 4u * 2u;
-                constexpr uint32_t uintSize  = 4u;
-                switch (attribSize)
+                const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+                for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
                 {
-                    case uvec4Size:
-                        isUvec4BufferUsed = true;
-                        break;
-                    case uvec3Size:
-                        isUvec3BufferUsed = true;
-                        break;
-                    case uvec2Size:
-                        isUvec2BufferUsed = true;
-                        break;
-                    case uintSize:
-                        isUintBufferUsed = true;
-                        break;
-                    default:
-                        assert(false);
-                        return true; //tmp
-                }
+                    if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
+                        continue;
 
-                return true;
-            }
-
-            static inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
-            {
-                switch (format)
-                {
-                     //float formats
-                    case EF_R8_UNORM:
-                    case EF_R8_SNORM:
-                    case EF_R8_USCALED:
-                    case EF_R8_SSCALED:
-                    case EF_R8G8_UNORM:
-                    case EF_R8G8_SNORM:
-                    case EF_R8G8_USCALED:
-                    case EF_R8G8_SSCALED:
-                    case EF_R8G8B8_UNORM:
-                    case EF_R8G8B8_SNORM:
-                    case EF_R8G8B8_USCALED:
-                    case EF_R8G8B8_SSCALED:
-                    case EF_R8G8B8A8_UNORM:
-                    case EF_R8G8B8A8_SNORM:
-                    case EF_R8G8B8A8_USCALED:
-                    case EF_R8G8B8A8_SSCALED:
-                    case EF_R16_UNORM:
-                    case EF_R16_SNORM:
-                    case EF_R16_USCALED:
-                    case EF_R16_SSCALED:
-                    case EF_R16_SFLOAT:
-                    case EF_R16G16_UNORM:
-                    case EF_R16G16_SNORM:
-                    case EF_R16G16_USCALED:
-                    case EF_R16G16_SSCALED:
-                    case EF_R16G16_SFLOAT:
-                    case EF_R16G16B16_UNORM:
-                    case EF_R16G16B16_SNORM:
-                    case EF_R16G16B16_USCALED:
-                    case EF_R16G16B16_SSCALED:
-                    case EF_R16G16B16_SFLOAT:
-                    case EF_R16G16B16A16_UNORM:
-                    case EF_R16G16B16A16_SNORM:
-                    case EF_R16G16B16A16_USCALED:
-                    case EF_R16G16B16A16_SSCALED:
-                    case EF_R16G16B16A16_SFLOAT:
-                    case EF_R32_SFLOAT:
-                    case EF_R32G32_SFLOAT:
-                    case EF_R32G32B32_SFLOAT:
-                    case EF_R32G32B32A32_SFLOAT:
-                    case EF_B10G11R11_UFLOAT_PACK32:
-                    case EF_A2B10G10R10_UNORM_PACK32:
-                    case EF_A8B8G8R8_UNORM_PACK32:
-                    case EF_A8B8G8R8_SNORM_PACK32:
-                    case EF_A8B8G8R8_USCALED_PACK32:
-                    case EF_A8B8G8R8_SSCALED_PACK32:
-                        return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
-
-                     //int formats
-                    case EF_R8_SINT:
-                    case EF_R8G8_SINT:
-                    case EF_R8G8B8_SINT:
-                    case EF_R8G8B8A8_SINT:
-                    case EF_R16_SINT:
-                    case EF_R16G16_SINT:
-                    case EF_R16G16B16_SINT:
-                    case EF_R16G16B16A16_SINT:
-                    case EF_R32_SINT:
-                    case EF_R32G32_SINT:
-                    case EF_R32G32B32_SINT:
-                    case EF_R32G32B32A32_SINT:
-                    case EF_A8B8G8R8_SINT_PACK32:
-                        return E_UTB_ARRAY_TYPE::EUAT_INT;
-
-                     //uint formats
-                    case EF_R8_UINT:
-                    case EF_R8G8_UINT:
-                    case EF_R8G8B8_UINT:
-                    case EF_R8G8B8A8_UINT:
-                    case EF_R16_UINT:
-                    case EF_R16G16_UINT:
-                    case EF_R16G16B16_UINT:
-                    case EF_R16G16B16A16_UINT:
-                    case EF_R32_UINT:
-                    case EF_R32G32_UINT:
-                    case EF_R32G32B32_UINT:
-                    case EF_R32G32B32A32_UINT:
-                    case EF_A2B10G10R10_SNORM_PACK32:
-                    case EF_A2B10G10R10_UINT_PACK32:
-                    case EF_A8B8G8R8_UINT_PACK32:
-                        return E_UTB_ARRAY_TYPE::EUAT_UINT;
-
-                    default:
-                        return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
+                    formats.insert(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
                 }
             }
-        };
-
-        const VirtualAttribConfig& getVirtualAttribConfig() const { return m_virtualAttribConfig; }
-
-    protected:
-        IMeshPackerV2Base() : m_virtualAttribConfig() {}
-        explicit IMeshPackerV2Base(const VirtualAttribConfig& cfg) : m_virtualAttribConfig()
-        {
-            m_virtualAttribConfig = cfg;
         }
 
-        VirtualAttribConfig m_virtualAttribConfig;
+        inline void insert(E_FORMAT format)
+        {
+            formats.insert(format);
+        }
+
+        inline const core::unordered_set<E_FORMAT>& getFormats() const { return formats; }
+
+    private:
+        core::unordered_set<E_FORMAT> formats;
+    };
+
+public:
+    enum E_UTB_ARRAY_TYPE : uint8_t
+    {
+        EUAT_FLOAT,
+        EUAT_INT,
+        EUAT_UINT,
+        EUAT_UNKNOWN
+    };
+    struct VirtualAttribConfig
+    {
+        VirtualAttribConfig() = default;
+
+        VirtualAttribConfig(const SupportedFormatsContainer& formats)
+        {
+            const auto& formatsSet = formats.getFormats();
+            for (auto it = formatsSet.begin(); it != formatsSet.end(); it++)
+                insertAttribFormat(*it);
+        }
+
+        VirtualAttribConfig(const VirtualAttribConfig& other)
+        {
+            std::copy_n(other.utbs, EUAT_UNKNOWN, utbs);
+
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+        }
+
+        VirtualAttribConfig(VirtualAttribConfig&& other)
+        {
+            for (auto i = 0u; i < EUAT_UNKNOWN; i++)
+                utbs[i] = std::move(other.utbs[i]);
+
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+
+            //other.utbs->clear();
+            other.isUintBufferUsed = false;
+            other.isUvec2BufferUsed = false;
+            other.isUvec3BufferUsed = false;
+            other.isUvec4BufferUsed = false;
+        }
+
+        core::unordered_map<E_FORMAT,uint8_t> utbs[EUAT_UNKNOWN];
+        bool isUintBufferUsed = false;
+        bool isUvec2BufferUsed = false;
+        bool isUvec3BufferUsed = false;
+        bool isUvec4BufferUsed = false;
+    
+        VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
+        {
+            std::copy_n(other.utbs,EUAT_UNKNOWN,utbs);
+
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+
+            return *this;
+        }
+    
+        VirtualAttribConfig& operator=(VirtualAttribConfig&& other)
+        {
+            for (auto i=0u; i<EUAT_UNKNOWN; i++)
+                utbs[i] = std::move(other.utbs[i]);
+        
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+        
+            other.isUintBufferUsed = false;
+            other.isUvec2BufferUsed = false;
+            other.isUvec3BufferUsed = false;
+            other.isUvec4BufferUsed = false;
+        
+            return *this;
+        }
+    
+        inline bool insertAttribFormat(E_FORMAT format)
+        {
+            auto& utb = utbs[getUTBArrayTypeFromFormat(format)];
+            auto lookupResult = utb.find(format);
+            if (lookupResult!=utb.end())
+                return true;
+    
+            utb.insert(std::make_pair(format,utb.size()));
+    
+            const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
+            constexpr uint32_t uvec4Size = 4u * 4u;
+            constexpr uint32_t uvec3Size = 4u * 3u;
+            constexpr uint32_t uvec2Size = 4u * 2u;
+            constexpr uint32_t uintSize  = 4u;
+            switch (attribSize)
+            {
+                case uvec4Size:
+                    isUvec4BufferUsed = true;
+                    break;
+                case uvec3Size:
+                    isUvec3BufferUsed = true;
+                    break;
+                case uvec2Size:
+                    isUvec2BufferUsed = true;
+                    break;
+                case uintSize:
+                    isUintBufferUsed = true;
+                    break;
+                default:
+                    assert(false);
+                    return true; //tmp
+            }
+    
+            return true;
+        }
+        
+        inline bool isFormatSupported(E_FORMAT format) const
+        {
+            auto& utb = utbs[getUTBArrayTypeFromFormat(format)];
+            auto lookupResult = utb.find(format);
+            if (lookupResult != utb.end())
+                return true;
+
+            return false;
+        }
+
+        static inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
+        {
+            switch (format)
+            {
+                 //float formats
+                case EF_R8_UNORM:
+                case EF_R8_SNORM:
+                case EF_R8_USCALED:
+                case EF_R8_SSCALED:
+                case EF_R8G8_UNORM:
+                case EF_R8G8_SNORM:
+                case EF_R8G8_USCALED:
+                case EF_R8G8_SSCALED:
+                case EF_R8G8B8_UNORM:
+                case EF_R8G8B8_SNORM:
+                case EF_R8G8B8_USCALED:
+                case EF_R8G8B8_SSCALED:
+                case EF_R8G8B8A8_UNORM:
+                case EF_R8G8B8A8_SNORM:
+                case EF_R8G8B8A8_USCALED:
+                case EF_R8G8B8A8_SSCALED:
+                case EF_R16_UNORM:
+                case EF_R16_SNORM:
+                case EF_R16_USCALED:
+                case EF_R16_SSCALED:
+                case EF_R16_SFLOAT:
+                case EF_R16G16_UNORM:
+                case EF_R16G16_SNORM:
+                case EF_R16G16_USCALED:
+                case EF_R16G16_SSCALED:
+                case EF_R16G16_SFLOAT:
+                case EF_R16G16B16_UNORM:
+                case EF_R16G16B16_SNORM:
+                case EF_R16G16B16_USCALED:
+                case EF_R16G16B16_SSCALED:
+                case EF_R16G16B16_SFLOAT:
+                case EF_R16G16B16A16_UNORM:
+                case EF_R16G16B16A16_SNORM:
+                case EF_R16G16B16A16_USCALED:
+                case EF_R16G16B16A16_SSCALED:
+                case EF_R16G16B16A16_SFLOAT:
+                case EF_R32_SFLOAT:
+                case EF_R32G32_SFLOAT:
+                case EF_R32G32B32_SFLOAT:
+                case EF_R32G32B32A32_SFLOAT:
+                case EF_B10G11R11_UFLOAT_PACK32:
+                case EF_A2B10G10R10_UNORM_PACK32:
+                case EF_A8B8G8R8_UNORM_PACK32:
+                case EF_A8B8G8R8_SNORM_PACK32:
+                case EF_A8B8G8R8_USCALED_PACK32:
+                case EF_A8B8G8R8_SSCALED_PACK32:
+                    return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
+    
+                 //int formats
+                case EF_R8_SINT:
+                case EF_R8G8_SINT:
+                case EF_R8G8B8_SINT:
+                case EF_R8G8B8A8_SINT:
+                case EF_R16_SINT:
+                case EF_R16G16_SINT:
+                case EF_R16G16B16_SINT:
+                case EF_R16G16B16A16_SINT:
+                case EF_R32_SINT:
+                case EF_R32G32_SINT:
+                case EF_R32G32B32_SINT:
+                case EF_R32G32B32A32_SINT:
+                case EF_A8B8G8R8_SINT_PACK32:
+                    return E_UTB_ARRAY_TYPE::EUAT_INT;
+    
+                 //uint formats
+                case EF_R8_UINT:
+                case EF_R8G8_UINT:
+                case EF_R8G8B8_UINT:
+                case EF_R8G8B8A8_UINT:
+                case EF_R16_UINT:
+                case EF_R16G16_UINT:
+                case EF_R16G16B16_UINT:
+                case EF_R16G16B16A16_UINT:
+                case EF_R32_UINT:
+                case EF_R32G32_UINT:
+                case EF_R32G32B32_UINT:
+                case EF_R32G32B32A32_UINT:
+                case EF_A2B10G10R10_SNORM_PACK32:
+                case EF_A2B10G10R10_UINT_PACK32:
+                case EF_A8B8G8R8_UINT_PACK32:
+                    return E_UTB_ARRAY_TYPE::EUAT_UINT;
+    
+                default:
+                    return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
+            }
+        }
+    };
+    
+    const VirtualAttribConfig& getVirtualAttribConfig() const { return m_virtualAttribConfig; }
+    
+protected:
+    explicit IMeshPackerV2Base(const SupportedFormatsContainer& formats) : m_virtualAttribConfig(formats) {}
+    explicit IMeshPackerV2Base(const VirtualAttribConfig& cfg) : m_virtualAttribConfig(cfg) {}
+    
+    const VirtualAttribConfig m_virtualAttribConfig;
 };
 
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
@@ -548,8 +622,9 @@ public:
     inline const AllocationParams& getAllocParams() const { return m_allocParams; }
 
 protected:
-	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_allocParams(allocParams)
+	IMeshPackerV2(const AllocationParams& allocParams, const SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), 
+        IMeshPackerV2Base(formats), m_allocParams(allocParams)
 	{
         initializeCommonAllocators(allocParams);
     };
@@ -596,6 +671,10 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
                 continue;
 
             const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
+
+            if (!m_virtualAttribConfig.isFormatSupported(attribFormat))
+                return false;
+
             const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
             const uint32_t binding = mbVtxInputParams.attributes[location].binding;
             const E_VERTEX_INPUT_RATE inputRate = mbVtxInputParams.bindings[binding].inputRate;
@@ -615,8 +694,6 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
 
             if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                 return false;
-
-            m_virtualAttribConfig.insertAttribFormat(attribFormat);
 
             //TODO: reset state when allocation fails
         }
