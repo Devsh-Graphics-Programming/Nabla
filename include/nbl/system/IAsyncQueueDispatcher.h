@@ -122,11 +122,11 @@ public:
         const auto r_id = wrapAround(virtualIx);
 
         request_t& req = request_pool[r_id];
-        auto lk = req.lock();
+        //auto lk = req.lock();
         req.ready = false;
         static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
         // unlock request after we've written everything into it
-        lk.unlock();
+        //lk.unlock();
         req.ready_for_work = true;
 #if __cplusplus >= 202002L
         req.ready_for_work.notify_one();
@@ -162,6 +162,7 @@ private:
         while (!req.ready_for_work.load())
             std::this_thread::yield();
 #endif
+        // do NOT allow canceling of request while they are processed
         auto lk = req.lock();
 
         if (static_cast<CRTP*>(this)->process_request_predicate(req))

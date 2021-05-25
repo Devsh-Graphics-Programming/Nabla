@@ -24,6 +24,8 @@ public:
         virtual core::smart_refctd_ptr<IFile> createFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
         virtual size_t read(IFile* file, void* buffer, size_t offset, size_t size) = 0;
         virtual size_t write(IFile* file, const void* buffer, size_t offset, size_t size) = 0;
+        virtual bool invalidateMapping(IFile* file, size_t offset, size_t size) = 0;
+        virtual bool flushMapping(IFile* file, size_t offset, size_t size) = 0;
     };
 
 private:
@@ -43,7 +45,9 @@ private:
     };
     struct SRequestParams_CREATE_FILE : SRequestParamsBase<ERT_CREATE_FILE>
     {
-        char filename[512] {};
+        inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
+
+        char filename[MAX_FILENAME_LENGTH] {};
         IFile::E_CREATE_FLAGS flags;
     };
     struct SRequestParams_READ : SRequestParamsBase<ERT_READ>
@@ -157,6 +161,9 @@ public:
     bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags)
     {
         SRequestParams_CREATE_FILE params;
+        if (filename.string().size() >= sizeof(params.filename))
+            return false;
+
         strcpy(params.filename, filename.string().c_str());
         params.flags = flags;
         

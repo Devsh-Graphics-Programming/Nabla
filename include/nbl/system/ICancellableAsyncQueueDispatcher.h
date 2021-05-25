@@ -48,13 +48,18 @@ namespace impl
             // future_t is non-copyable and non-movable
             future_base_t(const future_base_t&) = delete;
 
-        public:
-            future_base_t() = default;
-            ~future_base_t()
+            void cancel()
             {
                 request_base_t* req = request.exchange(nullptr);
                 if (req)
                     req->set_cancel();
+            }
+
+        public:
+            future_base_t() = default;
+            ~future_base_t()
+            {
+                cancel();
             }
 
             bool ready() const 
@@ -121,12 +126,19 @@ public:
     public:
         using value_type = T;
 
+        void cancel()
+        {
+            bool valid = valid_flag.exchange(false);
+            if (valid)
+                future_storage_t<T>::getStorage()->~T();
+            impl::ICancellableAsyncQueueDispatcherBase::future_base_t::cancel();
+        }
+
         future_t() = default;
 
         ~future_t()
         {
-            if (valid_flag)
-                future_storage_t<T>::getStorage()->~T();
+            cancel();
         }
 
         T& get()

@@ -37,6 +37,11 @@ public:
 	virtual void* getMappedPointer() = 0;
 	virtual const void* getMappedPointer() const = 0;
 
+	bool isMappingCoherent() const
+	{
+		return (m_flags & ECF_COHERENT) == ECF_COHERENT;
+	}
+
 protected:
 	std::underlying_type_t<E_CREATE_FLAGS> m_flags;
 };
