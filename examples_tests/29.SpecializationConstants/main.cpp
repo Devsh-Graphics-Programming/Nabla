@@ -178,7 +178,7 @@ int main()
 	range.size = BUF_SZ;
 	device->updateBufferRangeViaStagingBuffer(queue, range, particlePos.data());
 	particlePos.clear();
-	//driver->fillBuffer(gpuParticleBuf.get(), VEL_BUF_IX * BUF_SZ, BUF_SZ, 0u);
+
 	auto gpuUboCompute = device->createDeviceLocalGPUBufferOnDedMem(core::roundUp(sizeof(UBOCompute), 64ull));
 	auto gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 	{
@@ -235,10 +235,6 @@ int main()
 	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1, cpu2gpuParams)->front();
 	auto* ds0layoutGraphics = pipeline->getLayout()->getDescriptorSetLayout(0);
 	
-	//core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuDs0layoutGraphics = CPU2GPU.getGPUObjectsFromAssets(&ds0layoutGraphics, &ds0layoutGraphics + 1, cpu2gpuParams)->front();
-	//core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuDs0layoutGraphics = device->createGPUDescriptorSetLayout()
-	//auto gpuds0Graphics = device->createGPUDescriptorSet(dscPool.get(), nullptr);
-
 	video::IGPUGraphicsPipeline::SCreationParams gp_params;
 	gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
 	gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
@@ -249,25 +245,6 @@ int main()
 
 	constexpr uint32_t GRAPHICS_SET = 0u;
 	constexpr uint32_t GRAPHICS_DATA_UBO_BINDING = 0u;
-
-	//auto gpuUboGaphics = device->createDeviceLocalGPUBufferOnDedMem(sizeof(viewParams));
-	//{
-	//	video::IGPUDescriptorSet::SWriteDescriptorSet w;
-	//	video::IGPUDescriptorSet::SDescriptorInfo i;
-	//	w.arrayElement = 0u;
-	//	w.binding = GRAPHICS_DATA_UBO_BINDING;
-	//	w.count = 1u;
-	//	w.descriptorType = asset::EDT_UNIFORM_BUFFER;
-	//	w.dstSet = gpuds0Graphics.get();
-	//	w.info = &i;
-	//	i.desc = gpuUboGaphics;
-	//	i.buffer.offset = 0u;
-	//	i.buffer.size = gpuUboGaphics->getSize();
-
-	//	device->updateDescriptorSets(1u, &w, 0u, nullptr);
-	//}
-	//
-
 
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	constexpr uint32_t FRAME_COUNT = 500000u;
@@ -341,12 +318,11 @@ int main()
 		core::vector3df_SIMD gravPoint = cameraPosition + camFront * 250.f;
 		auto time = std::chrono::high_resolution_clock::now();
 		uboComputeData.gravPointAndDt = gravPoint;
-		uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>((time - lastTime)).count() * 1e-3;
+		uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>((time - lastTime)).count() * 1e-4;
 		lastTime = time;
 		CommonAPI::Submit(device.get(), sc.get(), cmdbuf, queue, img_acq_sem.get(), render1_finished_sem.get(), SC_IMG_COUNT, imgnum);
 
 		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
-		std::cout << i << " frame\n";
 	}
 
 	return 0;
