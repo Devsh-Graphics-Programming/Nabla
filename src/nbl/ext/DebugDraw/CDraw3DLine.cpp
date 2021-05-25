@@ -97,6 +97,7 @@ void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, core::smart_refctd_ptr<IG
 	}
 	else
 	{
+		*fence = m_device->createFence(IGPUFence::ECF_SIGNALED_BIT);
 		m_device->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
 	}
 }

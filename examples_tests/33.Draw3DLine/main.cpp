@@ -87,7 +87,9 @@ int main()
 	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 	draw3DLine->setData(viewProj, lines);
-	draw3DLine->updateVertexBuffer(queue);
+	core::smart_refctd_ptr<video::IGPUFence> fence;
+	draw3DLine->updateVertexBuffer(queue, &fence);
+	device->waitForFences(1, const_cast<video::IGPUFence**>(&fence.get()), false, 9999999999ull);
 	{
 		auto* rpIndependentPipeline = draw3DLine->getRenderpassIndependentPipeline();
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
