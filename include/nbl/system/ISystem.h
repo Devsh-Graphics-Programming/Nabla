@@ -15,7 +15,7 @@ namespace system
 class ISystem final : public core::IReferenceCounted
 {
 public:
-    class ISystemCaller : core::IReferenceCounted
+    class ISystemCaller : public core::IReferenceCounted
     {
     protected:
         virtual ~ISystemCaller() = default;
