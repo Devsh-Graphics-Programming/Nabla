@@ -162,7 +162,6 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPUComputePipeline>				    create(const asset::ICPUComputePipeline** const _begin, const asset::ICPUComputePipeline** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUSpecializedShader>	            create(const asset::ICPUSpecializedShader** const _begin, const asset::ICPUSpecializedShader** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUShader>				            create(const asset::ICPUShader** const _begin, const asset::ICPUShader** const _end, const SParams& _params);
-#if 0
 		inline virtual created_gpu_object_array<asset::ICPUSkeleton>			            create(const asset::ICPUSkeleton** const _begin, const asset::ICPUSkeleton** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMeshBuffer>			            create(const asset::ICPUMeshBuffer** const _begin, const asset::ICPUMeshBuffer** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMesh>				            create(const asset::ICPUMesh** const _begin, const asset::ICPUMesh** const _end, const SParams& _params);
@@ -170,7 +169,7 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPUImageView>				        create(const asset::ICPUImageView** const _begin, const asset::ICPUImageView** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUDescriptorSet>				    create(const asset::ICPUDescriptorSet** const _begin, const asset::ICPUDescriptorSet** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUAnimationLibrary>			    create(const asset::ICPUAnimationLibrary** const _begin, const asset::ICPUAnimationLibrary** const _end, const SParams& _params);
-#endif
+
 
         //! iterator_type is always either `[const] core::smart_refctd_ptr<AssetType>*[const]*` or `[const] AssetType*[const]*`
 		template<typename AssetType, typename iterator_type>
@@ -518,7 +517,7 @@ struct CustomBoneNameIterator
         MapIterator m_it;
 };
 }
-#if 0
+
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, const asset::ICPUSkeleton** _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUSkeleton>
 {
 	const size_t assetCount = std::distance(_begin, _end);
@@ -720,7 +719,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
 
     return res;
 }
-#endif
+
 
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin, const asset::ICPUImage** const _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUImage>
 {
@@ -1288,7 +1287,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUShader** const _begin
 
     return res;
 }
-#if 0
 
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUBufferView** const _begin, const asset::ICPUBufferView** const _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUBufferView>
 {
@@ -1306,7 +1304,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBufferView** const _b
     {
         const asset::ICPUBufferView* cpubufview = _begin[i];
         IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[i]].get();
-        (*res)[i] = m_driver->createGPUBufferView(gpubuf->getBuffer(), cpubufview->getFormat(), gpubuf->getOffset() + cpubufview->getOffsetInBuffer(), cpubufview->getByteSize());;
+        (*res)[i] = _params.device->createGPUBufferView(gpubuf->getBuffer(), cpubufview->getFormat(), gpubuf->getOffset() + cpubufview->getOffsetInBuffer(), cpubufview->getByteSize());;
     }
 
     return res;
@@ -1341,7 +1339,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;
         params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
         params.image = (*gpuDeps)[redirs[i]];
-        (*res)[i] = m_driver->createGPUImageView(std::move(params));
+        (*res)[i] = _params.device->createGPUImageView(std::move(params));
     }
 
     return res;
@@ -1459,6 +1457,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto gpuBufviews = getGPUObjectsFromAssets<asset::ICPUBufferView>(cpuBufviews.data(), cpuBufviews.data()+cpuBufviews.size(), _params);
     auto gpuImgViews = getGPUObjectsFromAssets<asset::ICPUImageView>(cpuImgViews.data(), cpuImgViews.data()+cpuImgViews.size(), _params);
     auto gpuSamplers = getGPUObjectsFromAssets<asset::ICPUSampler>(cpuSamplers.data(), cpuSamplers.data()+cpuSamplers.size(), _params);
+    
+    auto dsPool = _params.device->createDescriptorPoolForDSLayouts(gpuLayouts->begin(), gpuLayouts->end());
 
 	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes(maxWriteCount);
 	auto write_it = writes.begin();
@@ -1470,7 +1470,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		for (ptrdiff_t i = 0u; i < assetCount; i++)
 		{
 			IGPUDescriptorSetLayout* gpulayout = gpuLayouts->operator[](layoutRedirs[i]).get();
-			res->operator[](i) = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
+			res->operator[](i) = _params.device->createGPUDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
 			auto gpuds = res->operator[](i).get();
 
             const asset::ICPUDescriptorSet* cpuds = _begin[i];
@@ -1529,7 +1529,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		}
 	}
 
-	m_driver->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
+	_params.device->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
 
     return res;
 }
@@ -1589,7 +1589,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAnimationLibrary** _b
 
     return res;
 }
-#endif
+
 
 }
 }//nbl::video

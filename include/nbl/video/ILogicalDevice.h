@@ -362,6 +362,32 @@ public:
         return createGPUDescriptorSet_impl(pool, std::move(layout));
     }
 
+    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(core::smart_refctd_ptr<IGPUDescriptorSetLayout>* begin, core::smart_refctd_ptr<IGPUDescriptorSetLayout>* end)
+    {
+        size_t setCount = end - begin;
+        std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes;
+        for (auto* curLayout = begin; curLayout != end; curLayout++)
+        {
+            auto bindings = curLayout->get()->getBindings();
+            for (const auto& binding : bindings)
+            {
+                auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
+                if (ps != poolSizes.end())
+                {
+                    ++ps->count;
+                }
+                else
+                {
+                    poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, 1 });
+                }
+            }
+
+        }
+        
+        core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT, setCount, poolSizes.size(), poolSizes.data());
+        return dsPool;
+    }
+
     void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
     {
         core::SRange<const IGPUDescriptorSetLayout*> layouts{ _layouts, _layouts + count };
