@@ -618,26 +618,42 @@ public:
     uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline const PackerDataStore& getPackerDataStore() const { return m_packerDataStore; }
-    
-    inline const AllocationParams& getAllocParams() const { return m_allocParams; }
+
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getMDIAllocator() const { return m_MDIDataAlctr; }
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getIndexAllocator() const { return m_idxBuffAlctr; }
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getVertexAllocator() const { return m_vtxBuffAlctr; }
 
 protected:
 	IMeshPackerV2(const AllocationParams& allocParams, const SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
 		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), 
-        IMeshPackerV2Base(formats), m_allocParams(allocParams)
+        IMeshPackerV2Base(formats)
 	{
         initializeCommonAllocators(allocParams);
     };
     template<class OtherBufferType, class OtherDescriptorSetType, class OtherMeshBufferType>
 	explicit IMeshPackerV2(const IMeshPackerV2<OtherBufferType,OtherDescriptorSetType,OtherMeshBufferType,MDIStructType>* otherMp)
 		: base_t(otherMp->getMinTriangleCountPerMDI(),otherMp->getMaxTriangleCountPerMDI()),
-        IMeshPackerV2Base(otherMp->getVirtualAttribConfig()), m_allocParams(otherMp->getAllocParams())
+        IMeshPackerV2Base(otherMp->getVirtualAttribConfig())
 	{
-        initializeCommonAllocators(m_allocParams);
+        using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
+
+        const auto& mdiAlctr = otherMp->getMDIAllocator();
+        uint32_t alctrBuffSz = traits::get_total_size(mdiAlctr);
+        void* resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, mdiAlctr), _NBL_SIMD_ALIGNMENT);
+        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, mdiAlctr, resSpcTmp);
+
+        const auto& idxAlctr = otherMp->getIndexAllocator();
+        alctrBuffSz = traits::get_total_size(idxAlctr);
+        resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, idxAlctr), _NBL_SIMD_ALIGNMENT);
+        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, idxAlctr, resSpcTmp);
+
+        const auto& vtxAlctr = otherMp->getVertexAllocator();
+        alctrBuffSz = traits::get_total_size(vtxAlctr);
+        resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, vtxAlctr), _NBL_SIMD_ALIGNMENT);
+        m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, vtxAlctr, resSpcTmp);
     };
 
     PackerDataStore m_packerDataStore;
-    AllocationParams m_allocParams; // TODO: only hold onto MinimumAllocationParams, derive rest from the allocator sizes! (if you even need to)
 
 };
 

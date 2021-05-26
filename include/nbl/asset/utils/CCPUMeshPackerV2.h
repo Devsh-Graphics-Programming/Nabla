@@ -43,11 +43,6 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet
             uint32_t idxBuffNewSize = m_idxBuffAlctr.safe_shrink_size(0u,traits::max_alignment(m_idxBuffAlctr));
             uint32_t vtxBuffNewSize = m_vtxBuffAlctr.safe_shrink_size(0u,traits::max_alignment(m_vtxBuffAlctr));
 
-            // TODO: remove members
-            m_allocParams.MDIDataBuffSupportedCnt = mdiDataBuffNewSize;
-            m_allocParams.indexBuffSupportedCnt = idxBuffNewSize;
-            m_allocParams.vertexBuffSupportedByteSize = vtxBuffNewSize;
-
             const void* oldReserved = traits::getReservedSpacePtr(m_MDIDataAlctr);
             m_MDIDataAlctr = core::GeneralpurposeAddressAllocator(mdiDataBuffNewSize,std::move(m_MDIDataAlctr),_NBL_ALIGNED_MALLOC(traits::reserved_size(mdiDataBuffNewSize,m_MDIDataAlctr),_NBL_SIMD_ALIGNMENT));
             _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
@@ -78,19 +73,18 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet
             };
             return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
         }
-
-        const core::GeneralpurposeAddressAllocator<uint32_t>& getMDIAllocator() const { return m_MDIDataAlctr; }
-        const core::GeneralpurposeAddressAllocator<uint32_t>& getIndexAllocator() const { return m_idxBuffAlctr; }
-        const core::GeneralpurposeAddressAllocator<uint32_t>& getVertexAllocator() const { return m_vtxBuffAlctr; }
-
 };
 
 template <typename MDIStructType>
 void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
-    m_packerDataStore.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
-    m_packerDataStore.indexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
-    m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedByteSize);
+    const uint32_t MDIDataBuffByteSize = m_MDIDataAlctr.get_total_size() * sizeof(MDIStructType);
+    const uint32_t idxBuffByteSize = m_idxBuffAlctr.get_total_size() * sizeof(uint16_t);
+    const uint32_t vtxBuffByteSize = m_vtxBuffAlctr.get_total_size();
+
+    m_packerDataStore.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(MDIDataBuffByteSize);
+    m_packerDataStore.indexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(idxBuffByteSize);
+    m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vtxBuffByteSize);
 }
 
 /*

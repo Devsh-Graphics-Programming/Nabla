@@ -10,12 +10,8 @@
 #include <nbl/core/math/intutil.h>
 
 //AFTER SAFE SHRINK FIX TODO LIST:
-//1. new size for buffers (obviously)
-//5. make it work for multiple `alloc` calls
-//6. provide `free` method
-//7. assertions on buffer overflow
-//8. extendend tests
-/*9. packing sponza this way works incorrectly (it is all good if I change #1 and #2 to 5000u), 
+//1. extendend tests
+/*2. packing sponza this way works incorrectly (it is all good if I change #1 and #2 to 5000u), 
 	 clue: vertices from some buffers are being used by previous buffers (buffer with index 4 use vertices of buffer with index 5 for example)
 	 {
 		allocationParams.indexBuffSupportedCnt = 20000000u;
@@ -54,7 +50,7 @@
 		packedMeshBuffer = packer.getPackerDataStore();
 		assert(packedMeshBuffer.isValid());
 	}
-10. test `getPackerCreationParamsFromMeshBufferRange`
+3. test `getPackerCreationParamsFromMeshBufferRange`
 */
 
 namespace nbl 
