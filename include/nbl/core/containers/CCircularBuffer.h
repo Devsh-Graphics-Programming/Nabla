@@ -18,6 +18,8 @@ namespace impl
 class CCircularBufferCommonBase
 {
 protected:
+    // Instead of atomics for flags, we could use more memory (1 byte per flag)
+    // In case of 1 bit per flag, atomic is a must
     using atomic_alive_flags_block_t = std::atomic_uint64_t;
     static inline constexpr auto bits_per_flags_block = 8ull * sizeof(atomic_alive_flags_block_t::value_type);
 
@@ -159,10 +161,10 @@ protected:
         const auto block_n = ix / base_t::bits_per_flags_block;
         const auto local_ix = ix & (base_t::bits_per_flags_block - 1u);
 
-        auto val = static_cast<typename base_t::atomic_alive_flags_block_t::value_type>(1) << local_ix;
+        auto xormask = static_cast<typename base_t::atomic_alive_flags_block_t::value_type>(1) << local_ix;
 
         typename base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
-        flags[block_n].fetch_xor(val);
+        flags[block_n].fetch_xor(xormask);
     }
 
 private:

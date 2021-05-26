@@ -38,9 +38,7 @@ namespace impl
     class IEventChannelBase : public IInputEventChannel
     {
     protected:
-        static inline constexpr size_t MaxEvents = 1024u;
-
-        using cb_t = core::CCompileTimeSizedCircularBuffer<EventType, MaxEvents>;
+        using cb_t = core::CConstantRuntimeSizedCircularBuffer<EventType>;
         using iterator_t = typename cb_t::iterator;
         using range_t = core::SRange<EventType, iterator_t, iterator_t>;
 
@@ -69,6 +67,12 @@ namespace impl
         }
 
         virtual ~IEventChannelBase() = default;
+        explicit IEventChannelBase(size_t _circular_buffer_capacity) : 
+            m_bgEventBuf(_circular_buffer_capacity),
+            m_frontEventBuf(_circular_buffer_capacity)
+        {
+
+        }
 
     private:
         void downloadFromBackgroundIntoFront()
@@ -97,10 +101,14 @@ struct SMouseEvent
 
 class IMouseEventChannel : public impl::IEventChannelBase<SMouseEvent>
 {
+    using base_t = impl::IEventChannelBase<SMouseEvent>;
+
 protected:
     virtual ~IMouseEventChannel() = default;
 
 public:
+    using base_t::base_t;
+
     E_TYPE getType() const override final
     {
         return ET_MOUSE;
@@ -114,10 +122,14 @@ struct SKeyboardEvent
 
 class IKeyboardEventChannel : public impl::IEventChannelBase<SKeyboardEvent>
 {
+    using base_t = impl::IEventChannelBase<SKeyboardEvent>;
+
 protected:
     virtual ~IKeyboardEventChannel() = default;
 
 public:
+    using base_t::base_t;
+
     E_TYPE getType() const override final
     {
         return ET_KEYBOARD;
