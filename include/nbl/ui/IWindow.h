@@ -14,6 +14,35 @@ namespace ui
 class IWindow : public core::IReferenceCounted
 {
 public:
+    enum E_CREATE_FLAGS : uint32_t
+    {
+        ECF_FULLSCREEN = 1u << 0,
+        ECF_HIDDEN = 1u << 1,
+        ECF_BORDERLESS = 1u << 2,
+        ECF_RESIZABLE = 1u << 3,
+        ECF_MINIMIZED = 1u << 4,
+        ECF_MAXIMIZED = 1u << 5,
+        //! Forces mouse to stay inside the window
+        ECF_MOUSE_CAPTURE = 1u << 6,
+        //! Indicates whether the window is active or not
+        ECF_INPUT_FOCUS = 1u << 7,
+        //! Indicates whether mouse is hovering over the window even if the window is not active
+        ECF_MOUSE_FOCUS = 1u << 8,
+        ECF_ALWAYS_ON_TOP = 1u << 9,
+
+        ECF_NONE = 0
+    };
+
+    struct SCreationParams
+    {
+        //IWindow(core::smart_refctd_ptr<IEventCallback>&& _cb, core::smart_refctd_ptr<system::ISystem>&& _sys, uint32_t _w = 0u, uint32_t _h = 0u, E_CREATE_FLAGS _flags = static_cast<E_CREATE_FLAGS>(0)) :
+        core::smart_refctd_ptr<IEventCallback> callback;
+        core::smart_refctd_ptr<system::ISystem> system;
+        uint32_t width = 0u, height = 0u;
+        E_CREATE_FLAGS flags = static_cast<E_CREATE_FLAGS>(0);
+        uint32_t eventChannelCapacityLog2[IInputEventChannel::ET_COUNT];
+    };
+
     friend class IEventCallback;
     class IEventCallback : public core::IReferenceCounted
     {
@@ -107,25 +136,6 @@ public:
         virtual void onKeyboardDisconnected_impl(IKeyboardEventChannel* mch) {}
     };
 
-    enum E_CREATE_FLAGS : uint32_t
-    {
-        ECF_FULLSCREEN = 1u<<0,
-        ECF_HIDDEN = 1u<<1,
-        ECF_BORDERLESS = 1u<<2,
-        ECF_RESIZABLE = 1u<<3,
-        ECF_MINIMIZED = 1u<<4,
-        ECF_MAXIMIZED = 1u<<5,
-        //! Forces mouse to stay inside the window
-        ECF_MOUSE_CAPTURE = 1u<<6,
-        //! Indicates whether the window is active or not
-        ECF_INPUT_FOCUS = 1u<<7,
-        //! Indicates whether mouse is hovering over the window even if the window is not active
-        ECF_MOUSE_FOCUS = 1u<<8,
-        ECF_ALWAYS_ON_TOP = 1u<<9,
-
-        ECF_NONE = 0
-    };
-
     inline bool isFullscreen()      { return (m_flags & ECF_FULLSCREEN); }
     inline bool isHidden()          { return (m_flags & ECF_HIDDEN); }
     inline bool isBorderless()      { return (m_flags & ECF_BORDERLESS); }
@@ -145,8 +155,8 @@ public:
 
 protected:
     // TODO need to update constructors of all derived CWindow* classes
-    IWindow(core::smart_refctd_ptr<IEventCallback>&& _cb, core::smart_refctd_ptr<system::ISystem>&& _sys, uint32_t _w = 0u, uint32_t _h = 0u, E_CREATE_FLAGS _flags = static_cast<E_CREATE_FLAGS>(0)) :
-        m_cb(std::move(_cb)), m_sys(std::move(_sys)), m_width(_w), m_height(_h), m_flags(_flags)
+    IWindow(SCreationParams&& params) :
+        m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_flags(params.flags)
     {
 
     }

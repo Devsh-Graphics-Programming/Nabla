@@ -18,8 +18,18 @@ protected:
 
 public:
     // TODO Any other common (not depending on event struct type) member functions?
+    enum E_TYPE
+    {
+        ET_MOUSE,
+        ET_KEYBOARD,
+        ET_MULTITOUCH,
+        ET_GAMEPAD,
+
+        ET_COUNT
+    };
 
     virtual bool empty() const = 0;
+    virtual E_TYPE getType() const = 0;
 };
 
 namespace impl
@@ -89,6 +99,12 @@ class IMouseEventChannel : public impl::IEventChannelBase<SMouseEvent>
 {
 protected:
     virtual ~IMouseEventChannel() = default;
+
+public:
+    E_TYPE getType() const override final
+    {
+        return ET_MOUSE;
+    }
 };
 
 struct SKeyboardEvent
@@ -100,6 +116,12 @@ class IKeyboardEventChannel : public impl::IEventChannelBase<SKeyboardEvent>
 {
 protected:
     virtual ~IKeyboardEventChannel() = default;
+
+public:
+    E_TYPE getType() const override final
+    {
+        return ET_KEYBOARD;
+    }
 };
 
 }

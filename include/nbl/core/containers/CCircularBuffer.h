@@ -15,18 +15,37 @@ namespace core
 namespace impl
 {
 
+class CCircularBufferCommonBase
+{
+protected:
+    using atomic_alive_flags_block_t = std::atomic_uint64_t;
+    static inline constexpr auto bits_per_flags_block = 8ull * sizeof(atomic_alive_flags_block_t::value_type);
+
+    constexpr static size_t numberOfFlagBlocksNeeded(size_t cap)
+    {
+        auto n_blocks = (cap + bits_per_flags_block - 1ull) / bits_per_flags_block;
+        return n_blocks;
+    }
+};
+
 template <typename T>
-class CRuntimeSizedCircularBufferBase
+class CConstantRuntimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
 protected:
     static constexpr inline auto Alignment = alignof(T);
 
-    explicit CRuntimeSizedCircularBufferBase(size_t cap) : m_mem(nullptr), m_capacity(cap)
+    explicit CConstantRuntimeSizedCircularBufferBase(size_t cap) : m_mem(nullptr), m_capacity(cap)
     {
         assert(core::isPoT(cap));
 
         const size_t s = sizeof(T) * m_capacity;
         m_mem = _NBL_ALIGNED_MALLOC(s, Alignment);
+        memset(m_mem, 0, s);
+
+        auto n_blocks = numberOfFlagBlocksNeeded(cap);
+        m_flags = std::make_unique<atomic_alive_flags_block_t>(n_blocks);
+        for (size_t i = 0u; i < n_blocks; ++i)
+            std::atomic_init(m_flags.get() + i, 0);
     }
 
     T* getStorage()
@@ -39,10 +58,15 @@ protected:
         return reinterpret_cast<const T*>(m_mem);
     }
 
+    const atomic_alive_flags_block_t* getAliveFlagsStorage() const
+    {
+        return m_flags.get();
+    }
+
 public:
     using type = T;
 
-    ~CRuntimeSizedCircularBufferBase()
+    ~CConstantRuntimeSizedCircularBufferBase()
     {
         if (m_mem)
         {
@@ -57,14 +81,17 @@ public:
 
 private:
     void* m_mem;
+    std::unique_ptr<atomic_alive_flags_block_t[]> m_flags;
     size_t m_capacity;
 };
 
 
 template <typename T, size_t S>
-class CCompileTimeSizedCircularBufferBase
+class CCompileTimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
     static_assert(core::isPoT(S), "Circular buffer capacity must be PoT!");
+
+    static constexpr inline auto StorageSize = sizeof(T) * S;
 
 protected:
     static constexpr inline auto Alignment = alignof(T);
@@ -79,10 +106,19 @@ protected:
         return reinterpret_cast<const T*>(m_mem);
     }
 
+    const atomic_alive_flags_block_t* getAliveFlagsStorage() const
+    {
+        return m_flags;
+    }
+
 public:
     using type = T;
 
-    CCompileTimeSizedCircularBufferBase() = default;
+    CCompileTimeSizedCircularBufferBase()
+    {
+        for (auto& a : m_flags)
+            std::atomic_init(&a, 0);
+    }
 
     constexpr size_t capacity() const
     {
@@ -90,17 +126,16 @@ public:
     }
 
 private:
-    static constexpr inline auto MemSize = sizeof(T) * S;
-
-    alignas(Alignment) uint8_t m_mem[MemSize];
+    alignas(Alignment) uint8_t m_mem[StorageSize] {};
+    atomic_alive_flags_block_t m_flags[CCircularBufferCommonBase::numberOfFlagBlocksNeeded(S)];
 };
 
 
-template <typename B>
-class CCircularBufferBase : public B
+template <typename Base, bool AllowOverflows = true>
+class CCircularBufferBase : public Base
 {
-    using this_type = CCircularBufferBase<B>;
-    using base_t = B;
+    using this_type = CCircularBufferBase<Base>;
+    using base_t = Base;
     using type = typename base_t::type;
 
     using atomic_counter_t = std::atomic_uint64_t;
@@ -110,25 +145,24 @@ class CCircularBufferBase : public B
     atomic_counter_t m_cb_end;
 
 protected:
-    constexpr static inline uint8_t UninitializedByte = 0xccU;
-    void markStorageAsUninitialized()
+    bool isAlive(uint32_t ix) const
     {
-        auto* storage = base_t::getStorage();
-        const size_t s = sizeof(type) * base_t::capacity();
-        memset(storage, UninitializedByte, s);
+        typename base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
+        const auto block_n = ix / base_t::bits_per_flags_block;
+        const auto block = flags[block_n].load();
+        const auto local_ix = ix & (base_t::bits_per_flags_block - 1u);
+
+        return (block >> local_ix) & static_cast<typename base_t::atomic_alive_flags_block_t::value_type>(1);
     }
-    bool isInitialized(const type* x) const
+    void flipAliveFlag(uint32_t ix)
     {
-        auto* xx = reinterpret_cast<const uint8_t*>(x);
-        for (size_t i = 0ull; i < sizeof(type); ++i)
-            if (xx[i] != UninitializedByte)
-                return true;
-        return false;
-    }
-    bool isInitialized(uint32_t ix) const
-    {
-        const type* x = getStorage() + ix;
-        return isInitialized(x);
+        const auto block_n = ix / base_t::bits_per_flags_block;
+        const auto local_ix = ix & (base_t::bits_per_flags_block - 1u);
+
+        auto val = static_cast<typename base_t::atomic_alive_flags_block_t::value_type>(1) << local_ix;
+
+        typename base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
+        flags[block_n].fetch_xor(val);
     }
 
 private:
@@ -139,32 +173,41 @@ private:
     }
 
     template <typename... Args>
-    void push_back_impl(Args&&... args)
+    type& push_back_impl(Args&&... args)
     {
         auto virtualIx = m_cb_end++;
-        auto safe_begin = virtualIx<base_t::capacity() ? static_cast<counter_t>(0) : (virtualIx-base_t::capacity()+1u);
 
-        for (counter_t old_begin; (old_begin = m_cb_begin.load()) < safe_begin; )
+        if constexpr (!AllowOverflows)
         {
+            auto safe_begin = virtualIx < base_t::capacity() ? static_cast<counter_t>(0) : (virtualIx - base_t::capacity() + 1u);
+            for (counter_t old_begin; (old_begin = m_cb_begin.load()) < safe_begin; )
+            {
 #if __cplusplus >= 202002L
-            m_cb_begin.wait(old_begin);
+                m_cb_begin.wait(old_begin);
 #else
-            std::this_thread::yield();
+                std::this_thread::yield();
 #endif
+            }
         }
 
         const auto ix = wrapAround(virtualIx);
 
         type* storage = base_t::getStorage() + ix;
-        if (isInitialized(storage))
+        const bool was_alive = isAlive(ix);
+        if (was_alive)
             storage->~type();
         new (storage) type(std::forward<Args>(args)...);
+        if (!was_alive)
+            flipAliveFlag(ix);
+
+        return *storage;
     }
 
 public:
     using base_t::base_t;
 
-    friend class iterator
+    friend class iterator;
+    class iterator
     {
         using difference_type = ptrdiff_t;
 
@@ -267,20 +310,36 @@ public:
         push_back_impl(std::move(a));
     }
     template <typename... Args>
-    void emplace_back(Args&&... args)
+    type& emplace_back(Args&&... args)
     {
-        push_back_impl(std::forward<Args>(args)...);
+        return push_back_impl(std::forward<Args>(args)...);
     }
 
-    type& pop_front()
+    type pop_front()
     {
-        counter_t ix = m_cb_begin++;
-#if __cplusplus >= 202002L
-        m_cb_begin.notify_one();
-#endif
+        counter_t ix = m_cb_begin.load();
         ix = wrapAround(ix);
+#ifdef _NBL_DEBUG
+        {
+            bool alive = isAlive(ix);
+            assert(alive);
+        }
+#endif
 
-        return base_t::getStorage()[ix];
+        type* storage = base_t::getStorage() + ix;
+        auto cp = std::move(*storage);
+        flipAliveFlag(ix);
+        storage->~type();
+
+        ++m_cb_begin;
+#if __cplusplus >= 202002L
+        if constexpr (!AllowOverflows)
+        {
+            m_cb_begin.notify_one();
+        }
+#endif
+
+        return cp;
     }
 
     // Using iterators is not thread-safe!
@@ -292,7 +351,7 @@ public:
     }
     iterator end()
     {
-        counter_t e = m_cb_end.load() + 1u;
+        counter_t e = m_cb_end.load();
         return iterator(e);
     }
 
@@ -304,27 +363,24 @@ public:
 
 }
 
-template <typename T, size_t S>
-class CCompileTimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>>
+template <typename T, size_t S, bool AllowOverflows = true>
+class CCompileTimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>, AllowOverflows>
 {
     using base_t = impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>>;
 
 public:
-    CCompileTimeSizedCircularBuffer()
-    {
-        base_t::markStorageAsUninitialized();
-    }
+    CCompileTimeSizedCircularBuffer() = default;
 };
 
-template <typename T>
-class CRunTimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CRunTimeSizedCircularBufferBase<T>>
+template <typename T, bool AllowOverflows = true>
+class CConstantRuntimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CConstantRuntimeSizedCircularBufferBase<T>, AllowOverflows>
 {
-    using base_t = impl::CCircularBufferBase<impl::CRunTimeSizedCircularBufferBase<T>>;
+    using base_t = impl::CCircularBufferBase<impl::CConstantRuntimeSizedCircularBufferBase<T>>;
 
 public:
-    explicit CRunTimeSizedCircularBuffer(size_t cap) : base_t(cap) 
+    explicit CConstantRuntimeSizedCircularBuffer(size_t cap) : base_t(cap)
     {
-        base_t::markStorageAsUninitialized();
+
     }
 };
 
