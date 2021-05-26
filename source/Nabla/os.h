@@ -12,7 +12,6 @@
 #include "irrString.h"
 #include "path.h"
 #include "ILogger.h"
-#include "ITimer.h"
 
 namespace nbl
 {

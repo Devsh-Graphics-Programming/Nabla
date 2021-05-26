@@ -49,7 +49,6 @@
 #include "ISceneNodeAnimatorCameraMaya.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "ISkinningStateManager.h"
-#include "ITimer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IVideoDriver.h"
 #include "IWriteFile.h"

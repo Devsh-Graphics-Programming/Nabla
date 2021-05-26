@@ -59,7 +59,6 @@
 #include "ISceneNodeAnimator.h"
 #include "ISceneNodeAnimatorCameraFPS.h"
 #include "ISceneNodeAnimatorCameraMaya.h"
-#include "ITimer.h"
 #include "IVideoDriver.h"
 #include "Keycodes.h"
 #include "splines.h"
