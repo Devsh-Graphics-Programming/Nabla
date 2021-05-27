@@ -407,9 +407,9 @@ public:
     {
         const uint32_t writeCount = getDSlayoutBindingsForUTB(nullptr);
         const uint32_t infoCount = 1u + // for the index buffer
-            m_virtualAttribConfig.uintArrayElementsCnt +
-            m_virtualAttribConfig.floatArrayElementsCnt +
-            m_virtualAttribConfig.intArrayElementsCnt;
+            getFloatBufferBindingsCnt() + 
+            getIntBufferBindingsCnt() + 
+            getUintBufferBindingsCnt();
         if (!outWrites || !outInfo)
             return std::make_pair(writeCount, infoCount);
 
@@ -446,21 +446,21 @@ public:
             write++;
         };
 
-        writeBinding(params.usamplersBinding,1u+m_virtualAttribConfig.uintArrayElementsCnt);
-        if (m_virtualAttribConfig.uintArrayElementsCnt)
+        writeBinding(params.usamplersBinding, 1u + getUintBufferBindingsCnt());
+        if (getUintBufferBindingsCnt())
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_UINT);
         info->desc = createBufferView(core::smart_refctd_ptr(m_packerDataStore.indexBuffer),EF_R16_UINT);
         info->buffer.offset = 0u;
         info->buffer.size = m_packerDataStore.indexBuffer->getSize();
         info++;
-        if (m_virtualAttribConfig.floatArrayElementsCnt)
+        if (getFloatBufferBindingsCnt())
         {
-            writeBinding(params.fsamplersBinding,m_virtualAttribConfig.floatArrayElementsCnt);
+            writeBinding(params.fsamplersBinding, getFloatBufferBindingsCnt());
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_FLOAT);
         }
-        if (m_virtualAttribConfig.intArrayElementsCnt)
+        if (getIntBufferBindingsCnt())
         {
-            writeBinding(params.isamplersBinding,m_virtualAttribConfig.intArrayElementsCnt);
+            writeBinding(params.isamplersBinding, getIntBufferBindingsCnt());
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_INT);
         }
 
