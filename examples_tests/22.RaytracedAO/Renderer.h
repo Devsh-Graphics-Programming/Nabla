@@ -112,19 +112,14 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		// persistent (intialized in constructor
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_cullDSLayout;
-
-		nbl::core::smart_refctd_ptr<nbl::asset::ICPUSpecializedShader> m_visibilityBufferFillShaders[2];
-		nbl::core::smart_refctd_ptr<nbl::asset::ICPUPipelineLayout> m_visibilityBufferFillPipelineLayoutCPU;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
 		nbl::core::smart_refctd_ptr<const nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
-
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_additionalGlobalDSLayout,m_commonRaytracingDSLayout,m_raygenDSLayout,m_resolveDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> m_visibilityBufferFillPipeline;
 
 
 		// scene specific data
-		nbl::ext::RadeonRays::MockSceneManager m_mock_smgr;
-		nbl::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
-		nbl::ext::RadeonRays::Manager::NblInstanceRRInstanceCache rrInstances;
+		nbl::core::vector<::RadeonRays::Shape*> rrShapes;
+		nbl::core::vector<::RadeonRays::Shape*> rrInstances;
 
 		nbl::core::matrix3x4SIMD m_prevView;
 		nbl::core::aabbox3df m_sceneBound;
@@ -132,13 +127,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
 
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indexBuffer;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indirectDrawBuffers[2];
 		struct MDICall
 		{
-			nbl::asset::SBufferBinding<const nbl::video::IGPUBuffer> vertexBindings[nbl::video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-			nbl::core::smart_refctd_ptr<const nbl::video::IGPUBuffer> indexBuffer;
-			nbl::core::smart_refctd_ptr<const nbl::video::IGPURenderpassIndependentPipeline> pipeline;
-			uint32_t mdiOffset, mdiCount;
+			uint32_t mdiOffset,mdiCount;
 		};
 		nbl::core::vector<MDICall> m_mdiDrawCalls;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_cullDS;

@@ -50,7 +50,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#ifdef _NBL_BUILD_OPTIX_
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
-		rrShapeCache(), rrInstances(), m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
+		m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_maxRaysPerDispatch(0), m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},
 		m_raytraceCommonData{core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
@@ -80,36 +80,34 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		break;
 	}
 
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpu_additionalGlobalDSLayout;
+	// set up Visibility Buffer pipeline
 	{
 		constexpr auto additionalGlobalDescriptorCount = 7u;
 		IGPUDescriptorSetLayout::SBinding bindings[additionalGlobalDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_FRAGMENT,additionalGlobalDescriptorCount,asset::EDT_STORAGE_BUFFER);
 
-		cpu_additionalGlobalDSLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(reinterpret_cast<ICPUDescriptorSetLayout::SBinding*>(bindings),reinterpret_cast<ICPUDescriptorSetLayout::SBinding*>(bindings)+additionalGlobalDescriptorCount);
 		m_additionalGlobalDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+additionalGlobalDescriptorCount);
 	}
-
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpu_cullDSLayout;
 	{
 		constexpr auto cullingDescriptorCount = 3u;
 		IGPUDescriptorSetLayout::SBinding bindings[cullingDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_VERTEX,cullingDescriptorCount,asset::EDT_STORAGE_BUFFER);
 		bindings[2u].count = 2u;
 
-		cpu_cullDSLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(reinterpret_cast<ICPUDescriptorSetLayout::SBinding*>(bindings),reinterpret_cast<ICPUDescriptorSetLayout::SBinding*>(bindings)+cullingDescriptorCount);
 		m_cullDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+cullingDescriptorCount);
 	}
-
-	m_visibilityBufferFillShaders[0] = specializedShaderFromFile(m_assetManager,"../fillVisBuffer.vert");
-	m_visibilityBufferFillShaders[1] = specializedShaderFromFile(m_assetManager,"../fillVisBuffer.frag");
+	auto _visibilityBufferFillPipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_additionalGlobalDSLayout),core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
+	m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(_visibilityBufferFillPipelineLayout->getDescriptorSetLayout(1u));
 	{
-		m_visibilityBufferFillPipelineLayoutCPU = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,std::move(cpu_additionalGlobalDSLayout),std::move(cpu_cullDSLayout),nullptr,nullptr);
-
-		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
-		//m_visibilityBufferFillPipelineLayoutGPU = std::move(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
-		m_visibilityBufferFillPipelineLayoutGPU = core::smart_refctd_ptr(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
-		m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(m_visibilityBufferFillPipelineLayoutGPU->getDescriptorSetLayout(1u));
+		core::smart_refctd_ptr<IGPUSpecializedShader> shaders[] = {gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../fillVisBuffer.vert"),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../fillVisBuffer.frag")};
+		SPrimitiveAssemblyParams primitiveAssembly;
+		primitiveAssembly.primitiveType = EPT_TRIANGLE_LIST;
+		SRasterizationParams raster;
+		raster.faceCullingMode = EFCM_NONE;
+		auto pipeline = m_driver->createGPURenderpassIndependentPipeline(
+			nullptr,std::move(_visibilityBufferFillPipelineLayout),&shaders->get(),&shaders->get()+2u,
+			SVertexInputParams{},SBlendParams{},primitiveAssembly,raster
+		);
 	}
 	
 	{
@@ -178,67 +176,27 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	assert(retval.globalMeta);
 	auto* _globalBackendDataDS = retval.globalMeta->m_global.m_ds0.get();
 
-	auto instanceDataDesc = _globalBackendDataDS->getDescriptors(5u).begin()->desc;
-	assert(instanceDataDesc->getTypeCategory()==IDescriptor::EC_BUFFER);
-	auto* instanceData = reinterpret_cast<const ext::MitsubaLoader::instance_data_t*>(static_cast<ICPUBuffer*>(instanceDataDesc.get())->getPointer());
+	auto* instanceDataDescPtr = _globalBackendDataDS->getDescriptors(5u).begin();
+	assert(instanceDataDescPtr->desc->getTypeCategory()==IDescriptor::EC_BUFFER);
+	auto* origInstanceData = reinterpret_cast<const ext::MitsubaLoader::instance_data_t*>(static_cast<ICPUBuffer*>(instanceDataDescPtr->desc.get())->getPointer());
 
 	// make secondary (geometry) DS
 	m_additionalGlobalDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_additionalGlobalDSLayout));
-	
+
+	// one cull data per instace of a batch
 	core::vector<CullData_t> cullData;
-	core::vector<std::pair<core::smart_refctd_ptr<IGPUMeshBuffer>,uint32_t>> gpuMeshBuffers;
 	{
-		core::vector<const ICPUMesh*> meshesToProcess;
-		core::vector<const ICPUMeshBuffer*> meshBuffersToProcess;
-		core::vector<ICPUMeshBuffer*> _meshBuffersToProcess;
+		auto* rr = m_rrManager->getRadeonRaysAPI();
+		// set up batches/meshlets, lights and culling data
 		{
 			auto contents = meshes.getContents();
 
-			ICPUSpecializedShader* shaders[] = { m_visibilityBufferFillShaders[0].get(),m_visibilityBufferFillShaders[1].get() };
-
-			struct VisibilityBufferPipelineKey
-			{
-				inline bool operator==(const VisibilityBufferPipelineKey& other) const
-				{
-					return vertexParams == other.vertexParams && frontFaceIsCCW == other.frontFaceIsCCW;
-				}
-
-				SVertexInputParams vertexParams;
-				uint8_t frontFaceIsCCW;
-			};
-			struct VisibilityBufferPipelineKeyHash
-			{
-				inline std::size_t operator()(const VisibilityBufferPipelineKey& key) const
-				{
-					std::basic_string_view view(reinterpret_cast<const char*>(&key), sizeof(key));
-					return std::hash<decltype(view)>()(view);
-				}
-			};
-			core::unordered_map<VisibilityBufferPipelineKey,core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>,VisibilityBufferPipelineKeyHash> visibilityBufferFillPipelines;
-
-			{
-				meshesToProcess.reserve(contents.size());
-				meshBuffersToProcess.reserve(contents.size());
-
-				uint32_t drawableCount = 0u; // TODO: redo
-				for (const auto& asset : contents)
-				{
-					auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
-					auto meshBuffers = cpumesh->getMeshBuffers();
-					assert(!meshBuffers.empty());
-
-					auto& meshbuffers = cpumesh->getMeshBufferVector();
-					for (auto mbIt = meshbuffers.begin(); mbIt!=meshbuffers.end(); mbIt++)
-						meshBuffersToProcess.push_back(mbIt->get());
-
-					meshesToProcess.push_back(cpumesh);
-
-					drawableCount += meshBuffers.size()*retval.globalMeta->getAssetSpecificMetadata(cpumesh)->m_instances.size(); // TODO: redo
-				}
-				cullData.resize(drawableCount); // TODO: redo
-			}
+			core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd;
 			// split into packed batches
 			{
+				// one instance data per instance of a batch
+				core::smart_refctd_ptr<ICPUBuffer> newInstanceDataBuffer;
+
 				constexpr uint16_t minTrisBatch = 256u; 
 				constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
 				constexpr uint8_t minVertexSize = 
@@ -258,221 +216,206 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
     
 				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
-
-				core::vector<CPUMeshPacker::ReservedAllocationMeshBuffers> allocData(cpump->calcMDIStructMaxCount(meshBuffersToProcess.begin(),meshBuffersToProcess.end()));
-				printf("%d\n",allocData.size());
-				cpump->alloc(allocData.data(),meshBuffersToProcess.begin(),meshBuffersToProcess.end());
-				cpump->shrinkOutputBuffersSize();
-			}
-			auto cullDataIt = cullData.begin();
-			for (const auto& asset : contents)
-			{
-				auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
-				const auto* meta = retval.globalMeta->getAssetSpecificMetadata(cpumesh);
-				const auto& instanceData = meta->m_instances;
-				const auto& instanceAuxData = meta->m_instanceAuxData;
-
-				auto cullDataBaseBegin = cullDataIt;
-				auto meshBuffers = cpumesh->getMeshBuffers();
-				for (auto cpumb : meshBuffers)
+				uint32_t mdiBoundMax=0u,batchInstanceBoundTotal=0u;
+				core::vector<CPUMeshPacker::ReservedAllocationMeshBuffers> allocData;
+				// virtually allocate and size the storage
 				{
-					assert(cpumb->getInstanceCount()==instanceData.size());
-
-					// set up Visibility Buffer pipelines
+					core::vector<const ICPUMeshBuffer*> meshBuffersToProcess;
+					meshBuffersToProcess.reserve(contents.size());
+					for (const auto& asset : contents)
 					{
-						auto oldPipeline = cpumb->getPipeline();
-						auto vertexInputParams = oldPipeline->getVertexInputParams();
-						const bool frontFaceIsCCW = oldPipeline->getRasterizationParams().frontFaceIsCCW;
-						auto found = visibilityBufferFillPipelines.find(VisibilityBufferPipelineKey{ vertexInputParams,frontFaceIsCCW });
+						auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
+						auto meshBuffers = cpumesh->getMeshBuffers();
 
-						core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> newPipeline;
-						if (found != visibilityBufferFillPipelines.end())
-							newPipeline = core::smart_refctd_ptr(found->second);
-						else
-						{
-							vertexInputParams.enabledAttribFlags &= 0b1101u;
-							asset::SPrimitiveAssemblyParams assemblyParams;
-							assemblyParams.primitiveType = oldPipeline->getPrimitiveAssemblyParams().primitiveType;
-							asset::SRasterizationParams rasterParams;
-							rasterParams.faceCullingMode = EFCM_NONE;
-							rasterParams.frontFaceIsCCW = !frontFaceIsCCW; // compensate for Nabla's default camer being left handed
-							newPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-								core::smart_refctd_ptr(m_visibilityBufferFillPipelineLayoutCPU), shaders, shaders + 2u,
-								vertexInputParams, asset::SBlendParams{}, assemblyParams, rasterParams
-								);
-							visibilityBufferFillPipelines.emplace(VisibilityBufferPipelineKey{ vertexInputParams,frontFaceIsCCW }, core::smart_refctd_ptr(newPipeline));
-						}
-						cpumb->setPipeline(std::move(newPipeline));
+						assert(!meshBuffers.empty());
+						const uint32_t instanceCount = (*meshBuffers.begin())->getInstanceCount();
+						for (auto mbIt=meshBuffers.begin(); mbIt!=meshBuffers.end(); mbIt++)
+							assert((*mbIt)->getInstanceCount()==instanceCount);
+
+						const uint32_t mdiBound = cpump->calcMDIStructMaxCount(meshBuffers.begin(),meshBuffers.end());
+						mdiBoundMax = core::max(mdiBound,mdiBoundMax);
+						batchInstanceBoundTotal += mdiBound*instanceCount;
+
+						meshBuffersToProcess.insert(meshBuffersToProcess.end(),meshBuffers.begin(),meshBuffers.end());
 					}
+					allocData.resize(meshBuffersToProcess.size());
 
-					CullData_t& baseCullData = *(cullDataIt++);
-					{
-						const auto aabbOriginal = cpumb->getBoundingBox();
-						baseCullData.aabbMinEdge.x = aabbOriginal.MinEdge.X;
-						baseCullData.aabbMinEdge.y = aabbOriginal.MinEdge.Y;
-						baseCullData.aabbMinEdge.z = aabbOriginal.MinEdge.Z;
-						baseCullData.globalObjectID = cpumb->getBaseInstance();
-						baseCullData.aabbMaxEdge.x = aabbOriginal.MaxEdge.X;
-						baseCullData.aabbMaxEdge.y = aabbOriginal.MaxEdge.Y;
-						baseCullData.aabbMaxEdge.z = aabbOriginal.MaxEdge.Z;
-						baseCullData.drawID = _meshBuffersToProcess.size();
-					}
+					cpump->alloc(allocData.data(),meshBuffersToProcess.begin(),meshBuffersToProcess.end());
+					cpump->shrinkOutputBuffersSize();
+					cpump->instantiateDataStorage();
 
-					_meshBuffersToProcess.push_back(cpumb);
+					pmbd.resize(meshBuffersToProcess.size());
+					cullData.reserve(batchInstanceBoundTotal);
+
+					newInstanceDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ext::MitsubaLoader::instance_data_t)*batchInstanceBoundTotal);
 				}
-
-				// set up scene bounds and lights
-				const auto aabbOriginal = cpumesh->getBoundingBox();
-				for (auto j=0u; j<instanceData.size(); j++)
+				// actually commit the physical memory, compute batches and set up instance data
 				{
-					const auto& worldTform = instanceData.begin()[j].worldTform;
-					const auto& aux = instanceAuxData.begin()[j];
+					auto allocDataIt = allocData.begin();
+					auto pmbdIt = pmbd.begin();
+					auto* indexPtr = reinterpret_cast<const uint16_t*>(cpump->getPackerDataStore().indexBuffer->getPointer());
+					auto* vertexPtr = reinterpret_cast<const float*>(cpump->getPackerDataStore().vertexBuffer->getPointer());
+					auto* mdiPtr = reinterpret_cast<DrawElementsIndirectCommand_t*>(cpump->getPackerDataStore().MDIDataBuffer->getPointer());
+					auto* newInstanceData = reinterpret_cast<ext::MitsubaLoader::instance_data_t*>(newInstanceDataBuffer->getPointer());
 
-					ext::RadeonRays::MockSceneManager::ObjectData objectData;
+					constexpr uint32_t kIndicesPerTriangle = 3u;
+					core::vector<CPUMeshPacker::CombinedDataOffsetTable> cdot(mdiBoundMax);
+					MDICall* mdiCall = nullptr;
+					core::vector<int32_t> fatIndicesForRR(maxTrisBatch*kIndicesPerTriangle);
+					for (const auto& asset : contents)
 					{
-						objectData.tform = worldTform;
-						objectData.mesh = nullptr;
-						objectData.instanceGUIDPerMeshBuffer.reserve(meshBuffers.size());
-						for (auto src=cullDataBaseBegin; src!=cullDataIt; src++)
+						auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
+						const auto* meta = retval.globalMeta->getAssetSpecificMetadata(cpumesh);
+						const auto& instanceData = meta->m_instances;
+						const auto& instanceAuxData = meta->m_instanceAuxData;
+
+						auto meshBuffers = cpumesh->getMeshBuffers();
+						const uint32_t actualMdiCnt = cpump->commit(&*pmbdIt,cdot.data(),&*allocDataIt,meshBuffers.begin(),meshBuffers.end());
+						allocDataIt += meshBuffers.size();
+						if (actualMdiCnt==0u)
 						{
-							auto dst = src+j*meshBuffers.size();
-							*dst = *src;
-							dst->globalObjectID += j;
-							objectData.instanceGUIDPerMeshBuffer.push_back(dst->globalObjectID);
-						}
-					}
-					m_mock_smgr.m_objectData.push_back(std::move(objectData));
-
-					m_sceneBound.addInternalBox(core::transformBoxEx(aabbOriginal,worldTform));
-
-					auto emitter = aux.frontEmitter;
-					if (emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
-					{
-						assert(emitter.type == ext::MitsubaLoader::CElementEmitter::Type::AREA);
-
-						SLight newLight(aabbOriginal,worldTform); // TODO: should be an OBB
-
-						const float weight = newLight.computeFluxBound(emitter.area.radiance)*emitter.area.samplingWeight;
-						if (weight <= FLT_MIN)
+							std::cout << "Commit failed" << std::endl;
+							_NBL_DEBUG_BREAK_IF(true);
+							pmbdIt += meshBuffers.size();
 							continue;
+						}
 
-						retval.lights.emplace_back(std::move(newLight));
-						retval.lightRadiances.push_back(emitter.area.radiance);
-						retval.lightPDF.push_back(weight);
+						const auto aabbMesh = cpumesh->getBoundingBox();
+						// meshbuffers
+						auto cdotIt = cdot.begin();
+						for (auto mb : meshBuffers)
+						{
+							assert(mb->getInstanceCount()==instanceData.size());
+							const auto posAttrID = mb->getPositionAttributeIx();
+							const auto* mbInstanceData = origInstanceData+mb->getBaseInstance();
+							const bool frontFaceIsCCW = mb->getPipeline()->getRasterizationParams().frontFaceIsCCW;
+							// batches/meshlets
+							for (auto i=0u; i<pmbdIt->mdiParameterCount; i++)
+							{
+								const uint32_t drawCommandGUID = pmbdIt->mdiParameterOffset+i;
+								mdiPtr[drawCommandGUID].baseInstance = cullData.size();
+								mdiPtr[drawCommandGUID].instanceCount = 0; // needs to be cleared, will be set by compute culling
+
+								// set up BLAS
+								const auto indexCount = mdiPtr[drawCommandGUID].count;
+								std::copy_n(indexPtr+mdiPtr[drawCommandGUID].firstIndex,indexCount,fatIndicesForRR.data());
+								rrShapes.emplace_back() = rr->CreateMesh(
+									vertexPtr+cdotIt->attribInfo[posAttrID].getOffset(),
+									mdiPtr[drawCommandGUID].count, // could be improved if mesh packer returned the `usedVertices.size()` for every batch in the cdot
+									asset::getTexelOrBlockBytesize<asset::EF_R32G32B32_SFLOAT>(),
+									fatIndicesForRR.data(),
+									sizeof(uint32_t)*kIndicesPerTriangle,nullptr, // radeon rays understands index stride differently to me
+									indexCount/kIndicesPerTriangle
+								);
+
+								const auto normalAttrID = 3u;// mb->getNormalAttributeIx();
+								const auto thisShapeInstancesBeginIx = rrInstances.size();
+								const auto& batchAABB = mb->getBoundingBox();// TODO: replace with batch AABB
+								for (auto auxIt=instanceAuxData.begin(); auxIt!=instanceAuxData.end(); auxIt++)
+								{
+									constexpr auto UVAttributeIx = 2;
+									const auto batchInstanceGUID = cullData.size();
+
+									const auto instanceID = std::distance(instanceAuxData.begin(),auxIt);
+									*newInstanceData = mbInstanceData[instanceID];
+									assert(instanceData.begin()[instanceID].worldTform==newInstanceData->tform);
+									newInstanceData->padding0 = reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[posAttrID]);
+									newInstanceData->padding1 = reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[normalAttrID]);
+									newInstanceData->determinantSignBit = core::bitfieldInsert(
+										newInstanceData->determinantSignBit,
+										reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[UVAttributeIx]),
+										0u,31u
+									);
+									if (frontFaceIsCCW) // compensate for Nabla's default camer being left handed (verify)
+										newInstanceData->determinantSignBit ^= 0x80000000u;
+
+									auto& c = cullData.emplace_back();
+									c.aabbMinEdge.x = batchAABB.MinEdge.X;
+									c.aabbMinEdge.y = batchAABB.MinEdge.Y;
+									c.aabbMinEdge.z = batchAABB.MinEdge.Z;
+									c.batchInstanceGUID = batchInstanceGUID;
+									c.aabbMaxEdge.x = batchAABB.MaxEdge.X;
+									c.aabbMaxEdge.y = batchAABB.MaxEdge.Y;
+									c.aabbMaxEdge.z = batchAABB.MaxEdge.Z;
+									c.drawCommandGUID = drawCommandGUID;
+
+									rrInstances.emplace_back() = rr->CreateInstance(rrShapes.back());
+									rrInstances.back()->SetId(batchInstanceGUID);
+									ext::RadeonRays::Manager::shapeSetTransform(rrInstances.back(),newInstanceData->tform);
+
+									// set up scene bounds and lights
+									if (i==0u)
+									{
+										if (mb==*meshBuffers.begin())
+											m_sceneBound.addInternalBox(core::transformBoxEx(aabbMesh,newInstanceData->tform));
+										auto emitter = auxIt->frontEmitter;
+										if (emitter.type!=ext::MitsubaLoader::CElementEmitter::Type::INVALID)
+										{
+											assert(emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
+
+											SLight newLight(aabbMesh,newInstanceData->tform); // TODO: should be an OBB
+
+											const float weight = newLight.computeFluxBound(emitter.area.radiance)*emitter.area.samplingWeight;
+											if (weight<=FLT_MIN)
+												continue;
+
+											retval.lights.emplace_back(std::move(newLight));
+											retval.lightRadiances.push_back(emitter.area.radiance);
+											retval.lightPDF.push_back(weight);
+										}
+									}
+
+									newInstanceData++;
+								}
+								for (auto j=thisShapeInstancesBeginIx; j!=rrInstances.size(); j++)
+									rr->AttachShape(rrInstances[j]);
+								cdotIt++;
+							}
+							//
+							if (!mdiCall || pmbdIt->mdiParameterOffset!=mdiCall->mdiOffset+mdiCall->mdiCount)
+							{
+								mdiCall = &m_mdiDrawCalls.emplace_back();
+								mdiCall->mdiOffset = pmbdIt->mdiParameterOffset;
+								mdiCall->mdiCount = 0u;
+							}
+							mdiCall->mdiCount += pmbdIt->mdiParameterCount;
+							//
+							pmbdIt++;
+						}
 					}
 				}
-			}
-		}
-
-		// this wont get rid of identical pipelines
-		IMeshManipulator::homogenizePrimitiveTypeAndIndices(_meshBuffersToProcess.begin(),_meshBuffersToProcess.end(),EPT_TRIANGLE_LIST);
-		// set up BLAS
-		m_rrManager->makeRRShapes(rrShapeCache,_meshBuffersToProcess.begin(),_meshBuffersToProcess.end());
-
-		// convert to GPU objects
-		auto gpuMeshes = m_driver->getGPUObjectsFromAssets(meshesToProcess.data(),meshesToProcess.data()+meshesToProcess.size());
-		{
-			auto objectDataIt = m_mock_smgr.m_objectData.begin();
-			for (auto i=0u; i<gpuMeshes->size(); i++)
-			{
-				const auto instanceCount = retval.globalMeta->getAssetSpecificMetadata(meshesToProcess[i])->m_instances.size();
-				for (size_t j=0u; j<instanceCount; j++)
-					(objectDataIt++)->mesh = gpuMeshes->operator[](i);
-			}
-		}
-		// there should be usually no conversion going on here, just cache retrieval, we just do it to later sort by pipeline
-		auto gpuObjs = m_driver->getGPUObjectsFromAssets(_meshBuffersToProcess.data(),_meshBuffersToProcess.data()+_meshBuffersToProcess.size());
-		gpuMeshBuffers.resize(gpuObjs->size());
-		for (auto i=0u; i<gpuObjs->size(); i++)
-			gpuMeshBuffers[i] = {core::smart_refctd_ptr(gpuObjs->operator[](i)),i};
-		std::sort(	gpuMeshBuffers.begin(), gpuMeshBuffers.end(),
-					[](const auto& lhs, const auto& rhs) -> bool
-					{
-						return std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(lhs)->getPipeline()<std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(rhs)->getPipeline();
-					}
-		);
-
-		// set up Radeon Rays instances and TLAS
-		{
-			core::vector<ext::RadeonRays::MockSceneManager::ObjectGUID> ids(m_mock_smgr.m_objectData.size());
-			std::iota(ids.begin(),ids.end(),0u);
-			m_rrManager->makeRRInstances(rrInstances, &m_mock_smgr, rrShapeCache, m_assetManager, ids.begin(), ids.end());
-			m_rrManager->attachInstances(rrInstances.begin(), rrInstances.end());
-		}
-	}
-
-	core::vector<DrawElementsIndirectCommand_t> mdiData;
-	{
-		core::vector<uint32_t> meshbufferIDToDrawID(gpuMeshBuffers.size());
-		{
-			MDICall call;
-			auto initNewMDI = [&call](const core::smart_refctd_ptr<IGPUMeshBuffer>& gpumb) -> void
-			{
-				std::copy(gpumb->getVertexBufferBindings(),gpumb->getVertexBufferBindings()+IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,call.vertexBindings);
-				call.indexBuffer = core::smart_refctd_ptr(gpumb->getIndexBufferBinding().buffer);
-				call.pipeline = core::smart_refctd_ptr<const IGPURenderpassIndependentPipeline>(gpumb->getPipeline());
-			};
-			initNewMDI(std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(gpuMeshBuffers.front()));
-			call.mdiOffset = 0u;
-			call.mdiCount = 0u;
-			auto queueUpMDI = [&](const MDICall& call) -> void
-			{
-				m_mdiDrawCalls.emplace_back(call);
-			};
-			uint32_t drawBaseInstance = 0u;
-			for (const auto& item : gpuMeshBuffers)
-			{
-				const auto gpumb = std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(item);
-
-				const uint32_t drawID = mdiData.size();
-				meshbufferIDToDrawID[std::get<uint32_t>(item)] = drawID;
-
-				mdiData.emplace_back(DrawElementsIndirectCommand_t{
-					static_cast<uint32_t>(gpumb->getIndexCount()), // pretty sure index count should be a uint32_t
-					0u,
-					static_cast<uint32_t>(gpumb->getIndexBufferBinding().offset/sizeof(uint32_t)),
-					static_cast<uint32_t>(gpumb->getBaseVertex()), // pretty sure base vertex should be a uint32_t
-					drawBaseInstance
-				});
-				drawBaseInstance += gpumb->getInstanceCount();
-
-				bool haveToBreakMDI = false;
-				if (gpumb->getPipeline()!=call.pipeline.get())
-					haveToBreakMDI = true;
-				if (!std::equal(call.vertexBindings,call.vertexBindings+IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,gpumb->getVertexBufferBindings()))
-					haveToBreakMDI = true;
-				if (gpumb->getIndexBufferBinding().buffer!=call.indexBuffer)
-					haveToBreakMDI = true;
-				if (haveToBreakMDI)
+				instanceDataDescPtr->buffer = {0u,newInstanceDataBuffer->getSize()};
+				instanceDataDescPtr->desc = std::move(newInstanceDataBuffer);
 				{
-					queueUpMDI(call);
-					initNewMDI(gpumb);
-					call.mdiOffset = drawID*sizeof(DrawElementsIndirectCommand_t);
-					call.mdiCount = 1u;
+					auto gpump = core::make_smart_refctd_ptr<GPUMeshPacker>(m_driver,cpump.get());
+					m_indexBuffer = gpump->getPackerDataStore().indexBuffer;
+					m_indirectDrawBuffers[0] = gpump->getPackerDataStore().MDIDataBuffer;
+					const auto mdiBufferSize = m_indirectDrawBuffers[0]->getSize();
+					m_indirectDrawBuffers[1] = m_driver->createDeviceLocalGPUBufferOnDedMem(mdiBufferSize);
+					m_driver->copyBuffer(m_indirectDrawBuffers[0].get(),m_indirectDrawBuffers[1].get(),0u,0u,mdiBufferSize);
 				}
-				else
-					call.mdiCount++;
 			}
-			queueUpMDI(call);
+			m_cullPushConstants.maxDrawCommandCount = pmbd.back().mdiParameterOffset+pmbd.back().mdiParameterCount;
+			m_cullPushConstants.maxGlobalInstanceCount = cullData.size();
 		}
-		for (auto& cull : cullData)
-			cull.drawID = meshbufferIDToDrawID[cull.drawID];
+
+		// build TLAS with up to date transformations of instances
+		rr->Commit();
 	}
+
 	m_cullPushConstants.currentCommandBufferIx = 0x0u;
-	m_cullPushConstants.maxDrawCount = mdiData.size();
-	m_cullPushConstants.maxObjectCount = cullData.size();
-	m_cullWorkGroups = (m_cullPushConstants.maxObjectCount-1u)/WORKGROUP_SIZE+1u;
+	m_cullWorkGroups = (m_cullPushConstants.maxGlobalInstanceCount-1u)/WORKGROUP_SIZE+1u;
 
 	m_cullDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_cullDSLayout));
 	m_perCameraRasterDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_perCameraRasterDSLayout));
 	{
 		IGPUDescriptorSet::SDescriptorInfo infos[4];
 		
-		infos[0].buffer.size = m_cullPushConstants.maxObjectCount*sizeof(DrawData_t);
+		infos[0].buffer.size = m_cullPushConstants.maxGlobalInstanceCount*sizeof(DrawData_t);
 		infos[0].buffer.offset = 0u;
 		infos[0].desc = m_driver->createDeviceLocalGPUBufferOnDedMem(infos[0].buffer.size);
 		
-		infos[1].buffer.size = m_cullPushConstants.maxObjectCount*sizeof(CullData_t);
+		infos[1].buffer.size = m_cullPushConstants.maxGlobalInstanceCount*sizeof(CullData_t);
 		infos[1].buffer.offset = 0u;
 		infos[1].desc = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(infos[1].buffer.size,cullData.data());
 		cullData.clear();
@@ -480,11 +423,10 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		for (auto offset=2u,i=0u; i<2u; i++)
 		{
 			auto j = i+offset;
-			infos[j].buffer.size = mdiData.size()*sizeof(DrawElementsIndirectCommand_t);
+			infos[j].buffer.size = m_indirectDrawBuffers[i]->getSize();
 			infos[j].buffer.offset = 0u;
-			infos[j].desc = core::smart_refctd_ptr(m_indirectDrawBuffers[i] = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(infos[j].buffer.size,mdiData.data()));
+			infos[j].desc = m_indirectDrawBuffers[i];
 		}
-		mdiData.clear();
 		
 		IGPUDescriptorSet::SWriteDescriptorSet commonWrites[3];
 		for (auto i=0u; i<3u; i++)
@@ -1039,6 +981,7 @@ void Renderer::deinit()
 	m_cullDS = nullptr;
 	m_mdiDrawCalls.clear();
 	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
+	m_indexBuffer = nullptr;
 
 	m_raytraceCommonData = {core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
@@ -1046,13 +989,17 @@ void Renderer::deinit()
 	std::fill_n(m_prevView.pointer(),12u,0.f);
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
-	m_rrManager->detachInstances(rrInstances.begin(),rrInstances.end());
-	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
+	auto rr = m_rrManager->getRadeonRaysAPI();
+	rr->DetachAll();
+	for (auto instance : rrInstances)
+	{
+		rr->DeleteShape(instance);
+	}
 	rrInstances.clear();
-	m_mock_smgr = {};
 
-	m_rrManager->deleteShapes(rrShapeCache.m_gpuAssociative.begin(), rrShapeCache.m_gpuAssociative.end()); // or CPU assoc?
-	rrShapeCache = {};
+	for (auto shape : rrShapes)
+		rr->DeleteShape(shape);
+	rrShapes.clear();
 }
 
 // one day it will just work like that
@@ -1060,9 +1007,8 @@ void Renderer::deinit()
 
 void Renderer::render(nbl::ITimer* timer)
 {
-	if (m_cullPushConstants.maxObjectCount==0u)
+	if (m_cullPushConstants.maxGlobalInstanceCount==0u)
 		return;
-
 
 	auto camera = m_smgr->getActiveCamera();
 	camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(timer->getTime()).count());
@@ -1150,14 +1096,19 @@ void Renderer::render(nbl::ITimer* timer)
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, zero);
 		}
+		m_driver->bindGraphicsPipeline(m_visibilityBufferFillPipeline.get());
 		{
 			IGPUDescriptorSet* descriptorSets[] = { m_additionalGlobalDS.get(),m_cullDS.get() };
-			m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipelineLayoutGPU.get(),0u,2u,descriptorSets,nullptr);
+			m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipeline->getLayout(),0u,2u,descriptorSets,nullptr);
 		}
 		for (const auto& call : m_mdiDrawCalls)
 		{
-			m_driver->bindGraphicsPipeline(call.pipeline.get());
-			m_driver->drawIndexedIndirect(call.vertexBindings,EPT_TRIANGLE_LIST,EIT_32BIT,call.indexBuffer.get(),m_indirectDrawBuffers[m_cullPushConstants.currentCommandBufferIx].get(),call.mdiOffset,call.mdiCount,sizeof(DrawElementsIndirectCommand_t));
+			const asset::SBufferBinding<IGPUBuffer> nullBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
+			m_driver->drawIndexedIndirect(
+				nullBindings,EPT_TRIANGLE_LIST,EIT_32BIT,m_indexBuffer.get(),
+				m_indirectDrawBuffers[m_cullPushConstants.currentCommandBufferIx].get(),
+				call.mdiOffset,call.mdiCount,sizeof(DrawElementsIndirectCommand_t)
+			);
 		}
 		// flip MDI buffers
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
@@ -1180,8 +1131,7 @@ void Renderer::render(nbl::ITimer* timer)
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 
-	// do radeon rays
-	m_rrManager->update(&m_mock_smgr,rrInstances.begin(),rrInstances.end());
+	// TODO: update positions and rr->Commit() if stuff starts to move
 	if (m_rrManager->hasImplicitCL2GLSync())
 		glFlush();
 	else
