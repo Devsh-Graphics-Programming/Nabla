@@ -644,6 +644,8 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	mb->setIndexType(_data.indexType);
 	mb->setBoundingBox(_data.bbox);
 	mb->setPipeline(std::move(pipeline));
+	constexpr auto NORMAL_ATTRIBUTE = 3;
+	mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
 
 	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
 	mesh->getMeshBufferVector().push_back(std::move(mb));
