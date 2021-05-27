@@ -104,7 +104,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		primitiveAssembly.primitiveType = EPT_TRIANGLE_LIST;
 		SRasterizationParams raster;
 		raster.faceCullingMode = EFCM_NONE;
-		auto pipeline = m_driver->createGPURenderpassIndependentPipeline(
+		m_visibilityBufferFillPipeline = m_driver->createGPURenderpassIndependentPipeline(
 			nullptr,std::move(_visibilityBufferFillPipelineLayout),&shaders->get(),&shaders->get()+2u,
 			SVertexInputParams{},SBlendParams{},primitiveAssembly,raster
 		);
@@ -308,7 +308,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 									indexCount/kIndicesPerTriangle
 								);
 
-								const auto normalAttrID = 3u;// mb->getNormalAttributeIx();
+								const auto normalAttrID = mb->getNormalAttributeIx();
 								const auto thisShapeInstancesBeginIx = rrInstances.size();
 								const auto& batchAABB = mb->getBoundingBox();// TODO: replace with batch AABB
 								for (auto auxIt=instanceAuxData.begin(); auxIt!=instanceAuxData.end(); auxIt++)
