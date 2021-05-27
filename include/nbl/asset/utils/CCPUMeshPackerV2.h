@@ -48,7 +48,7 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet
         \return number of mdi structs created for mesh buffer range described by mbBegin .. mbEnd, 0 if commit failed or mbBegin == mbEnd
         */
         template <typename MeshBufferIterator>
-        uint32_t commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+        uint32_t commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, const ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
         inline std::pair<uint32_t,uint32_t> getDescriptorSetWritesForUTB(
             ICPUDescriptorSet::SWriteDescriptorSet* outWrites, ICPUDescriptorSet::SDescriptorInfo* outInfo, ICPUDescriptorSet* dstSet,
@@ -73,7 +73,7 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, const ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + rambIn->mdiAllocationOffset;
 
@@ -81,7 +81,7 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
     uint32_t batchCntTotal = 0u;
     for (auto it = mbBegin; it != mbEnd; it++)
     {
-        ReservedAllocationMeshBuffers& ramb = *(rambIn + i);
+        const ReservedAllocationMeshBuffers& ramb = *(rambIn + i);
         IMeshPackerBase::PackedMeshBufferData& pmbd = *(pmbdOut + i);
 
         //this is fucked up..
@@ -105,9 +105,10 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
         for (uint32_t i = 0u; i < batchCnt; i++)
         {
             auto batchBegin = triangleBatches.ranges[i];
-            auto batchEnd = triangleBatches.ranges[i + 1];
-            const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
-            const uint32_t idxInBatchCnt = 3 * triangleInBatchCnt;
+            auto batchEnd = triangleBatches.ranges[i+1];
+            const uint32_t triangleInBatchCnt = std::distance(batchBegin,batchEnd);
+            constexpr uint32_t kIndicesPerTriangle = 3u;
+            const uint32_t idxInBatchCnt = triangleInBatchCnt*kIndicesPerTriangle;
 
             core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatchAndUpdateUnifiedIndexBuffer(triangleBatches, i, indexBuffPtr);
 

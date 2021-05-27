@@ -248,8 +248,11 @@ public:
                 va |= offset;
             }
         
-            inline void setArrayElement(uint16_t arrayElement) { va |= static_cast<uint32_t>(arrayElement) << 28u; }
-            inline void setOffset(uint32_t offset) { assert((offset & 0xF0000000u) == 0u); va |= offset; }
+            inline uint32_t getArrayElement() const { return core::bitfieldExtract(va,28,4); }
+            inline void setArrayElement(uint16_t arrayElement) { va = core::bitfieldInsert<uint32_t>(va,arrayElement,28,4); }
+
+            inline uint32_t getOffset() const { return core::bitfieldExtract(va,0,28); }
+            inline void setOffset(uint32_t offset) { va = core::bitfieldInsert<uint32_t>(va,offset,0,28); }
 
         private:
             uint32_t va;
