@@ -8,22 +8,22 @@ struct CullShaderData_t
     mat4    viewProjMatrix;
     float   viewProjDeterminant;
     uint    currentCommandBufferIx;
-    uint    maxDrawCount;
-    uint    maxObjectCount;
+    uint    maxDrawCommandCount;
+    uint    maxGlobalInstanceCount;
 };
 
 struct CullData_t
 {
     vec3    aabbMinEdge;
-    uint    globalObjectID;
+    uint    batchInstanceGUID;
     vec3    aabbMaxEdge;
-    uint    drawID;
+    uint    drawCommandGUID;
 };
 
 struct DrawData_t
 {
     mat4 MVP;
-    uint backfacingBit_objectID;
+    uint backfacingBit_batchInstanceGUID;
     uint padding0;
     uint padding1;
     uint padding2;

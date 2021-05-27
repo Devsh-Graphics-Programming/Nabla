@@ -36,36 +36,37 @@ layout(push_constant, row_major) uniform PushConstants
 // we just do atomic add on the instance count
 void main()
 {
-    if (gl_GlobalInvocationID.x<pc.data.maxDrawCount)
+    if (gl_GlobalInvocationID.x<pc.data.maxDrawCommandCount)
         commandBuff[pc.data.currentCommandBufferIx^0x1u].draws[gl_GlobalInvocationID.x].instanceCount = 0u;
 
-    uint instanceMeshBufferID = gl_GlobalInvocationID.x;
-    if (instanceMeshBufferID>=pc.data.maxObjectCount)
+    uint batchInstanceID = gl_GlobalInvocationID.x;
+    if (batchInstanceID>=pc.data.maxGlobalInstanceCount)
         return;
 
     // fetch instance data
-    const CullData_t instanceMeshBufferData = cullData[instanceMeshBufferID];
-    const uint globalObjectID = instanceMeshBufferData.globalObjectID;
+    const CullData_t batchInstanceData = cullData[batchInstanceID];
+    const uint batchInstanceGUID = batchInstanceData.batchInstanceGUID;
 
-    const mat4x3 worldMatrix = InstData.data[globalObjectID].tform;
+    const nbl_glsl_ext_Mitsuba_Loader_instance_data_t instanceData = InstData.data[batchInstanceGUID];
+    const mat4x3 worldMatrix = InstData.data[batchInstanceGUID].tform;
     const mat4 MVP = nbl_glsl_pseudoMul4x4with4x3(pc.data.viewProjMatrix,worldMatrix);
 
     // cull
     bool notCulled;
     {
-        const mat2x3 bbox = mat2x3(instanceMeshBufferData.aabbMinEdge,instanceMeshBufferData.aabbMaxEdge);
+        const mat2x3 bbox = mat2x3(batchInstanceData.aabbMinEdge,batchInstanceData.aabbMaxEdge);
         notCulled = nbl_glsl_couldBeVisible(MVP,bbox);
     }
 
     // set up MDI
     if (notCulled)
     {        
-        const uint drawID = instanceMeshBufferData.drawID;
-        const uint drawInstanceID = atomicAdd(commandBuff[pc.data.currentCommandBufferIx].draws[drawID].instanceCount,1u)
-                                                    +commandBuff[pc.data.currentCommandBufferIx].draws[drawID].baseInstance;
+        const uint drawCommandGUID = batchInstanceData.drawCommandGUID;
+        const uint drawInstanceID = commandBuff[pc.data.currentCommandBufferIx].draws[drawCommandGUID].baseInstance+
+            atomicAdd(commandBuff[pc.data.currentCommandBufferIx].draws[drawCommandGUID].instanceCount,1u);
         
         instanceDataPerCamera.data[drawInstanceID].MVP = MVP;
         // use the MSB to denote if face orientation should be flipped
-        instanceDataPerCamera.data[drawInstanceID].backfacingBit_objectID = globalObjectID|((InstData.data[globalObjectID].determinantSignBit^floatBitsToUint(pc.data.viewProjDeterminant))&0x80000000u);
+        instanceDataPerCamera.data[drawInstanceID].backfacingBit_batchInstanceGUID = batchInstanceGUID|((instanceData.determinantSignBit^floatBitsToUint(pc.data.viewProjDeterminant))&0x80000000u);
     }
 }
