@@ -281,7 +281,6 @@ class IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public I
     static_assert(std::is_base_of<IBuffer,BufferType>::value);
 
 	using base_t = IMeshPacker<MeshBufferType,MDIStructType>;
-    using MinimumAllocationParams = IMeshPackerBase::MinimumAllocationParamsCommon;
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
 
     using DescriptorSetLayoutType = typename DescriptorSetType::layout_t;
@@ -307,8 +306,6 @@ public:
             return this->mdiAllocationOffset!=core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
         }
     };
-
-    //TODO: if we use SSBO then there is no need for `arrayElement`
     struct VirtualAttribute
     {
             VirtualAttribute() : va(0u) {};
@@ -657,7 +654,6 @@ protected:
 
 };
 
-//TODO: check if offset < 2^28
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType>
 template <typename MeshBufferIterator>
 bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
@@ -669,9 +665,6 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
         const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(*it);
         const size_t maxVtxCnt = calcVertexCountBoundWithBatchDuplication(*it);
         const uint32_t insCnt = (*it)->getInstanceCount();
-
-        //TODO: in this mesh packer there is only one buffer for both per instance and per vertex attribs
-        //modify alloc and commit so these functions act accrodingly to attribute they are wokring on
 
         //allocate indices
         ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);

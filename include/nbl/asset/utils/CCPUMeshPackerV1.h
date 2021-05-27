@@ -51,6 +51,7 @@
 		assert(packedMeshBuffer.isValid());
 	}
 3. test `getPackerCreationParamsFromMeshBufferRange`
+4. delete m_allocParams
 */
 
 namespace nbl 

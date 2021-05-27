@@ -34,10 +34,7 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
     protected:
         IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
             :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
-             m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
-             m_MDIDataAlctrResSpc(nullptr),
-             m_idxBuffAlctrResSpc(nullptr),
-             m_vtxBuffAlctrResSpc(nullptr)
+             m_minTriangleCountPerMDIData(minTriangleCountPerMDIData)
         {
             assert(minTriangleCountPerMDIData <= MAX_TRIANGLES_IN_BATCH_CNT);
             assert(maxTriangleCountPerMDIData <= MAX_TRIANGLES_IN_BATCH_CNT);
@@ -55,17 +52,6 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             _NBL_ALIGNED_FREE(const_cast<void*>(traits::getReservedSpacePtr(m_vtxBuffAlctr)));
         }
 
-        struct MinimumAllocationParamsCommon
-        {
-            // Minimum count of 16 bit indicies allocated per allocation
-            size_t indexBufferMinAllocCnt = 256ull;
-
-            // Minimum bytes of vertex data allocated per allocation
-            size_t vertexBufferMinAllocByteSize = 32ull;
-
-            // Minimum count of MDI structs allocated per allocation
-            size_t MDIDataBuffMinAllocCnt = 32ull;
-        };
         struct AllocationParamsCommon
         {
             // Maximum number of 16 bit indicies that may be allocated
@@ -80,9 +66,6 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             // Maximum number of MDI structs that may be allocated
             size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
 
-            // TODO: get rid of these, replace with
-            // MinimumAllocationParamsCommon minAllocParams;
-            // 
             // Minimum count of 16 bit indicies allocated per allocation
             size_t indexBufferMinAllocCnt = 256ull;
 
@@ -98,34 +81,28 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
         {
             if (allocParams.indexBuffSupportedCnt)
             {
-                m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt), _NBL_SIMD_ALIGNMENT);
-                _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
+                
+                void* resSpcTmp = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt), _NBL_SIMD_ALIGNMENT);
                 assert(m_idxBuffAlctrResSpc != nullptr);
-                m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
+                m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpcTmp, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
             }
 
             if (allocParams.vertexBuffSupportedByteSize)
             {
-                m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
-                _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
-                assert(m_vtxBuffAlctrResSpc != nullptr);
-                m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize);
+                void* resSpcTmp = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
+                assert(resSpcTmp != nullptr);
+                m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpcTmp, 0u, 0u, 32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize);
             }
 
             if (allocParams.MDIDataBuffSupportedCnt)
             {
-                m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt), _NBL_SIMD_ALIGNMENT);
-                _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
-                assert(m_MDIDataAlctrResSpc != nullptr);
-                m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt);
+                void* resSpcTmp = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt), _NBL_SIMD_ALIGNMENT);
+                assert(resSpcTmp != nullptr);
+                m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpcTmp, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt);
             }
         }
 
     protected:
-        // TODO: don't hold the reserved spaces, they're held by the allocators anyway
-        void* m_MDIDataAlctrResSpc;
-        void* m_idxBuffAlctrResSpc;
-        void* m_vtxBuffAlctrResSpc;
         core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
         core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
         core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
