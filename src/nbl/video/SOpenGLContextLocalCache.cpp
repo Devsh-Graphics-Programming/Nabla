@@ -309,7 +309,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                         FBOCache.insert(nextState.framebuffer.hash, GLname);
                 }
 
-                assert(GLname != 0u);
+                assert(GLname != 0u); // TODO uncomment this
             }
 
             currentState.framebuffer.GLname = GLname;
@@ -580,8 +580,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
         {
             auto hashVal = nextState.vertexInputParams.vaokey;
             auto it = VAOMap.get(hashVal);
+
+            currentState.vertexInputParams.vaokey = hashVal;
             if (it) {
-                currentState.vertexInputParams.vaokey = hashVal;
                 currentState.vertexInputParams.vaoval.GLname = *it;
             }
             else
@@ -646,7 +647,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                 const uint32_t bnd = hash.getBindingForAttrib(i);
 
                 assert(nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer);//something went wrong
-                gl->extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, hash.getStrideForBinding(bnd));
+                uint32_t stride = hash.getStrideForBinding(bnd);
+                assert(stride != 0u);
+                gl->extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, stride);
                 UPDATE_STATE(vertexInputParams.vaoval.vtxBindings[bnd]);
             }
             gl->extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.vaoval.idxBinding.buffer ? nextState.vertexInputParams.vaoval.idxBinding.buffer->getOpenGLName() : 0u);

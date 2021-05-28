@@ -20,7 +20,7 @@ public:
 		constexpr EGLint OPENGL_MINOR_WORST = 3;
 
 		auto initRes = createContext(_egl, EGL_OPENGL_API, { OPENGL_MAJOR, OPENGL_MINOR_BEST }, OPENGL_MINOR_WORST);
-		if (initRes.minor < OPENGL_MINOR_WORST)
+		if (initRes.ctx == EGL_NO_CONTEXT || initRes.minor < OPENGL_MINOR_WORST)
 			return nullptr;
 
 		auto* pdev = new COpenGLPhysicalDevice(std::move(fs), std::move(glslc), _egl, initRes.config, initRes.ctx, initRes.major, initRes.minor, dbgCb);

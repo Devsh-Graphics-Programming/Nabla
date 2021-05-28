@@ -123,7 +123,7 @@ public:
 
                 auto* glatt = static_cast<COpenGLImageView*>(att.get());
                 const GLuint glname = glatt->getOpenGLName();
-                gl->glTexture.pglBindTexture(GL_TEXTURE_2D, glname);
+                //gl->glTexture.pglBindTexture(GL_TEXTURE_2D, glname); // what was it for???
                 const GLenum textarget = COpenGLImageView::ViewTypeToGLenumTarget[glatt->getCreationParameters().viewType];
 
                 gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0 + i, glname, 0, textarget);
@@ -159,7 +159,7 @@ public:
         gl->extGlNamedFramebufferDrawBuffers(fbo, sub.colorAttachmentCount, drawbuffers);
 
         GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
-        //gl->extGlDebugMessageCallback(nullptr, 0);
+        assert(status == GL_FRAMEBUFFER_COMPLETE);
         if (status != GL_FRAMEBUFFER_COMPLETE)
         {
             gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);

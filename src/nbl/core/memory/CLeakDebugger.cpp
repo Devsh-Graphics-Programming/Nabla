@@ -189,7 +189,7 @@ void CLeakDebugger::registerObj(const void* obj)
 
         std::ostringstream strm;
         found->second.printStackToOStream(strm);
-        printf(strm.str().c_str());
+        //printf(strm.str().c_str());
     }
     tracker[obj] = getBackTrace();
 #endif // _NBL_DEBUG
@@ -207,7 +207,7 @@ void CLeakDebugger::deregisterObj(const void* obj)
 
         std::ostringstream strm;
         found->second.printStackToOStream(strm);
-        printf(strm.str().c_str());
+        //printf(strm.str().c_str());
     }
     else
         tracker.erase(obj);
@@ -243,7 +243,7 @@ void CLeakDebugger::dumpLeaks()
                 std::ostringstream strm;
                 strm << "Number of Leak Occurrences: " << occurences << "\n";
                 it->printStackToOStream(strm);
-                printf(strm.str().c_str());
+                //printf(strm.str().c_str());
 
                 for (size_t j=0; j<occurences; j++)
                     it++;

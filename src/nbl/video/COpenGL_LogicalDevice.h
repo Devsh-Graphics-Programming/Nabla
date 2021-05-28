@@ -462,11 +462,11 @@ protected:
             std::string glsl(begin, end);
             COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
             auto glslShader_woIncludes = m_GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
-            {
-                auto fl = fopen("shader.glsl", "w");
-                fwrite(glsl.c_str(), 1, glsl.size(), fl);
-                fclose(fl);
-            }
+            //{
+                //auto fl = fopen("shader.glsl", "w");
+                //fwrite(glsl.c_str(), 1, glsl.size(), fl);
+                //fclose(fl);
+            //}
             spirv = m_GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,

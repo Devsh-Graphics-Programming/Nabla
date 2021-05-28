@@ -32,6 +32,7 @@
 #include <android/sensor.h>
 #include <android/log.h>
 #include <android_native_app_glue.h>
+//#include "debugbreak.h"
 
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "native-activity", __VA_ARGS__))
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
@@ -74,6 +75,7 @@ struct nabla {
  * Initialize an EGL context for the current display.
  */
 static int engine_init_display(struct nabla* engine) {
+    //debug_break();
     // initialize OpenGL ES and EGL
 
     engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(engine->app->window);
@@ -423,6 +425,7 @@ static void engine_draw_frame(struct nabla* engine) {
  * Tear down the EGL context currently associated with the display.
  */
 static void engine_term_display(struct nabla* engine) {
+    //debug_break();
 
     engine->dev->waitIdle();
 
@@ -457,6 +460,7 @@ static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) 
  * Process the next main command.
  */
 static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
+    //debug_break();
     auto* engine = (struct nabla*)app->userData;
     switch (cmd) {
         case APP_CMD_SAVE_STATE:
@@ -466,6 +470,7 @@ static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
             engine->app->savedStateSize = sizeof(struct saved_state);
             break;
         case APP_CMD_INIT_WINDOW:
+            //debug_break();
             // The window is being shown, get it ready.
             if (engine->app->window != nullptr) {
                 engine_init_display(engine);
@@ -565,6 +570,10 @@ void android_main(struct android_app* state) {
     state->onInputEvent = engine_handle_input;
     engine.app = state;
 
+    //debug_break();
+
+    LOGI("Entered main!");
+
 /*
     // Prepare to monitor accelerometer
     engine.sensorManager = AcquireASensorManagerInstance(state);
@@ -590,10 +599,15 @@ void android_main(struct android_app* state) {
         int events;
         struct android_poll_source* source;
 
+        LOGI("Entered main loop iteration!");
+        //debug_break();
+
         // If not animating, we will block forever waiting for events.
         // If animating, we loop until all events are read, then continue
         // to draw the next frame of animation.
         while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0) {
+
+            LOGI("Entered poll loop iteration!");
 
             // Process this event.
             if (source != nullptr) {

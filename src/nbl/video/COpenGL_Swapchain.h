@@ -207,9 +207,13 @@ private:
                 auto& img = images.begin()[i];
 
                 GLuint glimg = static_cast<COpenGLImage*>(img.get())->getOpenGLName();
-                gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg, 0, GL_TEXTURE_2D);
+                GLenum target = static_cast<COpenGLImage*>(img.get())->getOpenGLTarget();
+                gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg, 0, target);
                 GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
                 gl.extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
+
+                GLenum status = gl.extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
+                assert(status == GL_FRAMEBUFFER_COMPLETE);
             }
             for (uint32_t i = 0u; i < fboCount; ++i)
             {

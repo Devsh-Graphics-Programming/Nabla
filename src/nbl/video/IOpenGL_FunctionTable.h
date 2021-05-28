@@ -277,6 +277,7 @@ namespace nbl {
 				, glBlendFuncSeparatei
 				, glColorMaski
 				, glViewport
+				, glGetError
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLcompute, OpenGLFunctionLoader
 				, glDispatchCompute

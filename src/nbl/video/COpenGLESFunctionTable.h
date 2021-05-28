@@ -35,6 +35,9 @@ Extensions being loaded:
 * GL_OES_viewport_array
 * GL_EXT_multi_draw_indirect
 * GL_EXT_clip_control
+* GL_OES_texture_3D
+* GL_OES_geometry_shader
+* GL_EXT_geometry_shader
 */
 class COpenGLESFunctionTable final : public IOpenGL_FunctionTable
 {
@@ -66,6 +69,9 @@ public:
 		, glTextureViewOES
 		, glTextureViewEXT
 		, glCopyImageSubDataEXT
+		, glFramebufferTexture3DOES
+		, glFramebufferTextureEXT
+		, glFramebufferTextureOES
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESdebug, OpenGLFunctionLoader
 		, glDebugMessageControlKHR
@@ -334,22 +340,29 @@ public:
 
 			if (bound != framebuffer)
 				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-
-			switch (textarget)
+			
+			if (glesTexture.pglFramebufferTextureOES)
+				glesTexture.pglFramebufferTextureOES(GL_FRAMEBUFFER, attachment, texture, level);
+			else if (glesTexture.pglFramebufferTextureEXT)
+				glesTexture.pglFramebufferTextureEXT(GL_FRAMEBUFFER, attachment, texture, level);
+			else
 			{
-			case GL_TEXTURE_2D:
-			case GL_TEXTURE_2D_MULTISAMPLE:
-			case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-			case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-			case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-			case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-				glFramebuffer.pglFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textarget, texture, level);
-				break;
-			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
-				break;
+				switch (textarget)
+				{
+				case GL_TEXTURE_2D:
+				case GL_TEXTURE_2D_MULTISAMPLE:
+				case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+				case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+				case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+				case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+				case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+				case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+					glFramebuffer.pglFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textarget, texture, level);
+					break;
+				default:
+					os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+					break;
+				}
 			}
 
 			if (bound != framebuffer)

@@ -12,6 +12,9 @@
 #elif defined(_NBL_PLATFORM_LINUX_)
 #   include "nbl/ui/IWindowX11.h"
 #   include "nbl/video/surface/CSurfaceGLX11.h"
+#elif defined(_NBL_PLATFORM_ANDROID_)
+#   include "nbl/ui/IWindowAndroid.h"
+#   include "nbl/video/surface/CSurfaceGLAndroid.h"
 #endif // TODO more platforms
 
 namespace nbl {
@@ -77,6 +80,15 @@ public:
             params.window = win->getNativeHandle();
 
             return core::make_smart_refctd_ptr<CSurfaceGLX11>(std::move(params));
+        }
+#elif defined(_NBL_PLATFORM_ANDROID_)
+        {
+            ui::IWindowAndroid* win = static_cast<ui::IWindowAndroid*>(window);
+
+            CSurfaceGLAndroid::SCreationParams params;
+            params.anw = win->getNativeHandle();
+
+            return core::make_smart_refctd_ptr<CSurfaceGLAndroid>(std::move(params));
         }
 #else // TODO more platforms
         return nullptr;
