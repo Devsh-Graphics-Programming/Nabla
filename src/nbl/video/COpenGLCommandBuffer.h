@@ -891,7 +891,14 @@ public:
             return false;
         SCmd<impl::ECT_BEGIN_RENDERPASS> cmd;
         cmd.renderpassBegin = pRenderPassBegin[0];
+        if (cmd.renderpassBegin.clearValueCount > 0u)
+        {
+            auto* clearVals = getGLCommandPool()->emplace_n<asset::SClearValue>(cmd.renderpassBegin.clearValueCount, cmd.renderpassBegin.clearValues[0]);
+            memcpy(clearVals, pRenderPassBegin->clearValues, cmd.renderpassBegin.clearValueCount*sizeof(asset::SClearValue));
+            cmd.renderpassBegin.clearValues = clearVals;
+        }
         cmd.content = content;
+        //debug_break();
         pushCommand(std::move(cmd));
         return true;
     }

@@ -90,6 +90,13 @@ namespace video
                 pool->free_n<uint8_t>(reinterpret_cast<const uint8_t*>(c.data), c.dataSize);
             }
             break;
+            case impl::ECT_BEGIN_RENDERPASS:
+            {
+                auto& c = cmd.get<impl::ECT_BEGIN_RENDERPASS>();
+                if (c.renderpassBegin.clearValueCount > 0u)
+                    pool->free_n<asset::SClearValue>(c.renderpassBegin.clearValues, c.renderpassBegin.clearValueCount);
+            }
+            break;
             default: break; // other commands dont use cmd pool
             }
         }
