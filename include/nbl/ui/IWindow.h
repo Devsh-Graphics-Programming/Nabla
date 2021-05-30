@@ -57,7 +57,7 @@ public:
             w->m_flags |= ECF_HIDDEN;
             onWindowHidden_impl();
         }
-        void onWindowMoved(IWindow* w, uint32_t x, uint32_t y)
+        void onWindowMoved(IWindow* w, int x, int y)
         {
             onWindowMoved_impl(x, y);
         }
@@ -120,7 +120,7 @@ public:
     protected:
         virtual void onWindowShown_impl() {}
         virtual void onWindowHidden_impl() {}
-        virtual void onWindowMoved_impl(uint32_t x, uint32_t y) {}
+        virtual void onWindowMoved_impl(int x, int y) {}
         virtual void onWindowResized_impl(uint32_t w, uint32_t h) {}
         virtual void onWindowRotated_impl() {}
         virtual void onWindowMinimized_impl() {}

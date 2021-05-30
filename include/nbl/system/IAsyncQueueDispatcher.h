@@ -91,6 +91,7 @@ public:
     //void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request()
     //bool process_request_predicate(const request_t& req); // optional, always true if not provided
     //void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
+    //void background_work() // optional, does nothing if not provided
     ///////
 
     using base_t::base_t;
@@ -143,37 +144,43 @@ protected:
         return true;
     }
 
+    void background_work() {}
 private:
     template <typename... Args>
     void work(lock_t& lock, Args&&... optional_internal_state)
     {
         static_assert(sizeof...(optional_internal_state) <= 1u, "How did this happen");
 
+        static_cast<CRTP*>(this)->backgroung_work();
         auto r_id = cb_begin++;
 #if __cplusplus >= 202002L
         cb_begin.notify_one();
 #endif
         r_id = wrapAround(r_id);
 
-        request_t& req = request_pool[r_id];
-#if __cplusplus >= 202002L
-        req.ready_for_work.wait(false);
-#else
-        while (!req.ready_for_work.load())
-            std::this_thread::yield();
-#endif
-        // do NOT allow canceling of request while they are processed
-        auto lk = req.lock();
-
-        if (static_cast<CRTP*>(this)->process_request_predicate(req))
+        if (cb_begin != cb_end)
         {
-            static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
-        }
+            request_t& req = request_pool[r_id];
+#if __cplusplus >= 202002L
+            req.ready_for_work.wait(false);
+#else
+            while (!req.ready_for_work.load())
+                std::this_thread::yield();
+#endif
+            // do NOT allow canceling of request while they are processed
+            auto lk = req.lock();
 
-        req.ready_for_work = false;
-        req.ready = true;
-        req.cvar.notify_all();
+            if (static_cast<CRTP*>(this)->process_request_predicate(req))
+            {
+                static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
+            }
+
+            req.ready_for_work = false;
+            req.ready = true;
+            req.cvar.notify_all();
+        }
     }
+
 
     bool wakeupPredicate() const { return (cb_begin != cb_end); }
     bool continuePredicate() const { return (cb_begin != cb_end); }
