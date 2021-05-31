@@ -1,6 +1,7 @@
 #ifndef _VIRTUAL_GEOMETRY_GLSL_INCLUDED_
 #define _VIRTUAL_GEOMETRY_GLSL_INCLUDED_
 
+#include "common.h"
 
 #define _NBL_VG_USE_SSBO
 #define _NBL_VG_SSBO_DESCRIPTOR_SET 1

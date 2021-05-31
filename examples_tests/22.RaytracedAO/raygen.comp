@@ -2,7 +2,6 @@
 #include "raytraceCommon.glsl"
 
 // for per pixel inputs
-#include <nbl/builtin/glsl/utils/normal_decode.glsl>
 #include <nbl/builtin/glsl/random/xoroshiro.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
@@ -11,10 +10,7 @@ layout(set = 3, binding = 0) uniform usamplerBuffer sampleSequence;
 layout(set = 3, binding = 1) uniform usampler2D scramblebuf;
 // vis buffer
 layout(set = 3, binding = 2) uniform sampler2D depthbuf;
-layout(set = 3, binding = 3) uniform usampler2D frontFacing_Object_Triangle;
-layout(set = 3, binding = 4) uniform sampler2D encodedNormal;
-layout(set = 3, binding = 5) uniform sampler2D uvCoords;
-//layout(set = 2, binding = 6) uniform sampler2D barycentricDerivatives; // in the future we shall compute them from triangle vertex positions
+layout(set = 3, binding = 3) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
 
 
 #include "bin/material_declarations.glsl"
@@ -129,27 +125,9 @@ void main()
 		if (nonBackgroudPixel)
 		{			
 			// vis buffer read
-			const uvec2 visBuffer = texelFetch(frontFacing_Object_Triangle,pixelCoord,0).rg;
+			const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,pixelCoord,0);
 			// init scramble
 			scramble_start_state = texelFetch(scramblebuf,pixelCoord,0).rg;
-			// vertex attribute reads
-			vec3 positions[3];
-			vec2 uvs[3];
-#if 0
-            dPdBary[0] = positions[0]-positions[2];
-            dPdBary[1] = positions[1]-positions[2];
-            dUVdBary[0] = uvs[0]-uvs[2];
-            dUVdBary[1] = uvs[1]-uvs[2];
-            const vec2 UV = dUVdBary*bary+uvs[2];
-			const vec3 normal = ;
-#endif
-			// tmp gbuffer reads
-			const vec2 normalBuffer = texelFetch(encodedNormal,pixelCoord,0).rg;
-			const vec2 UV = texelFetch(uvCoords,pixelCoord,0).xy;
-			mat2 dBarydScreen = mat2(0.0); // TODO:
-			mat2 dUVdBary = mat2(0.0); // TODO:
-			mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
-			
 			// unproject
 			{
 				const vec3 NDC = vec3(vec2(outputLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
@@ -161,36 +139,86 @@ void main()
 				normalizedV = normalize(V);
 			}
 			
-			// decode vis buffer
+			// vis buffer decode
+			const int triangleIDBitcount = findMSB(MAX_TRIANGLES_IN_BATCH-1)+1;
+			const bool backfacing = bool(visBuffer[0]&0x80000000u);
+			const uint batchInstanceGUID = bitfieldExtract(visBuffer[0],triangleIDBitcount,31-triangleIDBitcount);
+			const vec2 bary = unpackUnorm2x16(visBuffer[1]);
+			#ifdef TEX_PREFETCH_STREAM
+				const mat2 dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
+				nbl_glsl_MC_instr_stream_t tps;
+			#endif
+			#ifdef NORM_PRECOMP_STREAM
+				nbl_glsl_MC_instr_stream_t nps;
+			#endif
+			// get material
 			{
-				const uint objectID = visBuffer[0]&0x7fffffffu;
-				const uint triangleID = visBuffer[1];
-				const bool frontfacing = objectID==visBuffer[0];
-
-				nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,frontfacing);
+				const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[batchInstanceGUID].material,!backfacing);
 				
 				// use loaded data
 				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 				gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
 				rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
-				
-				// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
-				const vec3 normal = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);
-				normalizedN.x = dot(InstData.data[objectID].normalMatrixRow0,normal);
-				normalizedN.y = dot(InstData.data[objectID].normalMatrixRow1,normal);
-				normalizedN.z = dot(InstData.data[objectID].normalMatrixRow2,normal);
-				
-				// need to do this after we have world, V and N ready
-				precomputed = nbl_glsl_MC_precomputeData(frontfacing);
-
-				// prefetch textures and normals
 				#ifdef TEX_PREFETCH_STREAM
-					nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUVdScreen);
+					tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
 				#endif
 				#ifdef NORM_PRECOMP_STREAM
-					nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), precomputed);
+					nps = nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material);
 				#endif
 			}
+			// vertex indices
+			uvec3 indices;
+			{
+				const uint triangleID = bitfieldExtract(visBuffer[0],0,triangleIDBitcount);
+				const uint baseTriangleVertex = triangleID*3u+gBatchInstance.firstIndex; // TODO: where to put firstIndex!?
+				for (uint i=0u; i<3u; i++)
+					indices[i] = nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,i);
+			}
+			// vertex attribute reads and interpolation
+			vec3 normal;
+			#ifdef TEX_PREFETCH_STREAM
+				vec2 UV;
+			#endif
+			{
+				mat3 normals;
+				for (int i=0; i<3; i++)
+					normals[i] = nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID);
+				#ifdef TEX_PREFETCH_STREAM
+					mat3x2 uvs;
+					for (int i=0; i<3; i++)
+						uvs[i] = nbl_glsl_fetchVtxUV(indices[i],batchInstanceGUID);
+					mat3 positions;
+					for (int i=0; i<3; i++)
+						positions[i] = nbl_glsl_fetchVtxPos(indices[i],batchInstanceGUID);
+				#endif
+					
+				const float lastBary = 1.f-bary.x-bary.y;
+
+				normal = normals[0]*bary.x;
+				normal += normals[1]*bary.y;
+				normal += normals[2]*lastBary;
+				normalizedN.x = dot(InstData.data[batchInstanceGUID].normalMatrixRow0,normal);
+				normalizedN.y = dot(InstData.data[batchInstanceGUID].normalMatrixRow1,normal);
+				normalizedN.z = dot(InstData.data[batchInstanceGUID].normalMatrixRow2,normal);
+				normalizedN = normalize(normalizedN);
+				#ifdef TEX_PREFETCH_STREAM
+					dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
+					dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
+					
+					UV = dUVdBary*bary+uvs[2];
+				#endif
+			}
+			
+			// need to do this after we have world, V and N ready
+			precomputed = nbl_glsl_MC_precomputeData(!backfacing);
+			// prefetch textures and normals
+			#ifdef TEX_PREFETCH_STREAM
+				const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
+				nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
+			#endif
+			#ifdef NORM_PRECOMP_STREAM
+				nbl_glsl_MC_runNormalPrecompStream(nps,precomputed);
+			#endif
 		}
 			
 		//
