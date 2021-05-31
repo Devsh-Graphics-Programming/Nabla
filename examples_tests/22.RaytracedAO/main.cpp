@@ -271,7 +271,7 @@ int main()
 		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
 		auto proj = camera->getProjectionMatrix();
 
-		camera = smgr->addCameraSceneNodeFPS(nullptr, 80.f, core::min(extent.X, extent.Y, extent.Z) * 0.00005f);
+		camera = smgr->addCameraSceneNodeFPS(nullptr, 80.f, core::min(extent.X, extent.Y, extent.Z) * 0.00001f);
 		camera->setPosition(ptu[0].getAsVector3df());
 		camera->setTarget(ptu[1].getAsVector3df());
 		camera->setUpVector(ptu[2]);

@@ -333,7 +333,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 								const auto indexCount = mdiPtr[drawCommandGUID].count;
 								std::copy_n(indexPtr+mdiPtr[drawCommandGUID].firstIndex,indexCount,fatIndicesForRR.data());
 								rrShapes.emplace_back() = rr->CreateMesh(
-									vertexPtr+cdotIt->attribInfo[posAttrID].getOffset(),
+									vertexPtr+cdotIt->attribInfo[posAttrID].getOffset()*sizeof(vec3)/sizeof(float),
 									mdiPtr[drawCommandGUID].count, // could be improved if mesh packer returned the `usedVertices.size()` for every batch in the cdot
 									asset::getTexelOrBlockBytesize<asset::EF_R32G32B32_SFLOAT>(),
 									fatIndicesForRR.data(),
