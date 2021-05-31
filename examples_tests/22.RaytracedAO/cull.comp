@@ -68,5 +68,6 @@ void main()
         instanceDataPerCamera.data[drawInstanceID].MVP = MVP;
         // use the MSB to denote if face orientation should be flipped
         instanceDataPerCamera.data[drawInstanceID].backfacingBit_batchInstanceGUID = batchInstanceGUID|((instanceData.determinantSignBit^floatBitsToUint(pc.data.viewProjDeterminant))&0x80000000u);
+        instanceDataPerCamera.data[drawInstanceID].firstIndex = commandBuff[pc.data.currentCommandBufferIx].draws[drawCommandGUID].firstIndex;
     }
 }
