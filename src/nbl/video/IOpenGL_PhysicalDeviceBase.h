@@ -12,6 +12,10 @@
 #undef GL_KHR_debug
 #include "GLES3/gl2ext.h"
 
+#ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
+#	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
+#endif
+
 namespace nbl { 
 namespace video
 {
@@ -121,8 +125,11 @@ protected:
 		EGLint ctx_attributes[] = {
 			EGL_CONTEXT_MAJOR_VERSION, bestApiVer.first,
 			EGL_CONTEXT_MINOR_VERSION, bestApiVer.second,
-#ifdef _NBL_DEBUG
-			//EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+#ifdef _NBL_PLATFORM_ANDROID_
+			EGL_CONTEXT_OPENGL_NO_ERROR_KHR, EGL_TRUE,
+#endif
+#if defined(_NBL_DEBUG) && !defined(_NBL_PLATFORM_ANDROID_)
+			EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
 #endif
 			//EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
 

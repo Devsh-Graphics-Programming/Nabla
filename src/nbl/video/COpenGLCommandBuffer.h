@@ -898,7 +898,6 @@ public:
             cmd.renderpassBegin.clearValues = clearVals;
         }
         cmd.content = content;
-        //debug_break();
         pushCommand(std::move(cmd));
         return true;
     }

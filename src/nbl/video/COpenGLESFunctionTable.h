@@ -119,16 +119,24 @@ public:
 	void extGlDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) override
 	{
 		if (features->Version >= 320)
-			glesDebug.pglDebugMessageControl(source, type, severity, count, ids, enabled);
+		{
+			_NBL_GL_CALL(glesDebug.pglDebugMessageControl(source, type, severity, count, ids, enabled));
+		}
 		else if (glesDebug.pglDebugMessageControlKHR)
-			glesDebug.pglDebugMessageControlKHR(source, type, severity, count, ids, enabled);
+		{
+			_NBL_GL_CALL(glesDebug.pglDebugMessageControlKHR(source, type, severity, count, ids, enabled));
+		}
 	}
 	void extGlDebugMessageCallback(GLDebugCallbackType callback, const void* userParam) override
 	{
 		if (features->Version >= 320)
-			glesDebug.pglDebugMessageCallback(callback, userParam);
+		{
+			_NBL_GL_CALL(glesDebug.pglDebugMessageCallback(callback, userParam));
+		}
 		else if (glesDebug.pglDebugMessageCallbackKHR)
-			glesDebug.pglDebugMessageCallbackKHR(callback, userParam);
+		{
+			_NBL_GL_CALL(glesDebug.pglDebugMessageCallbackKHR(callback, userParam));
+		}
 	}
 
 	void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets) override
@@ -139,33 +147,41 @@ public:
 											GL_TEXTURE_CUBE_MAP_ARRAY,GL_TEXTURE_2D_MULTISAMPLE,GL_TEXTURE_2D_MULTISAMPLE_ARRAY };
 
 		int32_t activeTex = 0;
-		glGeneral.pglGetIntegerv(GL_ACTIVE_TEXTURE, &activeTex);
+		_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ACTIVE_TEXTURE, &activeTex));
 
 		for (GLsizei i = 0; i < count; i++)
 		{
 			GLuint texture = textures ? textures[i] : 0;
 
 			GLuint unit = first + i;
-			glTexture.pglActiveTexture(GL_TEXTURE0 + unit);
+			_NBL_GL_CALL(glTexture.pglActiveTexture(GL_TEXTURE0 + unit));
 
 			if (texture)
-				glTexture.pglBindTexture(targets[i], texture);
+			{
+				_NBL_GL_CALL(glTexture.pglBindTexture(targets[i], texture));
+			}
 			else
 			{
 				for (size_t j = 0; j < sizeof(supportedTargets) / sizeof(GLenum); j++)
-					glTexture.pglBindTexture(supportedTargets[j], 0);
+				{
+					_NBL_GL_CALL(glTexture.pglBindTexture(supportedTargets[j], 0));
+				}
 			}
 		}
 
-		glTexture.pglActiveTexture(activeTex);
+		_NBL_GL_CALL(glTexture.pglActiveTexture(activeTex));
 	}
 
 	void extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers) override
 	{
 		if (glesTexture.pglTextureViewOES)
-			glesTexture.pglTextureViewOES(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers);
+		{
+			_NBL_GL_CALL(glesTexture.pglTextureViewOES(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers));
+		}
 		else if (glesTexture.pglTextureViewEXT)
-			glesTexture.pglTextureViewEXT(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers);
+		{
+			_NBL_GL_CALL(glesTexture.pglTextureViewEXT(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers));
+		}
 		else
 		{
 			os::Printer::log("None of texture view extensions for GLES are supported, cannot create texture view!\n", ELL_ERROR);
@@ -175,22 +191,30 @@ public:
 	void extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer) override
 	{
 		if (features->Version >= 320)
-			glTexture.pglTexBuffer(texture, internalformat, buffer);
+		{
+			_NBL_GL_CALL(glTexture.pglTexBuffer(texture, internalformat, buffer));
+		}
 		else if (glesTexture.pglTexBufferOES)
-			glesTexture.pglTexBufferOES(texture, internalformat, buffer);
+		{
+			_NBL_GL_CALL(glesTexture.pglTexBufferOES(texture, internalformat, buffer));
+		}
 	}
 	void extGlTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizei length) override
 	{
 		GLint bound;
-		glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+		_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound));
 
-		glTexture.pglBindTexture(GL_TEXTURE_BUFFER, texture);
+		_NBL_GL_CALL(glTexture.pglBindTexture(GL_TEXTURE_BUFFER, texture));
 		if (features->Version >= 320)
-			glTexture.pglTexBufferRange(GL_TEXTURE_BUFFER, internalformat, buffer, offset, length);
+		{
+			_NBL_GL_CALL(glTexture.pglTexBufferRange(GL_TEXTURE_BUFFER, internalformat, buffer, offset, length));
+		}
 		else if (glesTexture.pglTexBufferRangeOES)
-			glesTexture.pglTexBufferRangeOES(GL_TEXTURE_BUFFER, internalformat, buffer, offset, length);
+		{
+			_NBL_GL_CALL(glesTexture.pglTexBufferRangeOES(GL_TEXTURE_BUFFER, internalformat, buffer, offset, length));
+		}
 
-		glTexture.pglBindTexture(GL_TEXTURE_BUFFER, bound);
+		_NBL_GL_CALL(glTexture.pglBindTexture(GL_TEXTURE_BUFFER, bound));
 	}
 
 	void extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height) override
@@ -199,18 +223,18 @@ public:
 		switch (target)
 		{
 		case GL_TEXTURE_2D:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound));
 			break;
 		case GL_TEXTURE_CUBE_MAP:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound));
 			break;
 		default:
 			os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 			return;
 		}
-		glTexture.pglBindTexture(target, texture);
-		glTexture.pglTexStorage2D(target, levels, internalformat, width, height);
-		glTexture.pglBindTexture(target, bound);
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+		_NBL_GL_CALL(glTexture.pglTexStorage2D(target, levels, internalformat, width, height));
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, bound));
 	}
 
 	void extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations) override
@@ -225,10 +249,10 @@ public:
 		switch (target)
 		{
 		case GL_TEXTURE_2D:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound));
 			break;
 		case GL_TEXTURE_2D_MULTISAMPLE:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound));
 			break;
 		case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
 		case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
@@ -236,15 +260,15 @@ public:
 		case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
 		case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
 		case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound));
 			break;
 		default:
 			os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 			return;
 		}
-		glTexture.pglBindTexture(target, texture);
-		glTexture.pglTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
-		glTexture.pglBindTexture(target, bound);
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+		_NBL_GL_CALL(glTexture.pglTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels));
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, bound));
 	}
 
 	void extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void* data) override
@@ -253,7 +277,7 @@ public:
 		switch (target)
 		{
 		case GL_TEXTURE_2D:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound));
 			break;
 		case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
 		case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
@@ -261,15 +285,15 @@ public:
 		case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
 		case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
 		case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound));
 			break;
 		default:
 			os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 			return;
 		}
-		glTexture.pglBindTexture(target, texture);
-		glTexture.pglCompressedTexSubImage2D(target, level, xoffset, yoffset, width, height, format, imageSize, data);
-		glTexture.pglBindTexture(target, bound);
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+		_NBL_GL_CALL(glTexture.pglCompressedTexSubImage2D(target, level, xoffset, yoffset, width, height, format, imageSize, data));
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, bound));
 	}
 
 	void extGlGenerateTextureMipmap(GLuint texture, GLenum target) override
@@ -278,55 +302,55 @@ public:
 		switch (target)
 		{
 		case GL_TEXTURE_2D:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound));
 			break;
 		case GL_TEXTURE_2D_ARRAY:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound));
 			break;
 		case GL_TEXTURE_2D_MULTISAMPLE:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound));
 			break;
 		case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound));
 			break;
 		case GL_TEXTURE_3D:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound));
 			break;
 		case GL_TEXTURE_BUFFER:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound));
 			break;
 		case GL_TEXTURE_CUBE_MAP:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound));
 			break;
 		case GL_TEXTURE_CUBE_MAP_ARRAY:
-			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound));
 			break;
 		default:
 			os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 			return;
 		}
-		glTexture.pglBindTexture(target, texture);
-		glTexture.pglGenerateMipmap(target);
-		glTexture.pglBindTexture(target, bound); 
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+		_NBL_GL_CALL(glTexture.pglGenerateMipmap(target));
+		_NBL_GL_CALL(glTexture.pglBindTexture(target, bound)); 
 	}
 
 	void extGlNamedFramebufferDrawBuffer(GLuint framebuffer, GLenum buf) override
 	{
 		GLint boundFBO;
-		glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO);
+		_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO));
 
 		if (static_cast<GLuint>(boundFBO) != framebuffer)
-			glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
+			_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer));
 
 		GLint maxColorAttachments;
-		glGeneral.pglGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxColorAttachments);
+		_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxColorAttachments));
 		const GLenum none[8]{ GL_NONE, GL_NONE, GL_NONE, GL_NONE, GL_NONE, GL_NONE, GL_NONE, GL_NONE };
 		// glDrawBuffer will set the draw buffer for fragment colors other than zero to GL_NONE.
-		glFramebuffer.pglDrawBuffers(maxColorAttachments, none);
-		glFramebuffer.pglDrawBuffers(1, &buf);
+		_NBL_GL_CALL(glFramebuffer.pglDrawBuffers(maxColorAttachments, none));
+		_NBL_GL_CALL(glFramebuffer.pglDrawBuffers(1, &buf));
 
 		if (static_cast<GLuint>(boundFBO) != framebuffer)
-			glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundFBO);
+			_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundFBO));
 	}
 
 	void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textarget) override
@@ -336,15 +360,19 @@ public:
 		else
 		{
 			GLuint bound;
-			glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
 
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
 			
 			if (glesTexture.pglFramebufferTextureOES)
-				glesTexture.pglFramebufferTextureOES(GL_FRAMEBUFFER, attachment, texture, level);
+			{
+				_NBL_GL_CALL(glesTexture.pglFramebufferTextureOES(GL_FRAMEBUFFER, attachment, texture, level));
+			}
 			else if (glesTexture.pglFramebufferTextureEXT)
-				glesTexture.pglFramebufferTextureEXT(GL_FRAMEBUFFER, attachment, texture, level);
+			{
+				_NBL_GL_CALL(glesTexture.pglFramebufferTextureEXT(GL_FRAMEBUFFER, attachment, texture, level));
+			}
 			else
 			{
 				switch (textarget)
@@ -357,7 +385,7 @@ public:
 				case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
 				case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
 				case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-					glFramebuffer.pglFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textarget, texture, level);
+					_NBL_GL_CALL(glFramebuffer.pglFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textarget, texture, level));
 					break;
 				default:
 					os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
@@ -366,7 +394,7 @@ public:
 			}
 
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound));
 		}
 	}
 
@@ -375,13 +403,13 @@ public:
 		if (textureType != GL_TEXTURE_CUBE_MAP)
 		{
 			GLuint bound;
-			glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
 
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture, level, layer);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture, level, layer));
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound));
 		}
 		else
 		{
@@ -390,13 +418,13 @@ public:
 			};
 
 			GLuint bound;
-			glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
 
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglFramebufferTexture2D(GL_FRAMEBUFFER, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglFramebufferTexture2D(GL_FRAMEBUFFER, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level));
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound));
 		}
 	}
 
@@ -405,10 +433,10 @@ public:
 		if (glesBuffer.pglBufferStorageEXT && glBuffer.pglBindBuffer)
 		{
 			GLint bound;
-			glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
-			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
-			glesBuffer.pglBufferStorageEXT(GL_ARRAY_BUFFER, size, data, flags);
-			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound));
+			_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer));
+			_NBL_GL_CALL(glesBuffer.pglBufferStorageEXT(GL_ARRAY_BUFFER, size, data, flags));
+			_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound));
 		}
 	}
 
@@ -426,49 +454,49 @@ public:
 		if (features->Version >= 320)
 			IOpenGL_FunctionTable::extGlEnablei(target, index);
 		else if (glesGeneral.pglEnableiOES)
-			glesGeneral.pglEnableiOES(target, index);
+			_NBL_GL_CALL(glesGeneral.pglEnableiOES(target, index));
 	}
 	void extGlDisablei(GLenum target, GLuint index) override
 	{
 		if (features->Version >= 320)
 			IOpenGL_FunctionTable::extGlDisablei(target, index);
 		else if (glesGeneral.pglDisableiOES)
-			glesGeneral.pglDisableiOES(target, index);
+			_NBL_GL_CALL(glesGeneral.pglDisableiOES(target, index));
 	}
 	void extGlBlendEquationi(GLuint buf, GLenum mode) override
 	{
 		if (features->Version >= 320)
 			IOpenGL_FunctionTable::extGlBlendEquationi(buf, mode);
 		else if (glesGeneral.pglBlendEquationiOES)
-			glesGeneral.pglBlendEquationiOES(buf, mode);
+			_NBL_GL_CALL(glesGeneral.pglBlendEquationiOES(buf, mode));
 	}
 	void extGlBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha) override
 	{
 		if (features->Version >= 320)
 			IOpenGL_FunctionTable::extGlBlendEquationSeparatei(buf, modeRGB, modeAlpha);
 		else if (glesGeneral.pglBlendEquationSeparateiOES)
-			glesGeneral.pglBlendEquationSeparateiOES(buf, modeRGB, modeAlpha);
+			_NBL_GL_CALL(glesGeneral.pglBlendEquationSeparateiOES(buf, modeRGB, modeAlpha));
 	}
 	void extGlBlendFunci(GLuint buf, GLenum src, GLenum dst) override
 	{
 		if (features->Version >= 320)
 			IOpenGL_FunctionTable::extGlBlendFunci(buf, src, dst);
 		else if (glesGeneral.pglBlendFunciOES)
-			glesGeneral.pglBlendFunciOES(buf, src, dst);
+			_NBL_GL_CALL(glesGeneral.pglBlendFunciOES(buf, src, dst));
 	}
 	void extGlBlendFuncSeparatei(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha) override
 	{
 		if (features->Version >= 320)
 			IOpenGL_FunctionTable::extGlBlendFuncSeparatei(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
 		else if (glesGeneral.pglBlendFuncSeparateiOES)
-			glesGeneral.pglBlendFuncSeparateiOES(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+			_NBL_GL_CALL(glesGeneral.pglBlendFuncSeparateiOES(buf, srcRGB, dstRGB, srcAlpha, dstAlpha));
 	}
 	void extGlColorMaski(GLuint buf, GLboolean r, GLboolean g, GLboolean b, GLboolean a) override
 	{
 		if (features->Version >= 320)
 			IOpenGL_FunctionTable::extGlColorMaski(buf, r, g, b, a);
 		else if (glesGeneral.pglColorMaskiOES)
-			glesGeneral.pglColorMaskiOES(buf, r, g, b, a);
+			_NBL_GL_CALL(glesGeneral.pglColorMaskiOES(buf, r, g, b, a));
 	}
 	GLboolean extGlIsEnabledi(GLenum target, GLuint index) override
 	{
@@ -481,9 +509,13 @@ public:
 	void extGlMinSampleShading(GLfloat value) override
 	{
 		if (glesFragment.pglMinSampleShading)
-			glesFragment.pglMinSampleShading(value);
+		{
+			_NBL_GL_CALL(glesFragment.pglMinSampleShading(value));
+		}
 		else if (glesFragment.pglMinSampleShadingOES)
-			glesFragment.pglMinSampleShadingOES(value);
+		{
+			_NBL_GL_CALL(glesFragment.pglMinSampleShadingOES(value));
+		}
 	}
 	void extGlCopyImageSubData(
 		GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ,
@@ -492,17 +524,25 @@ public:
 	) override
 	{
 		if (features->Version >= 320)
-			glTexture.pglCopyImageSubData(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+		{
+			_NBL_GL_CALL(glTexture.pglCopyImageSubData(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth));
+		}
 		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_copy_image))
-			glesTexture.pglCopyImageSubDataOES(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+		{
+			_NBL_GL_CALL(glesTexture.pglCopyImageSubDataOES(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth));
+		}
 		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_copy_image))
-			glesTexture.pglCopyImageSubDataEXT(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+		{
+			_NBL_GL_CALL(glesTexture.pglCopyImageSubDataEXT(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth));
+		}
 	}
 
 	void extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance) override
 	{
-		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
-			glesDrawing.pglDrawArraysInstancedBaseInstanceEXT(mode, first, count, instancecount, baseinstance);
+		if (0)//(features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
+		{
+			_NBL_GL_CALL(glesDrawing.pglDrawArraysInstancedBaseInstanceEXT(mode, first, count, instancecount, baseinstance));
+		}
 		else 
 			IOpenGL_FunctionTable::extGlDrawArraysInstancedBaseInstance(mode, first, count, instancecount, baseinstance);
 	}
@@ -510,7 +550,9 @@ public:
 	void extGlDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint baseinstance) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
-			glesDrawing.pglDrawElementsInstancedBaseInstanceEXT(mode, count, type, indices, instancecount, baseinstance);
+		{
+			_NBL_GL_CALL(glesDrawing.pglDrawElementsInstancedBaseInstanceEXT(mode, count, type, indices, instancecount, baseinstance));
+		}
 		else
 			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseInstance(mode, count, type, indices, instancecount, baseinstance);
 	}
@@ -523,9 +565,13 @@ public:
 	void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_draw_elements_base_vertex))
-			glesDrawing.pglDrawElementsInstancedBaseVertexEXT(mode, count, type, indices, instancecount, basevertex);
+		{
+			_NBL_GL_CALL(glesDrawing.pglDrawElementsInstancedBaseVertexEXT(mode, count, type, indices, instancecount, basevertex));
+		}
 		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_draw_elements_base_vertex))
-			glesDrawing.pglDrawElementsInstancedBaseVertexOES(mode, count, type, indices, instancecount, basevertex);
+		{
+			_NBL_GL_CALL(glesDrawing.pglDrawElementsInstancedBaseVertexOES(mode, count, type, indices, instancecount, basevertex));
+		}
 		else
 			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseVertex(mode, count, type, indices, instancecount, basevertex);
 	}
@@ -533,7 +579,9 @@ public:
 	void extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance))
-			glesDrawing.pglDrawElementsInstancedBaseVertexBaseInstanceEXT(mode, count, type, indices, instancecount, basevertex, baseinstance);
+		{
+			_NBL_GL_CALL(glesDrawing.pglDrawElementsInstancedBaseVertexBaseInstanceEXT(mode, count, type, indices, instancecount, basevertex, baseinstance));
+		}
 		else
 			IOpenGL_FunctionTable::extGlDrawElementsInstancedBaseVertexBaseInstance(mode, count, type, indices, instancecount, basevertex, baseinstance);
 	}
@@ -541,9 +589,13 @@ public:
 	void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect))
-			glesDrawing.pglMultiDrawArraysIndirectEXT(mode, indirect, drawcount, stride);
+		{
+			_NBL_GL_CALL(glesDrawing.pglMultiDrawArraysIndirectEXT(mode, indirect, drawcount, stride));
+		}
 		else if (drawcount == 1)
-			glDrawing.pglDrawArraysIndirect(mode, indirect);
+		{
+			_NBL_GL_CALL(glDrawing.pglDrawArraysIndirect(mode, indirect));
+		}
 #ifdef _NBL_DEBUG
 		else
 		{
@@ -555,9 +607,13 @@ public:
 	void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect))
-			glesDrawing.pglMultiDrawElementsIndirectEXT(mode, type, indirect, drawcount, stride);
+		{
+			_NBL_GL_CALL(glesDrawing.pglMultiDrawElementsIndirectEXT(mode, type, indirect, drawcount, stride));
+		}
 		else if (drawcount == 1)
-			glDrawing.pglDrawElementsIndirect(mode, type, indirect);
+		{
+			_NBL_GL_CALL(glDrawing.pglDrawElementsIndirect(mode, type, indirect));
+		}
 #ifdef _NBL_DEBUG
 		else
 		{
@@ -569,13 +625,15 @@ public:
 	void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array))
-			glesGeneral.pglViewportArrayvOES(first, count, v);
+		{
+			_NBL_GL_CALL(glesGeneral.pglViewportArrayvOES(first, count, v));
+		}
 		else if (first == 0u)
 		{
 #ifdef _NBL_DEBUG
 			os::Printer::log("Multiple viewports not supported, setting only first viewport!");
 #endif
-			glGeneral.pglViewport(v[0], v[1], v[2], v[3]);
+			_NBL_GL_CALL(glGeneral.pglViewport(v[0], v[1], v[2], v[3]));
 		}
 #ifdef _NBL_DEBUG
 		else
@@ -594,14 +652,14 @@ public:
 
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array))
 		{
-			glesGeneral.pglDepthRangeArrayfvOES(first, count, fv);
+			_NBL_GL_CALL(glesGeneral.pglDepthRangeArrayfvOES(first, count, fv));
 		}
 		else if (first == 0)
 		{
 #ifdef _NBL_DEBUG
 			os::Printer::log("Multiple viewports not supported, setting only first viewport!");
 #endif
-			glesGeneral.pglDepthRangef(fv[0], fv[1]);
+			_NBL_GL_CALL(glesGeneral.pglDepthRangef(fv[0], fv[1]));
 		}
 #ifdef _NBL_DEBUG
 		else
@@ -614,7 +672,9 @@ public:
 	void extGlClipControl(GLenum origin, GLenum depth) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control))
-			glesGeneral.pglClipControlEXT(origin, depth);
+		{
+			_NBL_GL_CALL(glesGeneral.pglClipControlEXT(origin, depth));
+		}
 #ifdef _NBL_DEBUG
 		else
 			os::Printer::log("GL_EXT_clip_control not supported on GLES backend!", ELL_ERROR);

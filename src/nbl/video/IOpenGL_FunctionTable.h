@@ -15,6 +15,27 @@
 #include "GL/glext.h"
 #undef GL_GLEXT_PROTOTYPES
 
+#ifdef _NBL_DEBUG
+#	include <android/log.h>
+//#	define _NBL_ANDR_LOGW(...) __android_log_print(ANDROID_LOG_WARN, "Nabla GL", __VA_ARGS__)
+// TODO use Nabla's Logger instead of __android_log_print (Logger should use it on Android)
+#	define _NBL_GL_CALL(callname_)\
+	{ \
+		callname_ ;\
+		GLenum err = glGeneral.pglGetError();\
+		const char* callname_str = #callname_; \
+		if (err)\
+		{\
+			const char* fl = __FILE__;\
+			const int ln = __LINE__;\
+			__android_log_print(ANDROID_LOG_WARN, "Nabla GL", "%s:%d:%s: error 0x%x == 0d%d", fl, ln, callname_str, err, err);\
+		}\
+	}
+#else
+#	define _NBL_GL_CALL(...) __VA_ARGS__
+#endif
+			//__android_log_print(ANDROID_LOG_WARN, "Nabla GL", __FILE__ ":" __LINE__ ": %s error: 0x%x = (dec)%d", callname_str, err, err);\
+
 namespace nbl {
 	namespace video {
 
@@ -373,37 +394,37 @@ namespace nbl {
 			virtual inline void extGlEnablei(GLenum target, GLuint index)
 			{
 				if (glGeneral.pglEnablei)
-					glGeneral.pglEnablei(target, index);
+					_NBL_GL_CALL(glGeneral.pglEnablei(target, index));
 			}
 			virtual inline void extGlDisablei(GLenum target, GLuint index)
 			{
 				if (glGeneral.pglDisablei)
-					glGeneral.pglDisablei(target, index);
+					_NBL_GL_CALL(glGeneral.pglDisablei(target, index));
 			}
 			virtual inline void extGlBlendEquationi(GLuint buf, GLenum mode)
 			{
 				if (glGeneral.pglBlendEquationi)
-					glGeneral.pglBlendEquationi(buf, mode);
+					_NBL_GL_CALL(glGeneral.pglBlendEquationi(buf, mode));
 			}
 			virtual inline void extGlBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha)
 			{
 				if (glGeneral.pglBlendEquationSeparatei)
-					glGeneral.pglBlendEquationSeparatei(buf, modeRGB, modeAlpha);
+					_NBL_GL_CALL(glGeneral.pglBlendEquationSeparatei(buf, modeRGB, modeAlpha));
 			}
 			virtual inline void extGlBlendFunci(GLuint buf, GLenum src, GLenum dst)
 			{
 				if (glGeneral.pglBlendFunci)
-					glGeneral.pglBlendFunci(buf, src, dst);
+					_NBL_GL_CALL(glGeneral.pglBlendFunci(buf, src, dst));
 			}
 			virtual inline void extGlBlendFuncSeparatei(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 			{
 				if (glGeneral.pglBlendFuncSeparatei)
-					glGeneral.pglBlendFuncSeparatei(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+					_NBL_GL_CALL(glGeneral.pglBlendFuncSeparatei(buf, srcRGB, dstRGB, srcAlpha, dstAlpha));
 			}
 			virtual inline void extGlColorMaski(GLuint buf, GLboolean r, GLboolean g, GLboolean b, GLboolean a)
 			{
 				if (glGeneral.pglColorMaski)
-					glGeneral.pglColorMaski(buf, r, g, b, a);
+					_NBL_GL_CALL(glGeneral.pglColorMaski(buf, r, g, b, a));
 			}
 			virtual inline GLboolean extGlIsEnabledi(GLenum target, GLuint index)
 			{
@@ -419,24 +440,24 @@ namespace nbl {
 				switch (target)
 				{
 				case GL_TEXTURE_2D:
-					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+					_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound));
 					break;
 				case GL_TEXTURE_CUBE_MAP:
-					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+					_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound));
 					break;
 				case GL_TEXTURE_2D_ARRAY:
-					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+					_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound));
 					break;
 				case GL_TEXTURE_3D:
-					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+					_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound));
 					break;
 				default:
 					os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 					return;
 				}
-				glTexture.pglBindTexture(target, texture);
-				glTexture.pglTexParameteriv(target, pname, params);
-				glTexture.pglBindTexture(target, bound);
+				_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+				_NBL_GL_CALL(glTexture.pglTexParameteriv(target, pname, params));
+				_NBL_GL_CALL(glTexture.pglBindTexture(target, bound));
 			}
 			virtual void extGlCopyImageSubData(
 				GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ,
@@ -447,7 +468,16 @@ namespace nbl {
 			virtual void extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance)
 			{
 				if (baseinstance == 0u)
-					glDrawing.pglDrawArraysInstanced(mode, first, count, instancecount);
+				{
+					if (instancecount > 1u)
+					{
+						_NBL_GL_CALL(glDrawing.pglDrawArraysInstanced(mode, first, count, instancecount));
+					}
+					else
+					{
+						_NBL_GL_CALL(glDrawing.pglDrawArrays(mode, first, count));
+					}
+				}
 #ifdef _NBL_DEBUG
 				else
 				{
@@ -459,7 +489,9 @@ namespace nbl {
 			virtual void extGlDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint baseinstance)
 			{
 				if (baseinstance == 0u)
-					glDrawing.pglDrawElementsInstanced(mode, count, type, indices, instancecount);
+				{
+					_NBL_GL_CALL(glDrawing.pglDrawElementsInstanced(mode, count, type, indices, instancecount));
+				}
 #ifdef _NBL_DEBUG
 				else
 				{
@@ -471,7 +503,9 @@ namespace nbl {
 			virtual void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex)
 			{
 				if (basevertex == 0u)
-					glDrawing.pglDrawElementsInstanced(mode, count, type, indices, instancecount);
+				{
+					_NBL_GL_CALL(glDrawing.pglDrawElementsInstanced(mode, count, type, indices, instancecount));
+				}
 #ifdef _NBL_DEBUG
 				else
 				{
@@ -483,9 +517,13 @@ namespace nbl {
 			virtual void extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance)
 			{
 				if (basevertex == 0u)
+				{
 					extGlDrawElementsInstancedBaseInstance(mode, count, type, indices, instancecount, baseinstance);
+				}
 				else if (baseinstance == 0u)
+				{
 					extGlDrawElementsInstancedBaseVertex(mode, count, type, indices, instancecount, basevertex);
+				}
 #ifdef _NBL_DEBUG
 				else
 				{
@@ -537,7 +575,7 @@ namespace nbl {
 
 		void IOpenGL_FunctionTable::extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures)
 		{
-			glTexture.pglGenTextures(n, textures);
+			_NBL_GL_CALL(glTexture.pglGenTextures(n, textures));
 		}
 
 		inline void IOpenGL_FunctionTable::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
@@ -547,21 +585,21 @@ namespace nbl {
 			switch (target)
 			{
 			case GL_TEXTURE_2D_ARRAY:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound));
 				break;
 			case GL_TEXTURE_3D:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound));
 				break;
 			case GL_TEXTURE_CUBE_MAP_ARRAY:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound));
 				break;
 			default:
 				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 				return;
 			}
-			glTexture.pglBindTexture(target, texture);
-			glTexture.pglTexStorage3D(target, levels, internalformat, width, height, depth);
-			glTexture.pglBindTexture(target, bound);
+			_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+			_NBL_GL_CALL(glTexture.pglTexStorage3D(target, levels, internalformat, width, height, depth));
+			_NBL_GL_CALL(glTexture.pglBindTexture(target, bound));
 		}
 		inline void IOpenGL_FunctionTable::extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
 		{
@@ -573,10 +611,10 @@ namespace nbl {
 				return;
 			}
 			else
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
-			glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture);
-			glTexture.pglTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, internalformat, width, height, fixedsamplelocations);
-			glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE, bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound));
+			_NBL_GL_CALL(glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture));
+			_NBL_GL_CALL(glTexture.pglTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, internalformat, width, height, fixedsamplelocations));
+			_NBL_GL_CALL(glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE, bound));
 		}
 		inline void IOpenGL_FunctionTable::extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
 		{
@@ -587,10 +625,10 @@ namespace nbl {
 				return;
 			}
 			else
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
-			glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, texture);
-			glTexture.pglTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, samples, internalformat, width, height, depth, fixedsamplelocations);
-			glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound));
+			_NBL_GL_CALL(glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, texture));
+			_NBL_GL_CALL(glTexture.pglTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, samples, internalformat, width, height, depth, fixedsamplelocations));
+			_NBL_GL_CALL(glTexture.pglBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, bound));
 		}
 		inline void IOpenGL_FunctionTable::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
 		{
@@ -599,27 +637,27 @@ namespace nbl {
 			switch (target)
 			{
 			case GL_TEXTURE_2D_ARRAY:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound));
 				break;
 			case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound));
 				break;
 			case GL_TEXTURE_3D:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound));
 				break;
 			case GL_TEXTURE_CUBE_MAP:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound));
 				break;
 			case GL_TEXTURE_CUBE_MAP_ARRAY:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound));
 				break;
 			default:
 				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 				return;
 			}
-			glTexture.pglBindTexture(target, texture);
-			glTexture.pglTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
-			glTexture.pglBindTexture(target, bound);
+			_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+			_NBL_GL_CALL(glTexture.pglTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels));
+			_NBL_GL_CALL(glTexture.pglBindTexture(target, bound));
 		}
 
 		inline void IOpenGL_FunctionTable::extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void* data)
@@ -628,31 +666,33 @@ namespace nbl {
 			switch (target)
 			{
 			case GL_TEXTURE_2D_ARRAY:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound));
 				break;
 			case GL_TEXTURE_3D:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound));
 				break;
 			case GL_TEXTURE_CUBE_MAP:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound));
 				break;
 			case GL_TEXTURE_CUBE_MAP_ARRAY:
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound));
 				break;
 			default:
 				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
 				return;
 			}
-			glTexture.pglBindTexture(target, texture);
-			glTexture.pglCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
-			glTexture.pglBindTexture(target, bound);
+			_NBL_GL_CALL(glTexture.pglBindTexture(target, texture));
+			_NBL_GL_CALL(glTexture.pglCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
+			_NBL_GL_CALL(glTexture.pglBindTexture(target, bound));
 		}
 
 		inline void IOpenGL_FunctionTable::extGlCreateSamplers(GLsizei n, GLuint* samplers)
 		{
 			
 			if (glTexture.pglGenSamplers)
-				glTexture.pglGenSamplers(n, samplers);
+			{
+				_NBL_GL_CALL(glTexture.pglGenSamplers(n, samplers));
+			}
 			else memset(samplers, 0, 4 * n);
 		}
 		inline void IOpenGL_FunctionTable::extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers)
@@ -664,12 +704,12 @@ namespace nbl {
 				if (samplers)
 				{
 					if (glTexture.pglBindSampler)
-						glTexture.pglBindSampler(unit, samplers[i]);
+						_NBL_GL_CALL(glTexture.pglBindSampler(unit, samplers[i]));
 				}
 				else
 				{
 					if (glTexture.pglBindSampler)
-						glTexture.pglBindSampler(unit, 0);
+						_NBL_GL_CALL(glTexture.pglBindSampler(unit, 0));
 				}
 			}
 		}
@@ -679,40 +719,44 @@ namespace nbl {
 			for (GLsizei i = 0; i < count; i++)
 			{
 				if (!textures || textures[i] == 0u)
-					glTexture.pglBindImageTexture(first + i, 0u, 0u, GL_FALSE, 0, GL_READ_WRITE, GL_R8);
+				{
+					_NBL_GL_CALL(glTexture.pglBindImageTexture(first + i, 0u, 0u, GL_FALSE, 0, GL_READ_WRITE, GL_R8));
+				}
 				else
-					glTexture.pglBindImageTexture(first + i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, formats[i]);
+				{
+					_NBL_GL_CALL(glTexture.pglBindImageTexture(first + i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, formats[i]));
+				}
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlCreateFramebuffers(GLsizei n, GLuint* framebuffers)
 		{
-			glFramebuffer.pglGenFramebuffers(n, framebuffers);
+			_NBL_GL_CALL(glFramebuffer.pglGenFramebuffers(n, framebuffers));
 		}
 		inline GLenum IOpenGL_FunctionTable::extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target)
 		{
 			
 			GLenum retval;
 			GLuint bound;
-			glGeneral.pglGetIntegerv(target == GL_READ_FRAMEBUFFER ? GL_READ_FRAMEBUFFER_BINDING : GL_DRAW_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(target == GL_READ_FRAMEBUFFER ? GL_READ_FRAMEBUFFER_BINDING : GL_DRAW_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
 
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(target, framebuffer);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(target, framebuffer));
 			retval = glFramebuffer.pglCheckFramebufferStatus(target);
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(target, bound);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(target, bound));
 
 			return retval;
 		}
 		inline void IOpenGL_FunctionTable::extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLenum textureType)
 		{
 			GLuint bound;
-			glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
 
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglFramebufferTexture(GL_FRAMEBUFFER, attachment, texture, level);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglFramebufferTexture(GL_FRAMEBUFFER, attachment, texture, level));
 			if (bound != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, bound));
 		}
 		inline void IOpenGL_FunctionTable::extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
 		{
@@ -720,110 +764,112 @@ namespace nbl {
 
 			GLint boundReadFBO = -1;
 			GLint boundDrawFBO = -1;
-			glGeneral.pglGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &boundReadFBO);
-			glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundDrawFBO);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &boundReadFBO));
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundDrawFBO));
 
 			if (static_cast<GLint>(readFramebuffer) != boundReadFBO)
-				glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer));
 			if (static_cast<GLint>(drawFramebuffer) != boundDrawFBO)
-				glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer));
 
-			glFramebuffer.pglBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+			_NBL_GL_CALL(glFramebuffer.pglBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter));
 
 			if (static_cast<GLint>(readFramebuffer) != boundReadFBO)
-				glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, boundReadFBO);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, boundReadFBO));
 			if (static_cast<GLint>(drawFramebuffer) != boundDrawFBO)
-				glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundDrawFBO);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundDrawFBO));
 		}
 		inline void IOpenGL_FunctionTable::extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode)
 		{
 			
 
 			GLint boundFBO;
-			glGeneral.pglGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &boundFBO);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &boundFBO));
 
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglReadBuffer(mode);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglReadBuffer(mode));
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, boundFBO);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, boundFBO));
 		}
 		inline void IOpenGL_FunctionTable::extGlNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum* bufs)
 		{
 			
 
 			GLint boundFBO;
-			glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO));
 
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglDrawBuffers(n, bufs);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglDrawBuffers(n, bufs));
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundFBO);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, boundFBO));
 		}
 		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value)
 		{
 			
 
 			GLint boundFBO = -1;
-			glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO));
 			if (boundFBO < 0)
 				return;
 
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglClearBufferiv(buffer, drawbuffer, value);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglClearBufferiv(buffer, drawbuffer, value));
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO));
 		}
 		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value)
 		{
 			
 
 			GLint boundFBO = -1;
-			glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO));
 			if (boundFBO < 0)
 				return;
 
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglClearBufferuiv(buffer, drawbuffer, value);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglClearBufferuiv(buffer, drawbuffer, value));
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO));
 		}
 		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value)
 		{
 			
 
 			GLint boundFBO = -1;
-			glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO));
 			if (boundFBO < 0)
 				return;
 
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglClearBufferfv(buffer, drawbuffer, value);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglClearBufferfv(buffer, drawbuffer, value));
 			if (static_cast<GLuint>(boundFBO) != framebuffer)
-				glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
+				_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO));
 		}
 		inline void IOpenGL_FunctionTable::extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil)
 		{
 			
 
 			GLint boundFBO = -1;
-			glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFBO));
 			if (boundFBO < 0)
 				return;
-			glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			glFramebuffer.pglClearBufferfi(buffer, drawbuffer, depth, stencil);
-			glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO);
+			_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, framebuffer));
+			_NBL_GL_CALL(glFramebuffer.pglClearBufferfi(buffer, drawbuffer, depth, stencil));
+			_NBL_GL_CALL(glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, boundFBO));
 		}
 		inline void IOpenGL_FunctionTable::extGlCreateBuffers(GLsizei n, GLuint* buffers)
 		{
 			
 
 			if (glBuffer.pglGenBuffers)
-				glBuffer.pglGenBuffers(n, buffers);
+			{
+				_NBL_GL_CALL(glBuffer.pglGenBuffers(n, buffers));
+			}
 			else if (buffers)
 				memset(buffers, 0, n * sizeof(GLuint));
 		}
@@ -833,7 +879,7 @@ namespace nbl {
 			for (GLsizei i = 0; i < count; i++)
 			{
 				if (glBuffer.pglBindBufferBase)
-					glBuffer.pglBindBufferBase(target, first + i, buffers ? buffers[i] : 0);
+					_NBL_GL_CALL(glBuffer.pglBindBufferBase(target, first + i, buffers ? buffers[i] : 0));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlBindBuffersRange(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes)
@@ -844,12 +890,12 @@ namespace nbl {
 				if (buffers)
 				{
 					if (glBuffer.pglBindBufferRange)
-						glBuffer.pglBindBufferRange(target, first + i, buffers[i], offsets[i], sizes[i]);
+						_NBL_GL_CALL(glBuffer.pglBindBufferRange(target, first + i, buffers[i], offsets[i], sizes[i]));
 				}
 				else
 				{
 					if (glBuffer.pglBindBufferBase)
-						glBuffer.pglBindBufferBase(target, first + i, 0);
+						_NBL_GL_CALL(glBuffer.pglBindBufferBase(target, first + i, 0));
 				}
 			}
 		}
@@ -857,10 +903,10 @@ namespace nbl {
 		{
 			
 			GLint bound;
-			glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
-			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
-			glBuffer.pglBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
-			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+			_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound));
+			_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer));
+			_NBL_GL_CALL(glBuffer.pglBufferSubData(GL_ARRAY_BUFFER, offset, size, data));
+			_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound));
 		}
 		inline void* IOpenGL_FunctionTable::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 		{
@@ -869,10 +915,10 @@ namespace nbl {
 			{
 				GLvoid* retval;
 				GLint bound;
-				glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer));
 				retval = glBuffer.pglMapBufferRange(GL_ARRAY_BUFFER, offset, length, access);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound));
 				return retval;
 			}
 			return NULL;
@@ -883,10 +929,10 @@ namespace nbl {
 			if (glBuffer.pglFlushMappedBufferRange && glBuffer.pglBindBuffer)
 			{
 				GLint bound;
-				glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
-				glBuffer.pglFlushMappedBufferRange(GL_ARRAY_BUFFER, offset, length);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer));
+				_NBL_GL_CALL(glBuffer.pglFlushMappedBufferRange(GL_ARRAY_BUFFER, offset, length));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound));
 			}
 		}
 		inline GLboolean IOpenGL_FunctionTable::extGlUnmapNamedBuffer(GLuint buffer)
@@ -896,10 +942,10 @@ namespace nbl {
 			{
 				GLboolean retval;
 				GLint bound;
-				glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer));
 				retval = glBuffer.pglUnmapBuffer(GL_ARRAY_BUFFER);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound));
 				return retval;
 			}
 			return false;
@@ -911,13 +957,13 @@ namespace nbl {
 			if (glBuffer.pglCopyBufferSubData && glBuffer.pglBindBuffer)
 			{
 				GLint boundRead, boundWrite;
-				glGeneral.pglGetIntegerv(GL_COPY_READ_BUFFER_BINDING, &boundRead);
-				glGeneral.pglGetIntegerv(GL_COPY_WRITE_BUFFER_BINDING, &boundWrite);
-				glBuffer.pglBindBuffer(GL_COPY_READ_BUFFER, readBuffer);
-				glBuffer.pglBindBuffer(GL_COPY_WRITE_BUFFER, writeBuffer);
-				glBuffer.pglCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, readOffset, writeOffset, size);
-				glBuffer.pglBindBuffer(GL_COPY_READ_BUFFER, boundRead);
-				glBuffer.pglBindBuffer(GL_COPY_WRITE_BUFFER, boundWrite);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_COPY_READ_BUFFER_BINDING, &boundRead));
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_COPY_WRITE_BUFFER_BINDING, &boundWrite));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_COPY_READ_BUFFER, readBuffer));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_COPY_WRITE_BUFFER, writeBuffer));
+				_NBL_GL_CALL(glBuffer.pglCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, readOffset, writeOffset, size));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_COPY_READ_BUFFER, boundRead));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_COPY_WRITE_BUFFER, boundWrite));
 			}
 		}
 		inline GLboolean IOpenGL_FunctionTable::extGlIsBuffer(GLuint buffer)
@@ -932,10 +978,10 @@ namespace nbl {
 			if (glBuffer.pglGetBufferParameteriv && glBuffer.pglBindBuffer)
 			{
 				GLint bound;
-				glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
-				glBuffer.pglGetBufferParameteriv(GL_ARRAY_BUFFER, value, data);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer));
+				_NBL_GL_CALL(glBuffer.pglGetBufferParameteriv(GL_ARRAY_BUFFER, value, data));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data)
@@ -944,17 +990,19 @@ namespace nbl {
 			if (glBuffer.pglGetBufferParameteri64v && glBuffer.pglBindBuffer)
 			{
 				GLint bound;
-				glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
-				glBuffer.pglGetBufferParameteri64v(GL_ARRAY_BUFFER, value, data);
-				glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer));
+				_NBL_GL_CALL(glBuffer.pglGetBufferParameteri64v(GL_ARRAY_BUFFER, value, data));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlCreateVertexArrays(GLsizei n, GLuint* arrays)
 		{
 			
 			if (glVertex.pglGenVertexArrays)
-				glVertex.pglGenVertexArrays(n, arrays);
+			{
+				_NBL_GL_CALL(glVertex.pglGenVertexArrays(n, arrays));
+			}
 			else
 				memset(arrays, 0, sizeof(GLuint) * n);
 		}
@@ -965,10 +1013,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glBuffer.pglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glBuffer.pglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride)
@@ -978,10 +1026,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glVertex.pglBindVertexBuffer(bindingindex, buffer, offset, stride);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glVertex.pglBindVertexBuffer(bindingindex, buffer, offset, stride));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex)
@@ -991,10 +1039,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glVertex.pglVertexAttribBinding(attribindex, bindingindex);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glVertex.pglVertexAttribBinding(attribindex, bindingindex));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index)
@@ -1004,10 +1052,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glVertex.pglEnableVertexAttribArray(index);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glVertex.pglEnableVertexAttribArray(index));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)
@@ -1017,10 +1065,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glVertex.pglDisableVertexAttribArray(index);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glVertex.pglDisableVertexAttribArray(index));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
@@ -1030,10 +1078,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glVertex.pglVertexAttribFormat(attribindex, size, type, normalized, relativeoffset);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glVertex.pglVertexAttribFormat(attribindex, size, type, normalized, relativeoffset));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
@@ -1043,10 +1091,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glVertex.pglVertexAttribIFormat(attribindex, size, type, relativeoffset);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glVertex.pglVertexAttribIFormat(attribindex, size, type, relativeoffset));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor)
@@ -1056,22 +1104,22 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-				glVertex.pglBindVertexArray(vaobj);
-				glVertex.pglVertexBindingDivisor(bindingindex, divisor);
-				glVertex.pglBindVertexArray(restoreVertexArray);
+				_NBL_GL_CALL(glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(vaobj));
+				_NBL_GL_CALL(glVertex.pglVertexBindingDivisor(bindingindex, divisor));
+				_NBL_GL_CALL(glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids)
 		{
 			
 			if (glQuery.pglGenQueries)
-				glQuery.pglGenQueries(n, ids);
+				_NBL_GL_CALL(glQuery.pglGenQueries(n, ids));
 		}
 		inline void IOpenGL_FunctionTable::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 		{
 			if (glGeneral.pglGetInternalformativ)
-				glGeneral.pglGetInternalformativ(target, internalformat, pname, bufSize, params);
+				_NBL_GL_CALL(glGeneral.pglGetInternalformativ(target, internalformat, pname, bufSize, params));
 		}
 		inline void IOpenGL_FunctionTable::extGlSwapInterval(int interval)
 		{

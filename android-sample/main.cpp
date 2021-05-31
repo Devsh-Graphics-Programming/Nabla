@@ -353,9 +353,9 @@ void main()
 		asset::VkRect2D area;
 		area.offset = { 0, 0 };
 		area.extent = { win_w, win_h };
-		clear.color.float32[0] = 1.f;
-		clear.color.float32[1] = 0.f;
-		clear.color.float32[2] = 0.f;
+		clear.color.float32[0] = 0.f;
+		clear.color.float32[1] = 1.f;
+		clear.color.float32[2] = 1.f;
 		clear.color.float32[3] = 1.f;
 		info.renderpass = engine->renderpass;
 		info.framebuffer = fb;

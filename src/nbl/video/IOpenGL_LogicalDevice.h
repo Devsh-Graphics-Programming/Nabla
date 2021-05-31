@@ -25,6 +25,10 @@
 #include "nbl/video/COpenGLFence.h"
 #include "nbl/video/COpenGLDebug.h"
 
+#ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
+#	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
+#endif
+
 namespace nbl {
 namespace video
 {
@@ -316,8 +320,13 @@ protected:
         const EGLint ctx_attributes[] = {
             EGL_CONTEXT_MAJOR_VERSION, major,
             EGL_CONTEXT_MINOR_VERSION, minor,
-#ifdef _NBL_DEBUG
-            //EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+// ANGLE validation is bugged and produces false positives, this flag turns off validation (glGetError wont ever return non-zero value then)
+#ifdef _NBL_PLATFORM_ANDROID_
+            EGL_CONTEXT_OPENGL_NO_ERROR_KHR, EGL_TRUE,
+#endif
+// ANGLE does not support debug contexts
+#if defined(_NBL_DEBUG) && !defined(_NBL_PLATFORM_ANDROID_)
+            EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
 #endif
             //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
 
@@ -613,10 +622,12 @@ protected:
             case ERT_CTX_MAKE_CURRENT:
             {
                 auto& p = std::get<SRequestMakeCurrent>(req.params_variant);
+                EGLBoolean mcres = EGL_FALSE;
                 if (p.bind)
-                    egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+                    mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
                 else
-                    egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+                    mcres = egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+                assert(mcres);
             }
                 break;
             case ERT_WAIT_IDLE:
