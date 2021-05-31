@@ -89,7 +89,7 @@ public:
 		uint32_t vertexAllocationOffset;
 		uint32_t vertexAllocationReservedSize;
 
-		inline bool isValid()
+		inline bool isValid() const
 		{
 			return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
 		}
@@ -115,7 +115,8 @@ public:
 
 	~CCPUMeshPackerV1()
 	{
-		_NBL_ALIGNED_FREE(m_perInsVtxBuffAlctrResSpc);
+		if(isInstancingEnabled)
+			_NBL_ALIGNED_FREE(m_perInsVtxBuffAlctrResSpc);
 	}
 
 	template <typename MeshBufferIterator>
@@ -153,13 +154,20 @@ public:
 		MeshPackerConfigParams<Iterator>* packerParamsOut);
 
 	//! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
-	void shrinkOutputBuffersSize() // TODO: shrink isn't special, can only happen before data storage is instantiated, so do it in the base class
+	virtual void shrinkOutputBuffersSize() override
 	{
-		m_allocParams.MDIDataBuffSupportedCnt = m_MDIDataAlctr.safe_shrink_size(0u, 1u);
-		m_allocParams.perInstanceVertexBuffSupportedByteSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, 1u);
-		m_allocParams.indexBuffSupportedCnt = m_idxBuffAlctr.safe_shrink_size(0u, 1u);
-		m_allocParams.vertexBuffSupportedByteSize = m_vtxBuffAlctr.safe_shrink_size(0u, 1u);
-		// TODO: SHRINK ACTUAL ALLOCATORS AND THEIR RESERVED SPACES! (CREATE NEW ALLOCATORS WITH NEW RESERVED SPACES, THEN DELETE OLD RESERVED, THEN SWAP ALLOCATOR AND RESERVED MEMBERS) 
+		using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
+
+		base_t::shrinkOutputBuffersSize();
+
+		uint32_t mdiDataBuffNewSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, traits::max_alignment(m_perInsVtxBuffAlctr));
+
+		if (isInstancingEnabled)
+		{
+			const void* oldReserved = traits::getReservedSpacePtr(m_perInsVtxBuffAlctr);
+			m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(mdiDataBuffNewSize, std::move(m_perInsVtxBuffAlctr), _NBL_ALIGNED_MALLOC(traits::reserved_size(mdiDataBuffNewSize, m_perInsVtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+			_NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
+		}
 	}
 
 private:
@@ -302,7 +310,10 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 		return invalidReservedAllocationMeshBuffers;
 	}
 	
-	if (m_vtxBuffAlctrResSpc)
+	using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
+
+	bool arePerVtxAttribsEnabled = traits::get_total_size(m_vtxBuffAlctr) == 0 ? false : true;
+	if (arePerVtxAttribsEnabled)
 	{
 		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr(vtxCnt * m_vtxSize, 1u);
 		if (vtxAllocAddr == INVALID_ADDRESS)
@@ -316,7 +327,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 		}
 	}
 	
-	if (m_perInsVtxBuffAlctrResSpc)
+	if (isInstancingEnabled)
 	{
 		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr(perInsVtxCnt * m_perInsVtxSize, 1u);
 		if (perInsVtxAllocAddr == INVALID_ADDRESS)

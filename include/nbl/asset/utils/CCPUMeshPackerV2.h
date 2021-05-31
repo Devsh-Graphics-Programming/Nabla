@@ -35,27 +35,6 @@ class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet
 
         void instantiateDataStorage();
 
-        //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
-        void shrinkOutputBuffersSize()
-        {
-            using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
-            uint32_t mdiDataBuffNewSize = m_MDIDataAlctr.safe_shrink_size(0u,traits::max_alignment(m_MDIDataAlctr));
-            uint32_t idxBuffNewSize = m_idxBuffAlctr.safe_shrink_size(0u,traits::max_alignment(m_idxBuffAlctr));
-            uint32_t vtxBuffNewSize = m_vtxBuffAlctr.safe_shrink_size(0u,traits::max_alignment(m_vtxBuffAlctr));
-
-            const void* oldReserved = traits::getReservedSpacePtr(m_MDIDataAlctr);
-            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator(mdiDataBuffNewSize,std::move(m_MDIDataAlctr),_NBL_ALIGNED_MALLOC(traits::reserved_size(mdiDataBuffNewSize,m_MDIDataAlctr),_NBL_SIMD_ALIGNMENT));
-            _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
-
-            oldReserved = traits::getReservedSpacePtr(m_idxBuffAlctr);
-            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator(idxBuffNewSize,std::move(m_idxBuffAlctr),_NBL_ALIGNED_MALLOC(traits::reserved_size(idxBuffNewSize,m_idxBuffAlctr),_NBL_SIMD_ALIGNMENT));
-            _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
-
-            oldReserved = traits::getReservedSpacePtr(m_vtxBuffAlctr);
-            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator(vtxBuffNewSize,std::move(m_vtxBuffAlctr),_NBL_ALIGNED_MALLOC(traits::reserved_size(vtxBuffNewSize,m_vtxBuffAlctr),_NBL_SIMD_ALIGNMENT));
-            _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
-        }
-
         /**
         \return number of mdi structs created for mesh buffer range described by mbBegin .. mbEnd, 0 if commit failed or mbBegin == mbEnd
         */
