@@ -14,24 +14,20 @@ layout(set=2, binding=0, row_major) readonly restrict buffer PerInstancePerCamer
     DrawData_t data[];
 } instanceDataPerCamera;
 
-
-layout(location = 0) flat out uint BackfacingBit_BatchInstanceGUID;
-layout(location = 1) out vec3 Normal;
-layout(location = 2) out vec2 UV;
-
+#include <nbl/builtin/glsl/barycentric/vert.glsl>
+layout(location = 2) flat out uint BackfacingBit_BatchInstanceGUID;
+layout(location = 3) flat out uint drawCmdFirstIndex;
 
 #include <nbl/builtin/glsl/utils/transform.glsl>
-
 void main()
 {
     DrawData_t self = instanceDataPerCamera.data[gl_InstanceIndex];
     BackfacingBit_BatchInstanceGUID = self.backfacingBit_batchInstanceGUID;
+    drawCmdFirstIndex = self.firstIndex;
 
-    const uint batchInstanceGUID = self.backfacingBit_batchInstanceGUID&0x0fffffffu;
-
-    gl_Position = nbl_glsl_pseudoMul4x4with3x1(self.MVP,nbl_glsl_fetchVtxPos(gl_VertexIndex,batchInstanceGUID));
+    const uint batchInstanceGUID = self.backfacingBit_batchInstanceGUID&0x7fffffffu;
     
-    Normal = normalize(nbl_glsl_fetchVtxNormal(gl_VertexIndex,batchInstanceGUID));
-	
-    UV = nbl_glsl_fetchVtxUV(gl_VertexIndex,batchInstanceGUID);
+    const vec3 modelPos = nbl_glsl_fetchVtxPos(gl_VertexIndex,batchInstanceGUID);
+    nbl_glsl_barycentric_vert_set(modelPos);
+    gl_Position = nbl_glsl_pseudoMul4x4with3x1(self.MVP,modelPos);
 }

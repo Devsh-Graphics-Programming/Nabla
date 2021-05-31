@@ -141,7 +141,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		samplerParams.CompareEnable = false;
 		auto sampler = m_driver->createGPUSampler(samplerParams);
 
-		constexpr auto raygenDescriptorCount = 6u;
+		constexpr auto raygenDescriptorCount = 4u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
@@ -151,10 +151,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[2].samplers = &sampler;
 		bindings[3].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 		bindings[3].samplers = &sampler;
-		bindings[4].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-		bindings[4].samplers = &sampler;
-		bindings[5].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-		bindings[5].samplers = &sampler;
 
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
 	}
@@ -601,23 +597,13 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-enum E_VISIBILITY_BUFFER_ATTACHMENT
-{
-	EVBA_DEPTH,
-	EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING,
-	// TODO: Once we get geometry packer V2 (virtual geometry) no need for these buffers actually (might want/need a barycentric buffer)
-	EVBA_NORMALS,
-	EVBA_UV_COORDINATES,
-	EVBA_COUNT
-};
-
 void Renderer::init(const SAssetBundle& meshes,
 					core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence,
 					uint32_t rayBufferSize)
 {
 	deinit();
 
-	core::smart_refctd_ptr<IGPUImageView> visibilityBufferAttachments[EVBA_COUNT];
+	core::smart_refctd_ptr<IGPUImageView> depthBuffer,visibilityBuffer;
 	// set up Descriptor Sets
 	{
 		// captures m_globalBackendDataDS, creates m_indirectDrawBuffers, sets up m_mdiDrawCalls ranges, creates m_additionalGlobalDS and m_cullDS, sets m_cullPushConstants and m_cullWorkgroups, creates m_perCameraRasterDS
@@ -733,7 +719,7 @@ void Renderer::init(const SAssetBundle& meshes,
 
 
 			//
-			constexpr uint32_t descriptorUpdateCounts[] = { 3u,3u,6u,2u };
+			constexpr uint32_t descriptorUpdateCounts[] = { 3u,3u,4u,2u };
 			constexpr uint32_t descriptorUpdateExclScanSum[] =
 			{
 				0u,
@@ -833,10 +819,8 @@ void Renderer::init(const SAssetBundle& meshes,
 					region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
 					m_driver->copyBufferToImage(gpuBuff.get(), scrambleTexture->getCreationParameters().image.get(), 1u, &region);
 				}
-				visibilityBufferAttachments[EVBA_DEPTH] = createScreenSizedTexture(EF_D32_SFLOAT);
-				visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING] = createScreenSizedTexture(EF_R32G32_UINT);
-				visibilityBufferAttachments[EVBA_NORMALS] = createScreenSizedTexture(EF_R16G16_SNORM);
-				visibilityBufferAttachments[EVBA_UV_COORDINATES] = createScreenSizedTexture(EF_R16G16_SFLOAT);
+				depthBuffer = createScreenSizedTexture(EF_D32_SFLOAT);
+				visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
 
 				auto raygenInfos = infos+descriptorUpdateExclScanSum[2];
 				auto raygenWrites = writes+descriptorUpdateExclScanSum[2];
@@ -846,15 +830,15 @@ void Renderer::init(const SAssetBundle& meshes,
 					const auto maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
 					assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
 					// upload sequence to GPU
-					auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
-					raygenInfos[0].desc = m_driver->createGPUBufferView(gpubuf.get(), asset::EF_R32G32B32_UINT);
+					auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
+					raygenInfos[0].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT);
 				}
 				setImageInfo(raygenInfos+1,asset::EIL_SHADER_READ_ONLY_OPTIMAL,std::move(scrambleTexture));
-				for (auto i=0u; i<EVBA_COUNT; i++)
-					setImageInfo(raygenInfos+2+i,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBufferAttachments[i]));
+				setImageInfo(raygenInfos+2,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(depthBuffer));
+				setImageInfo(raygenInfos+3,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
 				
 
-				setDstSetAndDescTypesOnWrites(m_raygenDS.get(),raygenWrites,raygenInfos,{EDT_UNIFORM_TEXEL_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER });
+				setDstSetAndDescTypesOnWrites(m_raygenDS.get(),raygenWrites,raygenInfos,{EDT_UNIFORM_TEXEL_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER});
 			}
 			// set up m_resolveDS
 			{
@@ -879,10 +863,8 @@ void Renderer::init(const SAssetBundle& meshes,
 
 
 	m_visibilityBuffer = m_driver->addFrameBuffer();
-	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_DEPTH]));
-	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING]));
-	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT1, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_NORMALS]));
-	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT2, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_UV_COORDINATES]));
+	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT,std::move(depthBuffer));
+	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT0,std::move(visibilityBuffer));
 
 	tmpTonemapBuffer = m_driver->addFrameBuffer();
 	tmpTonemapBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_accumulation));
@@ -1130,9 +1112,6 @@ void Renderer::render(nbl::ITimer* timer)
 			m_driver->clearZBuffer();
 			uint32_t clearTriangleID[4] = {0xffffffffu,0,0,0};
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearTriangleID);
-			float zero[4] = { 0.f,0.f,0.f,0.f };
-			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
-			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, zero);
 		}
 		m_driver->bindGraphicsPipeline(m_visibilityBufferFillPipeline.get());
 		{
