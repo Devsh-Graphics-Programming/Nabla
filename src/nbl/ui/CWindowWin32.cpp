@@ -1,10 +1,13 @@
 #include "nbl/ui/CWindowWin32.h"
+#include <hidusage.h>
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
 namespace nbl {
 namespace ui
 {
+	static std::multimap<std::pair<core::smart_refctd_ptr<CWindowWin32>, std::string>, IMouseEventChannel> s_mouseEventChannels;
+	static std::multimap<std::pair<core::smart_refctd_ptr<CWindowWin32>, std::string>, IKeyboardEventChannel> s_keyboardEventChannels;
 	struct SRequest : system::impl::IAsyncQueueDispatcherBase::request_base_t
 	{
 		struct SParams {};
@@ -106,9 +109,37 @@ namespace ui
 				windowLeft = 0;
 				windowTop = 0;
 			}
+			{
+				//TODO: thoroughly test this stuff	
+				constexpr uint32_t INPUT_DEVICES_COUNT = 5;
+				RAWINPUTDEVICE inputDevices[INPUT_DEVICES_COUNT];
+				inputDevices[0].hwndTarget = m_params.nativeWindow;
+				inputDevices[0].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+				inputDevices[0].usUsage = HID_USAGE_GENERIC_POINTER;
 
-			// create window
+				inputDevices[1].hwndTarget = m_params.nativeWindow;
+				inputDevices[1].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
+				inputDevices[1].usUsage = HID_USAGE_GENERIC_MOUSE;
 
+				inputDevices[2].hwndTarget = m_params.nativeWindow;
+				inputDevices[2].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
+				inputDevices[2].usUsage = HID_USAGE_GENERIC_KEYBOARD;
+
+				inputDevices[3].hwndTarget = m_params.nativeWindow;
+				inputDevices[3].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[3].usUsagePage = HID_USAGE_PAGE_GAME;
+				inputDevices[3].usUsage = HID_USAGE_GENERIC_JOYSTICK;
+
+				inputDevices[4].hwndTarget = m_params.nativeWindow;
+				inputDevices[4].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[4].usUsagePage = HID_USAGE_PAGE_GAME;
+				inputDevices[4].usUsage = HID_USAGE_GENERIC_GAMEPAD;
+
+				RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
+			}
 			m_params.nativeWindow = CreateWindow(classname, __TEXT(""), style, windowLeft, windowTop,
 				realWidth, realHeight, NULL, NULL, hinstance, NULL);
 			if ((m_params.flags & CWindowWin32::ECF_HIDDEN) == 0)
@@ -279,10 +310,65 @@ namespace ui
 				break;
 			case WA_INACTIVE:
 				eventCallback->onLostMouseFocus(window);
+				break;
 			}
 			break;
 		}
-		
+		case WM_INPUT_DEVICE_CHANGE:
+		{
+			constexpr uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
+			RID_DEVICE_INFO deviceInfo;
+			deviceInfo.cbSize = sizeof(RID_DEVICE_INFO);
+			UINT size = sizeof(RID_DEVICE_INFO);
+			GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
+
+			UINT deviceNameSize;
+			std::string deviceName;
+			if (GetRawInputDeviceInfo((HANDLE)lParam, RIDI_DEVICENAME, nullptr, &deviceNameSize) >= 0) {
+				deviceName.resize(deviceNameSize);
+				GetRawInputDeviceInfo((HANDLE)lParam, RIDI_DEVICENAME, (LPVOID)deviceName.data(), &deviceNameSize);
+			}
+
+			switch (wParam)
+			{
+			case GIDC_ARRIVAL:
+			{
+				if (deviceInfo.dwType == RIM_TYPEMOUSE)
+				{
+					//TODO: will finish that stuff tomorrow
+					auto chanel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+					decltype(s_mouseEventChannels)::value_type uniqueInputChannel;
+					uniqueInputChannel
+				}
+				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
+				{
+
+				}
+				else if (deviceInfo.dwType == RIM_TYPEHID)
+				{
+					// TODO 
+				}
+				break;
+			}
+			case GIDC_REMOVAL:
+			{
+				if (deviceInfo.dwType == RIM_TYPEMOUSE)
+				{
+
+				}
+				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
+				{
+
+				}
+				else if (deviceInfo.dwType == RIM_TYPEHID)
+				{
+					// TODO 
+				}
+				break;
+			}
+			}
+			break;
+		}
 		}
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
