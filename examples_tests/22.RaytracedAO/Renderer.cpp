@@ -82,6 +82,12 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 
 	// set up Visibility Buffer pipeline
 	{
+		IGPUDescriptorSetLayout::SBinding binding;
+		fillIotaDescriptorBindingDeclarations(&binding,ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_FRAGMENT,1u,asset::EDT_STORAGE_BUFFER);
+
+		m_rasterInstanceDataDSLayout = m_driver->createGPUDescriptorSetLayout(&binding,&binding+1u);
+	}
+	{
 		constexpr auto additionalGlobalDescriptorCount = 7u;
 		IGPUDescriptorSetLayout::SBinding bindings[additionalGlobalDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_FRAGMENT,additionalGlobalDescriptorCount,asset::EDT_STORAGE_BUFFER);
@@ -96,14 +102,19 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 
 		m_cullDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+cullingDescriptorCount);
 	}
-	auto _visibilityBufferFillPipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_additionalGlobalDSLayout),core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
-	m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(_visibilityBufferFillPipelineLayout->getDescriptorSetLayout(1u));
+	m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(m_cullDSLayout);
 	{
 		core::smart_refctd_ptr<IGPUSpecializedShader> shaders[] = {gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../fillVisBuffer.vert"),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../fillVisBuffer.frag")};
 		SPrimitiveAssemblyParams primitiveAssembly;
 		primitiveAssembly.primitiveType = EPT_TRIANGLE_LIST;
 		SRasterizationParams raster;
 		raster.faceCullingMode = EFCM_NONE;
+		auto _visibilityBufferFillPipelineLayout = m_driver->createGPUPipelineLayout(
+			nullptr,nullptr,
+			core::smart_refctd_ptr(m_rasterInstanceDataDSLayout),
+			core::smart_refctd_ptr(m_additionalGlobalDSLayout),
+			core::smart_refctd_ptr(m_cullDSLayout)
+		);
 		m_visibilityBufferFillPipeline = m_driver->createGPURenderpassIndependentPipeline(
 			nullptr,std::move(_visibilityBufferFillPipelineLayout),&shaders->get(),&shaders->get()+2u,
 			SVertexInputParams{},SBlendParams{},primitiveAssembly,raster
@@ -180,6 +191,28 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	assert(instanceDataDescPtr->desc->getTypeCategory()==IDescriptor::EC_BUFFER);
 	auto* origInstanceData = reinterpret_cast<const ext::MitsubaLoader::instance_data_t*>(static_cast<ICPUBuffer*>(instanceDataDescPtr->desc.get())->getPointer());
 
+	IGPUDescriptorSet::SDescriptorInfo infos[4];
+	auto recordInfoBuffer = [](IGPUDescriptorSet::SDescriptorInfo& info, core::smart_refctd_ptr<IGPUBuffer>&& buf) -> void
+	{
+		info.buffer.size = buf->getSize();
+		info.buffer.offset = 0u;
+		info.desc = std::move(buf);
+	};
+	constexpr uint32_t writeBound = 4u;
+	IGPUDescriptorSet::SWriteDescriptorSet writes[writeBound];
+	auto recordSSBOWrite = [](IGPUDescriptorSet::SWriteDescriptorSet& write, IGPUDescriptorSet::SDescriptorInfo* infos, uint32_t binding, uint32_t count=1u) -> void
+	{
+		write.binding = binding;
+		write.arrayElement = 0u;
+		write.count = count;
+		write.descriptorType = EDT_STORAGE_BUFFER;
+		write.info = infos;
+	};
+	auto setDstSetOnAllWrites = [&writes,writeBound](IGPUDescriptorSet* dstSet) -> void
+	{
+		for (auto i=0u; i<writeBound; i++)
+			writes[i].dstSet = dstSet;
+	};
 	// make secondary (geometry) DS
 	m_additionalGlobalDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_additionalGlobalDSLayout));
 
@@ -326,7 +359,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 										reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[UVAttributeIx]),
 										0u,31u
 									);
-									if (frontFaceIsCCW) // compensate for Nabla's default camer being left handed (verify)
+									if (frontFaceIsCCW) // compensate for Nabla's default camera being left handed
 										newInstanceData->determinantSignBit ^= 0x80000000u;
 
 									auto& c = cullData.emplace_back();
@@ -384,15 +417,31 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						}
 					}
 				}
-				instanceDataDescPtr->buffer = {0u,newInstanceDataBuffer->getSize()};
-				instanceDataDescPtr->desc = std::move(newInstanceDataBuffer);
+				instanceDataDescPtr->buffer = {0u,cullData.size()*sizeof(ext::MitsubaLoader::instance_data_t)};
+				instanceDataDescPtr->desc = std::move(newInstanceDataBuffer); // TODO: trim the buffer
 				{
 					auto gpump = core::make_smart_refctd_ptr<GPUMeshPacker>(m_driver,cpump.get());
-					m_indexBuffer = gpump->getPackerDataStore().indexBuffer;
-					m_indirectDrawBuffers[0] = gpump->getPackerDataStore().MDIDataBuffer;
-					const auto mdiBufferSize = m_indirectDrawBuffers[0]->getSize();
-					m_indirectDrawBuffers[1] = m_driver->createDeviceLocalGPUBufferOnDedMem(mdiBufferSize);
-					m_driver->copyBuffer(m_indirectDrawBuffers[0].get(),m_indirectDrawBuffers[1].get(),0u,0u,mdiBufferSize);
+					const auto& dataStore = gpump->getPackerDataStore();
+					m_indexBuffer = dataStore.indexBuffer;
+					// set up descriptor set for the inputs
+					{
+						for (auto i=0u; i<writeBound; i++)
+						{
+							recordInfoBuffer(infos[i],core::smart_refctd_ptr(dataStore.vertexBuffer));
+							recordSSBOWrite(writes[i],infos+i,i);
+						}
+						recordInfoBuffer(infos[2],core::smart_refctd_ptr(m_indexBuffer));
+
+						setDstSetOnAllWrites(m_additionalGlobalDS.get());
+						m_driver->updateDescriptorSets(writeBound,writes,0u,nullptr);
+					}
+					// set up double buffering of MDI command buffers
+					{
+						m_indirectDrawBuffers[0] = dataStore.MDIDataBuffer;
+						const auto mdiBufferSize = m_indirectDrawBuffers[0]->getSize();
+						m_indirectDrawBuffers[1] = m_driver->createDeviceLocalGPUBufferOnDedMem(mdiBufferSize);
+						m_driver->copyBuffer(m_indirectDrawBuffers[0].get(),m_indirectDrawBuffers[1].get(),0u,0u,mdiBufferSize);
+					}
 				}
 			}
 			m_cullPushConstants.maxDrawCommandCount = pmbd.back().mdiParameterOffset+pmbd.back().mdiParameterCount;
@@ -409,48 +458,36 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	m_cullDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_cullDSLayout));
 	m_perCameraRasterDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_perCameraRasterDSLayout));
 	{
-		IGPUDescriptorSet::SDescriptorInfo infos[4];
-		
-		infos[0].buffer.size = m_cullPushConstants.maxGlobalInstanceCount*sizeof(DrawData_t);
-		infos[0].buffer.offset = 0u;
-		infos[0].desc = m_driver->createDeviceLocalGPUBufferOnDedMem(infos[0].buffer.size);
-		
-		infos[1].buffer.size = m_cullPushConstants.maxGlobalInstanceCount*sizeof(CullData_t);
-		infos[1].buffer.offset = 0u;
-		infos[1].desc = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(infos[1].buffer.size,cullData.data());
+		recordInfoBuffer(infos[3],core::smart_refctd_ptr(m_indirectDrawBuffers[1]));
+		recordInfoBuffer(infos[2],core::smart_refctd_ptr(m_indirectDrawBuffers[0]));
+		recordInfoBuffer(infos[1],m_driver->createFilledDeviceLocalGPUBufferOnDedMem(m_cullPushConstants.maxGlobalInstanceCount*sizeof(CullData_t),cullData.data()));
 		cullData.clear();
+		recordInfoBuffer(infos[0],m_driver->createDeviceLocalGPUBufferOnDedMem(m_cullPushConstants.maxGlobalInstanceCount*sizeof(DrawData_t)));
 		
-		for (auto offset=2u,i=0u; i<2u; i++)
-		{
-			auto j = i+offset;
-			infos[j].buffer.size = m_indirectDrawBuffers[i]->getSize();
-			infos[j].buffer.offset = 0u;
-			infos[j].desc = m_indirectDrawBuffers[i];
-		}
-		
-		IGPUDescriptorSet::SWriteDescriptorSet commonWrites[3];
-		for (auto i=0u; i<3u; i++)
-		{
-			commonWrites[i].binding = i;
-			commonWrites[i].arrayElement = 0u;
-			commonWrites[i].count = 1u;
-			commonWrites[i].descriptorType = EDT_STORAGE_BUFFER;
-			commonWrites[i].info = infos+i;
-		}
-		commonWrites[2u].count = 2u;
+		recordSSBOWrite(writes[0],infos+0,0u);
+		recordSSBOWrite(writes[1],infos+1,1u);
+		recordSSBOWrite(writes[2],infos+2,2u,2u);
 
-		auto setDstSetOnAllWrites = [](IGPUDescriptorSet* dstSet, IGPUDescriptorSet::SWriteDescriptorSet* writes, uint32_t count)
-		{
-			for (auto i=0u; i<count; i++)
-				writes[i].dstSet = dstSet;
-		};
-		setDstSetOnAllWrites(m_perCameraRasterDS.get(),commonWrites,1u);
-		m_driver->updateDescriptorSets(1u,commonWrites,0u,nullptr);
-		setDstSetOnAllWrites(m_cullDS.get(),commonWrites,3u);
-		m_driver->updateDescriptorSets(3u,commonWrites,0u,nullptr);
+		setDstSetOnAllWrites(m_perCameraRasterDS.get());
+		m_driver->updateDescriptorSets(1u,writes,0u,nullptr);
+		setDstSetOnAllWrites(m_cullDS.get());
+		m_driver->updateDescriptorSets(3u,writes,0u,nullptr);
 	}
 	
 	m_globalBackendDataDS = m_driver->getGPUObjectsFromAssets(&_globalBackendDataDS,&_globalBackendDataDS+1)->front();
+	// make a shortened version of the globalBackendDataDS
+	m_rasterInstanceDataDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_rasterInstanceDataDSLayout));
+	{
+		IGPUDescriptorSet::SCopyDescriptorSet copy;
+		copy.dstSet = m_rasterInstanceDataDS.get();
+		copy.srcSet = m_globalBackendDataDS.get();
+		copy.srcBinding = 5u;
+		copy.srcArrayElement = 0u;
+		copy.dstBinding = 0u;
+		copy.dstArrayElement = 0u;
+		copy.count = 1u;
+		m_driver->updateDescriptorSets(0u,nullptr,1u,&copy);
+	}
 	return retval;
 }
 
@@ -965,6 +1002,7 @@ void Renderer::deinit()
 	m_raygenDS = nullptr;
 	m_commonRaytracingDS = nullptr;
 	m_additionalGlobalDS = nullptr;
+	m_rasterInstanceDataDS = nullptr;
 	m_globalBackendDataDS = nullptr;
 
 	m_cullPipelineLayout = nullptr;
@@ -1098,16 +1136,16 @@ void Renderer::render(nbl::ITimer* timer)
 		}
 		m_driver->bindGraphicsPipeline(m_visibilityBufferFillPipeline.get());
 		{
-			IGPUDescriptorSet* descriptorSets[] = { m_additionalGlobalDS.get(),m_cullDS.get() };
-			m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipeline->getLayout(),0u,2u,descriptorSets,nullptr);
+			IGPUDescriptorSet* descriptorSets[] = { m_rasterInstanceDataDS.get(),m_additionalGlobalDS.get(),m_cullDS.get() };
+			m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipeline->getLayout(),0u,3u,descriptorSets,nullptr);
 		}
 		for (const auto& call : m_mdiDrawCalls)
 		{
 			const asset::SBufferBinding<IGPUBuffer> nullBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
 			m_driver->drawIndexedIndirect(
-				nullBindings,EPT_TRIANGLE_LIST,EIT_32BIT,m_indexBuffer.get(),
+				nullBindings,EPT_TRIANGLE_LIST,EIT_16BIT,m_indexBuffer.get(),
 				m_indirectDrawBuffers[m_cullPushConstants.currentCommandBufferIx].get(),
-				call.mdiOffset,call.mdiCount,sizeof(DrawElementsIndirectCommand_t)
+				call.mdiOffset*sizeof(DrawElementsIndirectCommand_t),call.mdiCount,sizeof(DrawElementsIndirectCommand_t)
 			);
 		}
 		// flip MDI buffers
