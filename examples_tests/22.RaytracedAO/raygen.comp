@@ -29,14 +29,15 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalizedN;
 }
-// TODO: compute from barycentrics
+mat2x3 dPdBary;
 mat2x3 nbl_glsl_perturbNormal_dPdSomething()
 {
-	return mat2x3(0.0);
+	return dPdBary;
 }
+mat2 dUVdBary;
 mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
-    return mat2(0.0);
+    return dUVdBary;
 }
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
@@ -131,6 +132,17 @@ void main()
 			const uvec2 visBuffer = texelFetch(frontFacing_Object_Triangle,pixelCoord,0).rg;
 			// init scramble
 			scramble_start_state = texelFetch(scramblebuf,pixelCoord,0).rg;
+			// vertex attribute reads
+			vec3 positions[3];
+			vec2 uvs[3];
+#if 0
+            dPdBary[0] = positions[0]-positions[2];
+            dPdBary[1] = positions[1]-positions[2];
+            dUVdBary[0] = uvs[0]-uvs[2];
+            dUVdBary[1] = uvs[1]-uvs[2];
+            const vec2 UV = dUVdBary*bary+uvs[2];
+			const vec3 normal = ;
+#endif
 			// tmp gbuffer reads
 			const vec2 normalBuffer = texelFetch(encodedNormal,pixelCoord,0).rg;
 			const vec2 UV = texelFetch(uvCoords,pixelCoord,0).xy;
