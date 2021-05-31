@@ -632,21 +632,20 @@ protected:
 		: base_t(otherMp->getMinTriangleCountPerMDI(),otherMp->getMaxTriangleCountPerMDI()),
         IMeshPackerV2Base(otherMp->getVirtualAttribConfig())
 	{
-        using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
 
         const auto& mdiAlctr = otherMp->getMDIAllocator();
-        uint32_t alctrBuffSz = traits::get_total_size(mdiAlctr);
-        void* resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, mdiAlctr), _NBL_SIMD_ALIGNMENT);
+        uint32_t alctrBuffSz = alctrTraits::get_total_size(mdiAlctr);
+        void* resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, mdiAlctr), _NBL_SIMD_ALIGNMENT);
         m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, mdiAlctr, resSpcTmp);
 
         const auto& idxAlctr = otherMp->getIndexAllocator();
-        alctrBuffSz = traits::get_total_size(idxAlctr);
-        resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, idxAlctr), _NBL_SIMD_ALIGNMENT);
+        alctrBuffSz = alctrTraits::get_total_size(idxAlctr);
+        resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, idxAlctr), _NBL_SIMD_ALIGNMENT);
         m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, idxAlctr, resSpcTmp);
 
         const auto& vtxAlctr = otherMp->getVertexAllocator();
-        alctrBuffSz = traits::get_total_size(vtxAlctr);
-        resSpcTmp = _NBL_ALIGNED_MALLOC(traits::reserved_size(alctrBuffSz, vtxAlctr), _NBL_SIMD_ALIGNMENT);
+        alctrBuffSz = alctrTraits::get_total_size(vtxAlctr);
+        resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, vtxAlctr), _NBL_SIMD_ALIGNMENT);
         m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, vtxAlctr, resSpcTmp);
     };
 

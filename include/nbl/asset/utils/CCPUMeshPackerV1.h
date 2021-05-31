@@ -51,7 +51,6 @@
 		assert(packedMeshBuffer.isValid());
 	}
 3. test `getPackerCreationParamsFromMeshBufferRange`
-4. delete m_allocParams
 */
 
 namespace nbl 
@@ -122,8 +121,7 @@ public:
 	template <typename MeshBufferIterator>
 	ReservedAllocationMeshBuffers alloc(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-	//TODO: test
-	void free(const ReservedAllocationMeshBuffers& ramb)  // TODO: this isn't special so do it in the base class
+	void free(const ReservedAllocationMeshBuffers& ramb)  // TODO: see if code from IMeshPackerV2::free can be utilized here
 	{
 		if (ramb.indexAllocationOffset != INVALID_ADDRESS)
 			m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
@@ -156,16 +154,14 @@ public:
 	//! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
 	virtual void shrinkOutputBuffersSize() override
 	{
-		using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
-
 		base_t::shrinkOutputBuffersSize();
 
-		uint32_t mdiDataBuffNewSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, traits::max_alignment(m_perInsVtxBuffAlctr));
+		uint32_t mdiDataBuffNewSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_perInsVtxBuffAlctr));
 
 		if (isInstancingEnabled)
 		{
-			const void* oldReserved = traits::getReservedSpacePtr(m_perInsVtxBuffAlctr);
-			m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(mdiDataBuffNewSize, std::move(m_perInsVtxBuffAlctr), _NBL_ALIGNED_MALLOC(traits::reserved_size(mdiDataBuffNewSize, m_perInsVtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+			const void* oldReserved = alctrTraits::getReservedSpacePtr(m_perInsVtxBuffAlctr);
+			m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(mdiDataBuffNewSize, std::move(m_perInsVtxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(mdiDataBuffNewSize, m_perInsVtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
 			_NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
 		}
 	}
@@ -178,7 +174,6 @@ private:
 
 	uint32_t m_vtxSize;
 	uint32_t m_perInsVtxSize;
-	AllocationParams m_allocParams; // TODO: only track the min sizes, the other stuff is redundant with allocators
 
 	bool isInstancingEnabled;
 	void* m_perInsVtxBuffAlctrResSpc;
@@ -191,7 +186,6 @@ private:
 template <typename MDIStructType>
 CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
 	:IMeshPacker<ICPUMeshBuffer, MDIStructType>(minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
-	 m_allocParams(allocParams),
 	 m_perInsVtxBuffAlctrResSpc(nullptr)
 	 
 {
@@ -309,10 +303,8 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 
 		return invalidReservedAllocationMeshBuffers;
 	}
-	
-	using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
 
-	bool arePerVtxAttribsEnabled = traits::get_total_size(m_vtxBuffAlctr) == 0 ? false : true;
+	bool arePerVtxAttribsEnabled = alctrTraits::get_total_size(m_vtxBuffAlctr) == 0 ? false : true;
 	if (arePerVtxAttribsEnabled)
 	{
 		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr(vtxCnt * m_vtxSize, 1u);
@@ -358,22 +350,27 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 template <typename MDIStructType>
 void CCPUMeshPackerV1<MDIStructType>::instantiateDataStorage()
 {
-	//TODO: redo after safe_shrink fix
-	m_output.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
-	m_output.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
+	const size_t MDIDataBuffSupportedByteSize = alctrTraits::get_total_size(m_MDIDataAlctr) * sizeof(MDIStructType);
+	const size_t idxBuffSupportedByteSize = alctrTraits::get_total_size(m_idxBuffAlctr) * sizeof(uint16_t);
+	const size_t vtxBuffSupportedByteSize = alctrTraits::get_total_size(m_vtxBuffAlctr);
+	const size_t perInsBuffSupportedByteSize = alctrTraits::get_total_size(m_vtxBuffAlctr);
 
-	core::smart_refctd_ptr<ICPUBuffer> unifiedVtxBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedByteSize);
-	core::smart_refctd_ptr<ICPUBuffer> unifiedInsBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.perInstanceVertexBuffSupportedByteSize);
+	//TODO: redo after safe_shrink fix
+	m_output.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(MDIDataBuffSupportedByteSize);
+	m_output.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(idxBuffSupportedByteSize);
+
+	core::smart_refctd_ptr<ICPUBuffer> unifiedVtxBuff = core::make_smart_refctd_ptr<ICPUBuffer>(vtxBuffSupportedByteSize);
+	core::smart_refctd_ptr<ICPUBuffer> unifiedInsBuff = core::make_smart_refctd_ptr<ICPUBuffer>(perInsBuffSupportedByteSize);
 
 	//divide unified vtx buffers
 	//proportions: sizeOfAttr1 : sizeOfAttr2 : ... : sizeOfAttrN
 	std::array<uint32_t, SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT> attrSizeArray;
 
 	uint32_t vtxBufferOffset = 0u;
-	const uint32_t maxVtxCnt = m_vtxSize == 0u ? 0u : m_allocParams.vertexBuffSupportedByteSize / m_vtxSize;
+	const uint32_t maxVtxCnt = m_vtxSize == 0u ? 0u : vtxBuffSupportedByteSize / m_vtxSize;
 
 	uint32_t perInsBuffOffset = 0u;
-	const uint32_t maxPerInsVtxCnt = m_perInsVtxSize == 0u ? 0u : m_allocParams.perInstanceVertexBuffSupportedByteSize / m_perInsVtxSize;
+	const uint32_t maxPerInsVtxCnt = m_perInsVtxSize == 0u ? 0u : perInsBuffSupportedByteSize / m_perInsVtxSize;
 
 	for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
 	{

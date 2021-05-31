@@ -32,6 +32,8 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
         inline uint16_t getMaxTriangleCountPerMDI() const { return m_maxTriangleCountPerMDIData; }
 
     protected:
+        using alctrTraits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
+
         IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
             :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
              m_minTriangleCountPerMDIData(minTriangleCountPerMDIData)
@@ -45,11 +47,9 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
 
         virtual ~IMeshPackerBase()
         {
-            using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
-
-            _NBL_ALIGNED_FREE(const_cast<void*>(traits::getReservedSpacePtr(m_MDIDataAlctr)));
-            _NBL_ALIGNED_FREE(const_cast<void*>(traits::getReservedSpacePtr(m_idxBuffAlctr)));
-            _NBL_ALIGNED_FREE(const_cast<void*>(traits::getReservedSpacePtr(m_vtxBuffAlctr)));
+            _NBL_ALIGNED_FREE(const_cast<void*>(alctrTraits::getReservedSpacePtr(m_MDIDataAlctr)));
+            _NBL_ALIGNED_FREE(const_cast<void*>(alctrTraits::getReservedSpacePtr(m_idxBuffAlctr)));
+            _NBL_ALIGNED_FREE(const_cast<void*>(alctrTraits::getReservedSpacePtr(m_vtxBuffAlctr)));
         }
 
         struct AllocationParamsCommon
@@ -130,21 +130,20 @@ public:
     //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
     virtual void shrinkOutputBuffersSize()
     {
-        using traits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
-        uint32_t mdiDataBuffNewSize = m_MDIDataAlctr.safe_shrink_size(0u, traits::max_alignment(m_MDIDataAlctr));
-        uint32_t idxBuffNewSize = m_idxBuffAlctr.safe_shrink_size(0u, traits::max_alignment(m_idxBuffAlctr));
-        uint32_t vtxBuffNewSize = m_vtxBuffAlctr.safe_shrink_size(0u, traits::max_alignment(m_vtxBuffAlctr));
+        uint32_t mdiDataBuffNewSize = m_MDIDataAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_MDIDataAlctr));
+        uint32_t idxBuffNewSize = m_idxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_idxBuffAlctr));
+        uint32_t vtxBuffNewSize = m_vtxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_vtxBuffAlctr));
 
-        const void* oldReserved = traits::getReservedSpacePtr(m_MDIDataAlctr);
-        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator(mdiDataBuffNewSize, std::move(m_MDIDataAlctr), _NBL_ALIGNED_MALLOC(traits::reserved_size(mdiDataBuffNewSize, m_MDIDataAlctr), _NBL_SIMD_ALIGNMENT));
+        const void* oldReserved = alctrTraits::getReservedSpacePtr(m_MDIDataAlctr);
+        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator(mdiDataBuffNewSize, std::move(m_MDIDataAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(mdiDataBuffNewSize, m_MDIDataAlctr), _NBL_SIMD_ALIGNMENT));
         _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
 
-        oldReserved = traits::getReservedSpacePtr(m_idxBuffAlctr);
-        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator(idxBuffNewSize, std::move(m_idxBuffAlctr), _NBL_ALIGNED_MALLOC(traits::reserved_size(idxBuffNewSize, m_idxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+        oldReserved = alctrTraits::getReservedSpacePtr(m_idxBuffAlctr);
+        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator(idxBuffNewSize, std::move(m_idxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(idxBuffNewSize, m_idxBuffAlctr), _NBL_SIMD_ALIGNMENT));
         _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
 
-        oldReserved = traits::getReservedSpacePtr(m_vtxBuffAlctr);
-        m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator(vtxBuffNewSize, std::move(m_vtxBuffAlctr), _NBL_ALIGNED_MALLOC(traits::reserved_size(vtxBuffNewSize, m_vtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+        oldReserved = alctrTraits::getReservedSpacePtr(m_vtxBuffAlctr);
+        m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator(vtxBuffNewSize, std::move(m_vtxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(vtxBuffNewSize, m_vtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
         _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
     }
 
