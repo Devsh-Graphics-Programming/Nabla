@@ -24,7 +24,7 @@ struct DrawData_t
 {
     mat4 MVP;
     uint backfacingBit_batchInstanceGUID;
-    uint padding0;
+    uint firstIndex;
     uint padding1;
     uint padding2;
 };
