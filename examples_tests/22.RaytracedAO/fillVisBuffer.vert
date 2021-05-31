@@ -6,10 +6,10 @@
 
 #include "rasterizationCommon.h"
 
-#define _NBL_VG_SSBO_DESCRIPTOR_SET 0
+#define _NBL_GLSL_EXT_MITSUBA_LOADER_INSTANCE_DATA_BINDING_ 0
 #include "virtualGeometry.glsl"
 
-layout(set=1, binding=0, row_major) readonly restrict buffer PerInstancePerCamera
+layout(set=2, binding=0, row_major) readonly restrict buffer PerInstancePerCamera
 {
     DrawData_t data[];
 } instanceDataPerCamera;

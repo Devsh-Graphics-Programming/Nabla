@@ -4,7 +4,7 @@
 #version 430 core
 #extension GL_EXT_shader_16bit_storage : require
 
-#define _NBL_VG_SSBO_DESCRIPTOR_SET 0
+#define _NBL_GLSL_EXT_MITSUBA_LOADER_INSTANCE_DATA_BINDING_ 0
 #include "virtualGeometry.glsl"
 
 #include <nbl/builtin/glsl/utils/normal_encode.glsl>
