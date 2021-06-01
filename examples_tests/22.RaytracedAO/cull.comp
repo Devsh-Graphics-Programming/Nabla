@@ -36,8 +36,8 @@ layout(push_constant, row_major) uniform PushConstants
 // we just do atomic add on the instance count
 void main()
 {
-    if (gl_GlobalInvocationID.x<pc.data.maxDrawCommandCount)
-        commandBuff[pc.data.currentCommandBufferIx^0x1u].draws[gl_GlobalInvocationID.x].instanceCount = 0u;
+    for (uint drawCommandGUID=gl_GlobalInvocationID.x; drawCommandGUID<pc.data.maxDrawCommandCount; drawCommandGUID+=gl_NumWorkGroups.x*WORKGROUP_SIZE)
+        commandBuff[pc.data.currentCommandBufferIx^0x1u].draws[drawCommandGUID].instanceCount = 0u;
 
     uint batchInstanceID = gl_GlobalInvocationID.x;
     if (batchInstanceID>=pc.data.maxGlobalInstanceCount)
