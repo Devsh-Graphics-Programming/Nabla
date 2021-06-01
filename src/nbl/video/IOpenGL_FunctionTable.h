@@ -16,9 +16,20 @@
 #undef GL_GLEXT_PROTOTYPES
 
 #ifdef _NBL_DEBUG
-#	include <android/log.h>
-//#	define _NBL_ANDR_LOGW(...) __android_log_print(ANDROID_LOG_WARN, "Nabla GL", __VA_ARGS__)
-// TODO use Nabla's Logger instead of __android_log_print (Logger should use it on Android)
+#	include "os.h"
+
+namespace nbl {
+namespace video {
+namespace impl
+{
+
+extern thread_local char g_NBL_GL_CALL_msg_buffer[4096];
+
+}
+}
+}
+
+// TODO os::Printer is deprecated but we dont have anything new for logging
 #	define _NBL_GL_CALL(callname_)\
 	{ \
 		callname_ ;\
@@ -28,13 +39,13 @@
 		{\
 			const char* fl = __FILE__;\
 			const int ln = __LINE__;\
-			__android_log_print(ANDROID_LOG_WARN, "Nabla GL", "%s:%d:%s: error 0x%x == 0d%d", fl, ln, callname_str, err, err);\
+			sprintf(nbl::video::impl::g_NBL_GL_CALL_msg_buffer, "%s:%d:%s: error 0x%x", fl, ln, callname_str, err, err);\
+			os::Printer::print(nbl::video::impl::g_NBL_GL_CALL_msg_buffer);\
 		}\
 	}
 #else
 #	define _NBL_GL_CALL(...) __VA_ARGS__
 #endif
-			//__android_log_print(ANDROID_LOG_WARN, "Nabla GL", __FILE__ ":" __LINE__ ": %s error: 0x%x = (dec)%d", callname_str, err, err);\
 
 namespace nbl {
 	namespace video {

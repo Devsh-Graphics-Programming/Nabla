@@ -8,7 +8,7 @@
 //#include "nbl/core/math/irrMath.h"
 
 
-#if defined(_NBL_WINDOWS_API_)
+#if defined(_NBL_PLATFORM_WINDOWS_)
 // ----------------------------------------------------------------
 // Windows specific functions
 // ----------------------------------------------------------------
@@ -30,6 +30,21 @@ namespace os
 	}
 } // end namespace os
 
+
+#elif defined(_NBL_PLATFORM_ANDROID_)
+
+#include <android/log.h>
+
+namespace nbl
+{
+namespace os
+{
+	//! prints a debuginfo string
+	void Printer::print(const std::string& message)
+	{
+		__android_log_print(ANDROID_LOG_DEBUG, "Nabla Engine", "%s", message.c_str());
+	}
+} // end namespace os
 
 #else
 
