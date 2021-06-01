@@ -6,12 +6,12 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/containers/CCircularBuffer.h"
 #include "nbl/core/SRange.h"
-#include "nbl/system/KeyCodes.h"
+#include "nbl/ui/KeyCodes.h"
 
 namespace nbl {
 namespace ui
 {
-
+class IWindow;
 class IInputEventChannel : public core::IReferenceCounted
 {
 protected:
@@ -46,7 +46,7 @@ namespace impl
         std::mutex m_bgEventBufMtx;
         cb_t m_bgEventBuf;
         cb_t m_frontEventBuf;
-
+    public:
         // Lock while working with background event buffer
         std::unique_lock<std::mutex> lockBackgroundBuffer()
         {
@@ -112,7 +112,7 @@ struct SMouseEvent
                 ES_PRESSED,
                 ES_RELEASED
             } state;
-            system::E_MOUSEBUTTON button;
+            ui::E_MOUSEBUTTON button;
             uint32_t clicksCount;
         } buttonEvent;
         struct SMotionEvent
@@ -121,7 +121,7 @@ struct SMouseEvent
         } motionEvent;
         struct SWheelEvent
         {
-            int32_t scrollX,  scrollY;
+            int32_t verticalDelta, horizontalDelta;
             enum E_SCROLL_DIRECTION
             {
                 ESD_NORMAL,
@@ -130,7 +130,6 @@ struct SMouseEvent
         } wheelEvent;
     };
     
-    int32_t x, y; // Mouse coordinates, relative to window
     IWindow* window;
 };
 

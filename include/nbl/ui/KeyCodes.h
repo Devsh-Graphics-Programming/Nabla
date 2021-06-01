@@ -1,11 +1,6 @@
 
-// ?? Should be in nbl::system?
-namespace nbl::system
+namespace nbl::ui
 {
-	enum E_SCANCODE
-	{
-		// TODO
-	};
 	enum E_KEYCODE
 	{
 		// TODO
@@ -17,12 +12,15 @@ namespace nbl::system
 	struct SKeyInfo
 	{
 		E_KEYCODE keyCode;
-		E_SCANCODE scanCode;
 		E_KEYMODIFIER keyModifier;
 	};
 
 	enum E_MOUSEBUTTON
 	{
-
+		EMB_LEFT_BUTTON,   // 
+		EMB_RIGHT_BUTTON,  // Or should they all be EMB_BUTTON_NUMBER??
+		EMB_MIDDLE_BUTTON, //
+		EMB_BUTTON_4,
+		EMB_BUTTON_5
 	};
 };

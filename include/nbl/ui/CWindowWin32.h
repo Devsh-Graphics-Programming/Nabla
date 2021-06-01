@@ -4,6 +4,7 @@
 #include "nbl/ui/IWindowWin32.h"
 #include "os.h"
 #include <queue>
+#include <hidpi.h>
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
@@ -31,7 +32,7 @@ public:
 
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowWin32> create(core::smart_refctd_ptr<system::ISystem>&& sys, int _x, int _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+	static core::smart_refctd_ptr<CWindowWin32> create(core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
 	{
 		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
@@ -42,9 +43,52 @@ public:
 
 	~CWindowWin32() override;
 private:
-	CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, int _x, int _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
+	CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
 
     native_handle_t m_native;
+
+	std::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannel;
+	std::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannel;
+
+	void addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
+	{
+		assert(m_mouseEventChannel.find(deviceHandle) == m_mouseEventChannel.end());
+		m_mouseEventChannel.emplace(deviceHandle, channel);
+	}
+
+	void addKeyboardEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
+	{
+		assert(m_keyboardEventChannel.find(deviceHandle) == m_keyboardEventChannel.end());
+		m_keyboardEventChannel.emplace(deviceHandle, channel);
+	}
+
+	core::smart_refctd_ptr<IMouseEventChannel> removeMouseEventChannel(HANDLE deviceHandle)
+	{
+		RAWINPUT;
+		auto it = m_mouseEventChannel.find(deviceHandle);
+		auto channel = std::move(it->second);
+		m_mouseEventChannel.erase(it);
+		return channel;
+	}
+
+	core::smart_refctd_ptr<IKeyboardEventChannel> removeKeyboardEventChannel(HANDLE deviceHandle)
+	{
+		auto it = m_keyboardEventChannel.find(deviceHandle);
+		auto channel = std::move(it->second);
+		m_keyboardEventChannel.erase(it);
+		return channel;
+	}
+	
+	IMouseEventChannel* getMouseEventChannel(HANDLE deviceHandle)
+	{
+		return m_mouseEventChannel.find(deviceHandle)->second.get();
+	}
+
+	IKeyboardEventChannel* getKeyboardEventChannel(HANDLE deviceHandle)
+	{
+		return m_keyboardEventChannel.find(deviceHandle)->second.get();
+	}
+	
 };
 
 }

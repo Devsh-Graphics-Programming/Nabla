@@ -6,8 +6,7 @@
 namespace nbl {
 namespace ui
 {
-	static std::multimap<std::pair<core::smart_refctd_ptr<CWindowWin32>, std::string>, IMouseEventChannel> s_mouseEventChannels;
-	static std::multimap<std::pair<core::smart_refctd_ptr<CWindowWin32>, std::string>, IKeyboardEventChannel> s_keyboardEventChannels;
+	
 	struct SRequest : system::impl::IAsyncQueueDispatcherBase::request_base_t
 	{
 		struct SParams {};
@@ -16,11 +15,11 @@ namespace ui
 	};
 	struct SCreateWindowRequest : SRequest
 	{
-		SCreateWindowRequest(int _x, int_y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t wnd) : 
+		SCreateWindowRequest(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t wnd) :
 			m_params{ _x, _y, _w, _h, _flags, wnd } {}
 		struct SCreateWindowParams : SParams
 		{
-			int x, y;
+			int32_t x, y;
 			uint32_t width, height;
 			CWindowWin32::E_CREATE_FLAGS flags;
 			CWindowWin32::native_handle_t nativeWindow;
@@ -114,27 +113,27 @@ namespace ui
 				constexpr uint32_t INPUT_DEVICES_COUNT = 5;
 				RAWINPUTDEVICE inputDevices[INPUT_DEVICES_COUNT];
 				inputDevices[0].hwndTarget = m_params.nativeWindow;
-				inputDevices[0].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[0].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 				inputDevices[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
 				inputDevices[0].usUsage = HID_USAGE_GENERIC_POINTER;
 
 				inputDevices[1].hwndTarget = m_params.nativeWindow;
-				inputDevices[1].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[1].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 				inputDevices[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
 				inputDevices[1].usUsage = HID_USAGE_GENERIC_MOUSE;
 
 				inputDevices[2].hwndTarget = m_params.nativeWindow;
-				inputDevices[2].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[2].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 				inputDevices[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
 				inputDevices[2].usUsage = HID_USAGE_GENERIC_KEYBOARD;
 
 				inputDevices[3].hwndTarget = m_params.nativeWindow;
-				inputDevices[3].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[3].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 				inputDevices[3].usUsagePage = HID_USAGE_PAGE_GAME;
 				inputDevices[3].usUsage = HID_USAGE_GENERIC_JOYSTICK;
 
 				inputDevices[4].hwndTarget = m_params.nativeWindow;
-				inputDevices[4].dwFlags = RIDEV_DEVNOTIFY;
+				inputDevices[4].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 				inputDevices[4].usUsagePage = HID_USAGE_PAGE_GAME;
 				inputDevices[4].usUsage = HID_USAGE_GENERIC_GAMEPAD;
 
@@ -170,7 +169,7 @@ namespace ui
 		using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>;
 		friend base_t;
 	public:
-		void createWindow(int _x, int _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t wnd)
+		void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t wnd)
 		{
 			SCreateWindowRequest rq(_x, _y, _w, _h, _flags, wnd);
 			request(rq);
@@ -267,14 +266,14 @@ namespace ui
 			}
 			break;
 		}
-		case WM_MOVING: [[fallthrough]]
+		case WM_MOVING: [[fallthrough]];
 		case WM_MOVE:
 		{
 			int newX = (int)LOWORD(lParam);
 			int newY = (int)HIWORD(lParam);
 			eventCallback->onWindowMoved(window, newX, newY);
 		}
-		case WM_SIZING: [[fallthrough]]
+		case WM_SIZING: [[fallthrough]];
 		case WM_SIZE:
 		{
 			uint32_t newWidth = LOWORD(lParam);
@@ -322,12 +321,8 @@ namespace ui
 			UINT size = sizeof(RID_DEVICE_INFO);
 			GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
 
-			UINT deviceNameSize;
-			std::string deviceName;
-			if (GetRawInputDeviceInfo((HANDLE)lParam, RIDI_DEVICENAME, nullptr, &deviceNameSize) >= 0) {
-				deviceName.resize(deviceNameSize);
-				GetRawInputDeviceInfo((HANDLE)lParam, RIDI_DEVICENAME, (LPVOID)deviceName.data(), &deviceNameSize);
-			}
+			HANDLE deviceHandle = HANDLE(lParam);
+
 
 			switch (wParam)
 			{
@@ -335,14 +330,15 @@ namespace ui
 			{
 				if (deviceInfo.dwType == RIM_TYPEMOUSE)
 				{
-					//TODO: will finish that stuff tomorrow
-					auto chanel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-					decltype(s_mouseEventChannels)::value_type uniqueInputChannel;
-					uniqueInputChannel
+					auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+					eventCallback->onMouseConnected(window, core::smart_refctd_ptr<IMouseEventChannel>(channel));
+					window->addMouseEventChannel(deviceHandle, std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
 				{
-
+					auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+					eventCallback->onKeyboardConnected(window, core::smart_refctd_ptr<IKeyboardEventChannel>(channel));
+					window->addKeyboardEventChannel(deviceHandle, std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEHID)
 				{
@@ -354,16 +350,132 @@ namespace ui
 			{
 				if (deviceInfo.dwType == RIM_TYPEMOUSE)
 				{
-
+					auto channel = window->removeMouseEventChannel(deviceHandle);
+					eventCallback->onMouseDisconnected(window, channel.get());
 				}
 				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
 				{
-
+					auto channel = window->removeKeyboardEventChannel(deviceHandle);
+					eventCallback->onKeyboardDisconnected(window, channel.get());
 				}
 				else if (deviceInfo.dwType == RIM_TYPEHID)
 				{
 					// TODO 
 				}
+				break;
+			}
+			}
+			break;
+		}
+		case WM_INPUT:
+		{
+			RAWINPUT rawInput;
+			UINT size;
+			GetRawInputData((HRAWINPUT)lParam, RID_HEADER, &rawInput, &size, sizeof rawInput.header);
+			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &rawInput, &size, sizeof rawInput.header);
+			HANDLE device = rawInput.header.hDevice;
+			switch (rawInput.header.dwType)
+			{
+			case RIM_TYPEMOUSE:
+			{
+				auto* inputChannel = window->getMouseEventChannel(device);
+				RAWMOUSE rawMouse = rawInput.data.mouse;
+ 
+				if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE && (rawMouse.lLastX != 0 || rawMouse.lLastY != 0))
+				{
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_MOTION;
+					event.motionEvent.motionX = rawMouse.lLastX;
+					event.motionEvent.motionY = rawMouse.lLastY;
+					event.window = window;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)
+				{
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_BUTTON;
+					event.buttonEvent.state = SMouseEvent::SButtonEvent::ES_PRESSED;
+					event.buttonEvent.button = ui::E_MOUSEBUTTON::EMB_LEFT_BUTTON;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				else if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP)
+				{
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_BUTTON;
+					event.buttonEvent.state = SMouseEvent::SButtonEvent::ES_RELEASED;
+					event.buttonEvent.button = ui::E_MOUSEBUTTON::EMB_LEFT_BUTTON;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN)
+				{
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_BUTTON;
+					event.buttonEvent.state = SMouseEvent::SButtonEvent::ES_PRESSED;
+					event.buttonEvent.button = ui::E_MOUSEBUTTON::EMB_RIGHT_BUTTON;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				else if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP)
+				{
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_BUTTON;
+					event.buttonEvent.state = SMouseEvent::SButtonEvent::ES_RELEASED;
+					event.buttonEvent.button = ui::E_MOUSEBUTTON::EMB_RIGHT_BUTTON;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN)
+				{
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_BUTTON;
+					event.buttonEvent.state = SMouseEvent::SButtonEvent::ES_PRESSED;
+					event.buttonEvent.button = ui::E_MOUSEBUTTON::EMB_MIDDLE_BUTTON;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				else if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP)
+				{
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_BUTTON;
+					event.buttonEvent.state = SMouseEvent::SButtonEvent::ES_RELEASED;
+					event.buttonEvent.button = ui::E_MOUSEBUTTON::EMB_MIDDLE_BUTTON;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				// TODO other mouse buttons
+
+				if (rawMouse.usButtonFlags & RI_MOUSE_WHEEL)
+				{
+					SHORT wheelDelta = static_cast<SHORT>(rawMouse.usButtonData);
+					SMouseEvent event;
+					event.type = SMouseEvent::EMT_WHEEL;
+					event.motionEvent.verticalDelta = wheelDelta;
+					event.motionEvent.horizontalDelta = 0; // TODO horizontal wheel (lol never seen one)
+					auto lk = inputChannel->lockBackgroundBuffer();
+					lk.lock();
+					inputChannel->pushIntoBackground(std::move(event));
+				}
+				break;
+			}
+			case RIM_TYPEKEYBOARD:
+			{
+				auto inputChannel = window->getKeyboardEventChannel(device);
+
+				break;
+			}
+			case RIM_TYPEHID:
+			{
+				// TODO
 				break;
 			}
 			}
