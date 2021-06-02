@@ -147,6 +147,24 @@ public:
         _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
     }
 
+    //! Returns maximum number of mdi structs needed to draw range of mesh buffers described by range mbBegin .. mbEnd, actual number of MDI structs needed may differ
+    template <typename MeshBufferIterator>
+    uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+    {
+        uint32_t acc = 0u;
+        for (auto mbIt = mbBegin; mbIt != mbEnd; mbIt++)
+        {
+            auto mb = *mbIt;
+            const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(mb);
+            const uint32_t triCnt = idxCnt / 3;
+            assert(idxCnt % 3 == 0);
+
+            acc += calcBatchCountBound(triCnt);
+        }
+
+        return acc;
+    }
+
 protected:
     virtual ~IMeshPacker() {}
 
@@ -197,19 +215,19 @@ protected:
     struct IdxBufferParams
     {
         SBufferBinding<ICPUBuffer> idxBuffer;
-        uint32_t idxCnt = 0u; //TODO: if you will be sure that it will not be used anywhere, delete this and modify `convertIdxBufferToTriangles` to return only idx buffer
+        uint32_t idxCnt = 0u;
         E_INDEX_TYPE indexType = EIT_UNKNOWN;
     };
 
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute
     //will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
-    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams) const
+    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df* aabbs) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
         assert(success);
-
+         
         const uint32_t batchCnt = calcBatchCountBound(triCnt);
         assert(batchCnt != 0u);
 
@@ -352,16 +370,23 @@ protected:
                 for (uint16_t i = m_minTriangleCountPerMDIData; nextTriangle != triangleArrayEnd && i < m_maxTriangleCountPerMDIData; i++)
                 {
                     // TODO: save the AABB of the MDI batch before it gets "try extended" (will be needed in the future for culling)
+                    if(aabbs != nullptr)
+                        *aabbs = core::aabbox3df(core::vector3df(min.x, min.y, min.z), core::vector3df(max.x, max.y, max.z));
+
                     extendAABB(nextTriangle);
                     float newBatchArea = halfAreaAABB();
                     if (newBatchArea > kGrowthLimit* batchArea)
                         break;
                     nextTriangle++;
                     batchArea = newBatchArea;
+
+                    if(aabbs != nullptr && (nextTriangle == triangleArrayEnd || (i + 1u) >= m_maxTriangleCountPerMDIData))
+                        *aabbs = core::aabbox3df(core::vector3df(min.x, min.y, min.z), core::vector3df(max.x, max.y, max.z));
                 }
 
                 triangleBatches.ranges.push_back(nextTriangle);
             }
+            aabbs++;
         }
 
         return triangleBatches;

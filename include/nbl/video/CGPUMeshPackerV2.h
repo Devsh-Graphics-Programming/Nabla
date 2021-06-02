@@ -53,7 +53,7 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         void instantiateDataStorage();
 
         template <typename MeshBufferIterator>
-        bool commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+        bool commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, core::aabbox3df* aabbs, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
         
         inline std::pair<uint32_t,uint32_t> getDescriptorSetWritesForUTB(
             IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet,
@@ -85,7 +85,7 @@ void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, core::aabbox3df* aabbs, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     assert(0);
     return false;

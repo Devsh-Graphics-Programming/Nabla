@@ -610,10 +610,6 @@ public:
         }
     }
 
-    //! Returns maximum number of mdi structs needed to draw range of mesh buffers described by range mbBegin .. mbEnd, actual number of MDI structs needed may differ
-    template <typename MeshBufferIterator>
-    uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
-
     inline const PackerDataStore& getPackerDataStore() const { return m_packerDataStore; }
 
     const core::GeneralpurposeAddressAllocator<uint32_t>& getMDIAllocator() const { return m_MDIDataAlctr; }
@@ -719,24 +715,6 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
     }
 
     return true;
-}
-
-template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType>
-template <typename MeshBufferIterator>
-uint32_t IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
-{
-    uint32_t acc = 0u;
-    for (auto mbIt = mbBegin; mbIt != mbEnd; mbIt++)
-    {
-        auto mb = *mbIt;
-        const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(mb);
-        const uint32_t triCnt = idxCnt / 3;
-        assert(idxCnt % 3 == 0);
-
-        acc += calcBatchCountBound(triCnt);
-    }
-    
-    return acc;
 }
 
 }

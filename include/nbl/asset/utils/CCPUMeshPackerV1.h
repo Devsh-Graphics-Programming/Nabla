@@ -11,47 +11,7 @@
 
 //AFTER SAFE SHRINK FIX TODO LIST:
 //1. extendend tests
-/*2. packing sponza this way works incorrectly (it is all good if I change #1 and #2 to 5000u), 
-	 clue: vertices from some buffers are being used by previous buffers (buffer with index 4 use vertices of buffer with index 5 for example)
-	 {
-		allocationParams.indexBuffSupportedCnt = 20000000u;
-		allocationParams.indexBufferMinAllocCnt = 1u;			//#1
-		allocationParams.vertexBuffSupportedCnt = 20000000u;
-		allocationParams.vertexBufferMinAllocByteSize = 1u;         //#2
-		allocationParams.MDIDataBuffSupportedCnt = 20000u;
-		allocationParams.MDIDataBuffMinAllocCnt = 1u;
-		allocationParams.perInstanceVertexBuffSupportedCnt = 0u;
-		allocationParams.perInstanceVertexBufferMinAllocByteSize = 0u;
-
-		asset::CCPUMeshPackerV1 packer(inputParams, allocationParams, std::numeric_limits<uint16_t>::max(), std::numeric_limits<uint16_t>::max());
-
-		core::vector<IMeshPackerBase::ReservedAllocationMeshBuffers> resData;
-		resData.reserve(mesh_raw->getMeshBufferCount());
-
-		core::vector<asset::ICPUMeshBuffer*> meshBuffers(mbCount);
-		for (uint32_t i = 0u; i < mbCount; i++)
-			meshBuffers[i] = mesh_raw->getMeshBuffer(i);
-
-		for (uint32_t i = 0u; i < mbCount; i++)
-		{
-			resData.emplace_back(packer.alloc(meshBuffers.begin() + i, meshBuffers.begin() + i + 1));
-			assert(resData[i].isValid());
-		}
-
-
-		packer.instantiateDataStorage();
-
-		for (uint32_t i = 0u; i < mbCount; i++)
-		{
-			pmbData.emplace_back(packer.commit(meshBuffers.begin() + i, meshBuffers.begin() + i + 1, resData[i]));
-			assert(pmbData[i].isValid());
-		}
-
-		packedMeshBuffer = packer.getPackerDataStore();
-		assert(packedMeshBuffer.isValid());
-	}
-3. test `getPackerCreationParamsFromMeshBufferRange`
-*/
+//2. test `getPackerCreationParamsFromMeshBufferRange`
 
 namespace nbl 
 { 
@@ -67,7 +27,6 @@ class CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 	using IdxBufferParams = typename base_t::IdxBufferParams;
 
 public:
-	// TODO: dont track the supported bytesize after constructing the mesh packer, its redundant information... its in your per_instance allocator size
 	struct AllocationParams : IMeshPackerBase::AllocationParamsCommon
 	{
 		// Maximum byte size of per instance vertex data allocation
@@ -121,7 +80,7 @@ public:
 	template <typename MeshBufferIterator>
 	ReservedAllocationMeshBuffers alloc(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-	void free(const ReservedAllocationMeshBuffers& ramb)  // TODO: see if code from IMeshPackerV2::free can be utilized here
+	void free(const ReservedAllocationMeshBuffers& ramb)
 	{
 		if (ramb.indexAllocationOffset != INVALID_ADDRESS)
 			m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
@@ -140,7 +99,7 @@ public:
 	void instantiateDataStorage();
 
 	template <typename MeshBufferIterator>
-	IMeshPackerBase::PackedMeshBufferData commit(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd, ReservedAllocationMeshBuffers& ramb);
+	IMeshPackerBase::PackedMeshBufferData commit(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd, ReservedAllocationMeshBuffers& ramb, core::aabbox3df* aabbs);
 
 	inline PackerDataStore& getPackerDataStore() { return m_output; };
 
@@ -355,7 +314,6 @@ void CCPUMeshPackerV1<MDIStructType>::instantiateDataStorage()
 	const size_t vtxBuffSupportedByteSize = alctrTraits::get_total_size(m_vtxBuffAlctr);
 	const size_t perInsBuffSupportedByteSize = alctrTraits::get_total_size(m_vtxBuffAlctr);
 
-	//TODO: redo after safe_shrink fix
 	m_output.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(MDIDataBuffSupportedByteSize);
 	m_output.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(idxBuffSupportedByteSize);
 
@@ -396,7 +354,7 @@ void CCPUMeshPackerV1<MDIStructType>::instantiateDataStorage()
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd, CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers& ramb)
+IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd, CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers& ramb, core::aabbox3df* aabbs)
 {
 	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_output.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
 	uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_output.indexBuffer.buffer->getPointer()) + ramb.indexAllocationOffset;
@@ -414,7 +372,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 
 		IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
 
-		TriangleBatches triangleBatches = constructTriangleBatches(*it, idxBufferParams);
+		TriangleBatches triangleBatches = constructTriangleBatches(*it, idxBufferParams, aabbs);
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
 		const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
