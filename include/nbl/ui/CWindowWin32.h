@@ -18,6 +18,8 @@ class CWindowWin32 final : public IWindowWin32
 
 public:
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	static E_KEY_CODE getNablaKeyCodeFromNative(uint32_t nativeWindowsKeyCode);
+
 	//TODO
 	explicit CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, native_handle_t hwnd) : IWindowWin32(std::move(sys))
 	{

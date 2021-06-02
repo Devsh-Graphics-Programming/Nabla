@@ -97,39 +97,28 @@ namespace impl
 
 struct SMouseEvent
 {
-    enum E_MOUSEEVENT_TYPE
+    enum E_EVENT_TYPE : uint8_t
     {
-        EMT_BUTTON,
-        EMT_MOTION,
-        EMT_WHEEL
+        EET_CLICK = 1,
+        EET_SCROLL = 2, 
+        EET_MOVEMENT = 4
     } type;
     union
     {
-        struct SButtonEvent
+        struct SClickEvent
         {
-            enum E_STATE
-            {
-                ES_PRESSED,
-                ES_RELEASED
-            } state;
-            ui::E_MOUSEBUTTON button;
-            uint32_t clicksCount;
-        } buttonEvent;
-        struct SMotionEvent
+            int32_t clickPosX, clickPosY;
+            ui::E_MOUSE_BUTTON mouseButton;
+        } clickEvent;
+        struct SScrollEvent
         {
-            int32_t motionX, motionY;
-        } motionEvent;
-        struct SWheelEvent
+            uint32_t verticalScroll, horizontalScroll;
+        } scrollEvent;
+        struct SMovementEvent
         {
-            int32_t verticalDelta, horizontalDelta;
-            enum E_SCROLL_DIRECTION
-            {
-                ESD_NORMAL,
-                ESD_FLIPPED
-            } scrollDirection;
-        } wheelEvent;
+            uint32_t movementX, movementY;
+        } movementEvent;
     };
-    
     IWindow* window;
 };
 
@@ -155,21 +144,13 @@ public:
 
 struct SKeyboardEvent
 {
-    enum E_EVENT_TYPE : uint8_t
+    enum E_KEY_ACTION : uint8_t
     {
-        EET_KEYUP,
-        EET_KEYDOWN
-    } type;
-    // @criss i like this Press/Repeat/Release state more than  SDL2-like keeping Press/Release
-    // and another variable that tells if the key is repeated (totally useless in case of Release)
-    enum E_STATE : uint8_t
-    { 
-        ES_PRESS,
-        ES_RELEASE,
-        ES_REPEAT
-    } state;
+        ECA_PRESSED = 1,
+        ECA_RELEASED = 2
+    } action;
+    ui::E_KEY_CODE keyCode;
     IWindow* window;
-    system::SKeyInfo keyInfo;
 };
 
 class IKeyboardEventChannel : public impl::IEventChannelBase<SKeyboardEvent>

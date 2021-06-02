@@ -1,26 +1,133 @@
 
 namespace nbl::ui
 {
-	enum E_KEYCODE
+	enum E_KEY_CODE : uint32_t
 	{
-		// TODO
-	};
-	enum E_KEYMODIFIER
-	{
+		EKC_NONE = 0,
+		EKC_BACKSPACE,
+		EKC_TAB,
+		EKC_CLEAR,
+		EKC_ENTER,
+		EKC_SHIFT,
+		EKC_CONTROL,
+		EKC_ALT,
+		EKC_PAUSE,
+		EKC_CAPS_LOCK,
+		EKC_ESCAPE,
+		EKC_SPACE,
+		EKC_PAGE_UP,
+		EKC_PAGE_DOWN,
+		EKC_END, 
+		EKC_HOME,
+		EKC_LEFT_ARROW,
+		EKC_RIGHT_ARROW,
+		EKC_DOWN_ARROW,
+		EKC_UP_ARROW,
+		EKC_SELECT,
+		EKC_PRINT,
+		EKC_EXECUTE,
+		EKC_PRINT_SCREEN,
+		EKC_INSERT,
+		EKC_DELETE,
+		EKC_HELP,
+		
+		EKC_LEFT_WIN,
+		EKC_RIGHT_WIN,
+		EKC_APPS,
 
-	};
-	struct SKeyInfo
-	{
-		E_KEYCODE keyCode;
-		E_KEYMODIFIER keyModifier;
+		EKC_0,
+		EKC_1,
+		EKC_2,
+		EKC_3,
+		EKC_4,
+		EKC_5,
+		EKC_6,
+		EKC_7,
+		EKC_8,
+		EKC_9,
+		EKC_NUMPAD_0,
+		EKC_NUMPAD_1,
+		EKC_NUMPAD_2,
+		EKC_NUMPAD_3,
+		EKC_NUMPAD_4,
+		EKC_NUMPAD_5,
+		EKC_NUMPAD_6,
+		EKC_NUMPAD_7,
+		EKC_NUMPAD_8,
+		EKC_NUMPAD_9,
+
+		EKC_A,
+		EKC_B,
+		EKC_C,
+		EKC_D,
+		EKC_E,
+		EKC_F,
+		EKC_G,
+		EKC_H,
+		EKC_I,
+		EKC_G,
+		EKC_K,
+		EKC_L,
+		EKC_M,
+		EKC_N,
+		EKC_O,
+		EKC_P,
+		EKC_Q,
+		EKC_R,
+		EKC_S,
+		EKC_T,
+		EKC_U,
+		EKC_V,
+		EKC_W,
+		EKC_X,
+		EKC_Y,
+		EKC_Z,
+
+		EKC_ADD,
+		EKC_SUBTRACT,
+		EKC_MULTIPLY,
+		EKC_DIVIDE,
+		EKC_SEPARATOR,
+
+		EKC_F1,
+		EKC_F2,
+		EKC_F3,
+		EKC_F4,
+		EKC_F5,
+		EKC_F6,
+		EKC_F7,
+		EKC_F8,
+		EKC_F9,
+		EKC_F10,
+		EKC_F11,
+		EKC_F12,
+		EKC_F13,
+		EKC_F14,
+		EKC_F15,
+		EKC_F16,
+		EKC_F17,
+		EKC_F18,
+		EKC_F19,
+		EKC_F20,
+		EKC_F21,
+		EKC_F22,
+		EKC_F23,
+		EKC_F24,
+
+		EKC_NUM_LOCK,
+		EKC_SCROLL_LOCK,
+
+		EKC_VOLUME_MUTE,
+		EKC_VOLUME_UP,
+		EKC_VOLUME_DOWN,
 	};
 
-	enum E_MOUSEBUTTON
+	enum E_MOUSE_BUTTON : uint8_t
 	{
-		EMB_LEFT_BUTTON,   // 
-		EMB_RIGHT_BUTTON,  // Or should they all be EMB_BUTTON_NUMBER??
-		EMB_MIDDLE_BUTTON, //
-		EMB_BUTTON_4,
-		EMB_BUTTON_5
+		EMB_LEFT_BUTTON = 1,   
+		EMB_RIGHT_BUTTON = 2,  
+		EMB_MIDDLE_BUTTON = 4, 
+		EMB_BUTTON_4 = 8,
+		EMB_BUTTON_5 = 16
 	};
 };
