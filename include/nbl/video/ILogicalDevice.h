@@ -2,7 +2,7 @@
 #define __NBL_I_GPU_LOGICAL_DEVICE_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl/video/IGPUQueue.h"
+#include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IDescriptorPool.h"
 #include "nbl/video/IGPUDescriptorSet.h"
@@ -96,8 +96,14 @@ public:
     IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
+        return (*m_queues)[offset+_ix]->getUnderlyingQueue();
+    }
 
-        return (*m_queues)[offset+_ix].get();
+    // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
+    CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
+    {
+        const uint32_t offset = (*m_offsets)[_familyIx];
+        return (*m_queues)[offset + _ix].get();
     }
 
     StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer()
@@ -743,7 +749,7 @@ protected:
     core::smart_refctd_ptr<io::IFileSystem> m_fs;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
-    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUQueue>>;
+    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
     queues_array_t m_queues;
     using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
     q_offsets_array_t m_offsets;
