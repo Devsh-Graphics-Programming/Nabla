@@ -38,9 +38,11 @@ public:
         //IWindow(core::smart_refctd_ptr<IEventCallback>&& _cb, core::smart_refctd_ptr<system::ISystem>&& _sys, uint32_t _w = 0u, uint32_t _h = 0u, E_CREATE_FLAGS _flags = static_cast<E_CREATE_FLAGS>(0)) :
         core::smart_refctd_ptr<IEventCallback> callback;
         core::smart_refctd_ptr<system::ISystem> system;
+        int32_t x, y;
         uint32_t width = 0u, height = 0u;
         E_CREATE_FLAGS flags = static_cast<E_CREATE_FLAGS>(0);
         uint32_t eventChannelCapacityLog2[IInputEventChannel::ET_COUNT];
+        std::string windowCaption;
     };
 
     friend class IEventCallback;

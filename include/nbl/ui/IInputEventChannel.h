@@ -107,16 +107,16 @@ struct SMouseEvent
     {
         struct SClickEvent
         {
-            int32_t clickPosX, clickPosY;
+            int16_t clickPosX, clickPosY;
             ui::E_MOUSE_BUTTON mouseButton;
         } clickEvent;
         struct SScrollEvent
         {
-            uint32_t verticalScroll, horizontalScroll;
+            uint16_t verticalScroll, horizontalScroll;
         } scrollEvent;
         struct SMovementEvent
         {
-            uint32_t movementX, movementY;
+            uint16_t movementX, movementY;
         } movementEvent;
     };
     IWindow* window;

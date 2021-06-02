@@ -1,6 +1,6 @@
 #ifndef __C_WINDOW_WIN32_H_INCLUDED__
 #define __C_WINDOW_WIN32_H_INCLUDED__
-
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/IWindowWin32.h"
 #include "os.h"
 #include <queue>
@@ -14,8 +14,6 @@ namespace ui
 
 class CWindowWin32 final : public IWindowWin32
 {
-	// TODO design for event listener etc, WndProc will somehow pass events to provided event listener
-
 public:
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	static E_KEY_CODE getNablaKeyCodeFromNative(uint32_t nativeWindowsKeyCode);
@@ -95,6 +93,8 @@ private:
 
 }
 }
+
+#endif
 
 #endif
 
