@@ -2,22 +2,18 @@
 #define __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 
 #include <regex>
-#include "nbl/video/CEGL.h"
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/COpenGLFeatureMap.h"
-#include "nbl/video/COpenGLDebug.h"
-#define GL_GLEXT_PROTOTYPES
-#define GL_APICALL extern
-#define GL_APIENTRY // im not sure about calling convention...
-#undef GL_KHR_debug
-#include "GLES3/gl2ext.h"
 
+#include "nbl/video/CEGL.h"
+
+
+#include "nbl/video/COpenGLDebug.h"
 #ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
 #endif
 
-namespace nbl { 
-namespace video
+namespace nbl::video
 {
 
 template <typename LogicalDeviceType>
@@ -500,7 +496,6 @@ protected:
 	SDebugCallback* m_dbgCb;
 };
 
-}
 }
 
 #endif

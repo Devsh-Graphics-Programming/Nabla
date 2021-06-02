@@ -3,13 +3,8 @@
 
 #include "nbl/video/COpenGLFeatureMap.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
-#ifndef GL_GLEXT_PROTOTYPES
-#define GL_GLEXT_PROTOTYPES
-#endif
-#include "GL/gl.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class COpenGLFunctionTable final : public IOpenGL_FunctionTable
@@ -1798,7 +1793,4 @@ public:
 };
 
 }
-}
-
-#undef GL_GLEXT_PROTOTYPES
 #endif

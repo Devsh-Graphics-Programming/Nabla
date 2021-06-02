@@ -8,11 +8,16 @@
 #include "nbl/core/string/UniqueStringLiteralType.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/video/CEGL.h"
-#define GL_GLEXT_LEGACY 1
-#include "GL/gl.h"
-#undef GL_GLEXT_LEGACY
+
+
 #define GL_GLEXT_PROTOTYPES
+#include "GL/glcorearb.h"
 #include "GL/glext.h"
+#undef GL_KHR_debug
+#include <GLES/gl.h>
+#include "GLES3/gl3platform.h"
+#include "GLES3/gl32.h"
+#include "GLES3/gl2ext.h"
 #undef GL_GLEXT_PROTOTYPES
 
 #ifdef _NBL_DEBUG
