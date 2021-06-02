@@ -243,8 +243,15 @@ macro(nbl_adjust_flags)
 			$<$<CONFIG:DEBUG>:-Wall>
 			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
 			$<$<CONFIG:DEBUG>:-fstack-protector-strong>
-			$<$<CONFIG:DEBUG>:-glldb>
+			$<$<CONFIG:DEBUG>:-ggdb3>
 		)
+		
+		if(ANDROID)
+			add_compile_options(
+				$<$<CONFIG:DEBUG>:-glldb>
+			)
+		endif()
+		
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 			if (NOT NBL_BUILD_CEGUI)
 				add_compile_options(-fno-exceptions)
