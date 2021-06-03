@@ -109,14 +109,19 @@ struct SMouseEvent
         {
             int16_t clickPosX, clickPosY;
             ui::E_MOUSE_BUTTON mouseButton;
+            enum E_ACTION : uint8_t
+            {
+                EA_PRESSED = 1,
+                EA_RELEASED = 2
+            } action;
         } clickEvent;
         struct SScrollEvent
         {
-            uint16_t verticalScroll, horizontalScroll;
+            int16_t verticalScroll, horizontalScroll;
         } scrollEvent;
         struct SMovementEvent
         {
-            uint16_t movementX, movementY;
+            int16_t movementX, movementY;
         } movementEvent;
     };
     IWindow* window;

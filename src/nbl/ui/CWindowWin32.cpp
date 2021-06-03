@@ -19,7 +19,7 @@ namespace ui
 	};
 	struct SRequestParams_CreateWindow : SRequestParamsBase<ERT_CREATE_WINDOW>
 	{
-		SRequestParams_CreateWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t wnd, const std::string_view& caption):
+		SRequestParams_CreateWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t* wnd, const std::string_view& caption):
 		x(_x), y(_y), width(_w), height(_h), flags(_flags), nativeWindow(wnd)
 		{
 			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
@@ -28,7 +28,7 @@ namespace ui
 		int32_t x, y;
 		uint32_t width, height;
 		CWindowWin32::E_CREATE_FLAGS flags;
-		CWindowWin32::native_handle_t nativeWindow;
+		CWindowWin32::native_handle_t* nativeWindow;
 		std::wstring windowCaption;
 	};
 	struct SRequestParams_DestroyWindow : SRequestParamsBase<ERT_DESTROY_WINDOW>
@@ -46,7 +46,7 @@ namespace ui
 		using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>;
 		friend base_t;
 	public:
-		void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t wnd, const std::string_view& caption)
+		void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t* wnd, const std::string_view& caption)
 		{
 			SRequestParams_CreateWindow params = SRequestParams_CreateWindow( _x, _y, _w, _h, _flags, wnd, caption );
 			auto& rq = request(params);
@@ -179,42 +179,42 @@ namespace ui
 					//TODO: thoroughly test this stuff	
 					constexpr uint32_t INPUT_DEVICES_COUNT = 5;
 					RAWINPUTDEVICE inputDevices[INPUT_DEVICES_COUNT];
-					inputDevices[0].hwndTarget = m_params.nativeWindow;
+					inputDevices[0].hwndTarget = *params.nativeWindow;
 					inputDevices[0].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 					inputDevices[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
 					inputDevices[0].usUsage = HID_USAGE_GENERIC_POINTER;
 
-					inputDevices[1].hwndTarget = m_params.nativeWindow;
+					inputDevices[1].hwndTarget = *params.nativeWindow;
 					inputDevices[1].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 					inputDevices[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
 					inputDevices[1].usUsage = HID_USAGE_GENERIC_MOUSE;
 
-					inputDevices[2].hwndTarget = m_params.nativeWindow;
+					inputDevices[2].hwndTarget = *params.nativeWindow;
 					inputDevices[2].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 					inputDevices[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
 					inputDevices[2].usUsage = HID_USAGE_GENERIC_KEYBOARD;
 
-					inputDevices[3].hwndTarget = m_params.nativeWindow;
+					inputDevices[3].hwndTarget = *params.nativeWindow;
 					inputDevices[3].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 					inputDevices[3].usUsagePage = HID_USAGE_PAGE_GAME;
 					inputDevices[3].usUsage = HID_USAGE_GENERIC_JOYSTICK;
 
-					inputDevices[4].hwndTarget = m_params.nativeWindow;
+					inputDevices[4].hwndTarget = *params.nativeWindow;
 					inputDevices[4].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
 					inputDevices[4].usUsagePage = HID_USAGE_PAGE_GAME;
 					inputDevices[4].usUsage = HID_USAGE_GENERIC_GAMEPAD;
 
 					RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
 				}
-				params.nativeWindow = CreateWindow(classname, __TEXT(""), style, windowLeft, windowTop,
+				*params.nativeWindow = CreateWindow(classname, __TEXT(""), style, windowLeft, windowTop,
 					realWidth, realHeight, NULL, NULL, hinstance, NULL);
 				if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
-					ShowWindow(params.nativeWindow, SW_SHOWNORMAL);
-				UpdateWindow(params.nativeWindow);
+					ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
+				UpdateWindow(*params.nativeWindow);
 
 				// fix ugly ATI driver bugs. Thanks to ariaci
 				// TODO still needed?
-				MoveWindow(params.nativeWindow, windowLeft, windowTop, realWidth, realHeight, TRUE);
+				MoveWindow(*params.nativeWindow, windowLeft, windowTop, realWidth, realHeight, TRUE);
 				break;
 			}
 			case ERT_DESTROY_WINDOW:
@@ -395,7 +395,7 @@ namespace ui
 				auto* inputChannel = window->getMouseEventChannel(device);
 				RAWMOUSE rawMouse = rawInput.data.mouse;
  
-				if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE && (rawMouse.lLastX != 0 || rawMouse.lLastY != 0))
+				if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
 				{
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_MOVEMENT;
@@ -409,7 +409,8 @@ namespace ui
 				{
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
-					event.clickEvent.mouseButton = ui::E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
+					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
+					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
@@ -418,7 +419,8 @@ namespace ui
 				{
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
-					event.clickEvent.mouseButton = ui::E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
+					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
+					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
@@ -427,7 +429,8 @@ namespace ui
 				{
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
-					event.clickEvent.mouseButton = ui::E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
+					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
+					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
@@ -436,7 +439,8 @@ namespace ui
 				{
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
-					event.clickEvent.mouseButton = ui::E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
+					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
+					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
@@ -445,7 +449,8 @@ namespace ui
 				{
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
-					event.clickEvent.mouseButton = ui::E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
+					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
+					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
@@ -454,7 +459,8 @@ namespace ui
 				{
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
-					event.clickEvent.mouseButton = ui::E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
+					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
+					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
@@ -593,7 +599,7 @@ namespace ui
 		case 0x47:				nablaKeyCode = EKC_G; break;
 		case 0x48:				nablaKeyCode = EKC_H; break;
 		case 0x49:				nablaKeyCode = EKC_I; break;
-		case 0x4A:				nablaKeyCode = EKC_G; break;
+		case 0x4A:				nablaKeyCode = EKC_J; break;
 		case 0x4B:				nablaKeyCode = EKC_K; break;
 		case 0x4C:				nablaKeyCode = EKC_L; break;
 		case 0x4D:				nablaKeyCode = EKC_M; break;

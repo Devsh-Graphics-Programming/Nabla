@@ -1,7 +1,7 @@
 
 namespace nbl::ui
 {
-	enum E_KEY_CODE : uint32_t
+	enum E_KEY_CODE : uint16_t
 	{
 		EKC_NONE = 0,
 		EKC_BACKSPACE,
@@ -65,7 +65,7 @@ namespace nbl::ui
 		EKC_G,
 		EKC_H,
 		EKC_I,
-		EKC_G,
+		EKC_J,
 		EKC_K,
 		EKC_L,
 		EKC_M,
