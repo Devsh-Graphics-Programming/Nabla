@@ -100,14 +100,6 @@ endif()
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" ON)
 
-#if (ANDROID)
-#message(FATAL_ERROR "ANDROID")
-#else()
-#message(FATAL_ERROR "NOT ANDROID")
-#endif()
-#message("C compiler=${CMAKE_C_COMPILER}")
-#message(FATAL_ERROR "CXX compiler=${CMAKE_CXX_COMPILER}")
-
 # CUDA test
 include(CheckLanguage)
 check_language(CUDA)
@@ -172,9 +164,6 @@ macro(nbl_adjust_flags)
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		
-		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-			add_compile_options("$<$<CONFIG:DEBUG>:-g>")
-		endif()
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
@@ -189,25 +178,26 @@ macro(nbl_adjust_flags)
 			-Wno-error=unused-function
 			-Wno-error=unused-variable
 			-Wno-error=unused-parameter
-			
-			#"$<$<CONFIG:DEBUG>:-g>" # same as with -O3 below
-			"$<$<CONFIG:DEBUG>:-Wall>"
-			"$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>"
-			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
+
+			$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 		)
+		if (NOT CMAKE_BUILD_TYPE STREQUAL Release)
+			add_compile_options(
+				-ggdb3
+				-Wall
+				-fno-omit-frame-pointer
+				-fstack-protector-strong
+			)
+		endif()
+		if (NOT NBL_BUILD_CEGUI)
+			add_compile_options(-fno-exceptions)
+		endif()
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-			if (NOT NBL_BUILD_CEGUI)
-				add_compile_options(-fno-exceptions)
-			endif()
 
 			add_compile_options(
 			-Wno-unused-but-set-parameter	
-			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
+			$<$<CONFIG:RELEASE>:-fexpensive-optimizations>
 			)
-		else()
-			add_compile_options( 
-				"$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>"
-			)	
 		endif()
 		if (NBL_SANITIZE_ADDRESS)
 			add_compile_options(-fsanitize=address) 
@@ -219,14 +209,15 @@ macro(nbl_adjust_flags)
 			add_compile_options(-Wno-error=ignored-attributes)
 		endif()
 		
+		if(FAST_MATH)
+			add_compile_options(
+				$<$<CONFIG:RELEASE>:-ffast-math>
+			)
+		endif()
+
 		link_libraries(
 			-fuse-ld=gold
 		)
-		if(FAST_MATH)
-			add_compile_options(
-				"$<$<CONFIG:RELEASE>:-ffast-math>"
-			)
-		endif()
 
 	elseif(MSVC) # /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
 		if (NBL_SANITIZE_ADDRESS)
