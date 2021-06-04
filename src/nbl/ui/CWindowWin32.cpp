@@ -38,7 +38,11 @@ namespace ui
 	struct SRequest : system::impl::IAsyncQueueDispatcherBase::request_base_t
 	{
 		E_REQUEST_TYPE type;
-		std::variant<SRequestParams_CreateWindow, SRequestParams_DestroyWindow> params;
+		union
+		{
+			SRequestParams_CreateWindow createWindowParam;
+			SRequestParams_DestroyWindow destroyWindowParam;
+		};
 	};
 
 	class CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>
@@ -92,7 +96,7 @@ namespace ui
 			{
 			case ERT_CREATE_WINDOW:
 			{
-				auto& params = std::get<SRequestParams_CreateWindow>(req.params);
+				auto& params = req.createWindowParam;
 				HINSTANCE hinstance = GetModuleHandle(NULL);
 
 				const char* classname = __TEXT("Nabla Engine");
@@ -219,7 +223,7 @@ namespace ui
 			}
 			case ERT_DESTROY_WINDOW:
 			{
-				auto& params = std::get<SRequestParams_DestroyWindow>(req.params);
+				auto& params = req.destroyWindowParam;
 				DestroyWindow(params.nativeWindow);
 				break;
 			}
@@ -230,7 +234,14 @@ namespace ui
 		void request_impl(SRequest& req, RequestParams&& params)
 		{
 			req.type = params.type;
-			req.params = std::move(params);
+			if constexpr (std::is_same_v<RequestParams, SRequestParams_CreateWindow>)
+			{
+				req.createWindowParam = std::move(params);
+			}
+			else
+			{
+				req.destroyWindowParam = std::move(params);
+			}
 		}
 	private:
 		static bool getMessageWithTimeout(MSG* msg, uint32_t timeoutInMilliseconds)
@@ -397,6 +408,7 @@ namespace ui
  
 				if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
 				{
+					assert(rawMouse.lLastX != 0 || rawMouse.lLastY != 0);
 					SMouseEvent event;
 					event.type = SMouseEvent::EET_MOVEMENT;
 					event.movementEvent.movementX = rawMouse.lLastX;
@@ -533,7 +545,7 @@ namespace ui
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 
-	E_KEY_CODE CWindowWin32::getNablaKeyCodeFromNative(uint32_t nativeWindowsKeyCode)
+	E_KEY_CODE CWindowWin32::getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode)
 	{
 		nbl::ui::E_KEY_CODE nablaKeyCode = EKC_NONE;
 		switch (nativeWindowsKeyCode)
@@ -543,14 +555,14 @@ namespace ui
 		case VK_CLEAR:			nablaKeyCode = EKC_CLEAR; break;
 		case VK_RETURN:			nablaKeyCode = EKC_ENTER; break;
 		case VK_SHIFT:			[[fallthrough]];
-		case VK_LSHIFT:			[[fallthrough]];
-		case VK_RSHIFT:			nablaKeyCode = EKC_SHIFT; break;
+		case VK_LSHIFT:			nablaKeyCode = EKC_LEFT_SHIFT; break;
+		case VK_RSHIFT:			nablaKeyCode = EKC_RIGHT_SHIFT; break;
 		case VK_CONTROL:		[[fallthrough]];
-		case VK_LCONTROL:		[[fallthrough]];
-		case VK_RCONTROL:		nablaKeyCode = EKC_CONTROL; break;
+		case VK_LCONTROL:		nablaKeyCode = EKC_LEFT_CONTROL; break;
+		case VK_RCONTROL:		nablaKeyCode = EKC_RIGHT_CONTROL; break;
 		case VK_LMENU:			[[fallthrough]];
-		case VK_RMENU:			[[fallthrough]];
-		case VK_MENU:			nablaKeyCode = EKC_ALT; break;
+		case VK_MENU:			nablaKeyCode = EKC_LEFT_ALT; break;
+		case VK_RMENU:			nablaKeyCode = EKC_RIGHT_ALT; break;
 		case VK_PAUSE:			nablaKeyCode = EKC_PAUSE; break;
 		case VK_CAPITAL:		nablaKeyCode = EKC_CAPS_LOCK; break;
 		case VK_ESCAPE:			nablaKeyCode = EKC_ESCAPE; break;
@@ -570,16 +582,16 @@ namespace ui
 		case VK_INSERT:			nablaKeyCode = EKC_INSERT; break;
 		case VK_DELETE:			nablaKeyCode = EKC_DELETE; break;
 		case VK_HELP:			nablaKeyCode = EKC_HELP; break;
-		case 0x30:				nablaKeyCode = EKC_0; break;
-		case 0x31:				nablaKeyCode = EKC_1; break;
-		case 0x32:				nablaKeyCode = EKC_2; break;
-		case 0x33:				nablaKeyCode = EKC_3; break;
-		case 0x34:				nablaKeyCode = EKC_4; break;
-		case 0x35:				nablaKeyCode = EKC_5; break;
-		case 0x36:				nablaKeyCode = EKC_6; break;
-		case 0x37:				nablaKeyCode = EKC_7; break;
-		case 0x38:				nablaKeyCode = EKC_8; break;
-		case 0x39:				nablaKeyCode = EKC_9; break;
+		case '0':				nablaKeyCode = EKC_0; break;
+		case '1':				nablaKeyCode = EKC_1; break;
+		case '2':				nablaKeyCode = EKC_2; break;
+		case '3':				nablaKeyCode = EKC_3; break;
+		case '4':				nablaKeyCode = EKC_4; break;
+		case '5':				nablaKeyCode = EKC_5; break;
+		case '6':				nablaKeyCode = EKC_6; break;
+		case '7':				nablaKeyCode = EKC_7; break;
+		case '8':				nablaKeyCode = EKC_8; break;
+		case '9':				nablaKeyCode = EKC_9; break;
 		case VK_NUMPAD0:		nablaKeyCode = EKC_NUMPAD_0; break;
 		case VK_NUMPAD1:		nablaKeyCode = EKC_NUMPAD_1; break;
 		case VK_NUMPAD2:		nablaKeyCode = EKC_NUMPAD_2; break;
@@ -590,32 +602,32 @@ namespace ui
 		case VK_NUMPAD7:		nablaKeyCode = EKC_NUMPAD_7; break;
 		case VK_NUMPAD8:		nablaKeyCode = EKC_NUMPAD_8; break;
 		case VK_NUMPAD9:		nablaKeyCode = EKC_NUMPAD_9; break;
-		case 0x41:				nablaKeyCode = EKC_A; break;
-		case 0x42:				nablaKeyCode = EKC_B; break;
-		case 0x43:				nablaKeyCode = EKC_C; break;
-		case 0x44:				nablaKeyCode = EKC_D; break;
-		case 0x45:				nablaKeyCode = EKC_E; break;
-		case 0x46:				nablaKeyCode = EKC_F; break;
-		case 0x47:				nablaKeyCode = EKC_G; break;
-		case 0x48:				nablaKeyCode = EKC_H; break;
-		case 0x49:				nablaKeyCode = EKC_I; break;
-		case 0x4A:				nablaKeyCode = EKC_J; break;
-		case 0x4B:				nablaKeyCode = EKC_K; break;
-		case 0x4C:				nablaKeyCode = EKC_L; break;
-		case 0x4D:				nablaKeyCode = EKC_M; break;
-		case 0x4E:				nablaKeyCode = EKC_N; break;
-		case 0x4F:				nablaKeyCode = EKC_O; break;
-		case 0x50:				nablaKeyCode = EKC_P; break;
-		case 0x51:				nablaKeyCode = EKC_Q; break;
-		case 0x52:				nablaKeyCode = EKC_R; break;
-		case 0x53:				nablaKeyCode = EKC_S; break;
-		case 0x54:				nablaKeyCode = EKC_T; break;
-		case 0x55:				nablaKeyCode = EKC_U; break;
-		case 0x56:				nablaKeyCode = EKC_V; break;
-		case 0x57:				nablaKeyCode = EKC_W; break;
-		case 0x58:				nablaKeyCode = EKC_X; break;
-		case 0x59:				nablaKeyCode = EKC_Y; break;
-		case 0x5A:				nablaKeyCode = EKC_Y; break;
+		case 'A':				nablaKeyCode = EKC_A; break;
+		case 'B':				nablaKeyCode = EKC_B; break;
+		case 'C':				nablaKeyCode = EKC_C; break;
+		case 'D':				nablaKeyCode = EKC_D; break;
+		case 'E':				nablaKeyCode = EKC_E; break;
+		case 'F':				nablaKeyCode = EKC_F; break;
+		case 'G':				nablaKeyCode = EKC_G; break;
+		case 'H':				nablaKeyCode = EKC_H; break;
+		case 'I':				nablaKeyCode = EKC_I; break;
+		case 'J':				nablaKeyCode = EKC_J; break;
+		case 'K':				nablaKeyCode = EKC_K; break;
+		case 'L':				nablaKeyCode = EKC_L; break;
+		case 'M':				nablaKeyCode = EKC_M; break;
+		case 'N':				nablaKeyCode = EKC_N; break;
+		case 'O':				nablaKeyCode = EKC_O; break;
+		case 'P':				nablaKeyCode = EKC_P; break;
+		case 'Q':				nablaKeyCode = EKC_Q; break;
+		case 'R':				nablaKeyCode = EKC_R; break;
+		case 'S':				nablaKeyCode = EKC_S; break;
+		case 'T':				nablaKeyCode = EKC_T; break;
+		case 'U':				nablaKeyCode = EKC_U; break;
+		case 'V':				nablaKeyCode = EKC_V; break;
+		case 'W':				nablaKeyCode = EKC_W; break;
+		case 'X':				nablaKeyCode = EKC_X; break;
+		case 'Y':				nablaKeyCode = EKC_Y; break;
+		case 'Z':				nablaKeyCode = EKC_Z; break;
 		case VK_LWIN:			nablaKeyCode = EKC_LEFT_WIN; break;
 		case VK_RWIN:			nablaKeyCode = EKC_RIGHT_WIN; break;
 		case VK_APPS:			nablaKeyCode = EKC_APPS; break;

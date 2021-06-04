@@ -1,6 +1,5 @@
 #ifndef __C_WINDOW_WIN32_H_INCLUDED__
 #define __C_WINDOW_WIN32_H_INCLUDED__
-#ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/IWindowWin32.h"
 #include "os.h"
 #include <queue>

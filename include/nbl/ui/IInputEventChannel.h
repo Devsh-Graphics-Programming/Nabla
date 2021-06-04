@@ -158,6 +158,7 @@ struct SKeyboardEvent
     IWindow* window;
 };
 
+// TODO left/right shift/ctrl/alt kb flags
 class IKeyboardEventChannel : public impl::IEventChannelBase<SKeyboardEvent>
 {
     using base_t = impl::IEventChannelBase<SKeyboardEvent>;
