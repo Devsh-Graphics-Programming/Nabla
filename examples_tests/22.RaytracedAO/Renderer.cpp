@@ -579,11 +579,13 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 	}
 }
 
-core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format)
+core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format, uint32_t layers)
 {
+	const auto real_layers = layers ? layers:1u;
+
 	IGPUImage::SCreationParams imgparams;
 	imgparams.extent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
-	imgparams.arrayLayers = 1u;
+	imgparams.arrayLayers = real_layers;
 	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 	imgparams.format = format;
 	imgparams.mipLevels = 1u;
@@ -594,10 +596,10 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	viewparams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0);
 	viewparams.format = format;
 	viewparams.image = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(imgparams));
-	viewparams.viewType = IGPUImageView::ET_2D;
+	viewparams.viewType = layers ? IGPUImageView::ET_2D_ARRAY:IGPUImageView::ET_2D;
 	viewparams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
 	viewparams.subresourceRange.baseArrayLayer = 0u;
-	viewparams.subresourceRange.layerCount = 1u;
+	viewparams.subresourceRange.layerCount = real_layers;
 	viewparams.subresourceRange.baseMipLevel = 0u;
 	viewparams.subresourceRange.levelCount = 1u;
 
@@ -674,7 +676,7 @@ void Renderer::init(const SAssetBundle& meshes,
 		}
 
 		// create out screen-sized textures
-		m_accumulation = createScreenSizedTexture(EF_R32G32_UINT);
+		m_accumulation = createScreenSizedTexture(EF_R32G32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
 		m_tonemapOutput = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
 
 		//
@@ -948,9 +950,6 @@ void Renderer::deinit()
 	m_denoiserOutput = {};
 #endif
 
-	// TODO: @Crisspl When we finally make a EF_RGB19E7 format enum and appropriate encode/decode functions (and finally finish the driver hardware support for formats queries)
-	//if (m_accumulation)
-		//ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_accumulation.get(),"sceneReferred.exr",asset::EF_R16G16B16A16_SFLOAT);
 	if (m_tonemapOutput)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),"tonemapped.png",asset::EF_R8G8B8_SRGB);
 	if (m_visibilityBuffer)
@@ -1064,14 +1063,7 @@ void Renderer::render(nbl::ITimer* timer)
 		};
 		if (!properEquals(currentView,m_prevView))
 		{
-			m_raytraceCommonData.framesDispatched = 0u;
-
-			m_driver->setRenderTarget(tmpTonemapBuffer);
-			{
-				uint32_t clearAccumulation[4] = { 0,0,0,0 };
-				m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearAccumulation);
-			}
-		
+			m_raytraceCommonData.framesDispatched = 0u;		
 			m_prevView = currentView;
 		}
 		else // need this to stop mouse cursor drift

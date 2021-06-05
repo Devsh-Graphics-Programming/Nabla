@@ -91,7 +91,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		void initSceneNonAreaLights(InitializationData& initData);
 		void finalizeScene(InitializationData& initData);
 
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format);
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
 
 		void traceBounce();
 

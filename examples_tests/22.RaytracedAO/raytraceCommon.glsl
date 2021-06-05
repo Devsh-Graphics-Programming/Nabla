@@ -29,7 +29,7 @@ layout(set = 2, binding = 0, row_major) uniform StaticViewData
 {
 	StaticViewData_t staticViewData;
 };
-layout(set = 2, binding = 1, rg32ui) restrict uniform uimage2D accumulation;
+layout(set = 2, binding = 1, rg32ui) restrict uniform uimage2DArray accumulation;
 #include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
 layout(set = 2, binding = 2, std430) restrict buffer Rays
 {
@@ -39,13 +39,13 @@ layout(set = 2, binding = 2, std430) restrict buffer Rays
 #include <nbl/builtin/glsl/format/encode.glsl>
 vec3 fetchAccumulation(in ivec2 coord)
 {
-    const uvec2 data = imageLoad(accumulation,coord).rg;
+    const uvec2 data = imageLoad(accumulation,ivec3(coord,0)).rg;
 	return nbl_glsl_decodeRGB19E7(data);
 }
 void storeAccumulation(in vec3 color, in ivec2 coord)
 {
 	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
-	imageStore(accumulation,coord,uvec4(data,0u,0u));
+	imageStore(accumulation,ivec3(coord,0),uvec4(data,0u,0u));
 }
 
 
