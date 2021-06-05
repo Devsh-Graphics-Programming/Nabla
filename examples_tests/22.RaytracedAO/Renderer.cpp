@@ -141,7 +141,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		samplerParams.CompareEnable = false;
 		auto sampler = m_driver->createGPUSampler(samplerParams);
 
-		constexpr auto raygenDescriptorCount = 4u;
+		constexpr auto raygenDescriptorCount = 5u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
@@ -151,6 +151,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[2].samplers = &sampler;
 		bindings[3].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 		bindings[3].samplers = &sampler;
+		bindings[4].type = asset::EDT_STORAGE_BUFFER;
 
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
 	}
@@ -277,6 +278,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					cullData.reserve(batchInstanceBoundTotal);
 
 					newInstanceDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ext::MitsubaLoader::instance_data_t)*batchInstanceBoundTotal);
+					retval.mdiFirstIndices.resize(batchInstanceBoundTotal);
 				}
 				// actually commit the physical memory, compute batches and set up instance data
 				{
@@ -286,6 +288,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					auto* vertexPtr = reinterpret_cast<const float*>(cpump->getPackerDataStore().vertexBuffer->getPointer());
 					auto* mdiPtr = reinterpret_cast<DrawElementsIndirectCommand_t*>(cpump->getPackerDataStore().MDIDataBuffer->getPointer());
 					auto* newInstanceData = reinterpret_cast<ext::MitsubaLoader::instance_data_t*>(newInstanceDataBuffer->getPointer());
+					auto batchFirstIndexIt = retval.mdiFirstIndices.begin();
 
 					constexpr uint32_t kIndicesPerTriangle = 3u;
 					core::vector<CPUMeshPacker::CombinedDataOffsetTable> cdot(mdiBoundMax);
@@ -322,15 +325,17 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 							for (auto i=0u; i<pmbdIt->mdiParameterCount; i++)
 							{
 								const uint32_t drawCommandGUID = pmbdIt->mdiParameterOffset+i;
-								mdiPtr[drawCommandGUID].baseInstance = cullData.size();
-								mdiPtr[drawCommandGUID].instanceCount = 0; // needs to be cleared, will be set by compute culling
+								auto& mdi = mdiPtr[drawCommandGUID];
+								mdi.baseInstance = cullData.size();
+								mdi.instanceCount = 0; // needs to be cleared, will be set by compute culling
 
+								const uint32_t firstIndex = mdi.firstIndex;
 								// set up BLAS
-								const auto indexCount = mdiPtr[drawCommandGUID].count;
-								std::copy_n(indexPtr+mdiPtr[drawCommandGUID].firstIndex,indexCount,fatIndicesForRR.data());
+								const auto indexCount = mdi.count;
+								std::copy_n(indexPtr+firstIndex,indexCount,fatIndicesForRR.data());
 								rrShapes.emplace_back() = rr->CreateMesh(
 									vertexPtr+cdotIt->attribInfo[posAttrID].getOffset()*sizeof(vec3)/sizeof(float),
-									mdiPtr[drawCommandGUID].count, // could be improved if mesh packer returned the `usedVertices.size()` for every batch in the cdot
+									mdi.count, // could be improved if mesh packer returned the `usedVertices.size()` for every batch in the cdot
 									asset::getTexelOrBlockBytesize<asset::EF_R32G32B32_SFLOAT>(),
 									fatIndicesForRR.data(),
 									sizeof(uint32_t)*kIndicesPerTriangle,nullptr, // radeon rays understands index stride differently to me
@@ -395,6 +400,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 									}
 
 									newInstanceData++;
+									*(batchFirstIndexIt++) = firstIndex;
 								}
 								for (auto j=thisShapeInstancesBeginIx; j!=rrInstances.size(); j++)
 									rr->AttachShape(rrInstances[j]);
@@ -415,6 +421,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				}
 				instanceDataDescPtr->buffer = {0u,cullData.size()*sizeof(ext::MitsubaLoader::instance_data_t)};
 				instanceDataDescPtr->desc = std::move(newInstanceDataBuffer); // TODO: trim the buffer
+				retval.mdiFirstIndices.resize(cullData.size());
 				{
 					auto gpump = core::make_smart_refctd_ptr<GPUMeshPacker>(m_driver,cpump.get());
 					const auto& dataStore = gpump->getPackerDataStore();
@@ -719,7 +726,7 @@ void Renderer::init(const SAssetBundle& meshes,
 
 
 			//
-			constexpr uint32_t descriptorUpdateCounts[] = { 3u,3u,4u,2u };
+			constexpr uint32_t descriptorUpdateCounts[] = { 3u,3u,5u,2u };
 			constexpr uint32_t descriptorUpdateExclScanSum[] =
 			{
 				0u,
@@ -798,7 +805,6 @@ void Renderer::init(const SAssetBundle& meshes,
 
 				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS.get(),commonWrites,commonInfos,{EDT_UNIFORM_BUFFER,EDT_STORAGE_IMAGE,EDT_STORAGE_BUFFER});
 			}
-			initData = {}; // reclaim some memory
 			// set up m_raygenDS
 			{
 				auto scrambleTexture = createScreenSizedTexture(EF_R32G32_UINT);
@@ -817,7 +823,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					//region.imageSubresource.aspectMask = ;
 					region.imageSubresource.layerCount = 1u;
 					region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
-					m_driver->copyBufferToImage(gpuBuff.get(), scrambleTexture->getCreationParameters().image.get(), 1u, &region);
+					m_driver->copyBufferToImage(gpuBuff.get(), scrambleTexture->getCreationParameters().image.get(),1u,&region);
 				}
 				depthBuffer = createScreenSizedTexture(EF_D32_SFLOAT);
 				visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
@@ -836,10 +842,11 @@ void Renderer::init(const SAssetBundle& meshes,
 				setImageInfo(raygenInfos+1,asset::EIL_SHADER_READ_ONLY_OPTIMAL,std::move(scrambleTexture));
 				setImageInfo(raygenInfos+2,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(depthBuffer));
 				setImageInfo(raygenInfos+3,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
-				
+				createFilledBufferAndSetUpInfoFromVector(raygenInfos+4,initData.mdiFirstIndices);
 
-				setDstSetAndDescTypesOnWrites(m_raygenDS.get(),raygenWrites,raygenInfos,{EDT_UNIFORM_TEXEL_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER});
+				setDstSetAndDescTypesOnWrites(m_raygenDS.get(),raygenWrites,raygenInfos,{EDT_UNIFORM_TEXEL_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_STORAGE_BUFFER});
 			}
+			initData = {}; // reclaim some memory
 			// set up m_resolveDS
 			{
 				auto resolveInfos = infos+descriptorUpdateExclScanSum[3];

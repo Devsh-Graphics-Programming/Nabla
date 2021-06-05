@@ -60,7 +60,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		struct InitializationData
 		{
-			InitializationData() : lights(),lightRadiances(),lightCDF(),globalMeta(nullptr) {}
+			InitializationData() : mdiFirstIndices(), lights(),lightRadiances(),lightCDF(),globalMeta(nullptr) {}
 			InitializationData(InitializationData&& other) : InitializationData()
 			{
 				operator=(std::move(other));
@@ -69,6 +69,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 			inline InitializationData& operator=(InitializationData&& other)
 			{
+				mdiFirstIndices = std::move(other.mdiFirstIndices);
 				lights = std::move(other.lights);
 				lightRadiances = std::move(other.lightRadiances);
 				lightCDF = std::move(other.lightCDF);
@@ -76,7 +77,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				return *this;
 			}
 
-
+			nbl::core::vector<uint32_t> mdiFirstIndices;
 			nbl::core::vector<SLight> lights;
 			nbl::core::vector<nbl::core::vectorSIMDf> lightRadiances;
 			union
