@@ -11,7 +11,10 @@ layout(set = 3, binding = 1) uniform usampler2D scramblebuf;
 // vis buffer
 layout(set = 3, binding = 2) uniform sampler2D depthbuf;
 layout(set = 3, binding = 3) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
-
+layout(set = 3, binding = 4) readonly restrict buffer ExtraBatchData
+{
+	uint firstIndex[];
+} extraBatchData;
 
 #include "bin/material_declarations.glsl"
 #include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl>
@@ -170,7 +173,7 @@ void main()
 			uvec3 indices;
 			{
 				const uint triangleID = bitfieldExtract(visBuffer[0],0,triangleIDBitcount);
-				const uint baseTriangleVertex = triangleID*3u+gBatchInstance.firstIndex; // TODO: where to put firstIndex!?
+				const uint baseTriangleVertex = triangleID*3u+extraBatchData.firstIndex[batchInstanceGUID];
 				for (uint i=0u; i<3u; i++)
 					indices[i] = nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,i);
 			}
