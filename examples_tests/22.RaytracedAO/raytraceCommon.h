@@ -96,7 +96,7 @@ struct RaytraceShaderCommonData_t
 	uint    samplesComputedPerPixel;
 	uint    framesDispatched;
     float   rcpFramesDispatched;
-	float	padding0;
+	uint	depth;
 };
 
 #endif

@@ -1010,7 +1010,7 @@ void Renderer::deinit()
 	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
 	m_indexBuffer = nullptr;
 
-	m_raytraceCommonData = {core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0};
+	m_raytraceCommonData = {core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0,0u};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
 	m_maxRaysPerDispatch = 0u;
 	std::fill_n(m_prevView.pointer(),12u,0.f);
@@ -1032,6 +1032,7 @@ void Renderer::deinit()
 // one day it will just work like that
 //#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
 
+constexpr uint32_t m_maxDepth = 2u;
 void Renderer::render(nbl::ITimer* timer)
 {
 	if (m_cullPushConstants.maxGlobalInstanceCount==0u)
@@ -1080,130 +1081,79 @@ void Renderer::render(nbl::ITimer* timer)
 			camera->setRelativeTransformationMatrix(invView.getAsRetardedIrrlichtMatrix());
 		}
 	}
-	// draw jittered frame
-	{
-		// jitter with AA AntiAliasingSequence
-		const auto modifiedViewProj = [&](uint32_t frameID)
-		{
-			const float stddev = 0.707f;
-			const float* sample = AntiAliasingSequence[frameID];
-			const float phi = core::PI<float>()*(2.f*sample[1]-1.f);
-			const float sinPhi = sinf(phi);
-			const float cosPhi = cosf(phi);
-			const float truncated = sample[0]*0.99999f+0.00001f;
-			const float r = sqrtf(-2.f*logf(truncated))*stddev;
-			core::matrix4SIMD jitterMatrix;
-			jitterMatrix.rows[0][3] = cosPhi*r*m_staticViewData.rcpPixelSize.x;
-			jitterMatrix.rows[1][3] = sinPhi*r*m_staticViewData.rcpPixelSize.y;
-			return core::concatenateBFollowedByA(jitterMatrix,core::concatenateBFollowedByA(camera->getProjectionMatrix(),m_prevView));
-		}(m_raytraceCommonData.framesDispatched++);
-		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_raytraceCommonData.framesDispatched);
-
-
-		m_driver->bindComputePipeline(m_cullPipeline.get());
-		{
-			IGPUDescriptorSet* descriptorSets[] = { m_globalBackendDataDS.get(),m_cullDS.get() };
-			m_driver->bindDescriptorSets(EPBP_COMPUTE,m_cullPipelineLayout.get(),0u,2u,descriptorSets,nullptr);
-		}
-		{
-			m_cullPushConstants.viewProjMatrix = modifiedViewProj;
-			m_cullPushConstants.viewProjDeterminant = core::determinant(modifiedViewProj);
-			m_driver->pushConstants(m_cullPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t),&m_cullPushConstants);
-		}
-		// TODO: Occlusion Culling against HiZ Buffer
-		m_driver->dispatch(m_cullWorkGroups, 1u, 1u);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
-
-		m_driver->setRenderTarget(m_visibilityBuffer);
-		{ // clear
-			m_driver->clearZBuffer();
-			uint32_t clearTriangleID[4] = {0xffffffffu,0,0,0};
-			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearTriangleID);
-		}
-		m_driver->bindGraphicsPipeline(m_visibilityBufferFillPipeline.get());
-		{
-			IGPUDescriptorSet* descriptorSets[] = { m_rasterInstanceDataDS.get(),m_additionalGlobalDS.get(),m_cullDS.get() };
-			m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipeline->getLayout(),0u,3u,descriptorSets,nullptr);
-		}
-		for (const auto& call : m_mdiDrawCalls)
-		{
-			const asset::SBufferBinding<IGPUBuffer> nullBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
-			m_driver->drawIndexedIndirect(
-				nullBindings,EPT_TRIANGLE_LIST,EIT_16BIT,m_indexBuffer.get(),
-				m_indirectDrawBuffers[m_cullPushConstants.currentCommandBufferIx].get(),
-				call.mdiOffset*sizeof(DrawElementsIndirectCommand_t),call.mdiCount,sizeof(DrawElementsIndirectCommand_t)
-			);
-		}
-		// flip MDI buffers
-		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
-
-		// prepare camera data for raytracing
-		modifiedViewProj.getInverseTransform(m_raytraceCommonData.inverseMVP);
-		const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
-		for (auto i=0u; i<3u; i++)
-			m_raytraceCommonData.ndcToV.rows[i] = m_raytraceCommonData.inverseMVP.rows[3]*cameraPosition[i]-m_raytraceCommonData.inverseMVP.rows[i];
-	}
-
-	// generate rays
-	{
-		IGPUDescriptorSet* descriptorSets[] = {m_additionalGlobalDS.get(),m_commonRaytracingDS.get(),m_raygenDS.get()};
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_raygenPipelineLayout.get(),1u,3u,descriptorSets,nullptr);
-		m_driver->bindComputePipeline(m_raygenPipeline.get());
-		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
-		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
-		// probably wise to flush all caches
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
-	}
 
 	// TODO: update positions and rr->Commit() if stuff starts to move
-	if (m_rrManager->hasImplicitCL2GLSync())
-		glFlush();
-	else
-		glFinish();
 
+	m_raytraceCommonData.depth = 0u;
+	while (m_raytraceCommonData.depth!=m_maxDepth)
 	{
-		auto commandQueue = m_rrManager->getCLCommandQueue();
-
-		const cl_mem clObjects[] = {m_rayBuffer.asRRBuffer.second,m_intersectionBuffer.asRRBuffer.second};
-		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
-
-		cl_event acquired = nullptr;
-		ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
-
-		clEnqueueWaitForEvents(commandQueue,1u,&acquired);
-		m_rrManager->getRadeonRaysAPI()->QueryIntersection(m_rayBuffer.asRRBuffer.first,m_rayCountBuffer.asRRBuffer.first,m_maxRaysPerDispatch,m_intersectionBuffer.asRRBuffer.first,nullptr,nullptr);
-		cl_event raycastDone = nullptr;
-		clEnqueueMarker(commandQueue,&raycastDone);
-
-		if (m_rrManager->hasImplicitCL2GLSync())
+		// raster jittered frame
+		if (!m_raytraceCommonData.depth)
 		{
-			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
-			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
+			// jitter with AA AntiAliasingSequence
+			const auto modifiedViewProj = [&](uint32_t frameID)
+			{
+				const float stddev = 0.707f;
+				const float* sample = AntiAliasingSequence[frameID];
+				const float phi = core::PI<float>()*(2.f*sample[1]-1.f);
+				const float sinPhi = sinf(phi);
+				const float cosPhi = cosf(phi);
+				const float truncated = sample[0]*0.99999f+0.00001f;
+				const float r = sqrtf(-2.f*logf(truncated))*stddev;
+				core::matrix4SIMD jitterMatrix;
+				jitterMatrix.rows[0][3] = cosPhi*r*m_staticViewData.rcpPixelSize.x;
+				jitterMatrix.rows[1][3] = sinPhi*r*m_staticViewData.rcpPixelSize.y;
+				return core::concatenateBFollowedByA(jitterMatrix,core::concatenateBFollowedByA(camera->getProjectionMatrix(),m_prevView));
+			}(m_raytraceCommonData.framesDispatched++);
+			m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_raytraceCommonData.framesDispatched);
+
+			// cull batches
+			m_driver->bindComputePipeline(m_cullPipeline.get());
+			{
+				IGPUDescriptorSet* descriptorSets[] = { m_globalBackendDataDS.get(),m_cullDS.get() };
+				m_driver->bindDescriptorSets(EPBP_COMPUTE,m_cullPipelineLayout.get(),0u,2u,descriptorSets,nullptr);
+			}
+			{
+				m_cullPushConstants.viewProjMatrix = modifiedViewProj;
+				m_cullPushConstants.viewProjDeterminant = core::determinant(modifiedViewProj);
+				m_driver->pushConstants(m_cullPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t),&m_cullPushConstants);
+			}
+			// TODO: Occlusion Culling against HiZ Buffer
+			m_driver->dispatch(m_cullWorkGroups, 1u, 1u);
+			COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
+
+			m_driver->setRenderTarget(m_visibilityBuffer);
+			{ // clear
+				m_driver->clearZBuffer();
+				uint32_t clearTriangleID[4] = {0xffffffffu,0,0,0};
+				m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearTriangleID);
+			}
+			// all batches draw with the same pipeline
+			m_driver->bindGraphicsPipeline(m_visibilityBufferFillPipeline.get());
+			{
+				IGPUDescriptorSet* descriptorSets[] = { m_rasterInstanceDataDS.get(),m_additionalGlobalDS.get(),m_cullDS.get() };
+				m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipeline->getLayout(),0u,3u,descriptorSets,nullptr);
+			}
+			for (const auto& call : m_mdiDrawCalls)
+			{
+				const asset::SBufferBinding<IGPUBuffer> nullBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
+				m_driver->drawIndexedIndirect(
+					nullBindings,EPT_TRIANGLE_LIST,EIT_16BIT,m_indexBuffer.get(),
+					m_indirectDrawBuffers[m_cullPushConstants.currentCommandBufferIx].get(),
+					call.mdiOffset*sizeof(DrawElementsIndirectCommand_t),call.mdiCount,sizeof(DrawElementsIndirectCommand_t)
+				);
+			}
+			// flip MDI buffers
+			m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
+
+			// prepare camera data for raytracing
+			modifiedViewProj.getInverseTransform(m_raytraceCommonData.inverseMVP);
+			const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
+			for (auto i=0u; i<3u; i++)
+				m_raytraceCommonData.ndcToV.rows[i] = m_raytraceCommonData.inverseMVP.rows[3]*cameraPosition[i]-m_raytraceCommonData.inverseMVP.rows[i];
 		}
-		else
-		{
-			cl_event released;
-			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
-			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
-			ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
-		}
+		traceBounce();
 	}
-
-	// use raycast results
-	{
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_resolvePipelineLayout.get(),3u,1u,&m_resolveDS.get(),nullptr);
-		m_driver->bindComputePipeline(m_resolvePipeline.get());
-		m_driver->dispatch(m_resolveWorkGroups[0], m_resolveWorkGroups[1], 1);
-
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-#ifndef _NBL_BUILD_OPTIX_
-			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
-#else
-			|(m_denoisedBuffer.getObject() ? (GL_PIXEL_BUFFER_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT):(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT))
-#endif
-		);
-	}
-
 	m_raytraceCommonData.samplesComputedPerPixel += m_staticViewData.samplesPerPixelPerDispatch;
 
 	// TODO: tonemap properly
@@ -1252,9 +1202,79 @@ void Renderer::render(nbl::ITimer* timer)
 	{
 		auto oldVP = m_driver->getViewPort();
 		m_driver->setViewPort(core::recti(0u,0u,m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y));
-		m_driver->blitRenderTargets(tmpTonemapBuffer, m_colorBuffer, false, false, {}, {}, true);
+		m_driver->blitRenderTargets(tmpTonemapBuffer,m_colorBuffer,false,false,{},{},true);
 		m_driver->setViewPort(oldVP);
 	}
+}
+
+
+void Renderer::traceBounce()
+{
+	m_raytraceCommonData.depth++;
+if (m_raytraceCommonData.depth!=m_maxDepth)
+{
+	// generate rays
+	{
+		IGPUDescriptorSet* descriptorSets[] = {m_additionalGlobalDS.get(),m_commonRaytracingDS.get(),m_raygenDS.get()};
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_raygenPipelineLayout.get(),1u,3u,descriptorSets,nullptr);
+		m_driver->bindComputePipeline(m_raygenPipeline.get());
+		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
+		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
+		// probably wise to flush all caches (in the future can resolve to texture_fetch|shader_image_access|shader_storage_buffer|blit|texture_download|...)
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
+	// trace rays
+	{
+		if (m_rrManager->hasImplicitCL2GLSync())
+			glFlush(); // sync CL to GL
+		else
+			glFinish(); // sync CPU to GL
+
+		auto commandQueue = m_rrManager->getCLCommandQueue();
+		const cl_mem clObjects[] = {m_rayBuffer.asRRBuffer.second,m_intersectionBuffer.asRRBuffer.second};
+		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
+		cl_event acquired=nullptr, raycastDone=nullptr;
+		// run the raytrace queries
+		{
+			ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
+
+			clEnqueueWaitForEvents(commandQueue,1u,&acquired);
+			// TODO: use raycount buffer
+			m_rrManager->getRadeonRaysAPI()->QueryIntersection(m_rayBuffer.asRRBuffer.first,m_rayCountBuffer.asRRBuffer.first,m_maxRaysPerDispatch,m_intersectionBuffer.asRRBuffer.first,nullptr,nullptr);
+			clEnqueueMarker(commandQueue,&raycastDone);
+		}
+
+		if (m_rrManager->hasImplicitCL2GLSync())
+		{
+			// sync GL to CL
+			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
+			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
+		}
+		else
+		{
+			// sync CPU to CL
+			cl_event released;
+			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
+			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
+			ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
+		}
+	}
+
+}
+else // resolve rays ( TODO: fold into raygen )
+{
+	m_driver->bindDescriptorSets(EPBP_COMPUTE,m_resolvePipelineLayout.get(),3u,1u,&m_resolveDS.get(),nullptr);
+	m_driver->bindComputePipeline(m_resolvePipeline.get());
+	m_driver->dispatch(m_resolveWorkGroups[0],m_resolveWorkGroups[1],1);
+
+	COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+#ifndef _NBL_BUILD_OPTIX_
+		|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
+#else
+		|(m_denoisedBuffer.getObject() ? (GL_PIXEL_BUFFER_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT):(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT))
+#endif
+	);
+}
 }
 
 

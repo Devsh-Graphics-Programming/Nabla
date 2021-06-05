@@ -93,6 +93,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format);
 
+		void traceBounce();
+
 
 		// "constants"
 		bool m_useDenoiser;
