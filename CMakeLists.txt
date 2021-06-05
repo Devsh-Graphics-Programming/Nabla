@@ -184,12 +184,14 @@ get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
   option(USE_CCACHE "Some dependency is using it, but I just don't know which!" ON)
 else(CCACHE_FOUND)
   option(USE_CCACHE "Some dependency is using it, but I just don't know which!" OFF)
 endif(CCACHE_FOUND)
+if(USE_CCACHE)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(USE_CCACHE)
 
 # global IDE stuff for examples
 set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
@@ -224,7 +226,6 @@ macro(nbl_adjust_flags)
 	option(NBL_GCC_SANITIZE_THREAD OFF) # @Anastazluk did MSVC finally include the thread sanitizer?
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
