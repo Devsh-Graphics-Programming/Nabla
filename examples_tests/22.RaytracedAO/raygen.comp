@@ -69,22 +69,30 @@ void gen_sample_ray(
 	direction = s.L;
 }
 
-bool get_sample_job(out uvec2 outputLocation)
-{
-	// TODO: support indirect dispatches of progressively less rays
-	outputLocation = gl_GlobalInvocationID.xy;
-	return all(lessThan(outputLocation,staticViewData.imageDimensions));
-}
-
 uint get_path_vertex_depth()
 {
 	return pc.cummon.depth;
 }
 
+bool get_sample_job(out uvec2 accumulationLocation)
+{
+	const bool rayContinuation = get_path_vertex_depth()!=1u;
+	if (rayContinuation)
+	{
+		//accumulationLocation = ;
+		return true; // TODO: gl_GlobalInvocationID.x<raycount;
+	}
+	else
+	{
+		accumulationLocation = gl_GlobalInvocationID.xy;
+		return all(lessThan(accumulationLocation,staticViewData.imageDimensions));
+	}
+}
+
 void main()
 {
-	uvec2 outputLocation;
-	if (get_sample_job(outputLocation))
+	uvec2 accumulationLocation;
+	if (get_sample_job(accumulationLocation))
 	{
 		const bool rayContinuation = get_path_vertex_depth()!=1u;
 
@@ -112,9 +120,10 @@ void main()
 			hit = revdepth>0.0;
 		}
 
+		uint raySampleID;
 		vec3 emissive = staticViewData.envmapBaseColor;
-		const ivec2 i_outputLocation = ivec2(outputLocation);
-		vec3 throughput,worldPosition,normal;
+		vec3 throughput = vec3(0.0);
+		vec3 worldPosition,normal;
 		nbl_glsl_MC_precomputed_t precomputed;
 		nbl_glsl_MC_instr_stream_t gcs;
 		nbl_glsl_MC_instr_stream_t rnps;
@@ -130,6 +139,7 @@ void main()
 			if (rayContinuation)
 			{
 				/** TODO
+				raySampleID = 0u;
 				thoughput.rgb = vec3(
 					unpackHalf2x16(ray.useless_padding).yx,
 					unpackHalf2x16(ray.backfaceCulling).yx
@@ -143,6 +153,7 @@ void main()
 			}
 			else
 			{	
+				raySampleID = 0u;
 				// vis buffer read
 				const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(gl_GlobalInvocationID.xy),0);
 				throughput = vec3(1.0);
@@ -183,7 +194,7 @@ void main()
 				
 
 				// init scramble while waiting for indices
-				scramble_start_state = texelFetch(scramblebuf,i_outputLocation,0).rg;
+				scramble_start_state = texelFetch(scramblebuf,ivec2(accumulationLocation),0).rg;
 
 				mat3 normals;
 				for (int i=0; i<3; i++)
@@ -239,13 +250,39 @@ void main()
 			#endif
 		}
 		
+
+		//
+		const bool emitted = any(greaterThan(emissive,vec3(FLT_MIN)));
+		const bool notFirstFrame = pc.cummon.rcpFramesDispatched<1.f;
+		vec3 acc = vec3(0.0);
+		if (rayContinuation || notFirstFrame)
+			acc = fetchAccumulation(accumulationLocation,raySampleID);
+		if (rayContinuation)
+		{
+			if (notFirstFrame)
+				acc += (emissive-acc)*pc.cummon.rcpFramesDispatched; // wrong
+			else
+				acc += emissive;
+		}
+		else
+		{
+			// TODO: emissive *= float(staticViewData.samplesPerPixelPerDispatch)
+			if (notFirstFrame)
+				acc += emissive/float(pc.cummon.framesDispatched-1u);
+			else
+				acc = emissive;
+		}
+
 		const uint MAX_PATH_DEPTH = 2u;
 		if (get_path_vertex_depth()!=MAX_PATH_DEPTH)
 		{
 			// TODO: support indirect dispatches of progressively less rays (REDO this loop)
-			const uint outputID = outputLocation.y*staticViewData.samplesPerRowPerDispatch+outputLocation.x*staticViewData.samplesPerPixelPerDispatch;
-			for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+			const uint outputID = accumulationLocation.y*staticViewData.samplesPerRowPerDispatch+accumulationLocation.x*staticViewData.samplesPerPixelPerDispatch;
+			const uint continuations = rayContinuation ? 1u:staticViewData.samplesPerPixelPerDispatch;
+			for (uint i=0u; i<continuations; i++)
 			{
+				//
+
 				vec3 direction;
 				float maxT;
 				if (hit)
@@ -277,43 +314,8 @@ void main()
 			}
 		}
 			
-		const bool emitted = any(greaterThan(emissive,vec3(FLT_MIN)));
-		const bool notFirstFrame = pc.cummon.rcpFramesDispatched<1.f;
 		// TODO: finish MIS
-		vec3 acc = emissive;
-		if (notFirstFrame)
-		{
-			acc /= float(pc.cummon.framesDispatched-1u); // hoist?
-			acc += fetchAccumulation(i_outputLocation);
-		}
 		if (emitted || !notFirstFrame)
-			storeAccumulation(acc,i_outputLocation);
-#if 0
-		if (emitted)
-		{
-/*
-	if (rayContinuation)
-	{
-				acc = fetchAccumulation(i_outputLocation);
-		if (pc.cummon.rcpFramesDispatched<1.0)
-			acc += (emissive-acc)*pc.cummon.rcpFramesDispatched;
-		else
-			acc += emissive;
-	}
-	else
-	{
-	*/
-				acc = emissive;
-			if (pc.cummon.rcpFramesDispatched<1.f)
-			{
-				acc /= float(pc.cummon.framesDispatched-1u);
-				acc += fetchAccumulation(i_outputLocation);
-			}
-			/*
-	}
-*/
-			storeAccumulation(acc,i_outputLocation);
-		}
-#endif
+			storeAccumulation(acc,accumulationLocation,raySampleID);
 	}
 }

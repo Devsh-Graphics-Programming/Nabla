@@ -17,7 +17,8 @@ void main()
 	const uint baseID = pixelCoord.y*staticViewData.samplesPerRowPerDispatch+pixelCoord.x*staticViewData.samplesPerPixelPerDispatch;
 	if (all(lessThan(pixelCoord,staticViewData.imageDimensions)))
 	{
-		vec3 acc = fetchAccumulation(pixelCoord);
+		const uint raySampleID = 0u;
+		vec3 acc = fetchAccumulation(gl_GlobalInvocationID.xy,raySampleID);
 		
 		vec3 color = vec3(0.0);
 		uvec2 groupLocation = gl_WorkGroupID.xy*gl_WorkGroupSize.xy;
@@ -33,7 +34,7 @@ void main()
 			if (hit.shapeid>=0)
 			{
 				// TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
-				const bool frontface = true;
+				const bool frontface = true; 
 
 				// hit buffer needs clearing
 				hits[rayID].shapeid = -1;
@@ -47,7 +48,7 @@ void main()
 			acc += (color-acc)*pc.cummon.rcpFramesDispatched;
 		else
 			acc += color;
-		storeAccumulation(acc,pixelCoord);
+		storeAccumulation(acc,gl_GlobalInvocationID.xy,raySampleID);
 		imageStore(framebuffer,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2(vec4(acc,1.0)),0u,0u,0u));
 	}
 }

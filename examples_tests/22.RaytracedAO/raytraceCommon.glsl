@@ -37,15 +37,15 @@ layout(set = 2, binding = 2, std430) restrict buffer Rays
 };
 #include <nbl/builtin/glsl/format/decode.glsl>
 #include <nbl/builtin/glsl/format/encode.glsl>
-vec3 fetchAccumulation(in ivec2 coord)
+vec3 fetchAccumulation(in uvec2 coord, in uint subsample)
 {
-    const uvec2 data = imageLoad(accumulation,ivec3(coord,0)).rg;
+    const uvec2 data = imageLoad(accumulation,ivec3(coord,subsample)).rg;
 	return nbl_glsl_decodeRGB19E7(data);
 }
-void storeAccumulation(in vec3 color, in ivec2 coord)
+void storeAccumulation(in vec3 color, in uvec2 coord, in uint subsample)
 {
 	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
-	imageStore(accumulation,ivec3(coord,0),uvec4(data,0u,0u));
+	imageStore(accumulation,ivec3(coord,subsample),uvec4(data,0u,0u));
 }
 
 
