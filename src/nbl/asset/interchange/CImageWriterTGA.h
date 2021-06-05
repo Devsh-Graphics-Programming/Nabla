@@ -12,34 +12,37 @@
 
 #include "nbl/asset/interchange/IAssetWriter.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class CImageWriterTGA : public asset::IAssetWriter
 {
     public:
-	    //! constructor
-	    CImageWriterTGA();
+	//! constructor
+	CImageWriterTGA();
 
-        virtual const char** getAssociatedFileExtensions() const
+        virtual const char** getAssociatedFileExtensions() const override
         {
             static const char* ext[]{ "tga", nullptr };
             return ext;
         }
 
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
+        virtual uint64_t getSupportedAssetTypesBitfield() const override
+        {
+        	return asset::IAsset::ET_IMAGE_VIEW;
+        }
 
         virtual uint32_t getSupportedFlags() override { return 0u; }
 
         virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+        virtual bool writeAsset(
+        	io::IWriteFile* _file, const SAssetWriteParams& _params,
+        	IAssetWriterOverride* _override = nullptr
+        ) override;
 };
 
-} // namespace video
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif
 #endif

@@ -47,9 +47,7 @@ class PolymorphicEvent : public core::Uncopyable
 
     public:
         PolymorphicEvent& operator=(const PolymorphicEvent&) = delete;
-        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) noexcept
-        {
-        }
+        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) = 0;
 
         virtual bool wait_until(const std::chrono::steady_clock::time_point& timeout_time) = 0;
 

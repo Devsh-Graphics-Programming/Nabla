@@ -1,13 +1,15 @@
 #ifndef __NBL_I_RENDERPASS_H_INCLUDED__
 #define __NBL_I_RENDERPASS_H_INCLUDED__
 
+#include "nbl/core/SRange.h"
+#include "nbl/core/containers/refctd_dynamic_array.h"
+#include "nbl/core/math/glslFunctions.tcc"
+
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/EImageLayout.h"
-#include "nbl/core/math/glslFunctions.h"
 #include "nbl/asset/ECommonEnums.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 class IRenderpass
@@ -210,7 +212,6 @@ protected:
     preserved_attachment_refs_array_t m_preservedAttachmentRefs;
 };
 
-}
 }
 
 #endif

@@ -9,17 +9,14 @@
 #include "os.h"
 
 #include "nbl/asset/format/convertColor.h"
-#include "nbl/asset/ICPUImageView.h"
-#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 
+#include "CImageLoaderTGA.h" // for TGA structs
 #include "CImageWriterTGA.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 CImageWriterTGA::CImageWriterTGA()
@@ -31,8 +28,8 @@ CImageWriterTGA::CImageWriterTGA()
 
 bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-    if (!_override)
-        getDefaultOverride(_override);
+	if (!_override)
+		getDefaultOverride(_override);
 
 	SAssetWriteContext ctx{ _params, _file };
 
@@ -164,7 +161,6 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	return imageHeader.ImageHeight <= y;
 }
 
-} // namespace video
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif

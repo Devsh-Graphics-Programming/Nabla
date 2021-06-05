@@ -1,7 +1,8 @@
 #ifndef __NBL_I_GPU_LOGICAL_DEVICE_H_INCLUDED__
 #define __NBL_I_GPU_LOGICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/asset/asset.h"
+
 #include "nbl/video/IGPUQueue.h"
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IDescriptorPool.h"
@@ -10,15 +11,12 @@
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/ISwapchain.h"
-#include "nbl/asset/ICPUShader.h"
-#include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/EApiType.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 // fwd decl
@@ -722,7 +720,6 @@ private:
     const E_API_TYPE m_apiType;
 };
 
-}
 }
 
 

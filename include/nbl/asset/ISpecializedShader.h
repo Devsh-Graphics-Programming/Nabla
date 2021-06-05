@@ -8,11 +8,13 @@
 #include <cstdint>
 
 #include "nbl/core/Types.h"
+#include "nbl/core/SRange.h"
+#include "nbl/core/Types.h"
+#include "nbl/core/containers/refctd_dynamic_array.h"
+
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Interface class for Specialized Shaders
@@ -197,7 +199,6 @@ inline bool operator<(const ISpecializedShader::SInfo::SMapEntry& _a, const ISpe
     return _a.specConstID < _b.specConstID;
 }
 
-}
 }
 
 #endif

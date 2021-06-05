@@ -5,17 +5,17 @@
 #ifndef __NBL_ASSET_I_IMAGE_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_H_INCLUDED__
 
+#include "nbl/core/containers/refctd_dynamic_array.h"
+#include "nbl/core/math/glslFunctions.tcc"
+
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/EImageLayout.h"
-#include "nbl/core/math/glslFunctions.tcc"
 #include "nbl/asset/ECommonEnums.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 	
 //placeholder until we configure Vulkan SDK
@@ -407,48 +407,48 @@ class IImage : public IDescriptor
 
 				// count on the user not being an idiot
 				#ifdef _NBL_DEBUG
-					if (it->srcSubresource.mipLevel>=srcImage->getCreationParameters().mipLevels)
-					{
-						assert(false);
-						return false;
-					}
-					if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= srcImage->getCreationParameters().arrayLayers)
-					{
-						assert(false);
-						return false;
-					}
+				if (it->srcSubresource.mipLevel>=srcImage->getCreationParameters().mipLevels)
+				{
+					assert(false);
+					return false;
+				}
+				if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= srcImage->getCreationParameters().arrayLayers)
+				{
+					assert(false);
+					return false;
+				}
 
-					const auto& off = it->srcOffset;
-					const auto& ext = it->extent;
-					switch (srcImage->getCreationParameters().type)
-					{
-						case ET_1D:
-							if (off.y>0u || ext.height>1u)
-								return false;
-							[[fallthrough]];
-						case ET_2D:
-							if (off.z>0u || ext.depth>1u)
-								return false;
-							break;
-						default:
-							break;
-					}
+				const auto& off = it->srcOffset;
+				const auto& ext = it->extent;
+				switch (srcImage->getCreationParameters().type)
+				{
+					case ET_1D:
+						if (off.y>0u || ext.height>1u)
+							return false;
+						[[fallthrough]];
+					case ET_2D:
+						if (off.z>0u || ext.depth>1u)
+							return false;
+						break;
+					default:
+						break;
+				}
 
-					auto minPt = core::vector3du32_SIMD(off.x,off.y,off.z);
-					auto srcBlockDims = asset::getBlockDimensions(srcImage->getCreationParameters().format);
-					if (((minPt%srcBlockDims)!=zero).any())
-					{
-						assert(false);
-						return false;
-					}
+				auto minPt = core::vector3du32_SIMD(off.x,off.y,off.z);
+				auto srcBlockDims = asset::getBlockDimensions(srcImage->getCreationParameters().format);
+				if (((minPt%srcBlockDims)!=zero).any())
+				{
+					assert(false);
+					return false;
+				}
 
-					auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
-					auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLevel);
-					if ((maxPt>srcMipSize || maxPt!=srcMipSize && ((maxPt%srcBlockDims)!=zero)).any())
-					{
-						assert(false);
-						return false;
-					}
+				auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
+				auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLevel);
+				if ((maxPt>srcMipSize || (maxPt!=srcMipSize && ((maxPt%srcBlockDims)!=zero))).any())
+				{
+					assert(false);
+					return false;
+				}
 				#endif
 			}
 
@@ -708,8 +708,7 @@ class IImage : public IDescriptor
 };
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif
 

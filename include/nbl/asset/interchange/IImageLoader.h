@@ -11,9 +11,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
@@ -28,7 +26,6 @@ class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 	private:
 };
 
-}
 }
 
 #endif

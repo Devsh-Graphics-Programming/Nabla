@@ -23,9 +23,7 @@
 #define FLT_MIN 1.17549435e-38F
 #endif
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 class vectorSIMDf;
@@ -427,6 +425,15 @@ class Float16Compressor
 		}
 };
 
+[[maybe_unused]] constexpr uint32_t RGB19E7_EXP_BITS = 7u;
+constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
+constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
+constexpr uint32_t RGB19E7_MAX_VALID_BIASED_EXP = 127u;
+constexpr uint32_t MAX_RGB19E7_EXP = RGB19E7_MAX_VALID_BIASED_EXP - RGB19E7_EXP_BIAS;
+constexpr uint32_t RGB19E7_MANTISSA_VALUES = 1u<<RGB19E7_MANTISSA_BITS;
+constexpr uint32_t MAX_RGB19E7_MANTISSA = RGB19E7_MANTISSA_VALUES-1u;
+constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
+[[maybe_unused]] constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
 // TODO: @Crisspl lets make the `rgb18e7s3` format and refactor some of this shared exponent magic
 inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
 {
@@ -440,16 +447,6 @@ inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
 		} field;
 	};
 
-	constexpr uint32_t RGB19E7_EXP_BITS = 7u;
-	constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
-	constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
-	constexpr uint32_t RGB19E7_MAX_VALID_BIASED_EXP = 127u;
-	constexpr uint32_t MAX_RGB19E7_EXP = RGB19E7_MAX_VALID_BIASED_EXP - RGB19E7_EXP_BIAS;
-	constexpr uint32_t RGB19E7_MANTISSA_VALUES = 1u<<RGB19E7_MANTISSA_BITS;
-	constexpr uint32_t MAX_RGB19E7_MANTISSA = RGB19E7_MANTISSA_VALUES-1u;
-	constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
-	constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
-
 	auto clamp_rgb19e7 = [=](float x) -> float {
 		return std::max(0.f, std::min(x, MAX_RGB19E7));
 	};
@@ -462,17 +459,17 @@ inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
 
 	const float maxrgb = std::max({r,g,b});
 	int32_t exp_shared = std::max(-static_cast<int32_t>(RGB19E7_EXP_BIAS)-1, f32_exp(maxrgb)) + 1 + RGB19E7_EXP_BIAS;
-	assert(exp_shared <= RGB19E7_MAX_VALID_BIASED_EXP);
+	assert(exp_shared <= static_cast<int32_t>(RGB19E7_MAX_VALID_BIASED_EXP));
 	assert(exp_shared >= 0);
 
-	double denom = std::pow(2.0, static_cast<int32_t>(exp_shared-RGB19E7_EXP_BIAS-RGB19E7_MANTISSA_BITS));
+	double denom = std::pow(2.0, static_cast<int32_t>(exp_shared-RGB19E7_EXP_BIAS-RGB19E7_MANTISSA_BITS)); // TODO: use fast exp2 and compute reciprocal instead, also use floats not doubles
 
-	const int32_t maxm = maxrgb/denom + 0.5;
-	if (maxm == MAX_RGB19E7_MANTISSA+1)
+	const uint32_t maxm = static_cast<uint32_t>(maxrgb/denom+0.5);
+	if (maxm == MAX_RGB19E7_MANTISSA+1u)
 	{
 		denom *= 2.0;
 		++exp_shared;
-		assert(exp_shared <= RGB19E7_MAX_VALID_BIASED_EXP);
+		assert(exp_shared <= static_cast<int32_t>(RGB19E7_MAX_VALID_BIASED_EXP));
 	}
 	else
 	{
@@ -483,9 +480,9 @@ inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
 	int32_t gm = g/denom + 0.5;
 	int32_t bm = b/denom + 0.5;
 
-	assert(rm <= MAX_RGB19E7_MANTISSA);
-	assert(gm <= MAX_RGB19E7_MANTISSA);
-	assert(bm <= MAX_RGB19E7_MANTISSA);
+	assert(rm <= static_cast<int32_t>(MAX_RGB19E7_MANTISSA));
+	assert(gm <= static_cast<int32_t>(MAX_RGB19E7_MANTISSA));
+	assert(bm <= static_cast<int32_t>(MAX_RGB19E7_MANTISSA));
 	assert(rm >= 0);
 	assert(gm >= 0);
 	assert(bm >= 0);
@@ -513,16 +510,6 @@ struct rgb32f {
 };
 inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
 {
-	constexpr uint32_t RGB19E7_EXP_BITS = 7u;
-	constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
-	constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
-	constexpr uint32_t RGB19E7_MAX_VALID_BIASED_EXP = 127u;
-	constexpr uint32_t MAX_RGB19E7_EXP = RGB19E7_MAX_VALID_BIASED_EXP - RGB19E7_EXP_BIAS;
-	constexpr uint32_t RGB19E7_MANTISSA_VALUES = 1u<<RGB19E7_MANTISSA_BITS;
-	constexpr uint32_t MAX_RGB19E7_MANTISSA = RGB19E7_MANTISSA_VALUES-1u;
-	constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
-	constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
-
 	union rgb19e7 {
 		uint64_t u64;
 		struct field {
@@ -576,7 +563,6 @@ inline uint16_t nextafter16(uint16_t x, uint16_t y)
 	return x;
 }
 
-}
 }
 
 #endif

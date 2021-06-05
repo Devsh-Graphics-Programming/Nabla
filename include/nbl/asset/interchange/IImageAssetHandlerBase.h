@@ -13,9 +13,7 @@
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IImageAssetHandlerBase : public virtual core::IReferenceCounted
@@ -90,7 +88,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				size_t bufferSize = 0u;
 				const TexelBlockInfo info(newImageParams.format);
 				const core::rational<size_t> bytesPerPixel = asset::getBytesPerPixel(newImageParams.format);
-				for (auto i = 0; i < newMipCount; i++)
+				for (auto i=0u; i<newMipCount; i++)
 				{
 					auto& region = newRegions->operator[](i);
 					region.bufferOffset = bufferSize;
@@ -126,7 +124,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				identityTransform = identityTransform && (mapping == (decltype(mapping)::ES_R + i) || mapping == (decltype(mapping)::ES_IDENTITY));
 			}
 
-			for (auto i = 0; i < newMipCount; i++)
+			for (auto i=0u; i<newMipCount; i++)
 			{
 				auto fillCommonState = [&](auto& state)
 				{
@@ -224,7 +222,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				state.outOffset = { 0, 0, 0 };
 				state.outBaseLayer = 0;
 
-				for (auto itr = 0; itr < newConvertedImage->getCreationParameters().mipLevels; ++itr)
+				for (auto itr=0u; itr<newConvertedImage->getCreationParameters().mipLevels; ++itr)
 				{
 					auto regionWithMipMap = newConvertedImage->getRegions(itr).begin();
 
@@ -270,7 +268,6 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 	private:
 };
 
-}
 }
 
 #endif

@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
+#include "nbl/asset/asset_utils.h"
 
 using namespace nbl;
 using namespace asset;

@@ -6,18 +6,21 @@
 #define __NBL_ASSET_I_VIRTUAL_TEXTURE_H_INCLUDED__
 
 #include <functional>
-#include "nbl/asset/format/EFormat.h"
+
+#include "nbl/core/math/morton.h"
+#include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/alloc/PoolAddressAllocator.h"
-#include "nbl/core/math/morton.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
-#include "nbl/core/memory/memory.h"
+
+#include "nbl/asset/ISpecializedShader.h"
+#include "nbl/asset/ISampler.h"
+#include "nbl/asset/IImageView.h"
+#include "nbl/asset/IDescriptorSetLayout.h"
 #include "nbl/asset/filters/CPaddedCopyImageFilter.h"
 #include "nbl/asset/filters/CFillImageFilter.h"
-#include "nbl/asset/ISampler.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 class IVirtualTextureBase
@@ -1232,6 +1235,6 @@ bool IVirtualTexture<image_view_t, sampler_t>::SMiptailPacker::computeMiptailOff
     return true;
 }
 
-}}
+}
 
 #endif
