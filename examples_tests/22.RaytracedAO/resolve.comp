@@ -32,7 +32,8 @@ void main()
 			// actually got a hit	
 			if (hit.shapeid>=0)
 			{
-				const bool frontface = true; // TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
+				// TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
+				const bool frontface = true;
 
 				// hit buffer needs clearing
 				hits[rayID].shapeid = -1;

@@ -42,45 +42,6 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
 
-/*
-float maxAbs1(in float val) 
-{
-	return abs(val);
-}
-float maxAbs2(in vec2 val)
-{
-	vec2 v = abs(val);
-	return max(v.x,v.y);
-}
-float maxAbs3(in vec3 val)
-{
-	vec3 v = abs(val);
-	return max(max(v.x,v.y),v.z);
-}
-
-float GET_MAGNITUDE(in float val)
-{
-	float x = abs(val);
-	return uintBitsToFloat(floatBitsToUint(x)&2139095040u);
-}
-
-float ULP1(in float val, in uint accuracy)
-{
-	float x = abs(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-float ULP2(in vec2 val, in uint accuracy)
-{
-	float x = maxAbs2(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-float ULP3(in vec3 val, in uint accuracy)
-{
-	float x = maxAbs3(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-*/
-
 vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint _sample)
 {
 	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
@@ -235,9 +196,6 @@ void main()
 			}
 			storeAccumulation(acc,pixelCoord);
 		}
-#ifdef USE_OPTIX_DENOISER
-		// TODO: translate normal into float16_t buff
-#endif
 
 		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
 		{
