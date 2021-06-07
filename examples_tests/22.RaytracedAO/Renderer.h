@@ -30,7 +30,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
-		void init(	const nbl::asset::SAssetBundle& meshes, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence);
+		void init(const nbl::asset::SAssetBundle& meshes, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence);
 
 		void deinit();
 

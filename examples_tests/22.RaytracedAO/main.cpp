@@ -216,8 +216,8 @@ int main()
 	auto driver = device->getVideoDriver();
 
 
-	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
-	constexpr uint32_t MaxSamples = 1024u*1024u;
+	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
+	constexpr uint32_t MaxSamples = MAX_ACCUMULATED_SAMPLES;
 	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxSamples*Renderer::MaxDimensions);
 	{
 		bool generateNewSamples = true;
