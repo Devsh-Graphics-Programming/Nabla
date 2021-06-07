@@ -54,8 +54,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_maxRaysPerDispatch(0), m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},
 		m_raytraceCommonData{core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
-		m_raygenWorkGroups{0u,0u},m_resolveWorkGroups{0u,0u},
-		m_visibilityBuffer(nullptr),tmpTonemapBuffer(nullptr),m_colorBuffer(nullptr)
+		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
 	while (m_useDenoiser)
 	{
@@ -122,24 +121,25 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 3u;
+		constexpr auto raytracingCommonDescriptorCount = 4u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
 		bindings[1].type = asset::EDT_STORAGE_IMAGE;
 		bindings[2].type = asset::EDT_STORAGE_BUFFER;
+		bindings[3].type = asset::EDT_STORAGE_BUFFER;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
 
+	ISampler::SParams samplerParams;
+	samplerParams.TextureWrapU = samplerParams.TextureWrapV = samplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+	samplerParams.MinFilter = samplerParams.MaxFilter = ISampler::ETF_NEAREST;
+	samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+	samplerParams.AnisotropicFilter = 0u;
+	samplerParams.CompareEnable = false;
+	auto sampler = m_driver->createGPUSampler(samplerParams);
 	{
-		ISampler::SParams samplerParams;
-		samplerParams.TextureWrapU = samplerParams.TextureWrapV = samplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
-		samplerParams.MinFilter = samplerParams.MaxFilter = ISampler::ETF_NEAREST;
-		samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-		samplerParams.AnisotropicFilter = 0u;
-		samplerParams.CompareEnable = false;
-		auto sampler = m_driver->createGPUSampler(samplerParams);
 
 		constexpr auto raygenDescriptorCount = 5u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
@@ -156,11 +156,13 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
 	}
 	{
-		constexpr auto resolveDescriptorCount = 2u;
+		constexpr auto resolveDescriptorCount = 3u;
 		IGPUDescriptorSetLayout::SBinding bindings[resolveDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,resolveDescriptorCount);
-		bindings[0].type = asset::EDT_STORAGE_BUFFER;
-		bindings[1].type = asset::EDT_STORAGE_IMAGE;
+		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
+		bindings[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[1].samplers = &sampler;
+		bindings[2].type = asset::EDT_STORAGE_IMAGE;
 
 		m_resolveDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+resolveDescriptorCount);
 	}
@@ -642,8 +644,6 @@ void Renderer::init(const SAssetBundle& meshes,
 		// figure out dispatch sizes
 		m_raygenWorkGroups[0] = (m_staticViewData.imageDimensions.x-1u)/WORKGROUP_DIM+1u;
 		m_raygenWorkGroups[1] = (m_staticViewData.imageDimensions.y-1u)/WORKGROUP_DIM+1u;
-		m_resolveWorkGroups[0] = (m_staticViewData.imageDimensions.x-1u)/WORKGROUP_DIM+1u;
-		m_resolveWorkGroups[1] = (m_staticViewData.imageDimensions.y-1u)/WORKGROUP_DIM+1u;
 
 		const auto renderPixelCount = m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y;
 		// figure out how much Samples Per Pixel Per Dispatch we can afford
@@ -714,13 +714,7 @@ void Renderer::init(const SAssetBundle& meshes,
 
 			// resolve
 			{
-				m_resolvePipelineLayout = m_driver->createGPUPipelineLayout(
-					&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
-					core::smart_refctd_ptr(globalBackendDataDSLayout),
-					core::smart_refctd_ptr(m_additionalGlobalDSLayout),
-					core::smart_refctd_ptr(m_commonRaytracingDSLayout),
-					core::smart_refctd_ptr(m_resolveDSLayout)
-				);
+				m_resolvePipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_resolveDSLayout));
 				m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_resolvePipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp"));
 
 				m_resolveDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_resolveDSLayout));
@@ -728,7 +722,7 @@ void Renderer::init(const SAssetBundle& meshes,
 
 
 			//
-			constexpr uint32_t descriptorUpdateCounts[] = { 3u,3u,5u,2u };
+			constexpr uint32_t descriptorUpdateCounts[] = { 3u,4u,5u,3u };
 			constexpr uint32_t descriptorUpdateExclScanSum[] =
 			{
 				0u,
@@ -804,8 +798,9 @@ void Renderer::init(const SAssetBundle& meshes,
 				createFilledBufferAndSetUpInfoFromStruct(commonInfos+0,m_staticViewData);
 				setImageInfo(commonInfos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 				createEmptyInteropBufferAndSetUpInfo(commonInfos+2,m_rayBuffer,raygenBufferSize);
+				createEmptyInteropBufferAndSetUpInfo(commonInfos+3,m_intersectionBuffer,intersectionBufferSize);
 
-				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS.get(),commonWrites,commonInfos,{EDT_UNIFORM_BUFFER,EDT_STORAGE_IMAGE,EDT_STORAGE_BUFFER});
+				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS.get(),commonWrites,commonInfos,{EDT_UNIFORM_BUFFER,EDT_STORAGE_IMAGE,EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
 			}
 			// set up m_raygenDS
 			{
@@ -853,17 +848,21 @@ void Renderer::init(const SAssetBundle& meshes,
 			{
 				auto resolveInfos = infos+descriptorUpdateExclScanSum[3];
 				auto resolveWrites = writes+descriptorUpdateExclScanSum[3];
-				createEmptyInteropBufferAndSetUpInfo(resolveInfos+0,m_intersectionBuffer,intersectionBufferSize);
+				{
+					const auto commonInfos = infos + descriptorUpdateExclScanSum[1]; 
+					resolveInfos[0].assign(commonInfos[0],EDT_UNIFORM_BUFFER);
+				}
+				setImageInfo(resolveInfos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 				core::smart_refctd_ptr<IGPUImageView> tonemapOutputStorageView;
 				{
 					IGPUImageView::SCreationParams viewparams = m_tonemapOutput->getCreationParameters();
 					viewparams.format = EF_R32_UINT;
 					tonemapOutputStorageView = m_driver->createGPUImageView(std::move(viewparams));
 				}
-				setImageInfo(resolveInfos+1,asset::EIL_GENERAL,std::move(tonemapOutputStorageView));
+				setImageInfo(resolveInfos+2,asset::EIL_GENERAL,std::move(tonemapOutputStorageView));
 				
 
-				setDstSetAndDescTypesOnWrites(m_resolveDS.get(),resolveWrites,resolveInfos,{EDT_STORAGE_BUFFER,EDT_STORAGE_IMAGE});
+				setDstSetAndDescTypesOnWrites(m_resolveDS.get(),resolveWrites,resolveInfos,{EDT_UNIFORM_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_STORAGE_IMAGE});
 			}
 
 			m_driver->updateDescriptorSets(descriptorUpdateExclScanSum[4],writes,0u,nullptr);
@@ -874,9 +873,6 @@ void Renderer::init(const SAssetBundle& meshes,
 	m_visibilityBuffer = m_driver->addFrameBuffer();
 	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT,std::move(depthBuffer));
 	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT0,std::move(visibilityBuffer));
-
-	tmpTonemapBuffer = m_driver->addFrameBuffer();
-	tmpTonemapBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_accumulation));
 
 	m_colorBuffer = m_driver->addFrameBuffer();
 	m_colorBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_tonemapOutput));
@@ -957,11 +953,6 @@ void Renderer::deinit()
 		m_driver->removeFrameBuffer(m_visibilityBuffer);
 		m_visibilityBuffer = nullptr;
 	}
-	if (tmpTonemapBuffer)
-	{
-		m_driver->removeFrameBuffer(tmpTonemapBuffer);
-		tmpTonemapBuffer = nullptr;
-	}
 	if (m_colorBuffer)
 	{
 		m_driver->removeFrameBuffer(m_colorBuffer);
@@ -983,7 +974,6 @@ void Renderer::deinit()
 	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
 	deleteInteropBuffer(m_rayCountBuffer);
 
-	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
 	m_resolveDS = nullptr;
 
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
@@ -1146,6 +1136,21 @@ void Renderer::render(nbl::ITimer* timer)
 		}
 		traceBounce();
 	}
+
+	// resolve pseudo-MSAA
+	{
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_resolvePipelineLayout.get(),0u,1u,&m_resolveDS.get(),nullptr);
+		m_driver->bindComputePipeline(m_resolvePipeline.get());
+		m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],1);
+
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+	#ifndef _NBL_BUILD_OPTIX_
+			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
+	#else
+			|(m_denoisedBuffer.getObject() ? (GL_PIXEL_BUFFER_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT):(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT))
+	#endif
+		);
+	}
 	m_raytraceCommonData.samplesComputedPerPixel += m_staticViewData.samplesPerPixelPerDispatch;
 
 	// TODO: tonemap properly
@@ -1189,33 +1194,32 @@ void Renderer::render(nbl::ITimer* timer)
 		COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
 #endif
 	}
-	else
 #endif
-	{
-		auto oldVP = m_driver->getViewPort();
-		m_driver->setViewPort(core::recti(0u,0u,m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y));
-		m_driver->blitRenderTargets(tmpTonemapBuffer,m_colorBuffer,false,false,{},{},true);
-		m_driver->setViewPort(oldVP);
-	}
 }
 
 
 void Renderer::traceBounce()
 {
 	m_raytraceCommonData.depth++;
-if (m_raytraceCommonData.depth!=m_maxDepth)
-{
-	// generate rays
+	// trace bounce (resolve and optionally generate rays)
 	{
-		IGPUDescriptorSet* descriptorSets[] = {m_additionalGlobalDS.get(),m_commonRaytracingDS.get(),m_raygenDS.get()};
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_raygenPipelineLayout.get(),1u,3u,descriptorSets,nullptr);
+		IGPUDescriptorSet* descriptorSets[] = {m_globalBackendDataDS.get(),m_additionalGlobalDS.get(),m_commonRaytracingDS.get(),m_raygenDS.get()};
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_raygenPipelineLayout.get(),0u,4u,descriptorSets,nullptr);
 		m_driver->bindComputePipeline(m_raygenPipeline.get());
 		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
-		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
+		if (m_raytraceCommonData.depth!=1u)
+		{
+			m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],m_staticViewData.samplesPerPixelPerDispatch);
+			//m_driver->dispatchIndirect(m_indirectTraceBounceBuffer[].get(),0u);
+		}
+		else
+			m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],1);
+
 		// probably wise to flush all caches (in the future can resolve to texture_fetch|shader_image_access|shader_storage_buffer|blit|texture_download|...)
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 	// trace rays
+	if (m_raytraceCommonData.depth!=m_maxDepth)
 	{
 		if (m_rrManager->hasImplicitCL2GLSync())
 			glFlush(); // sync CL to GL
@@ -1251,22 +1255,6 @@ if (m_raytraceCommonData.depth!=m_maxDepth)
 			ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
 		}
 	}
-
-}
-else // resolve rays ( TODO: fold into raygen )
-{
-	m_driver->bindDescriptorSets(EPBP_COMPUTE,m_resolvePipelineLayout.get(),3u,1u,&m_resolveDS.get(),nullptr);
-	m_driver->bindComputePipeline(m_resolvePipeline.get());
-	m_driver->dispatch(m_resolveWorkGroups[0],m_resolveWorkGroups[1],1);
-
-	COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-#ifndef _NBL_BUILD_OPTIX_
-		|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
-#else
-		|(m_denoisedBuffer.getObject() ? (GL_PIXEL_BUFFER_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT):(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT))
-#endif
-	);
-}
 }
 
 
