@@ -411,14 +411,27 @@ macro(nbl_target_link_openssl _trgt)
 			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
 			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
 		)
+	elseif(ANDROID)
+	
+		if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux")
+			target_link_libraries(${_trgt} INTERFACE
+				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
+				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
+			)
+		#elseif("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
+		# TODO - unify it
+		# 	     when openssl works with clang as windows host	
+		endif()
 	else()
 		target_link_libraries(${_trgt} INTERFACE
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
-		)
+				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
+				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
+			)
 	endif()
 
-	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
+	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows"))
+		target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
+	endif()
 endmacro()
 macro(nbl_target_link_shaderc _trgt)
 	add_dependencies(${_trgt} shaderc)
@@ -499,7 +512,7 @@ add_library(Nabla STATIC
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
-    	$ENV{ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c
+    	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
 	)
 	target_link_libraries(Nabla PUBLIC 
 		android_native_app_glue
@@ -507,16 +520,20 @@ if (ANDROID)
 		log
 	)
 	target_include_directories(Nabla PUBLIC
-    	$ENV{ANDROID_NDK}/sources/android/native_app_glue
+    	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue
 	)
 endif()
 
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_dependencies(Nabla openssl_build)
+if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows"))
+	add_dependencies(Nabla openssl_build)
+endif()
 #nbl_target_link_zlib(Nabla)
-nbl_target_link_openssl(Nabla)
+if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux"))
+	nbl_target_link_openssl(Nabla)
+endif()
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg(Nabla)
 nbl_target_link_libpng(Nabla)
@@ -641,12 +658,14 @@ if(WIN32)
 			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
 		DESTINATION lib
 	)
-else()
-	install(FILES
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
-		DESTINATION lib
-	)
+else()	
+	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows"))
+		install(FILES
+				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
+				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
+			DESTINATION lib
+		)
+	endif()
 endif()
 nbl_install_lib(shaderc)
 nbl_install_lib(shaderc_util)
