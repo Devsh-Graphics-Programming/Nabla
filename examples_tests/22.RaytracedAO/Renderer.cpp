@@ -608,9 +608,45 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-void Renderer::init(const SAssetBundle& meshes,
-					core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence,
-					uint32_t rayBufferSize)
+bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
+{
+	using Enum = ext::MitsubaLoader::CElementIntegrator::Type;
+	switch (integrator.type)
+	{
+		case Enum::DIRECT:
+			//m_maxDepth = 2u; TODO
+			bxdfSamples = integrator.direct.bsdfSamples;
+			maxNEESamples = integrator.direct.emitterSamples;
+			return true;
+			break;
+		case Enum::PATH:
+		case Enum::VOL_PATH_SIMPLE:
+		case Enum::VOL_PATH:
+		case Enum::BDPT:
+			//m_maxDepth = integrator.bdpt.maxPathDepth; TODO
+			return true;
+			break;
+		case Enum::ADAPTIVE:
+			for (size_t i=0u; i<integrator.multichannel.childCount; i++)
+			if (extractIntegratorInfo(*integrator.multichannel.children[i],bxdfSamples,maxNEESamples))
+				return true;
+			break;
+		case Enum::IRR_CACHE:
+			assert(false);
+			break;
+		case Enum::MULTI_CHANNEL:
+			for (size_t i=0u; i<integrator.multichannel.childCount; i++)
+			if (extractIntegratorInfo(*integrator.multichannel.children[i],bxdfSamples,maxNEESamples))
+				return true;
+			break;
+		default:
+			break;
+	};
+	return false;
+}
+
+// TODO: be able to fail
+void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence)
 {
 	deinit();
 
@@ -647,32 +683,47 @@ void Renderer::init(const SAssetBundle& meshes,
 
 		const auto renderPixelCount = m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y;
 		// figure out how much Samples Per Pixel Per Dispatch we can afford
-		size_t raygenBufferSize, intersectionBufferSize;
+		size_t raygenBufferSize=0u,intersectionBufferSize=0u;
 		{
-			const auto misSamples = 2u;
-			const auto minimumSampleCountPerDispatch = renderPixelCount*misSamples;
+			uint32_t bxdfSamples=1u,maxNEESamples=1u;
+			const bool success = extractIntegratorInfo(initData.globalMeta->m_global.m_integrator,bxdfSamples,maxNEESamples);
+			assert(success && "unsupported integrator type");
 
-			const auto raygenBufferSizePerSample = static_cast<size_t>(minimumSampleCountPerDispatch)*sizeof(::RadeonRays::ray);
-			assert(raygenBufferSizePerSample<=rayBufferSize);
-			const auto intersectionBufferSizePerSample = static_cast<size_t>(minimumSampleCountPerDispatch)*sizeof(::RadeonRays::Intersection);
-			assert(intersectionBufferSizePerSample<=rayBufferSize);
-			m_staticViewData.samplesPerPixelPerDispatch = rayBufferSize/(raygenBufferSizePerSample+intersectionBufferSizePerSample);
-			assert(m_staticViewData.samplesPerPixelPerDispatch >= 1u);
-			printf("Using %d samples\n", m_staticViewData.samplesPerPixelPerDispatch);
+			auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
+			{
+				m_staticViewData.samplesPerPixelPerDispatch = (bxdfSamples+maxNEESamples)*sampleMultiplier;
+				const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*m_staticViewData.samplesPerPixelPerDispatch;
+				m_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
+				const auto doubleBufferSampleCountPerDispatch = minimumSampleCountPerDispatch*2ull;
 
+				raygenBufferSize = doubleBufferSampleCountPerDispatch*sizeof(::RadeonRays::ray);
+				intersectionBufferSize = doubleBufferSampleCountPerDispatch*sizeof(::RadeonRays::Intersection);
+			};
+			// see how much we can bump the sample count per raster pass
+			{
+				uint32_t sampleMultiplier = 0u;
+				const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),1024u<<20);
+				while (raygenBufferSize<=maxSSBOSize&&intersectionBufferSize<=maxSSBOSize)
+					setRayBufferSizes(++sampleMultiplier);
+				if (sampleMultiplier==1u)
+				{
+					bxdfSamples = 1u;
+					maxNEESamples = 1u;
+					setRayBufferSizes(sampleMultiplier);
+				}
+				printf("Using %d samples\n",m_staticViewData.samplesPerPixelPerDispatch);
+			}
+			// TODO: remove
 			m_staticViewData.samplesPerRowPerDispatch = m_staticViewData.imageDimensions.x*m_staticViewData.samplesPerPixelPerDispatch;
-
-			m_maxRaysPerDispatch = minimumSampleCountPerDispatch*m_staticViewData.samplesPerPixelPerDispatch;
-			raygenBufferSize = raygenBufferSizePerSample*m_staticViewData.samplesPerPixelPerDispatch;
-			intersectionBufferSize = intersectionBufferSizePerSample*m_staticViewData.samplesPerPixelPerDispatch;
 		}
 
-		// set up raycount buffer for RR
+		// set up raycount buffers for RR
+		for (auto i=0u; i<2u; i++)
 		{
-			m_rayCountBuffer.buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&m_maxRaysPerDispatch);
-			m_rayCountBuffer.asRRBuffer = m_rrManager->linkBuffer(m_rayCountBuffer.buffer.get(), CL_MEM_READ_ONLY);
+			m_rayCountBuffer[i].buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&m_maxRaysPerDispatch);
+			m_rayCountBuffer[i].asRRBuffer = m_rrManager->linkBuffer(m_rayCountBuffer[i].buffer.get(),CL_MEM_READ_ONLY);
 
-			ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), 1u, &m_rayCountBuffer.asRRBuffer.second, 0u, nullptr, nullptr);
+			ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(),1u,&m_rayCountBuffer[i].asRRBuffer.second,0u,nullptr,nullptr);
 		}
 
 		// create out screen-sized textures
@@ -707,6 +758,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					core::smart_refctd_ptr(m_raygenDSLayout)
 				);
 				(std::ofstream("material_declarations.glsl") << "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->m_global.getVTStorageViewCount() << "\n" << initData.globalMeta->m_global.m_materialCompilerGLSL_declarations).close();
+				(std::ofstream("ray_count_declaration.glsl") << "#define MAX_DISPATCHED_RAYS " << m_maxRaysPerDispatch << "\n").close();
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
@@ -969,10 +1021,12 @@ void Renderer::deinit()
 	deleteInteropBuffer(m_intersectionBuffer);
 	deleteInteropBuffer(m_rayBuffer);
 	// release the last OpenCL object and wait for OpenCL to finish
-	ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, 1u, &m_rayCountBuffer.asRRBuffer.second, 1u, nullptr, nullptr);
+	for (auto i=0; i<2u; i++)
+		ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue,1u,&m_rayCountBuffer[i].asRRBuffer.second,1u,nullptr,nullptr);
 	ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
 	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
-	deleteInteropBuffer(m_rayCountBuffer);
+	for (auto i=0; i<2u; i++)
+		deleteInteropBuffer(m_rayCountBuffer[i]);
 
 	m_resolveDS = nullptr;
 
@@ -1235,8 +1289,7 @@ void Renderer::traceBounce()
 			ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
 
 			clEnqueueWaitForEvents(commandQueue,1u,&acquired);
-			// TODO: use raycount buffer
-			m_rrManager->getRadeonRaysAPI()->QueryIntersection(m_rayBuffer.asRRBuffer.first,m_rayCountBuffer.asRRBuffer.first,m_maxRaysPerDispatch,m_intersectionBuffer.asRRBuffer.first,nullptr,nullptr);
+			m_rrManager->getRadeonRaysAPI()->QueryIntersection(m_rayBuffer.asRRBuffer.first,m_rayCountBuffer[m_raytraceCommonData.depth].asRRBuffer.first,m_maxRaysPerDispatch,m_intersectionBuffer.asRRBuffer.first,nullptr,nullptr);
 			clEnqueueMarker(commandQueue,&raycastDone);
 		}
 
