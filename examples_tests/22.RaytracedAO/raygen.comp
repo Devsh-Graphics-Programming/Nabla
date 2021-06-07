@@ -148,26 +148,41 @@ bool get_sample_job(out uvec2 accumulationLocation)
 //	}
 }
 
-bool record_emission(out vec3 acc, in uvec3 accumulationLocation, in vec3 emissive)
-{
-	const bool later_path_vertices = get_path_vertex_depth()>min(accumulationLocation.z+1u,2u); // accumulationLocation.z!=0u && path_depth==2u (later)
-	
+
+bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive, in bool later_path_vertices)
+{	
 	acc = vec3(0.0);
 	const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
 	const bool needToReadAccumulation = later_path_vertices||notFirstFrame;
 	if (needToReadAccumulation)
 		acc = fetchAccumulation(accumulationLocation);
-		
-	if (get_path_vertex_depth()==1u) // !rayContinuation
-		emissive *= float(staticViewData.samplesPerPixelPerDispatch);
+
 	if (!later_path_vertices)
 		emissive -= acc;
 	emissive *= pc.cummon.rcpFramesDispatched;
 	
-	const bool emitted = any(greaterThan(abs(emissive),vec3(FLT_MIN)));
+	const bool anyChange = any(greaterThan(abs(emissive),vec3(FLT_MIN)));
 	acc += emissive;
-	return emitted || !needToReadAccumulation;
+	return anyChange || !needToReadAccumulation;
 }
+
+bool record_raster_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
+{	
+	emissive *= float(staticViewData.samplesPerPixelPerDispatch);
+	const bool retval = record_emission_common(acc,accumulationLocation,emissive,false);
+	/*
+	if (pc.cummon.rcpFramesDispatched!=1.f)
+		TODO: plop the accumulation into autoexposure histogram
+	*/
+	return retval;
+}
+
+bool record_raytrace_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
+{
+	const bool later_path_vertices = accumulationLocation.z==0u||get_path_vertex_depth()!=2u;
+	return record_emission_common(acc,accumulationLocation,emissive,later_path_vertices);
+}
+
 
 void main()
 {
@@ -336,7 +351,12 @@ void main()
 
 		//
 		vec3 acc;
-		const bool accumulationChanged = record_emission(acc,accumulationLocation,emissive);
+		bool accumulationChanged;
+		if (rayContinuation)
+			accumulationChanged = record_raytrace_emission(acc,accumulationLocation,emissive);
+		else
+			accumulationChanged = record_raster_emission(acc,accumulationLocation,emissive);
+		//const bool accumulationChanged = record_emission(acc,accumulationLocation,emissive);
 
 		const uint MAX_PATH_DEPTH = 2u;
 		if (get_path_vertex_depth()!=MAX_PATH_DEPTH)
