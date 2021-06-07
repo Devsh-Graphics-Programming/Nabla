@@ -152,66 +152,6 @@ public:
     inline uint32_t getWidth() const { return m_width; }
     inline uint32_t getHeight() const { return m_height; }
 
-    // Not sure where this should be. Obviously not here
-    char keyCodeToChar(E_KEY_CODE code)
-    {
-        char result = 0;
-        switch (code)
-        {
-        case EKC_0: [[fallthrough]];
-        case EKC_NUMPAD_0: result = '0';
-        case EKC_1: [[fallthrough]];
-        case EKC_NUMPAD_1: result = '1';
-        case EKC_2: [[fallthrough]];
-        case EKC_NUMPAD_2: result = '2';
-        case EKC_3: [[fallthrough]];
-        case EKC_NUMPAD_3: result = '3';
-        case EKC_4: [[fallthrough]];
-        case EKC_NUMPAD_4: result = '4';
-        case EKC_5: [[fallthrough]];
-        case EKC_NUMPAD_5: result = '5';
-        case EKC_6: [[fallthrough]];
-        case EKC_NUMPAD_6: result = '6';
-        case EKC_7: [[fallthrough]];
-        case EKC_NUMPAD_7: result = '7';
-        case EKC_8: [[fallthrough]];
-        case EKC_NUMPAD_8: result = '8';
-        case EKC_9: [[fallthrough]];
-        case EKC_NUMPAD_9: result = '9';
-
-        case EKC_A: result = 'a';
-        case EKC_B: result = 'b';
-        case EKC_C: result = 'c';
-        case EKC_D: result = 'd';
-        case EKC_E: result = 'e';
-        case EKC_F: result = 'f';
-        case EKC_G: result = 'g';
-        case EKC_H: result = 'h';
-        case EKC_I: result = 'i';
-        case EKC_J: result = 'j';
-        case EKC_K: result = 'k';
-        case EKC_L: result = 'l';
-        case EKC_M: result = 'm';
-        case EKC_N: result = 'n';
-        case EKC_O: result = 'o';
-        case EKC_P: result = 'p';
-        case EKC_Q: result = 'q';
-        case EKC_R: result = 'r';
-        case EKC_S: result = 's';
-        case EKC_T: result = 't';
-        case EKC_U: result = 'u';
-        case EKC_V: result = 'v';
-        case EKC_W: result = 'w';
-        case EKC_X: result = 'x';
-        case EKC_Y: result = 'y';
-        case EKC_Z: result = 'x';
-        
-        case EKC_TAB: result = '\t';
-        case EKC_ENTER: result = '\n';
-        case EKC_SPACE: result = ' ';
-        }
-        return result;
-    }
     virtual IClipboardManager* getClipboardManager() = 0;
     IEventCallback* getEventCallback() const { return m_cb.get(); }
 
