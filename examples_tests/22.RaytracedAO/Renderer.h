@@ -43,7 +43,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		uint64_t getTotalSamplesComputed() const
 		{
 			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerRowPerDispatch*m_staticViewData.imageDimensions.y);
-			const auto framesDispatched = static_cast<uint64_t>(m_raytraceCommonData.framesDispatched);
+			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
 
@@ -122,6 +122,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::matrix3x4SIMD m_prevView;
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_maxRaysPerDispatch;
+		uint32_t m_framesDispatched;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
 
