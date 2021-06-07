@@ -26,6 +26,7 @@ layout(set = 2, binding = 0, row_major) uniform StaticViewData
 	StaticViewData_t staticViewData;
 };
 layout(set = 2, binding = 1, rg32ui) restrict uniform uimage2DArray accumulation;
+#include "bin/ray_count_declaration.glsl"
 #include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
 layout(set = 2, binding = 2, std430) restrict buffer Rays
 {
@@ -36,7 +37,13 @@ layout(set = 2, binding = 3, std430) restrict buffer Queries
 {
 	nbl_glsl_ext_RadeonRays_Intersection intersections[];
 };
-
+/*
+#include <nbl/builtin/glsl/utils/indirect_commands.glsl>
+layout(set = 2, binding = 4) restrict coherent buffer RayCount
+{
+	nbl_glsl_DispatchIndirectCommand_t params;
+} traceIndirect[2];
+*/
 
 #include <nbl/builtin/glsl/format/decode.glsl>
 #include <nbl/builtin/glsl/format/encode.glsl>
@@ -192,6 +199,11 @@ void main()
 		const bool rayContinuation = get_path_vertex_depth()!=1u;
 		// TODO: support indirect dispatches of progressively less rays (REDO this)
 		const uint outputID = accumulationLocation.y*staticViewData.samplesPerRowPerDispatch+accumulationLocation.x*staticViewData.samplesPerPixelPerDispatch+gl_GlobalInvocationID.z;
+		
+		const uint vertex_depth = get_path_vertex_depth();
+		const bool odd_depth = bool(vertex_depth&0x1u);
+		const uint read_ray_offset = odd_depth ? MAX_DISPATCHED_RAYS:0u;
+		const uint write_ray_offset = odd_depth ? 0u:MAX_DISPATCHED_RAYS;
 
 		uint batchInstanceGUID;
 		bool hit;
@@ -200,9 +212,9 @@ void main()
 		float revdepth;
 		if (rayContinuation) // read from ray query
 		{
-			batchInstanceGUID = intersections/*[YYY].data*/[outputID].shapeid;
+			batchInstanceGUID = intersections[read_ray_offset+outputID].shapeid;
 
-			const nbl_glsl_ext_RadeonRays_ray ray = rays/*[YYY].data*/[outputID];
+			const nbl_glsl_ext_RadeonRays_ray ray = rays[read_ray_offset+outputID];
 			accumulationLocation.z = gl_GlobalInvocationID.z; // TODO
 			throughput = vec3(
 				unpackHalf2x16(ray.useless_padding).yx,
@@ -242,9 +254,9 @@ void main()
 			#endif
 			if (rayContinuation)
 			{
-				triangleID = intersections/*[YYY].data*/[outputID].primid;
-				bary.xy = intersections/*[YYY].data*/[outputID].uvwt.xy;
-				intersections/*[YYY].data*/[outputID].shapeid = -1;
+				triangleID = intersections[read_ray_offset+outputID].primid;
+				bary.xy = intersections[read_ray_offset+outputID].uvwt.xy;
+				intersections[read_ray_offset+outputID].shapeid = -1;
 				
 				#ifdef TEX_PREFETCH_STREAM
 				dBarydScreen = mat2(0.0); // TODO: Covariance Rendering
@@ -387,7 +399,7 @@ void main()
 						throughput.rgb = throughputFactor;
 				}
 			
-				const uint realOutputID = outputID+i;
+				const uint realOutputID = outputID+write_ray_offset+i;
 				const bool validRay = any(greaterThan(throughput.rgb,vec3(FLT_MIN)));
 				// TODO: improve ray offsets
 				const float err = 1.0/128.0;

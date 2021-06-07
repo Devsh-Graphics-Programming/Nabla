@@ -86,17 +86,18 @@ struct StaticViewData_t
 	vec2    rcpHalfPixelSize;
 	uvec2   imageDimensions;
 	uint    samplesPerPixelPerDispatch;
-	uint    samplesPerRowPerDispatch;
+	uint    samplesPerRowPerDispatch; // TODO: remove
 };
 
 struct RaytraceShaderCommonData_t
 {
 	mat4	inverseMVP;
 	mat4x3  ndcToV;
+	float   rcpFramesDispatched;
+	// make depth and samplesComputedPerPixel share a uint
 	uint    samplesComputedPerPixel;
-	uint    framesDispatched;
-    float   rcpFramesDispatched;
 	uint	depth;
+	uint    framesDispatched; // TODO: remove from push constants
 };
 
 #endif

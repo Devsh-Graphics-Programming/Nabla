@@ -28,14 +28,9 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			#undef mat4x3
 		#endif
 
-		// No 8k yet, too many rays to store
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
-
-
 		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
-		void init(	const nbl::asset::SAssetBundle& meshes, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence,
-					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)+sizeof(::RadeonRays::Intersection))*2u*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS, TODO: compute default buffer size
+		void init(	const nbl::asset::SAssetBundle& meshes, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence);
 
 		void deinit();
 
@@ -153,7 +148,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> buffer;
 			std::pair<::RadeonRays::Buffer*, cl_mem> asRRBuffer = { nullptr,0u };
 		};
-		InteropBuffer m_rayCountBuffer,m_rayBuffer,m_intersectionBuffer;
+		InteropBuffer m_rayCountBuffer[2];
+		InteropBuffer m_rayBuffer,m_intersectionBuffer;
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_resolveDS;
 
