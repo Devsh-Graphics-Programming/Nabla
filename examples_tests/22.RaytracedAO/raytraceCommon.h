@@ -94,10 +94,14 @@ struct RaytraceShaderCommonData_t
 	mat4	inverseMVP;
 	mat4x3  ndcToV;
 	float   rcpFramesDispatched;
-	// make depth and samplesComputedPerPixel share a uint
-	uint    samplesComputedPerPixel;
-	uint	depth;
-	uint    framesDispatched; // TODO: remove from push constants
+#ifdef __cplusplus
+	uint16_t samplesComputed;
+	uint16_t depth;
+#else
+	uint	samplesComputed_depth;
+#endif
+	uint padding0;
+	uint padding1;
 };
 
 #endif

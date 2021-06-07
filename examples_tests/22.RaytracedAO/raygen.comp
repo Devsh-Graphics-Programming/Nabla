@@ -135,7 +135,7 @@ void gen_sample_ray(
 
 uint get_path_vertex_depth()
 {
-	return pc.cummon.depth;
+	return bitfieldExtract(pc.cummon.samplesComputed_depth,16,16);
 }
 
 bool get_sample_job()
@@ -413,7 +413,7 @@ void main()
 					}
 					else
 					{
-						sampleID = pc.cummon.samplesComputedPerPixel+i;
+						sampleID = bitfieldExtract(pc.cummon.samplesComputed_depth,0,16)+i;
 						gen_sample_ray(maxT,direction,throughput,scramble_state,sampleID,precomputed,gcs,rnps);
 					}
 				}
