@@ -3,6 +3,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/system/ISystem.h"
+#include "nbl/asset/ICPUImage.h"
 
 namespace nbl {
 namespace ui
@@ -11,9 +12,11 @@ namespace ui
 class IClipboardManager : public core::IReferenceCounted
 {
 public:
-    virtual const char* getClipboard() = 0;
-    virtual bool setClipboard(const char* contents) = 0;
-
+    virtual std::string getClipboardText() = 0;
+    virtual bool setClipboardText(const std::string_view& data) = 0;
+    virtual core::smart_refctd_ptr<asset::ICPUImage> getClipboardImage() = 0;
+    virtual bool setClipboardImage(asset::ICPUImage* image, asset::ICPUImage::SImageCopy data) = 0;
+         
     virtual ~IClipboardManager() = default;
 
 protected:
