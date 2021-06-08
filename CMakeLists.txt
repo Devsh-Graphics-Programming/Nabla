@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyri***ght (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -10,9 +10,9 @@ set(OpenGL_GL_PREFERENCE LEGACY)
 
 option(NBL_BUILD_ANDROID "Build for Android?" OFF)
 
-cmake_path(GET CMAKE_TOOLCHAIN_FILE FILENAME _NBL_CMAKE_TOOLCHAIN_FILENAME_)
+if(DEFINED CMAKE_TOOLCHAIN_FILE) # TODO - validate paths due to CMake path-policy (errors when no path passed in)
+	cmake_path(GET CMAKE_TOOLCHAIN_FILE FILENAME _NBL_CMAKE_TOOLCHAIN_FILENAME_)
 
-if(DEFINED CMAKE_TOOLCHAIN_FILE)
 	if(${_NBL_CMAKE_TOOLCHAIN_FILENAME_} STREQUAL "android.toolchain.cmake")
 		message(STATUS "Found Android toolchain! Validating...")
 		

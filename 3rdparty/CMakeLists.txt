@@ -97,7 +97,7 @@ else()
 	message(FATAL_ERROR "COULDNT FIND EGL!!")
 endif()]]
 # EGL
-set(EGL_NO_GLEW ON FORCE)
+set(EGL_NO_GLEW ON CACHE INTERNAL "" FORCE)
 #if (EGL_NO_GLEW)
 #	message(FATAL_ERROR "EGL_NO_GLEW")
 #else()
