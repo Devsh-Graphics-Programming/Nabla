@@ -759,7 +759,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					core::smart_refctd_ptr(m_raygenDSLayout)
 				);
 				(std::ofstream("material_declarations.glsl") << "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->m_global.getVTStorageViewCount() << "\n" << initData.globalMeta->m_global.m_materialCompilerGLSL_declarations).close();
-				(std::ofstream("ray_count_declaration.glsl") << "#define MAX_DISPATCHED_RAYS " << m_maxRaysPerDispatch << "\n").close();
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
@@ -1264,7 +1263,7 @@ void Renderer::traceBounce()
 		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
 		if (m_raytraceCommonData.depth!=1u)
 		{
-			m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],m_staticViewData.samplesPerPixelPerDispatch);
+			m_driver->dispatch((m_maxRaysPerDispatch-1u)/WORKGROUP_SIZE+1u,1u,1u);
 			//m_driver->dispatchIndirect(m_indirectTraceBounceBuffer[].get(),0u);
 		}
 		else
