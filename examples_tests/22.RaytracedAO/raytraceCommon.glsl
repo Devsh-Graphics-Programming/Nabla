@@ -34,17 +34,18 @@ layout(set = 2, binding = 1) readonly restrict buffer ExtraBatchData
 	uint firstIndex[];
 } extraBatchData;
 // rng
-layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1, rg32ui) uniform uimage2DArray scramblebuf;
+layout(set = 2, binding = 3) uniform usamplerBuffer sampleSequence;
 // accumulation
-layout(set = 2, binding = 3, rg32ui) restrict uniform uimage2DArray accumulation;
+layout(set = 2, binding = 4, rg32ui) restrict uniform uimage2DArray accumulation;
 // ray data
 #include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
-layout(set = 2, binding = 4, std430) restrict buffer Rays
+layout(set = 2, binding = 5, std430) restrict buffer Rays
 {
 	nbl_glsl_ext_RadeonRays_ray data[];
 } rays[2];
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
-layout(set = 2, binding = 5) restrict coherent buffer RayCount
+layout(set = 2, binding = 6) restrict coherent buffer RayCount
 {
 	uint rayCount;
 	nbl_glsl_DispatchIndirectCommand_t params;

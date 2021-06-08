@@ -19,7 +19,6 @@ layout(set = 3, binding = 0, std430) restrict buffer Queries
 {
 	nbl_glsl_ext_RadeonRays_Intersection data[];
 } intersections[2];
-layout(set = 3, binding = 1, rg32ui) uniform uimage2D scramblebuf;
 
 
 bool get_sample_job(in uint vertex_depth_mod_2)
@@ -116,7 +115,7 @@ void main()
 				
 
 				// init scramble while waiting for getting the instance's normal matrix
-				nbl_glsl_xoroshiro64star_state_t scramble_state = imageLoad(scramblebuf,ivec2(outPixelLocation)).rg;
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2)).rg;
 				// get material streams as well
 				const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
 				const nbl_glsl_MC_instr_stream_t rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
@@ -129,27 +128,22 @@ void main()
 				nbl_glsl_MC_runNormalPrecompStream(nps,precomputed);
 				#endif
 				
-				// TODO: sort out the scramble_state advancements
-				for (uint i=1u; i<vertex_depth; i++)
-				{
-					nbl_glsl_xoroshiro64star(scramble_state);
-					nbl_glsl_xoroshiro64star(scramble_state);
-					nbl_glsl_xoroshiro64star(scramble_state);
-				}
+				const uint vertex_depth_mod_2_inv = vertex_depth_mod_2^0x1u;
 				// TODO: beware of generating NEE rays
 				uint raysToAllocate = 0u;
 				// prepare rays
 				float maxT; vec3 direction; vec3 nextThroughput;
 				{
-					vec3 nextThroughput;
+					nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 					gen_sample_ray(maxT,direction,nextThroughput,scramble_state,sampleID,precomputed,gcs,rnps);
+					if (true)
+						imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 					nextThroughput *= throughput;
 					if (any(greaterThan(nextThroughput,vec3(FLT_MIN))))
 						raysToAllocate++;
 					else
 						maxT = 0.f;
 				}
-				const uint vertex_depth_mod_2_inv = vertex_depth_mod_2^0x1u;
 				// TODO: investigate workgroup reductions here
 				const uint baseOutputID = atomicAdd(traceIndirect[vertex_depth_mod_2_inv].rayCount,raysToAllocate);
 				// set up dispatch indirect
@@ -172,8 +166,6 @@ void main()
 					const uint outputID = baseOutputID;
 					rays[vertex_depth_mod_2_inv].data[outputID] = newRay;
 				}
-				// TODO: advance the scramble_state (yes I know I can have a race condition) CRAP
-				/// imageStore(scramblebuf,ivec2(outPixelLocation),uvec4(scramble_state,0u,0u));
 			}
 		}
 		
