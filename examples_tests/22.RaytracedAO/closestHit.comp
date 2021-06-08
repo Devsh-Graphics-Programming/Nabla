@@ -4,7 +4,8 @@
 #include "raytraceCommon.h"
 layout(local_size_x = WORKGROUP_SIZE) in;
 
-
+// TODO : NEE
+#define MAX_RAYS_GENERATED 1
 #include "raytraceCommon.glsl"
 
 bool record_raytrace_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
@@ -66,106 +67,32 @@ void main()
 			normalizedV = -ray.direction;
 			
 			// positions
-			const mat3 positions = mat3(
-				nbl_glsl_fetchVtxPos(indices[0],batchInstanceGUID),
-				nbl_glsl_fetchVtxPos(indices[1],batchInstanceGUID),
-				nbl_glsl_fetchVtxPos(indices[2],batchInstanceGUID)
-			);
-			dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
-			const bool frontfacing = dot(cross(dPdBary[1],dPdBary[0]),normalizedV)>0.f;
+			load_positions(indices,batchInstanceGUID);
+			const vec3 geomNormal = cross(dPdBary[1],dPdBary[0]);
+			const bool frontfacing = dot(geomNormal,normalizedV)>0.f;
 
 			// get material
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[batchInstanceGUID].material,frontfacing);
 			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 	
 			const uint MAX_PATH_DEPTH = 2u; // TODO: move to push constant or UBO
-			const bool _continue = vertex_depth!=MAX_PATH_DEPTH && ray.maxT==FLT_INF;
+			const bool _continue = vertex_depth!=MAX_PATH_DEPTH && ray.maxT==FLT_INF; // last vertex or was a NEE path
 			if (_continue)
 			{
-				// if we ever support spatially varying emissive, we'll need to hoist this
-				const vec3 bary = vec3(intersection.uvwt.xy,1.f-intersection.uvwt.x-intersection.uvwt.y);
-				#ifdef TEX_PREFETCH_STREAM
-				const mat3x2 uvs = mat3x2(
-					nbl_glsl_fetchVtxUV(indices[0],batchInstanceGUID),
-					nbl_glsl_fetchVtxUV(indices[1],batchInstanceGUID),
-					nbl_glsl_fetchVtxUV(indices[2],batchInstanceGUID)
-				);
-				const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
-				#endif
-				// only needed for continuing
-				const mat3 normals = mat3(
-					nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID),
-					nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID),
-					nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID)
+				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
+				const vec2 compactBary = intersection.uvwt.xy;
+				
+				const mat2 dBarydScreen = mat2(0.0); // TODO: Covariance Rendering
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
+					compactBary,indices,batchInstanceGUID,material,dBarydScreen,outPixelLocation,vertex_depth_mod_2
 				);
 
-				const vec3 hitWorldPos = dPdBary*bary.xy+positions[2];
-				// not needed for NEE unless emissive isn't constant spatially
-				#ifdef TEX_PREFETCH_STREAM
-				dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
-				const vec2 UV = dUVdBary*bary.xy+uvs[2];
-				const mat2 dUVdScreen = mat2(0.0); // TODO: Covariance Rendering
-				nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
-				#endif
-				// not needed for NEE unless doing Area or Projected Solid Angle Sampling
-				const vec3 normal = normalize(normals*bary);
-				normalizedN.x = dot(InstData.data[batchInstanceGUID].normalMatrixRow0,normal);
-				normalizedN.y = dot(InstData.data[batchInstanceGUID].normalMatrixRow1,normal);
-				normalizedN.z = dot(InstData.data[batchInstanceGUID].normalMatrixRow2,normal);
+				const vec3 hitWorldPos = dPdBary*compactBary.xy+positions[2];
 				
-
-				// init scramble while waiting for getting the instance's normal matrix
-				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2)).rg;
-				// get material streams as well
-				const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
-				const nbl_glsl_MC_instr_stream_t rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
-
-				
-				// need to do this after we have worldspace V and N ready
-				const nbl_glsl_MC_precomputed_t precomputed = nbl_glsl_MC_precomputeData(frontfacing);
-				#ifdef NORM_PRECOMP_STREAM
-				const nbl_glsl_MC_instr_stream_t nps = nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material);
-				nbl_glsl_MC_runNormalPrecompStream(nps,precomputed);
-				#endif
-				
-				const uint vertex_depth_mod_2_inv = vertex_depth_mod_2^0x1u;
-				// TODO: beware of generating NEE rays
-				uint raysToAllocate = 0u;
-				// prepare rays
-				float maxT; vec3 direction; vec3 nextThroughput;
-				{
-					nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
-					gen_sample_ray(maxT,direction,nextThroughput,scramble_state,sampleID,precomputed,gcs,rnps);
-					if (true)
-						imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
-					nextThroughput *= throughput;
-					if (any(greaterThan(nextThroughput,vec3(FLT_MIN))))
-						raysToAllocate++;
-					else
-						maxT = 0.f;
-				}
-				// TODO: investigate workgroup reductions here
-				const uint baseOutputID = atomicAdd(traceIndirect[vertex_depth_mod_2_inv].rayCount,raysToAllocate);
-				// set up dispatch indirect
-				atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
-				// output rays
-				if (maxT!=0.f)
-				{
-					nbl_glsl_ext_RadeonRays_ray newRay;
-					// TODO: improve ray offsets
-					const float err = frontfacing ? (1.0/128.0):(-1.0/128.0);
-					newRay.origin = hitWorldPos+normal*err;
-					newRay.maxT = maxT;
-					newRay.direction = direction;
-					newRay.time = packOutPixelLocation(outPixelLocation);
-					newRay.mask = -1;
-					newRay._active = 1;
-					newRay.useless_padding[0] = packHalf2x16(nextThroughput.rg);
-					newRay.useless_padding[1] = bitfieldInsert(packHalf2x16(nextThroughput.bb),sampleID,16,16);
-					//
-					const uint outputID = baseOutputID;
-					rays[vertex_depth_mod_2_inv].data[outputID] = newRay;
-				}
+				generate_next_rays(
+					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth_mod_2,
+					scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,throughput
+				);
 			}
 		}
 		

@@ -86,7 +86,7 @@ struct StaticViewData_t
 	vec2    rcpHalfPixelSize;
 	uvec2   imageDimensions;
 	uint    samplesPerPixelPerDispatch;
-	uint    samplesPerRowPerDispatch; // TODO: remove
+	uint    padding;
 };
 
 struct RaytraceShaderCommonData_t

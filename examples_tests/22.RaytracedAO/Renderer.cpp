@@ -714,8 +714,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				}
 				printf("Using %d samples\n",m_staticViewData.samplesPerPixelPerDispatch);
 			}
-			// TODO: remove
-			m_staticViewData.samplesPerRowPerDispatch = m_staticViewData.imageDimensions.x*m_staticViewData.samplesPerPixelPerDispatch;
 		}
 
 		// set up raycount buffers for RR

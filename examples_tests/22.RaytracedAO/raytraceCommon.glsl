@@ -123,6 +123,15 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
+void load_positions(in uvec3 indices, in uint batchInstanceGUID)
+{
+	const mat3 positions = mat3(
+		nbl_glsl_fetchVtxPos(indices[0],batchInstanceGUID),
+		nbl_glsl_fetchVtxPos(indices[1],batchInstanceGUID),
+		nbl_glsl_fetchVtxPos(indices[2],batchInstanceGUID)
+	);
+	dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
+}
 #ifdef TEX_PREFETCH_STREAM
 mat2x3 nbl_glsl_perturbNormal_dPdSomething()
 {
@@ -140,7 +149,7 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 
 vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint _sample)
 {
-	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
+	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz; // TODO: add depth param!!!
 	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
@@ -162,4 +171,104 @@ void gen_sample_ray(
 	direction = s.L;
 }
 
+void load_aux_vertex_attrs(
+	in vec2 compactBary, in uvec3 indices, in uint batchInstanceGUID, in nbl_glsl_MC_oriented_material_t material,
+	in mat2 dBarydScreen, in uvec2 outPixelLocation, in uint vertex_depth_mod_2
+)
+{
+	// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
+	const vec3 bary = nbl_glsl_barycentric_expand(compactBary);
+	#ifdef TEX_PREFETCH_STREAM
+	const mat3x2 uvs = mat3x2(
+		nbl_glsl_fetchVtxUV(indices[0],batchInstanceGUID),
+		nbl_glsl_fetchVtxUV(indices[1],batchInstanceGUID),
+		nbl_glsl_fetchVtxUV(indices[2],batchInstanceGUID)
+	);
+	const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
+	#endif
+	// only needed for continuing
+	const mat3 normals = mat3(
+		nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID),
+		nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID),
+		nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID)
+	);
+	
+	#ifdef TEX_PREFETCH_STREAM
+	dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
+	const vec3 UV = dUVdBary*bary.xy+uvs[2];
+	const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
+	nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
+	#endif
+	// not needed for NEE unless doing Area or Projected Solid Angle Sampling
+	const vec3 normal = normals*bary;
+	normalizedN.x = dot(InstData.data[batchInstanceGUID].normalMatrixRow0,normal);
+	normalizedN.y = dot(InstData.data[batchInstanceGUID].normalMatrixRow1,normal);
+	normalizedN.z = dot(InstData.data[batchInstanceGUID].normalMatrixRow2,normal);
+
+	// init scramble while waiting for getting the instance's normal matrix
+	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2)).rg;
+
+	// while waiting for the scramble state
+	normalizedN = normalize(normalizedN);
+
+	return scramble_start_state;
+}
+
+void generate_next_rays(
+	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth_mod_2,
+	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
+	in vec3 origin, vec3 geomNormal, in vec3 prevThroughput)
+{
+	// get material streams as well
+	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
+	const nbl_glsl_MC_instr_stream_t rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
+
+
+	// need to do this after we have worldspace V and N ready
+	const nbl_glsl_MC_precomputed_t precomputed = nbl_glsl_MC_precomputeData(frontfacing);
+#ifdef NORM_PRECOMP_STREAM
+	const nbl_glsl_MC_instr_stream_t nps = nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material);
+	nbl_glsl_MC_runNormalPrecompStream(nps,precomputed);
+#endif
+
+	const uint vertex_depth_mod_2_inv = vertex_depth_mod_2^0x1u;
+	// prepare rays
+	uint raysToAllocate = 0u;
+	float maxT[MAX_RAYS_GENERATED]; vec3 direction[MAX_RAYS_GENERATED]; vec3 nextThroughput[MAX_RAYS_GENERATED];	
+	for (uint i=0u; i<maxRaysToGen; i++)
+	{
+		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
+		// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
+		gen_sample_ray(maxT[i],direction[i],nextThroughput[i],scramble_state,sampleID+i,precomputed,gcs,rnps);
+		if (i==0u)
+			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
+		nextThroughput[i] *= prevThroughput;
+		if (any(greaterThan(nextThroughput[i],vec3(FLT_MIN))))
+			raysToAllocate++;
+		else
+			maxT[i] = 0.f;
+	}
+	// TODO: investigate workgroup reductions here
+	const uint baseOutputID = atomicAdd(traceIndirect[vertex_depth_mod_2_inv].rayCount,raysToAllocate);
+	// set up dispatch indirect
+	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
+	uint offset = 0u;
+	for (uint i=0u; i<maxRaysToGen; i++)
+	if (maxT[i]!=0.f)
+	{
+		nbl_glsl_ext_RadeonRays_ray newRay;
+		// TODO: improve ray offsets
+		const float err = frontfacing ? (1.0/128.0):(-1.0/128.0);
+		newRay.origin = origin+geomNormal*err;
+		newRay.maxT = maxT[i];
+		newRay.direction = direction[i];
+		newRay.time = packOutPixelLocation(outPixelLocation);
+		newRay.mask = -1;
+		newRay._active = 1;
+		newRay.useless_padding[0] = packHalf2x16(nextThroughput[i].rg);
+		newRay.useless_padding[1] = bitfieldInsert(packHalf2x16(nextThroughput[i].bb),sampleID+i,16,16);
+		const uint outputID = baseOutputID+(offset++);
+		rays[vertex_depth_mod_2_inv].data[outputID] = newRay;
+	}
+}
 #endif
