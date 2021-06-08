@@ -39,12 +39,13 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
 		if(EXISTS "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/build-tools")
 			if(DEFINED ANDROID_ABI)
 				if(${ANDROID_ABI} STREQUAL ${_NBL_SUPPORTED_ABI_})
-					message(STATUS "Found supported '${_NBL_SUPPORTED_ABI_}' ABI!")
+					message(STATUS "Supported '${_NBL_SUPPORTED_ABI_}' ABI has been choosen!")
 				else()
 					message(FATAL_ERROR "Found '${ANDROID_ABI}' isn't appropriate. Use '${_NBL_SUPPORTED_ABI_}'!")
 				endif()
 			else()
-				message(FATAL_ERROR "'ANDROID_ABI' must be specified! Supported ABI: '${_NBL_SUPPORTED_ABI_}'")
+				message(STATUS "Could not find 'ANDROID_ABI', using supported ABI: '${_NBL_SUPPORTED_ABI_}'")
+				set(ANDROID_ABI ${_NBL_SUPPORTED_ABI_} CACHE INTERNAL "" FORCE)
 			endif()
 		
 			message(STATUS "'${_NBL_SUPPORTED_NDK_}' located in Android SDK path. Building Nabla with Android toolchain!")
@@ -302,22 +303,22 @@ macro(nbl_adjust_flags)
 				$<$<CONFIG:DEBUG>:-glldb>
 			)
 			
-			#list(APPEND CMAKE_ASM_FLAGS_DEBUG -g -glldb)
+			list(APPEND CMAKE_ASM_FLAGS_DEBUG -g -glldb)
 			set(CMAKE_ASM_FLAGS_DEBUG ${CMAKE_ASM_FLAGS_DEBUG} CACHE STRING "" FORCE)
 			
-			#list(APPEND CMAKE_CXX_FLAGS_DEBUG -g -glldb)
+			list(APPEND CMAKE_CXX_FLAGS_DEBUG -g -glldb)
 			set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG} CACHE STRING "" FORCE)
 			
-			#list(APPEND CMAKE_C_FLAGS_DEBUG -g -glldb)
+			list(APPEND CMAKE_C_FLAGS_DEBUG -g -glldb)
 			set(CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} CACHE STRING "" FORCE)
 			
-			#list(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG -g -glldb)
+			list(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG -g -glldb)
 			set(CMAKE_EXE_LINKER_FLAGS_DEBUG ${CMAKE_EXE_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
 			
-			#list(APPEND CMAKE_MODULE_LINKER_FLAGS_DEBUG -g -glldb)
+			list(APPEND CMAKE_MODULE_LINKER_FLAGS_DEBUG -g -glldb)
 			set(CMAKE_MODULE_LINKER_FLAGS_DEBUG ${CMAKE_MODULE_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
 			
-			#list(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG -g -glldb)
+			list(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG -g -glldb)
 			set(CMAKE_SHARED_LINKER_FLAGS_DEBUG ${CMAKE_SHARED_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
 		endif()
 		
