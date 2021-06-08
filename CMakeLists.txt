@@ -17,6 +17,7 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
 		message(STATUS "Found Android toolchain! Validating...")
 		
 		set(_NBL_SUPPORTED_NDK_ "android-ndk-r22b") # supported NDK version
+		set(_NBL_SUPPORTED_ABI_ "x86_64")			# supported ABI
 		
 		# quering ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/${_NBL_SUPPORTED_NDK_}/build/cmake/android.toolchain.cmake
 		cmake_path(GET CMAKE_TOOLCHAIN_FILE PARENT_PATH _NBL_TOOLCHAIN_NDK_CMAKE_DIRECTORY_)
@@ -36,6 +37,16 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
 		endif()
 		
 		if(EXISTS "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/build-tools")
+			if(DEFINED ANDROID_ABI)
+				if(${ANDROID_ABI} STREQUAL ${_NBL_SUPPORTED_ABI_})
+					message(STATUS "Found supported '${_NBL_SUPPORTED_ABI_}' ABI!")
+				else()
+					message(FATAL_ERROR "Found '${ANDROID_ABI}' isn't appropriate. Use '${_NBL_SUPPORTED_ABI_}'!")
+				endif()
+			else()
+				message(FATAL_ERROR "'ANDROID_ABI' must be specified! Supported ABI: '${_NBL_SUPPORTED_ABI_}'")
+			endif()
+		
 			message(STATUS "'${_NBL_SUPPORTED_NDK_}' located in Android SDK path. Building Nabla with Android toolchain!")
 		
 			set(ANDROID_SDK_ROOT_PATH "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}")
@@ -45,7 +56,7 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
 			set(_NBL_ANDROID_VALIDATED_ ON)
 		else()
 			message(FATAL_ERROR "${_NBL_SUPPORTED_NDK_} must be placed in Android SDK path!")
-		endif()		
+		endif()
 	endif()
 	
 	# TODO - another toolchains in future
@@ -126,8 +137,6 @@ if(NBL_BUILD_ANDROID)
     # Choose clang if the NDK has both gcc and clang, since gcc sometimes fails
 	# iirc api levels > 21 have only clang available
     set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION "clang")
-	
-    set(ANDROID_ABI "x86_64" CACHE STRING "The Android ABI to build for") # MOVE ABOVE
 
 	#
 	# android-specific utils and build tools
