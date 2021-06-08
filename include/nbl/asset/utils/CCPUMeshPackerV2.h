@@ -92,7 +92,7 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
         const uint32_t insCnt = (*it)->getInstanceCount();
 
-        IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
+        IdxBufferParams idxBufferParams = createNewIdxBufferParamsForNonTriangleListTopologies(*it);
 
         TriangleBatches triangleBatches = constructTriangleBatches(*it, idxBufferParams, aabbs);
 

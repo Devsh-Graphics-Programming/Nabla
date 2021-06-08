@@ -115,12 +115,12 @@ public:
 	{
 		base_t::shrinkOutputBuffersSize();
 
-		uint32_t mdiDataBuffNewSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_perInsVtxBuffAlctr));
+		uint32_t perInsBuffNewSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_perInsVtxBuffAlctr));
 
 		if (isInstancingEnabled)
 		{
 			const void* oldReserved = alctrTraits::getReservedSpacePtr(m_perInsVtxBuffAlctr);
-			m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(mdiDataBuffNewSize, std::move(m_perInsVtxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(mdiDataBuffNewSize, m_perInsVtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+			m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(perInsBuffNewSize, std::move(m_perInsVtxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(perInsBuffNewSize, m_perInsVtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
 			_NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
 		}
 	}

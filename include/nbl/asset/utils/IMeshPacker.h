@@ -214,15 +214,14 @@ protected:
 
     struct IdxBufferParams
     {
-        SBufferBinding<ICPUBuffer> idxBuffer;
-        uint32_t idxCnt = 0u;
+        SBufferBinding<ICPUBuffer> idxBuffer = { 0u, nullptr };
         E_INDEX_TYPE indexType = EIT_UNKNOWN;
     };
 
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute
     //will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
-    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df* aabbs) const
+    TriangleBatches constructTriangleBatches(MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df* aabbs) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
@@ -253,7 +252,6 @@ protected:
 
             uint64_t key;
         };
-        
 
         //TODO: use SoA instead (with core::radix_sort):
         //core::vector<Triangle> triangles;
@@ -275,15 +273,13 @@ protected:
 
         //triangle reordering
         {
-            //this is needed for mesh buffers with no index buffer (triangle strips and triagnle fans)
-            //TODO: fix
-            //bool wasTmpIdxBufferSet = false;
-            //if (meshBuffer->getIndexBufferBinding().buffer == nullptr)
-            //{
-            //    //temporary use generated index buffer
-            //    wasTmpIdxBufferSet = true;
-            //    meshBuffer->setIndexBufferBinding(idxBufferParams.idxBuffer);
-            //}
+            const bool wasTmpIdxBufferSet = idxBufferParams.idxBuffer.buffer.get() != nullptr ? true : false;
+            if (wasTmpIdxBufferSet)
+            {
+                auto tmpBuffer = std::move(meshBuffer->getIndexBufferBinding());
+                meshBuffer->setIndexBufferBinding(std::move(idxBufferParams.idxBuffer));
+                idxBufferParams.idxBuffer = std::move(tmpBuffer);
+            }
 
             const core::aabbox3df aabb = IMeshManipulator::calculateBoundingBox(meshBuffer);
 
@@ -313,8 +309,8 @@ protected:
                     maxTriangleArea = area;
             }
 
-            /*if (wasTmpIdxBufferSet)
-                meshBuffer->setIndexBufferBinding(nullptr);*/
+            if (wasTmpIdxBufferSet)
+                meshBuffer->setIndexBufferBinding(std::move(idxBufferParams.idxBuffer));
 
             //complete morton code
             for (auto it = triangles.begin(); it != triangles.end(); it++)
@@ -369,8 +365,7 @@ protected:
                 float batchArea = halfAreaAABB();
                 for (uint16_t i = m_minTriangleCountPerMDIData; nextTriangle != triangleArrayEnd && i < m_maxTriangleCountPerMDIData; i++)
                 {
-                    // TODO: save the AABB of the MDI batch before it gets "try extended" (will be needed in the future for culling)
-                    if(aabbs != nullptr)
+                    if(aabbs)
                         *aabbs = core::aabbox3df(core::vector3df(min.x, min.y, min.z), core::vector3df(max.x, max.y, max.z));
 
                     extendAABB(nextTriangle);
@@ -379,14 +374,18 @@ protected:
                         break;
                     nextTriangle++;
                     batchArea = newBatchArea;
+                }
 
-                    if(aabbs != nullptr && (nextTriangle == triangleArrayEnd || (i + 1u) >= m_maxTriangleCountPerMDIData))
+                if (aabbs)
+                {
+                    if ((nextTriangle == triangleArrayEnd || m_minTriangleCountPerMDIData == m_maxTriangleCountPerMDIData))
                         *aabbs = core::aabbox3df(core::vector3df(min.x, min.y, min.z), core::vector3df(max.x, max.y, max.z));
+                    aabbs++;
                 }
 
                 triangleBatches.ranges.push_back(nextTriangle);
             }
-            aabbs++;
+                
         }
 
         return triangleBatches;
@@ -551,21 +550,14 @@ protected:
         }
     }
 
-    IdxBufferParams retriveOrCreateNewIdxBufferParams(MeshBufferType* meshBuffer)
+    IdxBufferParams createNewIdxBufferParamsForNonTriangleListTopologies(MeshBufferType* meshBuffer)
     {
         IdxBufferParams output;
 
         const auto mbPrimitiveType = meshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
-        if (mbPrimitiveType == EPT_TRIANGLE_LIST)
-        {
-            output.idxCnt = meshBuffer->getIndexCount();
-            output.idxBuffer = meshBuffer->getIndexBufferBinding();
-            output.indexType = meshBuffer->getIndexType();
-        }
-        else
+        if (mbPrimitiveType != EPT_TRIANGLE_LIST)
         {
             auto newIdxBuffer = convertIdxBufferToTriangles(meshBuffer);
-            output.idxCnt = newIdxBuffer.first;
             output.idxBuffer.offset = 0u;
             output.idxBuffer.buffer = newIdxBuffer.second;
             output.indexType = EIT_32BIT;
