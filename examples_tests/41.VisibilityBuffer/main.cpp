@@ -517,7 +517,7 @@ int main()
                 const uint32_t meshMdiBound = mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
                 core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(std::distance(mbRangeBegin,mbRangeEnd));
                 core::vector<MeshPacker::CombinedDataOffsetTable> cdot(meshMdiBound);
-                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),&*allocDataIt,mbRangeBegin,mbRangeEnd);
+                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),nullptr,&*allocDataIt,mbRangeBegin,mbRangeEnd);
                 allocDataIt += meshMdiBound;
 
                 if (actualMdiCnt==0u)
