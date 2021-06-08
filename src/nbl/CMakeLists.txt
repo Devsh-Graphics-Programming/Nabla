@@ -392,11 +392,11 @@ macro(nbl_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 	target_link_libraries(${_trgt} INTERFACE zlibstatic)
 
-	#target_link_libraries(${_trgt} INTERFACE
-	#	$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-	#	$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-	#	$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-	#)
+	target_link_libraries(${_trgt} INTERFACE
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
 
@@ -627,7 +627,6 @@ set(NABLA_HEADERS_TO_INSTALL
 )
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 nbl_install_config_header(BuildConfigOptions.h)
-
 
 macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)

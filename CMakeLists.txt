@@ -302,13 +302,23 @@ macro(nbl_adjust_flags)
 				$<$<CONFIG:DEBUG>:-glldb>
 			)
 			
-			list(APPEND CMAKE_ASM_FLAGS_DEBUG -g -glldb)
-			list(APPEND CMAKE_CXX_FLAGS_DEBUG -g -glldb)
-			list(APPEND CMAKE_C_FLAGS_DEBUG -g -glldb)
-			list(APPEND CMAKE_C_FLAGS_DEBUG -g -glldb)
-			list(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG -g -glldb)
-			list(APPEND CMAKE_MODULE_LINKER_FLAGS_DEBUG -g -glldb)
-			list(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG -g -glldb)
+			#list(APPEND CMAKE_ASM_FLAGS_DEBUG -g -glldb)
+			set(CMAKE_ASM_FLAGS_DEBUG ${CMAKE_ASM_FLAGS_DEBUG} CACHE STRING "" FORCE)
+			
+			#list(APPEND CMAKE_CXX_FLAGS_DEBUG -g -glldb)
+			set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG} CACHE STRING "" FORCE)
+			
+			#list(APPEND CMAKE_C_FLAGS_DEBUG -g -glldb)
+			set(CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} CACHE STRING "" FORCE)
+			
+			#list(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG -g -glldb)
+			set(CMAKE_EXE_LINKER_FLAGS_DEBUG ${CMAKE_EXE_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
+			
+			#list(APPEND CMAKE_MODULE_LINKER_FLAGS_DEBUG -g -glldb)
+			set(CMAKE_MODULE_LINKER_FLAGS_DEBUG ${CMAKE_MODULE_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
+			
+			#list(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG -g -glldb)
+			set(CMAKE_SHARED_LINKER_FLAGS_DEBUG ${CMAKE_SHARED_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
 		endif()
 		
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -455,10 +465,7 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
-
 add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
-
-
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
