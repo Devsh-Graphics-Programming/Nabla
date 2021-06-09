@@ -68,7 +68,7 @@ void main()
 			
 			// positions
 			const vec3 last_vx_pos = load_positions(indices,batchInstanceGUID);
-			const vec3 geomNormal = cross(dPdBary[1],dPdBary[0]);
+			const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 			const bool frontfacing = dot(geomNormal,normalizedV)>0.f;
 
 			// get material
