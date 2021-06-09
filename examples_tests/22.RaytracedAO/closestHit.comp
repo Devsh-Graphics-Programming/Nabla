@@ -8,6 +8,11 @@ layout(local_size_x = WORKGROUP_SIZE) in;
 #define MAX_RAYS_GENERATED 1
 #include "raytraceCommon.glsl"
 
+uint get_path_vertex_depth()
+{
+	return bitfieldExtract(pc.cummon.samplesComputed_depth,16,16);
+}
+
 bool record_raytrace_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
 {
 	const bool later_path_vertices = accumulationLocation.z==0u||get_path_vertex_depth()!=2u;
@@ -27,11 +32,6 @@ bool get_sample_job(in uint vertex_depth_mod_2)
 	return gl_GlobalInvocationID.x<traceIndirect[vertex_depth_mod_2].rayCount;
 }
 
-uint get_path_vertex_depth()
-{
-	return bitfieldExtract(pc.cummon.samplesComputed_depth,16,16);
-}
-
 void main()
 {
 	const uint vertex_depth = get_path_vertex_depth();
@@ -41,7 +41,7 @@ void main()
 		vec3 emissive = staticViewData.envmapBaseColor;	
 
 		// basic reads
-		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x].shapeid;
+		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x];
 		const nbl_glsl_ext_RadeonRays_ray ray = rays[vertex_depth_mod_2].data[gl_GlobalInvocationID.x];
 
 		const uint batchInstanceGUID = intersection.shapeid;
@@ -67,7 +67,7 @@ void main()
 			normalizedV = -ray.direction;
 			
 			// positions
-			load_positions(indices,batchInstanceGUID);
+			const vec3 last_vx_pos = load_positions(indices,batchInstanceGUID);
 			const vec3 geomNormal = cross(dPdBary[1],dPdBary[0]);
 			const bool frontfacing = dot(geomNormal,normalizedV)>0.f;
 
@@ -87,7 +87,7 @@ void main()
 					compactBary,indices,batchInstanceGUID,material,dBarydScreen,outPixelLocation,vertex_depth_mod_2
 				);
 
-				const vec3 hitWorldPos = dPdBary*compactBary.xy+positions[2];
+				const vec3 hitWorldPos = dPdBary*compactBary.xy+last_vx_pos;
 				
 				generate_next_rays(
 					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth_mod_2,

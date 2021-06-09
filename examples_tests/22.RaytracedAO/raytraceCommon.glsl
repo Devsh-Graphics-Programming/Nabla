@@ -34,7 +34,7 @@ layout(set = 2, binding = 1) readonly restrict buffer ExtraBatchData
 	uint firstIndex[];
 } extraBatchData;
 // rng
-layout(set = 2, binding = 1, rg32ui) uniform uimage2DArray scramblebuf;
+layout(set = 2, binding = 2, rg32ui) uniform uimage2DArray scramblebuf;
 layout(set = 2, binding = 3) uniform usamplerBuffer sampleSequence;
 // accumulation
 layout(set = 2, binding = 4, rg32ui) restrict uniform uimage2DArray accumulation;
@@ -108,7 +108,7 @@ uvec2 unpackOutPixelLocation(in float packed)
 	return uvec2(asUint&0xffffu,asUint>>16u);
 }
 
-#include "bin/material_declarations.glsl"
+#include "bin/runtime_defines.glsl"
 #include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl>
 vec3 normalizedV;
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
@@ -123,7 +123,7 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-void load_positions(in uvec3 indices, in uint batchInstanceGUID)
+vec3 load_positions(in uvec3 indices, in uint batchInstanceGUID)
 {
 	const mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceGUID),
@@ -131,6 +131,7 @@ void load_positions(in uvec3 indices, in uint batchInstanceGUID)
 		nbl_glsl_fetchVtxPos(indices[2],batchInstanceGUID)
 	);
 	dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
+	return positions[2];
 }
 #ifdef TEX_PREFETCH_STREAM
 mat2x3 nbl_glsl_perturbNormal_dPdSomething()
@@ -171,13 +172,12 @@ void gen_sample_ray(
 	direction = s.L;
 }
 
-void load_aux_vertex_attrs(
+nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	in vec2 compactBary, in uvec3 indices, in uint batchInstanceGUID, in nbl_glsl_MC_oriented_material_t material,
 	in mat2 dBarydScreen, in uvec2 outPixelLocation, in uint vertex_depth_mod_2
 )
 {
 	// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
-	const vec3 bary = nbl_glsl_barycentric_expand(compactBary);
 	#ifdef TEX_PREFETCH_STREAM
 	const mat3x2 uvs = mat3x2(
 		nbl_glsl_fetchVtxUV(indices[0],batchInstanceGUID),
@@ -188,19 +188,19 @@ void load_aux_vertex_attrs(
 	#endif
 	// only needed for continuing
 	const mat3 normals = mat3(
-		nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID),
-		nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID),
-		nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID)
+		nbl_glsl_fetchVtxNormal(indices[0],batchInstanceGUID),
+		nbl_glsl_fetchVtxNormal(indices[1],batchInstanceGUID),
+		nbl_glsl_fetchVtxNormal(indices[2],batchInstanceGUID)
 	);
 	
 	#ifdef TEX_PREFETCH_STREAM
 	dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
-	const vec3 UV = dUVdBary*bary.xy+uvs[2];
+	const vec2 UV = dUVdBary*compactBary+uvs[2];
 	const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
 	nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
 	#endif
 	// not needed for NEE unless doing Area or Projected Solid Angle Sampling
-	const vec3 normal = normals*bary;
+	const vec3 normal = normals*nbl_glsl_barycentric_expand(compactBary);
 	normalizedN.x = dot(InstData.data[batchInstanceGUID].normalMatrixRow0,normal);
 	normalizedN.y = dot(InstData.data[batchInstanceGUID].normalMatrixRow1,normal);
 	normalizedN.z = dot(InstData.data[batchInstanceGUID].normalMatrixRow2,normal);

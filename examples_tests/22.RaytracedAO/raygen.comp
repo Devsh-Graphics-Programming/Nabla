@@ -4,8 +4,6 @@
 #include "raytraceCommon.h"
 layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
-// TODO : Move the define
-#define MAX_RAYS_GENERATED 11
 #include "raytraceCommon.glsl"
 
 bool record_raster_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
@@ -56,7 +54,7 @@ void main()
 				const vec3 NDC = vec3(vec2(outPixelLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
 				
 				const vec4 tmp = nbl_glsl_pseudoMul4x4with3x1(pc.cummon.inverseMVP,NDC);
-				worldPosition = tmp.xyz/tmp.w;
+				hitWorldPos = tmp.xyz/tmp.w;
 
 				const vec3 V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
 				normalizedV = normalize(V);
@@ -87,11 +85,11 @@ void main()
 			);
 
 			// generate rays
-			const uint sampleID = bitfieldExtract(pc.cummon.samplesComputed_depth,0,16)+i;
+			const uint sampleID = bitfieldExtract(pc.cummon.samplesComputed_depth,0,16);
 			const vec3 geomNormal = cross(dPdBary[1],dPdBary[0]);
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth_mod_2,
-				scramble_start_state,sampleID,outPixelLocation,hitWorldPos,normal,vec3(1.0)
+				scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,vec3(1.0)
 			);
 		}
 
