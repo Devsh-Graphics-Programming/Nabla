@@ -635,7 +635,7 @@ macro(nbl_install_lib _TRGT)
 endmacro()
 # Install main lib
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
-set_target_properties(Nabla PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
+set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 nbl_install_lib(Nabla)
 
 #install dependencies

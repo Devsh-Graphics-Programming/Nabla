@@ -10,9 +10,9 @@ set(OpenGL_GL_PREFERENCE LEGACY)
 
 option(NBL_BUILD_ANDROID "Build for Android?" OFF)
 
-if(DEFINED CMAKE_TOOLCHAIN_FILE)
+if(DEFINED CMAKE_TOOLCHAIN_FILE) # TODO - validate paths due to CMake path-policy (errors when no path passed in)
 	cmake_path(GET CMAKE_TOOLCHAIN_FILE FILENAME _NBL_CMAKE_TOOLCHAIN_FILENAME_)
-	
+
 	if(${_NBL_CMAKE_TOOLCHAIN_FILENAME_} STREQUAL "android.toolchain.cmake")
 		message(STATUS "Found Android toolchain! Validating...")
 		

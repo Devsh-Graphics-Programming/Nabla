@@ -14,7 +14,9 @@
 #include "GL/glcorearb.h"
 #include "GL/glext.h"
 #undef GL_KHR_debug
+#ifdef NBL_ANDROID_TOOLCHAIN
 #include <GLES/gl.h>
+#endif // NBL_ANDROID_TOOLCHAIN
 #include "GLES3/gl3platform.h"
 #include "GLES3/gl32.h"
 #include "GLES3/gl2ext.h"
