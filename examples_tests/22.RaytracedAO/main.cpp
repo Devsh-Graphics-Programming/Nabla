@@ -213,11 +213,6 @@ int main()
 
 
 	auto driver = device->getVideoDriver();
-	// temporary workaround for Renderdoc v 1.14 bug
-	device->run();
-	driver->beginScene(false, false);
-	driver->endScene();
-	glFinish();
 
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);

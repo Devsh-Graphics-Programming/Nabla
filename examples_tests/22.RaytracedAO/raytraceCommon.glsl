@@ -146,22 +146,22 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
 
-vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint _sample)
+vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in int _sample, in int depth)
 {
-	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz; // TODO: add depth param!!!
+	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)+(depth-1)*MAX_ACCUMULATED_SAMPLES).xyz;
 	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
 void gen_sample_ray(
 	out float maxT, out vec3 direction, out vec3 throughput,
-	inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID,
+	inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID, in uint depth,
 	in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps
 )
 {
 	maxT = FLT_MAX;
 	
-	vec3 rand = rand3d(scramble_state,sampleID);
+	vec3 rand = rand3d(scramble_state,int(sampleID),int(depth));
 	
 	float pdf;
 	nbl_glsl_LightSample s;
@@ -213,7 +213,7 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 }
 
 void generate_next_rays(
-	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth_mod_2,
+	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
 	in vec3 origin, vec3 geomNormal, in vec3 prevThroughput)
 {
@@ -228,7 +228,8 @@ void generate_next_rays(
 	const nbl_glsl_MC_instr_stream_t nps = nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material);
 	nbl_glsl_MC_runNormalPrecompStream(nps,precomputed);
 #endif
-
+	
+	const uint vertex_depth_mod_2 = vertex_depth&0x1u;
 	const uint vertex_depth_mod_2_inv = vertex_depth_mod_2^0x1u;
 	// prepare rays
 	uint raysToAllocate = 0u;
@@ -237,9 +238,10 @@ void generate_next_rays(
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 		// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
-		gen_sample_ray(maxT[i],direction[i],nextThroughput[i],scramble_state,sampleID+i,precomputed,gcs,rnps);
-		if (i==0u)
-			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
+		gen_sample_ray(maxT[i],direction[i],nextThroughput[i],scramble_state,sampleID+i,vertex_depth,precomputed,gcs,rnps);
+// TODO: bad idea, invent something else
+//		if (i==0u)
+//			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] *= prevThroughput;
 		if (any(greaterThan(nextThroughput[i],vec3(FLT_MIN))))
 			raysToAllocate++;
@@ -256,8 +258,8 @@ void generate_next_rays(
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
 		// TODO: improve ray offsets
-		const float err = frontfacing ? (1.0/96):(-1.0/96);
-		newRay.origin = origin+geomNormal*err;
+		const float err = 1.f/96.f;
+		newRay.origin = origin+/*geomNormal/max(max(geomNormal.x,geomNormal.y),geomNormal.z)*sign(dot(geomNormal,direction[i]))*/direction[i]*err;
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);

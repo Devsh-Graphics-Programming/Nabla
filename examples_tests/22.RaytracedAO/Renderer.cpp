@@ -622,6 +622,8 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
+constexpr uint16_t m_maxDepth = 2u;
+constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
 {
 	using Enum = ext::MitsubaLoader::CElementIntegrator::Type;
@@ -673,7 +675,8 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 	core::smart_refctd_ptr<IGPUImageView> depthBuffer,visibilityBuffer;
 	// set up Descriptor Sets
 	{
-		// captures m_globalBackendDataDS, creates m_indirectDrawBuffers, sets up m_mdiDrawCalls ranges, creates m_additionalGlobalDS and m_cullDS, sets m_cullPushConstants and m_cullWorkgroups, creates m_perCameraRasterDS
+		// captures m_globalBackendDataDS, creates m_indirectDrawBuffers, sets up m_mdiDrawCalls ranges
+		// creates m_additionalGlobalDS and m_cullDS, sets m_cullPushConstants and m_cullWorkgroups, creates m_perCameraRasterDS
 		auto initData = initSceneObjects(meshes);
 		{
 			initSceneNonAreaLights(initData);
@@ -722,7 +725,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			// see how much we can bump the sample count per raster pass
 			{
 				uint32_t sampleMultiplier = 0u;
-				const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),1024u<<20);
+				const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),256u<<20);
 				while (raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize) // for AMD && m_maxRaysPerDispatch*WORKGROUP_SIZE<=64<<10))
 					setRayBufferSizes(++sampleMultiplier);
 				if (sampleMultiplier==1u)
@@ -774,6 +777,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			(std::ofstream("runtime_defines.glsl")
 				<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->m_global.getVTStorageViewCount() << "\n"
 				<< initData.globalMeta->m_global.m_materialCompilerGLSL_declarations
+				<< "#define MAX_PATH_DEPTH " << m_maxDepth << "\n"
 				<< "#ifndef MAX_RAYS_GENERATED\n"
 				<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
 				<< "#endif\n"
@@ -1135,8 +1139,6 @@ void Renderer::deinit()
 // one day it will just work like that
 //#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
 
-constexpr uint16_t m_maxDepth = 2u; // TODO: = 5u
-constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 void Renderer::render(nbl::ITimer* timer)
 {
 	if (m_cullPushConstants.maxGlobalInstanceCount==0u)
