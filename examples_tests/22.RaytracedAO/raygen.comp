@@ -6,18 +6,6 @@ layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
 #include "raytraceCommon.glsl"
 
-bool record_raster_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
-{	
-	emissive *= float(staticViewData.samplesPerPixelPerDispatch);
-	const bool retval = record_emission_common(acc,accumulationLocation,emissive,false);
-	/*
-	if (pc.cummon.rcpFramesDispatched!=1.f)
-		TODO: plop the accumulation into autoexposure histogram
-	*/
-	return retval;
-}
-
-
 layout(set = 3, binding = 0) uniform sampler2D depthbuf;
 layout(set = 3, binding = 1) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
 
@@ -95,8 +83,16 @@ void main()
 
 
 		vec3 acc;
-		const uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
-		if (record_raster_emission(acc,accumulationLocation,emissive))
+		uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
+		const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
+		if (record_emission_common(acc,accumulationLocation,emissive*float(staticViewData.samplesPerPixelPerDispatch),true) || !notFirstFrame)
 			storeAccumulation(acc,accumulationLocation);
+		
+		if (notFirstFrame) //TODO: plop the accumulation into autoexposure histogram
+		{
+		}
+		else // clear accumulation totally if beginning a new frame
+		while (++accumulationLocation.z!=staticViewData.samplesPerPixelPerDispatch)
+			storeAccumulation(vec3(0.0),accumulationLocation);
 	}
 }

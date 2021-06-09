@@ -13,13 +13,6 @@ uint get_path_vertex_depth()
 	return bitfieldExtract(pc.cummon.samplesComputed_depth,16,16);
 }
 
-bool record_raytrace_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
-{
-	const bool later_path_vertices = accumulationLocation.z==0u||get_path_vertex_depth()!=2u;
-	return record_emission_common(acc,accumulationLocation,emissive,later_path_vertices);
-}
-
-
 #include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
 layout(set = 3, binding = 0, std430) restrict buffer Queries
 {
@@ -91,7 +84,7 @@ void main()
 				
 				generate_next_rays(
 					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth_mod_2,
-					scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,throughput
+					scramble_start_state,sampleID,outPixelLocation,hitWorldPos,normalize(geomNormal),throughput
 				);
 			}
 		}
@@ -99,7 +92,9 @@ void main()
 		// TODO: finish MIS
 		vec3 acc;
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
-		if (record_raytrace_emission(acc,accumulationLocation,emissive*throughput))
+		const bool first_accumulating_path_vertex = accumulationLocation.z!=0u||get_path_vertex_depth()==2u;
+		const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
+		if (record_emission_common(acc,accumulationLocation,emissive*throughput,first_accumulating_path_vertex))
 			storeAccumulation(acc,accumulationLocation);
 	}
 }

@@ -79,21 +79,19 @@ void storeAccumulation(in vec3 color, in uvec3 coord)
 	imageStore(accumulation,ivec3(coord),uvec4(data,0u,0u));
 }
 
-bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive, in bool later_path_vertices)
-{	
+bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive, in bool first_accumulating_path_vertex)
+{
 	acc = vec3(0.0);
 	const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
-	const bool needToReadAccumulation = later_path_vertices||notFirstFrame;
-	if (needToReadAccumulation)
+	if (!first_accumulating_path_vertex || notFirstFrame)
 		acc = fetchAccumulation(accumulationLocation);
-
-	if (!later_path_vertices)
+	if (first_accumulating_path_vertex) // a bit useless to add && notFirstFrame) its a tautology with acc=vec3(0.0)
 		emissive -= acc;
 	emissive *= pc.cummon.rcpFramesDispatched;
 	
 	const bool anyChange = any(greaterThan(abs(emissive),vec3(FLT_MIN)));
 	acc += emissive;
-	return anyChange || !needToReadAccumulation;
+	return anyChange;
 }
 
 
@@ -258,7 +256,7 @@ void generate_next_rays(
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
 		// TODO: improve ray offsets
-		const float err = frontfacing ? (1.0/128.0):(-1.0/128.0);
+		const float err = frontfacing ? (1.0/96):(-1.0/96);
 		newRay.origin = origin+geomNormal*err;
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];

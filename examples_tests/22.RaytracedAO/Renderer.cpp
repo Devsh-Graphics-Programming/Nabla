@@ -723,7 +723,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			{
 				uint32_t sampleMultiplier = 0u;
 				const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),1024u<<20);
-				while (raygenBufferSize<=maxSSBOSize&&intersectionBufferSize<=maxSSBOSize)
+				while (raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize) // for AMD && m_maxRaysPerDispatch*WORKGROUP_SIZE<=64<<10))
 					setRayBufferSizes(++sampleMultiplier);
 				if (sampleMultiplier==1u)
 				{
@@ -1328,8 +1328,11 @@ void Renderer::traceBounce()
 			descriptorSets[3] = m_closestHitDS.get();
 			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
 			m_driver->bindComputePipeline(m_closestHitPipeline.get());
-			//m_driver->dispatch(44000,1u,1u);
-			m_driver->dispatchIndirect(m_rayCountBuffer[readIx].buffer.get(),sizeof(uint32_t));
+			// dont ask my why this fixes the dispatch indirect! (TODO: just download the raycount)
+			auto tmp = m_driver->createDeviceLocalGPUBufferOnDedMem(16u);
+			m_driver->copyBuffer(m_rayCountBuffer[readIx].buffer.get(),tmp.get(),0u,0u,16u);
+			m_driver->dispatchIndirect(tmp.get(),sizeof(uint32_t));
+			//m_driver->dispatchIndirect(m_rayCountBuffer[readIx].buffer.get(),sizeof(uint32_t));
 		}
 		else
 		{
