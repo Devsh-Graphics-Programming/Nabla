@@ -747,8 +747,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			{
 				m_rayCountBuffer[i].buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(RayCountData),&data);
 				m_rayCountBuffer[i].asRRBuffer = m_rrManager->linkBuffer(m_rayCountBuffer[i].buffer.get(),CL_MEM_READ_ONLY);
-
-				ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(),1u,&m_rayCountBuffer[i].asRRBuffer.second,0u,nullptr,nullptr);
 			}
 		}
 
@@ -1330,8 +1328,8 @@ void Renderer::traceBounce()
 			descriptorSets[3] = m_closestHitDS.get();
 			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
 			m_driver->bindComputePipeline(m_closestHitPipeline.get());
-			m_driver->dispatch(44000,1u,1u);
-			//m_driver->dispatchIndirect(m_rayCountBuffer[readIx].buffer.get(),sizeof(uint32_t));
+			//m_driver->dispatch(44000,1u,1u);
+			m_driver->dispatchIndirect(m_rayCountBuffer[readIx].buffer.get(),sizeof(uint32_t));
 		}
 		else
 		{
@@ -1354,7 +1352,7 @@ void Renderer::traceBounce()
 			glFinish(); // sync CPU to GL
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();
-		const cl_mem clObjects[] = {m_rayBuffer[writeIx].asRRBuffer.second,m_intersectionBuffer[writeIx].asRRBuffer.second};
+		const cl_mem clObjects[] = {m_rayBuffer[writeIx].asRRBuffer.second,m_rayCountBuffer[writeIx].asRRBuffer.second,m_intersectionBuffer[writeIx].asRRBuffer.second};
 		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 		cl_event acquired=nullptr, raycastDone=nullptr;
 		// run the raytrace queries
@@ -1363,7 +1361,8 @@ void Renderer::traceBounce()
 
 			clEnqueueWaitForEvents(commandQueue,1u,&acquired);
 			m_rrManager->getRadeonRaysAPI()->QueryIntersection(
-				m_rayBuffer[writeIx].asRRBuffer.first,m_maxRaysPerDispatch,
+				m_rayBuffer[writeIx].asRRBuffer.first,
+				m_rayCountBuffer[writeIx].asRRBuffer.first,m_maxRaysPerDispatch,
 				m_intersectionBuffer[writeIx].asRRBuffer.first,nullptr,nullptr
 			);
 			clEnqueueMarker(commandQueue,&raycastDone);
