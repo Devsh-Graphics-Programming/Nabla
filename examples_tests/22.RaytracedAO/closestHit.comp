@@ -36,7 +36,7 @@ void main()
 {
 	const uint vertex_depth = get_path_vertex_depth();
 	const uint vertex_depth_mod_2 = vertex_depth&0x1u;
-	if (get_sample_job(vertex_depth))
+	if (get_sample_job(vertex_depth_mod_2))
 	{
 		vec3 emissive = staticViewData.envmapBaseColor;	
 

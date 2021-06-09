@@ -9,7 +9,7 @@ layout(push_constant, row_major) uniform PushConstants
 	RaytraceShaderCommonData_t cummon;
 } pc;
 
-
+#ifndef DISABLE_NEE
 // lights
 layout(set = 1, binding = 4, std430) restrict readonly buffer CumulativeLightPDF
 {
@@ -23,7 +23,7 @@ layout(set = 1, binding = 6, std430, row_major) restrict readonly buffer LightRa
 {
 	uvec2 lightRadiance[]; // Watts / steriadian / steradian in rgb19e7
 };
-
+#endif
 
 layout(set = 2, binding = 0, row_major) uniform StaticViewData
 {
