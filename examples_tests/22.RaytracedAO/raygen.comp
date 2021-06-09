@@ -86,7 +86,7 @@ void main()
 
 			// generate rays
 			const uint sampleID = bitfieldExtract(pc.cummon.samplesComputed_depth,0,16);
-			const vec3 geomNormal = cross(dPdBary[1],dPdBary[0]);
+			const vec3 geomNormal = -normalize(cross(dPdBary[1],dPdBary[0]));
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth_mod_2,
 				scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,vec3(1.0)

@@ -48,7 +48,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		}
 
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t RandomDimsPerPathVertex = 3u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*4u;
 		static const float AntiAliasingSequence[4096][2];
     protected:
         ~Renderer();
@@ -111,7 +112,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		// persistent (intialized in constructor
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_cullDSLayout;
 		nbl::core::smart_refctd_ptr<const nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_rasterInstanceDataDSLayout,m_additionalGlobalDSLayout,m_commonRaytracingDSLayout,m_raygenDSLayout,m_resolveDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_rasterInstanceDataDSLayout,m_additionalGlobalDSLayout,m_commonRaytracingDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_raygenDSLayout,m_closestHitDSLayout,m_resolveDSLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> m_visibilityBufferFillPipeline;
 
 
@@ -139,9 +141,9 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_perCameraRasterDS;
 		
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout, m_raygenPipelineLayout, m_resolvePipelineLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline, m_raygenPipeline, m_resolvePipeline;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_rasterInstanceDataDS,m_additionalGlobalDS,m_commonRaytracingDS,m_raygenDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline,m_raygenPipeline,m_closestHitPipeline,m_resolvePipeline;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_additionalGlobalDS,m_commonRaytracingDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_rasterInstanceDataDS,m_raygenDS,m_closestHitDS,m_resolveDS;
 		uint32_t m_raygenWorkGroups[2];
 
 		struct InteropBuffer
@@ -150,9 +152,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			std::pair<::RadeonRays::Buffer*, cl_mem> asRRBuffer = { nullptr,0u };
 		};
 		InteropBuffer m_rayCountBuffer[2];
-		InteropBuffer m_rayBuffer,m_intersectionBuffer;
-
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_resolveDS;
+		InteropBuffer m_rayBuffer[2];
+		InteropBuffer m_intersectionBuffer[2];
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_accumulation,m_tonemapOutput;
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;

@@ -111,7 +111,6 @@ int main()
 			return 3;
 	}
 
-
 	auto smgr = device->getSceneManager();
 
 	// TODO: Move into renderer?
@@ -214,6 +213,11 @@ int main()
 
 
 	auto driver = device->getVideoDriver();
+	// temporary workaround for Renderdoc v 1.14 bug
+	device->run();
+	driver->beginScene(false, false);
+	driver->endScene();
+	glFinish();
 
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
@@ -235,11 +239,12 @@ int main()
 
 		if (generateNewSamples)
 		{
-			/** TODO: redo the sampling
-			Locality Level 0: the 6 or 4 dimensions consumed for BSDF + NEE sampling
-			Locality Level 1: the N samples per dispatch which will be consumed in parallel
-			Locality Level 2: the k dimensions batches (where D=4k or 6k) consumed as we recurse deeper
-			Locality Level 3: the z sample batches (where T=zN) consumed as we progressively add samples
+			/** TODO: move into the renderer and redo the sampling
+			Locality Level 0: the 3 dimensions consumed for a BxDF or NEE sample
+			Locality Level 1: the k = 3 (1 + NEE) samples which will be consumed in the same invocation
+			Locality Level 2-COMP: the N = k dispatchSPP Resolution samples consumed by a raygen dispatch (another TODO: would be order CS and everything in a morton curve)
+			Locality Level 2-RTX: the N = k Depth samples consumed as we recurse deeper
+			Locality Level 3: the D = k dispatchSPP Resolution Depth samples consumed as we accumuate more samples
 			**/
 			constexpr uint32_t Channels = 3u;
 			static_assert(Renderer::MaxDimensions%Channels==0u,"We cannot have this!");
