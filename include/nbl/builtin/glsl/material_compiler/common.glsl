@@ -4,7 +4,10 @@
 #include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 
 #ifndef _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
-	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()', 'mat2x3 nbl_glsl_perturbNormal_dPdSomething()', and 'mat2 nbl_glsl_perturbNormal_dUVdSomething()' functions above"
+	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()' functions above"
+	#ifdef TEX_PREFETCH_STREAM
+		#error "as well as 'mat2x3 nbl_glsl_perturbNormal_dPdSomething()', and 'mat2 nbl_glsl_perturbNormal_dUVdSomething()'"
+	#endif
 #endif
 #define _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_
 
@@ -197,7 +200,9 @@ bool nbl_glsl_MC_op_isDiffuse(in uint op)
 #include <nbl/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
 #include <nbl/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
 #include <nbl/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
+#ifdef TEX_PREFETCH_STREAM
 #include <nbl/builtin/glsl/bump_mapping/utils.glsl>
+#endif
 
 //nbl_glsl_BSDFAnisotropicParams currBSDFParams;
 nbl_glsl_MC_interaction_t currInteraction;
@@ -481,6 +486,7 @@ vec3 nbl_glsl_MC_fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 #endif
 }
 
+#ifdef TEX_PREFETCH_STREAM
 void nbl_glsl_MC_runTexPrefetchStream(in nbl_glsl_MC_instr_stream_t stream, in vec2 uv, in mat2 dUV)
 {
 	for (uint i = 0u; i < stream.count; ++i)
@@ -504,6 +510,7 @@ void nbl_glsl_MC_runTexPrefetchStream(in nbl_glsl_MC_instr_stream_t stream, in v
 	}
 }
 
+#ifdef NORM_PRECOMP_STREAM
 void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in nbl_glsl_MC_precomputed_t precomp)
 {
 	nbl_glsl_MC_setCurrInteraction(precomp);
@@ -521,6 +528,8 @@ void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in
 		nbl_glsl_MC_writeReg(dstreg,nbl_glsl_perturbNormal_derivativeMap(currInteraction.inner.isotropic.N, dh));
 	}
 }
+#endif
+#endif
 
 #ifdef GEN_CHOICE_STREAM
 void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_LightSample s, in nbl_glsl_MC_microfacet_t _microfacet, in bool skip)

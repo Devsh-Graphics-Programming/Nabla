@@ -101,11 +101,13 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
+#ifdef TEX_PREFETCH_STREAM
 mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(dFdx(WorldPos),dFdy(WorldPos));}
 mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
     return mat2(dFdx(UV),dFdy(UV));
 }
+#endif
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
