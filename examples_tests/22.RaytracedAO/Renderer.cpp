@@ -88,9 +88,9 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	{
 #ifndef DISABLE_NEE
-		constexpr auto additionalGlobalDescriptorCount = 6u;
+		constexpr auto additionalGlobalDescriptorCount = 5u;
 #else
-		constexpr auto additionalGlobalDescriptorCount = 4u;
+		constexpr auto additionalGlobalDescriptorCount = 3u;
 #endif
 		IGPUDescriptorSetLayout::SBinding bindings[additionalGlobalDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_FRAGMENT,additionalGlobalDescriptorCount,asset::EDT_STORAGE_BUFFER);
@@ -209,7 +209,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		info.buffer.offset = 0u;
 		info.desc = std::move(buf);
 	};
-	constexpr uint32_t writeBound = 4u;
+	constexpr uint32_t writeBound = 3u;
 	IGPUDescriptorSet::SWriteDescriptorSet writes[writeBound];
 	auto recordSSBOWrite = [](IGPUDescriptorSet::SWriteDescriptorSet& write, IGPUDescriptorSet::SDescriptorInfo* infos, uint32_t binding, uint32_t count=1u) -> void
 	{
@@ -250,7 +250,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 				constexpr uint8_t kIndicesPerTriangle = 3u;
 				constexpr uint16_t minIndicesBatch = minTrisBatch*kIndicesPerTriangle;
-				
+				 
 				CPUMeshPacker::AllocationParams allocParams;
 				allocParams.vertexBuffSupportedByteSize = 1u<<31u;
 				allocParams.vertexBufferMinAllocByteSize = minTrisBatch*minVertexSize;
@@ -258,7 +258,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				allocParams.indexBufferMinAllocCnt = minIndicesBatch;
 				allocParams.MDIDataBuffSupportedCnt = allocParams.indexBuffSupportedCnt/minIndicesBatch;
 				allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
-    
+
+				constexpr auto combinedNormalUVAttributeIx = 1;
+
 				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
 				uint32_t mdiBoundMax=0u,batchInstanceBoundTotal=0u;
 				core::vector<CPUMeshPacker::ReservedAllocationMeshBuffers> allocData;
@@ -274,7 +276,39 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						assert(!meshBuffers.empty());
 						const uint32_t instanceCount = (*meshBuffers.begin())->getInstanceCount();
 						for (auto mbIt=meshBuffers.begin(); mbIt!=meshBuffers.end(); mbIt++)
-							assert((*mbIt)->getInstanceCount()==instanceCount);
+						{
+							auto meshBuffer = *mbIt;
+							assert(meshBuffer->getInstanceCount()==instanceCount);
+							// We'll disable certain attributes to ensure we only copy position, normal and uv attribute
+							SVertexInputParams& vertexInput = meshBuffer->getPipeline()->getVertexInputParams();
+							// but we'll pack normals and UVs together to save one SSBO binding (and quantize UVs to half floats)
+							constexpr auto freeBinding = 15u;
+							vertexInput.attributes[combinedNormalUVAttributeIx].binding = freeBinding;
+							vertexInput.attributes[combinedNormalUVAttributeIx].format = EF_R32G32_UINT;
+							vertexInput.attributes[combinedNormalUVAttributeIx].relativeOffset = 0u;
+							vertexInput.enabledBindingFlags |= 0x1u<<freeBinding;
+							vertexInput.bindings[freeBinding].inputRate = EVIR_PER_VERTEX;
+							vertexInput.bindings[freeBinding].stride = 0u;
+							auto newBuff = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uvec2)*IMeshManipulator::upperBoundVertexID(meshBuffer));
+							auto* dst = reinterpret_cast<uvec2*>(newBuff->getPointer());
+							meshBuffer->setVertexBufferBinding({0u,newBuff},freeBinding);
+							// copy and pack data
+							const uint8_t* nmlSrc = meshBuffer->getAttribPointer(meshBuffer->getNormalAttributeIx());
+							const auto stride = meshBuffer->getAttribStride(combinedNormalUVAttributeIx);
+							for (auto i=0u; i<meshBuffer->getIndexCount(); i++)
+							{
+								const auto ix = meshBuffer->getIndexValue(i);
+								if (nmlSrc)
+									dst[ix].x = *reinterpret_cast<const uint32_t*>(nmlSrc+ix*stride);
+								else
+									dst[ix].x = 0xdeadbeefu; // should warn about getting a mesh with no normals
+								core::vectorSIMDf uv;
+								meshBuffer->getAttribute(uv,2u,ix);
+								reinterpret_cast<uint16_t*>(&dst[ix].y)[0] = core::Float16Compressor::compress(uv.x);
+								reinterpret_cast<uint16_t*>(&dst[ix].y)[1] = core::Float16Compressor::compress(uv.y);
+							}
+							vertexInput.enabledAttribFlags = (0x1u<<combinedNormalUVAttributeIx)|0b1;
+						}
 
 						const uint32_t mdiBound = cpump->calcMDIStructMaxCount(meshBuffers.begin(),meshBuffers.end());
 						mdiBoundMax = core::max(mdiBound,mdiBoundMax);
@@ -356,22 +390,20 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 									indexCount/kIndicesPerTriangle
 								);
 
-								const auto normalAttrID = mb->getNormalAttributeIx();
 								const auto thisShapeInstancesBeginIx = rrInstances.size();
 								const auto& batchAABB = mb->getBoundingBox();// TODO: replace with batch AABB
 								for (auto auxIt=instanceAuxData.begin(); auxIt!=instanceAuxData.end(); auxIt++)
 								{
-									constexpr auto UVAttributeIx = 2;
 									const auto batchInstanceGUID = cullData.size();
 
 									const auto instanceID = std::distance(instanceAuxData.begin(),auxIt);
 									*newInstanceData = mbInstanceData[instanceID];
 									assert(instanceData.begin()[instanceID].worldTform==newInstanceData->tform);
-									newInstanceData->padding0 = reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[posAttrID]);
-									newInstanceData->padding1 = reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[normalAttrID]);
+									newInstanceData->padding0 = firstIndex;
+									newInstanceData->padding1 = reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[posAttrID]);
 									newInstanceData->determinantSignBit = core::bitfieldInsert(
 										newInstanceData->determinantSignBit,
-										reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[UVAttributeIx]),
+										reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[combinedNormalUVAttributeIx]),
 										0u,31u
 									);
 									if (frontFaceIsCCW) // compensate for Nabla's default camera being left handed
@@ -446,7 +478,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 							recordInfoBuffer(infos[i],core::smart_refctd_ptr(dataStore.vertexBuffer));
 							recordSSBOWrite(writes[i],infos+i,i);
 						}
-						recordInfoBuffer(infos[2],core::smart_refctd_ptr(m_indexBuffer));
+						recordInfoBuffer(infos[1],core::smart_refctd_ptr(m_indexBuffer));
 
 						setDstSetOnAllWrites(m_additionalGlobalDS.get());
 						m_driver->updateDescriptorSets(writeBound,writes,0u,nullptr);
@@ -866,7 +898,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				createFilledBufferAndSetUpInfoFromVector(infos+0,initData.lightCDF);
 				createFilledBufferAndSetUpInfoFromVector(infos+1,initData.lights);
 
-				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},4u);
+				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},3u);
 			}
 			m_driver->updateDescriptorSets(descriptorUpdateCounts[0],writes,0u,nullptr);
 #endif

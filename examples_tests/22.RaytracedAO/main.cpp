@@ -234,7 +234,7 @@ int main()
 
 		if (generateNewSamples)
 		{
-			/** TODO: move into the renderer and redo the sampling
+			/** TODO: move into the renderer and redo the sampling (compress into R21G21B21_UINT)
 			Locality Level 0: the 3 dimensions consumed for a BxDF or NEE sample
 			Locality Level 1: the k = 3 (1 + NEE) samples which will be consumed in the same invocation
 			Locality Level 2-COMP: the N = k dispatchSPP Resolution samples consumed by a raygen dispatch (another TODO: would be order CS and everything in a morton curve)
