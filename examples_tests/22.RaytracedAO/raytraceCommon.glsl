@@ -19,10 +19,6 @@ layout(set = 1, binding = 5, std430, row_major) restrict readonly buffer Lights
 {
 	SLight light[];
 };
-layout(set = 1, binding = 6, std430, row_major) restrict readonly buffer LightRadiances
-{
-	uvec2 lightRadiance[]; // Watts / steriadian / steradian in rgb19e7
-};
 #endif
 
 layout(set = 2, binding = 0, row_major) uniform StaticViewData

@@ -89,7 +89,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	{
 #ifndef DISABLE_NEE
-		constexpr auto additionalGlobalDescriptorCount = 7u;
+		constexpr auto additionalGlobalDescriptorCount = 6u;
 #else
 		constexpr auto additionalGlobalDescriptorCount = 4u;
 #endif
@@ -410,7 +410,6 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 												continue;
 
 											retval.lights.emplace_back(std::move(newLight));
-											retval.lightRadiances.push_back(emitter.area.radiance);
 											retval.lightPDF.push_back(weight);
 										}
 									}
@@ -564,34 +563,24 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 	auto inPDF = initData.lightPDF.begin();
 	double partialSum = *inPDF;
 
-	auto radianceIn = initData.lightRadiances.begin();
-	core::vector<uint64_t> compressedRadiance(m_staticViewData.lightCount,0ull);
-	auto radianceOut = compressedRadiance.begin();
-	auto divideRadianceByPDF = [UINT_MAX_DOUBLE,weightSumRcp,&partialSum,&outCDF,&radianceIn,&radianceOut](uint32_t prevCDF) -> void
+	auto computeCDF = [UINT_MAX_DOUBLE,weightSumRcp,&partialSum,&outCDF](uint32_t prevCDF) -> void
 	{
-		double inv_prob = NAN;
 		const double exactCDF = weightSumRcp*partialSum+double(FLT_MIN);
 		if (exactCDF<UINT_MAX_DOUBLE)
-		{
-			uint32_t thisCDF = *outCDF = static_cast<uint32_t>(exactCDF);
-			inv_prob = UINT_MAX_DOUBLE/double(thisCDF-prevCDF);
-		}
+			*outCDF = static_cast<uint32_t>(exactCDF);
 		else
 		{
 			assert(exactCDF<UINT_MAX_DOUBLE+1.0);
 			*outCDF = 0xdeadbeefu;
-			inv_prob = 1.0/(1.0-double(prevCDF)/UINT_MAX_DOUBLE);
 		}
-		auto tmp = (radianceIn++)->operator*(inv_prob);
-		*(radianceOut++) = core::rgb32f_to_rgb19e7(tmp.pointer);
 	};
 
-	divideRadianceByPDF(0u);
+	computeCDF(0u);
 	for (auto prevCDF=outCDF++; outCDF!=initData.lightCDF.end(); prevCDF=outCDF++)
 	{
 		partialSum += double(*(++inPDF));
 
-		divideRadianceByPDF(*prevCDF);
+		computeCDF(*prevCDF);
 	}
 }
 
@@ -819,7 +808,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 
 			//
 			constexpr uint32_t descriptorUpdates = 5;
-			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {3u,9u,2u,2u,3u};
+			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,9u,2u,2u,3u};
 			constexpr uint32_t descriptorUpdateMaxCount = *std::max_element(descriptorUpdateCounts,descriptorUpdateCounts+descriptorUpdates);
 
 			//
@@ -879,9 +868,8 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			{
 				createFilledBufferAndSetUpInfoFromVector(infos+0,initData.lightCDF);
 				createFilledBufferAndSetUpInfoFromVector(infos+1,initData.lights);
-				createFilledBufferAndSetUpInfoFromVector(infos+2,initData.lightRadiances);
 
-				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},4u);
+				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},4u);
 			}
 			m_driver->updateDescriptorSets(descriptorUpdateCounts[0],writes,0u,nullptr);
 #endif
