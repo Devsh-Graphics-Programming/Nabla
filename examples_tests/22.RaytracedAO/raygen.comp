@@ -36,7 +36,7 @@ void main()
 			// vis buffer read
 			const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 			
-			// unproject
+			// unproject (TODO: redo)
 			vec3 hitWorldPos;
 			{
 				const vec3 NDC = vec3(vec2(outPixelLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
@@ -57,7 +57,11 @@ void main()
 			#ifdef TEX_PREFETCH_STREAM
 			const mat2 dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
 			#endif
-
+			
+			// TODO: redo
+			const mat4x3 batchWorldTform = InstData.data[batchInstanceGUID].tform;
+			hitWorldPos = inverse(mat3(batchWorldTform))*(hitWorldPos-batchWorldTform[3]);
+			normalizedV = inverse(mat3(batchWorldTform))*normalizedV;
 
 			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
 			
@@ -68,8 +72,10 @@ void main()
 			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
 			load_positions(indices,batchInstanceGUID);
-			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
-				compactBary,indices,batchInstanceGUID,material,dBarydScreen,outPixelLocation,vertex_depth_mod_2
+			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceGUID,material,outPixelLocation,vertex_depth_mod_2
+#ifdef TEX_PREFETCH_STREAM
+				,dBarydScreen
+#endif
 			);
 
 			// generate rays
@@ -77,7 +83,7 @@ void main()
 			const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 			const uint vertex_depth = 1u;
 			generate_next_rays(
-				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
+				staticViewData.samplesPerPixelPerDispatch,batchWorldTform,material,frontfacing,vertex_depth,
 				scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,vec3(1.0)
 			);
 		}

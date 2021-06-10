@@ -171,8 +171,12 @@ void gen_sample_ray(
 }
 
 nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
-	in vec2 compactBary, in uvec3 indices, in uint batchInstanceGUID, in nbl_glsl_MC_oriented_material_t material,
-	in mat2 dBarydScreen, in uvec2 outPixelLocation, in uint vertex_depth_mod_2
+	in vec2 compactBary, in uvec3 indices, in uint batchInstanceGUID,
+	in nbl_glsl_MC_oriented_material_t material,
+	in uvec2 outPixelLocation, in uint vertex_depth_mod_2
+#ifdef TEX_PREFETCH_STREAM
+	,in mat2 dBarydScreen
+#endif
 )
 {
 	// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
@@ -199,22 +203,19 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	#endif
 	// not needed for NEE unless doing Area or Projected Solid Angle Sampling
 	const vec3 normal = normals*nbl_glsl_barycentric_expand(compactBary);
-	normalizedN.x = dot(InstData.data[batchInstanceGUID].normalMatrixRow0,normal);
-	normalizedN.y = dot(InstData.data[batchInstanceGUID].normalMatrixRow1,normal);
-	normalizedN.z = dot(InstData.data[batchInstanceGUID].normalMatrixRow2,normal);
 
 	// init scramble while waiting for getting the instance's normal matrix
 	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2)).rg;
 
 	// while waiting for the scramble state
-	normalizedN = normalize(normalizedN);
+	normalizedN = normalize(normal);
 
 	return scramble_start_state;
 }
 
 void generate_next_rays(
-	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
-	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
+	in uint maxRaysToGen, in mat4x3 batchWorldTform, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing,
+	in uint vertex_depth, in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
 	in vec3 origin, vec3 geomNormal, in vec3 prevThroughput)
 {
 	// get material streams as well
@@ -252,6 +253,8 @@ void generate_next_rays(
 	const uint baseOutputID = atomicAdd(traceIndirect[vertex_depth_mod_2_inv].rayCount,raysToAllocate);
 	// set up dispatch indirect
 	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
+
+	const mat3 batchWorldScaleRot = mat3(batchWorldTform);
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
@@ -261,7 +264,7 @@ void generate_next_rays(
 		const float err = 1.f/96.f;
 		newRay.origin = origin+/*geomNormal/max(max(geomNormal.x,geomNormal.y),geomNormal.z)*sign(dot(geomNormal,direction[i]))*/direction[i]*err;
 		newRay.maxT = maxT[i];
-		newRay.direction = direction[i];
+		newRay.direction = batchWorldScaleRot*direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);
 		newRay.mask = -1;
 		newRay._active = 1;

@@ -53,11 +53,12 @@ void main()
 		{
 			const uint triangleID = intersection.primid;
 			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
-
+			
+			const mat4x3 batchWorldTform = InstData.data[batchInstanceGUID].tform;
 			// clear the hit success flag
 			intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x].shapeid = -1;
 			// obtain ray incoming direction
-			normalizedV = -ray.direction;
+			normalizedV = -inverse(mat3(batchWorldTform))*ray.direction;
 			
 			// positions
 			const vec3 last_vx_pos = load_positions(indices,batchInstanceGUID);
@@ -74,15 +75,16 @@ void main()
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
 				const vec2 compactBary = intersection.uvwt.xy;
 				
-				const mat2 dBarydScreen = mat2(0.0); // TODO: Covariance Rendering
-				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
-					compactBary,indices,batchInstanceGUID,material,dBarydScreen,outPixelLocation,vertex_depth
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceGUID,material,outPixelLocation,vertex_depth
+#ifdef TEX_PREFETCH_STREAM
+					,mat2(0.0) // TODO: Covariance Rendering
+#endif
 				);
 
 				const vec3 hitWorldPos = dPdBary*compactBary.xy+last_vx_pos;
 				
 				generate_next_rays(
-					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,
+					MAX_RAYS_GENERATED,batchWorldTform,material,frontfacing,vertex_depth,
 					scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,throughput
 				);
 			}

@@ -622,7 +622,7 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-constexpr uint16_t m_maxDepth = 2u;
+constexpr uint16_t m_maxDepth = 5u;
 constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
 {
@@ -1075,9 +1075,7 @@ void Renderer::deinit()
 	}
 	m_accumulation = m_tonemapOutput = nullptr;
 	
-	// release the last OpenCL object and wait for OpenCL to finish
-	for (auto i=0; i<2u; i++)
-		ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue,1u,&m_rayCountBuffer[i].asRRBuffer.second,1u,nullptr,nullptr);
+	// wait for OpenCL to finish
 	ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
 	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
 	for (auto i=0; i<2u; i++)
@@ -1330,11 +1328,7 @@ void Renderer::traceBounce()
 			descriptorSets[3] = m_closestHitDS.get();
 			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
 			m_driver->bindComputePipeline(m_closestHitPipeline.get());
-			// dont ask my why this fixes the dispatch indirect! (TODO: just download the raycount)
-			auto tmp = m_driver->createDeviceLocalGPUBufferOnDedMem(16u);
-			m_driver->copyBuffer(m_rayCountBuffer[readIx].buffer.get(),tmp.get(),0u,0u,16u);
-			m_driver->dispatchIndirect(tmp.get(),sizeof(uint32_t));
-			//m_driver->dispatchIndirect(m_rayCountBuffer[readIx].buffer.get(),sizeof(uint32_t));
+			m_driver->dispatchIndirect(m_rayCountBuffer[readIx].buffer.get(),sizeof(uint32_t));
 		}
 		else
 		{
