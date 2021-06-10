@@ -264,13 +264,13 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: improve ray offset (maybe using smooth normal wouldn't be a sin)
 	vec3 geomNormal = cross(dPdBary[0], dPdBary[1]);
 	const vec3 absGeomNormal = abs(geomNormal);
-	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),absGeomNormal.z)*96.f;
+	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),max(absGeomNormal.z,0.001f))*96.f;
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
-		newRay.origin = origin+uintBitsToFloat(floatBitsToUint(geomNormal)^floatBitsToUint(dot(geomNormal,direction[i]))&0x80000000u);
+		newRay.origin = origin+uintBitsToFloat(floatBitsToUint(geomNormal) ^ floatBitsToUint(dot(geomNormal, direction[i])) & 0x80000000u);
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);
