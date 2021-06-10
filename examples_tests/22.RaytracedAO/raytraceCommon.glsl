@@ -217,7 +217,7 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, vec3 geomNormal, in vec3 prevThroughput)
+	in vec3 origin, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -262,6 +262,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
 
 	// TODO: improve ray offset (maybe using smooth normal wouldn't be a sin)
+	vec3 geomNormal = cross(dPdBary[0], dPdBary[1]);
 	const vec3 absGeomNormal = abs(geomNormal);
 	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),absGeomNormal.z)*96.f;
 	uint offset = 0u;
