@@ -6,8 +6,7 @@ layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
 #include "raytraceCommon.glsl"
 
-layout(set = 3, binding = 0) uniform sampler2D depthbuf;
-layout(set = 3, binding = 1) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 0) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
 
 bool get_sample_job()
 {
@@ -22,28 +21,18 @@ vec3 unpack_barycentrics(in uint data)
 
 void main()
 {
+	bool hit = false;
 	if (get_sample_job())
 	{
 		vec3 emissive = staticViewData.envmapBaseColor;
-
-		// basic reads
-		const float revdepth = texelFetch(depthbuf,ivec2(gl_GlobalInvocationID.xy),0).r;
+		
+		// vis buffer read
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
+		const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 
-		const bool hit = revdepth>0.0;
+		hit = visBuffer[0]!=0xffffffffu;
 		if (hit)
 		{
-			// vis buffer read
-			const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
-			
-			// unproject (TODO: redo)
-			{
-				const vec3 NDC = vec3(vec2(outPixelLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
-
-				const vec3 V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
-				normalizedV = normalize(V);
-			}
-
 			// vis buffer decode
 			const bool frontfacing = !bool(visBuffer[0]&0x80000000u);
 			const int triangleIDBitcount = findMSB(MAX_TRIANGLES_IN_BATCH-1)+1;
@@ -72,6 +61,7 @@ void main()
 			);
 			
 			const vec3 hitWorldPos = dPdBary*compactBary.xy+last_vx_pos;
+			normalizedV = normalize(pc.cummon.camPos-hitWorldPos);
 
 			// generate rays
 			const uint sampleID = bitfieldExtract(pc.cummon.samplesComputed_depth,0,16);

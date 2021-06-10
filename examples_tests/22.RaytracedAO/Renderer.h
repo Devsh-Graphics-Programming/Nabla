@@ -123,6 +123,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_maxRaysPerDispatch;
 		uint32_t m_framesDispatched;
+		vec2 m_rcpPixelSize;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
 

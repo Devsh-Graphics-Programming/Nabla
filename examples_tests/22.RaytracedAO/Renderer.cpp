@@ -51,9 +51,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
 		m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
-		m_maxRaysPerDispatch(0), m_framesDispatched(0u),
-		m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},
-		m_raytraceCommonData{core::matrix3x4SIMD(),vec3(),0,0,0},
+		m_maxRaysPerDispatch(0), m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
+		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{vec3(),0.f,0u,0u,0u,0u,0u},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
@@ -151,11 +150,10 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	auto sampler = m_driver->createGPUSampler(samplerParams);
 	{
 
-		constexpr auto raygenDescriptorCount = 2u;
+		constexpr auto raygenDescriptorCount = 1u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount,EDT_COMBINED_IMAGE_SAMPLER);
 		bindings[0].samplers = &sampler;
-		bindings[1].samplers = &sampler;
 
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
 	}
@@ -661,7 +659,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 {
 	deinit();
 
-	core::smart_refctd_ptr<IGPUImageView> depthBuffer,visibilityBuffer;
+	core::smart_refctd_ptr<IGPUImageView> visibilityBuffer;
 	// set up Descriptor Sets
 	{
 		// captures m_globalBackendDataDS, creates m_indirectDrawBuffers, sets up m_mdiDrawCalls ranges
@@ -685,8 +683,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				assert(film.cropOffsetY == 0);
 				m_staticViewData.imageDimensions = {static_cast<uint32_t>(film.cropWidth),static_cast<uint32_t>(film.cropHeight)};
 			}
-			m_staticViewData.rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
-			m_staticViewData.rcpHalfPixelSize = { 1.f/float(m_staticViewData.imageDimensions.x)-1.f,1.f-1.f/float(m_staticViewData.imageDimensions.y) };
+			m_rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
 		}
 
 		// figure out dispatch sizes
@@ -933,12 +930,10 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			m_driver->updateDescriptorSets(7u,writes,0u,nullptr);
 			// set up m_raygenDS
 			{
-				depthBuffer = createScreenSizedTexture(EF_D32_SFLOAT);
-				setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(depthBuffer));
 				visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
-				setImageInfo(infos+1,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
+				setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
 
-				setDstSetAndDescTypesOnWrites(m_raygenDS.get(),writes,infos,{EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER});
+				setDstSetAndDescTypesOnWrites(m_raygenDS.get(),writes,infos,{EDT_COMBINED_IMAGE_SAMPLER});
 			}
 			m_driver->updateDescriptorSets(descriptorUpdateCounts[2],writes,0u,nullptr);
 			// set up m_closestHitDS
@@ -971,7 +966,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 
 
 	m_visibilityBuffer = m_driver->addFrameBuffer();
-	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT,std::move(depthBuffer));
+	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT,createScreenSizedTexture(EF_D32_SFLOAT));
 	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT0,std::move(visibilityBuffer));
 
 	m_colorBuffer = m_driver->addFrameBuffer();
@@ -1102,8 +1097,9 @@ void Renderer::deinit()
 	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
 	m_indexBuffer = nullptr;
 
-	m_raytraceCommonData = {core::matrix3x4SIMD(),vec3(),0,0,0,0u};
-	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
+	m_raytraceCommonData = {vec3(),0,0,0,0u};
+	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
+	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
 	m_maxRaysPerDispatch = 0u;
 	std::fill_n(m_prevView.pointer(),12u,0.f);
@@ -1182,8 +1178,8 @@ void Renderer::render(nbl::ITimer* timer)
 			const float truncated = sample[0]*0.99999f+0.00001f;
 			const float r = sqrtf(-2.f*logf(truncated))*stddev;
 			core::matrix4SIMD jitterMatrix;
-			jitterMatrix.rows[0][3] = cosPhi*r*m_staticViewData.rcpPixelSize.x;
-			jitterMatrix.rows[1][3] = sinPhi*r*m_staticViewData.rcpPixelSize.y;
+			jitterMatrix.rows[0][3] = cosPhi*r*m_rcpPixelSize.x;
+			jitterMatrix.rows[1][3] = sinPhi*r*m_rcpPixelSize.y;
 			return core::concatenateBFollowedByA(jitterMatrix,core::concatenateBFollowedByA(camera->getProjectionMatrix(),m_prevView));
 		}(m_framesDispatched++);
 		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_framesDispatched);
@@ -1229,12 +1225,10 @@ void Renderer::render(nbl::ITimer* timer)
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
 
 		// prepare camera data for raytracing
-		core::matrix4SIMD inverseMVP;
-		modifiedViewProj.getInverseTransform(inverseMVP);
 		const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
-		for (auto i=0u; i<3u; i++)
-			m_raytraceCommonData.ndcToV.rows[i] = inverseMVP.rows[3]*cameraPosition[i]-inverseMVP.rows[i];
-		//m_raytraceCommonData.camPos = ;
+		m_raytraceCommonData.camPos.x = cameraPosition.x;
+		m_raytraceCommonData.camPos.y = cameraPosition.y;
+		m_raytraceCommonData.camPos.z = cameraPosition.z;
 	}
 	// path trace
 	m_raytraceCommonData.depth = 0u;

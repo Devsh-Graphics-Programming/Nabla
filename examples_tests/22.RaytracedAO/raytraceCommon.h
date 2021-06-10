@@ -82,8 +82,6 @@ struct StaticViewData_t
 {
 	vec3	envmapBaseColor;
 	uint	lightCount;
-	vec2    rcpPixelSize;
-	vec2    rcpHalfPixelSize;
 	uvec2   imageDimensions;
 	uint    samplesPerPixelPerDispatch;
 	uint    padding;
@@ -91,7 +89,6 @@ struct StaticViewData_t
 
 struct RaytraceShaderCommonData_t
 {
-	mat4x3  ndcToV;
 	vec3	camPos;
 	float   rcpFramesDispatched;
 #ifdef __cplusplus
