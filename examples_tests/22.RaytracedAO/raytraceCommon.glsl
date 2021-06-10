@@ -11,11 +11,11 @@ layout(push_constant, row_major) uniform PushConstants
 
 #ifndef DISABLE_NEE
 // lights
-layout(set = 1, binding = 4, std430) restrict readonly buffer CumulativeLightPDF
+layout(set = 1, binding = 3, std430) restrict readonly buffer CumulativeLightPDF
 {
 	uint lightCDF[];
 };
-layout(set = 1, binding = 5, std430, row_major) restrict readonly buffer Lights
+layout(set = 1, binding = 4, std430, row_major) restrict readonly buffer Lights
 {
 	SLight light[];
 };
@@ -262,7 +262,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
 
 	// TODO: improve ray offset (maybe using smooth normal wouldn't be a sin)
-	vec3 geomNormal = cross(dPdBary[0], dPdBary[1]);
+	vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 	const vec3 absGeomNormal = abs(geomNormal);
 	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),max(absGeomNormal.z,0.001f))*96.f;
 	uint offset = 0u;
