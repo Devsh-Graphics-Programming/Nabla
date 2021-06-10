@@ -102,6 +102,25 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             }
         }
 
+        void initializeCommonAllocators(
+            const core::GeneralpurposeAddressAllocator<uint32_t>& mdiAlctr,
+            const core::GeneralpurposeAddressAllocator<uint32_t>& idxAlctr,
+            const core::GeneralpurposeAddressAllocator<uint32_t>& vtxAlctr
+            )
+        {
+            uint32_t alctrBuffSz = alctrTraits::get_total_size(mdiAlctr);
+            void* resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, mdiAlctr), _NBL_SIMD_ALIGNMENT);
+            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, mdiAlctr, resSpcTmp);
+
+            alctrBuffSz = alctrTraits::get_total_size(idxAlctr);
+            resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, idxAlctr), _NBL_SIMD_ALIGNMENT);
+            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, idxAlctr, resSpcTmp);
+
+            alctrBuffSz = alctrTraits::get_total_size(vtxAlctr);
+            resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, vtxAlctr), _NBL_SIMD_ALIGNMENT);
+            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, vtxAlctr, resSpcTmp);
+        }
+
     protected:
         core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
         core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
@@ -221,7 +240,7 @@ protected:
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute
     //will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
-    TriangleBatches constructTriangleBatches(MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df* aabbs) const
+    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df* aabbs) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);

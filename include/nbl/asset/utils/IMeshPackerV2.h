@@ -631,21 +631,11 @@ protected:
 		: base_t(otherMp->getMinTriangleCountPerMDI(),otherMp->getMaxTriangleCountPerMDI()),
         IMeshPackerV2Base(otherMp->getVirtualAttribConfig())
 	{
-
-        const auto& mdiAlctr = otherMp->getMDIAllocator();
-        uint32_t alctrBuffSz = alctrTraits::get_total_size(mdiAlctr);
-        void* resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, mdiAlctr), _NBL_SIMD_ALIGNMENT);
-        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, mdiAlctr, resSpcTmp);
-
-        const auto& idxAlctr = otherMp->getIndexAllocator();
-        alctrBuffSz = alctrTraits::get_total_size(idxAlctr);
-        resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, idxAlctr), _NBL_SIMD_ALIGNMENT);
-        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, idxAlctr, resSpcTmp);
-
-        const auto& vtxAlctr = otherMp->getVertexAllocator();
-        alctrBuffSz = alctrTraits::get_total_size(vtxAlctr);
-        resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, vtxAlctr), _NBL_SIMD_ALIGNMENT);
-        m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, vtxAlctr, resSpcTmp);
+        initializeCommonAllocators(
+            otherMp->getMDIAllocator(),
+            otherMp->getIndexAllocator(),
+            otherMp->getVertexAllocator()
+        );
     };
 
     PackerDataStore m_packerDataStore;
