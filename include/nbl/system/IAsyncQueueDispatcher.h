@@ -151,7 +151,7 @@ private:
     {
         static_assert(sizeof...(optional_internal_state) <= 1u, "How did this happen");
 
-        static_cast<CRTP*>(this)->backgroung_work();
+        static_cast<CRTP*>(this)->background_work();
         auto r_id = cb_begin++;
 #if __cplusplus >= 202002L
         cb_begin.notify_one();
