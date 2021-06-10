@@ -53,16 +53,16 @@ void main()
 		{
 			const uint triangleID = intersection.primid;
 			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
-			// clear the hit success flag
-			intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x].shapeid = -1;
-			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
 			
 			// obtain ray incoming direction
-			normalizedV = -mat3(batchInstanceData.normalMatrixRow0,batchInstanceData.normalMatrixRow1,batchInstanceData.normalMatrixRow2)*ray.direction;
-			normalizedV = normalize(normalizedV);  // doesn't non-uniform scale screw up BxDF eval and generation?
+			normalizedV = -normalize(ray.direction);
+			// clear the hit success flag
+			intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x].shapeid = -1;
+
+			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
 			
 			// positions
-			const vec3 last_vx_pos = load_positions(indices,batchInstanceGUID);
+			const vec3 last_vx_pos = load_positions(indices,batchInstanceData);
 			const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 			const bool frontfacing = dot(geomNormal,normalizedV)>0.f;
 
@@ -76,7 +76,7 @@ void main()
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
 				const vec2 compactBary = intersection.uvwt.xy;
 				
-				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceGUID,material,outPixelLocation,vertex_depth
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceData,material,outPixelLocation,vertex_depth
 #ifdef TEX_PREFETCH_STREAM
 					,mat2(0.0) // TODO: Covariance Rendering
 #endif
@@ -85,8 +85,8 @@ void main()
 				const vec3 hitWorldPos = dPdBary*compactBary.xy+last_vx_pos;
 				
 				generate_next_rays(
-					MAX_RAYS_GENERATED,batchInstanceData,material,frontfacing,vertex_depth,
-					scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,throughput
+					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,scramble_start_state,
+					sampleID,outPixelLocation,hitWorldPos,geomNormal,throughput
 				);
 			}
 		}

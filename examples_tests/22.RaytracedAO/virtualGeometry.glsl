@@ -20,21 +20,21 @@
 #include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl>
 
 
-vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in uint drawGUID)
+vec3 nbl_glsl_fetchVtxPos(in uint vtxID, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
 {
-    nbl_glsl_VG_VirtualAttributePacked_t va = InstData.data[drawGUID].padding0;
+    nbl_glsl_VG_VirtualAttributePacked_t va = batchInstanceData.padding0;
     return nbl_glsl_VG_attribFetch_RGB32_SFLOAT(va,vtxID);
 }
 
-vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in uint drawGUID)
+vec3 nbl_glsl_fetchVtxNormal(in uint vtxID, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
 {
-    nbl_glsl_VG_VirtualAttributePacked_t va = InstData.data[drawGUID].padding1;
+    nbl_glsl_VG_VirtualAttributePacked_t va = batchInstanceData.padding1;
     return normalize(nbl_glsl_VG_attribFetch_RGB10A2_SNORM(va,vtxID).xyz);
 }
 
-vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in uint drawGUID)
+vec2 nbl_glsl_fetchVtxUV(in uint vtxID, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
 {
-    nbl_glsl_VG_VirtualAttributePacked_t va = InstData.data[drawGUID].determinantSignBit;
+    nbl_glsl_VG_VirtualAttributePacked_t va = batchInstanceData.determinantSignBit;
     return nbl_glsl_VG_attribFetch_RG32_SFLOAT(va,vtxID);
 }
 

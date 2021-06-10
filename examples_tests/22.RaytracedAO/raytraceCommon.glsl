@@ -117,15 +117,17 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(in uvec3 indices, in uint batchInstanceGUID)
+vec3 load_positions(in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
 {
-	const mat3 positions = mat3(
-		nbl_glsl_fetchVtxPos(indices[0],batchInstanceGUID),
-		nbl_glsl_fetchVtxPos(indices[1],batchInstanceGUID),
-		nbl_glsl_fetchVtxPos(indices[2],batchInstanceGUID)
+	mat3 positions = mat3(
+		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
+		nbl_glsl_fetchVtxPos(indices[1],batchInstanceData),
+		nbl_glsl_fetchVtxPos(indices[2],batchInstanceData)
 	);
+	const mat4x3 tform = batchInstanceData.tform;
+	positions = mat3(tform)*positions;
 	dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
-	return positions[2];
+	return positions[2]+tform[3];
 }
 #ifdef TEX_PREFETCH_STREAM
 mat2x3 nbl_glsl_perturbNormal_dPdSomething()
@@ -161,13 +163,13 @@ void gen_sample_ray(
 	
 	float pdf;
 	nbl_glsl_LightSample s;
-	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s);
 
 	direction = s.L;
 }
 
 nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
-	in vec2 compactBary, in uvec3 indices, in uint batchInstanceGUID,
+	in vec2 compactBary, in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
 	in nbl_glsl_MC_oriented_material_t material,
 	in uvec2 outPixelLocation, in uint vertex_depth_mod_2
 #ifdef TEX_PREFETCH_STREAM
@@ -178,19 +180,19 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
 	#ifdef TEX_PREFETCH_STREAM
 	const mat3x2 uvs = mat3x2(
-		nbl_glsl_fetchVtxUV(indices[0],batchInstanceGUID),
-		nbl_glsl_fetchVtxUV(indices[1],batchInstanceGUID),
-		nbl_glsl_fetchVtxUV(indices[2],batchInstanceGUID)
+		nbl_glsl_fetchVtxUV(indices[0],batchInstanceData),
+		nbl_glsl_fetchVtxUV(indices[1],batchInstanceData),
+		nbl_glsl_fetchVtxUV(indices[2],batchInstanceData)
 	);
 	const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
 	#endif
 	// only needed for continuing
 	const mat3 normals = mat3(
-		nbl_glsl_fetchVtxNormal(indices[0],batchInstanceGUID),
-		nbl_glsl_fetchVtxNormal(indices[1],batchInstanceGUID),
-		nbl_glsl_fetchVtxNormal(indices[2],batchInstanceGUID)
+		nbl_glsl_fetchVtxNormal(indices[0],batchInstanceData),
+		nbl_glsl_fetchVtxNormal(indices[1],batchInstanceData),
+		nbl_glsl_fetchVtxNormal(indices[2],batchInstanceData)
 	);
-	
+
 	#ifdef TEX_PREFETCH_STREAM
 	dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
 	const vec2 UV = dUVdBary*compactBary+uvs[2];
@@ -204,16 +206,18 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2)).rg;
 
 	// while waiting for the scramble state
+	normalizedN.x = dot(batchInstanceData.normalMatrixRow0,normal);
+	normalizedN.y = dot(batchInstanceData.normalMatrixRow1,normal);
+	normalizedN.z = dot(batchInstanceData.normalMatrixRow2,normal);
 	normalizedN = normalize(normal);
 
 	return scramble_start_state;
 }
 
 void generate_next_rays(
-	in uint maxRaysToGen, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
-	in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
+	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 pos, vec3 geomNormal, in vec3 prevThroughput)
+	in vec3 origin, vec3 geomNormal, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -257,7 +261,6 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// set up dispatch indirect
 	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
 
-	const mat4x3 batchWorldTform = batchInstanceData.tform;
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
@@ -265,9 +268,9 @@ for (uint i=1u; i!=vertex_depth; i++)
 		nbl_glsl_ext_RadeonRays_ray newRay;
 		// TODO: improve ray offsets
 		const float err = 1.f/96.f;
-		newRay.origin = mat3(batchWorldTform)*(pos+/*geomNormal/max(max(geomNormal.x,geomNormal.y),geomNormal.z)*sign(dot(geomNormal,direction[i]))*/direction[i]*err)+batchWorldTform[3];
+		newRay.origin = origin+/*geomNormal/max(max(geomNormal.x,geomNormal.y),geomNormal.z)*sign(dot(geomNormal,direction[i]))*/direction[i]*err;
 		newRay.maxT = maxT[i];
-		newRay.direction = mat3(batchWorldTform)*direction[i]; // normalize after ? (doesn't non-uniform scale screw up BxDF eval and generation?)
+		newRay.direction = direction[i]; // normalize after ? (doesn't non-uniform scale screw up BxDF eval and generation?)
 		newRay.time = packOutPixelLocation(outPixelLocation);
 		newRay.mask = -1;
 		newRay._active = 1;

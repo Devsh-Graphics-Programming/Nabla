@@ -27,7 +27,7 @@ void main()
 
     const uint batchInstanceGUID = self.backfacingBit_batchInstanceGUID&0x7fffffffu;
     
-    const vec3 modelPos = nbl_glsl_fetchVtxPos(gl_VertexIndex,batchInstanceGUID);
+    const vec3 modelPos = nbl_glsl_fetchVtxPos(gl_VertexIndex,InstData.data[batchInstanceGUID]);
     nbl_glsl_barycentric_vert_set(modelPos);
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(self.MVP,modelPos);
 }

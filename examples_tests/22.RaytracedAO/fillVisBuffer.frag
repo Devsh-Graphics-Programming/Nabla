@@ -14,10 +14,10 @@ layout(location = 2) flat in uint BackfacingBit_BatchInstanceGUID;
 layout(location = 3) flat in uint drawCmdFirstIndex;
 
 uint nbl_glsl_barycentric_frag_getDrawID() {return BackfacingBit_BatchInstanceGUID&0x7fffffffu;}
-vec3 nbl_glsl_barycentric_frag_getVertexPos(in uint drawID, in uint primID, in uint primsVx)
+vec3 nbl_glsl_barycentric_frag_getVertexPos(in uint batchInstanceGUID, in uint primID, in uint primsVx)
 {
     const uint ix = nbl_glsl_VG_fetchTriangleVertexIndex(primID*3u+drawCmdFirstIndex,primsVx);
-    return nbl_glsl_fetchVtxPos(ix,drawID);
+    return nbl_glsl_fetchVtxPos(ix,InstData.data[batchInstanceGUID]);
 }
 
 
