@@ -215,7 +215,7 @@ protected:
     struct IdxBufferParams
     {
         SBufferBinding<ICPUBuffer> idxBuffer = { 0u, nullptr };
-        E_INDEX_TYPE indexType = EIT_UNKNOWN;
+        E_INDEX_TYPE idxType = EIT_UNKNOWN;
     };
 
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute
@@ -271,30 +271,27 @@ protected:
         TriangleBatches triangleBatches(triCnt);
         core::vector<TriangleMortonCodePair> triangles(triCnt); //#1
 
+        core::smart_refctd_ptr<ICPUMeshBuffer> mbTmp = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(meshBuffer->clone());
+        mbTmp->setIndexBufferBinding(std::move(idxBufferParams.idxBuffer));
+        mbTmp->setIndexType(idxBufferParams.idxType);
+        mbTmp->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
+
         //triangle reordering
         {
-            const bool wasTmpIdxBufferSet = idxBufferParams.idxBuffer.buffer.get() != nullptr ? true : false;
-            if (wasTmpIdxBufferSet)
-            {
-                auto tmpBuffer = std::move(meshBuffer->getIndexBufferBinding());
-                meshBuffer->setIndexBufferBinding(std::move(idxBufferParams.idxBuffer));
-                idxBufferParams.idxBuffer = std::move(tmpBuffer);
-            }
-
-            const core::aabbox3df aabb = IMeshManipulator::calculateBoundingBox(meshBuffer);
+            const core::aabbox3df aabb = IMeshManipulator::calculateBoundingBox(mbTmp.get());
 
             uint32_t ix = 0u;
             float maxTriangleArea = 0.0f;
             for (auto it = triangles.begin(); it != triangles.end(); it++)
             {
-                auto triangleIndices = IMeshManipulator::getTriangleIndices(meshBuffer, ix++);
+                auto triangleIndices = IMeshManipulator::getTriangleIndices(mbTmp.get(), ix++);
                 //have to copy there
                 std::copy(triangleIndices.begin(), triangleIndices.end(), it->triangle.oldIndices);
 
                 core::vectorSIMDf trianglePos[3];
-                trianglePos[0] = meshBuffer->getPosition(it->triangle.oldIndices[0]);
-                trianglePos[1] = meshBuffer->getPosition(it->triangle.oldIndices[1]);
-                trianglePos[2] = meshBuffer->getPosition(it->triangle.oldIndices[2]);
+                trianglePos[0] = mbTmp->getPosition(it->triangle.oldIndices[0]);
+                trianglePos[1] = mbTmp->getPosition(it->triangle.oldIndices[1]);
+                trianglePos[2] = mbTmp->getPosition(it->triangle.oldIndices[2]);
 
                 const core::vectorSIMDf centroid = ((trianglePos[0] + trianglePos[1] + trianglePos[2]) / 3.0f) - core::vectorSIMDf(aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z);
                 uint16_t fixedPointPos[3];
@@ -308,9 +305,6 @@ protected:
                 if (area > maxTriangleArea)
                     maxTriangleArea = area;
             }
-
-            if (wasTmpIdxBufferSet)
-                meshBuffer->setIndexBufferBinding(std::move(idxBufferParams.idxBuffer));
 
             //complete morton code
             for (auto it = triangles.begin(); it != triangles.end(); it++)
@@ -557,13 +551,20 @@ protected:
     {
         IdxBufferParams output;
 
-        const auto mbPrimitiveType = meshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
-        if (mbPrimitiveType != EPT_TRIANGLE_LIST)
+        const auto& mbPrimitiveType = meshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
+        if (mbPrimitiveType == EPT_TRIANGLE_LIST)
+        {
+            const auto& mbIdxBuff = meshBuffer->getIndexBufferBinding();
+            output.idxBuffer.offset = mbIdxBuff.offset;
+            output.idxBuffer.buffer = core::smart_refctd_ptr(mbIdxBuff.buffer);
+            output.idxType = meshBuffer->getIndexType();
+        }
+        else
         {
             auto newIdxBuffer = convertIdxBufferToTriangles(meshBuffer);
             output.idxBuffer.offset = 0u;
             output.idxBuffer.buffer = newIdxBuffer.second;
-            output.indexType = EIT_32BIT;
+            output.idxType = EIT_32BIT;
         }
 
         return output;
