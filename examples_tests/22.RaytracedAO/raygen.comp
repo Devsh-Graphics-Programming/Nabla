@@ -37,15 +37,14 @@ void main()
 			const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 			
 			// unproject (TODO: redo)
-			vec3 hitWorldPos;
+			vec3 hitWorldPos,V;
 			{
 				const vec3 NDC = vec3(vec2(outPixelLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
 				
 				const vec4 tmp = nbl_glsl_pseudoMul4x4with3x1(pc.cummon.inverseMVP,NDC);
 				hitWorldPos = tmp.xyz/tmp.w;
 
-				const vec3 V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
-				normalizedV = normalize(V);
+				V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
 			}
 
 			// vis buffer decode
@@ -58,15 +57,18 @@ void main()
 			const mat2 dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
 			#endif
 			
-			// TODO: redo
-			const mat4x3 batchWorldTform = InstData.data[batchInstanceGUID].tform;
-			hitWorldPos = inverse(mat3(batchWorldTform))*(hitWorldPos-batchWorldTform[3]);
-			normalizedV = inverse(mat3(batchWorldTform))*normalizedV;
-
+			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
 			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
+
+			// TODO: redo
+			{
+				const mat3 batchScaleRotInv = mat3(batchInstanceData.normalMatrixRow0,batchInstanceData.normalMatrixRow1,batchInstanceData.normalMatrixRow2);
+				hitWorldPos = batchScaleRotInv*(hitWorldPos-batchInstanceData.tform[3]);
+				normalizedV = normalize(batchScaleRotInv*V); // doesn't non-uniform scale screw up BxDF eval and generation?
+			}
 			
 			// get material while waiting for indices
-			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[batchInstanceGUID].material,frontfacing);
+			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			
 			const uint vertex_depth_mod_2 = 0x1u;
@@ -83,7 +85,7 @@ void main()
 			const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 			const uint vertex_depth = 1u;
 			generate_next_rays(
-				staticViewData.samplesPerPixelPerDispatch,batchWorldTform,material,frontfacing,vertex_depth,
+				staticViewData.samplesPerPixelPerDispatch,batchInstanceData,material,frontfacing,vertex_depth,
 				scramble_start_state,sampleID,outPixelLocation,hitWorldPos,geomNormal,vec3(1.0)
 			);
 		}

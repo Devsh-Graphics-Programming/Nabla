@@ -210,9 +210,10 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 }
 
 void generate_next_rays(
-	in uint maxRaysToGen, in mat4x3 batchWorldTform, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing,
-	in uint vertex_depth, in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, vec3 geomNormal, in vec3 prevThroughput)
+	in uint maxRaysToGen, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
+	in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
+	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
+	in vec3 pos, vec3 geomNormal, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -231,6 +232,12 @@ void generate_next_rays(
 	// prepare rays
 	uint raysToAllocate = 0u;
 	float maxT[MAX_RAYS_GENERATED]; vec3 direction[MAX_RAYS_GENERATED]; vec3 nextThroughput[MAX_RAYS_GENERATED];	
+for (uint i=1u; i!=vertex_depth; i++)
+{
+	nbl_glsl_xoroshiro64star(scramble_start_state);
+	nbl_glsl_xoroshiro64star(scramble_start_state);
+	nbl_glsl_xoroshiro64star(scramble_start_state);
+}
 	for (uint i=0u; i<maxRaysToGen; i++)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -250,7 +257,7 @@ void generate_next_rays(
 	// set up dispatch indirect
 	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
 
-	const mat3 batchWorldScaleRot = mat3(batchWorldTform);
+	const mat4x3 batchWorldTform = batchInstanceData.tform;
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
@@ -258,9 +265,9 @@ void generate_next_rays(
 		nbl_glsl_ext_RadeonRays_ray newRay;
 		// TODO: improve ray offsets
 		const float err = 1.f/96.f;
-		newRay.origin = origin+/*geomNormal/max(max(geomNormal.x,geomNormal.y),geomNormal.z)*sign(dot(geomNormal,direction[i]))*/direction[i]*err;
+		newRay.origin = mat3(batchWorldTform)*(pos+/*geomNormal/max(max(geomNormal.x,geomNormal.y),geomNormal.z)*sign(dot(geomNormal,direction[i]))*/direction[i]*err)+batchWorldTform[3];
 		newRay.maxT = maxT[i];
-		newRay.direction = batchWorldScaleRot*direction[i];
+		newRay.direction = mat3(batchWorldTform)*direction[i]; // normalize after ? (doesn't non-uniform scale screw up BxDF eval and generation?)
 		newRay.time = packOutPixelLocation(outPixelLocation);
 		newRay.mask = -1;
 		newRay._active = 1;
