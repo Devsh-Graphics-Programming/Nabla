@@ -91,8 +91,8 @@ struct StaticViewData_t
 
 struct RaytraceShaderCommonData_t
 {
-	mat4	inverseMVP;
 	mat4x3  ndcToV;
+	vec3	camPos;
 	float   rcpFramesDispatched;
 #ifdef __cplusplus
 	uint16_t samplesComputed;
@@ -102,6 +102,7 @@ struct RaytraceShaderCommonData_t
 #endif
 	uint padding0;
 	uint padding1;
+	uint padding2;
 };
 
 #endif

@@ -261,16 +261,17 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// set up dispatch indirect
 	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
 
+	// TODO: improve ray offset (maybe using smooth normal wouldn't be a sin)
+	const vec3 absGeomNormal = abs(geomNormal);
+	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),absGeomNormal.z);
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
-		// TODO: improve ray offsets
-		const float err = 1.f/96.f;
-		newRay.origin = origin+/*geomNormal/max(max(geomNormal.x,geomNormal.y),geomNormal.z)*sign(dot(geomNormal,direction[i]))*/direction[i]*err;
+		newRay.origin = origin+uintBitsToFloat(floatBitsToUint(direction[i])^floatBitsToUint(dot(geomNormal,direction[i]))&0x80000000u)/96.f;
 		newRay.maxT = maxT[i];
-		newRay.direction = direction[i]; // normalize after ? (doesn't non-uniform scale screw up BxDF eval and generation?)
+		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);
 		newRay.mask = -1;
 		newRay._active = 1;

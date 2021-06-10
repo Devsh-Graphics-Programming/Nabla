@@ -53,7 +53,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_maxRaysPerDispatch(0), m_framesDispatched(0u),
 		m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},
-		m_raytraceCommonData{core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0},
+		m_raytraceCommonData{core::matrix3x4SIMD(),vec3(),0,0,0},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
@@ -1102,7 +1102,7 @@ void Renderer::deinit()
 	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
 	m_indexBuffer = nullptr;
 
-	m_raytraceCommonData = {core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0,0u};
+	m_raytraceCommonData = {core::matrix3x4SIMD(),vec3(),0,0,0,0u};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
 	m_framesDispatched = 0u;
 	m_maxRaysPerDispatch = 0u;
@@ -1229,10 +1229,12 @@ void Renderer::render(nbl::ITimer* timer)
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
 
 		// prepare camera data for raytracing
-		modifiedViewProj.getInverseTransform(m_raytraceCommonData.inverseMVP);
+		core::matrix4SIMD inverseMVP;
+		modifiedViewProj.getInverseTransform(inverseMVP);
 		const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
 		for (auto i=0u; i<3u; i++)
-			m_raytraceCommonData.ndcToV.rows[i] = m_raytraceCommonData.inverseMVP.rows[3]*cameraPosition[i]-m_raytraceCommonData.inverseMVP.rows[i];
+			m_raytraceCommonData.ndcToV.rows[i] = inverseMVP.rows[3]*cameraPosition[i]-inverseMVP.rows[i];
+		//m_raytraceCommonData.camPos = ;
 	}
 	// path trace
 	m_raytraceCommonData.depth = 0u;

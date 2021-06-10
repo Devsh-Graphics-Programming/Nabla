@@ -37,12 +37,8 @@ void main()
 			const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 			
 			// unproject (TODO: redo)
-			vec3 hitWorldPos;
 			{
 				const vec3 NDC = vec3(vec2(outPixelLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
-				
-				const vec4 tmp = nbl_glsl_pseudoMul4x4with3x1(pc.cummon.inverseMVP,NDC);
-				hitWorldPos = tmp.xyz/tmp.w;
 
 				const vec3 V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
 				normalizedV = normalize(V);
@@ -68,12 +64,14 @@ void main()
 			
 			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
-			load_positions(indices,batchInstanceData);
+			const vec3 last_vx_pos = load_positions(indices,batchInstanceData);
 			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceData,material,outPixelLocation,vertex_depth_mod_2
 #ifdef TEX_PREFETCH_STREAM
 				,dBarydScreen
 #endif
 			);
+			
+			const vec3 hitWorldPos = dPdBary*compactBary.xy+last_vx_pos;
 
 			// generate rays
 			const uint sampleID = bitfieldExtract(pc.cummon.samplesComputed_depth,0,16);
