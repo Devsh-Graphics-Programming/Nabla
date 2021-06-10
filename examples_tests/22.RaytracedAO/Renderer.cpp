@@ -260,6 +260,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
 
 				constexpr auto combinedNormalUVAttributeIx = 1;
+				constexpr auto newEnabledAttributeMask = (0x1u<<combinedNormalUVAttributeIx)|0b1;
 
 				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
 				uint32_t mdiBoundMax=0u,batchInstanceBoundTotal=0u;
@@ -289,25 +290,26 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 							vertexInput.enabledBindingFlags |= 0x1u<<freeBinding;
 							vertexInput.bindings[freeBinding].inputRate = EVIR_PER_VERTEX;
 							vertexInput.bindings[freeBinding].stride = 0u;
-							auto newBuff = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uvec2)*IMeshManipulator::upperBoundVertexID(meshBuffer));
-							auto* dst = reinterpret_cast<uvec2*>(newBuff->getPointer());
+							const auto approxVxCount = IMeshManipulator::upperBoundVertexID(meshBuffer)+meshBuffer->getBaseVertex();
+							struct CombinedNormalUV
+							{
+								uint32_t nml;
+								uint16_t u,v;
+							};
+							auto newBuff = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(CombinedNormalUV)*approxVxCount);
+							auto* dst = reinterpret_cast<CombinedNormalUV*>(newBuff->getPointer())+meshBuffer->getBaseVertex();
 							meshBuffer->setVertexBufferBinding({0u,newBuff},freeBinding);
 							// copy and pack data
-							const uint8_t* nmlSrc = meshBuffer->getAttribPointer(meshBuffer->getNormalAttributeIx());
-							const auto stride = meshBuffer->getAttribStride(combinedNormalUVAttributeIx);
-							for (auto i=0u; i<meshBuffer->getIndexCount(); i++)
+							const auto normalAttr = meshBuffer->getNormalAttributeIx();
+							vertexInput.attributes[normalAttr].format = EF_R32_UINT;
+							for (auto i=0u; i<approxVxCount; i++)
 							{
-								const auto ix = meshBuffer->getIndexValue(i);
-								if (nmlSrc)
-									dst[ix].x = *reinterpret_cast<const uint32_t*>(nmlSrc+ix*stride);
-								else
-									dst[ix].x = 0xdeadbeefu; // should warn about getting a mesh with no normals
+								meshBuffer->getAttribute(&dst[i].nml,normalAttr,i);
 								core::vectorSIMDf uv;
-								meshBuffer->getAttribute(uv,2u,ix);
-								reinterpret_cast<uint16_t*>(&dst[ix].y)[0] = core::Float16Compressor::compress(uv.x);
-								reinterpret_cast<uint16_t*>(&dst[ix].y)[1] = core::Float16Compressor::compress(uv.y);
+								meshBuffer->getAttribute(uv,2u,i);
+								dst[i].u = core::Float16Compressor::compress(uv.x);
+								dst[i].v = core::Float16Compressor::compress(uv.y);
 							}
-							vertexInput.enabledAttribFlags = (0x1u<<combinedNormalUVAttributeIx)|0b1;
 						}
 
 						const uint32_t mdiBound = cpump->calcMDIStructMaxCount(meshBuffers.begin(),meshBuffers.end());
@@ -316,6 +318,8 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 						meshBuffersToProcess.insert(meshBuffersToProcess.end(),meshBuffers.begin(),meshBuffers.end());
 					}
+					for (auto meshBuffer : meshBuffersToProcess)
+						const_cast<ICPUMeshBuffer*>(meshBuffer)->getPipeline()->getVertexInputParams().enabledAttribFlags = newEnabledAttributeMask;
 					allocData.resize(meshBuffersToProcess.size());
 
 					cpump->alloc(allocData.data(),meshBuffersToProcess.begin(),meshBuffersToProcess.end());
