@@ -91,15 +91,10 @@ struct RaytraceShaderCommonData_t
 {
 	vec3	camPos;
 	float   rcpFramesDispatched;
-#ifdef __cplusplus
-	uint16_t samplesComputed;
-	uint16_t depth;
-#else
-	uint	samplesComputed_depth;
-#endif
+	uint samplesComputed;
+	uint depth;
+	uint rayCountWriteIx;
 	uint padding0;
-	uint padding1;
-	uint padding2;
 };
 
 #endif

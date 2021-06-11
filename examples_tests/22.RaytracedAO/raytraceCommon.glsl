@@ -9,7 +9,6 @@ layout(push_constant, row_major) uniform PushConstants
 	RaytraceShaderCommonData_t cummon;
 } pc;
 
-#ifndef DISABLE_NEE
 // lights
 layout(set = 1, binding = 3, std430) restrict readonly buffer CumulativeLightPDF
 {
@@ -19,7 +18,6 @@ layout(set = 1, binding = 4, std430, row_major) restrict readonly buffer Lights
 {
 	SLight light[];
 };
-#endif
 
 layout(set = 2, binding = 0, row_major) uniform StaticViewData
 {
@@ -41,11 +39,16 @@ layout(set = 2, binding = 5, std430) restrict buffer Rays
 	nbl_glsl_ext_RadeonRays_ray data[];
 } rays[2];
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
-layout(set = 2, binding = 6) restrict coherent buffer RayCount
+layout(set = 2, binding = 6) restrict coherent buffer RayCount // maybe remove coherent keyword
 {
-	uint rayCount;
-	nbl_glsl_DispatchIndirectCommand_t params;
-} traceIndirect[2];
+	uint rayCount[RAYCOUNT_N_BUFFERING];
+};
+
+void clear_raycount()
+{
+	if (all(equal(uvec3(0u),gl_GlobalInvocationID)))
+		rayCount[(pc.cummon.rayCountWriteIx+1u)&uint(RAYCOUNT_N_BUFFERING_MASK)] = 0u;
+}
 
 //
 uvec3 get_triangle_indices(in uint batchInstanceGUID, in uint triangleID)
@@ -257,9 +260,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 			maxT[i] = 0.f;
 	}
 	// TODO: investigate workgroup reductions here
-	const uint baseOutputID = atomicAdd(traceIndirect[vertex_depth_mod_2_inv].rayCount,raysToAllocate);
-	// set up dispatch indirect
-	atomicMax(traceIndirect[vertex_depth_mod_2_inv].params.num_groups_x,(baseOutputID+raysToAllocate-1u)/WORKGROUP_SIZE+1u);
+	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 
 	// TODO: improve ray offset (maybe using smooth normal wouldn't be a sin)
 	vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
@@ -282,4 +283,41 @@ for (uint i=1u; i!=vertex_depth; i++)
 		rays[vertex_depth_mod_2_inv].data[outputID] = newRay;
 	}
 }
+
+/* TODO: optimize
+void main()
+{
+	clear_raycount();
+	const bool alive = useful_invocation();
+	uint raysToAllocate = 0u;
+	vec3 emissive;
+	if (alive)
+	{
+		emissive = staticViewData.envmapBaseColor;
+
+		raysToAllocate = main_prolog(emissive,...);
+	}
+
+	const uint raysLocalEnd = nbl_glsl_workgroupInclusiveAdd(raysToAllocate);
+	uint baseOutputID;
+	if (gl_LocalInvocationIndex==WORKGROUP_SIZE-1)
+		baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysLocalEnd);
+	baseOutputID = nbl_glsl_workgroupBroadcast(baseOutputID,WORKGROUP_SIZE-1);
+
+	// coalesce rays
+	for ()
+	{
+	}
+	// write them out to global mem
+	for ()
+	{
+	}
+
+	if (alive)
+	{
+		// store accumulation
+		main_epilog();
+	}
+}
+*/
 #endif

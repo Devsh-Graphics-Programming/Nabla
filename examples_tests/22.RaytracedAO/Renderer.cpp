@@ -43,7 +43,6 @@ auto fillIotaDescriptorBindingDeclarations = [](auto* outBindings, uint32_t acce
 	}
 };
 
-
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::ISceneManager* _smgr, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
@@ -51,8 +50,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
 		m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
-		m_maxRaysPerDispatch(0), m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
-		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{vec3(),0.f,0u,0u,0u,0u,0u},
+		m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
+		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{vec3(),0.f,0u,0u,0u,0u},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
@@ -79,6 +78,22 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		break;
 	}
 
+	// set up raycount buffers
+	{
+		const uint32_t zeros[RAYCOUNT_N_BUFFERING] = { 0u };
+		m_rayCountBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t)*RAYCOUNT_N_BUFFERING,zeros);
+		IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+		reqs.vulkanReqs.size = sizeof(uint32_t);
+		reqs.vulkanReqs.alignment = alignof(uint32_t);
+		reqs.vulkanReqs.memoryTypeBits = ~0u;
+		reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+		reqs.mappingCapability = IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
+		reqs.prefersDedicatedAllocation = 0u;
+		reqs.requiresDedicatedAllocation = 0u;
+		m_littleDownloadBuffer = m_driver->createGPUBufferOnDedMem(reqs);
+		m_littleDownloadBuffer->getBoundMemory()->mapMemoryRange(IDriverMemoryAllocation::EMCAF_READ,{0,sizeof(uint32_t)});
+	}
+
 	// set up Visibility Buffer pipeline
 	{
 		IGPUDescriptorSetLayout::SBinding binding;
@@ -87,11 +102,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_rasterInstanceDataDSLayout = m_driver->createGPUDescriptorSetLayout(&binding,&binding+1u);
 	}
 	{
-#ifndef DISABLE_NEE
 		constexpr auto additionalGlobalDescriptorCount = 5u;
-#else
-		constexpr auto additionalGlobalDescriptorCount = 3u;
-#endif
 		IGPUDescriptorSetLayout::SBinding bindings[additionalGlobalDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE|ISpecializedShader::ESS_VERTEX|ISpecializedShader::ESS_FRAGMENT,additionalGlobalDescriptorCount,asset::EDT_STORAGE_BUFFER);
 
@@ -136,7 +147,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[5].type = asset::EDT_STORAGE_BUFFER;
 		bindings[5].count = 2u;
 		bindings[6].type = asset::EDT_STORAGE_BUFFER;
-		bindings[6].count = 2u;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
@@ -734,11 +744,12 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			const bool success = extractIntegratorInfo(initData.globalMeta->m_global.m_integrator,bxdfSamples,maxNEESamples);
 			assert(success && "unsupported integrator type");
 
-			auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
+			uint32_t _maxRaysPerDispatch = 0u;
+			auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
 			{
 				m_staticViewData.samplesPerPixelPerDispatch = (bxdfSamples+maxNEESamples)*sampleMultiplier;
 				const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*m_staticViewData.samplesPerPixelPerDispatch;
-				m_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
+				_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
 				const auto doubleBufferSampleCountPerDispatch = minimumSampleCountPerDispatch*2ull;
 
 				raygenBufferSize = doubleBufferSampleCountPerDispatch*sizeof(::RadeonRays::ray);
@@ -748,7 +759,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			{
 				uint32_t sampleMultiplier = 0u;
 				const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),256u<<20);
-				while (raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize) // for AMD && m_maxRaysPerDispatch*WORKGROUP_SIZE<=64<<10))
+				while (raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize) // for AMD && _maxRaysPerDispatch*WORKGROUP_SIZE<=64<<10))
 					setRayBufferSizes(++sampleMultiplier);
 				if (sampleMultiplier==1u)
 				{
@@ -757,21 +768,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					setRayBufferSizes(sampleMultiplier);
 				}
 				printf("Using %d samples\n",m_staticViewData.samplesPerPixelPerDispatch);
-			}
-		}
-
-		// set up raycount buffers for RR
-		{
-			struct RayCountData
-			{
-				uint32_t rayCount;
-				DispatchIndirectCommand_t params;
-			};
-			RayCountData data = {m_maxRaysPerDispatch,{0u,1u,1u}};
-			for (auto i=0u; i<2u; i++)
-			{
-				m_rayCountBuffer[i].buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(RayCountData),&data);
-				m_rayCountBuffer[i].asRRBuffer = m_rrManager->linkBuffer(m_rayCountBuffer[i].buffer.get(),CL_MEM_READ_ONLY);
 			}
 		}
 
@@ -896,7 +892,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 
 			IGPUDescriptorSet::SDescriptorInfo infos[descriptorUpdateMaxCount];
 			IGPUDescriptorSet::SWriteDescriptorSet writes[descriptorUpdateMaxCount];
-#ifndef DISABLE_NEE
 			// set up rest of m_additionalGlobalDS
 			{
 				createFilledBufferAndSetUpInfoFromVector(infos+0,initData.lightCDF);
@@ -905,7 +900,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},3u);
 			}
 			m_driver->updateDescriptorSets(descriptorUpdateCounts[0],writes,0u,nullptr);
-#endif
+
 			// set up m_commonRaytracingDS
 			core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
 			{
@@ -946,8 +941,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				setImageInfo(infos+4,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 				createEmptyInteropBufferAndSetUpInfo(infos+5,m_rayBuffer[0],raygenBufferSize);
 				createEmptyInteropBufferAndSetUpInfo(infos+6,m_rayBuffer[1],raygenBufferSize);
-				setBufferInfo(infos+7,m_rayCountBuffer[0].buffer);
-				setBufferInfo(infos+8,m_rayCountBuffer[1].buffer);
+				setBufferInfo(infos+7,m_rayCountBuffer);
 
 				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS.get(),writes,infos,{
 					EDT_UNIFORM_BUFFER,
@@ -959,7 +953,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					EDT_STORAGE_BUFFER
 				});
 				writes[5].count = 2u;
-				writes[6].count = 2u;
 				writes[6].info = infos+7;
 			}
 			initData = {}; // reclaim some memory
@@ -1107,7 +1100,6 @@ void Renderer::deinit()
 		};
 		deleteInteropBuffer(m_intersectionBuffer[i]);
 		deleteInteropBuffer(m_rayBuffer[i]);
-		deleteInteropBuffer(m_rayCountBuffer[i]);
 	}
 
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
@@ -1137,7 +1129,6 @@ void Renderer::deinit()
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
 	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
-	m_maxRaysPerDispatch = 0u;
 	std::fill_n(m_prevView.pointer(),12u,0.f);
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
@@ -1268,8 +1259,9 @@ void Renderer::render(nbl::ITimer* timer)
 	}
 	// path trace
 	m_raytraceCommonData.depth = 0u;
+	uint32_t nextTraceRaycount = 0xdeadbeefu; // the raygen shader doesn't care
 	while (m_raytraceCommonData.depth!=m_maxDepth)
-		traceBounce();
+		nextTraceRaycount = traceBounce(nextTraceRaycount);
 
 	// resolve pseudo-MSAA
 	{
@@ -1332,8 +1324,11 @@ void Renderer::render(nbl::ITimer* timer)
 }
 
 
-void Renderer::traceBounce()
+uint32_t Renderer::traceBounce(uint32_t raycount)
 {
+	if (raycount==0u)
+		return 0u;
+
 	const uint32_t readIx = (++m_raytraceCommonData.depth)&0x1u;
 	const uint32_t writeIx = readIx^0x1u;
 	// trace bounce (accumulate contributions and optionally generate rays)
@@ -1348,7 +1343,7 @@ void Renderer::traceBounce()
 			descriptorSets[3] = m_closestHitDS.get();
 			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
 			m_driver->bindComputePipeline(m_closestHitPipeline.get());
-			m_driver->dispatchIndirect(m_rayCountBuffer[readIx].buffer.get(),sizeof(uint32_t));
+			m_driver->dispatch((raycount-1u)/WORKGROUP_SIZE+1u,1u,1u);
 		}
 		else
 		{
@@ -1360,18 +1355,17 @@ void Renderer::traceBounce()
 		// probably wise to flush all caches (in the future can optimize to texture_fetch|shader_image_access|shader_storage_buffer|blit|texture_download|...)
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
-	// TODO: triple buffer the `m_rayCountBuffer` (clear,read,write)
-	m_driver->fillBuffer(m_rayCountBuffer[readIx].buffer.get(),0u,sizeof(uint32_t)*2u,0u);
 	// trace rays
 	if (m_raytraceCommonData.depth!=m_maxDepth)
 	{
-		if (m_rrManager->hasImplicitCL2GLSync())
-			glFlush(); // sync CL to GL
-		else
-			glFinish(); // sync CPU to GL
+		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
+		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");
+		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
+		glFinish(); // sync CPU to GL
+		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();
-		const cl_mem clObjects[] = {m_rayBuffer[writeIx].asRRBuffer.second,m_rayCountBuffer[writeIx].asRRBuffer.second,m_intersectionBuffer[writeIx].asRRBuffer.second};
+		const cl_mem clObjects[] = {m_rayBuffer[writeIx].asRRBuffer.second,m_intersectionBuffer[writeIx].asRRBuffer.second};
 		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 		cl_event acquired=nullptr, raycastDone=nullptr;
 		// run the raytrace queries
@@ -1380,28 +1374,21 @@ void Renderer::traceBounce()
 
 			clEnqueueWaitForEvents(commandQueue,1u,&acquired);
 			m_rrManager->getRadeonRaysAPI()->QueryIntersection(
-				m_rayBuffer[writeIx].asRRBuffer.first,
-				m_rayCountBuffer[writeIx].asRRBuffer.first,m_maxRaysPerDispatch,
+				m_rayBuffer[writeIx].asRRBuffer.first,nextTraceRaycount,
 				m_intersectionBuffer[writeIx].asRRBuffer.first,nullptr,nullptr
 			);
 			clEnqueueMarker(commandQueue,&raycastDone);
 		}
 
-		if (m_rrManager->hasImplicitCL2GLSync())
-		{
-			// sync GL to CL
-			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
-			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
-		}
-		else
-		{
-			// sync CPU to CL
-			cl_event released;
-			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
-			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
-			ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
-		}
+		// sync CPU to CL
+		cl_event released;
+		ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
+		ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
+		ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
+		return nextTraceRaycount;
 	}
+	else
+		return 0u;
 }
 
 

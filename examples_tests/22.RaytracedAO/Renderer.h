@@ -87,7 +87,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
 
-		void traceBounce();
+		uint32_t traceBounce(uint32_t raycount);
 
 
 		// "constants"
@@ -108,6 +108,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 
 		// persistent (intialized in constructor
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_rayCountBuffer,m_littleDownloadBuffer;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_cullDSLayout;
 		nbl::core::smart_refctd_ptr<const nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_rasterInstanceDataDSLayout,m_additionalGlobalDSLayout,m_commonRaytracingDSLayout;
@@ -121,7 +122,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::matrix3x4SIMD m_prevView;
 		nbl::core::aabbox3df m_sceneBound;
-		uint32_t m_maxRaysPerDispatch;
 		uint32_t m_framesDispatched;
 		vec2 m_rcpPixelSize;
 		StaticViewData_t m_staticViewData;
@@ -150,7 +150,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> buffer;
 			std::pair<::RadeonRays::Buffer*, cl_mem> asRRBuffer = { nullptr,0u };
 		};
-		InteropBuffer m_rayCountBuffer[2];
 		InteropBuffer m_rayBuffer[2];
 		InteropBuffer m_intersectionBuffer[2];
 

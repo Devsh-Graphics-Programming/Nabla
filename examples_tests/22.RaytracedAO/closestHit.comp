@@ -10,7 +10,7 @@ layout(local_size_x = WORKGROUP_SIZE) in;
 
 uint get_path_vertex_depth()
 {
-	return bitfieldExtract(pc.cummon.samplesComputed_depth,16,16);
+	return pc.cummon.depth;
 }
 
 #include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
@@ -20,21 +20,22 @@ layout(set = 3, binding = 0, std430) restrict buffer Queries
 } intersections[2];
 
 
-bool get_sample_job(in uint vertex_depth_mod_2)
+bool get_sample_job()
 {
-	return gl_GlobalInvocationID.x<traceIndirect[vertex_depth_mod_2].rayCount;
+	return gl_GlobalInvocationID.x<rayCount[(pc.cummon.rayCountWriteIx-1u)&uint(RAYCOUNT_N_BUFFERING_MASK)];
 }
 
 void main()
 {
+	clear_raycount();
 	bool hit = false;
-	const uint vertex_depth = get_path_vertex_depth();
-	const uint vertex_depth_mod_2 = vertex_depth&0x1u;
-	if (get_sample_job(vertex_depth_mod_2))
+	if (get_sample_job())
 	{
 		vec3 emissive = staticViewData.envmapBaseColor;	
 
 		// basic reads
+		const uint vertex_depth = get_path_vertex_depth();
+		const uint vertex_depth_mod_2 = vertex_depth&0x1u;
 		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x];
 		const nbl_glsl_ext_RadeonRays_ray ray = rays[vertex_depth_mod_2].data[gl_GlobalInvocationID.x];
 
