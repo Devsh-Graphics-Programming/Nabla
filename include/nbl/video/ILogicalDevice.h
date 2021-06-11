@@ -3,7 +3,7 @@
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/video/IGPUQueue.h"
+#include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IDescriptorPool.h"
 #include "nbl/video/IGPUDescriptorSet.h"
@@ -94,8 +94,19 @@ public:
     IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
+        return (*m_queues)[offset+_ix]->getUnderlyingQueue();
+    }
 
-        return (*m_queues)[offset+_ix].get();
+    // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
+    CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
+    {
+        const uint32_t offset = (*m_offsets)[_familyIx];
+        return (*m_queues)[offset + _ix].get();
+    }
+
+    StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer()
+    {
+        return m_defaultUploadBuffer.get();
     }
 
     virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
@@ -109,6 +120,8 @@ public:
     virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
     virtual void resetFences(uint32_t _count, IGPUFence** _fences) = 0;
     virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
+
+    virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
 
     bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
     {
@@ -348,9 +361,35 @@ public:
     {
         if (!pool->wasCreatedBy(this))
             return nullptr;
-        if (layout->wasCreatedBy(this))
+        if (!layout->wasCreatedBy(this))
             return nullptr;
         return createGPUDescriptorSet_impl(pool, std::move(layout));
+    }
+
+    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(core::smart_refctd_ptr<IGPUDescriptorSetLayout>* begin, core::smart_refctd_ptr<IGPUDescriptorSetLayout>* end)
+    {
+        size_t setCount = end - begin;
+        std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes;
+        for (auto* curLayout = begin; curLayout != end; curLayout++)
+        {
+            auto bindings = curLayout->get()->getBindings();
+            for (const auto& binding : bindings)
+            {
+                auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
+                if (ps != poolSizes.end())
+                {
+                    ++ps->count;
+                }
+                else
+                {
+                    poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, 1 });
+                }
+            }
+
+        }
+        
+        core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT, setCount, poolSizes.size(), poolSizes.data());
+        return dsPool;
     }
 
     void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
@@ -501,7 +540,7 @@ public:
 
     core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params)
     {
-        if (pipelineCache && pipelineCache->wasCreatedBy(this))
+        if (pipelineCache && !pipelineCache->wasCreatedBy(this))
             return nullptr;
         if (!params.renderpass->wasCreatedBy(this))
             return nullptr;
@@ -514,7 +553,7 @@ public:
 
     bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
     {
-        if (pipelineCache && pipelineCache->wasCreatedBy(this))
+        if (pipelineCache && !pipelineCache->wasCreatedBy(this))
             return false;
         for (const auto& ci : params)
         {
@@ -708,7 +747,7 @@ protected:
     core::smart_refctd_ptr<io::IFileSystem> m_fs;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
-    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUQueue>>;
+    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
     queues_array_t m_queues;
     using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
     q_offsets_array_t m_offsets;

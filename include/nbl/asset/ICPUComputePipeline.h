@@ -61,6 +61,12 @@ public:
     }
     const ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
+    inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout)
+    {
+        assert(!isImmutable_debug());
+        m_layout = std::move(_layout);
+    }
+
     ICPUSpecializedShader* getShader()
     {
         assert(!isImmutable_debug());

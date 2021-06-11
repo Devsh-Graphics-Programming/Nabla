@@ -207,7 +207,7 @@ namespace impl
     {
         uint32_t first;
         uint32_t count;
-        core::smart_refctd_ptr<IGPUBuffer> buffers[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        core::smart_refctd_ptr<const IGPUBuffer> buffers[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
         size_t offsets[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_SCISSORS)
@@ -735,7 +735,7 @@ public:
         return true;
     }
 
-    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, buffer_t** pBuffers, const size_t* pOffsets) override
+    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t** pBuffers, const size_t* pOffsets) override
     {
         for (uint32_t i = 0u; i < bindingCount; ++i)
             if (!this->isCompatibleDevicewise(pBuffers[i]))
@@ -745,8 +745,8 @@ public:
         cmd.count = bindingCount;
         for (uint32_t i = 0u; i < cmd.count; ++i)
         {
-            buffer_t* b = pBuffers[i];
-            cmd.buffers[i] = core::smart_refctd_ptr<buffer_t>(b);
+            const buffer_t* b = pBuffers[i];
+            cmd.buffers[i] = core::smart_refctd_ptr<const buffer_t>(b);
             cmd.offsets[i] = pOffsets[i];
         }
         pushCommand(std::move(cmd));

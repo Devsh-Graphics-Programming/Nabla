@@ -204,14 +204,6 @@ endif()
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" ON)
 
-#if (ANDROID)
-#message(FATAL_ERROR "ANDROID")
-#else()
-#message(FATAL_ERROR "NOT ANDROID")
-#endif()
-#message("C compiler=${CMAKE_C_COMPILER}")
-#message(FATAL_ERROR "CXX compiler=${CMAKE_CXX_COMPILER}")
-
 # CUDA test
 include(CheckLanguage)
 check_language(CUDA)
@@ -290,12 +282,12 @@ macro(nbl_adjust_flags)
 			-Wno-error=unused-function
 			-Wno-error=unused-variable
 			-Wno-error=unused-parameter
+
+			$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 			
-			#"$<$<CONFIG:DEBUG>:-g>" # same as with -O3 below
 			$<$<CONFIG:DEBUG>:-Wall>
 			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
 			$<$<CONFIG:DEBUG>:-fstack-protector-strong>
-			$<$<CONFIG:DEBUG>:-ggdb3>
 		)
 		
 		if(ANDROID)
@@ -320,21 +312,22 @@ macro(nbl_adjust_flags)
 			
 			list(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG -g -glldb)
 			set(CMAKE_SHARED_LINKER_FLAGS_DEBUG ${CMAKE_SHARED_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
+		else()
+			add_compile_options(
+				$<$<CONFIG:DEBUG>:-ggdb3>
+			)
 		endif()
-		
+
+		if (NOT NBL_BUILD_CEGUI)
+			add_compile_options(-fno-exceptions)
+		endif()
+
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-			if (NOT NBL_BUILD_CEGUI)
-				add_compile_options(-fno-exceptions)
-			endif()
 
 			add_compile_options(
 			-Wno-unused-but-set-parameter	
-			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
+			$<$<CONFIG:RELEASE>:-fexpensive-optimizations>
 			)
-		else()
-			add_compile_options( 
-				"$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>"
-			)	
 		endif()
 		if (NBL_SANITIZE_ADDRESS)
 			add_compile_options(-fsanitize=address) 
@@ -352,9 +345,10 @@ macro(nbl_adjust_flags)
 				-fuse-ld=gold
 			)
 		endif()
+
 		if(FAST_MATH)
 			add_compile_options(
-				"$<$<CONFIG:RELEASE>:-ffast-math>"
+				$<$<CONFIG:RELEASE>:-ffast-math>
 			)
 		endif()
 

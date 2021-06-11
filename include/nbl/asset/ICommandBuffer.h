@@ -191,6 +191,8 @@ public:
         const SImageMemoryBarrier* imgBarriers;
     };
 
+    E_STATE getState() const { return m_state; }
+
     E_LEVEL getLevel() const { return m_level; }
 
     // hm now i think having begin(), reset() and end() as command buffer API is a little weird
@@ -241,7 +243,7 @@ public:
     virtual bool blitImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) = 0;
     virtual bool resolveImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
-    virtual bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, buffer_t** pBuffers, const size_t* pOffsets) = 0;
+    virtual bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t** pBuffers, const size_t* pOffsets) = 0;
 
     virtual bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) = 0;
     virtual bool setDepthBounds(float minDepthBounds, float maxDepthBounds) = 0;

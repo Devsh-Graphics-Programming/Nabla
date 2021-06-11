@@ -4,7 +4,7 @@
 
 #include "nbl/ext/DebugDraw/CDraw3DLine.h"
 #include "nbl/ext/DebugDraw/Draw3DLineShaders.h"
-
+#include "../../examples_tests/common/CommonAPI.h" // Temporary
 using namespace nbl;
 using namespace video;
 using namespace scene;
@@ -12,113 +12,92 @@ using namespace asset;
 using namespace ext;
 using namespace DebugDraw;
 
-core::smart_refctd_ptr<CDraw3DLine> CDraw3DLine::create(IVideoDriver* _driver)
+
+CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device) :
+	m_device(core::smart_refctd_ptr<video::ILogicalDevice>(device))
 {
-    return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(_driver),core::dont_grab);
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> layout;
+	{
+		asset::SPushConstantRange range;
+		range.offset = 0u;
+		range.size = sizeof(core::matrix4SIMD);
+		range.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+		layout = device->createGPUPipelineLayout(&range, &range + 1);
+	}
+	assert(layout);
+	{
+
+		auto vs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader));
+		auto fs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader));
+
+		asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX, "vs");
+		auto vs = m_device->createGPUSpecializedShader(vs_unspec.get(), vsinfo);
+		asset::ISpecializedShader::SInfo fsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT, "fs");
+		auto fs = m_device->createGPUSpecializedShader(fs_unspec.get(), fsinfo);
+
+		video::IGPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
+
+		asset::SVertexInputParams vtxinput;
+		vtxinput.attributes[0].binding = 0;
+		vtxinput.attributes[0].format = asset::EF_R32G32_SFLOAT;
+		vtxinput.attributes[0].relativeOffset = offsetof(S3DLineVertex, Position[0]);
+
+		vtxinput.attributes[1].binding = 0;
+		vtxinput.attributes[1].format = asset::EF_R32G32B32_SFLOAT;
+		vtxinput.attributes[1].relativeOffset = offsetof(S3DLineVertex, Color[0]);
+
+		vtxinput.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
+		vtxinput.bindings[0].stride = sizeof(S3DLineVertex);
+
+		vtxinput.enabledAttribFlags = 0b0011;
+		vtxinput.enabledBindingFlags = 0b0001;
+
+		asset::SRasterizationParams raster;
+		raster.depthTestEnable = 0;
+		raster.depthWriteEnable = 0;
+		raster.faceCullingMode = asset::EFCM_NONE;
+
+		asset::SPrimitiveAssemblyParams primitive;
+		primitive.primitiveType = asset::EPT_LINE_LIST;
+
+		asset::SBlendParams blend;
+
+		m_rpindependent_pipeline = m_device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blend, primitive, raster);
+		assert(m_rpindependent_pipeline);
+	}
+
 }
 
-CDraw3DLine::CDraw3DLine(IVideoDriver* _driver) : m_driver(_driver), m_meshBuffer()
+void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline)
 {
-	auto vertexShader = m_driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(Draw3DLineVertexShader));
-	auto fragShader = m_driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(Draw3DLineFragmentShader));
-
-	auto vs = m_driver->createGPUSpecializedShader(vertexShader.get(),ISpecializedShader::SInfo({},nullptr,"main",ISpecializedShader::ESS_VERTEX));
-	auto fs = m_driver->createGPUSpecializedShader(fragShader.get(),ISpecializedShader::SInfo({},nullptr,"main",ISpecializedShader::ESS_FRAGMENT));
-
-	asset::SPushConstantRange pcRange[1] = {ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD)};
-	auto pLayout = m_driver->createGPUPipelineLayout(pcRange,pcRange+1u,nullptr,nullptr,nullptr,nullptr);
-
-
-	IGPUSpecializedShader* shaders[2] = {vs.get(),fs.get()};
-
-	SVertexInputParams inputParams;
-	inputParams.enabledAttribFlags = 0b11u;
-	inputParams.enabledBindingFlags = 0b1u;
-	inputParams.attributes[0].binding = 0u;
-	inputParams.attributes[0].format = EF_R32G32B32_SFLOAT;
-	inputParams.attributes[0].relativeOffset = offsetof(S3DLineVertex, Position[0]);
-	inputParams.attributes[1].binding = 0u;
-	inputParams.attributes[1].format = EF_R32G32B32A32_SFLOAT;
-	inputParams.attributes[1].relativeOffset = offsetof(S3DLineVertex, Color[0]);
-	inputParams.bindings[0].stride = sizeof(S3DLineVertex);
-	inputParams.bindings[0].inputRate = EVIR_PER_VERTEX;
-
-	SBlendParams blendParams;
-	blendParams.logicOpEnable = false;
-	blendParams.logicOp = ELO_NO_OP;
-	for (size_t i=1ull; i<SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-		blendParams.blendParams[i].attachmentEnabled = false;
-
-	SPrimitiveAssemblyParams assemblyParams = {EPT_LINE_LIST,false,2u};
-
-	SStencilOpParams defaultStencil;
-	SRasterizationParams rasterParams;
-	rasterParams.polygonMode = EPM_LINE;
-	auto pipeline = m_driver->createGPURenderpassIndependentPipeline(	nullptr,std::move(pLayout),shaders,shaders+sizeof(shaders)/sizeof(void*),
-																		inputParams,blendParams,assemblyParams,rasterParams);
-
-
-	SBufferBinding<IGPUBuffer> bindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-	bindings[0u] = {0u,core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->getDefaultUpStreamingBuffer()->getBuffer())};
-	m_meshBuffer = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(pipeline),nullptr,bindings,SBufferBinding<IGPUBuffer>{});
-	m_meshBuffer->setIndexType(EIT_UNKNOWN);
-	m_meshBuffer->setIndexCount(2);
+	auto cb = cmdBuffer;
+	assert(cb->getState() == IGPUCommandBuffer::ES_RECORDING);
+	size_t offset = 0u;
+	cb->bindVertexBuffers(0u, 1u, const_cast<const video::IGPUBuffer**>(&m_linesBuffer.get()), &offset);
+	cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_rpindependent_pipeline->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
+	cb->bindGraphicsPipeline(graphics_pipeline);
+	cb->draw(m_lines.size() * 2, 1u, 0u, 0u);
 }
 
-void CDraw3DLine::draw(const core::matrix4SIMD& viewProjMat,
-    float fromX, float fromY, float fromZ,
-    float toX, float toY, float toZ,
-    float r, float g, float b, float a)
+void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, core::smart_refctd_ptr<IGPUFence>* fence)
 {
-    S3DLineVertex vertices[2] = {
-        {{ fromX, fromY, fromZ }, { r, g, b, a }},
-        {{ toX, toY, toZ }, { r, g, b, a }}
-    };
-
-    auto upStreamBuff = m_driver->getDefaultUpStreamingBuffer();
-    void* lineData[1] = { vertices };
-
-    static const uint32_t sizes[1] = { sizeof(S3DLineVertex) * 2 };
-    uint32_t offset[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
-    upStreamBuff->multi_place(1u, (const void* const*)lineData, (uint32_t*)&offset,(uint32_t*)&sizes,(uint32_t*)&alignments);
-    if (upStreamBuff->needsManualFlushOrInvalidate())
-    {
-        auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-        m_driver->flushMappedMemoryRanges({{ upStreamMem,offset[0],sizes[0] }});
-    }
-
-    m_meshBuffer->setBaseVertex(offset[0]/sizeof(S3DLineVertex));
-
-
-	m_driver->bindGraphicsPipeline(m_meshBuffer->getPipeline());
-	m_driver->pushConstants(m_meshBuffer->getPipeline()->getLayout(),ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD),viewProjMat.pointer());
-
-    m_driver->drawMeshBuffer(m_meshBuffer.get());
-
-    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));
-}
-
-void CDraw3DLine::draw(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
-{
-    auto upStreamBuff = m_driver->getDefaultUpStreamingBuffer();
-    const void* lineData[1] = { linesData.data() };
-
-    const uint32_t sizes[1] = { sizeof(S3DLineVertex) * linesData.size() * 2 };
-    uint32_t offset[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
-    upStreamBuff->multi_place(1u, (const void* const*)lineData, (uint32_t*)&offset,(uint32_t*)&sizes,(uint32_t*)&alignments);
-    if (upStreamBuff->needsManualFlushOrInvalidate())
-    {
-        auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-        m_driver->flushMappedMemoryRanges({{ upStreamMem,offset[0],sizes[0] }});
-    }
-
-    m_meshBuffer->setBaseVertex(offset[0]/sizeof(S3DLineVertex));
-    m_meshBuffer->setIndexCount(linesData.size() * 2);
-	
-	m_driver->bindGraphicsPipeline(m_meshBuffer->getPipeline());
-	m_driver->pushConstants(m_meshBuffer->getPipeline()->getLayout(),ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD),viewProjMat.pointer());
-
-    m_driver->drawMeshBuffer(m_meshBuffer.get());
-
-    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));
+	size_t buffSize = m_linesBuffer.get() != nullptr ? m_linesBuffer->getSize() : 0;
+	size_t minimalBuffSize = m_lines.size() * sizeof(std::pair<S3DLineVertex, S3DLineVertex>);
+	if (buffSize < minimalBuffSize)
+	{
+		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(minimalBuffSize);
+	}
+	SBufferRange<IGPUBuffer> range;
+	range.buffer = m_linesBuffer;
+	range.offset = 0;
+	range.size = minimalBuffSize;
+	if (!fence)
+	{
+		m_device->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
+	}
+	else
+	{
+		*fence = m_device->createFence(IGPUFence::ECF_SIGNALED_BIT);
+		m_device->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
+	}
 }

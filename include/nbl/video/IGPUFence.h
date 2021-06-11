@@ -55,6 +55,7 @@ public:
     inline GPUEventWrapper& operator=(GPUEventWrapper&& other) noexcept
     {
         mFence.operator=(std::move(other.mFence));
+        mDevice = other.mDevice;
         return *this;
     }
 

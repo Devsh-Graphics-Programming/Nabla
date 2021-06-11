@@ -843,7 +843,7 @@ public:
 
     }
 
-    const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const
+    const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
     {
         return m_supportedGLSLExtsNames;
     }

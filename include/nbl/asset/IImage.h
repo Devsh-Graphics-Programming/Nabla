@@ -406,13 +406,13 @@ class IImage : public IDescriptor
 					return false;
 
 				// count on the user not being an idiot
-				#ifdef _NBL_DEBUG
+#ifdef _NBL_DEBUG
 				if (it->srcSubresource.mipLevel>=srcImage->getCreationParameters().mipLevels)
 				{
 					assert(false);
 					return false;
 				}
-				if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= srcImage->getCreationParameters().arrayLayers)
+				if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount > srcImage->getCreationParameters().arrayLayers)
 				{
 					assert(false);
 					return false;
@@ -449,7 +449,7 @@ class IImage : public IDescriptor
 					assert(false);
 					return false;
 				}
-				#endif
+#endif
 			}
 
 			return true;
