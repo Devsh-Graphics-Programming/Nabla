@@ -1197,7 +1197,7 @@ void Renderer::render(nbl::ITimer* timer)
 		// jitter with AA AntiAliasingSequence
 		const auto modifiedViewProj = [&](uint32_t frameID)
 		{
-			const float stddev = 0.707f;
+			const float stddev = 0.5f;
 			const float* sample = AntiAliasingSequence[frameID];
 			const float phi = core::PI<float>()*(2.f*sample[1]-1.f);
 			const float sinPhi = sinf(phi);
@@ -1326,11 +1326,10 @@ void Renderer::render(nbl::ITimer* timer)
 
 uint32_t Renderer::traceBounce(uint32_t raycount)
 {
-	if (raycount==0u)
-		return 0u;
-
 	const uint32_t readIx = (++m_raytraceCommonData.depth)&0x1u;
 	const uint32_t writeIx = readIx^0x1u;
+	if (raycount==0u)
+		return 0u;
 	// trace bounce (accumulate contributions and optionally generate rays)
 	{
 		const bool continuation = m_raytraceCommonData.depth!=1u;
@@ -1363,6 +1362,8 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 		glFinish(); // sync CPU to GL
 		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
+		if (nextTraceRaycount==0u)
+			return 0u;
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();
 		const cl_mem clObjects[] = {m_rayBuffer[writeIx].asRRBuffer.second,m_intersectionBuffer[writeIx].asRRBuffer.second};
