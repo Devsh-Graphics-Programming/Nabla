@@ -37,8 +37,8 @@ void main()
 			// vis buffer decode
 			const bool frontfacing = !bool(visBuffer[0]&0x80000000u);
 			const int triangleIDBitcount = findMSB(MAX_TRIANGLES_IN_BATCH-1)+1;
-			const uint batchInstanceGUID = bitfieldExtract(visBuffer[0],triangleIDBitcount,31-triangleIDBitcount);
-			const uint triangleID = bitfieldExtract(visBuffer[0],0,triangleIDBitcount);
+			const uint triangleID = bitfieldExtract(visBuffer[0],31-triangleIDBitcount,triangleIDBitcount);
+			const uint batchInstanceGUID = bitfieldExtract(visBuffer[0],0,31-triangleIDBitcount);
 			const vec2 compactBary = unpackUnorm2x16(visBuffer[1]);
 			#ifdef TEX_PREFETCH_STREAM
 			const mat2 dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
