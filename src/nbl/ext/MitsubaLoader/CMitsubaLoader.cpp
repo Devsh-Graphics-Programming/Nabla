@@ -1403,11 +1403,6 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto baseInstanceDataIt = meshMeta->m_instances.begin();
 		for (const auto& inst : meshMeta->m_instanceAuxData)
 		{
-			// @Crisspl IIRC lights in mitsuba have "sides"
-			// TODO: address the comment!
-			// i think it's just that backside of an area emitter does not emit, docs doesnt say anything about this
-			emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance : core::vectorSIMDf(0.f);
-
 			nbl_glsl_ext_Mitsuba_Loader_instance_data_t instData;
 
 			instData.tform = baseInstanceDataIt->worldTform;
@@ -1429,6 +1424,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				//ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
 				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
+				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.front = impl_backendToGLSLStream(emissive,streams);
 			}
 			streams_it = _compResult.streams.find(bsdf_back);
@@ -1442,6 +1438,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				//ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
 				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
+				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.back = impl_backendToGLSLStream(emissive,streams);
 			}
 
