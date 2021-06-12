@@ -34,10 +34,10 @@ layout(set = 2, binding = 3) uniform usamplerBuffer sampleSequence;
 layout(set = 2, binding = 4, rg32ui) restrict uniform uimage2DArray accumulation;
 // ray data
 #include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
-layout(set = 2, binding = 5, std430) restrict buffer Rays
+layout(set = 2, binding = 5, std430) restrict writeonly buffer SinkRays
 {
-	nbl_glsl_ext_RadeonRays_ray data[];
-} rays[2];
+	nbl_glsl_ext_RadeonRays_ray sinkRays[];
+};
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
 layout(set = 2, binding = 6) restrict coherent buffer RayCount // maybe remove coherent keyword
 {
@@ -280,7 +280,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 		newRay.useless_padding[0] = packHalf2x16(nextThroughput[i].rg);
 		newRay.useless_padding[1] = bitfieldInsert(packHalf2x16(nextThroughput[i].bb),sampleID+i,16,16);
 		const uint outputID = baseOutputID+(offset++);
-		rays[vertex_depth_mod_2_inv].data[outputID] = newRay;
+		sinkRays[outputID] = newRay;
 	}
 }
 

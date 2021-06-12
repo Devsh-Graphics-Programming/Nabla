@@ -145,7 +145,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[3].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
 		bindings[4].type = asset::EDT_STORAGE_IMAGE;
 		bindings[5].type = asset::EDT_STORAGE_BUFFER;
-		bindings[5].count = 2u;
 		bindings[6].type = asset::EDT_STORAGE_BUFFER;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
@@ -168,14 +167,11 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
 	}
 	{
-		IGPUDescriptorSetLayout::SBinding binding;
-		binding.binding = 0;
-		binding.type = EDT_STORAGE_BUFFER;
-		binding.count = 2u;
-		binding.stageFlags = ISpecializedShader::ESS_COMPUTE;
-		binding.samplers = nullptr;
+		constexpr auto closestHitDescriptorCount = 2u;
+		IGPUDescriptorSetLayout::SBinding bindings[2];
+		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,closestHitDescriptorCount,EDT_STORAGE_BUFFER);
 
-		m_closestHitDSLayout = m_driver->createGPUDescriptorSetLayout(&binding,&binding+1u);
+		m_closestHitDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+closestHitDescriptorCount);
 	}
 	{
 		constexpr auto resolveDescriptorCount = 3u;
@@ -655,7 +651,7 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-constexpr uint16_t m_maxDepth = 3u;
+constexpr uint16_t m_maxDepth = 6u;
 constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
 {
@@ -780,18 +776,17 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			// i know what I'm doing
 			auto globalBackendDataDSLayout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(const_cast<IGPUDescriptorSetLayout*>(m_globalBackendDataDS->getLayout()));
 
-			//
-
 			// cull
 			{
 				SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
 				auto _cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(globalBackendDataDSLayout),core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
 				m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
 			}
-			
+
+			for (auto i=0u; i<2u; i++)
+				m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
 			SPushConstantRange raytracingCommonPCRange{ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t)};
-			m_commonRaytracingDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 			(std::ofstream("runtime_defines.glsl")
 				<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->m_global.getVTStorageViewCount() << "\n"
 				<< initData.globalMeta->m_global.m_materialCompilerGLSL_declarations
@@ -823,8 +818,9 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					core::smart_refctd_ptr(m_closestHitDSLayout)
 				);
 				m_closestHitPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_closestHitPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../closestHit.comp"));
-
-				m_closestHitDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_closestHitDSLayout));
+				
+				for (auto i=0u; i<2u; i++)
+					m_closestHitDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_closestHitDSLayout));
 			}
 			// resolve
 			{
@@ -837,7 +833,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 
 			//
 			constexpr uint32_t descriptorUpdates = 5;
-			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,9u,2u,2u,3u};
+			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,7u,2u,2u,3u};
 			constexpr uint32_t descriptorUpdateMaxCount = *std::max_element(descriptorUpdateCounts,descriptorUpdateCounts+descriptorUpdates);
 
 			//
@@ -943,10 +939,9 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				}
 				setImageInfo(infos+4,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 				createEmptyInteropBufferAndSetUpInfo(infos+5,m_rayBuffer[0],raygenBufferSize);
-				createEmptyInteropBufferAndSetUpInfo(infos+6,m_rayBuffer[1],raygenBufferSize);
-				setBufferInfo(infos+7,m_rayCountBuffer);
+				setBufferInfo(infos+6,m_rayCountBuffer);
 
-				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS.get(),writes,infos,{
+				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
 					EDT_UNIFORM_BUFFER,
 					EDT_STORAGE_BUFFER,
 					EDT_STORAGE_IMAGE,
@@ -955,11 +950,14 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					EDT_STORAGE_BUFFER,
 					EDT_STORAGE_BUFFER
 				});
-				writes[5].count = 2u;
-				writes[6].info = infos+7;
+				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
+				// set up second DS
+				createEmptyInteropBufferAndSetUpInfo(infos+5,m_rayBuffer[1],raygenBufferSize);
+				for (auto i=0u; i<descriptorUpdateCounts[1]; i++)
+					writes[i].dstSet = m_commonRaytracingDS[1].get();
+				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
 			}
 			initData = {}; // reclaim some memory
-			m_driver->updateDescriptorSets(7u,writes,0u,nullptr);
 			// set up m_raygenDS
 			{
 				visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
@@ -969,14 +967,17 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			}
 			m_driver->updateDescriptorSets(descriptorUpdateCounts[2],writes,0u,nullptr);
 			// set up m_closestHitDS
+			for (auto i=0u; i<2u; i++)
 			{
-				createEmptyInteropBufferAndSetUpInfo(infos+0,m_intersectionBuffer[0],intersectionBufferSize);
-				createEmptyInteropBufferAndSetUpInfo(infos+1,m_intersectionBuffer[1],intersectionBufferSize);
+				const auto other = i^0x1u;
+				infos[0u].desc = m_rayBuffer[other].buffer;
+				infos[0u].buffer.offset = 0u;
+				infos[0u].buffer.size = m_rayBuffer[other].buffer->getSize();
+				createEmptyInteropBufferAndSetUpInfo(infos+1,m_intersectionBuffer[other],intersectionBufferSize);
 
-				setDstSetAndDescTypesOnWrites(m_closestHitDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
-				writes->count = 2u;
+				setDstSetAndDescTypesOnWrites(m_closestHitDS[i].get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
+				m_driver->updateDescriptorSets(descriptorUpdateCounts[3],writes,0u,nullptr);
 			}
-			m_driver->updateDescriptorSets(1u,writes,0u,nullptr);
 			// set up m_resolveDS
 			{
 				infos[0].buffer = {0u,_staticViewDataBuffer->getSize()};
@@ -1107,9 +1108,9 @@ void Renderer::deinit()
 
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
 	m_resolveDS = nullptr;
-	m_closestHitDS = nullptr;
+	m_closestHitDS[0] = m_closestHitDS[1] = nullptr;
 	m_raygenDS = nullptr;
-	m_commonRaytracingDS = nullptr;
+	m_commonRaytracingDS[0] = m_commonRaytracingDS[1] = nullptr;
 	m_additionalGlobalDS = nullptr;
 	m_rasterInstanceDataDS = nullptr;
 	m_globalBackendDataDS = nullptr;
@@ -1329,8 +1330,7 @@ void Renderer::render(nbl::ITimer* timer)
 
 uint32_t Renderer::traceBounce(uint32_t raycount)
 {
-	const uint32_t readIx = (++m_raytraceCommonData.depth)&0x1u;
-	const uint32_t writeIx = readIx^0x1u;
+	const uint32_t descSetIx = (m_raytraceCommonData.depth++)&0x1u;
 	if (raycount==0u)
 		return 0u;
 	// trace bounce (accumulate contributions and optionally generate rays)
@@ -1339,10 +1339,10 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		const auto* pipelineLayout = (continuation ? m_closestHitPipeline:m_raygenPipeline)->getLayout();
 		m_driver->pushConstants(pipelineLayout,ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
 
-		IGPUDescriptorSet* descriptorSets[4] = {m_globalBackendDataDS.get(),m_additionalGlobalDS.get(),m_commonRaytracingDS.get()};
+		IGPUDescriptorSet* descriptorSets[4] = {m_globalBackendDataDS.get(),m_additionalGlobalDS.get(),m_commonRaytracingDS[descSetIx].get()};
 		if (continuation)
 		{
-			descriptorSets[3] = m_closestHitDS.get();
+			descriptorSets[3] = m_closestHitDS[descSetIx].get();
 			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
 			m_driver->bindComputePipeline(m_closestHitPipeline.get());
 			m_driver->dispatch((raycount-1u)/WORKGROUP_SIZE+1u,1u,1u);
@@ -1369,7 +1369,7 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();
-		const cl_mem clObjects[] = {m_rayBuffer[writeIx].asRRBuffer.second,m_intersectionBuffer[writeIx].asRRBuffer.second};
+		const cl_mem clObjects[] = {m_rayBuffer[descSetIx].asRRBuffer.second,m_intersectionBuffer[descSetIx].asRRBuffer.second};
 		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 		cl_event acquired=nullptr, raycastDone=nullptr;
 		// run the raytrace queries
@@ -1378,8 +1378,8 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 
 			clEnqueueWaitForEvents(commandQueue,1u,&acquired);
 			m_rrManager->getRadeonRaysAPI()->QueryIntersection(
-				m_rayBuffer[writeIx].asRRBuffer.first,nextTraceRaycount,
-				m_intersectionBuffer[writeIx].asRRBuffer.first,nullptr,nullptr
+				m_rayBuffer[descSetIx].asRRBuffer.first,nextTraceRaycount,
+				m_intersectionBuffer[descSetIx].asRRBuffer.first,nullptr,nullptr
 			);
 			clEnqueueMarker(commandQueue,&raycastDone);
 		}

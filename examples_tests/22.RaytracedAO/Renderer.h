@@ -49,7 +49,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t RandomDimsPerPathVertex = 3u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*5u;
 		static const float AntiAliasingSequence[4096][2];
     protected:
         ~Renderer();
@@ -141,8 +141,10 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_perCameraRasterDS;
 		
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline,m_raygenPipeline,m_closestHitPipeline,m_resolvePipeline;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_additionalGlobalDS,m_commonRaytracingDS;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_rasterInstanceDataDS,m_raygenDS,m_closestHitDS,m_resolveDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_additionalGlobalDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_commonRaytracingDS[2];
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_rasterInstanceDataDS,m_raygenDS,m_resolveDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_closestHitDS[2];
 		uint32_t m_raygenWorkGroups[2];
 
 		struct InteropBuffer

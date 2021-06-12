@@ -14,10 +14,14 @@ uint get_path_vertex_depth()
 }
 
 #include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
-layout(set = 3, binding = 0, std430) restrict buffer Queries
+layout(set = 3, binding = 0, std430) restrict readonly buffer SourceRays
 {
-	nbl_glsl_ext_RadeonRays_Intersection data[];
-} intersections[2];
+	nbl_glsl_ext_RadeonRays_ray sourceRays[];
+};
+layout(set = 3, binding = 1, std430) restrict buffer Queries
+{
+	nbl_glsl_ext_RadeonRays_Intersection intersections[];
+};
 
 
 bool get_sample_job()
@@ -36,8 +40,8 @@ void main()
 		// basic reads
 		const uint vertex_depth = get_path_vertex_depth();
 		const uint vertex_depth_mod_2 = vertex_depth&0x1u;
-		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x];
-		const nbl_glsl_ext_RadeonRays_ray ray = rays[vertex_depth_mod_2].data[gl_GlobalInvocationID.x];
+		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[gl_GlobalInvocationID.x];
+		const nbl_glsl_ext_RadeonRays_ray ray = sourceRays[gl_GlobalInvocationID.x];
 
 		const uint batchInstanceGUID = intersection.shapeid;
 		const uint invalidID = 0x80000000u;
@@ -59,7 +63,7 @@ void main()
 			// obtain ray incoming direction
 			normalizedV = -ray.direction;
 			// clear the hit success flag
-			intersections[vertex_depth_mod_2].data[gl_GlobalInvocationID.x].shapeid = -1;
+			intersections[gl_GlobalInvocationID.x].shapeid = -1;
 
 			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
 			
