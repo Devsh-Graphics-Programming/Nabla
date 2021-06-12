@@ -655,7 +655,7 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-constexpr uint16_t m_maxDepth = 5u;
+constexpr uint16_t m_maxDepth = 3u;
 constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
 {
@@ -869,7 +869,10 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			};
 			auto createEmptyInteropBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, InteropBuffer& interopBuffer, size_t size) -> void
 			{
-				interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+				if (static_cast<COpenGLDriver*>(m_driver)->runningInRenderdoc()) // makes Renderdoc capture the modifications done by OpenCL
+					interopBuffer.buffer = m_driver->createUpStreamingGPUBufferOnDedMem(size);
+				else
+					interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
 				interopBuffer.asRRBuffer = m_rrManager->linkBuffer(interopBuffer.buffer.get(), CL_MEM_READ_ONLY);
 
 				info->buffer.size = size;
@@ -1359,11 +1362,11 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 	{
 		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
 		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");
-		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 		glFinish(); // sync CPU to GL
 		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
 		if (nextTraceRaycount==0u)
 			return 0u;
+		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();
 		const cl_mem clObjects[] = {m_rayBuffer[writeIx].asRRBuffer.second,m_intersectionBuffer[writeIx].asRRBuffer.second};

@@ -206,7 +206,7 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	const vec3 normal = normals*nbl_glsl_barycentric_expand(compactBary);
 
 	// init scramble while waiting for getting the instance's normal matrix
-	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2)).rg;
+	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,1u/*vertex_depth_mod_2*/)).rg;
 
 	// while waiting for the scramble state
 	normalizedN.x = dot(batchInstanceData.normalMatrixRow0,normal);
@@ -265,7 +265,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: improve ray offset (maybe using smooth normal wouldn't be a sin)
 	vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 	const vec3 absGeomNormal = abs(geomNormal);
-	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),max(absGeomNormal.z,0.001f))*32.f;
+	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),max(absGeomNormal.z,0.001f))*64.f;
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
