@@ -37,11 +37,15 @@ public:
 		return core::smart_refctd_ptr<CWindowX11>(win, core::dont_grab);
 	}
 
+	void processEvent(XEvent event);
 private:
     CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
 
     Display* m_dpy;
     native_handle_t m_native;
+
+	// Not sure yet if i need these or i can do without them 
+	bool isMaximized = false, isMinimized = false; 
 };
 
 }

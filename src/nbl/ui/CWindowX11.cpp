@@ -88,6 +88,9 @@ CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* d
     m_width = w;
     m_height = h;
 
+    m_x = x;
+    m_y = y;
+
     // TODO m_flags
 }
 
@@ -227,6 +230,84 @@ CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _
 
     m_dpy = dpy;
     m_native = win;
+
+    XContext classId = XUniqueContext();
+    XSaveContext(m_dpy, m_native, classId, (XPointer)this);
+}
+
+void CWindowX11::processEvent(XEvent event)
+{
+    IEventCallback eventCallback = getEventCallback();
+
+    switch(event.type)
+    {
+        case ConfigureNotify:
+        {
+            XConfigureEvent e = event.xconfigure;
+            // Resized
+            if(e.width != m_width || e.height != m_height)
+            {
+                eventCallback->onWindowResized(this, e.width, e.height);
+                x11.pXResizeWindow(m_dpy, m_native, e.width, e.height);
+
+            }
+            // Moved
+            if(e.x != m_x || e.y != m_y)
+            {
+                eventCallback->onWindowMoved(this, e.x, e.y);
+                x11.pXMoveWindow(m_dpy, m_native, e.x, e.y);
+            }
+
+            break;
+        }
+        case MapNotify:
+        {
+            eventCallback->onWindowShown(this);
+            break;
+        }
+        // Don't think these 2 are the same, will return to them later, but onWindowHidden is definitely right here
+        case UnmapNotify:
+        {
+            eventCallback->onWindowHidden(this);
+            eventCallback->onWindowMinimized(this); 
+            break;
+        }
+        case PropertyNotify:
+        {
+            XPropertyEvent e = event.xproperty;
+            if(e.atom == _NET_WM_STATE)
+            {
+                Atom* allStates;
+                unsigned long itemCount, bytesAfter;
+                unsigned char *properties = NULL;
+                //Retrieving all states
+                XGetWindowProperty(m_dpy, m_native, _NET_WM_STATE, 0, LONG_MAX, False, AnyPropertyType, allStates, &itemCount, &bytesAfter, &properties);
+                bool maximizedVertically = false, maximizedHorizontally = false; 
+                for(int i = 0; i < itemCount; i++)
+                {
+                    if(allStates[i] == _NET_WM_STATE_MAXIMIZED_HORZ) maximizedHorizontally = true;
+                    else if(allStates[i] == _NET_WM_STATE_MAXIMIZED_VERT) maximizedVertically = true;
+                }
+                if(maximizedVertically && maximizedHorizontally && !isMaximized)
+                {
+                    isMaximized = true;
+                    eventCallback->onWindowMaximized(this);
+                }
+            }
+
+            break;
+        }
+        // TODO: don't know yet how those behave and whether i should
+        // call mouse/keyboard/both focus change 
+        case FocusIn:
+        {
+            break;
+        }
+        case FocusOut:
+        {
+            break;
+        }
+    }
 }
 
 }}
