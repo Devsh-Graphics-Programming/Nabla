@@ -21,7 +21,6 @@ namespace nbl::ui
 		~CWindowManagerWin32() = default;
 
 	private:
-		// I guess now it is better to place this window thread handling class into .h file and make it a member. 
 		enum E_REQUEST_TYPE
 		{
 			ERT_CREATE_WINDOW,

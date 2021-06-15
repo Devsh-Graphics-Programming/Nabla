@@ -1,6 +1,9 @@
-#include "nbl/ui/CWindowX11.h"
+#include <CWindowX11.h>
+#include <CWindowManagerX11.h>
+//#ifdef _NBL_PLATFORM_LINUX_
 
-#ifdef _NBL_PLATFORM_LINUX_
+#include <X11/extensions/XI.h>
+#include <X11/extensions/XInput.h>
 
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
@@ -28,6 +31,9 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoad
     ,XGetErrorDatabaseText
     ,XGetErrorText
     ,XGetGeometry
+    ,XFindContext
+    ,XUniqueContext
+    ,XSaveContext
 );
 #ifdef _NBL_LINUX_X11_RANDR_
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xrandr, system::DefaultFuncPtrLoader
@@ -231,8 +237,11 @@ CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _
     m_dpy = dpy;
     m_native = win;
 
-    XContext classId = XUniqueContext();
-    XSaveContext(m_dpy, m_native, classId, (XPointer)this);
+    XContext classId = x11.pXUniqueContext();
+    x11.pXSaveContext(m_dpy, m_native, classId, (XPointer)this);
+
+    int deviceCount;
+    XDeviceInfo* infos =  XListInputDevices(m_dpy, &deviceCount);
 }
 
 void CWindowX11::processEvent(XEvent event)
@@ -301,13 +310,51 @@ void CWindowX11::processEvent(XEvent event)
         // call mouse/keyboard/both focus change 
         case FocusIn:
         {
+            
             break;
         }
         case FocusOut:
         {
+            
             break;
         }
     }
+}
+
+void CWindowManagerX11::init()
+{
+    //TODO: init x11/xinput loaders here
+    display = x11.pXOpenDisplay(nullptr);
+}
+
+void CWindowManagerX11::process_request(SRequest& req)
+{
+    switch (req.type)
+    {
+    case ERT_CREATE_WINDOW:
+    {
+
+        break;
+    }
+    case ERT_DESTROY_WINDOW:
+    {
+
+        break;
+    }
+    }
+}
+
+
+void CWindowManagerX11::background_work(lock_t& lock)
+{
+	XEvent event;
+	x11.pXNextEvent(display, event);
+	Window nativeWindow = event.xany.window;
+	XPointer windowCharPtr = nullptr;
+	x11.pXFindContext(display, nativeWindow, &windowCharPtr);
+	CWindowX11* currentWindow = static_cast<CWindowX11*>(windowCharPtr);
+	auto* eventCallback = nativeWindow->getEventCallback();
+	currentWindow->processEvent(event);
 }
 
 }}
