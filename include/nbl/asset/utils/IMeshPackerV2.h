@@ -591,7 +591,40 @@ public:
 	template <typename MeshBufferIterator>
 	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-    //TODO: test (free only part of the scene)
+    template <typename MeshBufferIterator>
+    void freeAllocatedAddressesOnAllocFail(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+    {
+        size_t i = 0ull;
+        for (auto it = mbBegin; it != mbEnd; it++)
+        {
+            ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
+
+            if (ramb.indexAllocationOffset == INVALID_ADDRESS)
+                return;
+
+            m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
+
+            const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+            for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+            {
+                if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
+                    continue;
+
+                if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+                    return;
+
+                m_vtxBuffAlctr.free_addr(ramb.attribAllocParams[location].offset, ramb.attribAllocParams[location].size);
+            }
+
+            if (ramb.mdiAllocationOffset == INVALID_ADDRESS)
+                return;
+
+            m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
+
+            i++;
+        }
+    }
+
     void free(const ReservedAllocationMeshBuffers* rambIn, uint32_t meshBuffersToFreeCnt)
     {
         for (uint32_t i = 0u; i < meshBuffersToFreeCnt; i++)
@@ -657,7 +690,10 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
         //allocate indices
         ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
         if (ramb.indexAllocationOffset == INVALID_ADDRESS)
+        {
+            freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
             return false;
+        }
         ramb.indexAllocationReservedCnt = idxCnt;
 
         //allocate vertices
@@ -681,12 +717,24 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
                 const uint32_t allocByteSize = maxVtxCnt * attribSize;
                 ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
                 ramb.attribAllocParams[location].size = allocByteSize;
+
+                if(ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+                {
+                    freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
+                    return false;
+                }
             }
             else if (inputRate == EVIR_PER_INSTANCE)
             {
                 const uint32_t allocByteSize = insCnt * attribSize;
                 ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
                 ramb.attribAllocParams[location].size = allocByteSize;
+
+                if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+                {
+                    freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
+                    return false;
+                }
             }
 
             if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
@@ -701,7 +749,10 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
 
         ramb.mdiAllocationOffset = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
         if (ramb.mdiAllocationOffset == INVALID_ADDRESS)
+        {
+            freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
             return false;
+        }
         ramb.mdiAllocationReservedCnt = possibleMDIStructsNeededCnt;
 
         i++;

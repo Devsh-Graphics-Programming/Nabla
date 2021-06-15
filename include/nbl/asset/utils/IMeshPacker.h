@@ -76,7 +76,6 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             size_t MDIDataBuffMinAllocCnt = 32ull;
         };
 
-        // TODO: make a function which initializes allocators as a copy (incl resized copy)
         void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
         {
             if (allocParams.indexBuffSupportedCnt)

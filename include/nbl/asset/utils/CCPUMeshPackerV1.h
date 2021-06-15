@@ -9,10 +9,6 @@
 #include <nbl/asset/utils/IMeshPacker.h>
 #include <nbl/core/math/intutil.h>
 
-//AFTER SAFE SHRINK FIX TODO LIST:
-//1. extendend tests
-//2. test `getPackerCreationParamsFromMeshBufferRange`
-
 namespace nbl 
 { 
 namespace asset
@@ -103,7 +99,6 @@ public:
 
 	inline PackerDataStore& getPackerDataStore() { return m_output; };
 
-	//TODO: update comment
 	// returns number of distinct mesh packers needed to pack the meshes and a sorted list of meshes by the meshpacker ID they should be packed into, as well as the parameters for the packers
 	// `packerParamsOut` should be big enough to fit `std::distance(begin,end)` entries, the return value will tell you how many were actually written
 	template<typename Iterator>
@@ -191,21 +186,16 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 	);
 }
 
-// TODO: why cant this implementation of `alloc` be common to both CPU and CPU?
 template <typename MDIStructType>
 //`Iterator` may be only an Iterator or pointer to pointer
+//allocation should be happening even if processed mesh buffer doesn't have attribute that was declared in pre defined `SVertexInputParams`, if mesh buffer has any attributes that are not declared in pre defined `SVertexInputParams` then these should be always ignored
+/*
+	Requirements for input mesh buffers:
+		- attributes bound to the same binding must have identical format
+*/
 template <typename MeshBufferIterator>
 typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMeshPackerV1<MDIStructType>::alloc(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
-	/*
-	Requirements for input mesh buffers:
-		- attributes bound to the same binding must have identical format
-	*/
-
-	//TODO:
-	//allocation should be happening even if processed mesh buffer doesn't have attribute that was declared in pre defined `SVertexInputParams`, if mesh buffer has any attributes that are not declared in pre defined `SVertexInputParams` then these should be always ignored
-	//include it in the ducumentation? YES
-
 	//validation
 	for (auto it = mbBegin; it != mbEnd; it++)
 	{
