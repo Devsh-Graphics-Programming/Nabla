@@ -12,7 +12,7 @@
 
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
-#include "os.h"
+#include "nbl_os.h"
 
 namespace nbl
 {

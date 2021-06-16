@@ -11,7 +11,7 @@
 
 #include "IWriteFile.h"
 
-#include "os.h" // for logging
+#include "nbl_os.h" // for logging
 
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"

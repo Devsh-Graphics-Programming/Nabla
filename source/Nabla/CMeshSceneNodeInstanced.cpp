@@ -8,7 +8,7 @@
 #include "ISceneManager.h"
 #include "ICameraSceneNode.h"
 #include "IMaterialRenderer.h"
-#include "os.h"
+#include "nbl_os.h"
 #include "nbl/video/CGPUMesh.h"
 
 #include "nbl/static_if.h"

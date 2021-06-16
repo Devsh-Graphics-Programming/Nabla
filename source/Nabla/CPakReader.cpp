@@ -7,7 +7,7 @@
 
 #ifdef __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
-#include "os.h"
+#include "nbl_os.h"
 #include "CLimitReadFile.h"
 
 namespace nbl

@@ -13,7 +13,7 @@
 #include "CSceneManager.h"
 #include "IEventReceiver.h"
 #include <list>
-#include "os.h"
+#include "nbl_os.h"
 #include "nbl/asset/IAssetManager.h"
 #include "COSOperator.h"
 #include "dimension2d.h"

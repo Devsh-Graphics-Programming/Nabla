@@ -10,7 +10,7 @@
 #include <functional>
 
 #include "CMeshManipulator.h"
-#include "os.h"
+#include "nbl_os.h"
 
 namespace nbl
 {

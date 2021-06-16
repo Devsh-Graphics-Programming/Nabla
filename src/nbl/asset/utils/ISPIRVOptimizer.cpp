@@ -5,7 +5,7 @@
 
 #include "nbl/core/core.h"
 #include "nbl/core/IReferenceCounted.h"
-#include "os.h"
+#include "nbl_os.h"
 
 using namespace nbl::asset;
 

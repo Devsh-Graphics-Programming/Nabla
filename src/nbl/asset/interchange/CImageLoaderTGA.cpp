@@ -8,7 +8,7 @@
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
 #include "IReadFile.h"
-#include "os.h"
+#include "nbl_os.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImage.h"
 

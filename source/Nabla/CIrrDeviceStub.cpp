@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "os.h"
-#include "CLogger.h"
+#include "nbl_os.h"
+#include "nbl_CLogger.h"
 #include "IFileSystem.h"
 #include "CFileSystem.h"
 

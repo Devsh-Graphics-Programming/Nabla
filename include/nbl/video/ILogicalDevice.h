@@ -68,7 +68,7 @@ public:
         uint32_t greatestFamNum = 0u;
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
-            greatestFamNum = std::max(greatestFamNum, params.queueCreateInfos[i].familyIndex);
+            greatestFamNum = (std::max)(greatestFamNum, params.queueCreateInfos[i].familyIndex);
             qcnt += params.queueCreateInfos[i].count;
         }
 

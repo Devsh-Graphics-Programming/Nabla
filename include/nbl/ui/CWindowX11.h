@@ -12,7 +12,7 @@
 #ifdef _NBL_LINUX_X11_RANDR_
 #include <X11/extensions/Xrandr.h>
 #endif
-#include "os.h"
+#include "nbl_os.h"
 
 namespace nbl {
 namespace ui

@@ -17,7 +17,7 @@
     #include "COpenGLExtensionHandler.h"
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-#include "os.h"
+#include "nbl_os.h"
 
 namespace nbl
 {

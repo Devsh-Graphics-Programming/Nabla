@@ -2,7 +2,7 @@
 #define __C_WINDOW_WIN32_H_INCLUDED__
 
 #include "nbl/ui/IWindowWin32.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 

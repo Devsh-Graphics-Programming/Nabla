@@ -6,7 +6,7 @@
 
 #include "nbl/core/core.h"
 
-#include "os.h"
+#include "nbl_os.h"
 #include "IWriteFile.h"
 
 #include "nbl/asset/IMesh.h"

@@ -32,7 +32,7 @@ SOFTWARE.
 
 #include "CImageLoaderOpenEXR.h"
 
-#include "os.h"
+#include "nbl_os.h"
 
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfRgbaFile.h"

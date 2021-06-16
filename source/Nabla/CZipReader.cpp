@@ -7,7 +7,7 @@
 #include "CMemoryFile.h"
 #include "CLimitReadFile.h"
 
-#include "os.h"
+#include "nbl_os.h"
 #include <sstream>
 
 // This method is used for error output from bzip2.

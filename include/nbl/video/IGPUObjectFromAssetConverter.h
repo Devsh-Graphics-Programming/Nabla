@@ -13,7 +13,7 @@
 
 //#include "IDriverMemoryBacked.h"
 //#include "nbl/video/IGPUMesh.h"
-//#include "CLogger.h"
+//#include "nbl_CLogger.h"
 #include "nbl/video/asset_traits.h"
 #include "nbl/core/alloc/LinearAddressAllocator.h"
 #include "nbl/video/IPhysicalDevice.h"
@@ -675,7 +675,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), vtxBindings, std::move(idxBinding));
         (*res)[i]->setBoundingBox(cpumb->getBoundingBox());
         memcpy((*res)[i]->getPushConstantsDataPtr(), _begin[i]->getPushConstantsDataPtr(), IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
-        (*res)[i]->setSkin(std::move(invBindPoseBinding),std::move(jointAABBBinding),std::move(gpuskel_),core::min(cpumb->getMaxJointsPerVertex(),cpumb->deduceMaxJointsPerVertex()));
+        (*res)[i]->setSkin(std::move(invBindPoseBinding),std::move(jointAABBBinding),std::move(gpuskel_),(core::min)(cpumb->getMaxJointsPerVertex(),cpumb->deduceMaxJointsPerVertex()));
         (*res)[i]->setBaseInstance(_begin[i]->getBaseInstance());
         (*res)[i]->setBaseVertex(_begin[i]->getBaseVertex());
         (*res)[i]->setIndexCount(_begin[i]->getIndexCount());
@@ -822,7 +822,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
         uint32_t lowestPresentMip = 1u;
         for (auto& region : cpuimg->getRegions())
-            lowestPresentMip = std::max(lowestPresentMip, region.imageSubresource.mipLevel);
+            lowestPresentMip = (std::max)(lowestPresentMip, region.imageSubresource.mipLevel);
         // generate temporary image view to make sure we don't screw up any explicit mip levels
         IGPUImageView::SCreationParams tmpViewParams;
         tmpViewParams.subresourceRange.levelCount = img->getCreationParameters().mipLevels + 1u - lowestPresentMip;
