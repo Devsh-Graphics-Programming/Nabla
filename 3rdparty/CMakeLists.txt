@@ -485,6 +485,7 @@ set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
+				openssl_build # TODO: it's generating CMake error
 				spirv_cross
 				png_static
 				zlibstatic
@@ -504,12 +505,19 @@ set(NBL_3RDPARTY_TARGETS
 				egl )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
+	    IlmBaseConfig
+		IlmImfConfig
 		Imath
 		IlmThread
 		IlmImf
 		Half
 		Iex
 		IexMath
+	)
+endif()
+if (NBL_COMPILE_WITH_SDL2 )
+	list(APPEND NBL_3RDPARTY_TARGETS
+	    SDL2-static
 	)
 endif()
 #TODO insert more targets that are conditionally built
@@ -544,3 +552,5 @@ install(
 	DESTINATION ./relwithdebinfo/include/parallel-hashmap
 	CONFIGURATIONS RelWithDebInfo
 )
+
+export(TARGETS ${NBL_3RDPARTY_TARGETS} NAMESPACE Nabla:: FILE ${CMAKE_CURRENT_BINARY_DIR}/NablaDepsTargets.cmake)

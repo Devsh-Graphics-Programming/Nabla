@@ -486,3 +486,5 @@ endif()
 if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
+
+export(TARGETS Nabla NAMESPACE Nabla:: FILE ${CMAKE_CURRENT_BINARY_DIR}/NablaTarget.cmake)
