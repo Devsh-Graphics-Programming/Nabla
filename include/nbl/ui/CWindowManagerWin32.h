@@ -1,5 +1,6 @@
 #ifndef C_WINDOWMANAGER_WIN32
 #define C_WINDOWMANAGER_WIN32
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include <cstdint>
 #include <queue>
 #include <codecvt>
@@ -276,4 +277,5 @@ namespace nbl::ui
 		} m_windowThreadManager;
 	};
 }
+#endif
 #endif

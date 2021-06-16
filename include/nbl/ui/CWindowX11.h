@@ -17,14 +17,14 @@
 namespace nbl {
 namespace ui
 {
-
+class CWindowManagerX11;
 class CWindowX11 final : public IWindowX11
 {
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
 
 public:
 	explicit CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* dpy, native_handle_t win);
-
+	explicit CWindowX11(CWindowManagerX11* manager, Display* dpy, native_handle_t win);
     Display* getDisplay() const override { return m_dpy; }
 	native_handle_t getNativeHandle() const override { return m_native; }
 
@@ -43,7 +43,7 @@ private:
 
     Display* m_dpy;
     native_handle_t m_native;
-
+	CWindowManagerX11* m_manager;
 	// Not sure yet if i need these or i can do without them 
 	bool isMaximized = false, isMinimized = false; 
 };
