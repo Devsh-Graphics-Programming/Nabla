@@ -230,8 +230,8 @@ else()
 	endif()
 endif()
 
-#
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
@@ -487,4 +487,4 @@ if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
 
-export(TARGETS Nabla NAMESPACE Nabla:: FILE ${CMAKE_CURRENT_BINARY_DIR}/NablaTarget.cmake)
+export(TARGETS Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
