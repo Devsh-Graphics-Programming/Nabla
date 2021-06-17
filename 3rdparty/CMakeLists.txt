@@ -567,5 +567,3 @@ install(
 	DESTINATION ./relwithdebinfo/include/parallel-hashmap
 	CONFIGURATIONS RelWithDebInfo
 )
-
-export(TARGETS ${NBL_3RDPARTY_TARGETS} NAMESPACE Nabla:: FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)

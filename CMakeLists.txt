@@ -487,4 +487,4 @@ if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
 
-export(TARGETS Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
+export(TARGETS ${NBL_3RDPARTY_TARGETS} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
