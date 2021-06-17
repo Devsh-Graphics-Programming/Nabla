@@ -44,6 +44,14 @@ if(WIN32)
 		VERBATIM
 	)
 	add_custom_target(openssl_build DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libeay32.lib" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/ssleay32.lib")
+	
+	add_library(OpenSSL INTERFACE)
+	
+	target_link_libraries(OpenSSL INTERFACE
+		"${CMAKE_CURRENT_BINARY_DIR}/build/lib/libeay32.lib" 
+		"${CMAKE_CURRENT_BINARY_DIR}/build/lib/ssleay32.lib"
+	)
+	
 elseif(ANDROID) # cross-compile
 	if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux")
 		find_package(Perl REQUIRED)
@@ -98,4 +106,11 @@ else()
 		VERBATIM
 	)
 	add_custom_target(openssl_build DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a")
+	
+	add_library(OpenSSL INTERFACE)
+	
+	target_link_libraries(OpenSSL INTERFACE
+		"${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" 
+		"${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a"
+	)
 endif()

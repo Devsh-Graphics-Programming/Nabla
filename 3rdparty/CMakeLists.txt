@@ -5,6 +5,9 @@
 include(../cmake/common.cmake)
 
 # mandatory
+option(NBL_UPDATE_GIT_SUBMODULE "" ON)
+
+if(NBL_UPDATE_GIT_SUBMODULE)
 update_git_submodule(./SDL2)
 update_git_submodule(./volk)
 update_git_submodule(./SPIRV-Headers)
@@ -28,6 +31,7 @@ update_git_submodule(./gli)
 update_git_submodule(./glm)
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
+endif()
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
@@ -485,7 +489,7 @@ set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
-				openssl_build # TODO: it's generating CMake error
+				OpenSSL
 				spirv_cross
 				png_static
 				zlibstatic
