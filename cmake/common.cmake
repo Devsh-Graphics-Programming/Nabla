@@ -443,7 +443,11 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 	)
 	
 	foreach(def IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
-		string(APPEND WRAPPER_CODE "#define ${def}\n")
+		string(APPEND WRAPPER_CODE 
+			"#ifndef ${def}\n"
+			"#define ${def}\n"
+			"#endif // ${def}\n\n"
+		)
 	endforeach()
 	
 	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/build/NablaImport.hpp" "${WRAPPER_CODE}")
