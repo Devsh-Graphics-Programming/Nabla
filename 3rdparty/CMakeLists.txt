@@ -8,29 +8,29 @@ include(../cmake/common.cmake)
 option(NBL_UPDATE_GIT_SUBMODULE "" ON)
 
 if(NBL_UPDATE_GIT_SUBMODULE)
-update_git_submodule(./SDL2)
-update_git_submodule(./volk)
-update_git_submodule(./SPIRV-Headers)
-update_git_submodule(./SPIRV-Tools)
-update_git_submodule(./glslang)
-update_git_submodule(./shaderc)
-update_git_submodule(./bzip2)
-update_git_submodule(./lz4)
-update_git_submodule(./spirv_cross)
-update_git_submodule(./zlib)
-update_git_submodule(./openexr)
-update_git_submodule(./utfcpp)
-update_git_submodule(./convertutf)
-update_git_submodule(./libpng)
-update_git_submodule(./openssl)
-update_git_submodule(./libjpeg-turbo)
-update_git_submodule(./libjpeg) # soon to be killed
-update_git_submodule(./parallel-hashmap)
-update_git_submodule(./gli)
-# exceptions that get automatically cloned
-update_git_submodule(./glm)
-update_git_submodule(./freetype2)
-update_git_submodule(./portable-file-dialogs)
+	update_git_submodule(./SDL2)
+	update_git_submodule(./volk)
+	update_git_submodule(./SPIRV-Headers)
+	update_git_submodule(./SPIRV-Tools)
+	update_git_submodule(./glslang)
+	update_git_submodule(./shaderc)
+	update_git_submodule(./bzip2)
+	update_git_submodule(./lz4)
+	update_git_submodule(./spirv_cross)
+	update_git_submodule(./zlib)
+	update_git_submodule(./openexr)
+	update_git_submodule(./utfcpp)
+	update_git_submodule(./convertutf)
+	update_git_submodule(./libpng)
+	update_git_submodule(./openssl)
+	update_git_submodule(./libjpeg-turbo)
+	update_git_submodule(./libjpeg) # soon to be killed
+	update_git_submodule(./parallel-hashmap)
+	update_git_submodule(./gli)
+	# exceptions that get automatically cloned
+	update_git_submodule(./glm)
+	update_git_submodule(./freetype2)
+	update_git_submodule(./portable-file-dialogs)
 endif()
 
 # openssl
@@ -300,7 +300,9 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
 if (NBL_BUILD_MITSUBA_LOADER)
-   update_git_submodule(./libexpat)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./libexpat)
+	endif()
 
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
@@ -323,10 +325,12 @@ if (NBL_BUILD_MITSUBA_LOADER)
 endif()
 
 if (NBL_BUILD_CEGUI)
-	update_git_submodule(./libexpat)
-	update_git_submodule(./CEGUI/pcre)
-	update_git_submodule(./CEGUI/glew)
-	update_git_submodule(./CEGUI/cegui)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./libexpat)
+		update_git_submodule(./CEGUI/pcre)
+		update_git_submodule(./CEGUI/glew)
+		update_git_submodule(./CEGUI/cegui)
+	endif()
 	add_subdirectory(CEGUI)
 	set(CEGUI_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include
@@ -450,7 +454,9 @@ if (NBL_BUILD_CEGUI)
 endif()
 
 if (NBL_BUILD_RADEON_RAYS)
-	update_git_submodule(./radeonrays)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./radeonrays)
+	endif()
 
 	option(RR_NO_TESTS "RADEON_RAYS: don't do tests" ON)
 	option(RR_ENABLE_STATIC "RADEON_RAYS: compile into a static library" ON)
@@ -472,7 +478,9 @@ if (NBL_BUILD_RADEON_RAYS)
 endif()
 
 if (NBL_BUILD_BULLET)
-	update_git_submodule(./bullet3)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./bullet3)
+	endif()
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
 	)
@@ -482,7 +490,9 @@ endif()
 
 
 if (NBL_COMPILE_WITH_CUDA)
-	update_git_submodule(./jitify)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./jitify)
+	endif()
 endif()
 
 set(NBL_3RDPARTY_TARGETS
@@ -506,7 +516,9 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools
 				SPIRV-Tools-opt
-				egl )
+				egl 
+				
+				PARENT_SCOPE)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
 	    IlmBaseConfig
@@ -538,7 +550,6 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endforeach()
-
 
 # parallel hashmap headers
 install(

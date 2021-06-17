@@ -384,9 +384,6 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-nbl_adjust_flags() # macro defined in root CMakeLists
-nbl_adjust_definitions() # macro defined in root CMakeLists
-
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
@@ -491,6 +488,9 @@ add_library(Nabla STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
+nbl_adjust_flags() # macro defined in root CMakeLists
+nbl_adjust_definitions() # macro defined in root CMakeLists
+
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
     	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
@@ -559,18 +559,24 @@ if (UNIX AND NOT ANDROID AND NOT APPLE)
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
-
 if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
 target_compile_definitions(Nabla 
-	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-	PUBLIC	UNW_LOCAL_ONLY
+	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PUBLIC UNW_LOCAL_ONLY
 )
+
+if(WIN32)
+	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
+endif()
+
 if (ANDROID)
 	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
 endif()
+
+glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)
@@ -580,7 +586,6 @@ endif()
 if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
-	
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources

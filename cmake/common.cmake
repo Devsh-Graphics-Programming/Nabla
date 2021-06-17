@@ -392,3 +392,59 @@ macro(propagate_changed_variables_to_parent_scope)
         endif()
     endforeach()
 endmacro()
+
+macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
+	macro(NBL_INSERT_DEFINITIONS _NBL_DEFINITIONS_)
+		string(FIND "${_NBL_DEFINITIONS_}" "NOTFOUND" CHECK)
+			if(${CHECK} EQUAL -1)
+				list(APPEND TESTEST ${_NBL_DEFINITIONS_})
+			endif()
+	endmacro()
+		
+	get_directory_property(NBL_DIRECTORY_DEFINITIONS COMPILE_DEFINITIONS)
+
+	if(DEFINED NBL_DIRECTORY_DEFINITIONS)
+		NBL_INSERT_DEFINITIONS("${NBL_DIRECTORY_DEFINITIONS}")
+	endif()
+	
+	get_target_property(NBL_COMPILE_DEFS ${NBL_TARGET} COMPILE_DEFINITIONS)
+	if(DEFINED NBL_COMPILE_DEFS)
+		foreach(def IN LISTS NBL_COMPILE_DEFS)
+			NBL_INSERT_DEFINITIONS(${def})
+		endforeach()
+	endif()
+	
+	foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)			 
+			 get_target_property(NBL_COMPILE_DEFS ${trgt} COMPILE_DEFINITIONS)
+			 
+			 if(DEFINED NBL_COMPILE_DEFS)
+				NBL_INSERT_DEFINITIONS(${NBL_COMPILE_DEFS})
+			 endif()
+	endforeach()
+	
+	foreach(def IN LISTS TESTEST)	
+		string(FIND "${def}" "-D" CHECK)
+			if(${CHECK} EQUAL -1)
+				list(APPEND ${NBL_REFERENCE_RETURN_VARIABLE} ${def})
+			else()
+				string(LENGTH "-D" _NBL_D_LENGTH_)
+				string(LENGTH ${def} _NBL_DEFINITION_LENGTH_)
+				math(EXPR _NBL_DEFINITION_WITHOUT_D_LENGTH_ "${_NBL_DEFINITION_LENGTH_} - ${_NBL_D_LENGTH_}" OUTPUT_FORMAT DECIMAL)
+				string(SUBSTRING ${def} ${_NBL_D_LENGTH_} ${_NBL_DEFINITION_WITHOUT_D_LENGTH_} _NBL_DEFINITION_WITHOUT_D_)
+				
+				list(APPEND ${NBL_REFERENCE_RETURN_VARIABLE} ${_NBL_DEFINITION_WITHOUT_D_})
+			endif()
+	endforeach()
+	
+	list(REMOVE_DUPLICATES ${NBL_REFERENCE_RETURN_VARIABLE})
+	
+	string(APPEND WRAPPER_CODE	
+		"// Include this file when you import Nabla to your project\n\n"
+	)
+	
+	foreach(def IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
+		string(APPEND WRAPPER_CODE "#define ${def}\n")
+	endforeach()
+	
+	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/build/NablaImport.hpp" "${WRAPPER_CODE}")
+endmacro()
