@@ -389,26 +389,26 @@ macro(nbl_adjust_flags)
 endmacro()
 
 macro(nbl_adjust_definitions)
-	add_definitions(
-		-DPNG_THREAD_UNSAFE_OK
-		-DPNG_NO_MMX_CODE
-		-DPNG_NO_MNG_FEATURES
-		-D_7ZIP_ST
-		-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	add_compile_definitions(
+		PNG_THREAD_UNSAFE_OK
+		PNG_NO_MMX_CODE
+		PNG_NO_MNG_FEATURES
+		_7ZIP_ST
+		SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	)
 	
 	if(ANDROID)
-		add_definitions(
-			-DNBL_ANDROID_TOOLCHAIN
+		add_compile_definitions(
+			NBL_ANDROID_TOOLCHAIN
 		)
 	endif()
 
 	if(WIN32)
-		add_definitions(
-			-DWIN32
-			-D__GNUWIN32__
-			-D_CRT_SECURE_NO_DEPRECATE
-			-DNOMINMAX
+		add_compile_definitions(
+			WIN32
+			__GNUWIN32__
+			_CRT_SECURE_NO_DEPRECATE
+			NOMINMAX
 		)
 	endif()
 endmacro()
