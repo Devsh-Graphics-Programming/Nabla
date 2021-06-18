@@ -313,6 +313,10 @@ void CWindowManagerX11::CThreadHandler::background_work(lock_t& lock)
 	currentWindow->processEvent(event);
 }
 
+CWindowManagerX11::CWindowManagerX11()
+{
+    m_dpy = x11.pXOpenDisplay(nullptr);
+}
 core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(const IWindow::SCreationParams& creationParams)
 {
     int32_t x = creationParams.x;
@@ -327,16 +331,60 @@ core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(const IWindow::S
     return core::make_smart_refctd_ptr<IWindow>(this, display, wnd);
 }
 
+
+
 void CWindowManagerX11::destroyWindow(IWindow* wnd)
 {
     m_windowThreadManager.destroyWindow(static_cast<CWindowX11*>(wnd)->getNativeHandle());
 }
+
+std::vector<XID> CWindowManagerX11::getConnectedMice() const
+{
+    std::vector<XID> result;
+    int deviceCount;
+    XDeviceInfo* devices = xinput.pXListInputDevices(m_dpy, &deviceCount);
+    for(int i = 0; i < deviceCount; i++)
+    {
+        XDeviceInfo device = devices[i];
+        bool has_motion = false, has_buttons = false;
+        for(int j = 0; j < device.num_classes; j++)
+        {
+            if(device.inputclassinfo[j].c_class == ButtonClass) has_buttons = true;
+            else if(device.inputclassinfo[j].c_class == ValuatorClass) has_motion = true;
+        }
+        if(has_motion && has_buttons) result.push_back(device.id);
+    }
+}
+
+std::vector<XID> CWindowManagerX11::getConnectedKeyboards() const
+{
+    std::vector<XID> result;
+    int deviceCount;
+    XDeviceInfo* devices = xinput.pXListInputDevices(m_dpy, &deviceCount);
+    for(int i = 0; i < deviceCount; i++)
+    {
+        XDeviceInfo device = devices[i];
+        bool has_keys = false;
+        for(int j = 0; j < device.num_classes; j++)
+        {
+            if(device.inputclassinfo[j].c_class == KeyClass) has_keys = true;
+        }
+        if(has_keys) result.push_back(device.id);
+    }
+}
+
 
 CWindowX11:CWindowX11(CWindowManagerX11* manager, Display* dpy, native_handle_t win):
 m_manager(manager), m_dpy(dpy), m_native(win)
 {
 
 }
+
+CWindowX11:~CWindowX11()
+{
+    m_manager->destroyWindow(this);
+}
+
 }}
 
 #endif

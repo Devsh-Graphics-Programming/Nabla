@@ -28,7 +28,14 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoad
 );
 // TODO add more
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xinput, system::DefaultFuncPtrLoader
-	,XListInputDevices)
+	,XListInputDevices
+	,XOpenDevice
+	,XCloseDevice
+	,XSetDeviceMode
+	,XSelectExtensionEvent
+	,XGetDeviceMotionEvents
+	,XFreeDeviceMotionEvents	
+);
 
 #ifdef _NBL_LINUX_X11_RANDR_
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xrandr, system::DefaultFuncPtrLoader
@@ -57,11 +64,16 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xxf86vm, system::DefaultFuncPtr
 class CWindowManagerX11 : public IWindowManager
 {
 public:
-    CWindowManagerX11() = default;
+    CWindowManagerX11();
     ~CWindowManagerX11() override = default;
 
 	core::smart_refctd_ptr<IWindow> createWindow(const IWindow::SCreationParams& creationParams) override;
 	void destroyWindow(IWindow* wnd) override;
+private:
+	std::vector<XID> getConnectedMice() const;
+	std::vector<XID> getConnectedKeyboards() const;
+
+	Display* m_dpy;
 private:
 	enum E_REQUEST_TYPE
 	{
@@ -156,6 +168,7 @@ private:
 		}
 	private:
 		Display* display;
+	} m_windowThreadManager;
 		X11 x11("X11");
 		Xinput xinput("Xinput");
 #ifdef _NBL_LINUX_X11_RANDR_
@@ -164,7 +177,6 @@ private:
 #ifdef _NBL_LINUX_X11_VIDMODE_
     	Xxf86vm xxf86vm("Xxf86vm");
 #endif	
-	} m_windowThreadManager;
 
 }
 
