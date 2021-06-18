@@ -245,8 +245,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 					bool notempty = mbs.size()!=0ull;
                     {
                         auto mb = notempty ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.begin()) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-						if (notempty)
-							mb->setNormalAttributeIx(NORMAL);
                         submeshes.push_back(std::move(mb));
                     }
                     indices.emplace_back();
@@ -265,7 +263,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				dummyMaterialCreated = true;
 
 				submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
-				submeshes.back()->setNormalAttributeIx(NORMAL);
 				indices.emplace_back();
 				recalcNormals.push_back(false);
 				submeshWasLoadedFromCache.push_back(false);
@@ -459,6 +456,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 continue;
 
             submeshes[i]->setPositionAttributeIx(POSITION);
+			submeshes[i]->setNormalAttributeIx(NORMAL);
 			
 			submeshes[i]->setIndexBufferBinding({submeshes[i]->getIndexBufferBinding().offset,ixBuf});
             const uint64_t offset = submeshes[i]->getIndexBufferBinding().offset;

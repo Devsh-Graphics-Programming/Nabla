@@ -73,6 +73,7 @@ void main()
 
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
 R"(#version 430 core
+#extension GL_EXT_shader_integer_mix : require
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_INPUT_OUTPUT =
 R"(
@@ -100,10 +101,13 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
-mat2x3 nbl_glsl_MC_getdPos()
+#ifdef TEX_PREFETCH_STREAM
+mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(dFdx(WorldPos),dFdy(WorldPos));}
+mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
-	return mat2x3(dFdx(WorldPos), dFdy(WorldPos));
+    return mat2(dFdx(UV),dFdy(UV));
 }
+#endif
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
@@ -117,7 +121,7 @@ _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
 nbl_glsl_MC_precomputed_t precomp;
 nbl_glsl_MC_oriented_material_t material;
-Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_AnisotropicViewSurfaceInteraction inter, in mat2 dummy_dUV)
+Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_AnisotropicViewSurfaceInteraction inter)
 {
 	nbl_glsl_MC_instr_stream_t eis = nbl_glsl_MC_oriented_material_t_getEvalStream(material);
 
@@ -127,13 +131,13 @@ Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_Anisotro
 
 #ifndef _NBL_COMPUTE_LIGHTING_DEFINED_
 #define _NBL_COMPUTE_LIGHTING_DEFINED_
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dummy_dUV)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction)
 {
 	vec3 campos = nbl_glsl_MC_getCamPos();
-	out_interaction = nbl_glsl_calcSurfaceInteraction(campos,WorldPos,normalize(Normal),mat2x3(dFdx(WorldPos),dFdy(WorldPos)));
+	out_interaction = nbl_glsl_calcSurfaceInteraction(campos,WorldPos,normalize(Normal));
 
 	nbl_glsl_LightSample _sample = nbl_glsl_createLightSample(precomp.V,1.0,precomp.N);
-	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction,dummy_dUV)/dot(interaction.V.dir,interaction.V.dir);
+	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction)/dot(interaction.V.dir,interaction.V.dir);
 }
 #endif
 
@@ -144,19 +148,19 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = (!gl_FrontFacing) != (InstData.data[InstanceIndex].determinant < 0.0);
+	const bool front = bool((InstData.data[InstanceIndex].determinantSignBit^mix(~0u,0u,gl_FrontFacing))&0x80000000u);
 	precomp = nbl_glsl_MC_precomputeData(front);
 	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
 	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), precomp);
 #endif
 
 
 	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
-	vec3 color = nbl_computeLighting(inter, dUV);
+	vec3 color = nbl_computeLighting(inter);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -332,7 +336,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 	conv.inImage = _img;
 	conv.outImage = outImg.get();
 
-	if (!convert_filter_t::execute(&conv))
+	if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
 	{
 		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
 		_NBL_DEBUG_BREAK_IF(true);
@@ -642,6 +646,8 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	mb->setIndexType(_data.indexType);
 	mb->setBoundingBox(_data.bbox);
 	mb->setPipeline(std::move(pipeline));
+	constexpr auto NORMAL_ATTRIBUTE = 3;
+	mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
 
 	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
 	mesh->getMeshBufferVector().push_back(std::move(mb));
@@ -1077,7 +1083,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							conv.outImage = outImg.get();
 
 							viewParams.components = asset::ICPUImageView::SComponentMapping{};
-							if (!convert_filter_t::execute(&conv))
+							if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
 								_NBL_DEBUG_BREAK_IF(true);
 							viewParams.format = outImg->getCreationParameters().format;
 							viewParams.image = std::move(outImg);
@@ -1305,25 +1311,10 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 
 
-// TODO: we need a GLSL to C++ compatibility wrapper
-//#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
-#define uint uint32_t
-#define uvec2 uint64_t
-#define mat4x3 nbl::core::matrix3x4SIMD
-struct nbl_glsl_MC_oriented_material_t
-{
-	uvec2 emissive;
-	uint prefetch_offset;
-	uint prefetch_count;
-	uint instr_offset;
-	uint rem_pdf_count;
-	uint nprecomp_count;
-	uint genchoice_count;
-};
 // TODO: this function shouldn't really exist because the backend should produce this directly @Crisspl
-nbl_glsl_MC_oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
+asset::material_compiler::oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
 {
-	nbl_glsl_MC_oriented_material_t orientedMaterial;
+	asset::material_compiler::oriented_material_t orientedMaterial;
 	orientedMaterial.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
 	orientedMaterial.prefetch_offset = streams.prefetch_offset;
 	orientedMaterial.prefetch_count = streams.tex_prefetch_count;
@@ -1333,26 +1324,6 @@ nbl_glsl_MC_oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf
 	orientedMaterial.genchoice_count = streams.gen_choice_count;
 	return orientedMaterial;
 }
-struct nbl_glsl_MC_material_data_t
-{
-	nbl_glsl_MC_oriented_material_t front;
-	nbl_glsl_MC_oriented_material_t back;
-};
-struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
-{
-	struct vec3
-	{
-		float x, y, z;
-	};
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint padding0;
-	vec3 normalMatrixRow1;
-	uint padding1;
-	vec3 normalMatrixRow2;
-	float determinant;
-	nbl_glsl_MC_material_data_t material;
-};
 
 
 // Also sets instance data buffer offset into meshbuffers' base instance
@@ -1432,16 +1403,12 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto baseInstanceDataIt = meshMeta->m_instances.begin();
 		for (const auto& inst : meshMeta->m_instanceAuxData)
 		{
-			// @Crisspl IIRC lights in mitsuba have "sides"
-			// TODO: address the comment!
-			// i think it's just that backside of an area emitter does not emit, docs doesnt say anything about this
-			emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance : core::vectorSIMDf(0.f);
-
 			nbl_glsl_ext_Mitsuba_Loader_instance_data_t instData;
 
 			instData.tform = baseInstanceDataIt->worldTform;
 			instData.tform.getSub3x3InverseTranspose(reinterpret_cast<core::matrix3x4SIMD&>(instData.normalMatrixRow0));
-			instData.determinant = instData.tform.getPseudoDeterminant().x;
+			reinterpret_cast<float&>(instData.determinantSignBit) = instData.tform.getPseudoDeterminant().x;
+			instData.determinantSignBit &= 0x80000000;
 
 			auto bsdf = inst.bsdf;
 			auto bsdf_front = bsdf.front;
@@ -1457,6 +1424,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				//ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
 				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
+				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.front = impl_backendToGLSLStream(emissive,streams);
 			}
 			streams_it = _compResult.streams.find(bsdf_back);
@@ -1470,6 +1438,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				//ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
 				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
+				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.back = impl_backendToGLSLStream(emissive,streams);
 			}
 

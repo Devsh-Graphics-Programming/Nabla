@@ -9,13 +9,28 @@ using namespace core;
 using namespace video;
 using namespace asset;
 
+template <class To, class From>
+typename std::enable_if_t<
+	std::is_trivially_copyable_v<From> &&
+	std::is_trivially_copyable_v<To>,
+	To>
+	// constexpr support needs compiler magic
+	bit_cast(const From& src) noexcept
+{
+	static_assert(std::is_trivially_constructible_v<To>,
+		"This implementation additionally requires destination type to be trivially constructible");
+
+	To dst;
+	std::memcpy(&dst, &src, sizeof(To));
+	return dst;
+}
 
 
 template<typename T>
 struct and
 {
 	using type_t = T;
-	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = ~0ull; // this should be a reinterpret cast
+	static inline const T IdentityElement = bit_cast<T>(~0ull); // until C++20 std::bit_cast this cannot be a constexpr
 
 	inline T operator()(T left, T right) { return left & right; }
 	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
@@ -25,7 +40,7 @@ template<typename T>
 struct xor
 {
 	using type_t = T;
-	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+	static inline const T IdentityElement = bit_cast<T>(0ull); // until C++20 std::bit_cast this cannot be a constexpr
 
 	inline T operator()(T left, T right) { return left ^ right; }
 	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
@@ -35,7 +50,7 @@ template<typename T>
 struct or
 {
 	using type_t = T;
-	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+	static inline const T IdentityElement = bit_cast<T>(0ull); // until C++20 std::bit_cast this cannot be a constexpr
 
 	inline T operator()(T left, T right) { return left | right; }
 	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;

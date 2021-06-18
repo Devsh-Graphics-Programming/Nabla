@@ -19,10 +19,9 @@ layout(push_constant, row_major) uniform PushConstants{
 #define _NBL_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
 #define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 
-
-uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+uint CommonPushConstants_getPassLog2FFTSize(in int _pass)
 {
-    return max(findMSB(pc.data.imageWidth-1u),_NBL_GLSL_WORKGROUP_SIZE_LOG2_)+1u;
+	return bitfieldExtract(pc.data.flags,_pass*5+2,5);
 }
 uint nbl_glsl_ext_FFT_Parameters_t_getMaxChannel()
 {

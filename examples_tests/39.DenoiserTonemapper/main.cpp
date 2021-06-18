@@ -43,7 +43,8 @@ struct ImageToDenoise
 	uint32_t width = 0u, height = 0u;
 	uint32_t colorTexelSize = 0u;
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
-	float bloomScale;
+	VkExtent3D scaledKernelExtent;
+	float bloomIntensity;
 };
 struct DenoiserToUse
 {
@@ -192,7 +193,8 @@ int main(int argc, char* argv[])
 	struct NormalizationPushConstants
 	{
 		ext::FFT::uvec4 stride;
-		ext::FFT::uvec4 bitreverse_shift;
+		uint32_t bitreverse_shift[2];
+		float bloomIntensity;
 	};
 	{
 		auto firstKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -208,24 +210,16 @@ layout(set=0, binding=0) uniform sampler2D inputImage;
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 
 #include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
-layout(push_constant) uniform PushConstants
-{
-	nbl_glsl_ext_FFT_Parameters_t params;
-	float kernelScale;
-} pc;
-#define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
-nbl_glsl_ext_FFT_Parameters_t nbl_glsl_ext_FFT_getParameters()
-{
-	return pc.params;
-}
-#define _NBL_GLSL_EXT_FFT_GET_PARAMETERS_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/parameters.glsl"
 
 #include <nbl/builtin/glsl/math/complex.glsl>
 nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel) 
 {
-	ivec2 inputImageSize = textureSize(inputImage,0);
-	vec2 normalizedCoords = (vec2(coordinate.xy)+vec2(0.5f))/(vec2(inputImageSize)*pc.kernelScale);
-	vec4 texelValue = textureLod(inputImage, normalizedCoords+vec2(0.5-0.5/pc.kernelScale), -log2(pc.kernelScale));
+	const vec2 inputSize = vec2(nbl_glsl_ext_FFT_Parameters_t_getDimensions().xy);
+	const vec2 halfInputSize = inputSize*0.5;
+	const vec2 relativeCoords = vec2(coordinate.xy)-halfInputSize;
+	const vec2 inputSizeRcp = vec2(1.0)/inputSize;
+    const vec4 texelValue = textureGrad(inputImage,(relativeCoords+vec2(0.5))*inputSizeRcp+vec2(0.5),vec2(inputSizeRcp.x,0.0),vec2(0.0,inputSizeRcp.y));
 	return nbl_glsl_complex(texelValue[channel], 0.0f);
 }
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
@@ -270,7 +264,8 @@ layout(set=0, binding=3, rg32f) uniform image2D NormalizedKernel[3];
 layout(push_constant) uniform PushConstants
 {
 	uvec4 strides;
-	uvec4 bitreverse_shift;
+	uvec2 bitreverse_shift;
+	float bloomIntensity;
 } pc;
 
 #include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
@@ -285,9 +280,10 @@ void main()
 		avg[i] = inData[pc.strides.z*i].x;
 	const float power = (nbl_glsl_scRGBtoXYZ*avg).y;
 
-	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift.xy;
+	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift;
 	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));
 	value = nbl_glsl_complex_mul(value,shift)/power;
+	value = value*pc.bloomIntensity+nbl_glsl_complex(1.0-pc.bloomIntensity,0.0);
 	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
 }
 		)==="));
@@ -322,7 +318,7 @@ void main()
 		}
 
 		{
-			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t)+sizeof(float),sizeof(NormalizationPushConstants))};
+			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t),sizeof(NormalizationPushConstants))};
 			kernelPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+1u,core::smart_refctd_ptr(kernelDescriptorSetLayout));
 		}
 
@@ -446,6 +442,10 @@ uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
 {
 	return uvec3(pc.data.imageWidth,pc.data.imageHeight,1u);
 }
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+	return CommonPushConstants_getPassLog2FFTSize(0);
+}
 bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
 {
 	return false;
@@ -459,7 +459,7 @@ uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
 	outSpectrum[index] = complex_value;
 }
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
@@ -559,7 +559,11 @@ layout(binding=4) uniform sampler2D NormalizedKernel[3];
 
 uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
 {
-	return uvec3(0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize(),pc.data.imageHeight,1u);
+	return uvec3(0x1u<<CommonPushConstants_getPassLog2FFTSize(0),pc.data.imageHeight,1u);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+	return CommonPushConstants_getPassLog2FFTSize(1);
 }
 bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
 {
@@ -576,7 +580,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 #define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
 {
-	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
 	spectrum[index] = complex_value;
 }
 #define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
@@ -642,7 +646,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 {
 	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
 		return nbl_glsl_complex(0.f,0.f);
-	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
 	return spectrum[index];
 }
 		)==="));
@@ -680,7 +684,11 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
 {
-	return uvec3(0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize(),pc.data.imageHeight,1u);
+	return uvec3(0x1u<<CommonPushConstants_getPassLog2FFTSize(0),pc.data.imageHeight,1u);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+	return CommonPushConstants_getPassLog2FFTSize(0);
 }
 bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
 {
@@ -772,7 +780,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 {
 	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
 		return nbl_glsl_complex(0.f,0.f);
-	const uint index = ((channel<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
 	return inSpectrum[index];
 }
 		)==="));
@@ -857,7 +865,8 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
 	const auto& denoiserExposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
-	const auto& bloomScaleBundle = cmdHandler.getBloomScaleBundle();
+	const auto& bloomRelativeScaleBundle = cmdHandler.getBloomRelativeScaleBundle();
+	const auto& bloomIntensityBundle = cmdHandler.getBloomIntensityBundle();
 	const auto& tonemapperBundle = cmdHandler.getTonemapperBundle();
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
 	const auto& bloomPsfFileBundle = cmdHandler.getBloomPsfBundle();
@@ -1016,25 +1025,35 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					assert(region.bufferRowLength);
 					outParam.colorTexelSize = asset::getTexelOrBlockBytesize(colorCreationParams.format);
 				}
-				
-				const auto& kerDim = outParam.kernel->getCreationParameters().extent;
-				const float bloomScale = core::min(float(extent.width)/float(kerDim.width),float(extent.height)/float(kerDim.height))*bloomScaleBundle[i].value();
-				if (bloomScale>1.f)
-					os::Printer::log(imageIDString + "Bloom Kernel will Clip and loose sharpness, increase resolution of bloom kernel!", ELL_WARNING);
-				const auto marginSrcDim = [extent,kerDim,bloomScale]() -> auto
+
+				const float bloomRelativeScale = bloomRelativeScaleBundle[i].value();
+				{
+					auto kerDim = outParam.kernel->getCreationParameters().extent;
+					float kernelScale;
+					if (extent.width<extent.height)
+						kernelScale = float(extent.width)*bloomRelativeScale/float(kerDim.width);
+					else
+						kernelScale = float(extent.height)*bloomRelativeScale/float(kerDim.height);
+					if (kernelScale>1.f)
+						os::Printer::log(imageIDString + "Bloom Kernel loose sharpness, increase resolution of bloom kernel or reduce its relative scale!", ELL_WARNING);
+					outParam.scaledKernelExtent.width = core::ceil(float(kerDim.width)*kernelScale);
+					outParam.scaledKernelExtent.height = core::ceil(float(kerDim.height)*kernelScale);
+					outParam.scaledKernelExtent.depth = 1u;
+				}
+				const auto marginSrcDim = [extent,outParam]() -> auto
 				{
 					auto tmp = extent;
 					for (auto i=0u; i<3u; i++)
 					{
-						const auto coord = (&kerDim.width)[i];
+						const auto coord = (&outParam.scaledKernelExtent.width)[i];
 						if (coord>1u)
-							(&tmp.width)[i] += core::max(coord*bloomScale,1u)-1u;
+							(&tmp.width)[i] += coord-1u;
 					}
 					return tmp;
 				}();
-				outParam.bloomScale = bloomScale;
-				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,kerDim,colorChannelsFFT)*2u,fftScratchSize);
+				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,outParam.scaledKernelExtent,colorChannelsFFT)*2u,fftScratchSize);
 				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,marginSrcDim,colorChannelsFFT),fftScratchSize);
+				// TODO: maybe move them to nested loop and compute JIT
 				{
 					auto* fftPushConstants = outParam.fftPushConstants;
 					auto* fftDispatchInfo = outParam.fftDispatchInfo;
@@ -1062,6 +1081,8 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 				outParam.width = extent.width;
 				outParam.height = extent.height;
+
+				outParam.bloomIntensity = bloomIntensityBundle[i].value();
 
 				maxResolution[0] = core::max(maxResolution[0], outParam.width);
 				maxResolution[1] = core::max(maxResolution[1], outParam.height);
@@ -1170,12 +1191,13 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 		{
 			shaderConstants.imageWidth = param.width;
 			shaderConstants.imageHeight = param.height;
-			assert(intensityBufferOffset%IntensityValuesSize==0u);
 
+			assert(intensityBufferOffset%IntensityValuesSize==0u);
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
-			shaderConstants.flags = 0b11u; // (autoexposureOn<<1)|beforeDenoise
+			assert(param.fftPushConstants[0].getLog2FFTSize()==param.fftPushConstants[2].getLog2FFTSize());
+			shaderConstants.flags = (param.fftPushConstants[1].getLog2FFTSize()<<7u)|(param.fftPushConstants[0].getLog2FFTSize()<<2u)|0b11u; // (autoexposureOn<<1)|beforeDenoise
 			switch (tonemapperBundle[i].first)
 			{
 				case DTEA_TONEMAPPER_REINHARD:
@@ -1216,7 +1238,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					if (core::isnan(key))
 					{
 						shaderConstants.tonemapperParams[0] = 0.18;
-						shaderConstants.flags &= 0b01u; // ~(autoexposureOn<<1)
+						shaderConstants.flags &= ~0b10u; // ~(autoexposureOn<<1)
 					}
 					else
 						shaderConstants.tonemapperParams[0] = key;
@@ -1302,15 +1324,14 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				}
 
 				// kernel outputs
-				const auto kerDim = kerImageView->getCreationParameters().image->getCreationParameters().extent;
-				const VkExtent3D paddedKerDim = FFTClass::padDimensions(kerImageView->getCreationParameters().image->getCreationParameters().extent);
+				auto paddedKernelExtent = FFTClass::padDimensions(param.scaledKernelExtent);
 				for (uint32_t i=0u; i<colorChannelsFFT; i++)
 				{
 					video::IGPUImage::SCreationParams imageParams;
 					imageParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
 					imageParams.type = asset::IImage::ET_2D;
 					imageParams.format = EF_R32G32_SFLOAT;
-					imageParams.extent = { paddedKerDim.width,paddedKerDim.height,1u};
+					imageParams.extent = {paddedKernelExtent.width,paddedKernelExtent.height,1u};
 					imageParams.mipLevels = 1u;
 					imageParams.arrayLayers = 1u;
 					imageParams.samples = asset::IImage::ESCF_1_BIT;
@@ -1331,7 +1352,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				FFTClass::Parameters_t fftPushConstants[2];
 				FFTClass::DispatchInfo_t fftDispatchInfo[2];
 				const ISampler::E_TEXTURE_CLAMP fftPadding[2] = { ISampler::ETC_CLAMP_TO_BORDER,ISampler::ETC_CLAMP_TO_BORDER };
-				const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,kerDim,fftPushConstants,fftDispatchInfo,fftPadding);
+				const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,param.scaledKernelExtent,fftPushConstants,fftDispatchInfo,fftPadding);
 
 				// the kernel's FFTs
 				{
@@ -1362,7 +1383,6 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 					// Ker Image First Axis FFT
 					driver->bindComputePipeline(firstKernelFFTPipeline.get());
-					driver->pushConstants(kernelPipelineLayout.get(),ICPUSpecializedShader::ESS_COMPUTE,sizeof(FFTClass::Parameters_t),sizeof(float),&param.bloomScale);
 					FFTClass::dispatchHelper(driver,kernelPipelineLayout.get(),fftPushConstants[0],fftDispatchInfo[0]);
 
 					// Ker Image Last Axis FFT
@@ -1374,12 +1394,12 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					{
 						NormalizationPushConstants normalizationPC;
 						normalizationPC.stride = fftPushConstants[1].output_strides;
-						normalizationPC.bitreverse_shift.x = 32-core::findMSB(paddedKerDim.width);
-						normalizationPC.bitreverse_shift.y = 32-core::findMSB(paddedKerDim.height);
-						normalizationPC.bitreverse_shift.z = 0;
+						normalizationPC.bitreverse_shift[0] = 32-core::findMSB(paddedKernelExtent.width);
+						normalizationPC.bitreverse_shift[1] = 32-core::findMSB(paddedKernelExtent.height);
+						normalizationPC.bloomIntensity = param.bloomIntensity;
 						driver->pushConstants(kernelNormalizationPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(normalizationPC),&normalizationPC);
-						const uint32_t dispatchSizeX = (paddedKerDim.width-1u)/16u+1u;
-						const uint32_t dispatchSizeY = (paddedKerDim.height-1u)/16u+1u;
+						const uint32_t dispatchSizeX = (paddedKernelExtent.width-1u)/16u+1u;
+						const uint32_t dispatchSizeY = (paddedKernelExtent.height-1u)/16u+1u;
 						driver->dispatch(dispatchSizeX,dispatchSizeY,colorChannelsFFT);
 					}
 					FFTClass::defaultBarrier();
@@ -1532,7 +1552,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 			// compute post-processing
 			{
 				// let the shaders know we're in the second phase now
-				shaderConstants.flags &= 0b10u;
+				shaderConstants.flags &= ~0b01u;
 				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,flags), sizeof(uint32_t), &shaderConstants.flags);
 				// Bloom
 				uint32_t workgroupCounts[2] = { (param.width+kComputeWGSize-1u)/kComputeWGSize,param.height };
@@ -1723,7 +1743,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					state.inMipLevel = region->imageSubresource.mipLevel;
 					state.outMipLevel = region->imageSubresource.mipLevel;
 
-					if (!convertFilter.execute(&state))
+					if (!convertFilter.execute(std::execution::par_unseq,&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
 
 					_NBL_DELETE(state.ditherState);

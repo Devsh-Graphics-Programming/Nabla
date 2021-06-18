@@ -547,7 +547,6 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         bsdfLightIDs = getBSDFLightIDAndDetermineNormal(isotropic.N,objectID,intersection);
 
         isotropic.V.dir = -_immutable.direction;
-        //isotropic.V.dPosdScreen = screw that
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
         isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 

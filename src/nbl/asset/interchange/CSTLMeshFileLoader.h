@@ -15,7 +15,7 @@ namespace asset
 {
 
 //! Meshloader capable of loading STL meshes.
-class CSTLMeshFileLoader final : public IAssetLoader, public IRenderpassIndependentPipelineLoader
+class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 {
 	public:
 
