@@ -389,7 +389,7 @@ macro(nbl_adjust_flags)
 endmacro()
 
 macro(nbl_adjust_definitions)
-	add_compile_definitions(
+	add_definitions(
 		-DPNG_THREAD_UNSAFE_OK
 		-DPNG_NO_MMX_CODE
 		-DPNG_NO_MNG_FEATURES
@@ -398,13 +398,13 @@ macro(nbl_adjust_definitions)
 	)
 	
 	if(ANDROID)
-		add_compile_definitions(
+		add_definitions(
 			-DNBL_ANDROID_TOOLCHAIN
 		)
 	endif()
 
 	if(WIN32)
-		add_compile_definitions(
+		add_definitions(
 			-DWIN32
 			-D__GNUWIN32__
 			-D_CRT_SECURE_NO_DEPRECATE
