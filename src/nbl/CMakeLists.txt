@@ -620,9 +620,9 @@ set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-	${NBL_ROOT_PATH}/source/Nabla/CLogger.h
+	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h
 #	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
-	${NBL_ROOT_PATH}/source/Nabla/os.h
+	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
