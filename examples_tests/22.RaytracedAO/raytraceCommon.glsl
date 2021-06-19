@@ -260,7 +260,7 @@ void gen_sample_ray(
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, in vec3 origin_error, in vec3 prevThroughput)
+	in vec3 origin, vec3 origin_error, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -301,15 +301,19 @@ for (uint i=1u; i!=vertex_depth; i++)
 	}
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
-
+	
+	const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
+	float ray_offset = dot(normalize(abs(normalizedN)),origin_error)+nbl_glsl_ieee754_gamma(3u);
+	//float ray_offset = nbl_glsl_ieee754_gamma(3u);
 	// adjust for the fact that the normal might be too short (inversesqrt precision)
-	const float ray_offset = dot(abs(normalizedN),origin_error)*1.03125f;
+	ray_offset *= 1.03125f;
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
 		newRay.origin = nbl_glsl_robust_ray_origin_impl(origin,direction[i],ray_offset,normalizedN);
+		//newRay.origin = nbl_glsl_robust_ray_origin_impl(origin,direction[i],ray_offset,geomNormal);
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);

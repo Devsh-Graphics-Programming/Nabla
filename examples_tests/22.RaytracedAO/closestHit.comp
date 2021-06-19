@@ -101,9 +101,11 @@ void main()
 	#if 1	
 			if (vertex_depth!=2u)
 				emissive = vec3(0.f);
+			else
+				emissive = frontfacing ? vec3(0.f,10.f,0.f):vec3(10.f,0.f,0.f);
 	#endif
 		}
-	#if 0
+	#if 1
 		// TODO: finish MIS
 		vec3 acc;
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);

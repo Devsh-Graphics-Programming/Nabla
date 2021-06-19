@@ -408,7 +408,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 									const auto instanceID = std::distance(instanceAuxData.begin(),auxIt);
 									*newInstanceData = mbInstanceData[instanceID];
-									assert(instanceData.begin()[instanceID].worldTform==newInstanceData->tform);
+									//assert(instanceData.begin()[instanceID].worldTform==newInstanceData->tform); TODO: later
 									newInstanceData->padding0 = firstIndex;
 									newInstanceData->padding1 = reinterpret_cast<const uint32_t&>(cdotIt->attribInfo[posAttrID]);
 									newInstanceData->determinantSignBit = core::bitfieldInsert(
