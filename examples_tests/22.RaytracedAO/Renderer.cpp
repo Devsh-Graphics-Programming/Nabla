@@ -49,7 +49,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#ifdef _NBL_BUILD_OPTIX_
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
-		m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
+		m_prevView(), m_prevCamTform(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
 		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{vec3(),0.f,0u,0u,0u,0u},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
@@ -1163,15 +1163,14 @@ void Renderer::render(nbl::ITimer* timer)
 
 	// check if camera moved
 	{
-		const auto currentView = camera->getViewMatrix();
-		auto properEquals = [](const auto& lhs, const auto& rhs) -> bool
+		auto properEquals = [](const core::matrix4x3& lhs, const core::matrix4x3& rhs) -> bool
 		{
 			const float rotationTolerance = 1.01f;
 			const float positionTolerance = 1.005f;
 			for (auto r=0; r<3u; r++)
 			for (auto c=0; c<4u; c++)
 			{
-				const float ratio = core::abs(rhs.rows[r][c]/lhs.rows[r][c]);
+				const float ratio = core::abs((&rhs.getColumn(c).X)[r]/(&lhs.getColumn(c).X)[r]);
 				// TODO: do by ULP
 				if (core::isnan(ratio) || core::isinf(ratio))
 					continue;
@@ -1181,17 +1180,15 @@ void Renderer::render(nbl::ITimer* timer)
 			}
 			return true;
 		};
-		if (!properEquals(currentView,m_prevView))
+		auto tform = camera->getRelativeTransformationMatrix();
+		if (!properEquals(tform,m_prevCamTform))
 		{
 			m_framesDispatched = 0u;		
-			m_prevView = currentView;
+			m_prevView = camera->getViewMatrix();
+			m_prevCamTform = tform;
 		}
 		else // need this to stop mouse cursor drift
-		{
-			core::matrix3x4SIMD invView;
-			m_prevView.getInverse(invView);
-			camera->setRelativeTransformationMatrix(invView.getAsRetardedIrrlichtMatrix());
-		}
+			camera->setRelativeTransformationMatrix(m_prevCamTform);
 	}
 
 	// TODO: update positions and rr->Commit() if stuff starts to move

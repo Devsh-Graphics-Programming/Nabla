@@ -290,13 +290,13 @@ for (uint i=1u; i!=vertex_depth; i++)
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 
 	// TODO: improve
-	const vec3 error = vec3(0.0001f);// abs(origin)* uintBitsToFloat(0x35480005);
+	const vec3 error = vec3(0.01f);// abs(origin)* uintBitsToFloat(0x35480005);
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
-		newRay.origin = origin+direction[i]*0.002;// nbl_glsl_robust_ray_origin(origin, direction[i], error, normalizedN);
+		newRay.origin = nbl_glsl_robust_ray_origin(origin,direction[i],error,normalizedN);
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);

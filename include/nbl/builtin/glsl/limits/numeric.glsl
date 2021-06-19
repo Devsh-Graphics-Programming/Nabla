@@ -69,14 +69,25 @@ float nbl_glsl_numeric_limits_float_epsilon()
 	return nbl_glsl_FLT_EPSILON;
 }
 
+
 float nbl_glsl_ieee754_gamma(float n)
 {
 	const float a = nbl_glsl_numeric_limits_float_epsilon(n);
 	return a/(1.f-a);
 }
+float nbl_glsl_ieee754_rcpgamma(float n)
+{
+	const float a = nbl_glsl_numeric_limits_float_epsilon(n);
+	return 1.f/a-1.f;
+}
+
 float nbl_glsl_ieee754_gamma(uint n)
 {
 	return nbl_glsl_ieee754_gamma(float(n));
+}
+float nbl_glsl_ieee754_rcpgamma(uint n)
+{
+	return nbl_glsl_ieee754_rcpgamma(float(n));
 }
 
 #endif
