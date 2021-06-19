@@ -11,9 +11,9 @@ layout (location = 0) out vec4 pixelColor;
 #define SAMPLES 32
 #define IMPORTANCE_SAMPLING
 
-#define PDF_SUM_FACTOR (815702059.80897319*4.0*nbl_glsl_PI)
+// #define PDF_SUM_FACTOR (815702059.80897319*4.0*nbl_glsl_PI)
 // #define PDF_SUM_FACTOR (15514326643.607162*4.0*nbl_glsl_PI)
-// #define PDF_SUM_FACTOR 1.0
+#define PDF_SUM_FACTOR 1.0
 
 layout(set = 3, binding = 0) uniform sampler2D envMap; 
 layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
