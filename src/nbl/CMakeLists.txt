@@ -607,7 +607,26 @@ propagate_changed_variables_to_parent_scope()
 set(NABLA_HEADERS_TO_INSTALL 
 	${NABLA_HEADERS_PUBLIC}
 )
+
+set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
+	# Junk to refactor
+	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
+	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
+	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CLogger.h
+#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
+	${NBL_ROOT_PATH}/source/Nabla/os.h
+)
+
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
+nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)
 
 macro(nbl_install_lib _TRGT)
