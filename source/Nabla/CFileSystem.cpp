@@ -13,7 +13,7 @@
 #include "CTarReader.h"
 #include "CFileList.h"
 #include "stdio.h"
-#include "os.h"
+#include "nbl_os.h"
 #include "CMemoryFile.h"
 #include "CLimitReadFile.h"
 

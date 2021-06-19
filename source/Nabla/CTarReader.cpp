@@ -9,7 +9,7 @@
 
 #include "CFileList.h"
 #include "CLimitReadFile.h"
-#include "os.h"
+#include "nbl_os.h"
 #include "errno.h"
 
 namespace nbl

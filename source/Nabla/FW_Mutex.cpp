@@ -5,7 +5,7 @@
 //#include "stdafx.h"
 
 #include "FW_Mutex.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #if _MSC_VER && !__INTEL_COMPILER
 //

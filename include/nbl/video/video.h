@@ -26,6 +26,8 @@
 
 // think about foler name for those
 #include "nbl/video/IAPIConnection.h"
+#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/asset_traits.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"

@@ -14,7 +14,7 @@
 #include "CIrrDeviceStub.h"
 #include "IrrlichtDevice.h"
 #include "ICursorControl.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #ifdef _NBL_COMPILE_WITH_X11_
 

@@ -10,11 +10,11 @@ namespace video
 // Functions defined in connections' .cpp files
 // (i dont want to have all backends in single translation unit)
 // as a result, if one wants to turn off compilation of whole backend, one can just remove corresponding API connection's .cpp from build
-core::smart_refctd_ptr<IAPIConnection> createOpenGLConnection(SDebugCallback* dbgCb);
-core::smart_refctd_ptr<IAPIConnection> createOpenGLESConnection(SDebugCallback* dbgCb);
+core::smart_refctd_ptr<IAPIConnection> createOpenGLConnection(const SDebugCallback& dbgCb);
+core::smart_refctd_ptr<IAPIConnection> createOpenGLESConnection(const SDebugCallback& dbgCb);
 
 
-core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(E_API_TYPE apiType, uint32_t appVer, const char* appName, SDebugCallback* dbgCb)
+core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(E_API_TYPE apiType, uint32_t appVer, const char* appName, const SDebugCallback& dbgCb)
 {
     switch (apiType)
     {
@@ -29,7 +29,7 @@ core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(E_API_TYPE apiType
     }
 }
 
-IAPIConnection::IAPIConnection()
+IAPIConnection::IAPIConnection(const SDebugCallback& dbgCb) : m_debugCallback(dbgCb)
 {
     //! This variable tells us where the directory holding "nbl/builtin/" is if the resources are not embedded
     /** For shipping products to end-users we recommend embedding the built-in resources to avoid a plethora of

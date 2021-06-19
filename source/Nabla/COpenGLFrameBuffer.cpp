@@ -8,7 +8,7 @@
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLDriver.h"
 
-#include "os.h"
+#include "nbl_os.h"
 #include "..\..\src\nbl\video\COpenGLFramebuffer.h"
 
 

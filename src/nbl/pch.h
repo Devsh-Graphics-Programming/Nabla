@@ -87,7 +87,7 @@
 #include "CIrrDeviceStub.h"
 #include "CIrrDeviceWin32.h"
 #include "CLimitReadFile.h"
-#include "CLogger.h"
+#include "nbl_CLogger.h"
 #include "CMemoryFile.h"
 #include "CMountPointReader.h"
 #include "CNullDriver.h"
@@ -108,7 +108,7 @@
 #include "CWriteFile.h"
 #include "CZipReader.h"
 #include "FW_Mutex.h" // refactor
-#include "os.h"
+#include "nbl_os.h"
 */
 
 #endif

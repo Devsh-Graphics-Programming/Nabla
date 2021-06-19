@@ -22,7 +22,7 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_GLI_LOADER_
 
-#include "os.h"
+#include "nbl_os.h"
 
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 

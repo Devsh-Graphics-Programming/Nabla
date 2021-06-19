@@ -17,7 +17,7 @@ namespace video
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
-    static core::smart_refctd_ptr<IAPIConnection> create(E_API_TYPE apiType, uint32_t appVer, const char* appName, SDebugCallback* dbgCb = nullptr);
+    static core::smart_refctd_ptr<IAPIConnection> create(E_API_TYPE apiType, uint32_t appVer, const char* appName, const SDebugCallback& dbgCb);
 
     virtual E_API_TYPE getAPIType() const = 0;
 
@@ -26,12 +26,14 @@ public:
     virtual core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const = 0;
 
 protected:
-    IAPIConnection();
+    IAPIConnection(const SDebugCallback& dbgCb);
     virtual ~IAPIConnection() = default;
 
     // idk where to put those, so here they are for now
     core::smart_refctd_ptr<io::IFileSystem> m_fs;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
+
+    SDebugCallback m_debugCallback;
 };
 
 }

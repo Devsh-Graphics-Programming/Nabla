@@ -4,7 +4,7 @@
 // See the original file in irrlicht source for authors
 
 
-#include "os.h"
+#include "nbl_os.h"
 
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"

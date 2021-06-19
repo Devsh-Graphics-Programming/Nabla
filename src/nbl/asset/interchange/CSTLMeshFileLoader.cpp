@@ -13,7 +13,7 @@
 #include "CSTLMeshFileLoader.h"
 
 #include "IReadFile.h"
-#include "os.h"
+#include "nbl_os.h"
 
 using namespace nbl;
 using namespace nbl::asset;

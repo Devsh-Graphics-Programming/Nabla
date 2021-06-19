@@ -20,7 +20,7 @@ SOFTWARE.
 
 #include "CGLIWriter.h"
 
-#include "os.h"
+#include "nbl_os.h"
 
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 

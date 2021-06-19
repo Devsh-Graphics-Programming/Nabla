@@ -10,7 +10,7 @@
 #include "IWriteFile.h"
 #include "IrrlichtDevice.h"
 
-#include "os.h"
+#include "nbl_os.h"
 
 #include "CCameraSceneNode.h"
 

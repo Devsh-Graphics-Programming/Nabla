@@ -9,7 +9,7 @@
 
 #include "CSTLMeshWriter.h"
 
-#include "os.h"
+#include "nbl_os.h"
 #include "IWriteFile.h"
 #include "IFileSystem.h"
 #include "ISceneManager.h"

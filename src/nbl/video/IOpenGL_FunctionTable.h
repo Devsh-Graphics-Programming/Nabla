@@ -1,7 +1,7 @@
 #ifndef __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
-#include "os.h" // Printer::log
+#include "nbl_os.h" // Printer::log
 
 #include <atomic>
 #include "nbl/video/COpenGLFeatureMap.h"
@@ -23,7 +23,7 @@
 #undef GL_GLEXT_PROTOTYPES
 
 #ifdef _NBL_DEBUG
-#	include "os.h"
+#	include "nbl_os.h"
 
 namespace nbl {
 namespace video {

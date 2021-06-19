@@ -104,7 +104,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             return IOpenGLPipeline<SHADER_STAGE_COUNT>::getShaderGLnameForCtx(_stageIx, _ctxID);
         }
         
-        struct PushConstantsState
+        struct alignas(128) PushConstantsState
         {
 	        alignas(128) uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
 	        core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;

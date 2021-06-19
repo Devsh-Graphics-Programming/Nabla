@@ -368,7 +368,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                     return 0u;
                 return getFormatChannelCount(getAttribFormat(attrId));
             };
-            return core::min(safelyGetAttributeFormatChannelCount(jointIDAttrId),safelyGetAttributeFormatChannelCount(jointWeightAttrId)+1u);
+            return (core::min)(safelyGetAttributeFormatChannelCount(jointIDAttrId),safelyGetAttributeFormatChannelCount(jointWeightAttrId)+1u);
         }
 
         //! Tells us if the mesh is skinned

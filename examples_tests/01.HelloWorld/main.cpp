@@ -2,66 +2,153 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#define _NBL_STATIC_LIB_
-#include <nabla.h>
-
 /**
 This example just shows a screen which clears to red,
 nothing fancy, just to show that Irrlicht links fine
 **/
+#define _NBL_STATIC_LIB_
+#include <iostream>
+#include <cstdio>
+#include <nabla.h>
+
+#include "../common/CommonAPI.h"
+
 using namespace nbl;
 
+inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
+{
+	using namespace nbl;
+	const char* sev = nullptr;
+	switch (severity)
+	{
+	case video::EDMS_VERBOSE:
+		sev = "verbose"; break;
+	case video::EDMS_INFO:
+		sev = "info"; break;
+	case video::EDMS_WARNING:
+		sev = "warning"; break;
+	case video::EDMS_ERROR:
+		sev = "error"; break;
+	}
+	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
+}
 
-/*
-The start of the main function starts like in most other example. We ask the
-user for the desired renderer and start it up.
-*/
+
 int main()
 {
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = core::dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = false;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	params.AuxGLContexts = 16;
-	auto device = createDeviceEx(params);
+	constexpr uint32_t WIN_W = 800u;
+	constexpr uint32_t WIN_H = 600u;
+	constexpr uint32_t SC_IMG_COUNT = 3u;
 
-	if (!device)
-		return 1; // could not create selected driver.
+	auto win = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
+
+	video::SDebugCallback dbgcb;
+	dbgcb.callback = &debugCallback;
+	dbgcb.userData = nullptr;
+	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
+	auto surface = gl->createSurface(win.get());
+
+	auto gpus = gl->getPhysicalDevices();
+	assert(!gpus.empty());
+	auto gpu = gpus.begin()[0];
+
+	assert(surface->isSupported(gpu.get(), 0u));
+
+	video::ILogicalDevice::SCreationParams dev_params;
+	dev_params.queueParamsCount = 1u;
+	video::ILogicalDevice::SQueueCreationParams q_params;
+	q_params.familyIndex = 0u;
+	q_params.count = 4u;
+	q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+	float priority[4] = { 1.f,1.f,1.f,1.f };
+	q_params.priorities = priority;
+	dev_params.queueCreateInfos = &q_params;
+	auto device = gpu->createLogicalDevice(dev_params);
+
+	auto* queue = device->getQueue(0u, 0u);
+
+	core::smart_refctd_ptr<video::ISwapchain> sc  = CommonAPI::createSwapchain(WIN_W, WIN_H, SC_IMG_COUNT, device, surface, video::ISurface::EPM_FIFO_RELAXED);
+	assert(sc);
+
+	core::smart_refctd_ptr<video::IGPURenderpass> renderpass = CommonAPI::createRenderpass(device);
+
+	auto fbo = CommonAPI::createFBOWithSwapchainImages<SC_IMG_COUNT, WIN_W, WIN_H>(device, sc, renderpass);
+
+	auto cmdpool = device->createCommandPool(0u, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
+	assert(cmdpool);
 
 
-	video::IVideoDriver* driver = device->getVideoDriver();
-	scene::ISceneManager* smgr = device->getSceneManager();
-
-
-	uint64_t lastFPSTime = 0;
-
-	while(device->run())
-	if (device->isWindowActive())
 	{
-		driver->beginScene(true, false, video::SColor(255,255,0,0) ); //this gets 11k FPS
+		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
 
 
-		driver->endScene();
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
+		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cb);
+		assert(cb);
 
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time-lastFPSTime > 1000)
-		{
-		    std::wostringstream str(L"Hello World - Nabla Engine [");
-		    str.seekp(0,std::ios_base::end);
-			str << driver->getName() << "] FPS:" << driver->getFPS();
+		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
-			device->setWindowCaption(str.str());
-			lastFPSTime = time;
-		}
+		asset::SViewport vp;
+		vp.minDepth = 1.f;
+		vp.maxDepth = 0.f;
+		vp.x = 0u;
+		vp.y = 0u;
+		vp.width = WIN_W;
+		vp.height = WIN_H;
+		cb->setViewport(0u, 1u, &vp);
+
+		cb->end();
+
+		video::IGPUQueue::SSubmitInfo info;
+		auto* cb_ = cb.get();
+		info.commandBufferCount = 1u;
+		info.commandBuffers = &cb_;
+		info.pSignalSemaphores = nullptr;
+		info.signalSemaphoreCount = 0u;
+		info.pWaitSemaphores = nullptr;
+		info.waitSemaphoreCount = 0u;
+		info.pWaitDstStageMask = nullptr;
+		queue->submit(1u, &info, nullptr);
 	}
+
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
+	device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT, cmdbuf);
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		auto& cb = cmdbuf[i];
+		auto& fb = fbo[i];
+
+		cb->begin(0);
+
+		size_t offset = 0u;
+		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
+		asset::SClearValue clear;
+		asset::VkRect2D area;
+		area.offset = { 0, 0 };
+		area.extent = { WIN_W, WIN_H };
+		clear.color.float32[0] = 1.f;
+		clear.color.float32[1] = 0.f;
+		clear.color.float32[2] = 0.f;
+		clear.color.float32[3] = 1.f;
+		info.renderpass = renderpass;
+		info.framebuffer = fb;
+		info.clearValueCount = 1u;
+		info.clearValues = &clear;
+		info.renderArea = area;
+		cb->beginRenderPass(&info, asset::ESC_INLINE);
+		cb->endRenderPass();
+
+		cb->end();
+	}
+
+	constexpr uint32_t FRAME_COUNT = 500000u;
+	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
+ 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	{
+		CommonAPI::Present<SC_IMG_COUNT>(device, sc, cmdbuf, queue);
+	}
+
+	device->waitIdle();
 
 	return 0;
 }

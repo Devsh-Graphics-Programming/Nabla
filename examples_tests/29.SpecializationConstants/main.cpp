@@ -4,60 +4,88 @@
 
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#include "../common/QToQuitEventReceiver.h"
 #include "COpenGLExtensionHandler.h"
 
+#include "../common/CommonAPI.h"
+#include "CFileSystem.h"
 using namespace nbl;
 using namespace core;
 
+struct UBOCompute
+{
+	//xyz - gravity point, w - dt
+	core::vectorSIMDf gravPointAndDt;
+};
 int main()
 {
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	auto device = createDeviceEx(params);
+	constexpr uint32_t WIN_W = 1280;
+	constexpr uint32_t WIN_H = 720;
+	constexpr uint32_t SC_IMG_COUNT = 3u;
 
-	if (!device)
-		return 1; // could not create selected driver.
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Draw3DLine");
+	auto win = std::move(initOutp.window);
+	auto gl = std::move(initOutp.apiConnection);
+	auto surface = std::move(initOutp.surface);
+	auto device = std::move(initOutp.logicalDevice);
+	auto gpu = std::move(initOutp.physicalDevice);
+	auto queue = std::move(initOutp.queue);
+	auto sc = std::move(initOutp.swapchain);
+	auto renderpass = std::move(initOutp.renderpass);
+	auto fbo = std::move(initOutp.fbo);
+	auto cmdpool = std::move(initOutp.commandPool);
+	{
+		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
+		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cb);
+		assert(cb);
 
-	//! disable mouse cursor, since camera will force it to the middle
-	//! and we don't want a jittery cursor in the middle distracting us
-	device->getCursorControl()->setVisible(false);
+		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
-	//! Since our cursor will be enslaved, there will be no way to close the window
-	//! So we listen for the "Q" key being pressed and exit the application
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
+		asset::SViewport vp;
+		vp.minDepth = 1.f;
+		vp.maxDepth = 0.f;
+		vp.x = 0u;
+		vp.y = 0u;
+		vp.width = WIN_W;
+		vp.height = WIN_H;
+		cb->setViewport(0u, 1u, &vp);
 
-	video::IVideoDriver* driver = device->getVideoDriver();
+		cb->end();
 
-	io::IFileSystem* filesystem = device->getFileSystem();
-	asset::IAssetManager* am = device->getAssetManager();
-	scene::ISceneManager* smgr = device->getSceneManager();
+		video::IGPUQueue::SSubmitInfo info;
+		auto* cb_ = cb.get();
+		info.commandBufferCount = 1u;
+		info.commandBuffers = &cb_;
+		info.pSignalSemaphores = nullptr;
+		info.signalSemaphoreCount = 0u;
+		info.pWaitSemaphores = nullptr;
+		info.waitSemaphoreCount = 0u;
+		info.pWaitDstStageMask = nullptr;
+		queue->submit(1u, &info, nullptr);
+	}
+	video::IDescriptorPool::SDescriptorPoolSize poolSize[2];
+	poolSize[0].count = 1;
+	poolSize[0].type = asset::EDT_STORAGE_BUFFER;
+	poolSize[1].count = 1;
+	poolSize[1].type = asset::EDT_UNIFORM_BUFFER;
 
-	//! we want to move around the scene and view it from different angles
-	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.5f);
+	auto dscPool = device->createDescriptorPool(video::IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT, 2, 2, poolSize);
 
-	camera->setPosition(core::vector3df(-4, 0, 0));
-	camera->setTarget(core::vector3df(0, 0, 0));
-	camera->setNearValue(1.f);
-	camera->setFarValue(5000.0f);
+	auto filesystem = core::make_smart_refctd_ptr<io::CFileSystem>("");
+	auto am = core::make_smart_refctd_ptr<asset::IAssetManager>(std::move(filesystem));
+	video::IGPUObjectFromAssetConverter CPU2GPU;
+	core::vectorSIMDf cameraPosition(0, 0, -10);
+	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
+	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
+	auto camFront = view[2];
 
-	auto glslExts = driver->getSupportedGLSLExtensions();
+	auto glslExts = device->getSupportedGLSLExtensions();
 	asset::CShaderIntrospector introspector(am->getGLSLCompiler());
 
 	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
 	{
-		auto file = filesystem->createAndOpenFile("../particles.comp");
-		//computeUnspec = am->getGLSLCompiler()->createSPIRVFromGLSL(file, asset::ISpecializedShader::ESS_COMPUTE, "main", file->getFileName().c_str());
+		auto file = am->getFileSystem()->createAndOpenFile("../particles.comp");
 		computeUnspec = am->getGLSLCompiler()->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, file->getFileName().c_str());
 		file->drop();
 	}
@@ -75,8 +103,8 @@ int main()
 	constexpr uint32_t COMPUTE_DATA_UBO_BINDING = 1u;
 
 	constexpr uint32_t WORKGROUP_SIZE = 256u;
-	constexpr uint32_t PARTICLE_COUNT = 1u<<21;
-	constexpr uint32_t PARTICLE_COUNT_PER_AXIS = 1u<<7;
+	constexpr uint32_t PARTICLE_COUNT = 1u << 21;
+	constexpr uint32_t PARTICLE_COUNT_PER_AXIS = 1u << 7;
 	constexpr uint32_t POS_BUF_IX = 0u;
 	constexpr uint32_t VEL_BUF_IX = 1u;
 	constexpr uint32_t BUF_COUNT = 2u;
@@ -90,11 +118,11 @@ int main()
 			int32_t vel_buf_ix;
 			int32_t buf_count;
 		};
-		SpecConstants sc {WORKGROUP_SIZE, PARTICLE_COUNT, POS_BUF_IX, VEL_BUF_IX, BUF_COUNT};
+		SpecConstants sc{ WORKGROUP_SIZE, PARTICLE_COUNT, POS_BUF_IX, VEL_BUF_IX, BUF_COUNT };
 
 		auto it_particleBufDescIntro = std::find_if(introspection->descriptorSetBindings[COMPUTE_SET].begin(), introspection->descriptorSetBindings[COMPUTE_SET].end(),
-			[=] (auto b) { return b.binding==PARTICLE_BUF_BINDING; }
-			);
+			[=](auto b) { return b.binding == PARTICLE_BUF_BINDING; }
+		);
 		assert(it_particleBufDescIntro->descCountIsSpecConstant);
 		const uint32_t buf_count_specID = it_particleBufDescIntro->count_specID;
 		auto& particleDataArrayIntro = it_particleBufDescIntro->get<asset::ESRT_STORAGE_BUFFER>().members.array[0];
@@ -104,46 +132,58 @@ int main()
 		auto backbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(sc));
 		memcpy(backbuf->getPointer(), &sc, sizeof(sc));
 		auto entries = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ISpecializedShader::SInfo::SMapEntry>>(5u);
-		(*entries)[0] = {0u,offsetof(SpecConstants,wg_size),sizeof(int32_t)};//currently local_size_{x|y|z}_id is not queryable via introspection API
-		(*entries)[1] = {particle_count_specID,offsetof(SpecConstants,particle_count),sizeof(int32_t)};
-		(*entries)[2] = {2u,offsetof(SpecConstants,pos_buf_ix),sizeof(int32_t)};
-		(*entries)[3] = {3u,offsetof(SpecConstants,vel_buf_ix),sizeof(int32_t)};
-		(*entries)[4] = {buf_count_specID,offsetof(SpecConstants,buf_count),sizeof(int32_t)};
+		(*entries)[0] = { 0u,offsetof(SpecConstants,wg_size),sizeof(int32_t) };//currently local_size_{x|y|z}_id is not queryable via introspection API
+		(*entries)[1] = { particle_count_specID,offsetof(SpecConstants,particle_count),sizeof(int32_t) };
+		(*entries)[2] = { 2u,offsetof(SpecConstants,pos_buf_ix),sizeof(int32_t) };
+		(*entries)[3] = { 3u,offsetof(SpecConstants,vel_buf_ix),sizeof(int32_t) };
+		(*entries)[4] = { buf_count_specID,offsetof(SpecConstants,buf_count),sizeof(int32_t) };
 
 		specInfo = asset::ISpecializedShader::SInfo(std::move(entries), std::move(backbuf), "main", asset::ISpecializedShader::ESS_COMPUTE, "../particles.comp");
 	}
 	auto compute = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(computeUnspec), std::move(specInfo));
 
 	auto computePipeline = introspector.createApproximateComputePipelineFromIntrospection(compute.get(), glslExts->begin(), glslExts->end());
+	asset::SPushConstantRange pcRange = { asset::ISpecializedShader::ESS_COMPUTE, 0u, core::roundUp(sizeof(UBOCompute), 64ull) };
+	auto computeLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcRange, &pcRange + 1, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(computePipeline->getLayout()->getDescriptorSetLayout(0)));
+	computePipeline->setLayout(std::move(computeLayout));
 
-	auto gpuComputePipeline = driver->getGPUObjectsFromAssets(&computePipeline.get(),&computePipeline.get()+1)->front();
+	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+	cpu2gpuParams.assetManager = am.get();
+	cpu2gpuParams.device = device.get();
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;
+	cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
+	cpu2gpuParams.sharingMode = asset::ESM_CONCURRENT;
+	cpu2gpuParams.limits = gpu->getLimits();
+	cpu2gpuParams.assetManager = am.get();
+	core::smart_refctd_ptr<video::IGPUComputePipeline> gpuComputePipeline = CPU2GPU.getGPUObjectsFromAssets(&computePipeline.get(), &computePipeline.get() + 1, cpu2gpuParams)->front();
 	auto* ds0layoutCompute = computePipeline->getLayout()->getDescriptorSetLayout(0);
-	auto gpuDs0layoutCompute = driver->getGPUObjectsFromAssets(&ds0layoutCompute,&ds0layoutCompute+1)->front();
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuDs0layoutCompute = CPU2GPU.getGPUObjectsFromAssets(&ds0layoutCompute, &ds0layoutCompute + 1, cpu2gpuParams)->front();
 
-	struct UBOCompute
-	{
-		//xyz - gravity point, w - dt
-		core::vectorSIMDf gravPointAndDt;
-	};
+
 	UBOCompute uboComputeData;
 
 	core::vector<core::vector3df_SIMD> particlePos;
 	particlePos.reserve(PARTICLE_COUNT);
 	for (int32_t i = 0; i < PARTICLE_COUNT_PER_AXIS; ++i)
-	for (int32_t j = 0; j < PARTICLE_COUNT_PER_AXIS; ++j)
-	for (int32_t k = 0; k < PARTICLE_COUNT_PER_AXIS; ++k)
-		particlePos.push_back(core::vector3df_SIMD(i,j,k)*0.5f);
+		for (int32_t j = 0; j < PARTICLE_COUNT_PER_AXIS; ++j)
+			for (int32_t k = 0; k < PARTICLE_COUNT_PER_AXIS; ++k)
+				particlePos.push_back(core::vector3df_SIMD(i, j, k) * 0.5f);
 
-	constexpr size_t BUF_SZ = 4ull*sizeof(float)*PARTICLE_COUNT;
-	auto gpuParticleBuf = driver->createDeviceLocalGPUBufferOnDedMem(2ull*BUF_SZ);
-	driver->updateBufferRangeViaStagingBuffer(gpuParticleBuf.get(), POS_BUF_IX*BUF_SZ, BUF_SZ, particlePos.data());
+	constexpr size_t BUF_SZ = 4ull * sizeof(float) * PARTICLE_COUNT;
+	auto gpuParticleBuf = device->createDeviceLocalGPUBufferOnDedMem(2ull * BUF_SZ);
+	asset::SBufferRange<video::IGPUBuffer> range;
+	range.buffer = gpuParticleBuf;
+	range.offset = POS_BUF_IX * BUF_SZ;
+	range.size = BUF_SZ;
+	device->updateBufferRangeViaStagingBuffer(queue, range, particlePos.data());
 	particlePos.clear();
-	driver->fillBuffer(gpuParticleBuf.get(), VEL_BUF_IX*BUF_SZ, BUF_SZ, 0u);
-	auto gpuUboCompute = driver->createDeviceLocalGPUBufferOnDedMem(core::roundUp(sizeof(UBOCompute),64ull));
-	auto gpuds0Compute = driver->createGPUDescriptorSet(std::move(gpuDs0layoutCompute));
+
+	auto gpuUboCompute = device->createDeviceLocalGPUBufferOnDedMem(core::roundUp(sizeof(UBOCompute), 64ull));
+	auto gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 	{
-		video::IGPUDescriptorSet::SDescriptorInfo i[3];
-		video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
+		video::IGPUDescriptorSet::SDescriptorInfo i[2];
+		video::IGPUDescriptorSet::SWriteDescriptorSet w[1];
 		w[0].arrayElement = 0u;
 		w[0].binding = PARTICLE_BUF_BINDING;
 		w[0].count = BUF_COUNT;
@@ -157,17 +197,7 @@ int main()
 		i[1].buffer.offset = BUF_SZ;
 		i[1].buffer.size = BUF_SZ;
 
-		w[1].arrayElement = 0u;
-		w[1].binding = COMPUTE_DATA_UBO_BINDING;
-		w[1].count = 1u;
-		w[1].descriptorType = asset::EDT_UNIFORM_BUFFER;
-		w[1].dstSet = gpuds0Compute.get();
-		w[1].info = i+2;
-		i[2].buffer.offset = 0u;
-		i[2].buffer.size = gpuUboCompute->getSize();
-		i[2].desc = gpuUboCompute;
-
-		driver->updateDescriptorSets(2u, w, 0u, nullptr);
+		device->updateDescriptorSets(1u, w, 0u, nullptr);
 	}
 
 	asset::SBufferBinding<video::IGPUBuffer> vtxBindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
@@ -178,9 +208,8 @@ int main()
 	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
 
 	auto createSpecShader = [&](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage) {
-		auto file = filesystem->createAndOpenFile(filepath);
+		auto file = am->getFileSystem()->createAndOpenFile(filepath);
 		auto unspec = am->getGLSLCompiler()->resolveIncludeDirectives(file, stage, file->getFileName().c_str());
-		//unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(reinterpret_cast<const char*>(unspec->getSPVorGLSL()->getPointer()), stage, "main", file->getFileName().c_str());
 
 		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", stage, file->getFileName().c_str());
 		file->drop();
@@ -188,87 +217,118 @@ int main()
 	};
 	auto vs = createSpecShader("../particles.vert", asset::ISpecializedShader::ESS_VERTEX);
 	auto fs = createSpecShader("../particles.frag", asset::ISpecializedShader::ESS_FRAGMENT);
-	asset::ICPUSpecializedShader* shaders[2] {vs.get(),fs.get()};
-	auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders, shaders+2, glslExts->begin(), glslExts->end());
+	asset::ICPUSpecializedShader* shaders[2]{ vs.get(),fs.get() };
+	auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders, shaders + 2, glslExts->begin(), glslExts->end());
 	{
 		auto& vtxParams = pipeline->getVertexInputParams();
 		vtxParams.attributes[0].binding = 0u;
 		vtxParams.attributes[0].format = asset::EF_R32G32B32_SFLOAT;
 		vtxParams.attributes[0].relativeOffset = 0u;
 		vtxParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
-		vtxParams.bindings[0].stride = 4u*sizeof(float);
+		vtxParams.bindings[0].stride = 4u * sizeof(float);
 
 		pipeline->getPrimitiveAssemblyParams().primitiveType = asset::EPT_POINT_LIST;
 	}
-	auto gpuPipeline = driver->getGPUObjectsFromAssets(&pipeline.get(),&pipeline.get()+1)->front();
+	asset::SPushConstantRange gfxPcRange = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
+	auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&gfxPcRange, &gfxPcRange + 1, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(0)));
+	pipeline->setLayout(std::move(gfxLayout));
+	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1, cpu2gpuParams)->front();
 	auto* ds0layoutGraphics = pipeline->getLayout()->getDescriptorSetLayout(0);
-	auto gpuDs0layoutGraphics = driver->getGPUObjectsFromAssets(&ds0layoutGraphics,&ds0layoutGraphics+1)->front();
-	auto gpuds0Graphics = driver->createGPUDescriptorSet(std::move(gpuDs0layoutGraphics));
+	
+	video::IGPUGraphicsPipeline::SCreationParams gp_params;
+	gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
+	gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
+	gp_params.renderpassIndependent = core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(rpIndependentPipeline);
+	gp_params.subpassIx = 0u;
+
+	auto graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
 
 	constexpr uint32_t GRAPHICS_SET = 0u;
 	constexpr uint32_t GRAPHICS_DATA_UBO_BINDING = 0u;
 
-	asset::SBasicViewParameters viewParams;
-	auto gpuUboGaphics = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(viewParams));
+	auto lastTime = std::chrono::high_resolution_clock::now();
+	constexpr uint32_t FRAME_COUNT = 500000u;
+	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
-		video::IGPUDescriptorSet::SWriteDescriptorSet w;
-		video::IGPUDescriptorSet::SDescriptorInfo i;
-		w.arrayElement = 0u;
-		w.binding = GRAPHICS_DATA_UBO_BINDING;
-		w.count = 1u;
-		w.descriptorType = asset::EDT_UNIFORM_BUFFER;
-		w.dstSet = gpuds0Graphics.get();
-		w.info = &i;
-		i.desc = gpuUboGaphics;
-		i.buffer.offset = 0u;
-		i.buffer.size = gpuUboGaphics->getSize();
-
-		driver->updateDescriptorSets(1u, &w, 0u, nullptr);
-	}
-
-	uint64_t lastTime = device->getTimer()->getRealTime64();
-	uint64_t lastFPSTime = 0;
-	while (device->run() && receiver.keepOpen())
-	{
-		driver->beginScene(true, true, video::SColor(255, 0, 0, 0));
-
-		//! This animates (moves) the camera and sets the transforms
-		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
-		camera->render();
-
-		auto camFront = camera->getViewMatrix()[2];
-		core::vector3df_SIMD gravPoint = core::vector3df_SIMD(&camera->getPosition().X) + camFront*250.f;
-		uint64_t time = device->getTimer()->getRealTime64();
-		uboComputeData.gravPointAndDt = gravPoint;
-		uboComputeData.gravPointAndDt.w = (time-lastTime)*1e-3f;
-		lastTime = time;
-		driver->updateBufferRangeViaStagingBuffer(gpuUboCompute.get(), 0u, sizeof(uboComputeData), &uboComputeData);
-
-		driver->bindComputePipeline(gpuComputePipeline.get());
-		driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuComputePipeline->getLayout(), COMPUTE_SET, 1u, &gpuds0Compute.get(), nullptr);
-
-		driver->dispatch(PARTICLE_COUNT/WORKGROUP_SIZE, 1u, 1u);
-
-		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-
-		memcpy(viewParams.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(viewParams.MVP));
-		driver->updateBufferRangeViaStagingBuffer(gpuUboGaphics.get(), 0u, gpuUboGaphics->getSize(), &viewParams);
-		driver->bindGraphicsPipeline(gpuPipeline.get());
-		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), GRAPHICS_SET, 1u, &gpuds0Graphics.get(), nullptr);
-
-		driver->drawMeshBuffer(meshbuffer.get());
-
-		driver->endScene();
-
-		if (time-lastFPSTime > 1000ull)
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
+		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT, cmdbuf);
+		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
 		{
-			std::wostringstream str;
-			str << L"Specialization Constants Demo - IrrlichtBAW Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			auto& cb = cmdbuf[i];
+			auto& fb = fbo[i];
 
-			device->setWindowCaption(str.str().c_str());
-			lastFPSTime = time;
+			cb->begin(0);
+
+			size_t offset = 0u;
+			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
+			asset::SClearValue clear;
+			asset::VkRect2D area;
+			area.offset = { 0, 0 };
+			area.extent = { WIN_W, WIN_H };
+			clear.color.float32[0] = 0.f;
+			clear.color.float32[1] = 0.f;
+			clear.color.float32[2] = 0.f;
+			clear.color.float32[3] = 1.f;
+			info.renderpass = renderpass;
+			info.framebuffer = fb;
+			info.clearValueCount = 1u;
+			info.clearValues = &clear;
+			info.renderArea = area;
+
+			//TODO: make those functions take const pointers
+			cb->bindComputePipeline(gpuComputePipeline.get());
+			cb->pushConstants(const_cast<video::IGPUPipelineLayout*>(gpuComputePipeline->getLayout()), asset::ISpecializedShader::E_SHADER_STAGE::ESS_COMPUTE, 0, core::roundUp(sizeof(UBOCompute), 64ull), &uboComputeData);
+			cb->bindDescriptorSets(asset::EPBP_COMPUTE,
+				const_cast<nbl::video::IGPUPipelineLayout*>(gpuComputePipeline->getLayout()),
+				COMPUTE_SET,
+				1u,
+				const_cast<video::IGPUDescriptorSet**>(&gpuds0Compute.get()),
+				nullptr);
+			cb->dispatch(PARTICLE_COUNT / WORKGROUP_SIZE, 1u, 1u);
+
+			asset::SMemoryBarrier memBarrier;
+			memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			memBarrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
+			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+
+			cb->bindGraphicsPipeline(graphicsPipeline.get());
+			size_t vbOffset = 0;
+			cb->bindVertexBuffers(0, 1, const_cast<const video::IGPUBuffer**>(&gpuParticleBuf.get()), &vbOffset);
+			cb->pushConstants(const_cast<video::IGPUPipelineLayout*>(rpIndependentPipeline->getLayout()), asset::ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX, 0, sizeof(viewProj), viewProj.pointer());
+			cb->bindDescriptorSets(asset::EPBP_GRAPHICS,
+				const_cast<nbl::video::IGPUPipelineLayout*>(rpIndependentPipeline->getLayout()),
+				GRAPHICS_SET,
+				0u,
+				nullptr,
+				nullptr);
+			cb->beginRenderPass(&info, asset::ESC_INLINE);
+			cb->draw(PARTICLE_COUNT, 1, 0, 0);
+			cb->endRenderPass();
+
+			cb->end();
 		}
+
+		auto img_acq_sem = device->createSemaphore();
+		auto render1_finished_sem = device->createSemaphore();
+
+		uint32_t imgnum = 0u;
+		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
+
+		core::vector3df_SIMD gravPoint = cameraPosition + camFront * 250.f;
+		auto time = std::chrono::high_resolution_clock::now();
+		uboComputeData.gravPointAndDt = gravPoint;
+		uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>((time - lastTime)).count() * 1e-4;
+		lastTime = time;
+		CommonAPI::Submit(device.get(), sc.get(), cmdbuf, queue, img_acq_sem.get(), render1_finished_sem.get(), SC_IMG_COUNT, imgnum);
+
+		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
 	}
 
 	return 0;
 }
+
+
+// If you see this line of code, i forgot to remove it
+// It forces the usage of NVIDIA GPU by OpenGL
+extern "C" {  _declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001; }

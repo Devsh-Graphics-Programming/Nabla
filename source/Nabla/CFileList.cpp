@@ -8,7 +8,7 @@
 
 #include <algorithm>
 
-#include "os.h"
+#include "nbl_os.h"
 
 namespace nbl
 {

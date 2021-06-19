@@ -2,7 +2,7 @@
 #define __C_WINDOW_WIN32_H_INCLUDED__
 
 #include "nbl/ui/IWindowWin32.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
@@ -44,9 +44,9 @@ private:
 		// get process handle
 		HINSTANCE hinstance = GetModuleHandle(NULL);
 
-		const char* classname = __TEXT("Nabla Engine");
+		const char* classname = "Nabla Engine";
 
-		WNDCLASSEX wcex;
+		WNDCLASSEXA wcex;
 		wcex.cbSize = sizeof(WNDCLASSEX);
 		wcex.style = CS_HREDRAW | CS_VREDRAW;
 		wcex.lpfnWndProc = WndProc;
@@ -60,7 +60,7 @@ private:
 		wcex.lpszClassName = classname;
 		wcex.hIconSm = 0;
 
-		RegisterClassEx(&wcex);
+		RegisterClassExA(&wcex);
 
 		// calculate client size
 
@@ -115,7 +115,7 @@ private:
 
 		// create window
 
-		m_native = CreateWindow(classname, __TEXT(""), style, windowLeft, windowTop,
+		m_native = CreateWindowA(classname, "", style, windowLeft, windowTop,
 			realWidth, realHeight, NULL, NULL, hinstance, NULL);
 		m_width = realWidth;
 		m_height = realHeight;
