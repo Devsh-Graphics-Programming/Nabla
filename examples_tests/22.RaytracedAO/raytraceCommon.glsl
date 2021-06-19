@@ -118,32 +118,9 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 	return normalizedN;
 }
 
-
-
-
-vec3 nbl_glsl_robust_ray_origin_fastest(in vec3 origin, in vec3 direction, float error, vec3 normal)
-{
-	// flip it in the correct direction
-	error = uintBitsToFloat(floatBitsToUint(error)^(floatBitsToUint(dot(normal,direction))&0x80000000u));
-	return origin+normal*error;
-}
-vec3 nbl_glsl_robust_ray_origin_fast(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
-{
-	// anticipate that the error could have increased from manipulation
-	return nbl_glsl_robust_ray_origin_fastest(origin,direction,error.x+error.y+error.z,normal);
-}
-vec3 nbl_glsl_robust_ray_origin(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
-{
-	const float d = dot(abs(normal),error);
-	// anticipate that the error could have increased from manipulation
-	return nbl_glsl_robust_ray_origin_fastest(origin,direction,d,normal);
-}
-
-
-
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
+vec3 load_positions(out mat2x3 dPdBary_error, out vec3 lastVxPos_error,in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
@@ -151,14 +128,24 @@ vec3 load_positions(in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_da
 		nbl_glsl_fetchVtxPos(indices[2],batchInstanceData)
 	);
 	const mat4x3 tform = batchInstanceData.tform;
-	mat3 error;
+	mat3 positions_error;
 	// for when we quantize positions to RGB21_UNORM
-	//const float quantizationError = nbl_glsl_numeric_limits_float_epsilon(1u);
-	positions = nbl_glsl_mul_with_bounds(error,mat3(tform),positions/*,positions*quantizationError*/);
+	const float quantizationError = exp2(-16.f);// nbl_glsl_numeric_limits_float_epsilon(1u);
+	positions = nbl_glsl_mul_with_bounds_wo_gamma(positions_error,mat3(tform),positions,quantizationError);
 	//
-	dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
-	return positions[2]+tform[3];
+	const float accum_error_factor = nbl_glsl_ieee754_gamma(2u)+nbl_glsl_ieee754_gamma(3u);
+	for (int i=0; i<2; i++)
+	{
+		dPdBary[i] = positions[i]-positions[2];
+		dPdBary_error[i] = abs(dPdBary[i])*nbl_glsl_ieee754_gamma(1u);
+		dPdBary_error[i] += (positions_error[i]+positions_error[2])*accum_error_factor;
+	}
+	const vec3 lastVx = positions[2]+tform[3];
+	lastVxPos_error = abs(positions[2])*quantizationError;
+	lastVxPos_error += (abs(lastVx)+lastVxPos_error[2])*nbl_glsl_ieee754_gamma(1u);
+	return lastVx;
 }
+
 #ifdef TEX_PREFETCH_STREAM
 mat2x3 nbl_glsl_perturbNormal_dPdSomething()
 {
@@ -172,31 +159,6 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 #endif
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
-
-
-vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in int _sample, in int depth)
-{
-	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)+(depth-1)*MAX_ACCUMULATED_SAMPLES).xyz;
-	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
-    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
-}
-
-void gen_sample_ray(
-	out float maxT, out vec3 direction, out vec3 throughput,
-	inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID, in uint depth,
-	in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps
-)
-{
-	maxT = nbl_glsl_FLT_MAX;
-	
-	vec3 rand = rand3d(scramble_state,int(sampleID),int(depth));
-	
-	float pdf;
-	nbl_glsl_LightSample s;
-	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s);
-
-	direction = s.L;
-}
 
 nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	in vec2 compactBary, in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
@@ -243,6 +205,56 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 
 	return scramble_start_state;
 }
+
+// TODO MOVE to some other header!
+vec3 nbl_glsl_interpolate_with_bounds(out vec3 error, in mat2x3 triangleEdges, in mat2x3 triangleEdges_error, in vec3 origin, in vec3 origin_error, in vec2 compactBary)
+{
+	return triangleEdges*compactBary+origin;
+}
+// robust ray origins
+vec3 nbl_glsl_robust_ray_origin_fastest(in vec3 origin, in vec3 direction, float error, vec3 normal)
+{
+	// flip it in the correct direction
+	error = uintBitsToFloat(floatBitsToUint(error)^(floatBitsToUint(dot(normal,direction))&0x80000000u));
+	return origin+normal*error;
+}
+vec3 nbl_glsl_robust_ray_origin_fast(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
+{
+	// anticipate that the error could have increased from manipulation
+	return nbl_glsl_robust_ray_origin_fastest(origin,direction,error.x+error.y+error.z,normal);
+}
+vec3 nbl_glsl_robust_ray_origin(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
+{
+	const float d = dot(abs(normal),error);
+	// anticipate that the error could have increased from manipulation
+	return nbl_glsl_robust_ray_origin_fastest(origin,direction,d,normal);
+}
+
+
+vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in int _sample, in int depth)
+{
+	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)+(depth-1)*MAX_ACCUMULATED_SAMPLES).xyz;
+	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
+    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
+}
+
+void gen_sample_ray(
+	out float maxT, out vec3 direction, out vec3 throughput,
+	inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID, in uint depth,
+	in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps
+)
+{
+	maxT = nbl_glsl_FLT_MAX;
+	
+	vec3 rand = rand3d(scramble_state,int(sampleID),int(depth));
+	
+	float pdf;
+	nbl_glsl_LightSample s;
+	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s);
+
+	direction = s.L;
+}
+
 
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,

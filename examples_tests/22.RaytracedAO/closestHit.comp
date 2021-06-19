@@ -68,7 +68,8 @@ void main()
 			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
 			
 			// positions
-			const vec3 last_vx_pos = load_positions(indices,batchInstanceData);
+			mat2x3 dPdBary_error; vec3 lastVxPos_error;
+			const vec3 last_vx_pos = load_positions(dPdBary_error,lastVxPos_error,indices,batchInstanceData);
 			const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 			const bool frontfacing = bool((batchInstanceData.determinantSignBit^floatBitsToUint(dot(geomNormal,normalizedV)))&0x80000000u);
 

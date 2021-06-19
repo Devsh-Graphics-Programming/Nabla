@@ -54,7 +54,8 @@ void main()
 			
 			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
-			const vec3 last_vx_pos = load_positions(indices,batchInstanceData);
+			mat2x3 dPdBary_error; vec3 lastVxPos_error;
+			const vec3 last_vx_pos = load_positions(dPdBary_error,lastVxPos_error,indices,batchInstanceData);
 			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceData,material,outPixelLocation,vertex_depth_mod_2
 #ifdef TEX_PREFETCH_STREAM
 				,dBarydScreen

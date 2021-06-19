@@ -5,28 +5,7 @@
 #ifndef _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
 #define _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
 
-mat3 nbl_glsl_mul_with_bounds_wo_gamma(out mat3 error, in mat3 a, in mat3 b, in mat3 b_error)
-{
-    mat3 retval;
-    for (int i=0; i<3; i++)
-    {
-        vec3 tmp = a[0]*b[i][0];
-        retval[i] = tmp;
-        error[i] = abs(tmp);
-        vec3 additional_error = abs(a[0]*b_error[i][0]);
-        for (int j=1; j<3; j++)
-        {
-            tmp = a[j]*b[i][j];
-            retval[i] += tmp;
-            error[i] += abs(tmp);
-            additional_error += abs(a[j]*b_error[i][j]);
-        }
-        additional_error *= nbl_glsl_ieee754_rcpgamma(2u)+1.f;
-        error[i] += additional_error;
-    }
-    return retval;
-}
-mat3 nbl_glsl_mul_with_bounds_wo_gamma(out mat3 error, in mat3 a, in mat3 b)
+mat3 nbl_glsl_mul_with_bounds_wo_gamma(out mat3 error, in mat3 a, in mat3 b, in float b_relative_error)
 {
     mat3 retval;
     for (int i=0; i<3; i++)
@@ -41,17 +20,15 @@ mat3 nbl_glsl_mul_with_bounds_wo_gamma(out mat3 error, in mat3 a, in mat3 b)
             error[i] += abs(tmp);
         }
     }
+    const float error_factor = 1.f+b_relative_error/nbl_glsl_numeric_limits_float_epsilon(2);
+    error *= error_factor;
     return retval;
 }
-
-mat3 nbl_glsl_mul_with_bounds(out mat3 error, in mat3 a, in mat3 b, in mat3 b_error)
+mat3 nbl_glsl_mul_with_bounds(out mat3 error, in mat3 a, in mat3 b, in float b_relative_error)
 {
-    return nbl_glsl_mul_with_bounds_wo_gamma(error,a,b,b_error);
-}
-
-mat3 nbl_glsl_mul_with_bounds(out mat3 error, in mat3 a, in mat3 b)
-{
-    return nbl_glsl_mul_with_bounds_wo_gamma(error,a,b);
+    mat3 retval = nbl_glsl_mul_with_bounds_wo_gamma(error,a,b,b_relative_error);
+    error *= nbl_glsl_ieee754_gamma(2u);
+    return retval;
 }
 
 
