@@ -39,7 +39,8 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE) # TODO - validate paths due to CMake path-polic
 		if(EXISTS "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/build-tools")
 			if(DEFINED ANDROID_ABI)
 				if(${ANDROID_ABI} STREQUAL ${_NBL_SUPPORTED_ABI_})
-					message(STATUS "Supported '${_NBL_SUPPORTED_ABI_}' ABI has been choosen!")
+					message(STATUS "Supported '${_NBL_SUPPORTED_ABI_}' ABI!")
+				
 				else()
 					message(FATAL_ERROR "Found '${ANDROID_ABI}' isn't appropriate. Use '${_NBL_SUPPORTED_ABI_}'!")
 				endif()
@@ -221,8 +222,8 @@ else()
 	endif()
 endif()
 
-#
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
@@ -295,23 +296,19 @@ macro(nbl_adjust_flags)
 				$<$<CONFIG:DEBUG>:-glldb>
 			)
 			
-			list(APPEND CMAKE_ASM_FLAGS_DEBUG -g -glldb)
-			set(CMAKE_ASM_FLAGS_DEBUG ${CMAKE_ASM_FLAGS_DEBUG} CACHE STRING "" FORCE)
+			function(NBL_INSERT_ANDROID_FLAGS _NBL_CMAKE_FLAGS_VARIABLE_NAME_)
+				string(FIND "${${_NBL_CMAKE_FLAGS_VARIABLE_NAME_}}" "-g -glldb" CHECK)
+				if(${CHECK} EQUAL -1)
+					set(${_NBL_CMAKE_FLAGS_VARIABLE_NAME_} "${${_NBL_CMAKE_FLAGS_VARIABLE_NAME_}} -g -glldb" CACHE STRING "" FORCE)
+				endif()
+			endfunction()
 			
-			list(APPEND CMAKE_CXX_FLAGS_DEBUG -g -glldb)
-			set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG} CACHE STRING "" FORCE)
-			
-			list(APPEND CMAKE_C_FLAGS_DEBUG -g -glldb)
-			set(CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} CACHE STRING "" FORCE)
-			
-			list(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG -g -glldb)
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG ${CMAKE_EXE_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
-			
-			list(APPEND CMAKE_MODULE_LINKER_FLAGS_DEBUG -g -glldb)
-			set(CMAKE_MODULE_LINKER_FLAGS_DEBUG ${CMAKE_MODULE_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
-			
-			list(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG -g -glldb)
-			set(CMAKE_SHARED_LINKER_FLAGS_DEBUG ${CMAKE_SHARED_LINKER_FLAGS_DEBUG} CACHE STRING "" FORCE)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_ASM_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_CXX_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_C_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_EXE_LINKER_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_MODULE_LINKER_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_SHARED_LINKER_FLAGS_DEBUG)
 		else()
 			add_compile_options(
 				$<$<CONFIG:DEBUG>:-ggdb3>
@@ -386,20 +383,26 @@ macro(nbl_adjust_flags)
 endmacro()
 
 macro(nbl_adjust_definitions)
-	add_definitions(
-		-DPNG_THREAD_UNSAFE_OK
-		-DPNG_NO_MMX_CODE
-		-DPNG_NO_MNG_FEATURES
-		-D_7ZIP_ST
-		-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	add_compile_definitions(
+		PNG_THREAD_UNSAFE_OK
+		PNG_NO_MMX_CODE
+		PNG_NO_MNG_FEATURES
+		_7ZIP_ST
+		SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	)
+	
+	if(ANDROID)
+		add_compile_definitions(
+			NBL_ANDROID_TOOLCHAIN
+		)
+	endif()
 
 	if(WIN32)
-		add_definitions(
-			-DWIN32
-			-D__GNUWIN32__
-			-D_CRT_SECURE_NO_DEPRECATE
-			-DNOMINMAX
+		add_compile_definitions(
+			WIN32
+			__GNUWIN32__
+			_CRT_SECURE_NO_DEPRECATE
+			NOMINMAX
 		)
 	endif()
 endmacro()
@@ -477,3 +480,5 @@ endif()
 if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
+
+export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
