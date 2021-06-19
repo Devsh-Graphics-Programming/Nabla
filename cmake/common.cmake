@@ -414,7 +414,7 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 		endforeach()
 	endif()
 	
-	foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)			 
+	foreach(trgt IN LISTS _NBL_3RDPARTY_TARGETS_)			 
 			 get_target_property(NBL_COMPILE_DEFS ${trgt} COMPILE_DEFINITIONS)
 			 
 			 if(DEFINED NBL_COMPILE_DEFS)

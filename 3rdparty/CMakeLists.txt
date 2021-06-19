@@ -518,8 +518,7 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV-Tools
 				SPIRV-Tools-opt
 				egl 
-				
-				PARENT_SCOPE)
+)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
 	    IlmBaseConfig
@@ -547,10 +546,13 @@ endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
+
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endforeach()
+
+set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
 # parallel hashmap headers
 install(
