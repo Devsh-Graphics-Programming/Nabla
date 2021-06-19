@@ -47,9 +47,16 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			return framesDispatched*samplesPerDispatch;
 		}
 
-
+		//! Brief guideline to good path depth limits
+		// Want to see stuff with indirect lighting on the other side of a pane of glass
+		// 5 = glass frontface->glass backface->diffuse surface->diffuse surface->light
+		// Want to see through a glass box, vase, or office 
+		// 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
+		// pick higher numbers for better GI and less bias
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxPathDepth = 8u;
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t RandomDimsPerPathVertex = 3u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*5u;
+		// one less because the first path vertex is rasterized
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*(MaxPathDepth-1u);
 		static const float AntiAliasingSequence[4096][2];
     protected:
         ~Renderer();

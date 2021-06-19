@@ -651,7 +651,7 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-constexpr uint16_t m_maxDepth = 6u;
+constexpr uint16_t m_maxDepth = 8u;
 constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
 {

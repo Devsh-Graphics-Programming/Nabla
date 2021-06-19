@@ -88,7 +88,7 @@ bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 em
 		emissive -= acc;
 	emissive *= pc.cummon.rcpFramesDispatched;
 	
-	const bool anyChange = any(greaterThan(abs(emissive),vec3(FLT_MIN)));
+	const bool anyChange = any(greaterThan(abs(emissive),vec3(nbl_glsl_FLT_MIN)));
 	acc += emissive;
 	return anyChange;
 }
@@ -118,6 +118,29 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 	return normalizedN;
 }
 
+
+
+
+vec3 nbl_glsl_robust_ray_origin_fastest(in vec3 origin, in vec3 direction, float error, vec3 normal)
+{
+	// flip it in the correct direction
+	error = uintBitsToFloat(floatBitsToUint(error)^(floatBitsToUint(dot(normal,direction))&0x80000000u));
+	return origin+normal*error;
+}
+vec3 nbl_glsl_robust_ray_origin_fast(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
+{
+	// anticipate that the error could have increased from manipulation
+	return nbl_glsl_robust_ray_origin_fastest(origin,direction,error.x+error.y+error.z,normal);
+}
+vec3 nbl_glsl_robust_ray_origin(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
+{
+	const float d = dot(abs(normal),error);
+	// anticipate that the error could have increased from manipulation
+	return nbl_glsl_robust_ray_origin_fastest(origin,direction,d,normal);
+}
+
+
+
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
 vec3 load_positions(in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
@@ -128,7 +151,11 @@ vec3 load_positions(in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_da
 		nbl_glsl_fetchVtxPos(indices[2],batchInstanceData)
 	);
 	const mat4x3 tform = batchInstanceData.tform;
-	positions = mat3(tform)*positions;
+	mat3 error;
+	// for when we quantize positions to RGB21_UNORM
+	//const float quantizationError = nbl_glsl_numeric_limits_float_epsilon(1u);
+	positions = nbl_glsl_mul_with_bounds(error,mat3(tform),positions/*,positions*quantizationError*/);
+	//
 	dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
 	return positions[2]+tform[3];
 }
@@ -160,7 +187,7 @@ void gen_sample_ray(
 	in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps
 )
 {
-	maxT = FLT_MAX;
+	maxT = nbl_glsl_FLT_MAX;
 	
 	vec3 rand = rand3d(scramble_state,int(sampleID),int(depth));
 	
@@ -254,7 +281,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] *= prevThroughput;
-		if (any(greaterThan(nextThroughput[i],vec3(FLT_MIN))))
+		if (any(greaterThan(nextThroughput[i],vec3(nbl_glsl_FLT_MIN))))
 			raysToAllocate++;
 		else
 			maxT[i] = 0.f;
@@ -262,16 +289,14 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 
-	// TODO: improve ray offset (maybe using smooth normal wouldn't be a sin)
-	vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
-	const vec3 absGeomNormal = abs(geomNormal);
-	geomNormal /= max(max(absGeomNormal.x,absGeomNormal.y),max(absGeomNormal.z,0.001f))*64.f;
+	// TODO: improve
+	const vec3 error = vec3(0.0001f);// abs(origin)* uintBitsToFloat(0x35480005);
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
-		newRay.origin = origin+uintBitsToFloat(floatBitsToUint(geomNormal) ^ floatBitsToUint(dot(geomNormal, direction[i])) & 0x80000000u);
+		newRay.origin = origin+direction[i]*0.002;// nbl_glsl_robust_ray_origin(origin, direction[i], error, normalizedN);
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);
