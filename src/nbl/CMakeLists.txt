@@ -621,7 +621,10 @@ set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 nbl_install_lib(Nabla)
 
 #install dependencies
+nbl_install_lib(egl)
 nbl_install_lib(glslang)
+nbl_install_lib(GenericCodeGen)
+nbl_install_lib(MachineIndependent)
 nbl_install_lib(jpeg)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_install_lib(Half)

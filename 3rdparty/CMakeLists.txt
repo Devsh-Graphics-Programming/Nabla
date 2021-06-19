@@ -152,22 +152,23 @@ set(ZLIB_LIBRARY # for PNGLIB purposes
 		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 CACHE INTERNAL "" FORCE)
 
-set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples")
+set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
+set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
 add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
-set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "Skip SPIRV-Tools install")
-set(SPIRV_SKIP_TESTS ON CACHE BOOL "Skip SPIRV-Tools tests")
-set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip SPIRV-Tools executable build")
+set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
+set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
+set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
 add_subdirectory(SPIRV-Tools SPIRV-Tools EXCLUDE_FROM_ALL)
-set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "Skip glslang install")
-set(ENABLE_SPVREMAPPER OFF CACHE BOOL "SPVRemapper is a spirv compression experimental library")
-set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Build glslangValidator and spirv-remap?")
-set(BUILD_TESTING OFF CACHE BOOL "Enable glslang build testing?")
+set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
+set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
+set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
+set(BUILD_TESTING OFF CACHE INTERNAL "Enable glslang build testing?")
 add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
 # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
 target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 
-set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?")
-set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?")
+set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Skip shaderc tests?")
+set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "Install shaderc?")
 
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 # https://github.com/google/shaderc/issues/568
