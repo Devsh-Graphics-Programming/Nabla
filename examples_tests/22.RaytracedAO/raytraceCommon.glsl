@@ -129,20 +129,18 @@ vec3 load_positions(out mat2x3 dPdBary_error, out vec3 lastVxPos_error,in uvec3 
 	);
 	const mat4x3 tform = batchInstanceData.tform;
 	mat3 positions_error;
-	// for when we quantize positions to RGB21_UNORM
-	const float quantizationError = exp2(-16.f);// nbl_glsl_numeric_limits_float_epsilon(1u);
+	// when we quantize positions to RGB21_UNORM, change to exp2(-22.f)
+	const float quantizationError = nbl_glsl_numeric_limits_float_epsilon(1u);
 	positions = nbl_glsl_mul_with_bounds_wo_gamma(positions_error,mat3(tform),positions,quantizationError);
+	positions_error *= nbl_glsl_ieee754_gamma(2u);
 	//
-	const float accum_error_factor = nbl_glsl_ieee754_gamma(2u)+nbl_glsl_ieee754_gamma(3u);
 	for (int i=0; i<2; i++)
 	{
-		dPdBary[i] = positions[i]-positions[2];
-		dPdBary_error[i] = abs(dPdBary[i])*nbl_glsl_ieee754_gamma(1u);
-		dPdBary_error[i] += (positions_error[i]+positions_error[2])*accum_error_factor;
+		dPdBary[i] = nbl_glsl_ieee754_sub_with_bounds_wo_gamma(dPdBary_error[i],positions[i],positions_error[i],positions[2],positions_error[2]);
+		dPdBary_error[i] *= nbl_glsl_ieee754_gamma(1u);
 	}
-	const vec3 lastVx = positions[2]+tform[3];
-	lastVxPos_error = abs(positions[2])*quantizationError;
-	lastVxPos_error += (abs(lastVx)+lastVxPos_error[2])*nbl_glsl_ieee754_gamma(1u);
+	const vec3 lastVx = nbl_glsl_ieee754_add_with_bounds_wo_gamma(lastVxPos_error,positions[2],positions_error[2],tform[3],vec3(0.f));
+	lastVxPos_error *= nbl_glsl_ieee754_gamma(1u);
 	return lastVx;
 }
 
@@ -207,27 +205,30 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 }
 
 // TODO MOVE to some other header!
-vec3 nbl_glsl_interpolate_with_bounds(out vec3 error, in mat2x3 triangleEdges, in mat2x3 triangleEdges_error, in vec3 origin, in vec3 origin_error, in vec2 compactBary)
+vec3 nbl_glsl_interpolate_with_bounds(out vec3 error, in mat2x3 triangleEdges, in mat2x3 triangleEdges_error,
+	in vec3 origin, in vec3 origin_error, in vec2 compactBary, in float compactBary_error
+)
 {
-	return triangleEdges*compactBary+origin;
+	vec3 error1;
+	const vec3 col1 = nbl_glsl_ieee754_mul_with_bounds_wo_gamma(error1,triangleEdges[0],triangleEdges_error[0],compactBary.x,compactBary_error);
+	error1 *= nbl_glsl_ieee754_gamma(1u);
+	vec3 error2;
+	const vec3 col2 = nbl_glsl_ieee754_mul_with_bounds_wo_gamma(error2,triangleEdges[1],triangleEdges_error[1],compactBary.y,compactBary_error);
+	error2 *= nbl_glsl_ieee754_gamma(1u);
+	vec3 error3;
+	vec3 retval = nbl_glsl_ieee754_add_with_bounds_wo_gamma(error3,col1,error1,col2,error2);
+	error3 *= nbl_glsl_ieee754_gamma(1u);
+	retval = nbl_glsl_ieee754_add_with_bounds_wo_gamma(error,retval,error3,origin,origin_error);
+	//error *= nbl_glsl_ieee754_gamma(1u);
+	error *= nbl_glsl_ieee754_gamma(8u); // cause PBRT says so
+	return retval;
 }
 // robust ray origins
-vec3 nbl_glsl_robust_ray_origin_fastest(in vec3 origin, in vec3 direction, float error, vec3 normal)
+vec3 nbl_glsl_robust_ray_origin_impl(in vec3 origin, in vec3 direction, float offset, vec3 normal)
 {
 	// flip it in the correct direction
-	error = uintBitsToFloat(floatBitsToUint(error)^(floatBitsToUint(dot(normal,direction))&0x80000000u));
-	return origin+normal*error;
-}
-vec3 nbl_glsl_robust_ray_origin_fast(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
-{
-	// anticipate that the error could have increased from manipulation
-	return nbl_glsl_robust_ray_origin_fastest(origin,direction,error.x+error.y+error.z,normal);
-}
-vec3 nbl_glsl_robust_ray_origin(in vec3 origin, in vec3 direction, in vec3 error, in vec3 normal)
-{
-	const float d = dot(abs(normal),error);
-	// anticipate that the error could have increased from manipulation
-	return nbl_glsl_robust_ray_origin_fastest(origin,direction,d,normal);
+	offset = uintBitsToFloat(floatBitsToUint(offset)^(floatBitsToUint(dot(normal,direction))&0x80000000u));
+	return origin+normal*offset;
 }
 
 
@@ -259,7 +260,7 @@ void gen_sample_ray(
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, in vec3 prevThroughput)
+	in vec3 origin, in vec3 origin_error, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -301,14 +302,14 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 
-	// TODO: improve
-	const vec3 error = vec3(0.01f);// abs(origin)* uintBitsToFloat(0x35480005);
+	// adjust for the fact that the normal might be too short (inversesqrt precision)
+	const float ray_offset = dot(abs(normalizedN),origin_error)*1.03125f;
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
-		newRay.origin = nbl_glsl_robust_ray_origin(origin,direction[i],error,normalizedN);
+		newRay.origin = nbl_glsl_robust_ray_origin_impl(origin,direction[i],ray_offset,normalizedN);
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);

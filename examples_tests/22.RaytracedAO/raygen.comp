@@ -55,21 +55,25 @@ void main()
 			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
 			mat2x3 dPdBary_error; vec3 lastVxPos_error;
-			const vec3 last_vx_pos = load_positions(dPdBary_error,lastVxPos_error,indices,batchInstanceData);
+			const vec3 lastVxPos = load_positions(dPdBary_error,lastVxPos_error,indices,batchInstanceData);
 			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceData,material,outPixelLocation,vertex_depth_mod_2
 #ifdef TEX_PREFETCH_STREAM
 				,dBarydScreen
 #endif
 			);
 			
-			const vec3 hitWorldPos = dPdBary*compactBary.xy+last_vx_pos;
-			normalizedV = normalize(pc.cummon.camPos-hitWorldPos);
+			vec3 origin_error;
+			const float compactBary_error = exp2(-16.f); // UNORM16 being used for storage
+			const vec3 origin = nbl_glsl_interpolate_with_bounds(origin_error,dPdBary,dPdBary_error,lastVxPos,lastVxPos_error,compactBary,compactBary_error);
+			normalizedV = normalize(pc.cummon.camPos-origin);
+
+			emissive = vec3(1000.f)*dot(abs(normalizedN),origin_error)*1.03125f;
 
 			// generate rays
 			const uint vertex_depth = 1u;
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
-				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,hitWorldPos,vec3(1.0)
+				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,origin_error,vec3(1.0)
 			);
 		}
 

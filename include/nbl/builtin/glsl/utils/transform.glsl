@@ -5,6 +5,7 @@
 #ifndef _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
 #define _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
 
+// move to ieee754 header?
 mat3 nbl_glsl_mul_with_bounds_wo_gamma(out mat3 error, in mat3 a, in mat3 b, in float b_relative_error)
 {
     mat3 retval;

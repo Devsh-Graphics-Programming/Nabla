@@ -90,4 +90,29 @@ float nbl_glsl_ieee754_rcpgamma(uint n)
 	return nbl_glsl_ieee754_rcpgamma(float(n));
 }
 
+// TODO: move to some other header (maybe ieee754.glsl)
+vec3 nbl_glsl_ieee754_add_with_bounds_wo_gamma(out vec3 error, in vec3 a, in vec3 a_error, in vec3 b, in vec3 b_error)
+{
+	error = (a_error+b_error)/nbl_glsl_numeric_limits_float_epsilon(1u);
+	vec3 sum = a+b;
+	error += abs(sum);
+	return sum;
+}
+vec3 nbl_glsl_ieee754_sub_with_bounds_wo_gamma(out vec3 error, in vec3 a, in vec3 a_error, in vec3 b, in vec3 b_error)
+{
+	error = (a_error+b_error)/nbl_glsl_numeric_limits_float_epsilon(1u);
+	vec3 sum = a-b;
+	error += abs(sum);
+	return sum;
+}
+vec3 nbl_glsl_ieee754_mul_with_bounds_wo_gamma(out vec3 error, in vec3 a, in vec3 a_error, in float b, in float b_error)
+{
+	vec3 crossCorrelationA = abs(a)*b_error;
+	vec3 crossCorrelationB = a_error*abs(b);
+	error = (crossCorrelationB+crossCorrelationA+crossCorrelationB*crossCorrelationA)/nbl_glsl_numeric_limits_float_epsilon(1u);
+	vec3 product = a*b;
+	error += abs(product);
+	return product;
+}
+
 #endif
