@@ -563,7 +563,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 	vec3 eval = vec3(0.0);
 	float pdf = 0.0;
 
-	if (is_bxdf && run && (NdotV > FLT_MIN))
+	if (is_bxdf && run && (NdotV > nbl_glsl_FLT_MIN))
 	{
 		//speculative execution
 		uint ndf = nbl_glsl_MC_instr_getNDF(instr);
@@ -583,7 +583,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (nbl_glsl_MC_op_isDiffuse(op))
 		{
-			if (NdotL > FLT_MIN)
+			if (NdotL > nbl_glsl_FLT_MIN)
 			{
 				eval = albedo * nbl_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf, a2, s.VdotL, NdotL, NdotV);
 				pdf *= is_bsdf ? 0.5 : 1.0;
@@ -871,7 +871,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(in nbl_glsl_MC_precomputed_t precomp,
 	const vec3 albedo = nbl_glsl_MC_params_getReflectance(params);
 
 	const float NdotV = nbl_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
-	const bool positiveNdotV = (NdotV > FLT_MIN);
+	const bool positiveNdotV = (NdotV > nbl_glsl_FLT_MIN);
 
 	float localPdf = 0.0;
 	vec3 rem = vec3(0.0);
@@ -1070,7 +1070,7 @@ vec3 nbl_glsl_MC_runGenerateAndRemainderStream(in nbl_glsl_MC_precomputed_t prec
 
 	vec3 num = restEval;
 	float den = restPdf;
-	if (generator_pdf>FLT_MIN)
+	if (generator_pdf>nbl_glsl_FLT_MIN)
 	{
 		out_pdf += generator_pdf;
 		// guaranteed less than INF
@@ -1079,7 +1079,7 @@ vec3 nbl_glsl_MC_runGenerateAndRemainderStream(in nbl_glsl_MC_precomputed_t prec
 		num = num*rcp_generator_pdf+generator_rem;
 		den = den*rcp_generator_pdf+1.0;
 	}
-	return out_pdf>FLT_MIN ? (num/den):vec3(0.0);
+	return out_pdf>nbl_glsl_FLT_MIN ? (num/den):vec3(0.0);
 }
 
 #endif //GEN_CHOICE_STREAM

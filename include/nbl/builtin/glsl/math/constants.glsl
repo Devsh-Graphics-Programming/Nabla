@@ -11,10 +11,4 @@
 #define nbl_glsl_RECIPROCAL_PI 0.318309886183
 #define nbl_glsl_SQRT_RECIPROCAL_PI 0.56418958354
 
-#define nbl_glsl_FLT_INF float(1.0/0.0)
-
-#ifndef nbl_glsl_FLT_NAN
-#define nbl_glsl_FLT_NAN uintBitsToFloat(0xFFffFFffu)
-#endif
-
 #endif

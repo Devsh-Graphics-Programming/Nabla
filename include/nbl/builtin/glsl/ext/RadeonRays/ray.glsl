@@ -4,7 +4,7 @@
 struct nbl_glsl_ext_RadeonRays_ray
 {
 	vec3 origin;
-	float maxT; // FLT_MAX
+	float maxT; // nbl_glsl_FLT_MAX
 	vec3 direction;
 	float time;
 	int mask; // want to have it to -1

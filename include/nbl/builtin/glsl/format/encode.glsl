@@ -7,7 +7,7 @@ uvec3 nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBia
 {
 	const float maxrgb = max(max(clamped.r,clamped.g),clamped.b);
 	// TODO: optimize this
-	const int f32_exp = ((floatBitsToInt(maxrgb)>>23) & 0xff) - 126;
+	const int f32_exp = int(nbl_glsl_ieee754_extract_biased_exponent(maxrgb))-126;
 
 	shared_exp = clamp(f32_exp,-newExpBias,newMaxExp+1);
 	

@@ -5,6 +5,19 @@
 #ifndef _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
 #define _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
 
+mat3 nbl_glsl_mul_with_bounds(out mat3 error, in mat3 a, in mat3 b, in mat3 b_error)
+{
+    // error = abs(tform[0]*positions.x)+abs(tform[1]*positions.y)+abs(tform[2]*positions.z);
+    // error *= nbl_glsl_ieee754_gamma(2u);
+    return a*b;
+}
+mat3 nbl_glsl_mul_with_bounds(out mat3 error, in mat3 a, in mat3 b)
+{
+    // error = abs(tform[0]*positions.x)+abs(tform[1]*positions.y)+abs(tform[2]*positions.z);
+    // error *= nbl_glsl_ieee754_gamma(2u);
+    return a*b;
+}
+
 vec4 nbl_glsl_pseudoMul4x4with3x1(in mat4 m, in vec3 v)
 {
     return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
