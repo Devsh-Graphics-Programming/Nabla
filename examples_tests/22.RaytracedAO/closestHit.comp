@@ -90,7 +90,7 @@ void main()
 				);
 				
 				vec3 origin_error;
-				const float compactBary_error = 0.f; // TODO:
+				const float compactBary_error = nbl_glsl_ieee754_gamma(1u);
 				const vec3 origin = nbl_glsl_interpolate_with_bounds(origin_error,dPdBary,dPdBary_error,lastVxPos,lastVxPos_error,compactBary,compactBary_error);
 				
 				generate_next_rays(
@@ -98,14 +98,8 @@ void main()
 					sampleID,outPixelLocation,origin,origin_error,throughput
 				);
 			}
-	#if 1	
-			if (vertex_depth!=2u)
-				emissive = vec3(0.f);
-			else
-				emissive = frontfacing ? vec3(0.f,10.f,0.f):vec3(10.f,0.f,0.f);
-	#endif
 		}
-	#if 1
+
 		// TODO: finish MIS
 		vec3 acc;
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
@@ -113,6 +107,5 @@ void main()
 		const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
 		if (record_emission_common(acc,accumulationLocation,emissive*throughput,first_accumulating_path_vertex))
 			storeAccumulation(acc,accumulationLocation);
-	#endif
 	}
 }

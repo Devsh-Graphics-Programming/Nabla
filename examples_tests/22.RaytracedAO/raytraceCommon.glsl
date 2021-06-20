@@ -302,9 +302,17 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 	
-	const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
-	float ray_offset = dot(normalize(abs(normalizedN)),origin_error)+nbl_glsl_ieee754_gamma(3u);
-	//float ray_offset = nbl_glsl_ieee754_gamma(3u);
+	float ray_offset = dot(normalize(abs(normalizedN)),origin_error)+nbl_glsl_ieee754_gamma(3u); // I pulled the gamma(3) out of my @$$
+	// TODO: in the future run backward error analysis of
+	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
+	// where
+	// origin = mat3x2(vx_pos[2]-vx_pos[1],vx_pos[0]-vx_pos[1])*barys+vx_pos[1]
+	// geonNormal = cross(vx_pos[2]-vx_pos[1],vx_pos[0]-vx_pos[1])
+	// and we assume only `WorldToObj`, `vx_pos[i]` and `barys` are accurate values. So far:
+	// offset > (1+gamma(2))/(1-gamma(2))*(dot(abs(geomNormal),omega_error)+dot(abs(omega),geomNormal_error)+dot(omega_error,geomNormal_error))
+	//const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
+	//float ray_offset = ?;
+	//ray_offset = nbl_glsl_ieee754_next_ulp_away_from_zero(ray_offset);
 	// adjust for the fact that the normal might be too short (inversesqrt precision)
 	ray_offset *= 1.03125f;
 	uint offset = 0u;
@@ -326,7 +334,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	}
 }
 
-/* TODO: optimize
+/* TODO: optimize and reorganize
 void main()
 {
 	clear_raycount();

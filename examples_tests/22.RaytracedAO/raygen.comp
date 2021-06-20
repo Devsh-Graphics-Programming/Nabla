@@ -67,8 +67,6 @@ void main()
 			const vec3 origin = nbl_glsl_interpolate_with_bounds(origin_error,dPdBary,dPdBary_error,lastVxPos,lastVxPos_error,compactBary,compactBary_error);
 			normalizedV = normalize(pc.cummon.camPos-origin);
 
-			//emissive = vec3(1000.f)*dot(abs(normalizedN),origin_error)*1.03125f;
-
 			// generate rays
 			const uint vertex_depth = 1u;
 			generate_next_rays(
