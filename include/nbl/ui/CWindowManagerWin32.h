@@ -1,5 +1,6 @@
 #ifndef C_WINDOWMANAGER_WIN32
 #define C_WINDOWMANAGER_WIN32
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include <cstdint>
 #include <queue>
 #include <codecvt>
@@ -21,7 +22,6 @@ namespace nbl::ui
 		~CWindowManagerWin32() = default;
 
 	private:
-		// I guess now it is better to place this window thread handling class into .h file and make it a member. 
 		enum E_REQUEST_TYPE
 		{
 			ERT_CREATE_WINDOW,
@@ -277,4 +277,5 @@ namespace nbl::ui
 		} m_windowThreadManager;
 	};
 }
+#endif
 #endif

@@ -1,8 +1,8 @@
+
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/CWindowWin32.h"
 #include <hidusage.h>
 #include <codecvt>
-
-#ifdef _NBL_PLATFORM_WINDOWS_
 
 namespace nbl {
 namespace ui

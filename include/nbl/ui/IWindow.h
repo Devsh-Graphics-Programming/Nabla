@@ -50,6 +50,8 @@ public:
         }
         void onWindowMoved(IWindow* w, int32_t x, int32_t y)
         {
+            w->m_x = x;
+            w->m_y = y;
             onWindowMoved_impl(x, y);
         }
         void onWindowResized(IWindow* w, uint32_t width, uint32_t height)
@@ -169,7 +171,7 @@ protected:
     core::smart_refctd_ptr<IEventCallback> m_cb;
     core::smart_refctd_ptr<system::ISystem> m_sys;
     uint32_t m_width = 0u, m_height = 0u;
-    // TODO add x,y window position to state?
+    int32_t m_x, m_y; // gonna add it here until further instructions XD
     std::underlying_type_t<E_CREATE_FLAGS> m_flags = 0u;
 };
 
