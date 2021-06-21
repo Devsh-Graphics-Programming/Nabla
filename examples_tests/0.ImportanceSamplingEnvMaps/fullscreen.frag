@@ -9,7 +9,7 @@ layout (location = 0) out vec4 pixelColor;
 // basic settings
 #define MAX_DEPTH 15
 #define SAMPLES 32
-#define IMPORTANCE_SAMPLING
+// #define IMPORTANCE_SAMPLING
 
 layout(set = 3, binding = 0) uniform sampler2D envMap; 
 layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
@@ -289,7 +289,9 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
 #ifdef IMPORTANCE_SAMPLING
     const vec3 direction = ray._immutable.direction;
     const vec2 uv = SampleSphericalMap(direction);
-    return (getLuma(textureLod(envMap, uv, 0.0).rgb))/(2.0*nbl_glsl_PI*nbl_glsl_PI);
+    // return (getLuma(textureLod(envMap, uv, 0.0).rgb))/(2.0*nbl_glsl_PI*nbl_glsl_PI);
+     return (getLuma(textureLod(envMap, uv, 0.0).rgb))*(0.24542661822914696);
+    // 0.20641848951287792
 #else
     return 0.f;
 #endif

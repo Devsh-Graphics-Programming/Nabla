@@ -32,6 +32,8 @@ static core::smart_refctd_ptr<ICPUBuffer> computeLuminancePdf(smart_refctd_ptr<I
 	float* envmapPixel = (float*)envmap->getBuffer()->getPointer();
 	double* outPixel = (double*)outBuffer->getPointer();
 
+	double pdfSum = 0.0;
+
 	for (uint32_t y = 0; y < pdfDomainExtent.Y; ++y)
 	{
 		const double sinTheta = core::sin(core::PI<double>() * ((y + 0.5) / (double)pdfDomainExtent.Y));
@@ -43,6 +45,7 @@ static core::smart_refctd_ptr<ICPUBuffer> computeLuminancePdf(smart_refctd_ptr<I
 				result += luminanceScales[ch] * envmapPixel[ch];
 
 			*outPixel++ = result * sinTheta;
+			pdfSum += result * sinTheta;
 			envmapPixel += channelCount;
 		}
 	}
@@ -401,6 +404,8 @@ int main()
 
 				const double phi = xiRemapped.X * 2.0 * core::PI<double>();
 				const double pdf = (core::sin(theta) == 0.0) ? 0.0 : (marginalPdf * conditionalPdf) / (2.0 * core::PI<double>() * core::PI<double>() * core::sin(theta));
+
+
 
 				*phiPdfLUTPixel++ = (float)phi;
 				*phiPdfLUTPixel++ = (float)pdf;
