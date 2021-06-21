@@ -379,8 +379,6 @@ int main()
 		float* phiPdfLUTPixel = (float*)phiPdfLUTBuffer->getPointer();
 		float* thetaLUTPixel = (float*)thetaLUTBuffer->getPointer();
 
-		double pdfSum = 0.0; // unused for now
-
 		core::vector2d<double> xi(0.0, 0.0);
 		core::vector2d<double> xiRemapped = { 0.0, 0.0 };
 		for (uint32_t y = 0; y < pdfDomainExtent.Y; ++y)
@@ -403,8 +401,6 @@ int main()
 
 				const double phi = xiRemapped.X * 2.0 * core::PI<double>();
 				const double pdf = (core::sin(theta) == 0.0) ? 0.0 : (marginalPdf * conditionalPdf) / (2.0 * core::PI<double>() * core::PI<double>() * core::sin(theta));
-
-				pdfSum += pdf;
 
 				*phiPdfLUTPixel++ = (float)phi;
 				*phiPdfLUTPixel++ = (float)pdf;

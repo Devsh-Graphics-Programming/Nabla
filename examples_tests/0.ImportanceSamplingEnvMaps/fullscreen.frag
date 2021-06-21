@@ -11,10 +11,6 @@ layout (location = 0) out vec4 pixelColor;
 #define SAMPLES 32
 #define IMPORTANCE_SAMPLING
 
-// #define PDF_SUM_FACTOR (815702059.80897319*4.0*nbl_glsl_PI)
-// #define PDF_SUM_FACTOR (15514326643.607162*4.0*nbl_glsl_PI)
-#define PDF_SUM_FACTOR 1.0
-
 layout(set = 3, binding = 0) uniform sampler2D envMap; 
 layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
 layout(set = 3, binding = 2) uniform usampler2D scramblebuf;
@@ -293,9 +289,9 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
 #ifdef IMPORTANCE_SAMPLING
     const vec3 direction = ray._immutable.direction;
     const vec2 uv = SampleSphericalMap(direction);
-    return getLuma(textureLod(envMap, uv, 0.0).rgb)*sin(uv.y*nbl_glsl_PI)/PDF_SUM_FACTOR;
+    return (getLuma(textureLod(envMap, uv, 0.0).rgb))/(2.0*nbl_glsl_PI*nbl_glsl_PI);
 #else
-    return nbl_glsl_RECIPROCAL_PI*0.25;
+    return 0.f;
 #endif
 }
 
@@ -314,7 +310,7 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
     const float theta = texture(thetaLUT, xi.y).x;
 
     vec3 L = vec3(sin(theta)*cos(phiPdf.x), cos(theta), sin(theta)*sin(phiPdf.x));
-    pdf = phiPdf.y/PDF_SUM_FACTOR;
+    pdf = phiPdf.y;
 
 #else
     const float phi = acos(2*xi[0]-1);
