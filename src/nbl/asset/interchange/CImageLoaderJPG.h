@@ -29,7 +29,7 @@ class CImageLoaderJPG : public asset::IAssetLoader
 	    //! constructor
 	    CImageLoaderJPG();
 
-        virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+        virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
         virtual const char** getAssociatedFileExtensions() const override
         {
@@ -39,7 +39,7 @@ class CImageLoaderJPG : public asset::IAssetLoader
 
         virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-        virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+        virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
 } // end namespace video

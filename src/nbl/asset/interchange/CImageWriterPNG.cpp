@@ -46,7 +46,7 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 {
 	png_size_t check;
 
-	io::IWriteFile* file=(io::IWriteFile*)png_get_io_ptr(png_ptr);
+	system::IFile* file=(system::IFile*)png_get_io_ptr(png_ptr);
 	check=(png_size_t) file->write((const void*)data,(uint32_t)length);
 
 	if (check != length)
@@ -61,7 +61,7 @@ CImageWriterPNG::CImageWriterPNG()
 #endif
 }
 
-bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     if (!_override)
         getDefaultOverride(_override);
@@ -72,7 +72,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	auto imageView = IAsset::castDown<const ICPUImageView>(_params.rootAsset);
 
-    io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u});
+    system::IFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u});
 
 	if (!file || !imageView)
 		return false;

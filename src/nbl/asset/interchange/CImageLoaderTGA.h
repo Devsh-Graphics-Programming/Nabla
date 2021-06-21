@@ -93,7 +93,7 @@ enum STANDARD_TGA_IMAGE_TYPE
 class CImageLoaderTGA final : public IImageLoader
 {
 	public:
-		virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+		virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
 		virtual const char** getAssociatedFileExtensions() const override
 		{
@@ -103,12 +103,12 @@ class CImageLoaderTGA final : public IImageLoader
 
 		virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-		virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	private:
 
 		//! loads a compressed tga. Was written and sent in by Jon Pry, thank you very much!
-		void loadCompressedImage(io::IReadFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
+		void loadCompressedImage(system::IFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
 };
 
 #endif // compiled with loader

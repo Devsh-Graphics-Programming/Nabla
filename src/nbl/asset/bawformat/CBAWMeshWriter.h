@@ -97,7 +97,7 @@ namespace asset
         //! Returns which flags are forced for writing modes, i.e. a writer can only support binary
         virtual uint32_t getForcedFlags() override { return asset::EWF_BINARY; }
 
-        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+        virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
 	private:
 		//! Takes object and exports (writes to file) its data as another blob.
@@ -105,7 +105,7 @@ namespace asset
 		@param _headersIdx Corresponding index of headers array.
 		@param _file Target file.*/
 		template<typename T>
-		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx);
+		void exportAsBlob(T* _obj, uint32_t _headerIdx, system::IFile* _file, SContext& _ctx);
 
 		//! Generates header of blobs from mesh object and pushes them to `SContext::headers`.
 		/** After calling this method headers are NOT ready yet. Hashes (and also size in case of texture path blob) are calculated while writing blob data.
@@ -122,7 +122,7 @@ namespace asset
 		void pushCorruptedOffset(SContext& _ctx) const { _ctx.offsets.push_back(0xffffffff); }
 
 		//! Tries to write given data to file. If not possible (i.e. _data is NULL) - pushes "corrupted offset" and does not call .finalize() on blob-header.
-		void tryWrite(void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, asset::E_WRITER_FLAGS _flags, const uint8_t* _encrPwd = nullptr, float _comprLvl = 0.f) const;
+		void tryWrite(void* _data, system::IFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, asset::E_WRITER_FLAGS _flags, const uint8_t* _encrPwd = nullptr, float _comprLvl = 0.f) const;
 		
 		//! Uint32_t because lzma doesn't support compressing more than 4GB
 		void* compressWithLz4AndTryOnStack(const void* _input, uint32_t _inputSize, void* _stack, uint32_t _stackSize, size_t& _outComprSize) const;

@@ -83,7 +83,7 @@ public:
 	//! Constructor
 	COBJMeshFileLoader(IAssetManager* _manager);
 
-    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+    virtual bool isALoadableFileFormat(system::IFile* _file) const override
     {
         // OBJ doesn't really have any header but usually starts with a comment
         const size_t prevPos = _file->getPos();
@@ -102,7 +102,7 @@ public:
 
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 	// returns a pointer to the first printable character available in the buffer

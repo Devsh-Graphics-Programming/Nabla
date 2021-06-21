@@ -20,7 +20,7 @@ class CBufferLoaderBIN final : public asset::IAssetLoader
 		~CBufferLoaderBIN();
 
 	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -30,13 +30,13 @@ class CBufferLoaderBIN final : public asset::IAssetLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_BUFFER; } 
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	private:
 		struct SContext
 		{
 			SContext(const size_t& sizeInBytes) : sourceCodeBuffer(core::make_smart_refctd_ptr<ICPUBuffer>(sizeInBytes)) {}
-			io::IReadFile* file;
+			system::IFile* file;
 			core::smart_refctd_ptr<ICPUBuffer> sourceCodeBuffer;
 		};
 };

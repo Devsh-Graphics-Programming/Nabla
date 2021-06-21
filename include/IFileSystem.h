@@ -6,7 +6,7 @@
 #define __NBL_I_FILE_SYSTEM_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
-#include "IFileArchive.h"
+#include "nbl/system/IFileArchive.h"
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/core/core.h"
 #include "nbl/asset/compile_config.h"
@@ -109,10 +109,10 @@ class IFileSystem : public virtual core::IReferenceCounted
 		\param password An optional password, which is used in case of encrypted archives.
 		\param retArchive A pointer that will be set to the archive that is added.
 		\return True if the archive was added successfully, false if not. */
-		virtual bool addFileArchive(const path& filename,
-				E_FILE_ARCHIVE_TYPE archiveType=EFAT_UNKNOWN,
-				const core::stringc& password="",
-				IFileArchive** retArchive=0) =0;
+		//virtual bool addFileArchive(const path& filename,
+		//		E_FILE_ARCHIVE_TYPE archiveType=EFAT_UNKNOWN,
+		//		const core::stringc& password="",
+		//		IFileArchive** retArchive=0) =0;
 
 		//! Adds an archive to the file system.
 		/** After calling this, the Irrlicht Engine will also search and open
@@ -136,15 +136,15 @@ class IFileSystem : public virtual core::IReferenceCounted
 		\param password An optional password, which is used in case of encrypted archives.
 		\param retArchive A pointer that will be set to the archive that is added.
 		\return True if the archive was added successfully, false if not. */
-		virtual bool addFileArchive(IReadFile* file,
-				E_FILE_ARCHIVE_TYPE archiveType=EFAT_UNKNOWN,
-				const core::stringc& password="",
-				IFileArchive** retArchive=0) =0;
+		//virtual bool addFileArchive(IReadFile* file,
+		//		system::E_FILE_ARCHIVE_TYPE archiveType=EFAT_UNKNOWN,
+		//		const core::stringc& password="",
+		//		system::IFileArchive** retArchive=0) =0;
 
 		//! Adds an archive to the file system.
 		/** \param archive: The archive to add to the file system.
 		\return True if the archive was added successfully, false if not. */
-		virtual bool addFileArchive(IFileArchive* archive) =0;
+		virtual bool addFileArchive(system::IFileArchive* archive) =0;
 
 		//! Get the number of archives currently attached to the file system
 		virtual uint32_t getFileArchiveCount() const =0;
@@ -177,7 +177,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		example textures and meshes.
 		\param archive The archive to remove.
 		\return True on success, false on failure */
-		virtual bool removeFileArchive(const IFileArchive* archive) =0;
+		virtual bool removeFileArchive(const system::IFileArchive* archive) =0;
 
 		//! Changes the search order of attached archives.
 		/**
@@ -186,12 +186,12 @@ class IFileSystem : public virtual core::IReferenceCounted
 		virtual bool moveFileArchive(uint32_t sourceIndex, int32_t relative) =0;
 
 		//! Get the archive at a given index.
-		virtual IFileArchive* getFileArchive(uint32_t index) =0;
+		virtual system::IFileArchive* getFileArchive(uint32_t index) =0;
 
 		//! Adds an external archive loader to the engine.
 		/** Use this function to add support for new archive types to the
 		engine, for example proprietary or encrypted file storage. */
-		virtual void addArchiveLoader(IArchiveLoader* loader) =0;
+		virtual void addArchiveLoader(system::IArchiveLoader* loader) =0;
 
 		//! Gets the number of archive loaders currently added
 		virtual uint32_t getArchiveLoaderCount() const = 0;
@@ -200,7 +200,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		/** \param index The index of the loader to retrieve. This parameter is an 0-based
 		array index.
 		\return A pointer to the specified loader, 0 if the index is incorrect. */
-		virtual IArchiveLoader* getArchiveLoader(uint32_t index) const = 0;
+		virtual system::IArchiveLoader* getArchiveLoader(uint32_t index) const = 0;
 
 		//! Get the current working directory.
 		/** \return Current working directory as a string. */
@@ -234,7 +234,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		virtual IFileList* createEmptyFileList(const io::path& path) =0;
 
 		//! Set the active type of file system.
-		virtual EFileSystemType setFileListSystem(EFileSystemType listType) =0;
+		//virtual EFileSystemType setFileListSystem(EFileSystemType listType) =0;
 
 		//! Determines if a file exists and could be opened.
 		/** \param filename is the string identifying the file which should be tested for existence.

@@ -35,7 +35,7 @@ class CImageWriterPNG : public asset::IAssetWriter
 
         virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+        virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
 } // namespace video

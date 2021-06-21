@@ -181,7 +181,6 @@ set(NBL_CORE_SOURCES
 )
 set(NBL_SYSTEM_SOURCES
 # Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp

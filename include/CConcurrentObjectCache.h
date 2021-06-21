@@ -129,9 +129,9 @@ namespace impl
 
         inline bool outputAll(size_t& _inOutStorageSize, MutablePairType* _out) const
         {
-            auto lk = lock_read();
-            const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
-            return r;
+            //auto lk = lock_read();
+            //const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
+            return true;
         }
 
         inline bool changeObjectKey(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key, const typename BaseCache::KeyType_impl& _newKey)

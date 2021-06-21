@@ -7,6 +7,7 @@
 
 #include "nbl/asset/utils/IIncluder.h"
 #include "IFileSystem.h"
+#include "nbl/system/ISystem.h"
 
 namespace nbl { namespace asset
 {
@@ -14,19 +15,19 @@ namespace nbl { namespace asset
 class CFilesystemIncluder : public IIncluder
 {
 public:
-    CFilesystemIncluder(io::IFileSystem* _fs) : m_filesystem{_fs}
+    CFilesystemIncluder(system::ISystem* _sys) : m_system{_sys}
     {
     }
 
     void addSearchDirectory(const std::string& _searchDir) override
     {
-        io::path absPath = m_filesystem->getAbsolutePath(_searchDir.c_str());
-        IIncluder::addSearchDirectory(absPath.c_str());
+        std::filesystem::path absPath = std::filesystem::absolute(_searchDir);
+        IIncluder::addSearchDirectory(absPath.string());
     }
 
     std::string getInclude_internal(const std::string& _path) const override
     {
-        auto f = m_filesystem->createAndOpenFile(_path.c_str());
+        auto f = m_system->createAndOpenFile(_path.c_str());
         if (!f)
             return {};
         std::string contents(f->getSize(), '\0');
@@ -38,7 +39,7 @@ public:
     }
 
 private:
-    io::IFileSystem* m_filesystem;
+    system::ISystem* m_system;
 };
 
 }}

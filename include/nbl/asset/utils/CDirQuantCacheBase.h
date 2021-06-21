@@ -17,8 +17,7 @@
 #include "vectorSIMD.h"
 
 #include "nbl/system/system.h"
-#include "IReadFile.h"
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 #include "IFileSystem.h"
 
 #include "nbl/asset/format/EFormat.h"

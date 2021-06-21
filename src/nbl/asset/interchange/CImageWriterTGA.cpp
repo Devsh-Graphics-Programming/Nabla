@@ -29,7 +29,7 @@ CImageWriterTGA::CImageWriterTGA()
 #endif
 }
 
-bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     if (!_override)
         getDefaultOverride(_override);
@@ -38,7 +38,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	auto* imageView = IAsset::castDown<const ICPUImageView>(_params.rootAsset);
 
-	io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
+	system::IFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
 
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{

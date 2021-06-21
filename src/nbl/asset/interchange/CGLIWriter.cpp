@@ -39,9 +39,9 @@ namespace asset
 {
 static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
 
-static inline bool performSavingAsIWriteFile(gli::texture& texture, nbl::io::IWriteFile* file);
+static inline bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file);
 
-bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	if (!_override)
 		getDefaultOverride(_override);
@@ -53,7 +53,7 @@ bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _par
 	if (!imageView)
 		return false;
 
-	io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
+	system::IFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
 
 	if (!file)
 		return false;
@@ -61,7 +61,7 @@ bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _par
 	return writeGLIFile(file, imageView);
 }
 
-bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* imageView)
+bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView)
 {
 	os::Printer::log("WRITING GLI: writing the file", file->getFileName().c_str(), ELL_INFORMATION);
 
@@ -210,7 +210,7 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 	return performSavingAsIWriteFile(texture, file);
 }
 
-bool performSavingAsIWriteFile(gli::texture& texture, nbl::io::IWriteFile* file)
+bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file)
 {
 	if (texture.empty())
 		return false;

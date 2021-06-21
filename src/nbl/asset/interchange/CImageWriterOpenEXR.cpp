@@ -129,7 +129,7 @@ namespace asset
 		return true;
 	}
 
-	bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+	bool CImageWriterOpenEXR::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 	{
 		if (!_override)
 			getDefaultOverride(_override);
@@ -142,7 +142,7 @@ namespace asset
 		if (image->getBuffer()->isADummyObjectForCache())
 			return false;
 
-		io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
+		system::IFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
 
 		if (!file)
 			return false;
@@ -150,7 +150,7 @@ namespace asset
 		return writeImageBinary(file, image);
 	}
 
-	bool CImageWriterOpenEXR::writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image)
+	bool CImageWriterOpenEXR::writeImageBinary(system::IFile* file, const asset::ICPUImage* image)
 	{
 		const auto& params = image->getCreationParameters();
 			

@@ -37,6 +37,10 @@ public:
 	virtual void* getMappedPointer() = 0;
 	virtual const void* getMappedPointer() const = 0;
 
+	virtual void seek(uint32_t pos) = 0;
+	virtual void read(char* outData, size_t count) const;
+	virtual size_t getPos() const = 0;
+
 	bool isMappingCoherent() const
 	{
 		return (m_flags & ECF_COHERENT) == ECF_COHERENT;

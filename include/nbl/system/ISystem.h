@@ -172,21 +172,48 @@ public:
         return true;
     }
 
-    // @sadiuk Implement the rest of functions in manner analogous to createReadFile
-
     bool readFile(future_t<uint32_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
     {
-
+        SRequestParams_READ params;
+        params.buffer = buffer;
+        params.file = file;
+        params.offset = offset;
+        params.size = size;
+        m_dispatcher.request(future, params);
+        return true;
     }
 
     bool writeFile(future_t<uint32_t>& future, IFile* file, const void* buffer, size_t offset, size_t size)
     {
-
+        SRequestParams_WRITE params;
+        params.buffer = buffer;
+        params.file = file;
+        params.offset = offset;
+        params.size = size;
+        m_dispatcher.request(future, params);
+        return true;
     }
 
     // @sadiuk add more methods taken from IFileSystem and IOSOperator
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
+    core::smart_refctd_ptr<IFile> createAndOpenFile(const std::filesystem::path& filename)
+    {
+        future_t<core::smart_refctd_ptr<IFile>> future;
+        if (!createFile(future, filename, IFile::ECF_READ))
+            return nullptr;
+
+        return future.get();
+    }
+    core::smart_refctd_ptr<IFile> createAndWriteFile(const std::filesystem::path& filename)
+    {
+        future_t<core::smart_refctd_ptr<IFile>> future;
+        if (!createFile(future, filename, IFile::ECF_WRITE))
+            return nullptr;
+
+        return future.get();
+    }
+
 
     //! Warning: blocking call
     core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename)

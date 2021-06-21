@@ -8,7 +8,7 @@
 #include "nbl/core/core.h"
 #include "nbl/system/system.h"
 
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "IFileSystem.h"
 
 #include "nbl/asset/ICPUSpecializedShader.h"
