@@ -490,9 +490,11 @@ namespace video
 
                 if (idxType != GL_INVALID_ENUM)
                 {
-                    GLuint64 idxBufOffset = ctxlocal->currentState.vertexInputParams.vaoval.idxBinding.offset;
+                    const GLuint64 ixsz = idxType == GL_UNSIGNED_INT ? 4u : 2u;
+
+                    GLuint64 idxBufOffset = ctxlocal->currentState.vertexInputParams.vaoval.idxBinding.offset + idxType*c.firstIndex;
                     static_assert(sizeof(idxBufOffset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, c.indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), c.instanceCount, c.firstIndex, c.firstInstance);
+                    gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, c.indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), c.instanceCount, c.vertexOffset, c.firstInstance);
                 }
             }
             break;

@@ -20,7 +20,8 @@ public:
 
     inline void associateGLSync(core::smart_refctd_ptr<COpenGLSync>&& sync)
     {
-        assert(!m_sync);
+        //assert(!m_sync);
+        //semaphores can be reused, we just need to guarantee that a semaphore is unsignaled when signal operation happens on GPU (https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkQueueSubmit.html)
         m_sync = std::move(sync);
     }
 
