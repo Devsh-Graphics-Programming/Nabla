@@ -247,7 +247,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				// one instance data per instance of a batch
 				core::smart_refctd_ptr<ICPUBuffer> newInstanceDataBuffer;
 
-				constexpr uint16_t minTrisBatch = 256u; 
+				constexpr uint16_t minTrisBatch = MAX_TRIANGLES_IN_BATCH>>1u;
 				constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
 				constexpr uint8_t minVertexSize = 
 					asset::getTexelOrBlockBytesize<asset::EF_R32G32B32_SFLOAT>()+
@@ -474,6 +474,14 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						}
 					}
 				}
+				printf("Scene Bound: %f,%f,%f -> %f,%f,%f\n",
+					m_sceneBound.MinEdge.X,
+					m_sceneBound.MinEdge.Y,
+					m_sceneBound.MinEdge.Z,
+					m_sceneBound.MaxEdge.X,
+					m_sceneBound.MaxEdge.Y,
+					m_sceneBound.MaxEdge.Z
+				);
 				instanceDataDescPtr->buffer = {0u,cullData.size()*sizeof(ext::MitsubaLoader::instance_data_t)};
 				instanceDataDescPtr->desc = std::move(newInstanceDataBuffer); // TODO: trim the buffer
 				retval.mdiFirstIndices.resize(cullData.size());
@@ -1131,6 +1139,7 @@ void Renderer::deinit()
 
 	m_raytraceCommonData = {vec3(),0,0,0,0u};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
+	m_totalRaysCast = 0ull;
 	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
 	std::fill_n(m_prevView.pointer(),12u,0.f);
@@ -1363,6 +1372,7 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
 		if (nextTraceRaycount==0u)
 			return 0u;
+		m_totalRaysCast += nextTraceRaycount;
 		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();

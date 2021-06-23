@@ -46,6 +46,10 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
+		uint64_t getTotalRaysCast() const
+		{
+			return m_totalRaysCast;
+		}
 
 		//! Brief guideline to good path depth limits
 		// Want to see stuff with indirect lighting on the other side of a pane of glass
@@ -132,6 +136,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_framesDispatched;
 		vec2 m_rcpPixelSize;
+		uint64_t m_totalRaysCast;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
 
