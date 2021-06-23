@@ -6,24 +6,16 @@
 struct CullShaderData_t
 {
     mat4    viewProjMatrix;
-    float   viewProjDeterminant;
     uint    maxBatchCount;
+    uint    freezeCulling;
 };
 
 struct CullData_t
 {
     vec3    aabbMinEdge;
+    uint    padding;
     vec3    aabbMaxEdge;
     uint    drawCommandGUID;
-};
-
-struct DrawData_t
-{
-    mat4 MVP;
-    uint backfacingBit_batchInstanceGUID;
-    uint firstIndex;
-    uint padding1;
-    uint padding2;
 };
 
 #endif

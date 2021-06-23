@@ -13,6 +13,10 @@ layout(set=0, binding=1, std430) restrict coherent buffer IndirectDraws
 {
     nbl_glsl_DrawElementsIndirectCommand_t draws[];
 } commandBuff;
+layout(set=0, binding=2, std430) restrict coherent buffer MVPs
+{
+    mat4 mvps[];
+} mvpBuff;
 
 
 
@@ -30,6 +34,11 @@ layout(push_constant, row_major) uniform PushConstants
 void main()
 {
     if (gl_GlobalInvocationID.x >= pc.data.maxBatchCount)
+        return;
+
+    mvpBuff.mvps[gl_GlobalInvocationID.x] = pc.data.viewProjMatrix;
+
+    if (bool(pc.data.freezeCulling))
         return;
 
     const CullData_t batchCullData = cullData[gl_GlobalInvocationID.x];

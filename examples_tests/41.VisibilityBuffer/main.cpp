@@ -17,6 +17,36 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
+bool freezeCulling = false;
+
+class MyEventReceiver : public QToQuitEventReceiver
+{
+public:
+
+    MyEventReceiver()
+    {
+    }
+
+    bool OnEvent(const SEvent& event)
+    {
+        if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+        {
+            switch (event.KeyInput.Key)
+            {
+            case nbl::KEY_KEY_Q: // so we can quit
+                return QToQuitEventReceiver::OnEvent(event);
+            case nbl::KEY_KEY_C: // freeze culling
+                freezeCulling = !freezeCulling; // Not enabled/necessary yet
+                return true;
+            default:
+                break;
+            }
+        }
+
+        return false;
+    }
+};
+
 #include "common.h"
 #include "rasterizationCommon.h"
 
@@ -164,6 +194,7 @@ struct CullShaderData
 {
     core::smart_refctd_ptr<IGPUBuffer> perBatchCull;
     core::smart_refctd_ptr<IGPUBuffer> commandBuffer;
+    core::smart_refctd_ptr<IGPUBuffer> mvpBuffer;
 
     core::smart_refctd_ptr<IGPUComputePipeline> cullPipeline;
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> cullDSLayout;
@@ -221,7 +252,7 @@ int main()
 
     //! Since our cursor will be enslaved, there will be no way to close the window
     //! So we listen for the "Q" key being pressed and exit the application
-    QToQuitEventReceiver receiver;
+    MyEventReceiver receiver;
     device->setEventReceiver(&receiver);
 
     auto* driver = device->getVideoDriver();
@@ -566,7 +597,7 @@ int main()
 
                         batchCullDataEnd->drawCommandGUID = packedMeshBufferData.mdiParameterOffset + i;
 
-                        draw3DLine->enqueueBox(dbgLines, aabbs[aabbIdx], 1.0f, 0.0f, 0.0f, 1.0f, core::matrix3x4SIMD());
+                        draw3DLine->enqueueBox(dbgLines, aabbs[aabbIdx], 0.0f, 0.0f, 0.0f, 1.0f, core::matrix3x4SIMD());
 
                         batchCullDataEnd++;
                         aabbIdx++;
@@ -608,7 +639,8 @@ int main()
 
             cullShaderData.commandBuffer = gpump->getPackerDataStore().MDIDataBuffer;
             cullShaderData.maxBatchCount = std::distance(batchCullData.begin(), batchCullDataEnd);
-            cullShaderData.perBatchCull = driver->createFilledDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount, batchCullData.data());
+            cullShaderData.perBatchCull = driver->createFilledDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(CullData_t), batchCullData.data());
+            cullShaderData.mvpBuffer = driver->createDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(core::matrix4SIMD));
         }
         mesh_raw->convertToDummyObject(~0u);
 
@@ -789,11 +821,12 @@ int main()
         }
     }
 
+    // cull shader ds
     {
         SPushConstantRange range{ ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t) };
         
         {
-            IGPUDescriptorSetLayout::SBinding bindings[2];
+            IGPUDescriptorSetLayout::SBinding bindings[3];
             bindings[0].binding = 0u;
             bindings[0].count = 1u;
             bindings[0].samplers = nullptr;
@@ -805,12 +838,18 @@ int main()
             bindings[1].samplers = nullptr;
             bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
             bindings[1].type = EDT_STORAGE_BUFFER;
-        
+            
+            bindings[2].binding = 2u;
+            bindings[2].count = 1u;
+            bindings[2].samplers = nullptr;
+            bindings[2].stageFlags = ISpecializedShader::ESS_COMPUTE;
+            bindings[2].type = EDT_STORAGE_BUFFER;
+
             cullShaderData.cullDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
         }
         
         {
-            IGPUDescriptorSet::SDescriptorInfo infos[2];
+            IGPUDescriptorSet::SDescriptorInfo infos[3];
         
             infos[0].desc = core::smart_refctd_ptr(cullShaderData.perBatchCull);
             infos[0].buffer.offset = 0u;
@@ -819,12 +858,16 @@ int main()
             infos[1].desc = core::smart_refctd_ptr(cullShaderData.commandBuffer);
             infos[1].buffer.offset = 0u;
             infos[1].buffer.size = cullShaderData.commandBuffer->getSize();
-        
+
+            infos[2].desc = core::smart_refctd_ptr(cullShaderData.mvpBuffer);
+            infos[2].buffer.offset = 0u;
+            infos[2].buffer.size = cullShaderData.mvpBuffer->getSize();
+
             cullShaderData.cullDS = driver->createGPUDescriptorSet(smart_refctd_ptr(cullShaderData.cullDSLayout));
         
-            IGPUDescriptorSet::SWriteDescriptorSet writes[2];
+            IGPUDescriptorSet::SWriteDescriptorSet writes[3];
         
-            for (uint32_t i = 0u; i < 2; i++)
+            for (uint32_t i = 0u; i < 3; i++)
             {
                 writes[i].dstSet = cullShaderData.cullDS.get();
                 writes[i].binding = i;
@@ -849,15 +892,15 @@ int main()
         cullShaderData.cullPipeline = driver->createGPUComputePipeline(nullptr, std::move(cullPipelineLayout), std::move(gpuCullShader));
     }
 
-    auto cullBatches = [&driver, &cullShaderData](const core::matrix4SIMD& vp)
+    auto cullBatches = [&driver, &cullShaderData](const core::matrix4SIMD& vp, bool freezeCulling)
     {
         driver->bindDescriptorSets(EPBP_COMPUTE, cullShaderData.cullPipeline->getLayout(), 0u, 1u, &cullShaderData.cullDS.get(), nullptr);
         driver->bindComputePipeline(cullShaderData.cullPipeline.get());
 
         CullShaderData_t cullPushConstants;
         cullPushConstants.viewProjMatrix = vp;
-        cullPushConstants.viewProjDeterminant = core::determinant(vp);
-        cullPushConstants.maxBatchCount = cullShaderData.maxBatchCount; //TODO: this should be uniform, and set only once
+        cullPushConstants.maxBatchCount = cullShaderData.maxBatchCount;
+        cullPushConstants.freezeCulling = static_cast<uint32_t>(freezeCulling);
 
         driver->pushConstants(cullShaderData.cullPipeline->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &cullPushConstants);
 
@@ -875,10 +918,8 @@ int main()
     camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
-    
-    //tmp shit
-    core::matrix4SIMD vpFromFirstFrame;
 
+    bool asdf = true;
     uint64_t lastFPSTime = 0;
     while (device->run() && receiver.keepOpen())
     {
@@ -888,9 +929,6 @@ int main()
         camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
         camera->render();
 
-        if (lastFPSTime == 0)
-            vpFromFirstFrame = camera->getConcatenatedMatrix();
-
         SBasicViewParameters uboData;
         memcpy(uboData.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(core::matrix4SIMD));
         memcpy(uboData.MV, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
@@ -898,7 +936,7 @@ int main()
         driver->updateBufferRangeViaStagingBuffer(sceneData.ubo.get(), 0u, sizeof(SBasicViewParameters), &uboData);
 
         // cull MDIs
-        cullBatches(vpFromFirstFrame);
+        cullBatches(camera->getConcatenatedMatrix(), freezeCulling);
         COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
         driver->setRenderTarget(visBuffer);
