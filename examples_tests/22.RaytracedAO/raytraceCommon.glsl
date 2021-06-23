@@ -302,7 +302,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 	
-	float ray_offset = dot(normalize(abs(normalizedN)),origin_error)+nbl_glsl_ieee754_gamma(3u); // I pulled the gamma(3) out of my @$$
+	float ray_offset = 0.00001f; // I pulled the constant out of my @$$
 	// TODO: in the future run backward error analysis of
 	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
 	// where
