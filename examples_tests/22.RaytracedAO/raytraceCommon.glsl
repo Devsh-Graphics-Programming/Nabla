@@ -129,10 +129,10 @@ vec3 load_positions(out mat2x3 dPdBary_error, out vec3 lastVxPos_error,in uvec3 
 	);
 	const mat4x3 tform = batchInstanceData.tform;
 	mat3 positions_error;
-	// when we quantize positions to RGB21_UNORM, change to exp2(-22.f)
+	// when we quantize positions to RGB21_USCALED, change to exp2(-22.f)
 	const float quantizationError = nbl_glsl_numeric_limits_float_epsilon(1u);
 	positions = nbl_glsl_mul_with_bounds_wo_gamma(positions_error,mat3(tform),positions,quantizationError);
-	positions_error *= nbl_glsl_ieee754_gamma(2u);
+	positions_error *= nbl_glsl_ieee754_gamma(3u);
 	//
 	for (int i=0; i<2; i++)
 	{
@@ -256,7 +256,8 @@ void gen_sample_ray(
 	direction = s.L;
 }
 
-
+uint triangleID;
+uint batchInstanceGUID;
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
@@ -302,7 +303,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 	
-	float ray_offset = dot(normalize(abs(normalizedN)),origin_error)+nbl_glsl_ieee754_gamma(3u); // I pulled the gamma(3) out of my @$$
+	float ray_offset = dot(abs(normalizedN),origin_error)*1.03f+0.000001f; // I pulled the added constant out of my @$$
 	// TODO: in the future run backward error analysis of
 	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
 	// where
@@ -327,8 +328,8 @@ for (uint i=1u; i!=vertex_depth; i++)
 		newRay.time = packOutPixelLocation(outPixelLocation);
 		newRay.mask = -1;
 		newRay._active = 1;
-		newRay.useless_padding[0] = packHalf2x16(nextThroughput[i].rg);
-		newRay.useless_padding[1] = bitfieldInsert(packHalf2x16(nextThroughput[i].bb),sampleID+i,16,16);
+		newRay.useless_padding[0] = batchInstanceGUID;//packHalf2x16(nextThroughput[i].rg);
+		newRay.useless_padding[1] = bitfieldInsert(triangleID/*packHalf2x16(nextThroughput[i].bb)*/,sampleID+i,16,16);
 		const uint outputID = baseOutputID+(offset++);
 		sinkRays[outputID] = newRay;
 	}

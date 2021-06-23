@@ -43,7 +43,7 @@ void main()
 		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[gl_GlobalInvocationID.x];
 		const nbl_glsl_ext_RadeonRays_ray ray = sourceRays[gl_GlobalInvocationID.x];
 
-		const uint batchInstanceGUID = intersection.shapeid;
+		/*const uint */batchInstanceGUID = intersection.shapeid;
 		const uint invalidID = 0xffffffffu;
 		hit = batchInstanceGUID!=invalidID;
 
@@ -57,7 +57,7 @@ void main()
 		//
 		if (hit)
 		{
-			const uint triangleID = intersection.primid;
+			/*const uint */triangleID = intersection.primid;
 			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
 			
 			// obtain ray incoming direction
@@ -98,6 +98,11 @@ void main()
 					sampleID,outPixelLocation,origin,origin_error,throughput
 				);
 			}
+
+			if (vertex_depth!=2u)
+				emissive = vec3(0.f);
+			else
+				emissive = ray.useless_padding[0]!=batchInstanceGUID||bitfieldExtract(ray.useless_padding[1],0,16)!=triangleID ? vec3(0.f,1.f,0.f):vec3(1.f,0.f,0.f);
 		}
 
 		// TODO: finish MIS
@@ -105,7 +110,7 @@ void main()
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
 		const bool first_accumulating_path_vertex = accumulationLocation.z!=0u||get_path_vertex_depth()==2u;
 		const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
-		if (record_emission_common(acc,accumulationLocation,emissive*throughput,first_accumulating_path_vertex))
+		if (record_emission_common(acc,accumulationLocation,emissive/*throughput*/,first_accumulating_path_vertex))
 			storeAccumulation(acc,accumulationLocation);
 	}
 }
