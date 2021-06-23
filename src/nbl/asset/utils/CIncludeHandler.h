@@ -28,11 +28,11 @@ class CIncludeHandler : public IIncludeHandler
     };
 
 public:
-    CIncludeHandler(io::IFileSystem* _filesystem)
+    CIncludeHandler(system::ISystem* _system)
     {
         // TODO It has to be reworked in the future
-        m_includers.emplace_back(core::make_smart_refctd_ptr<CFilesystemIncluder>(_filesystem));
-        m_includers.emplace_back(core::make_smart_refctd_ptr<CBuiltinIncluder>(_filesystem));
+        m_includers.emplace_back(core::make_smart_refctd_ptr<CFilesystemIncluder>(_system));
+        m_includers.emplace_back(core::make_smart_refctd_ptr<CBuiltinIncluder>(_system));
     }
 
     std::string getIncludeStandard(const std::string& _path) const override

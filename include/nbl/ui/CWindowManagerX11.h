@@ -1,3 +1,7 @@
+#ifdef _NBL_PLATFORM_LINUX_
+#ifndef C_WINDOW_MANAGER_X11
+#define C_WINDOW_MANAGER_X11
+
 #include <IWindowManager.h>
 #include <X11/Xlib.h>
 #include <CWindowX11.h>
@@ -182,3 +186,5 @@ private:
 
 
 }
+#endif
+#endif

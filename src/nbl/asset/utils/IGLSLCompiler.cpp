@@ -73,7 +73,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer));
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
     _sourcefile->read(glsl.data(), glsl.size());
@@ -249,7 +249,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
     return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str());
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
     _sourcefile->read(glsl.data(), glsl.size());

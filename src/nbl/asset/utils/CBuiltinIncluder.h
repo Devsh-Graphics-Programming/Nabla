@@ -27,7 +27,7 @@ class CBuiltinIncluder : public IIncluder
         static void loaderDrop(IBuiltinIncludeLoader* _ldr) { _ldr->drop(); }
 
     public:
-        CBuiltinIncluder(io::IFileSystem* fs) : m_default(core::make_smart_refctd_ptr<IGLSLEmbeddedIncludeLoader>(fs)), m_loaders(&loaderGrab, &loaderDrop)
+        CBuiltinIncluder(system::ISystem* s) : m_default(core::make_smart_refctd_ptr<IGLSLEmbeddedIncludeLoader>(s)), m_loaders(&loaderGrab, &loaderDrop)
         {
             m_searchDirectories.emplace_back("/");
         }

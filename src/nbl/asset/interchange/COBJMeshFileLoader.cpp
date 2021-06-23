@@ -37,7 +37,7 @@ constexpr uint32_t NORMAL = 3u;
 constexpr uint32_t BND_NUM = 0u;
 
 //! Constructor
-COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
+COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), System(_manager->getSystem())
 {
 }
 

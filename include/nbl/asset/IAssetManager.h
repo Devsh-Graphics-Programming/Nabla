@@ -126,8 +126,8 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
     public:
         //! Constructor
-        explicit IAssetManager(core::smart_refctd_ptr<io::IFileSystem>&& _fs) :
-            m_system(std::move(_fs)),
+        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s) :
+            m_system(std::move(_s)),
             m_defaultLoaderOverride(this)
         {
             initializeMeshTools();
@@ -219,9 +219,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
             IAssetLoader::SAssetLoadContext ctx{params, _file};
 
-            std::string filename = _file ? _file->getFileName().c_str() : _supposedFilename;
+            std::string filename = _file ? _file->getFileName().string() : _supposedFilename;
             system::IFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel); // WARNING: mem-leak possibility: _override should return smart_ptr<IReadFile> (TODO, inspect this)
-            filename = file ? file->getFileName().c_str() : _supposedFilename;
+            filename = file ? file->getFileName().string() : _supposedFilename;
 
             const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
@@ -239,7 +239,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             if (!file)
                 return {};//return empty bundle
 
-            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(filename.c_str()));
+            auto capableLoadersRng = m_loaders.perFileExt.findRange(std::filesystem::path(filename).relative_path().string());
             // loaders associated with the file's extension tryout
             for (auto& loader : capableLoadersRng)
             {
@@ -320,12 +320,12 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
             std::string filePath = _filePath;
             _override->getLoadFilename(filePath, ctx, _hierarchyLevel);
-            system::IFile* file = m_system->createAndOpenFile(filePath.c_str());
 
-            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file, _filePath, _params, _hierarchyLevel, _override);
-
-            if (file)
-                file->drop();
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            bool validInput = m_system->createFile(future, _filePath, system::IFile::ECF_READ);
+            assert(validInput);
+            core::smart_refctd_ptr<system::IFile> file = future.get();
+            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), _filePath, _params, _hierarchyLevel, _override);
 
             return asset;
         }
@@ -641,7 +641,10 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             if (!_override)
                 _override = &defOverride;
 
-            auto file = m_system->createAndWriteFile(_filename.c_str());
+            core::smart_refctd_ptr<system::IFile> file;
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            bool valid = m_system->createFile(future, _filename.c_str(), system::IFile::ECF_WRITE);
+            if (valid) file = future.get();
 			if (file) // could fail creating file (lack of permissions)
 			{
 				bool res = writeAsset(file.get(), _params, _override);

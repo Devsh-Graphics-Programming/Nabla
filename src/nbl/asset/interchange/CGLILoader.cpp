@@ -38,9 +38,9 @@ namespace nbl
 	{
 		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
 		static inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
-		static inline bool performLoadingAsIReadFile(gli::texture& texture, io::IReadFile* file);
+		static inline bool performLoadingAsIReadFile(gli::texture& texture, system::IFile* file);
 
-		asset::SAssetBundle CGLILoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		asset::SAssetBundle CGLILoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
@@ -222,7 +222,7 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
-		bool performLoadingAsIReadFile(gli::texture& texture, io::IReadFile* file)
+		bool performLoadingAsIReadFile(gli::texture& texture, system::IFile* file)
 		{
 			const auto fileName = std::string(file->getFileName().c_str());
 			std::vector<char> memory(file->getSize());
@@ -246,7 +246,7 @@ namespace nbl
 			}
 		}
 
-		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CGLILoader::isALoadableFileFormat(system::IFile* _file) const
 		{
 			const auto fileName = std::string(_file->getFileName().c_str());
 			const auto beginningOfFile = _file->getPos();

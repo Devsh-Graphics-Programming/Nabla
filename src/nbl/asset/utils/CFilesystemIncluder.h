@@ -6,7 +6,6 @@
 #define __NBL_ASSET_C_INCLUDER_H_INCLUDED__
 
 #include "nbl/asset/utils/IIncluder.h"
-#include "IFileSystem.h"
 #include "nbl/system/ISystem.h"
 
 namespace nbl { namespace asset
@@ -27,13 +26,20 @@ public:
 
     std::string getInclude_internal(const std::string& _path) const override
     {
-        auto f = m_system->createAndOpenFile(_path.c_str());
-        if (!f)
-            return {};
-        std::string contents(f->getSize(), '\0');
-        f->read(&contents.front(), f->getSize());
-
-        f->drop();
+        core::smart_refctd_ptr<system::IFile> f;
+        {
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            bool valid = m_system->createFile(future, _path.c_str(), system::IFile::ECF_READ);
+            if (valid) f = future.get();
+            if (!f)
+                return {};
+        }
+        size_t size = f->getSize();
+        std::string contents(size, '\0');
+        system::ISystem::future_t<uint32_t> future;
+        bool valid = m_system->readFile(future, f.get(), contents.data(), 0, size);
+        if (!valid) return false;
+        future.get();
 
         return contents;
     }

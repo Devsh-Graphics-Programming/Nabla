@@ -218,7 +218,7 @@ namespace nbl
 		}
 
 
-		SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
@@ -308,7 +308,7 @@ namespace nbl
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
-		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file) const
 		{	
 			const size_t begginingOfFile = _file->getPos();
             _file->seek(0ull);
@@ -400,7 +400,7 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(io::IReadFile* _file, SContext& ctx)
+		bool readVersionField(system::IFile* _file, SContext& ctx)
 		{
 			RgbaInputFile file(_file->getFileName().c_str());
 			auto& versionField = ctx.versionField;

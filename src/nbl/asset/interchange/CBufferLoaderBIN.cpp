@@ -8,7 +8,7 @@ namespace nbl
 {
 	namespace asset
 	{
-		asset::SAssetBundle CBufferLoaderBIN::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		asset::SAssetBundle CBufferLoaderBIN::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};

@@ -10,7 +10,7 @@ using namespace nbl::io;
 using namespace nbl::asset;
 
 // load in the image data
-SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (!_file)
         return {};

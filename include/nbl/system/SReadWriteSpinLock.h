@@ -109,7 +109,7 @@ class read_lock_guard : public impl::rw_lock_guard_base
 {
 public:
     read_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}
-    explicit read_lock_guard(SReadWriteSpinLock& lk) : read_lock_guard(lk, adopt_lock)
+    explicit read_lock_guard(SReadWriteSpinLock& lk) : read_lock_guard(lk, std::adopt_lock_t())
     {
         m_lock->lock_read(ReadModWriteOrder, LoadOrder);
     }
@@ -127,7 +127,7 @@ class write_lock_guard : public impl::rw_lock_guard_base
 {
 public:
     write_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}
-    explicit write_lock_guard(SReadWriteSpinLock& lk) : write_lock_guard(lk, adopt_lock)
+    explicit write_lock_guard(SReadWriteSpinLock& lk) : write_lock_guard(lk, std::adopt_lock_t())
     {
         m_lock->lock_write(ReadModWriteOrder);
     }

@@ -45,7 +45,7 @@ protected:
         memset(m_mem, 0, s);
 
         auto n_blocks = numberOfFlagBlocksNeeded(cap);
-        m_flags = std::make_unique<atomic_alive_flags_block_t>(n_blocks);
+        m_flags = std::make_unique<atomic_alive_flags_block_t[]>(n_blocks);
         for (size_t i = 0u; i < n_blocks; ++i)
             std::atomic_init(m_flags.get() + i, 0);
     }

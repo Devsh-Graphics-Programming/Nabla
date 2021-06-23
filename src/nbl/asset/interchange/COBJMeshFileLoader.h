@@ -86,12 +86,10 @@ public:
     virtual bool isALoadableFileFormat(system::IFile* _file) const override
     {
         // OBJ doesn't really have any header but usually starts with a comment
-        const size_t prevPos = _file->getPos();
-        _file->seek(0u);
-        char c;
-        _file->read(&c, 1u);
-        _file->seek(prevPos);
-        return c=='#' || c=='v';
+        system::ISystem::future_t<uint32_t> future;
+        char firstChar = 0;
+        System->readFile(future, _file, &firstChar, 0, 1);
+        return firstChar =='#' || firstChar =='v';
     }
 
     virtual const char** getAssociatedFileExtensions() const override
@@ -134,7 +132,7 @@ private:
     std::string genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const;
 
 	IAssetManager* AssetManager;
-	io::IFileSystem* FileSystem;
+	system::ISystem* System;
 
 	template<typename aType>
 	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))

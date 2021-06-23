@@ -1,9 +1,9 @@
 #ifndef __C_WINDOW_X11_H_INCLUDED__
 #define __C_WINDOW_X11_H_INCLUDED__
 
+#ifdef _NBL_PLATFORM_LINUX_x1
 #include "nbl/ui/IWindowX11.h"
 
-#ifdef _NBL_PLATFORM_LINUX_
 
 #include <X11/Xutil.h>
 #ifdef _NBL_LINUX_X11_VIDMODE_

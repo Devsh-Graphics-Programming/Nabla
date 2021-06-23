@@ -89,7 +89,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
-bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
+bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file) const
 {
     if (!_file)
         return false;
@@ -106,7 +106,7 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
     return mtl.find("newmtl") != std::string::npos;
 }
 
-SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
@@ -694,7 +694,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     return ds;
 }
 
-auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> core::vector<SMtl>
+auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> core::vector<SMtl>
 {
     std::string mtl;
     mtl.resize(_file->getSize());

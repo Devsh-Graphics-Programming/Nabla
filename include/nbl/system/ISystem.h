@@ -114,7 +114,8 @@ private:
                 break;
             }
         }
-
+    public:
+        void init() {}
     private:
         ISystem* m_owner;
         core::smart_refctd_ptr<ISystemCaller> m_caller;
@@ -197,23 +198,10 @@ public:
     // @sadiuk add more methods taken from IFileSystem and IOSOperator
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
-    core::smart_refctd_ptr<IFile> createAndOpenFile(const std::filesystem::path& filename)
-    {
-        future_t<core::smart_refctd_ptr<IFile>> future;
-        if (!createFile(future, filename, IFile::ECF_READ))
-            return nullptr;
 
-        return future.get();
-    }
-    core::smart_refctd_ptr<IFile> createAndWriteFile(const std::filesystem::path& filename)
-    {
-        future_t<core::smart_refctd_ptr<IFile>> future;
-        if (!createFile(future, filename, IFile::ECF_WRITE))
-            return nullptr;
-
-        return future.get();
-    }
-
+    virtual void seek(IFile* file, uint32_t pos) = 0;
+    virtual void read(IFile* file, char* outData, size_t count) const;
+    virtual size_t getPos(IFile* file) const = 0;
 
     //! Warning: blocking call
     core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename)

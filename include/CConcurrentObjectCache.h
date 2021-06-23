@@ -22,11 +22,11 @@ namespace impl
         CConcurrentObjectCacheBase& operator=(const CConcurrentObjectCacheBase&) = delete;
         CConcurrentObjectCacheBase& operator=(CConcurrentObjectCacheBase&&) = delete;
 
-        system::SReadWriteSpinLock m_lock;
+        mutable system::SReadWriteSpinLock m_lock;
 
     protected:
-        auto lock_read()  { return system::read_lock_guard<>(m_lock); }
-        auto lock_write() { return system::write_lock_guard<>(m_lock); }
+        auto lock_read() const { return system::read_lock_guard<>(m_lock); }
+        auto lock_write() const { return system::write_lock_guard<>(m_lock); }
     };
 
     template<typename CacheT>
@@ -129,8 +129,8 @@ namespace impl
 
         inline bool outputAll(size_t& _inOutStorageSize, MutablePairType* _out) const
         {
-            //auto lk = lock_read();
-            //const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
+            auto lk = lock_read();
+            const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
             return true;
         }
 

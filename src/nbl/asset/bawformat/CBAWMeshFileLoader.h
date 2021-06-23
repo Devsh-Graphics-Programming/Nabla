@@ -14,7 +14,7 @@
 #include "nbl/asset/bawformat/CBAWFile.h"
 //#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 #include "nbl/asset/bawformat/CBlobsLoadingManager.h"
-
+#include "nbl/system/ISystem.h"
 //#include "os.h"
 
 
@@ -114,12 +114,10 @@ private:
 				{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 			};
 
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
+
 			bool res = false;
 			for (uint32_t i = 0u; i <= _NBL_FORMAT_VERSION; ++i)
 				res |= verifyFile(_NBL_FORMAT_VERSION-i, ctx);
-			_file->seek(prevPos);
 
 			return res;
 		}
@@ -328,16 +326,18 @@ private:
 
 	private:
 		IAssetManager* m_manager;
-		io::IFileSystem* m_fileSystem;
+		system::ISystem* m_system;
 };
 
 template<typename BAWFileT>
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 {
     char headerStr[sizeof(BAWFileT)];
-    _ctx.inner.mainFile->seek(0);
-    if (!safeRead(_ctx.inner.mainFile, headerStr, sizeof(headerStr)))
-        return false;
+	system::ISystem::future_t<uint32_t> future;
+	char firstChar = 0;
+	bool valid = m_system->readFile(future, _ctx.inner.mainFile, headerStr, 0, sizeof(headerStr));
+	if (!valid) return false;
+	future.get();
 
     const char* const headerStrPattern = BAWFileT::HEADER_STRING;
     if (strcmp(headerStr, headerStrPattern) != 0)

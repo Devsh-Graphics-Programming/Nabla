@@ -6,6 +6,7 @@
 #ifndef __NBL_C_FILE_SYSTEM_H_INCLUDED__
 #define __NBL_C_FILE_SYSTEM_H_INCLUDED__
 
+#if 0 
 #include "IFileSystem.h"
 
 namespace nbl
@@ -136,3 +137,4 @@ class CFileSystem : public IFileSystem
 
 #endif
 
+#endif

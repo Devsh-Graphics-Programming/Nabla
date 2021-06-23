@@ -18,7 +18,7 @@ namespace asset
 class CGLSLLoader final : public asset::IAssetLoader
 {
 	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override
+		bool isALoadableFileFormat(system::IFile* _file) const override
 		{
 			const size_t prevPos = _file->getPos();
 			_file->seek(0u);
