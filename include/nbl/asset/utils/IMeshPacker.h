@@ -239,7 +239,7 @@ protected:
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute
     //will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
-    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df* aabbs) const
+    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df*& aabbs) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
@@ -390,7 +390,7 @@ protected:
 
                 if (aabbs)
                 {
-                    if ((nextTriangle == triangleArrayEnd || m_minTriangleCountPerMDIData == m_maxTriangleCountPerMDIData))
+                    if (nextTriangle == triangleArrayEnd || m_minTriangleCountPerMDIData == m_maxTriangleCountPerMDIData)
                         *aabbs = core::aabbox3df(core::vector3df(min.x, min.y, min.z), core::vector3df(max.x, max.y, max.z));
                     aabbs++;
                 }

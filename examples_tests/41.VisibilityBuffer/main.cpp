@@ -551,22 +551,26 @@ int main()
                     _NBL_DEBUG_BREAK_IF(true);
                 }
 
-                for (uint32_t i = 0u; i < actualMdiCnt; i++)
+                uint32_t aabbIdx = 0u;
+                for (auto packedMeshBufferData : pmbd)
                 {
-                    batchCullDataEnd->aabbMinEdge.x = aabbs[i].MinEdge.X;
-                    batchCullDataEnd->aabbMinEdge.y = aabbs[i].MinEdge.Y;
-                    batchCullDataEnd->aabbMinEdge.z = aabbs[i].MinEdge.Z;
+                    for (uint32_t i = 0u; i < packedMeshBufferData.mdiParameterCount; i++)
+                    {
+                        batchCullDataEnd->aabbMinEdge.x = aabbs[aabbIdx].MinEdge.X;
+                        batchCullDataEnd->aabbMinEdge.y = aabbs[aabbIdx].MinEdge.Y;
+                        batchCullDataEnd->aabbMinEdge.z = aabbs[aabbIdx].MinEdge.Z;
 
-                    batchCullDataEnd->aabbMaxEdge.x = aabbs[i].MaxEdge.X;
-                    batchCullDataEnd->aabbMaxEdge.y = aabbs[i].MaxEdge.Y;
-                    batchCullDataEnd->aabbMaxEdge.z = aabbs[i].MaxEdge.Z;
+                        batchCullDataEnd->aabbMaxEdge.x = aabbs[aabbIdx].MaxEdge.X;
+                        batchCullDataEnd->aabbMaxEdge.y = aabbs[aabbIdx].MaxEdge.Y;
+                        batchCullDataEnd->aabbMaxEdge.z = aabbs[aabbIdx].MaxEdge.Z;
 
-                    batchCullDataEnd->drawCommandGUID = pmbd[i].mdiParameterOffset + i;
-                    assert(pmbd[i].mdiParameterOffset + i <= pmbd[i].mdiParameterCount);
+                        batchCullDataEnd->drawCommandGUID = packedMeshBufferData.mdiParameterOffset + i;
 
-                    draw3DLine->enqueueBox(dbgLines, aabbs[i], 1.0f, 0.0f, 0.0f, 1.0f, core::matrix3x4SIMD());
+                        draw3DLine->enqueueBox(dbgLines, aabbs[aabbIdx], 1.0f, 0.0f, 0.0f, 1.0f, core::matrix3x4SIMD());
 
-                    batchCullDataEnd++;
+                        batchCullDataEnd++;
+                        aabbIdx++;
+                    }
                 }
 
                 sceneData.pushConstantsData.push_back(mdiListOffset);
@@ -893,8 +897,9 @@ int main()
         memcpy(uboData.NormalMat, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
         driver->updateBufferRangeViaStagingBuffer(sceneData.ubo.get(), 0u, sizeof(SBasicViewParameters), &uboData);
 
-        // TODO: Cull MDIs
+        // cull MDIs
         cullBatches(vpFromFirstFrame);
+        COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
         driver->setRenderTarget(visBuffer);
         driver->clearZBuffer();
