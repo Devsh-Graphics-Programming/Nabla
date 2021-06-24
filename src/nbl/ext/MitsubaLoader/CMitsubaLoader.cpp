@@ -657,7 +657,7 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 
 SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform)
 {
-	constexpr uint32_t UV_ATTRIB_ID = 2U;
+	constexpr uint32_t UV_ATTRIB_ID = 2u;
 
 	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh)
 	{
@@ -777,14 +777,17 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
 			if (mesh && shape->obj.flipTexCoords)
 			{
-				newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything (for the texcoords)
-				for (auto meshbuffer : newMesh->getMeshBuffers())
+				newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh> (mesh->clone(1u));
+				for (auto& meshbuffer : mesh->getMeshBufferVector())
 				{
+					auto binding = meshbuffer->getVertexBufferBindings()[UV_ATTRIB_ID];
+					binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
+					meshbuffer->setVertexBufferBinding(std::move(binding),UV_ATTRIB_ID);
 					core::vectorSIMDf uv;
-					for (uint32_t i=0u; meshbuffer->getAttribute(uv, UV_ATTRIB_ID, i); i++)
+					for (uint32_t i=0u; meshbuffer->getAttribute(uv,UV_ATTRIB_ID,i); i++)
 					{
 						uv.y = -uv.y;
-						meshbuffer->setAttribute(uv, UV_ATTRIB_ID, i);
+						meshbuffer->setAttribute(uv,UV_ATTRIB_ID,i);
 					}
 				}
 			}
@@ -806,12 +809,11 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 					constexpr uint32_t hidefRGBSize = 4u;
 					auto newRGB = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
 					uint32_t* it = reinterpret_cast<uint32_t*>(newRGB->getPointer());
-					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything
-					for (auto meshbuffer : newMesh->getMeshBuffers())
+					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
+					for (auto& meshbuffer : mesh->getMeshBufferVector())
 					{
-						uint32_t offset = reinterpret_cast<uint8_t*>(it)-reinterpret_cast<uint8_t*>(newRGB->getPointer());
 						core::vectorSIMDf rgb;
-						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, 1u, i); i++,it++)
+						for (uint32_t i=0u; meshbuffer->getAttribute(rgb,1u,i); i++,it++)
 						{
 							for (auto i=0; i<3u; i++)
 								rgb[i] = core::srgb2lin(rgb[i]);
@@ -849,20 +851,21 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	if (!mesh)
 		return nullptr;
 
+	// mesh including meshbuffers needs to be cloned because instance counts and base instances will be changed
+	if (!newMesh)
+		newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
 	// flip normals if necessary
 	if (flipNormals)
 	{
-		if (!newMesh)
-			newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything (for the index buffer)
-		for (auto meshbuffer : mesh->getMeshBuffers())
-			ctx.manipulator->flipSurfaces(meshbuffer);
+		for (auto& meshbuffer : mesh->getMeshBufferVector())
+		{
+			auto binding = meshbuffer->getIndexBufferBinding();
+			binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
+			meshbuffer->setIndexBufferBinding(std::move(binding));
+			ctx.manipulator->flipSurfaces(meshbuffer.get());
+		}
 	}
-
-	if (!newMesh)
-	{
-		newMesh = core::make_smart_refctd_ptr<ICPUMesh>();
-		newMesh->getMeshBufferVector() = mesh->getMeshBufferVector();
-	}
+	// recompute normalis if necessary
 	if (faceNormals || !std::isnan(maxSmoothAngle))
 	for (auto& meshbuffer : mesh->getMeshBufferVector())
 	{
