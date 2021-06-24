@@ -136,16 +136,15 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 7u;
+		constexpr auto raytracingCommonDescriptorCount = 6u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
-		bindings[1].type = asset::EDT_STORAGE_BUFFER;
-		bindings[2].type = asset::EDT_STORAGE_IMAGE;
-		bindings[3].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
-		bindings[4].type = asset::EDT_STORAGE_IMAGE;
+		bindings[1].type = asset::EDT_STORAGE_IMAGE;
+		bindings[2].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+		bindings[3].type = asset::EDT_STORAGE_IMAGE;
+		bindings[4].type = asset::EDT_STORAGE_BUFFER;
 		bindings[5].type = asset::EDT_STORAGE_BUFFER;
-		bindings[6].type = asset::EDT_STORAGE_BUFFER;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
@@ -837,7 +836,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 
 			//
 			constexpr uint32_t descriptorUpdates = 5;
-			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,7u,2u,2u,3u};
+			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,6u,2u,2u,3u};
 			constexpr uint32_t descriptorUpdateMaxCount = *std::max_element(descriptorUpdateCounts,descriptorUpdateCounts+descriptorUpdates);
 
 			//
@@ -933,7 +932,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
 					auto scrambleKeys = createScreenSizedTexture(EF_R32G32_UINT,2u);
 					m_driver->copyBufferToImage(tmpBuff.get(),scrambleKeys->getCreationParameters().image.get(),1u,&region);
-					setImageInfo(infos+2,asset::EIL_GENERAL,std::move(scrambleKeys));
+					setImageInfo(infos+1,asset::EIL_GENERAL,std::move(scrambleKeys));
 				}
 				{
 					// TODO: maybe use the sample limit in the future to stop a converged render
@@ -941,15 +940,14 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
 					// upload sequence to GPU (TODO: clip its size to the dimensions we'll actually use)
 					auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
-					infos[3].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
+					infos[2].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
 				}
-				setImageInfo(infos+4,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-				createEmptyInteropBufferAndSetUpInfo(infos+5,m_rayBuffer[0],raygenBufferSize);
-				setBufferInfo(infos+6,m_rayCountBuffer);
+				setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
+				createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
+				setBufferInfo(infos+5,m_rayCountBuffer);
 
 				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
 					EDT_UNIFORM_BUFFER,
-					EDT_STORAGE_BUFFER,
 					EDT_STORAGE_IMAGE,
 					EDT_UNIFORM_TEXEL_BUFFER,
 					EDT_STORAGE_IMAGE,
@@ -958,7 +956,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				});
 				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
 				// set up second DS
-				createEmptyInteropBufferAndSetUpInfo(infos+5,m_rayBuffer[1],raygenBufferSize);
+				createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[1],raygenBufferSize);
 				for (auto i=0u; i<descriptorUpdateCounts[1]; i++)
 					writes[i].dstSet = m_commonRaytracingDS[1].get();
 				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
