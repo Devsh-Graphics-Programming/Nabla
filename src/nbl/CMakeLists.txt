@@ -174,8 +174,7 @@ set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
-
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
@@ -540,6 +539,7 @@ if (UNIX)
 endif()
 
 target_include_directories(Nabla PUBLIC 
+	${CMAKE_CURRENT_BINARY_DIR}/build/import
 	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
@@ -625,6 +625,7 @@ set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/build/import")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)
