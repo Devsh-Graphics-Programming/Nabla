@@ -438,10 +438,6 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 	
 	list(REMOVE_DUPLICATES ${NBL_REFERENCE_RETURN_VARIABLE})
 	
-	string(APPEND WRAPPER_CODE	
-		"// Include this file when you import Nabla to your project\n\n"
-	)
-	
 	foreach(def IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
 		string(APPEND WRAPPER_CODE 
 			"#ifndef ${def}\n"
@@ -450,5 +446,8 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 		)
 	endforeach()
 	
-	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/build/NablaImport.hpp" "${WRAPPER_CODE}")
+	file(READ "${NBL_ROOT_PATH}/cmake/import/nabla.h.in" NBL_NABLA_IMPORT_HEADER_CODE)
+	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h.in" "${WRAPPER_CODE}")
+	file(APPEND "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h.in" "${NBL_NABLA_IMPORT_HEADER_CODE}")
+	configure_file("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h.in" "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h")
 endmacro()
