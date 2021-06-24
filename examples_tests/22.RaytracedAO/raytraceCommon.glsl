@@ -23,10 +23,6 @@ layout(set = 2, binding = 0, row_major) uniform StaticViewData
 {
 	StaticViewData_t staticViewData;
 };
-layout(set = 2, binding = 1) readonly restrict buffer ExtraBatchData
-{
-	uint firstIndex[];
-} extraBatchData;
 // rng
 layout(set = 2, binding = 2, rg32ui) uniform uimage2DArray scramblebuf;
 layout(set = 2, binding = 3) uniform usamplerBuffer sampleSequence;
@@ -51,9 +47,9 @@ void clear_raycount()
 }
 
 //
-uvec3 get_triangle_indices(in uint batchInstanceGUID, in uint triangleID)
+uvec3 get_triangle_indices(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uint triangleID)
 {
-	const uint baseTriangleVertex = triangleID*3u+extraBatchData.firstIndex[batchInstanceGUID];
+	const uint baseTriangleVertex = triangleID*3u+batchInstanceData.padding0;
 	return uvec3(
 		nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,0u),
 		nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,1u),
@@ -294,7 +290,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] *= prevThroughput;
-		if (any(greaterThan(nextThroughput[i],vec3(nbl_glsl_FLT_MIN))))
+		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>exp2(-19.f)) // TODO: reverse tonemap to adjust the threshold
 			raysToAllocate++;
 		else
 			maxT[i] = 0.f;
@@ -302,7 +298,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 	
-	float ray_offset = 0.00001f; // I pulled the constant out of my @$$
+	float ray_offset = dot(abs(normalizedN),abs(origin))*nbl_glsl_numeric_limits_float_epsilon(9u)*1.03f+nbl_glsl_numeric_limits_float_epsilon(20u); // I pulled the constants out of my @$$
 	// TODO: in the future run backward error analysis of
 	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
 	// where

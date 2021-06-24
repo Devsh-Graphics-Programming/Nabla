@@ -46,7 +46,7 @@ void main()
 			
 			//
 			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
-			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
+			const uvec3 indices = get_triangle_indices(batchInstanceData,triangleID);
 			
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);

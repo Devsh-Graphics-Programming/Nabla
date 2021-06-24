@@ -336,7 +336,6 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					cullData.reserve(batchInstanceBoundTotal);
 
 					newInstanceDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ext::MitsubaLoader::instance_data_t)*batchInstanceBoundTotal);
-					retval.mdiFirstIndices.resize(batchInstanceBoundTotal);
 				}
 				// actually commit the physical memory, compute batches and set up instance data
 				{
@@ -346,7 +345,6 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					auto* vertexPtr = reinterpret_cast<const float*>(cpump->getPackerDataStore().vertexBuffer->getPointer());
 					auto* mdiPtr = reinterpret_cast<DrawElementsIndirectCommand_t*>(cpump->getPackerDataStore().MDIDataBuffer->getPointer());
 					auto* newInstanceData = reinterpret_cast<ext::MitsubaLoader::instance_data_t*>(newInstanceDataBuffer->getPointer());
-					auto batchFirstIndexIt = retval.mdiFirstIndices.begin();
 
 					constexpr uint32_t kIndicesPerTriangle = 3u;
 					core::vector<CPUMeshPacker::CombinedDataOffsetTable> cdot(mdiBoundMax);
@@ -455,7 +453,6 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 									}
 
 									newInstanceData++;
-									*(batchFirstIndexIt++) = firstIndex;
 								}
 								for (auto j=thisShapeInstancesBeginIx; j!=rrInstances.size(); j++)
 									rr->AttachShape(rrInstances[j]);
@@ -484,7 +481,6 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				);
 				instanceDataDescPtr->buffer = {0u,cullData.size()*sizeof(ext::MitsubaLoader::instance_data_t)};
 				instanceDataDescPtr->desc = std::move(newInstanceDataBuffer); // TODO: trim the buffer
-				retval.mdiFirstIndices.resize(cullData.size());
 				{
 					auto gpump = core::make_smart_refctd_ptr<GPUMeshPacker>(m_driver,cpump.get());
 					const auto& dataStore = gpump->getPackerDataStore();
@@ -874,7 +870,10 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			auto createEmptyInteropBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, InteropBuffer& interopBuffer, size_t size) -> void
 			{
 				if (static_cast<COpenGLDriver*>(m_driver)->runningInRenderdoc()) // makes Renderdoc capture the modifications done by OpenCL
+				{
 					interopBuffer.buffer = m_driver->createUpStreamingGPUBufferOnDedMem(size);
+					//interopBuffer.buffer->getBoundMemory()->mapMemoryRange(IDriverMemoryAllocation::EMCAF_WRITE,{0u,size})
+				}
 				else
 					interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
 				interopBuffer.asRRBuffer = m_rrManager->linkBuffer(interopBuffer.buffer.get(), CL_MEM_READ_ONLY);
@@ -912,7 +911,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
 			{
 				_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
-				createFilledBufferAndSetUpInfoFromVector(infos+1,initData.mdiFirstIndices);
 				{
 					constexpr auto ScrambleStateChannels = 2u;
 					auto tmpBuff = m_driver->createCPUSideGPUVisibleGPUBufferOnDedMem(sizeof(uint32_t)*ScrambleStateChannels*renderPixelCount);
@@ -1369,6 +1367,7 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
 		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");
 		glFinish(); // sync CPU to GL
+		//auto start = std::chrono::steady_clock::now();
 		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
 		if (nextTraceRaycount==0u)
 			return 0u;
@@ -1396,6 +1395,9 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
 		ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
 		ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
+		//const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count();
+		//if (elapsed>100000ull)
+			//printf("Path Vertex: %d took %d us\n",m_raytraceCommonData.depth,elapsed);
 		return nextTraceRaycount;
 	}
 	else

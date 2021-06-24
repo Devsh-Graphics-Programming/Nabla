@@ -65,7 +65,7 @@ void main()
 			// clear the hit success flag
 			intersections[gl_GlobalInvocationID.x].shapeid = -1;
 
-			const uvec3 indices = get_triangle_indices(batchInstanceGUID,triangleID);
+			const uvec3 indices = get_triangle_indices(batchInstanceData,triangleID);
 			
 			// positions
 			mat2x3 dPdBary_error; vec3 lastVxPos_error;
