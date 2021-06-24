@@ -709,18 +709,13 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			auto asset = contentRange.begin()[actualIndex];
 			if (!asset)
 				return nullptr;
-			// make a (shallow) copy because the mesh will get mutilated and abused for metadata NOT ANYMORE?
-			auto mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
-			auto copy = core::make_smart_refctd_ptr<asset::ICPUMesh>();
-			copy->getMeshBufferVector() = mesh->getMeshBufferVector();
-			IMeshManipulator::recalculateBoundingBox(copy.get());
-			return copy;
+			return core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
 		}
 		else
 			return nullptr;
 	};
 
-	core::smart_refctd_ptr<asset::ICPUMesh> mesh;
+	core::smart_refctd_ptr<asset::ICPUMesh> mesh,newMesh;
 	bool flipNormals = false;
 	bool faceNormals = false;
 	float maxSmoothAngle = NAN;
@@ -782,7 +777,8 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
 			if (mesh && shape->obj.flipTexCoords)
 			{
-				for (auto meshbuffer : mesh->getMeshBuffers())
+				newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything (for the texcoords)
+				for (auto meshbuffer : newMesh->getMeshBuffers())
 				{
 					core::vectorSIMDf uv;
 					for (uint32_t i=0u; meshbuffer->getAttribute(uv, UV_ATTRIB_ID, i); i++)
@@ -797,7 +793,6 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		case CElementShape::Type::PLY:
 			_NBL_DEBUG_BREAK_IF(true); // this code has never been tested
 			mesh = loadModel(shape->ply.filename);
-			mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything
 			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
@@ -811,7 +806,8 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 					constexpr uint32_t hidefRGBSize = 4u;
 					auto newRGB = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
 					uint32_t* it = reinterpret_cast<uint32_t*>(newRGB->getPointer());
-					for (auto meshbuffer : mesh->getMeshBuffers())
+					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything
+					for (auto meshbuffer : newMesh->getMeshBuffers())
 					{
 						uint32_t offset = reinterpret_cast<uint8_t*>(it)-reinterpret_cast<uint8_t*>(newRGB->getPointer());
 						core::vectorSIMDf rgb;
@@ -855,38 +851,35 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 
 	// flip normals if necessary
 	if (flipNormals)
-	for (auto meshbuffer : mesh->getMeshBuffers())
-		ctx.manipulator->flipSurfaces(meshbuffer);
-
-	//turned off by default, it's too slow (works though)
-//#define OPTIMIZE_MESHES
-
-	auto newMesh = core::make_smart_refctd_ptr<asset::ICPUMesh>();
-	for (auto meshbuffer : mesh->getMeshBuffers())
 	{
-#ifdef OPTIMIZE_MESHES // TODO
-		asset::IMeshManipulator::SErrorMetric metrics[asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-		metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
-		auto newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(meshbuffer, metrics);
-#else
-		auto newMeshBuffer = core::smart_refctd_ptr<asset::ICPUMeshBuffer>(meshbuffer);
-#endif
-		if (faceNormals || !std::isnan(maxSmoothAngle))
-		{
-			const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
+		if (!newMesh)
+			newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything (for the index buffer)
+		for (auto meshbuffer : mesh->getMeshBuffers())
+			ctx.manipulator->flipSurfaces(meshbuffer);
+	}
 
-			ctx.manipulator->filterInvalidTriangles(meshbuffer);
-			newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer);
-			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
-				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
-				{
-					if (faceNormals)
-						return a.indexOffset == b.indexOffset;
-					else
-						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
-				});
-		}
-		newMesh->getMeshBufferVector().push_back(std::move(newMeshBuffer));
+	if (!newMesh)
+	{
+		newMesh = core::make_smart_refctd_ptr<ICPUMesh>();
+		newMesh->getMeshBufferVector() = mesh->getMeshBufferVector();
+	}
+	if (faceNormals || !std::isnan(maxSmoothAngle))
+	for (auto& meshbuffer : mesh->getMeshBufferVector())
+	{
+		const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
+
+		// TODO: make these mesh manipulator functions const-correct
+		auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer.get());
+		ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
+		ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
+			[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
+			{
+				if (faceNormals)
+					return a.indexOffset == b.indexOffset;
+				else
+					return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
+			});
+		meshbuffer = std::move(newMeshBuffer);
 	}
 	IMeshManipulator::recalculateBoundingBox(newMesh.get());
 	mesh = std::move(newMesh);
