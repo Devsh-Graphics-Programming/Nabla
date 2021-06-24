@@ -174,8 +174,7 @@ set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
-
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
@@ -384,9 +383,6 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-nbl_adjust_flags() # macro defined in root CMakeLists
-nbl_adjust_definitions() # macro defined in root CMakeLists
-
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
@@ -406,31 +402,12 @@ macro(nbl_target_include_parallel_hashmap _trgt)
 endmacro()
 
 macro(nbl_target_link_openssl _trgt)
-	if(WIN32)
+	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
 		target_link_libraries(${_trgt} INTERFACE
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
+			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		)
-	elseif(ANDROID)
-	
-		if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux")
-			target_link_libraries(${_trgt} INTERFACE
-				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
-				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
-			)
-		#elseif("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
-		# TODO - unify it
-		# 	     when openssl works with clang as windows host	
-		endif()
-	else()
-		target_link_libraries(${_trgt} INTERFACE
-				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
-				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
-			)
-	endif()
 
-	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows"))
-		target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
+		target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:OpenSSL,BINARY_DIR>/build/include")
 	endif()
 endmacro()
 macro(nbl_target_link_shaderc _trgt)
@@ -510,6 +487,9 @@ add_library(Nabla STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
+nbl_adjust_flags() # macro defined in root CMakeLists
+nbl_adjust_definitions() # macro defined in root CMakeLists
+
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
     	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
@@ -527,13 +507,9 @@ endif()
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows"))
-	add_dependencies(Nabla openssl_build)
-endif()
+add_dependencies(Nabla openssl_build)
+nbl_target_link_openssl(Nabla)
 #nbl_target_link_zlib(Nabla)
-if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux"))
-	nbl_target_link_openssl(Nabla)
-endif()
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg(Nabla)
 nbl_target_link_libpng(Nabla)
@@ -563,6 +539,7 @@ if (UNIX)
 endif()
 
 target_include_directories(Nabla PUBLIC 
+	${CMAKE_CURRENT_BINARY_DIR}/build/import
 	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
@@ -582,18 +559,24 @@ if (UNIX AND NOT ANDROID AND NOT APPLE)
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
-
 if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
 target_compile_definitions(Nabla 
-	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-	PUBLIC	UNW_LOCAL_ONLY
+	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PUBLIC UNW_LOCAL_ONLY
 )
+
+if(WIN32)
+	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
+endif()
+
 if (ANDROID)
 	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
 endif()
+
+glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)
@@ -603,7 +586,6 @@ endif()
 if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
-	
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
@@ -625,7 +607,27 @@ propagate_changed_variables_to_parent_scope()
 set(NABLA_HEADERS_TO_INSTALL 
 	${NABLA_HEADERS_PUBLIC}
 )
+
+set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
+	# Junk to refactor
+	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
+	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
+	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
+	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h
+#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
+	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
+)
+
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/build/import")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
+nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)
 
 macro(nbl_install_lib _TRGT)
@@ -639,7 +641,10 @@ set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 nbl_install_lib(Nabla)
 
 #install dependencies
+nbl_install_lib(egl)
 nbl_install_lib(glslang)
+nbl_install_lib(GenericCodeGen)
+nbl_install_lib(MachineIndependent)
 nbl_install_lib(jpeg)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_install_lib(Half)
@@ -651,20 +656,12 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_install_lib(Imath)
 endif()
 nbl_install_lib(png_static)
-if(WIN32)
+
+if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
 	install(FILES
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
+			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		DESTINATION lib
 	)
-else()	
-	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows"))
-		install(FILES
-				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
-				"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
-			DESTINATION lib
-		)
-	endif()
 endif()
 nbl_install_lib(shaderc)
 nbl_install_lib(shaderc_util)
