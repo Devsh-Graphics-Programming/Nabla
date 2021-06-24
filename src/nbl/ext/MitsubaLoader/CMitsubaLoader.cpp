@@ -781,13 +781,16 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 				for (auto& meshbuffer : mesh->getMeshBufferVector())
 				{
 					auto binding = meshbuffer->getVertexBufferBindings()[UV_ATTRIB_ID];
-					binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
-					meshbuffer->setVertexBufferBinding(std::move(binding),UV_ATTRIB_ID);
-					core::vectorSIMDf uv;
-					for (uint32_t i=0u; meshbuffer->getAttribute(uv,UV_ATTRIB_ID,i); i++)
+					if (binding.buffer)
 					{
-						uv.y = -uv.y;
-						meshbuffer->setAttribute(uv,UV_ATTRIB_ID,i);
+						binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
+						meshbuffer->setVertexBufferBinding(std::move(binding),UV_ATTRIB_ID);
+						core::vectorSIMDf uv;
+						for (uint32_t i=0u; meshbuffer->getAttribute(uv,UV_ATTRIB_ID,i); i++)
+						{
+							uv.y = -uv.y;
+							meshbuffer->setAttribute(uv,UV_ATTRIB_ID,i);
+						}
 					}
 				}
 			}
@@ -807,27 +810,31 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 				if (totalVertexCount)
 				{
 					constexpr uint32_t hidefRGBSize = 4u;
-					auto newRGB = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
-					uint32_t* it = reinterpret_cast<uint32_t*>(newRGB->getPointer());
+					auto newRGBbuff = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
 					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
+					constexpr uint32_t COLOR_ATTR = 1u;
+					constexpr uint32_t COLOR_BUF_BINDING = 15u;
+					uint32_t* newRGB = reinterpret_cast<uint32_t*>(newRGBbuff->getPointer());
+					uint32_t offset = 0u;
 					for (auto& meshbuffer : mesh->getMeshBufferVector())
 					{
 						core::vectorSIMDf rgb;
-						for (uint32_t i=0u; meshbuffer->getAttribute(rgb,1u,i); i++,it++)
+						for (uint32_t i=0u; meshbuffer->getAttribute(rgb,COLOR_ATTR,i); i++,offset++)
 						{
 							for (auto i=0; i<3u; i++)
 								rgb[i] = core::srgb2lin(rgb[i]);
-							meshbuffer->setAttribute(rgb,it,asset::EF_A2B10G10R10_UNORM_PACK32);
+							ICPUMeshBuffer::setAttribute(rgb,newRGB+offset,asset::EF_A2B10G10R10_UNORM_PACK32);
 						}
-						constexpr uint32_t COLOR_BUF_BINDING = 15u;
-						auto& vtxParams = meshbuffer->getPipeline()->getVertexInputParams();
-						vtxParams.attributes[1].format = EF_A2B10G10R10_UNORM_PACK32;
-						vtxParams.attributes[1].relativeOffset = 0u;
-						vtxParams.attributes[1].binding = COLOR_BUF_BINDING;
+						auto newPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(meshbuffer->getPipeline()->clone(0u));
+						auto& vtxParams = newPipeline->getVertexInputParams();
+						vtxParams.attributes[COLOR_ATTR].format = EF_A2B10G10R10_UNORM_PACK32;
+						vtxParams.attributes[COLOR_ATTR].relativeOffset = 0u;
+						vtxParams.attributes[COLOR_ATTR].binding = COLOR_BUF_BINDING;
 						vtxParams.bindings[COLOR_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
 						vtxParams.bindings[COLOR_BUF_BINDING].stride = hidefRGBSize;
 						vtxParams.enabledBindingFlags |= (1u<<COLOR_BUF_BINDING);
-						meshbuffer->setVertexBufferBinding({0ull,core::smart_refctd_ptr(newRGB)}, COLOR_BUF_BINDING);
+						meshbuffer->setPipeline(std::move(newPipeline));
+						meshbuffer->setVertexBufferBinding({offset*hidefRGBSize,core::smart_refctd_ptr(newRGBbuff)},COLOR_BUF_BINDING);
 					}
 				}
 			}

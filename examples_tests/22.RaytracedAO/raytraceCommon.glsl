@@ -116,7 +116,7 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(out mat2x3 dPdBary_error, out vec3 lastVxPos_error,in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
+vec3 load_positions(in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
@@ -124,20 +124,11 @@ vec3 load_positions(out mat2x3 dPdBary_error, out vec3 lastVxPos_error,in uvec3 
 		nbl_glsl_fetchVtxPos(indices[2],batchInstanceData)
 	);
 	const mat4x3 tform = batchInstanceData.tform;
-	mat3 positions_error;
-	// when we quantize positions to RGB21_UNORM, change to exp2(-22.f)
-	const float quantizationError = nbl_glsl_numeric_limits_float_epsilon(1u);
-	positions = nbl_glsl_mul_with_bounds_wo_gamma(positions_error,mat3(tform),positions,quantizationError);
-	positions_error *= nbl_glsl_ieee754_gamma(2u);
+	positions = mat3(tform)*positions;
 	//
 	for (int i=0; i<2; i++)
-	{
-		dPdBary[i] = nbl_glsl_ieee754_sub_with_bounds_wo_gamma(dPdBary_error[i],positions[i],positions_error[i],positions[2],positions_error[2]);
-		dPdBary_error[i] *= nbl_glsl_ieee754_gamma(1u);
-	}
-	const vec3 lastVx = nbl_glsl_ieee754_add_with_bounds_wo_gamma(lastVxPos_error,positions[2],positions_error[2],tform[3],vec3(0.f));
-	lastVxPos_error *= nbl_glsl_ieee754_gamma(1u);
-	return lastVx;
+		dPdBary[i] = positions[i]-positions[2];
+	return positions[2]+tform[3];
 }
 
 #ifdef TEX_PREFETCH_STREAM
@@ -200,25 +191,6 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	return scramble_start_state;
 }
 
-// TODO MOVE to some other header!
-vec3 nbl_glsl_interpolate_with_bounds(out vec3 error, in mat2x3 triangleEdges, in mat2x3 triangleEdges_error,
-	in vec3 origin, in vec3 origin_error, in vec2 compactBary, in float compactBary_error
-)
-{
-	vec3 error1;
-	const vec3 col1 = nbl_glsl_ieee754_mul_with_bounds_wo_gamma(error1,triangleEdges[0],triangleEdges_error[0],compactBary.x,compactBary_error);
-	error1 *= nbl_glsl_ieee754_gamma(1u);
-	vec3 error2;
-	const vec3 col2 = nbl_glsl_ieee754_mul_with_bounds_wo_gamma(error2,triangleEdges[1],triangleEdges_error[1],compactBary.y,compactBary_error);
-	error2 *= nbl_glsl_ieee754_gamma(1u);
-	vec3 error3;
-	vec3 retval = nbl_glsl_ieee754_add_with_bounds_wo_gamma(error3,col1,error1,col2,error2);
-	error3 *= nbl_glsl_ieee754_gamma(1u);
-	retval = nbl_glsl_ieee754_add_with_bounds_wo_gamma(error,retval,error3,origin,origin_error);
-	//error *= nbl_glsl_ieee754_gamma(1u);
-	error *= nbl_glsl_ieee754_gamma(8u); // cause PBRT says so
-	return retval;
-}
 // robust ray origins
 vec3 nbl_glsl_robust_ray_origin_impl(in vec3 origin, in vec3 direction, float offset, vec3 normal)
 {
@@ -256,7 +228,7 @@ void gen_sample_ray(
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, vec3 origin_error, in vec3 prevThroughput)
+	in vec3 origin, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
