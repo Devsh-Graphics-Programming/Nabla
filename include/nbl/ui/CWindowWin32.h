@@ -3,7 +3,6 @@
 #include "nbl/ui/IWindowWin32.h"
 #include "os.h"
 #include <queue>
-#include <hidpi.h>
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
@@ -97,4 +96,3 @@ private:
 
 #endif
 
-#endif

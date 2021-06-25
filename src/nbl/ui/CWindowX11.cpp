@@ -1,6 +1,6 @@
+#ifdef _NBL_PLATFORM_LINUX_
 #include <CWindowX11.h>
 #include <CWindowManagerX11.h>
-//#ifdef _NBL_PLATFORM_LINUX_
 
 #include <X11/extensions/XI.h>
 

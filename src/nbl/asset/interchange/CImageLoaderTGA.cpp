@@ -7,7 +7,7 @@
 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "os.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImage.h"
@@ -44,7 +44,7 @@ namespace asset
 	}
 
 //! loads a compressed tga.
-void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const
+void CImageLoaderTGA::loadCompressedImage(system::IFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const
 {
 	// This was written and sent in by Jon Pry, thank you very much!
 	// I only changed the formatting a little bit.
@@ -57,13 +57,16 @@ void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader&
 	while(currentByte < imageSizeInBytes)
 	{
 		uint8_t chunkheader = 0;
-		file->read(&chunkheader, sizeof(uint8_t)); // Read The Chunk's Header
-
+		{
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, file, &chunkheader, 0, sizeof(uint8_t)); // Read The Chunk's Header
+		}
 		if(chunkheader < 128) // If The Chunk Is A 'RAW' Chunk
 		{
 			chunkheader++; // Add 1 To The Value To Get Total Number Of Raw Pixels
 
-			file->read(&data[currentByte], bytesPerPixel * chunkheader);
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, file, &data[currentByte], 0, bytesPerPixel * chunkheader);
 			currentByte += bytesPerPixel * chunkheader;
 		}
 		else
@@ -74,7 +77,8 @@ void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader&
 			chunkheader -= 127; // Subtract 127 To Get Rid Of The ID Bit
 
 			int32_t dataOffset = currentByte;
-			file->read(&data[dataOffset], bytesPerPixel);
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, file, &data[currentByte], 0, bytesPerPixel);
 
 			currentByte += bytesPerPixel;
 
@@ -90,7 +94,7 @@ void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader&
 }
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
+bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 {
 	if (!_file)
 		return false;
@@ -99,9 +103,10 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 
 	STGAFooter footer;
 	memset(&footer, 0, sizeof(STGAFooter));
-	_file->seek(_file->getSize() - sizeof(STGAFooter));
-	_file->read(&footer, sizeof(STGAFooter));
-	
+	{
+		system::ISystem::future_t<uint32_t> future;
+		m_system->readFile(future, _file, &footer, _file->getSize() - sizeof(STGAFooter), sizeof(STGAFooter));
+	}
 	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
 	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
 	{
@@ -119,9 +124,10 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	else
 	{
 		STGAExtensionArea extension;
-		_file->seek(footer.ExtensionOffset);
-		_file->read(&extension, sizeof(STGAExtensionArea));
-		
+		{
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, _file, &extension, footer.ExtensionOffset, sizeof(STGAExtensionArea));
+		}
 		gamma = extension.Gamma;
 		
 		if (gamma == 0.0f)
@@ -134,7 +140,6 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 		// Actually I think metadata will be in used here in near future
 	}
 	
-    _file->seek(prevPos);
 	
 	return true;
 }
@@ -223,7 +228,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 };
 
 //! creates a surface from the file
-asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
 	_file->read(&header, sizeof(STGAHeader));

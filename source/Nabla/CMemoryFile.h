@@ -6,8 +6,7 @@
 #ifndef __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
 #define __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
 
-#include "IReadFile.h"
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 #include "nbl/core/core.h"
 
 namespace nbl

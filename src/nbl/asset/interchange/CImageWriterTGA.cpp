@@ -4,7 +4,7 @@
 // See the original file in irrlicht source for authors
 
 
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 
 #include "os.h"
 

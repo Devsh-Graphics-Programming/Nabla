@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include <nbl/system/ISystem.h>
 
 namespace nbl
 {
@@ -17,27 +18,30 @@ namespace asset
 //!  Surface Loader for PNG files
 class CGLSLLoader final : public asset::IAssetLoader
 {
+	system::ISystem* m_system;
 	public:
+		CGLSLLoader(system::ISystem* sys) : m_system(sys)
+		{
+			
+		}
 		bool isALoadableFileFormat(system::IFile* _file) const override
 		{
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
 			char tmp[10] = { 0 };
 			char* end = tmp+sizeof(tmp);
 			auto filesize = _file->getSize();
-			while (_file->getPos()+sizeof(tmp)<filesize)
+			size_t readPos = 0;
+			while (readPos+sizeof(tmp)<filesize)
 			{
-				_file->read(tmp,sizeof(tmp));
+				system::ISystem::future_t<uint32_t> future;
+				m_system->readFile(future, _file, tmp, 0, sizeof(tmp));
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
 
 				auto found = std::find(tmp,end,'#');
 				if (found==end || found==tmp)
 					continue;
-
-				_file->seek(_file->getPos()+found-end);
+				readPos += found - end;
 			}
-			_file->seek(prevPos);
 
 			return false;
 		}

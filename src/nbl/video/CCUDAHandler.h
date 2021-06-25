@@ -6,7 +6,7 @@
 #define __NBL_VIDEO_C_CUDA_HANDLER_H__
 
 #include "nbl/macros.h"
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "nbl/core/compile_config.h"
 #include "nbl/system/system.h"
 

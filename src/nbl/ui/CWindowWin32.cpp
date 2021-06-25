@@ -2,6 +2,7 @@
 #ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/CWindowWin32.h"
 #include <hidusage.h>
+#include <hidpi.h>
 #include <codecvt>
 
 namespace nbl {

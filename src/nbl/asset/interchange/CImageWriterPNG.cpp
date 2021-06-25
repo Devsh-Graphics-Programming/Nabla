@@ -9,7 +9,7 @@
 
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
 
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 
 #include "os.h" // for logging
 

@@ -11,7 +11,7 @@
 #ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 
 #include "nbl/core/Types.h"
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "IFileSystem.h"
 #include "CFileList.h"
 

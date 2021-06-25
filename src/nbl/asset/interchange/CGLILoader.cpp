@@ -248,13 +248,14 @@ namespace nbl
 
 		bool CGLILoader::isALoadableFileFormat(system::IFile* _file) const
 		{
-			const auto fileName = std::string(_file->getFileName().c_str());
+			const auto fileName = std::string(_file->getFileName().string());
 			const auto beginningOfFile = _file->getPos();
 
 			constexpr auto ddsMagic = 0x20534444;
 			constexpr std::array<uint8_t, 12> ktxMagic = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
+			system::ISystem::future_t<uint32_t> future1;
 			if (fileName.rfind(".dds") != std::string::npos)
 			{
 				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;

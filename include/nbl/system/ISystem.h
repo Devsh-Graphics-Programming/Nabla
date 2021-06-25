@@ -203,6 +203,56 @@ public:
     virtual void read(IFile* file, char* outData, size_t count) const;
     virtual size_t getPos(IFile* file) const = 0;
 
+
+    inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
+    {
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+        std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(builtinPath);
+        if (found.first && found.second)
+        {
+            auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
+            memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
+            return returnValue;
+        }
+        return nullptr;
+#else
+        constexpr auto pathPrefix = "nbl/builtin/";
+        auto pos = builtinPath.find(pathPrefix);
+        std::string path;
+        if (pos != std::string::npos)
+            path = builtinResourceDirectory + builtinPath.substr(pos + strlen(pathPrefix));
+        else
+            path = builtinResourceDirectory + builtinPath;
+
+        auto file = this->createAndOpenFile(path.c_str());
+        if (file)
+        {
+            auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
+            file->read(retval->getPointer(), file->getSize());
+            file->drop();
+            return retval;
+        }
+        return nullptr;
+#endif
+    }
+    //! Compile time resource ID
+    template<typename StringUniqueType>
+    inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
+    {
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+        std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
+        if (found.first && found.second)
+        {
+            auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
+            memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
+            return returnValue;
+        }
+        return nullptr;
+#else
+        return loadBuiltinData(StringUniqueType::value);
+#endif
+    }
+
     //! Warning: blocking call
     core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename)
     {

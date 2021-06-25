@@ -8,6 +8,7 @@
 
 #include "BuildConfigOptions.h"
 #include "nbl/asset/interchange/IImageLoader.h"
+#include "nbl/system/ISystem.h"
 
 namespace nbl
 {
@@ -92,7 +93,9 @@ enum STANDARD_TGA_IMAGE_TYPE
 */
 class CImageLoaderTGA final : public IImageLoader
 {
+	system::ISystem* m_system;
 	public:
+		CImageLoaderTGA(system::ISystem* sys) : m_system(sys) {}
 		virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
 		virtual const char** getAssociatedFileExtensions() const override

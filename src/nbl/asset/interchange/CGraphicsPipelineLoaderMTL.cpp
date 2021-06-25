@@ -26,12 +26,12 @@ using namespace asset;
 #define FRAG_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
 #define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
 
-CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : IRenderpassIndependentPipelineLoader(_am)
+CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, system::ISystem* sys) : IRenderpassIndependentPipelineLoader(_am)
 {
     //create vertex shaders and insert them into cache
     auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
     {
-        auto data = m_assetMgr->getFileSystem()->loadBuiltinData<decltype(constexprStringType)>();
+        auto data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
         
         ICPUSpecializedShader::SInfo specInfo(
@@ -96,12 +96,12 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file) con
 
     const size_t prevPos = _file->getPos();
 
-    _file->seek(0ull);
 
     std::string mtl;
     mtl.resize(_file->getSize());
-    _file->read(mtl.data(), _file->getSize());
-    _file->seek(prevPos);
+    system::ISystem::future_t<uint32_t> future;
+    m_assetMgr->getSystem()->readFile(future, _file, mtl.data(), 0, _file->getSize());
+    future.get();
 
     return mtl.find("newmtl") != std::string::npos;
 }
@@ -698,6 +698,8 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> co
 {
     std::string mtl;
     mtl.resize(_file->getSize());
+    system::ISystem::future_t<uint32_t> fut;
+    
     _file->read(mtl.data(), _file->getSize());
 
     const char* bufPtr = mtl.c_str();

@@ -18,7 +18,7 @@
 #   include "libpng/png.h"
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
-#include "CReadFile.h"
+#include "nbl/system/IFile.h"
 
 namespace nbl
 {
@@ -45,7 +45,7 @@ void PNGAPI user_read_data_fcn(png_structp png_ptr, png_bytep data, png_size_t l
 	png_size_t check;
 
 	// changed by zola {
-	io::IReadFile* file=(io::IReadFile*)png_get_io_ptr(png_ptr);
+	system::IFile* file=(system::IFile*)png_get_io_ptr(png_ptr);
 	check=(png_size_t) file->read((void*)data,(uint32_t)length);
 	// }
 
@@ -56,7 +56,7 @@ void PNGAPI user_read_data_fcn(png_structp png_ptr, png_bytep data, png_size_t l
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
+bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file) const
 {
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)
@@ -82,7 +82,7 @@ bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
 
 
 // load in the image data
-asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)

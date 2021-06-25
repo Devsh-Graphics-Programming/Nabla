@@ -5,8 +5,7 @@
 
 #include <list>
 #include "CFileSystem.h"
-#include "CReadFile.h"
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 #include "CZipReader.h"
 #include "CMountPointReader.h"
 #include "CPakReader.h"

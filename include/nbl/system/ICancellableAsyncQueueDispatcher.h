@@ -164,7 +164,7 @@ protected:
     void notify_future(RequestType& req, Args&&... args)
     {
         auto& req_base = static_cast<request_base_t&>(req);
-        auto* future = static_cast<future_t<T>*>(req.future);
+        auto* future = static_cast<future_t<T>*>(req_base.future);
         future->notify(std::forward<Args...>(args)...);
     }
 

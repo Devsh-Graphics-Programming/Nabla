@@ -11,8 +11,8 @@
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
 #include "os.h"
-#include "IFileSystem.h"
-#include "IReadFile.h"
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "COBJMeshFileLoader.h"
@@ -47,7 +47,7 @@ COBJMeshFileLoader::~COBJMeshFileLoader()
 {
 }
 
-asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
@@ -75,13 +75,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 	uint32_t smoothingGroup=0;
 
-	const std::string fullName = _file->getFileName().c_str();
+	const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = std::filesystem::path(fullName).parent_path().string();
-		if (dir.empty())
-			return "";
-		return dir+"/";
+		auto dir = fullName.parent_path().string();
+		return dir;
 	}();
 
     //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
@@ -105,7 +103,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     std::string fileContents;
     fileContents.resize(filesize);
 	char* const buf = fileContents.data();
-	_file->read(buf, filesize);
+	system::ISystem::future_t<uint32_t> future;
+	System->readFile(future, _file, buf, 0, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information

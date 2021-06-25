@@ -11,7 +11,7 @@
 #ifdef __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
 #include "nbl/core/IReferenceCounted.h"
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "IFileSystem.h"
 #include "CFileList.h"
 

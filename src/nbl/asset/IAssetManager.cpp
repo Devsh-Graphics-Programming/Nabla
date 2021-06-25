@@ -214,7 +214,7 @@ void IAssetManager::insertBuiltinAssets()
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};
-		auto fileSystem = getFileSystem();
+		auto fileSystem = getSystem();
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,

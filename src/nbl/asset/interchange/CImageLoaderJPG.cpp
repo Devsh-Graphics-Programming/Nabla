@@ -9,7 +9,7 @@
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "os.h"
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
@@ -147,7 +147,7 @@ namespace jpeg
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
+bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file) const
 {
 #ifndef _NBL_COMPILE_WITH_LIBJPEG_
 	return false;
@@ -166,7 +166,7 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 }
 
 //! creates a surface from the file
-asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifndef _NBL_COMPILE_WITH_LIBJPEG_
 	os::Printer::log("Can't load as not compiled with _NBL_COMPILE_WITH_LIBJPEG_:", _file->getFileName().c_str(), ELL_DEBUG);
