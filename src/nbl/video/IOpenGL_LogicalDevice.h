@@ -794,15 +794,16 @@ protected:
                     else
                     {
                         const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
-                        if (dt > timeout)
+                        if (dt >= timeout)
                             return IGPUFence::ES_TIMEOUT;
                         timeout -= dt;
                     }
 
-                    status = fence->wait(&gl, _timeout);
+                    status = fence->wait(&gl, timeout);
                     if (status != IGPUFence::ES_SUCCESS)
                         return status;
                 }
+                return IGPUFence::ES_SUCCESS;
             }
             else
             {

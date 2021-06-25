@@ -21,7 +21,7 @@ public:
     COpenGLFence(IOpenGL_LogicalDevice* dev, ILogicalDevice* _dev, IOpenGL_FunctionTable* gl) : IGPUFence(_dev, ECF_SIGNALED_BIT)
     {
         auto sync = core::make_smart_refctd_ptr<COpenGLSync>();
-        sync->init(dev, gl, false);
+        sync->initSignaled(dev, gl);
         associateGLSync(std::move(sync));
     }
     // un-signaled ctor
@@ -43,7 +43,7 @@ public:
 
     E_STATUS getStatus(IOpenGL_FunctionTable* _gl)
     {
-        if (m_sync->isInitialized())
+        if (!m_sync->isInitialized())
             return ES_NOT_READY;
         auto status = m_sync->waitCPU(_gl, 0ull);
         switch (status)
