@@ -72,18 +72,14 @@ void main()
 			);
 		}
 
-
 		vec3 acc;
 		uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
-		const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
-		if (record_emission_common(acc,accumulationLocation,emissive*float(staticViewData.samplesPerPixelPerDispatch),true) || !notFirstFrame)
+		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
+		if (record_emission_common(acc,accumulationLocation,emissive*float(staticViewData.samplesPerPixelPerDispatch),true) || firstFrame)
 			storeAccumulation(acc,accumulationLocation);
 		
-		if (notFirstFrame) //TODO: plop the accumulation into autoexposure histogram
-		{
-		}
-		else // clear accumulation totally if beginning a new frame
-		while (++accumulationLocation.z!=staticViewData.samplesPerPixelPerDispatch)
-			storeAccumulation(vec3(0.0),accumulationLocation);
+		if (firstFrame) // clear accumulation totally if beginning a new frame
+		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+			imageStore(accumulation,ivec3(outPixelLocation,i),uvec4(0u));
 	}
 }
