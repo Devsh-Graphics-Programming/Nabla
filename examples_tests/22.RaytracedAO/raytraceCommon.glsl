@@ -186,7 +186,7 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	normalizedN.x = dot(batchInstanceData.normalMatrixRow0,normal);
 	normalizedN.y = dot(batchInstanceData.normalMatrixRow1,normal);
 	normalizedN.z = dot(batchInstanceData.normalMatrixRow2,normal);
-	normalizedN = normalize(normal);
+	normalizedN = normalize(normalizedN);
 
 	return scramble_start_state;
 }
@@ -266,7 +266,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate why we can't use `normalizedN` here
 	const vec3 ray_offset_vector = normalize(cross(dPdBary[0],dPdBary[1]))*inversesqrt_precision;
 	float origin_offset = nbl_glsl_numeric_limits_float_epsilon(44u); // I pulled the constants out of my @$$
-	origin_offset += dot(abs(ray_offset_vector),abs(origin))*nbl_glsl_numeric_limits_float_epsilon(24u);
+	origin_offset += dot(abs(ray_offset_vector),abs(origin))*nbl_glsl_numeric_limits_float_epsilon(32u);
 	// TODO: in the future run backward error analysis of
 	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
 	// where
