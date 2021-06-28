@@ -51,12 +51,13 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 			return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
 		}
 
-		static inline bool execute(state_type* state)
+		template<class ExecutionPolicy>
+		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
 		{
 			if (!validate(state))
 				return false;
 
-			auto perOutputRegion = [](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
+			auto perOutputRegion = [policy](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat)==getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
 
@@ -66,12 +67,16 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 					auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
 					memcpy(commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides),commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
 				};
-				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
+				CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy,commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
 
 				return true;
 			};
 
 			return commonExecute(state,perOutputRegion);
+		}
+		static inline bool execute(state_type* state)
+		{
+			return execute(std::execution::seq,state);
 		}
 };
 

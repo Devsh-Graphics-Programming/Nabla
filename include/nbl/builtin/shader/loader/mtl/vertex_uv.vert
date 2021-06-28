@@ -2,6 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#version 430 core
+#version 460 core
 
 #include "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"

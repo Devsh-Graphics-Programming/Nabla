@@ -19,6 +19,7 @@ set(EXTRA_SOURCES
 	CommandLineHandler.cpp
 	../../src/nbl/ext/LumaMeter/CLumaMeter.cpp
 	../../src/nbl/ext/ToneMapper/CToneMapper.cpp
+	../../src/nbl/ext/FFT/FFT.cpp
 )
 
 nbl_create_executable_project(

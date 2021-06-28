@@ -105,16 +105,5 @@ void nbl_glsl_workgroupFFT(in bool is_inverse, inout nbl_glsl_complex lo, inout 
     }
 }
 
-#if 0 // TODO
-// Computes Forward FFT of two real signals
-void nbl_glsl_workgroupRealFFT(in bool is_inverse, in float sequenceALo, in float sequenceAHi, in float sequenceBLo, in float sequenceBHi)
-{
-    nbl_glsl_complex lo = nbl_glsl_complex(sequenceALo,sequenceBLo);
-    nbl_glsl_complex hi = nbl_glsl_complex(sequenceAHi,sequenceBHi);
-    nbl_glsl_workgroupFFT(false,lo,hi);
-    // extract aDFT and bDFT by using sorensens method
-}
-#endif
-
 
 #endif

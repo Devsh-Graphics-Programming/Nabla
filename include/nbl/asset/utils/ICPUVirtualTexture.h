@@ -140,7 +140,7 @@ public:
         copy.inImage = _img;
         copy.outImage = paddedImg.get();
 
-        asset::CPaddedCopyImageFilter::execute(&copy);
+        asset::CPaddedCopyImageFilter::execute(std::execution::par_unseq,&copy);
 
         using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<
             false, false, VoidSwizzle, IdentityDither,
@@ -162,7 +162,7 @@ public:
             genmips.axisWraps[1] = _wrapv;
             genmips.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
             genmips.borderColor = _borderColor;
-            mip_gen_filter_t::execute(&genmips);
+            mip_gen_filter_t::execute(std::execution::par_unseq,&genmips);
             _NBL_ALIGNED_FREE(genmips.scratchMemory);
         }
 
@@ -195,7 +195,8 @@ public:
 
     }
 
-    bool commit(const SMasterTextureData& _addr, const ICPUImage* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
+    // TODO: thread safe commits?
+    bool commit(const SMasterTextureData& _addr, const ICPUImage* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override 
     {
         if (!validateCommit(_addr, _subres, _uwrap, _vwrap))
             return false;
@@ -223,6 +224,7 @@ public:
         using phys_pg_addr_alctr_t = ICPUVTResidentStorage::phys_pg_addr_alctr_t;
         //TODO up to this line, it's kinda common code for CPU and GPU, refactor later
 
+        // TODO: parallelize over all 3 for loops
         for (uint32_t i = 0u; i < levelsToPack; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, i);
@@ -312,7 +314,7 @@ public:
                     copy.axisWraps[1] = _vwrap;
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
                     copy.borderColor = _borderColor;
-                    if (!CPaddedCopyImageFilter::execute(&copy))
+                    if (!CPaddedCopyImageFilter::execute(std::execution::par_unseq,&copy))
                         assert(false);
                 }
         }
@@ -349,11 +351,11 @@ public:
             copy.inOffset = {static_cast<uint32_t>(_addr.pgTab_x>>(copy.inMipLevel)),static_cast<uint32_t>(_addr.pgTab_y>>(copy.inMipLevel)),0u};
             copy.outOffset = {static_cast<uint32_t>(aliasAddr.pgTab_x>>i), static_cast<uint32_t>(aliasAddr.pgTab_y>>i), 0u};
 
-            CCopyImageFilter::execute(&copy);
+            CCopyImageFilter::execute(std::execution::par_unseq,&copy);
         }
 
         //nasty trick
-        reinterpret_cast<SViewAliasTextureData*>(&aliasAddr)[0];
+        return reinterpret_cast<SViewAliasTextureData*>(&aliasAddr)[0];
     }
 
     bool free(const SMasterTextureData& _addr) override

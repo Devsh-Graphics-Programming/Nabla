@@ -81,7 +81,8 @@
 #include "nbl/asset/metadata/CSTLMetadata.h"
 
 //VT
-#include "nbl/asset/utils/IVirtualTexture.h"
+#include "nbl/asset/utils/CCPUMeshPackerV1.h"
+#include "nbl/asset/utils/CCPUMeshPackerV2.h"
 #include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 #endif

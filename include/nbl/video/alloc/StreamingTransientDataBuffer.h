@@ -39,7 +39,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
         StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
-                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
+                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=1024u) :
                                 Base(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),0u,0u,bufferReqs.vulkanReqs.alignment,bufferReqs.vulkanReqs.size,minAllocSize)
         {
         }

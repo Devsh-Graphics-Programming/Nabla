@@ -145,7 +145,16 @@ class Manager final : public core::IReferenceCounted
 			}
 		}
 
+		static inline void shapeSetTransform(::RadeonRays::Shape* shape, const core::matrix3x4SIMD& transform)
+		{
+			core::matrix4SIMD tform(transform);
 
+			core::matrix3x4SIMD tmp;
+			transform.getInverse(tmp);
+			core::matrix4SIMD tform_inv(tmp);
+
+			shape->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(tform),reinterpret_cast<::RadeonRays::matrix&>(tform_inv));
+		}
 		template<typename Iterator>
 		inline void update(const MockSceneManager* mock_smgr, Iterator _instancesBegin, Iterator _instancesEnd)
 		{
@@ -164,15 +173,8 @@ class Manager final : public core::IReferenceCounted
 				firstShape->GetTransform(reinterpret_cast<::RadeonRays::matrix&>(oldTForm), reinterpret_cast<::RadeonRays::matrix&>(dummy));
 				if (!core::equals(absoluteTForm,oldTForm.extractSub3x4(),core::matrix3x4SIMD(0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f)))
 				{
-					core::matrix4SIMD world(absoluteTForm);
-
-					core::matrix3x4SIMD tmp;
-					absoluteTForm.getInverse(tmp);
-					core::matrix4SIMD worldinv(tmp);
-
 					for (auto shape : *shapeArray)
-						shape->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(world), reinterpret_cast<::RadeonRays::matrix&>(worldinv));
-
+						shapeSetTransform(shape,absoluteTForm);
 					needToCommit = true;
 				}
 			}

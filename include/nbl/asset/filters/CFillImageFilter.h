@@ -36,7 +36,8 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 			return CBasicOutImageFilterCommon::validate(state);
 		}
 
-		static inline bool execute(state_type* state)
+		template<class ExecutionPolicy>
+		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
 		{
 			if (!validate(state))
 				return false;
@@ -51,9 +52,13 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 			};
 			CBasicImageFilterCommon::clip_region_functor_t clip(state->subresource,state->outRange,params.format);
 			const auto& regions = img->getRegions(state->subresource.mipLevel);
-			CBasicImageFilterCommon::executePerRegion(img,fill,regions.begin(),regions.end(),clip);
+			CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy),img,fill,regions.begin(),regions.end(),clip);
 
 			return true;
+		}
+		static inline bool execute(state_type* state)
+		{
+			return execute(std::execution::seq,state);
 		}
 };
 

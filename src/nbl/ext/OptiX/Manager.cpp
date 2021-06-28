@@ -4,7 +4,7 @@
 
 #include <numeric>
 
-#include "../../source/Irrlicht/CMemoryFile.h"
+#include "../../source/Nabla/CMemoryFile.h"
 
 #include "nbl/ext/OptiX/Manager.h"
 

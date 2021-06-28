@@ -7,7 +7,8 @@
 
 #include "../../../../src/nbl/video/CCUDAHandler.h"
 
-#include "optix.h"
+#include <optix.h>
+#include <optix_denoiser_tiling.h>
 
 namespace nbl
 {
@@ -69,6 +70,38 @@ class IDenoiser final : public core::IReferenceCounted
 										inputLayersBegin,inputLayersEnd-inputLayersBegin,
 										inputOffsetX,inputOffsetY,outputLayer,
 										scratchBuffer.asBuffer.pointer+scratchBufferOffset,scratchSizeInBytes);
+		}
+
+		inline OptixResult tileAndInvoke(
+			CUstream                    stream,
+			const OptixDenoiserParams* params,
+			const OptixImage2D* inputLayers,
+			unsigned int                numInputLayers,
+			const OptixImage2D* outputLayer,
+			const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& scratch,
+			size_t                      scratchSizeInBytes,
+			unsigned int                overlapWindowSizeInPixels,
+			unsigned int                tileWidth,
+			unsigned int                tileHeight,
+			const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& denoiserState = {},
+			size_t                      denoiserStateSizeInBytes = 0ull)
+		{
+			if (alreadySetup != OPTIX_SUCCESS)
+				return alreadySetup;
+			return optixUtilDenoiserInvokeTiled(
+				denoiser,
+				stream,
+				params,
+				denoiserState.asBuffer.pointer,
+				denoiserStateSizeInBytes,
+				inputLayers,
+				numInputLayers,
+				outputLayer,
+				scratch.asBuffer.pointer,
+				scratchSizeInBytes,
+				overlapWindowSizeInPixels,
+				tileWidth,
+				tileHeight);
 		}
 
 	protected:

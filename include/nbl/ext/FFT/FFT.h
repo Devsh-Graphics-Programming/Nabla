@@ -18,7 +18,8 @@ namespace FFT
 {
 
 typedef uint32_t uint;
-struct alignas(16) uvec3 {
+struct alignas(16) uvec3
+{
 	uint x,y,z;
 };
 struct alignas(16) uvec4 {
@@ -26,84 +27,135 @@ struct alignas(16) uvec4 {
 };
 #include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl";
 
-class FFT : public core::TotalInterface
+class FFT final : public core::IReferenceCounted
 {
 	public:
-		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t {
-		};
-
-		enum class Direction : uint8_t {
-			X = 0,
-			Y = 1,
-			Z = 2,
-		};
-		
-		enum class PaddingType : uint8_t {
-			CLAMP_TO_EDGE = 0,
-			FILL_WITH_ZERO = 1,
-			// TODO: mirror?
-		};
-
-		enum class DataType {
-			SSBO,
-			TEXTURE2D
+		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t
+		{
+			inline uint getLog2FFTSize()
+			{
+				return (input_dimensions.w>>3u)&0x1fu;
+			}
 		};
 
 		struct DispatchInfo_t
 		{
-			uint32_t workGroupDims[3];
 			uint32_t workGroupCount[3];
 		};
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 256u;
+		FFT(video::IDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage = false);
 
-		// returns dispatch size and fills the uniform data
-		static inline DispatchInfo_t buildParameters(
-			asset::VkExtent3D const & paddedInputDimensions,
-			Direction direction)
+		// returns how many dispatches necessary for computing the FFT and fills the uniform data
+		template<bool unconstrainedAxisOrder=true>
+		static inline uint32_t buildParameters(
+			bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, 
+			Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType,
+			const asset::VkExtent3D& extraPaddedInputDimensions, bool realInput = false
+		)
 		{
-			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
-			DispatchInfo_t ret = {};
+			uint32_t passesRequired = 0u;
 
-			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_SIZE;
-			ret.workGroupDims[1] = 1;
-			ret.workGroupDims[2] = 1;
+			const auto paddedInputDimensions = padDimensions(extraPaddedInputDimensions);
 
-			if(direction == Direction::X)
+			using SizeAxisPair = std::tuple<float,uint8_t,uint8_t>;
+			std::array<SizeAxisPair,3u> passes;
+			if (numChannels)
 			{
-				ret.workGroupCount[0] = 1;
-				ret.workGroupCount[1] = paddedInputDimensions.height;
-				ret.workGroupCount[2] = paddedInputDimensions.depth;
-			}
-			else if(direction == Direction::Y) {
-				ret.workGroupCount[0] = paddedInputDimensions.width;
-				ret.workGroupCount[1] = 1;
-				ret.workGroupCount[2] = paddedInputDimensions.depth;
-			}
-			else if(direction == Direction::Z)
-			{
-				ret.workGroupCount[0] = paddedInputDimensions.width;
-				ret.workGroupCount[1] = paddedInputDimensions.height;
-				ret.workGroupCount[2] = 1;
+				for (uint32_t i=0u; i<3u; i++)
+				{
+					auto dim = (&paddedInputDimensions.width)[i];
+					if (dim<2u)
+						continue;
+					passes[passesRequired++] = {float(dim)/float((&inputDimensions.width)[i]),i,paddingType[i]};
+				}
+				if (unconstrainedAxisOrder)
+					std::sort(passes.begin(),passes.begin()+passesRequired);
 			}
 
-			return ret;
+			auto computeOutputStride = [](const uvec3& output_dimensions, const auto axis, const auto nextAxis) -> uvec4
+			{
+				// coord[axis] = 1u
+				// coord[nextAxis] = fftLen;
+				// coord[otherAxis] = fftLen*dimension[nextAxis];
+				uvec4 stride; 
+				stride.w = output_dimensions.x*output_dimensions.y*output_dimensions.z;
+				for (auto i=0u; i<3u; i++)
+				{
+					auto& coord = (&stride.x)[i];
+					if (i!=axis)
+					{
+						coord = (&output_dimensions.x)[axis];
+						if (i!=nextAxis)
+							coord *= (&output_dimensions.x)[nextAxis];
+					}
+					else
+						coord = 1u;
+				}
+				return stride;
+			};
+
+			if (passesRequired)
+			{
+				uvec3 output_dimensions = {inputDimensions.width,inputDimensions.height,inputDimensions.depth};
+				for (uint32_t i=0u; i<passesRequired; i++)
+				{
+					auto& params = outParams[i];
+					params.input_dimensions.x = output_dimensions.x;
+					params.input_dimensions.y = output_dimensions.y;
+					params.input_dimensions.z = output_dimensions.z;
+
+					const auto passAxis = std::get<1u>(passes[i]);
+					const auto paddedAxisLen = (&paddedInputDimensions.width)[passAxis];
+					{
+						assert(paddingType[i]<=asset::ISampler::ETC_MIRROR);
+						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
+													(passAxis<<28u)| // direction
+													((numChannels-1u)<<26u)| // max channel
+													(core::findMSB(paddedAxisLen)<<3u)| // log2(fftSize)
+													uint32_t(std::get<2u>(passes[i]));
+					}
+
+					(&output_dimensions.x)[passAxis] = paddedAxisLen;
+					if (i)
+						params.input_strides = outParams[i-1u].output_strides;
+					else // TODO provide an override for input strides
+					{
+						params.input_strides.x = 1u;
+						params.input_strides.y = inputDimensions.width;
+						params.input_strides.z = params.input_strides.y * inputDimensions.height;
+						params.input_strides.w = params.input_strides.z * inputDimensions.depth;
+					}
+					params.output_strides = computeOutputStride(output_dimensions,passAxis,std::get<1u>(passes[(i+1u)%passesRequired]));
+
+					auto& dispatch = outInfos[i];
+					dispatch.workGroupCount[0] = output_dimensions.x;
+					dispatch.workGroupCount[1] = output_dimensions.y;
+					dispatch.workGroupCount[2] = output_dimensions.z;
+					dispatch.workGroupCount[passAxis] = 1u;
+				}
+			}
+
+			return passesRequired;
+		}
+		static inline uint32_t buildParameters(
+			bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions,
+			Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType
+		)
+		{
+			return buildParameters(isInverse,numChannels,inputDimensions,outParams,outInfos,paddingType,inputDimensions);
 		}
 
-		
-		static inline asset::VkExtent3D padDimensionToNextPOT(asset::VkExtent3D dimension, asset::VkExtent3D const & minimum_dimension = asset::VkExtent3D{ 1, 1, 1 })
+		static inline asset::VkExtent3D padDimensions(asset::VkExtent3D dimension)
 		{
-			if(dimension.width < minimum_dimension.width)
-				dimension.width = minimum_dimension.width;
-			if(dimension.height < minimum_dimension.height)
-				dimension.height = minimum_dimension.height;
-			if(dimension.depth < minimum_dimension.depth)
-				dimension.depth = minimum_dimension.depth;
-
-			dimension.width = core::roundUpToPoT(dimension.width);
-			dimension.height = core::roundUpToPoT(dimension.height);
-			dimension.depth = core::roundUpToPoT(dimension.depth);
-
+			static_assert(core::isPoT(MINIMUM_FFT_SIZE),"MINIMUM_FFT_SIZE needs to be Power of Two!");
+			for (auto i=0u; i<3u; i++)
+			{
+				auto& coord = (&dimension.width)[i];
+				if (coord<=1u)
+					continue;
+				coord = core::max(core::roundUpToPoT(coord),MINIMUM_FFT_SIZE);
+			}
 			return dimension;
 		}
 
@@ -111,144 +163,69 @@ class FFT : public core::TotalInterface
 		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
 		//
-		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultDescriptorSetLayout(video::IVideoDriver* driver, DataType inputType);
+		inline auto getDefaultDescriptorSetLayout() const {return m_dsLayout.get();}
 		
 		//
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, DataType inputType);
-		
-		//
-		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t numChannels)
-		{
-			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
-			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
-		}
-		
-		static core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultPipeline(video::IVideoDriver* driver, DataType inputType, uint32_t maxDimensionSize);
+		inline auto getDefaultPipelineLayout() const {return m_pplnLayout.get();}
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
-		static inline void updateDescriptorSet(
-			video::IVideoDriver * driver,
-			video::IGPUDescriptorSet * set,
+		//
+		inline auto getDefaultPipeline() const {return m_ppln.get();}
+
+		//
+		inline uint32_t getMaxFFTLength() const { return m_maxFFTLen; }
+		inline bool usesHalfFloatStorage() const { return m_halfFloatStorage; }
+		
+		//
+		static inline size_t getOutputBufferSize(bool _halfFloatStorage, const asset::VkExtent3D& inputDimensions, uint32_t numChannels, bool realInput=false)
+		{
+			size_t retval = getOutputBufferSize_impl(inputDimensions,numChannels);
+			if (!realInput)
+				retval <<= 1u;
+			return retval*(_halfFloatStorage ? sizeof(uint16_t):sizeof(uint32_t));
+		}
+		inline size_t getOutputBufferSize(const asset::VkExtent3D& inputDimensions, uint32_t numChannels, bool realInput = false)
+		{
+			return getOutputBufferSize(m_halfFloatStorage,inputDimensions,numChannels,realInput);
+		}
+
+		static void updateDescriptorSet(
+			video::IVideoDriver* driver,
+			video::IGPUDescriptorSet* set,
 			core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor)
-		{
-			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
-			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
-
-			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
-			{
-				pWrites[i].dstSet = set;
-				pWrites[i].arrayElement = 0u;
-				pWrites[i].count = 1u;
-				pWrites[i].info = pInfos+i;
-			}
-
-			// Input Buffer 
-			pWrites[0].binding = 0;
-			pWrites[0].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[0].count = 1;
-			pInfos[0].desc = inputBufferDescriptor;
-			pInfos[0].buffer.size = inputBufferDescriptor->getSize();
-			pInfos[0].buffer.offset = 0u;
-
-			// Output Buffer 
-			pWrites[1].binding = 1;
-			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[1].count = 1;
-			pInfos[1].desc = outputBufferDescriptor;
-			pInfos[1].buffer.size = outputBufferDescriptor->getSize();
-			pInfos[1].buffer.offset = 0u;
-
-			driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
-		}
-
-		static inline void updateDescriptorSet(
-			video::IVideoDriver * driver,
-			video::IGPUDescriptorSet * set,
-			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
-			asset::ISampler::E_TEXTURE_CLAMP textureWrap)
-		{
-			auto sampler = getSampler(driver,textureWrap);
-
-			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
-			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
-
-			for (auto i = 0; i < MAX_DESCRIPTOR_COUNT; i++)
-			{
-				pWrites[i].dstSet = set;
-				pWrites[i].arrayElement = 0u;
-				pWrites[i].count = 1u;
-				pWrites[i].info = pInfos+i;
-			}
-
-			// Input Buffer 
-			pWrites[0].binding = 0;
-			pWrites[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
-			pWrites[0].count = 1;
-			pInfos[0].desc = inputImageDescriptor;
-			pInfos[0].image.sampler = sampler;
-			pInfos[0].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
-
-			// Output Buffer 
-			pWrites[1].binding = 1;
-			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[1].count = 1;
-			pInfos[1].desc = outputBufferDescriptor;
-			pInfos[1].buffer.size = outputBufferDescriptor->getSize();
-			pInfos[1].buffer.offset = 0u;
-
-			driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
-		}
+			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor);
 
 		static inline void dispatchHelper(
 			video::IVideoDriver* driver,
+			const video::IGPUPipelineLayout* pipelineLayout,
+			const Parameters_t& params,
 			const DispatchInfo_t& dispatchInfo,
 			bool issueDefaultBarrier=true)
 		{
-			driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
+			driver->pushConstants(pipelineLayout,video::IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(Parameters_t),&params);
+			driver->dispatch(dispatchInfo.workGroupCount[0],dispatchInfo.workGroupCount[1],dispatchInfo.workGroupCount[2]);
 
 			if (issueDefaultBarrier)
 				defaultBarrier();
 		}
 
-		static inline void pushConstants(
-			video::IVideoDriver* driver,
-			const video::IGPUPipelineLayout * pipelineLayout,
-			asset::VkExtent3D const & inputDimension,
-			asset::VkExtent3D const & paddedInputDimension,
-			Direction direction,
-			bool isInverse, 
-			uint32_t numChannels,
-			PaddingType paddingType = PaddingType::CLAMP_TO_EDGE)
-		{
-
-			uint8_t isInverse_u8 = isInverse;
-			uint8_t direction_u8 = static_cast<uint8_t>(direction);
-			uint8_t paddingType_u8 = static_cast<uint8_t>(paddingType);
-			
-			uint32_t packed = (direction_u8 << 16u) | (isInverse_u8 << 8u) | paddingType_u8;
-
-			Parameters_t params = {};
-			params.dimension.x = inputDimension.width;
-			params.dimension.y = inputDimension.height;
-			params.dimension.z = inputDimension.depth;
-			params.dimension.w = packed;
-			params.padded_dimension.x = paddedInputDimension.width;
-			params.padded_dimension.y = paddedInputDimension.height;
-			params.padded_dimension.z = paddedInputDimension.depth;
-			params.padded_dimension.w = numChannels;
-
-			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
-		}
-
 		static void defaultBarrier();
 
 	private:
-		FFT() = delete;
-		//~FFT() = delete;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MINIMUM_FFT_SIZE = DEFAULT_WORK_GROUP_SIZE<<1u;
+		~FFT() {}
 
-		static core::smart_refctd_ptr<video::IGPUSampler> getSampler(video::IVideoDriver* driver, asset::ISampler::E_TEXTURE_CLAMP textureWrap);
+		//
+		static inline size_t getOutputBufferSize_impl(const asset::VkExtent3D& inputDimensions, uint32_t numChannels)
+		{
+			const auto paddedInputDimensions = padDimensions(inputDimensions);
+			return paddedInputDimensions.width*paddedInputDimensions.height*paddedInputDimensions.depth*numChannels;
+		}
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dsLayout;
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_pplnLayout;
+		core::smart_refctd_ptr<video::IGPUComputePipeline> m_ppln;
+		uint32_t m_maxFFTLen;
+		bool m_halfFloatStorage;
 };
 
 

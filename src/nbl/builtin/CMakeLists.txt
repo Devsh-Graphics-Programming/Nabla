@@ -33,7 +33,12 @@ set(nbl_resources_to_embed
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
+  # barycentric
+  "nbl/builtin/glsl/barycentric/frag.glsl"
+  "nbl/builtin/glsl/barycentric/vert.glsl"
+  "nbl/builtin/glsl/barycentric/utils.glsl"
   # bump mapping
+  "nbl/builtin/glsl/bump_mapping/fragment.glsl" # TODO: rename to `frag.glsl`
   "nbl/builtin/glsl/bump_mapping/utils.glsl"
   # bxdf
   "nbl/builtin/glsl/bxdf/common.glsl"
@@ -139,6 +144,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters.glsl"
+  "nbl/builtin/glsl/ext/FFT/types.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
@@ -147,5 +153,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
+  # virtual geometry
+  "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
 PARENT_SCOPE)
 
