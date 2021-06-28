@@ -17,7 +17,7 @@ using namespace video;
 
 using SATFilter = CSummedAreaTableImageFilter<false>;
 
-static core::smart_refctd_ptr<ICPUBuffer> computeLuminancePdf(smart_refctd_ptr<ICPUImage> envmap)
+static core::smart_refctd_ptr<ICPUBuffer> computeLuminancePdf(smart_refctd_ptr<ICPUImage> envmap, float* normalizationFactor)
 {
 	const core::vector2d<uint32_t> envmapExtent = { envmap->getCreationParameters().extent.width, envmap->getCreationParameters().extent.height };
 	const uint32_t channelCount = getFormatChannelCount(envmap->getCreationParameters().format);
@@ -49,6 +49,9 @@ static core::smart_refctd_ptr<ICPUBuffer> computeLuminancePdf(smart_refctd_ptr<I
 			envmapPixel += channelCount;
 		}
 	}
+
+	if (normalizationFactor)
+		*normalizationFactor = (pdfDomainExtent.X * pdfDomainExtent.Y)/(pdfSum*2.0*core::PI<double>()*core::PI<double>());
 
 	return outBuffer;
 }
@@ -194,13 +197,14 @@ int main()
 	core::smart_refctd_ptr<IGPUImageView> envmapImageView = nullptr;
 	core::smart_refctd_ptr<IGPUImageView> phiPdfLUTImageView = nullptr;
 	core::smart_refctd_ptr<IGPUImageView> thetaLUTImageView = nullptr;
+	float envmapNormalizationFactor;
 	{
 		IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
 		auto envmapImageBundle = assetManager->getAsset(envmapPath, lp);
 		auto envmapImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*envmapImageBundle.getContents().begin());
 		const uint32_t channelCount = getFormatChannelCount(envmapImage->getCreationParameters().format);
 
-		auto luminancePdfBuffer = computeLuminancePdf(envmapImage);
+		auto luminancePdfBuffer = computeLuminancePdf(envmapImage, &envmapNormalizationFactor);
 
 		ICPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
@@ -405,8 +409,6 @@ int main()
 				const double phi = xiRemapped.X * 2.0 * core::PI<double>();
 				const double pdf = (core::sin(theta) == 0.0) ? 0.0 : (marginalPdf * conditionalPdf) / (2.0 * core::PI<double>() * core::PI<double>() * core::sin(theta));
 
-
-
 				*phiPdfLUTPixel++ = (float)phi;
 				*phiPdfLUTPixel++ = (float)pdf;
 			}
@@ -414,7 +416,6 @@ int main()
 
 		phiPdfLUTImageView = getLUTGPUImageViewFromBuffer(phiPdfLUTBuffer, IGPUImage::ET_2D, asset::EF_R32G32_SFLOAT, { pdfDomainExtent.X, pdfDomainExtent.Y, 1 }, IGPUImageView::ET_2D, driver);
 		thetaLUTImageView = getLUTGPUImageViewFromBuffer(thetaLUTBuffer, IGPUImage::ET_1D, asset::EF_R32_SFLOAT, { pdfDomainExtent.Y, 1, 1 }, IGPUImageView::ET_1D, driver);
-
 	}
 
 	smart_refctd_ptr<IGPUBufferView> gpuSequenceBufferView;
@@ -494,6 +495,13 @@ int main()
 		gpuDescriptorSetLayout5 = driver->createGPUDescriptorSetLayout(descriptorSet5Bindings, descriptorSet5Bindings + descriptorCount);
 	}
 
+	const SPushConstantRange pcRange =
+	{
+		ISpecializedShader::ESS_FRAGMENT,
+		0u,
+		sizeof(float)
+	};
+
 	auto createGpuResources = [&](std::string pathToShader) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
 	{
 		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShader, {}).getContents().begin()[0]);
@@ -508,7 +516,8 @@ int main()
 		auto gpuFragmentSpecialedShader = driver->getGPUObjectsFromAssets(&cpuFragmentSpecializedShader.get(), &cpuFragmentSpecializedShader.get() + 1)->front();
 		IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentSpecialedShader.get() };
 
-		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout5));
+		// auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout5));
+		auto gpuPipelineLayout = driver->createGPUPipelineLayout(&pcRange, &pcRange + 1, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout5));
 
 		asset::SBlendParams blendParams;
 		SRasterizationParams rasterParams;
@@ -640,6 +649,7 @@ int main()
 		driver->bindGraphicsPipeline(gpuEnvmapPipeline.get());
 		driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
 		driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 3u, 1u, &descriptorSet5.get(), nullptr);
+		driver->pushConstants(gpuEnvmapPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(float), &envmapNormalizationFactor);
 		driver->drawMeshBuffer(gpuEnvmapMeshBuffer.get());
 
 		driver->setRenderTarget(nullptr, false);

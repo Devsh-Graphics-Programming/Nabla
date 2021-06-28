@@ -24,6 +24,11 @@ layout(set = 1, binding = 0, row_major, std140) uniform UBO
 	nbl_glsl_SBasicViewParameters params;
 } cameraData;
 
+layout (push_constant) uniform PushConstants
+{
+    layout (offset = 0) float envmapNormalizationFactor;
+} pc;
+
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 
@@ -289,9 +294,7 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
 #ifdef IMPORTANCE_SAMPLING
     const vec3 direction = ray._immutable.direction;
     const vec2 uv = SampleSphericalMap(direction);
-    // return (getLuma(textureLod(envMap, uv, 0.0).rgb))/(2.0*nbl_glsl_PI*nbl_glsl_PI);
-     return (getLuma(textureLod(envMap, uv, 0.0).rgb))*(0.24542661822914696);
-    // 0.20641848951287792
+    return (getLuma(textureLod(envMap, uv, 0.0).rgb))*(pc.envmapNormalizationFactor);
 #else
     return 0.f;
 #endif
@@ -305,24 +308,22 @@ vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Light light, in Ray
     return Light_getRadiance(light, normalize(ray._immutable.direction));
 }
 
+#ifdef IMPORTANCE_SAMPLING
 vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 xi, in uint objectID)
 {   
-#ifdef IMPORTANCE_SAMPLING
     const vec2 phiPdf = texture(phiPdfLUT, xi.xy).xy;
     const float theta = texture(thetaLUT, xi.y).x;
 
-    vec3 L = vec3(sin(theta)*cos(phiPdf.x), cos(theta), sin(theta)*sin(phiPdf.x));
+    float sinPhi, cosPhi;
+    nbl_glsl_sincos(phiPdf.x - nbl_glsl_PI, sinPhi, cosPhi);
+
+    float sinTheta, cosTheta;
+    nbl_glsl_sincos(theta, sinTheta, cosTheta);
+
+    vec3 L = vec3(sinTheta*cosPhi, cosTheta, sinTheta*sinPhi);
+
     pdf = phiPdf.y;
-
-#else
-    const float phi = acos(2*xi[0]-1);
-    const float theta = 2*nbl_glsl_PI*xi[1];
-    vec3 L = vec3(sin(theta)*cos(phi), cos(theta), sin(phi)*sin(theta));
-    pdf = nbl_glsl_RECIPROCAL_PI*0.25;
-#endif
-
     newRayMaxT = FLT_MAX;
-
     return L;
 }
 
@@ -338,6 +339,7 @@ nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     remainder = Light_getRadiance(light, L)/pdf;
     return nbl_glsl_createLightSample(L,interaction);
 }
+#endif
 
 #include <nbl/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <nbl/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
@@ -472,7 +474,11 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
     if (lightID != INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
+#ifdef IMPORTANCE_SAMPLING
         ray._payload.accumulation += nbl_glsl_light_deferred_eval_and_prob(lightPdf, lights[lightID], ray) * throughput/(1.0 + lightPdf*lightPdf*ray._payload.otherTechniqueHeuristic);
+#else
+        ray._payload.accumulation += nbl_glsl_light_deferred_eval_and_prob(lightPdf, lights[lightID], ray) * throughput;
+#endif
     }
 
     // check if we even have a BSDF at all
@@ -501,6 +507,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
 
         // do NEE
+#ifdef IMPORTANCE_SAMPLING
         const float neeProbability = BSDFNode_getNEEProb(bsdf);
         float rcpChoiceProb;
         if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb))
@@ -520,12 +527,15 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
             {
                 float bsdfPdf;
                 neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,nee_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
+
                 const float oc = bsdfPdf*rcpChoiceProb;
                 neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
+
                 if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
             }
         }
+#endif
 
         // sample BSDF
         float bsdfPdf; vec3 bsdfSampleL;
@@ -543,8 +553,10 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
         {
             ray._payload.throughput = throughput;
+#ifdef IMPORTANCE_SAMPLING
             ray._payload.otherTechniqueHeuristic = neeProbability/bsdfPdf; // numerically stable, don't touch
             ray._payload.otherTechniqueHeuristic *= ray._payload.otherTechniqueHeuristic;
+#endif
                     
             // trace new ray
             ray._immutable.origin = intersection+bsdfSampleL*(1.0/*kSceneSize*/)*getStartTolerance(depth);
