@@ -287,7 +287,7 @@ float nbl_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float
 	const bool something1 = cosSumAB<(-cosC);
 	const bool something2 = cosSumAB<cosC;
 	// apply triple angle formula
-	const float absArccosSumABC = acos(cosSumAB*cosC-(cosA*sinB+sinA*cosB)*sinC);
+	const float absArccosSumABC = acos(clamp(cosSumAB*cosC-(cosA*sinB+sinA*cosB)*sinC,-1.f,1.f));
 	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? nbl_glsl_PI:(-nbl_glsl_PI));
 }
 
