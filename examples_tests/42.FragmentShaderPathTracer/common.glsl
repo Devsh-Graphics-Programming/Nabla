@@ -599,8 +599,13 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
             nbl_glsl_AnisotropicMicrofacetCache _cache;
             validPath = validPath && nbl_glsl_calcAnisotropicMicrofacetCache(_cache, interaction, nee_sample, monochromeEta);
+            if (lightPdf<FLT_MAX)
+            {
             if (any(isnan(nee_sample.L)))
                 ray._payload.accumulation += vec3(1000.f,0.f,0.f);
+            else
+            if (all(equal(vec3(69.f),nee_sample.L)))
+                ray._payload.accumulation += vec3(0.f,1000.f,0.f);
             else
             if (validPath)
             {
@@ -615,7 +620,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
 #endif
                 if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
-            }
+            }}
         }
 #if 1
         return false;

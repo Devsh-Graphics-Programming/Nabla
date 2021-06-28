@@ -20,15 +20,25 @@ vec3 nbl_glsl_sampling_generateSphericalTriangleSample(in float solidAngle, in v
 	float u_ = q - cos_vertices[0];
 	float v_ = p + sin_vertices[0]*cos_c;
 
-	const float cosAngleAlongAC = clamp(((v_*q - u_*p)*cos_vertices[0] - v_) / ((v_*p + u_*q)*sin_vertices[0]), -1.0, 1.0); // TODO: get rid of this clamp (by improving the precision here)
-
     // the slerps could probably be optimized by sidestepping `normalize` calls and accumulating scaling factors
-	vec3 C_s = nbl_glsl_slerp_impl_impl(sphericalVertices[0], sphericalVertices[2]*csc_b, cosAngleAlongAC);
+    vec3 C_s = sphericalVertices[0];
+    if (csc_b<FLT_MAX)
+    {
+        const float cosAngleAlongAC = ((v_ * q - u_ * p) * cos_vertices[0] - v_) / ((v_ * p + u_ * q) * sin_vertices[0]);
+        if (abs(cosAngleAlongAC)<1.f)
+            C_s += nbl_glsl_slerp_delta_impl(sphericalVertices[0],sphericalVertices[2]*csc_b,cosAngleAlongAC);
+    }
 
+    vec3 retval = sphericalVertices[1];
     const float cosBC_s = dot(C_s,sphericalVertices[1]);
-	const float cosAngleAlongBC_s = 1.0+cosBC_s*u.y-u.y;
-
-	return nbl_glsl_slerp_impl_impl(sphericalVertices[1], C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
+    const float csc_b_s = inversesqrt(1.0-cosBC_s*cosBC_s);
+    if (csc_b_s<FLT_MAX)
+    {
+        const float cosAngleAlongBC_s = clamp(1.0+cosBC_s*u.y-u.y,-1.f,1.f);
+        if (abs(cosAngleAlongBC_s)<1.f)
+            retval += nbl_glsl_slerp_delta_impl(sphericalVertices[1],C_s*csc_b_s,cosAngleAlongBC_s);
+    }
+    return retval;
 }
 vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 sphericalVertices, in vec2 u)
 {
