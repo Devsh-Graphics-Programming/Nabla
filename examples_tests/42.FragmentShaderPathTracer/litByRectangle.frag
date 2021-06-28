@@ -102,7 +102,7 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
             if (pdf<FLT_MAX)
             {
                 float dummy;
-                const uint i = nbl_glsl_partitionRandVariable(solidAngle[0]*pdf,xi.z,dummy) ? 0u:1u;
+                const uint i = nbl_glsl_partitionRandVariable(solidAngle[0]*pdf,xi.z,dummy) ? 1u:0u;
                 L = nbl_glsl_sampling_generateSphericalTriangleSample(solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],xi.xy);
             }
         #elif POLYGON_METHOD==2
