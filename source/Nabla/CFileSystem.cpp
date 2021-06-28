@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#if 0
 #include <list>
 #include "CFileSystem.h"
 #include "nbl/system/IFile.h"
@@ -10,7 +10,6 @@
 #include "CMountPointReader.h"
 #include "CPakReader.h"
 #include "CTarReader.h"
-#include "CFileList.h"
 #include "stdio.h"
 #include "os.h"
 #include "CMemoryFile.h"
@@ -884,3 +883,4 @@ bool CFileSystem::existFile(const io::path& filename) const
 } // end namespace nbl
 } // end namespace io
 
+#endif

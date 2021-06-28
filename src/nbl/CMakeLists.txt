@@ -184,8 +184,6 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp

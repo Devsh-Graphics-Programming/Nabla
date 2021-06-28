@@ -21,13 +21,14 @@ namespace asset
 //! Surface Loader for JPG images
 class CImageLoaderJPG : public asset::IAssetLoader
 {
+    core::smart_refctd_ptr<system::ISystem> m_system;
     protected:
 	    //! destructor
 	    virtual ~CImageLoaderJPG();
 
     public:
 	    //! constructor
-	    CImageLoaderJPG();
+	    CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys);
 
         virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 

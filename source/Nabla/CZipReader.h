@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #ifndef __NBL_C_ZIP_READER_H_INCLUDED__
 #define __NBL_C_ZIP_READER_H_INCLUDED__
 
@@ -13,7 +13,6 @@
 #include "nbl/core/Types.h"
 #include "nbl/system/IFile.h"
 #include "IFileSystem.h"
-#include "CFileList.h"
 
 namespace nbl
 {
@@ -222,3 +221,4 @@ namespace io
 #endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 #endif
 
+#endif

@@ -5,8 +5,8 @@
 
 #ifndef __NBL_C_LIMIT_READ_FILE_H_INCLUDED__
 #define __NBL_C_LIMIT_READ_FILE_H_INCLUDED__
-
-#include "IReadFile.h"
+#if 0
+#include "nbl/system/IFile.h"
 
 namespace nbl
 {
@@ -60,3 +60,4 @@ namespace io
 
 #endif
 
+#endif

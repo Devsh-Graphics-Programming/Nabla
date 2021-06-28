@@ -69,7 +69,7 @@ void IAssetLoader::IAssetLoaderOverride::handleRestore(SAssetBundle& _bundle, SA
             dummies.begin()[i].get()->restoreFromDummy(reloaded.begin()[i].get(), _restoreLevels);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 {
     return _mgr->getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, _override);
 }
@@ -79,7 +79,7 @@ SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, const
     return _mgr->getAssetInHierarchy(_filename, _params, _hierarchyLevel, _override);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
 {
     return _mgr->getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel);
 }
@@ -89,7 +89,7 @@ SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, const
     return _mgr->getAssetInHierarchy(_filename, _params, _hierarchyLevel);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 {
     return _mgr->getAssetInHierarchyWholeBundleRestore(_file, _supposedFilename, _params, _hierarchyLevel, _override);
 }
@@ -99,7 +99,7 @@ SAssetBundle IAssetLoader::interm_getAssetInHierarchyWholeBundleRestore(IAssetMa
     return _mgr->getAssetInHierarchyWholeBundleRestore(_filename, _params, _hierarchyLevel, _override);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
 {
     return _mgr->getAssetInHierarchyWholeBundleRestore(_file, _supposedFilename, _params, _hierarchyLevel);
 }

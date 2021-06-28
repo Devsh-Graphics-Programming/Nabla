@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
+#if 0
 #include "nbl/core/math/glslFunctions.tcc"
 
 #include "CLimitReadFile.h"
@@ -122,3 +123,4 @@ const io::path& CLimitReadFile::getFileName() const
 } // end namespace io
 } // end namespace nbl
 
+#endif

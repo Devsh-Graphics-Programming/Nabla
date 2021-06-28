@@ -77,7 +77,6 @@ static void jpeg_term_destination(j_compress_ptr cinfo)
 	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
 	const int32_t datacount = (int32_t)(OUTPUT_BUF_SIZE - dest->pub.free_in_buffer);
 	// for now just exit upon file error
-	
 	if (dest->file->write(dest->buffer, datacount) != datacount)
 		ERREXIT (cinfo, JERR_FILE_WRITE);
 }

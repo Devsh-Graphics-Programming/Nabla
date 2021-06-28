@@ -222,12 +222,14 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
+#ifdef NEW_FILESYSTEM
 		bool performLoadingAsIReadFile(gli::texture& texture, system::IFile* file)
 		{
-			const auto fileName = std::string(file->getFileName().c_str());
+			const auto fileName = file->getFileName().string();
 			std::vector<char> memory(file->getSize());
 			const auto sizeOfData = memory.size();
 
+		
 			file->read(memory.data(), sizeOfData);
 
 			if (fileName.rfind(".dds") != std::string::npos)
@@ -245,7 +247,7 @@ namespace nbl
 				return false;
 			}
 		}
-
+#endif
 		bool CGLILoader::isALoadableFileFormat(system::IFile* _file) const
 		{
 			const auto fileName = std::string(_file->getFileName().string());

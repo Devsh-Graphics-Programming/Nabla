@@ -22,7 +22,7 @@ namespace nbl
 namespace asset
 {
 
-CImageWriterTGA::CImageWriterTGA()
+CImageWriterTGA::CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
 {
 #ifdef _NBL_DEBUG
 	setDebugName("CImageWriterTGA");

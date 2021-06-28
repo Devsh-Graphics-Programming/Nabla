@@ -30,7 +30,7 @@ protected:
     virtual ~IAPIConnection() = default;
 
     // idk where to put those, so here they are for now
-    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 };
 

@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #include "CZipReader.h"
 #include "CMemoryFile.h"
 #include "CLimitReadFile.h"
@@ -775,3 +775,4 @@ namespace
 } // end namespace nbl
 
 #endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
+#endif

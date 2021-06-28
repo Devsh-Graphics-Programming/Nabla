@@ -64,7 +64,7 @@ namespace io
             io::path    Filename;
 	};
 
-	class CMemoryWriteFile : public IWriteFile, public CMemoryFile
+	class CMemoryWriteFile : public system::IFile, public CMemoryFile
 	{
         public:
             //! Constructor
@@ -97,7 +97,7 @@ namespace io
 
 
     template<typename Alloc>
-    class CCustomAllocatorMemoryReadFile<Alloc, true> : public IReadFile
+    class CCustomAllocatorMemoryReadFile<Alloc, true> : public system::IFile
     {
         static_assert(sizeof(typename Alloc::value_type)==1, "Alloc::value_type must be of size 1");
 

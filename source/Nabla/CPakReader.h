@@ -13,7 +13,6 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/system/IFile.h"
 #include "IFileSystem.h"
-#include "CFileList.h"
 
 namespace nbl
 {

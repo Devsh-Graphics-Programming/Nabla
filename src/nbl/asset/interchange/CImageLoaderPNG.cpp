@@ -64,6 +64,7 @@ bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file) const
 
     const size_t prevPos = _file->getPos();
 
+
 	png_byte buffer[8];
 	// Read the first few bytes of the PNG _file
     if (_file->read(buffer, 8) != 8)
@@ -71,7 +72,6 @@ bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file) const
         _file->seek(prevPos);
         return false;
     }
-
     _file->seek(prevPos);
 	// Check if it really is a PNG _file
 	return !png_sig_cmp(buffer, 0, 8);

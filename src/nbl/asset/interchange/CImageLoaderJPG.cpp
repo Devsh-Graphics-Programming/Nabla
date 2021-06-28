@@ -32,7 +32,7 @@ namespace asset
 {
 
 //! constructor
-CImageLoaderJPG::CImageLoaderJPG()
+CImageLoaderJPG::CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CImageLoaderJPG");
@@ -155,12 +155,10 @@ bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file) const
 	if (!_file)
 		return false;
 
-    const size_t prevPos = _file->getPos();
-
 	int32_t jfif = 0;
-	_file->seek(6);
-	_file->read(&jfif, sizeof(int32_t));
-    _file->seek(prevPos);
+	
+	system::ISystem::future_t<uint32_t> future;
+	m_system->readFile(future, _file, &jfif, 6, sizeof(uint32_t));
 	return (jfif == 0x4a464946 || jfif == 0x4649464a || jfif == 0x66697845u || jfif == 0x70747468u); // maybe 0x4a464946 can go
 #endif
 }
@@ -192,7 +190,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	cinfo.err = jpeg_std_error(&jerr.pub);
 	cinfo.err->error_exit = jpeg::error_exit;
 	cinfo.err->output_message = jpeg::output_message;
-    cinfo.client_data = const_cast<char*>(Filename.c_str());
+    cinfo.client_data = const_cast<char*>(Filename.string().c_str());
 
 	auto exitRoutine = [&] {
 		jpeg_destroy_decompress(&cinfo);
@@ -204,7 +202,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	// crashes when throwing within external c code
 	if (setjmp(jerr.setjmp_buffer))
 	{
-		os::Printer::log("Can't load libjpeg threw an error:", _file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("Can't load libjpeg threw an error:", _file->getFileName().string(), ELL_ERROR);
 		// RAIIExiter takes care of cleanup
         return {};
 	}
@@ -269,23 +267,23 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
 			break;
 		case JCS_CMYK:
-			os::Printer::log("CMYK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("CMYK color space is unsupported:", _file->getFileName().string(), ELL_ERROR);
 			return {};
 			break;
 		case JCS_YCCK: // this I have no resources on
-			os::Printer::log("YCCK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("YCCK color space is unsupported:", _file->getFileName().string(), ELL_ERROR);
 			return {};
 			break;
 		case JCS_BG_RGB: // interesting
-			os::Printer::log("Loading JPEG Big Gamut RGB is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Loading JPEG Big Gamut RGB is not implemented yet:", _file->getFileName().string(), ELL_ERROR);
 			return {};
 			break;
 		case JCS_BG_YCC: // interesting
-			os::Printer::log("Loading JPEG Big Gamut YCbCr is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Loading JPEG Big Gamut YCbCr is not implemented yet:", _file->getFileName().string(), ELL_ERROR);
 			return {};
 			break;
 		default:
-			os::Printer::log("Can't load as color space is unknown:", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Can't load as color space is unknown:", _file->getFileName().string(), ELL_ERROR);
 			return {};
 			break;
 	}

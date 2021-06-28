@@ -6,7 +6,7 @@
 #define __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 
 #include "nbl/core/core.h"
-#include "IFileSystem.h"
+#include "nbl/system/ISystem.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
 #include "nbl/system/IFile.h"
@@ -175,7 +175,7 @@ public:
 		_NBL_STATIC_INLINE_CONSTEXPR IAsset::E_MUTABILITY ASSET_MUTABILITY_ON_CACHE_INSERT = IAsset::EM_MUTABLE;
 
         IAssetManager* m_manager;
-		io::IFileSystem* m_filesystem;
+		system::ISystem* m_system;
     public:
 		IAssetLoaderOverride(IAssetManager* _manager);
 
@@ -237,7 +237,7 @@ public:
 				return;
 			// try compute absolute path
 			std::string relative = ctx.params.relativeDir+inOutFilename;
-			if (m_filesystem->existFile(relative.c_str()))
+			if (std::filesystem::exists(relative))
 			{
 				inOutFilename = relative;
 				return;
