@@ -6,7 +6,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #define SPHERE_COUNT 8
-#define POLYGON_METHOD 0 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
+#define POLYGON_METHOD 1 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
 #include "common.glsl"
 
 
@@ -97,19 +97,13 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
         for (uint i=0u; i<2u; i++)
             solidAngle[i] = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i]);
         #if POLYGON_METHOD==1
-            const float rcpProb = solidAngle[0]+solidAngle[1];
-            vec3 L;
-            if (rcpProb>FLT_MIN)
+            pdf = 1.f/(solidAngle[0]+solidAngle[1]);
+            vec3 L = vec3(0.f,0.f,0.f);
+            if (pdf<FLT_MAX)
             {
-                pdf = 1.0/rcpProb;
                 float dummy;
                 const uint i = nbl_glsl_partitionRandVariable(solidAngle[0]*pdf,xi.z,dummy) ? 0u:1u;
                 L = nbl_glsl_sampling_generateSphericalTriangleSample(solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],xi.xy);
-            }
-            else
-            {
-                pdf = 0.0;
-                L = normalize(origin2origin);
             }
         #elif POLYGON_METHOD==2
             #error ""
