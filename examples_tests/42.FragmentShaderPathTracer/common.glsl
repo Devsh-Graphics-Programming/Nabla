@@ -610,13 +610,13 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
             {
                 float bsdfPdf;
                 neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,nee_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
-                const float oc = bsdfPdf*rcpChoiceProb;
-                neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
+                const float otherGenOverChoice = bsdfPdf*rcpChoiceProb;
+                const float otherGenOverLightAndChoice = otherGenOverChoice/lightPdf;
+                neeContrib *= otherGenOverChoice/(1.f+otherGenOverLightAndChoice*otherGenOverLightAndChoice); // MIS weight
                 if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
             }
         }
-        return false;
 
         // sample BSDF
         float bsdfPdf; vec3 bsdfSampleL;

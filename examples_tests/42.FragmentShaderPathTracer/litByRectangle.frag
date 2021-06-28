@@ -31,7 +31,7 @@ void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 
 }
 
 //
-//#define TRIANGLE_REFERENCE
+#define TRIANGLE_REFERENCE
 #include <nbl/builtin/glsl/sampling/spherical_triangle.glsl>
 
 /// #include <nbl/builtin/glsl/sampling/projected_spherical_rectangle.glsl>
