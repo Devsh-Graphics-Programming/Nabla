@@ -58,14 +58,9 @@ vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3
 
 
 //
-vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in mat3 sphericalVertices, in vec3 L)
+vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in float solidAngle, in vec3 cos_vertices, in vec3 sin_vertices, in float cos_a, in float cos_c, in float csc_b, in float csc_c, in mat3 sphericalVertices, in vec3 L)
 {
-    // for angles between view-to-vertex vectors
-    float cos_a,cos_c,csc_b,csc_c;
-    // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
-    vec3 cos_vertices,sin_vertices;
-    // get solid angle, which is also the reciprocal of the probability
-    pdf = 1.0/nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
+    pdf = 1.0/solidAngle;
 
     // get the modified B angle of the first subtriangle by getting it from the triangle formed by vertices A,B and the light sample L
     const float cosAngleAlongBC_s = dot(L,sphericalVertices[1]);
@@ -88,6 +83,17 @@ vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in 
     const float v = (1.0-cosAngleAlongBC_s)/(1.0-(cosBC_s<uintBitsToFloat(0x3f7fffff) ? cosBC_s:cos_c));
 
     return vec2(u,v);
+}
+vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in mat3 sphericalVertices, in vec3 L)
+{
+    // for angles between view-to-vertex vectors
+    float cos_a,cos_c,csc_b,csc_c;
+    // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
+    vec3 cos_vertices,sin_vertices;
+    // get solid angle
+    const float solidAngle = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
+
+    return nbl_glsl_sampling_generateSphericalTriangleSampleInverse(pdf,solidAngle,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c,sphericalVertices,L);
 }
 
 #endif

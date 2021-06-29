@@ -51,6 +51,13 @@ vec3 nbl_glsl_sampling_generateProjectedSphericalTriangleSample(out float rcpPdf
 }
 
 //
+float nbl_glsl_sampling_probProjectedSphericalTriangleSample(in float solidAngle, in vec3 cos_vertices, in vec3 sin_vertices, in float cos_a, in float cos_c, in float csc_b, in float csc_c, in mat3 sphericalVertices, in vec3 receiverNormal, in bool receiverWasBSDF, in vec3 L)
+{
+    float pdf;
+    const vec2 u = nbl_glsl_sampling_generateSphericalTriangleSampleInverse(pdf,solidAngle,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c,sphericalVertices,L);
+
+    return pdf*nbl_glsl_sampling_probBilinearSample(nbl_glsl_sampling_computeBilinearPatchForProjSphericalTriangle(sphericalVertices,receiverNormal,receiverWasBSDF),u);
+}
 float nbl_glsl_sampling_probProjectedSphericalTriangleSample(in mat3 sphericalVertices, in vec3 receiverNormal, in bool receiverWasBSDF, in vec3 L)
 {
     float pdf;

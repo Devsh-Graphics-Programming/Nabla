@@ -52,19 +52,27 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
             nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset,rect.offset+rect.edge0,rect.offset+rect.edge1),_immutable.origin),
             nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset+rect.edge1,rect.offset+rect.edge0,rect.offset+rect.edge0+rect.edge1),_immutable.origin)
         };
+        float solidAngle[2];
+        vec3 cos_vertices[2],sin_vertices[2];
+        float cos_a[2],cos_c[2],csc_b[2],csc_c[2];
+        for (uint i=0u; i<2u; i++)
+            solidAngle[i] = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i]);
+        const float rectSolidAngle = solidAngle[0]+solidAngle[1];
         #if POLYGON_METHOD==1
-            const float rcpProb = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[0])+nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[1]);
-            return rcpProb>FLT_MIN ? (1.0/rcpProb):FLT_MAX;
+            return 1.f/rectSolidAngle;
         #elif POLYGON_METHOD==2
-            const vec2 bary = nbl_glsl_barycentric_reconstructBarycentrics(L*ray._mutable.intersectionT+_immutable.origin-rect.offset,mat2x3(rect.edge0,rect.edge1));
-            const bool hitFirst = bary.x>=0.f&&bary.y>=0.f&&(bary.x+bary.y)<=1.f;
+            // TODO: figure out what breaks for a directly visible light under MIS
+            if (rectSolidAngle>FLT_MIN)
+            {
+                const vec2 bary = nbl_glsl_barycentric_reconstructBarycentrics(L*ray._mutable.intersectionT+_immutable.origin-rect.offset,mat2x3(rect.edge0,rect.edge1));
+                const uint i = bary.x>=0.f&&bary.y>=0.f&&(bary.x+bary.y)<=1.f ? 0u:1u;
 
-            float pdf = nbl_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices[hitFirst ? 0u:1u],_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,L);
-            float projSolidAngle[2];
-            for (uint i=0u; i<2u; i++)
-                projSolidAngle[i] = nbl_glsl_shapes_ProjectedSolidAngleOfTriangle(sphericalVertices[i],_immutable.normalAtOrigin);
-            pdf *= projSolidAngle[hitFirst ? 0u:1u]/(projSolidAngle[0]+projSolidAngle[1]);
-            return pdf<FLT_MAX ? pdf:0.0;
+                float pdf = nbl_glsl_sampling_probProjectedSphericalTriangleSample(solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,L);
+                pdf *= solidAngle[i]/rectSolidAngle;
+                return pdf;
+            }
+            else
+                return FLT_INF;
         #endif
     #else
         #if POLYGON_METHOD==1
@@ -97,36 +105,28 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
             nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset,rect.offset+rect.edge0,rect.offset+rect.edge1),origin),
             nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset+rect.edge1,rect.offset+rect.edge0,rect.offset+rect.edge0+rect.edge1),origin)
         };
-        vec3 cos_vertices[2];
+        float solidAngle[2];
+        vec3 cos_vertices[2],sin_vertices[2];
+        float cos_a[2],cos_c[2],csc_b[2],csc_c[2];
+        for (uint i=0u; i<2u; i++)
+            solidAngle[i] = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i]);
         vec3 L = vec3(0.f,0.f,0.f);
+        const float rectangleSolidAngle = solidAngle[0]+solidAngle[1];
+        if (rectangleSolidAngle>FLT_MIN)
+        {
+            float rcpTriangleChoiceProb;
+            const uint i = nbl_glsl_partitionRandVariable(solidAngle[0]/rectangleSolidAngle,xi.z,rcpTriangleChoiceProb) ? 1u:0u;
         #if POLYGON_METHOD==1
-            float solidAngle[2];
-            vec3 sin_vertices[2];
-            float cos_a[2],cos_c[2],csc_b[2],csc_c[2];
-            for (uint i=0u; i<2u; i++)
-                solidAngle[i] = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i]);
-            pdf = 1.f/(solidAngle[0]+solidAngle[1]);
-            if (pdf<FLT_MAX)
-            {
-                float dummy;
-                const uint i = nbl_glsl_partitionRandVariable(solidAngle[0]*pdf,xi.z,dummy) ? 1u:0u;
-                L = nbl_glsl_sampling_generateSphericalTriangleSample(solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],xi.xy);
-            }
+            L = nbl_glsl_sampling_generateSphericalTriangleSample(solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],xi.xy);
+            pdf = 1.f/rectangleSolidAngle;
         #elif POLYGON_METHOD==2
-            float projSolidAngle[2];
-            vec3 cos_sides[2],csc_sides[2];
-            for (uint i=0u; i<2u; i++)
-                projSolidAngle[i] = nbl_glsl_shapes_ProjectedSolidAngleOfTriangle(sphericalVertices[i],interaction.isotropic.N,cos_sides[i],csc_sides[i],cos_vertices[i]);
-            const float rectProjSolidAngle = projSolidAngle[0]+projSolidAngle[1];
-            if (rectProjSolidAngle>FLT_MIN)
-            {
-                float rcpTriangleChoiceProb;
-                const uint i = nbl_glsl_partitionRandVariable(projSolidAngle[0]/rectProjSolidAngle,xi.z,rcpTriangleChoiceProb) ? 1u:0u;
-                float rcpPdf;
-                L = nbl_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,cos_sides[i],csc_sides[i],cos_vertices[i],sphericalVertices[i],interaction.isotropic.N,isBSDF,xi.xy);
-                pdf = 1.f/(rcpPdf*rcpTriangleChoiceProb);
-            }
+            float rcpPdf;
+            L = nbl_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],interaction.isotropic.N,isBSDF,xi.xy);
+            pdf = 1.f/(rcpPdf*rcpTriangleChoiceProb);
         #endif
+        }
+        else
+            pdf = FLT_INF;
     #else
         #if POLYGON_METHOD==1
             #error ""
