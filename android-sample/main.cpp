@@ -80,7 +80,7 @@ static int engine_init_display(struct nabla* engine) {
 
     engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(engine->app->window);
 
-    engine->api = video::IAPIConnection::create(video::EAT_OPENGL_ES, 0, "android-sample", /*&dbgcb*/nullptr);
+    engine->api = video::IAPIConnection::create(video::EAT_OPENGL_ES, 0, "android-sample", /*&dbgcb*/{});
 
     auto surface = engine->api->createSurface(engine->window.get());
 
@@ -344,7 +344,7 @@ void main()
 
 		cb->begin(0);
 		
-		auto* buf = engine->buffer.get();
+		const auto* buf = engine->buffer.get();
 		size_t offset = 0u;
 		cb->bindVertexBuffers(0u, 1u, &buf, &offset);
 		cb->bindGraphicsPipeline(engine->pipeline.get());

@@ -573,7 +573,9 @@ if(WIN32)
 endif()
 
 if (ANDROID)
-	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
+	if(OpenGL_EGL_FOUND)
+		target_compile_definitions(Nabla PUBLIC WL_EGL_PLATFORM)
+	endif()
 endif()
 
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
