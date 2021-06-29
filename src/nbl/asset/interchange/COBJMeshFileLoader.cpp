@@ -239,7 +239,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 if (ctx.useMaterials && !ctx.useGroups)
                 {
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
                     auto mbs = mb_bundle.getContents();
 					bool notempty = mbs.size()!=0ull;
                     {
@@ -252,7 +252,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                     recalcNormals.push_back(false);
                     submeshWasLoadedFromCache.push_back(notempty);
                     //if submesh was loaded from cache - insert empty "cache key" (submesh loaded from cache won't be added to cache again)
-                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName));
+                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName));
                     submeshMaterialNames.push_back(mtlName);
                 }
 			}
@@ -268,7 +268,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 				indices.emplace_back();
 				recalcNormals.push_back(false);
 				submeshWasLoadedFromCache.push_back(false);
-				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), NO_MATERIAL_MTL_NAME, grpName));
+				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().string(), NO_MATERIAL_MTL_NAME, grpName));
 				submeshMaterialNames.push_back(NO_MATERIAL_MTL_NAME);
 			}
 

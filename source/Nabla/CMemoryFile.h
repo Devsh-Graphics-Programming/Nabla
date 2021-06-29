@@ -64,6 +64,7 @@ namespace io
             io::path    Filename;
 	};
 
+#if 0 
 	class CMemoryWriteFile : public system::IFile, public CMemoryFile
 	{
         public:
@@ -200,7 +201,7 @@ namespace io
         {
         }
     };
-
+#endif 
 } // end namespace io
 } // end namespace nbl
 

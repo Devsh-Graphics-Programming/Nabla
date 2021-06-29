@@ -63,7 +63,7 @@ bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _para
 
 bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView)
 {
-	os::Printer::log("WRITING GLI: writing the file", file->getFileName().c_str(), ELL_INFORMATION);
+	os::Printer::log("WRITING GLI: writing the file", file->getFileName().string(), ELL_INFORMATION);
 
 	const auto& imageViewInfo = imageView->getCreationParameters();
 	const auto& imageInfo = imageViewInfo.image->getCreationParameters();
@@ -71,7 +71,7 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 
 	if (image->getRegions().size() == 0)
 	{
-		os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().c_str(), ELL_INFORMATION);
+		os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().string(), ELL_INFORMATION);
 		return false;
 	}
 
@@ -209,13 +209,13 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 
 	return performSavingAsIWriteFile(texture, file);
 }
-
+#ifdef NEW_FILESYSTEM
 bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file)
 {
 	if (texture.empty())
 		return false;
 
-	const auto fileName = std::string(file->getFileName().c_str());
+	const auto fileName = std::string(file->getFileName().string());
 	std::vector<char> memory;
 	bool properlyStatus = false;
 
@@ -233,11 +233,11 @@ bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file)
 	}
 	else
 	{
-		os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().string(), ELL_ERROR);
 		return false;
 	}
 }
-
+#endif
 inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params)
 {
 	using namespace gli;

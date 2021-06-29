@@ -19,7 +19,7 @@ CMemoryFile::~CMemoryFile()
 {
 }
 
-
+#if 0
 //! Constructor
 CMemoryWriteFile::CMemoryWriteFile(const size_t& len, const io::path& fileName)
                 : CMemoryFile(len,fileName)
@@ -47,7 +47,7 @@ int32_t CMemoryWriteFile::write(const void* buffer, uint32_t sizeToWrite)
 
 	return sizeToWrite;
 }
-
+#endif
 
 } // end namespace io
 } // end namespace nbl

@@ -20,11 +20,12 @@ namespace asset
 //! Texture loader capable of loading in .ktx, .dds and .kmg file extensions
 class CGLILoader final : public asset::IAssetLoader
 {
+	core::smart_refctd_ptr<system::ISystem> m_system;
 	protected:
 		virtual ~CGLILoader() {}
 
 	public:
-		CGLILoader() {}
+		explicit CGLILoader(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
 
 		bool isALoadableFileFormat(system::IFile* _file) const override;
 

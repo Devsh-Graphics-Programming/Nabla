@@ -22,7 +22,9 @@ namespace asset
 //!  Surface Loader for PNG files
 class CImageLoaderPng : public asset::IAssetLoader
 {
+        core::smart_refctd_ptr<system::ISystem> m_system;
     public:
+        explicit CImageLoaderPng(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
         virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
         virtual const char** getAssociatedFileExtensions() const override

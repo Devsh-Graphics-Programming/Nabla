@@ -78,10 +78,12 @@ void CGraphicsPipelineLoaderMTL::initialize()
     }
 
     // default pipelines
-    auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
+    system::ISystem::future_t<core::smart_refctd_ptr<system::CMemoryFile>> future;
+    m_assetMgr->getSystem()->createBufferedFile(future, "default IrrlichtBAW material", system::IFile::ECF_READ);
+    auto default_mtl_file = future.get();
 
     SAssetLoadParams assetLoadParams;
-    auto bundle = loadAsset(default_mtl_file, assetLoadParams, &dfltOver);
+    auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);
 
     default_mtl_file->drop();
 
@@ -93,9 +95,6 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file) con
 {
     if (!_file)
         return false;
-
-    const size_t prevPos = _file->getPos();
-
 
     std::string mtl;
     mtl.resize(_file->getSize());
@@ -116,7 +115,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
         _hierarchyLevel,
         _override
     );
-    const std::string fullName = _file->getFileName().c_str();
+    const std::string fullName = _file->getFileName().string();
 	const std::string relPath = [&fullName]() -> std::string
 	{
 		auto dir = std::filesystem::path(fullName).parent_path().string();
@@ -697,10 +696,12 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
 auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> core::vector<SMtl>
 {
     std::string mtl;
-    mtl.resize(_file->getSize());
+    size_t fileSize = _file->getSize();
+    mtl.resize(fileSize);
     system::ISystem::future_t<uint32_t> fut;
     
-    _file->read(mtl.data(), _file->getSize());
+    m_assetMgr->getSystem()->readFile(fut, _file, mtl.data(), 0, fileSize);
+    fut.get();
 
     const char* bufPtr = mtl.c_str();
     const char* const bufEnd = mtl.c_str()+mtl.size();

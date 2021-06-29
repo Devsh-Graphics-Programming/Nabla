@@ -251,20 +251,20 @@ namespace nbl
 		bool CGLILoader::isALoadableFileFormat(system::IFile* _file) const
 		{
 			const auto fileName = std::string(_file->getFileName().string());
-			const auto beginningOfFile = _file->getPos();
 
 			constexpr auto ddsMagic = 0x20534444;
 			constexpr std::array<uint8_t, 12> ktxMagic = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
 			system::ISystem::future_t<uint32_t> future1;
+			system::ISystem::future_t<uint32_t> future;
 			if (fileName.rfind(".dds") != std::string::npos)
 			{
 				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;
-				_file->read(&tmpBuffer, sizeof(ddsMagic));
+				m_system->readFile(future, _file, &tmpBuffer, 0, sizeof(ddsMagic));
+				future.get();
 				if (*reinterpret_cast<decltype(ddsMagic)*>(&tmpBuffer) == ddsMagic)
 				{
-					_file->seek(beginningOfFile);
 					return true;
 				}
 				else
@@ -273,10 +273,10 @@ namespace nbl
 			else if (fileName.rfind(".kmg") != std::string::npos)
 			{
 				std::remove_const<decltype(kmgMagic)>::type tmpBuffer;
-				_file->read(tmpBuffer.data(), sizeof(kmgMagic[0]) * kmgMagic.size());
+				m_system->readFile(future, _file, tmpBuffer.data(), 0, sizeof(kmgMagic[0]) * kmgMagic.size());
+				future.get();
 				if (tmpBuffer == kmgMagic)
 				{
-					_file->seek(beginningOfFile);
 					return true;
 				}
 				else
@@ -285,10 +285,10 @@ namespace nbl
 			else if (fileName.rfind(".ktx") != std::string::npos)
 			{
 				std::remove_const<decltype(ktxMagic)>::type tmpBuffer;
-				_file->read(tmpBuffer.data(), sizeof(ktxMagic[0]) * ktxMagic.size());
+				m_system->readFile(future, _file, tmpBuffer.data(), 0, sizeof(ktxMagic[0]) * ktxMagic.size());
+				future.get();
 				if (tmpBuffer == ktxMagic)
 				{
-					_file->seek(beginningOfFile);
 					return true;
 				}
 				else

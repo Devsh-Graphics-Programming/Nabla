@@ -44,6 +44,9 @@ public:
 	}
 
 protected:
+	virtual int32_t read(void* buffer, uint32_t offset, uint32_t sizeToRead) = 0;
+	virtual int32_t write(const void* buffer, uint32_t offset, uint32_t sizeToWrite) = 0;
+protected:
 	std::underlying_type_t<E_CREATE_FLAGS> m_flags;
 };
 

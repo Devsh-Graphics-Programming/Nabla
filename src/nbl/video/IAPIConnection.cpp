@@ -41,7 +41,7 @@ IAPIConnection::IAPIConnection()
 #else
         "";
 #endif
-    m_system = core::make_smart_refctd_ptr<io::CFileSystem>(std::move(builtinResourceDirectoryPath));
+    m_system = core::make_smart_refctd_ptr<system::ISystem>(std::move(builtinResourceDirectoryPath));
 
     m_GLSLCompiler = core::make_smart_refctd_ptr<asset::IGLSLCompiler>(m_system.get());
 }

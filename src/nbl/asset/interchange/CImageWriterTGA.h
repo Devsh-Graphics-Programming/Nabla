@@ -22,7 +22,7 @@ class CImageWriterTGA : public asset::IAssetWriter
     core::smart_refctd_ptr<system::ISystem> m_system;
     public:
 	    //! constructor
-	    CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys);
+	    explicit CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys);
 
         virtual const char** getAssociatedFileExtensions() const
         {

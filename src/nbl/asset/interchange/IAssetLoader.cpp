@@ -10,7 +10,7 @@ using namespace nbl;
 using namespace asset;
 
 // todo NEED DOCS
-IAssetLoader::IAssetLoaderOverride::IAssetLoaderOverride(IAssetManager* _manager) : m_manager(_manager), m_filesystem(m_manager->getFileSystem())
+IAssetLoader::IAssetLoaderOverride::IAssetLoaderOverride(IAssetManager* _manager) : m_manager(_manager), m_system(m_manager->getSystem())
 {
 }
 
