@@ -159,11 +159,11 @@ namespace asset
 		std::array<uint32_t*, availableChannels> uint32_tPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
 
 		if (params.format == EF_R16G16B16A16_SFLOAT)
-			createAndWriteImage(halfPixelMapArray, image, file->getFileName().c_str());
+			createAndWriteImage(halfPixelMapArray, image, file->getFileName().string().c_str());
 		else if (params.format == EF_R32G32B32A32_SFLOAT)
-			createAndWriteImage(fullFloatPixelMapArray, image, file->getFileName().c_str());
+			createAndWriteImage(fullFloatPixelMapArray, image, file->getFileName().string().c_str());
 		else if (params.format == EF_R32G32B32A32_UINT)
-			createAndWriteImage(uint32_tPixelMapArray, image, file->getFileName().c_str());
+			createAndWriteImage(uint32_tPixelMapArray, image, file->getFileName().string().c_str());
 
 		return true;
 	}

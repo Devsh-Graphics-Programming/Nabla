@@ -20,11 +20,12 @@ namespace asset
 //! Texture writer capable of saving in .ktx, .dds and .kmg file extensions
 class CGLIWriter final : public asset::IAssetWriter
 {
+	core::smart_refctd_ptr<system::ISystem> m_system;
 	protected:
 		virtual ~CGLIWriter() {}
 
 	public:
-		CGLIWriter() {}
+		explicit CGLIWriter(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
 
 		virtual const char** getAssociatedFileExtensions() const override
 		{

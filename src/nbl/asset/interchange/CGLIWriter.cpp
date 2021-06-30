@@ -39,7 +39,7 @@ namespace asset
 {
 static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
 
-static inline bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file);
+static inline bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys);
 
 bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
@@ -207,10 +207,9 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 	const auto& regions = image->getRegions();
 	CBasicImageFilterCommon::executePerRegion<decltype(writeTexel),decltype(updateState)>(image.get(),writeTexel,regions.begin(),regions.end(),updateState);
 
-	return performSavingAsIWriteFile(texture, file);
+	return performSavingAsIFile(texture, file, m_system.get());
 }
-#ifdef NEW_FILESYSTEM
-bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file)
+bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys)
 {
 	if (texture.empty())
 		return false;
@@ -228,7 +227,8 @@ bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file)
 
 	if (properlyStatus)
 	{
-		file->write(memory.data(), memory.size());
+		system::ISystem::future_t<uint32_t> future;
+		sys->writeFile(future, file, memory.data(), 0, memory.size());
 		return true;
 	}
 	else
@@ -237,13 +237,13 @@ bool performSavingAsIWriteFile(gli::texture& texture, nbl::system::IFile* file)
 		return false;
 	}
 }
-#endif
+
 inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params)
 {
 	using namespace gli;
 	std::array<gli::gl::swizzle, 4> compomentMapping;
 
-	static const core::unordered_map<ICPUImageView::SComponentMapping::E_SWIZZLE, gli::gl::swizzle> swizzlesMappingAPI =
+	static const core::unordered_map<ICPUImageView::SComponentMapping::E_SWIZZLE, gli::gl::swizzle> swizzlesMappingAPI(
 	{
 		std::make_pair(ICPUImageView::SComponentMapping::ES_R, gl::SWIZZLE_RED),
 		std::make_pair(ICPUImageView::SComponentMapping::ES_G, gl::SWIZZLE_GREEN),
@@ -251,7 +251,7 @@ inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> get
 		std::make_pair(ICPUImageView::SComponentMapping::ES_A, gl::SWIZZLE_ALPHA),
 		std::make_pair(ICPUImageView::SComponentMapping::ES_ONE, gl::SWIZZLE_ONE),
 		std::make_pair(ICPUImageView::SComponentMapping::ES_ZERO, gl::SWIZZLE_ZERO)
-	};
+	});
 
 	auto getMappedSwizzle = [&](const ICPUImageView::SComponentMapping::E_SWIZZLE& currentSwizzleToCheck) -> gli::gl::swizzle
 	{

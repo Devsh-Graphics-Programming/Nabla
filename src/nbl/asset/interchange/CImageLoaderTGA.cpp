@@ -99,8 +99,6 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 	if (!_file)
 		return false;
 	
-    const size_t prevPos = _file->getPos();
-
 	STGAFooter footer;
 	memset(&footer, 0, sizeof(STGAFooter));
 	{
@@ -231,19 +229,26 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
-	_file->read(&header, sizeof(STGAHeader));
+	system::ISystem::future_t<uint32_t> headerFuture;
+	m_system->readFile(headerFuture, _file, &header, 0, sizeof header);
+	headerFuture.get();
+
 
 	core::smart_refctd_ptr<ICPUBuffer> colorMap; // not used, but it's texel buffer may be useful in future
 	const auto bytesPerTexel = header.PixelDepth / 8;
 
+	size_t offset = sizeof header;
 	if (header.IdLength) // skip image identification field
-		_file->seek(header.IdLength, true);
+		offset += header.IdLength;
 
 	if (header.ColorMapType)
 	{
 		auto colorMapEntryByteSize = header.ColorMapEntrySize / 8 * header.ColorMapLength;
 		auto colorMapEntryBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(colorMapEntryByteSize);
-		_file->read(colorMapEntryBuffer->getPointer(), header.ColorMapEntrySize / 8 * header.ColorMapLength);
+		system::ISystem::future_t<uint32_t> colfut;
+		m_system->readFile(colfut, _file, colorMapEntryBuffer->getPointer(), offset, header.ColorMapEntrySize / 8 * header.ColorMapLength);
+		colfut.get();
+		offset += header.ColorMapEntrySize / 8 * header.ColorMapLength;
 		
 		switch ( header.ColorMapEntrySize ) // convert to 32-bit color map since input is dependend to header.ColorMapEntrySize, so it may be 8, 16, 24 or 32 bits per entity
 		{
@@ -292,7 +297,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	{
 		case STIT_NONE:
 		{
-			os::Printer::log("The given TGA doesn't have image data", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("The given TGA doesn't have image data", _file->getFileName().string(), ELL_ERROR);
 			return {};
 		}
 		case STIT_UNCOMPRESSED_RGB_IMAGE: [[fallthrough]];
@@ -301,7 +306,10 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
 			const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * bytesPerTexel;
 			texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(imageSize);
-			_file->read(texelBuffer->getPointer(), imageSize);
+			system::ISystem::future_t<uint32_t> texelfut;
+			m_system->readFile(texelfut, _file, texelBuffer->getPointer(), offset, imageSize);
+			texelfut.get();
+			offset += imageSize;
 		}
 		break;
 		case STIT_RLE_TRUE_COLOR_IMAGE: 
@@ -313,7 +321,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 		}
 		default:
 		{
-			os::Printer::log("Unsupported TGA file type", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Unsupported TGA file type", _file->getFileName().string(), ELL_ERROR);
             return {};
 		}
 	}
@@ -351,7 +359,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 			}
 			break;
 		default:
-			os::Printer::log("Unsupported TGA format", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Unsupported TGA format", _file->getFileName().string(), ELL_ERROR);
 			break;
 	}
 

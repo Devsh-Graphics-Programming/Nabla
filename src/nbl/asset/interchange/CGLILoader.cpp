@@ -38,7 +38,7 @@ namespace nbl
 	{
 		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
 		static inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
-		static inline bool performLoadingAsIReadFile(gli::texture& texture, system::IFile* file);
+		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys);
 
 		asset::SAssetBundle CGLILoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -46,8 +46,9 @@ namespace nbl
 				return {};
 
 			gli::texture texture;
+			
 
-			if (!performLoadingAsIReadFile(texture, _file))
+			if (!performLoadingAsIFile(texture, _file, m_system.get()))
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
@@ -222,15 +223,15 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
-#ifdef NEW_FILESYSTEM
-		bool performLoadingAsIReadFile(gli::texture& texture, system::IFile* file)
+		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys)
 		{
 			const auto fileName = file->getFileName().string();
-			std::vector<char> memory(file->getSize());
+			core::vector<char> memory(file->getSize());
 			const auto sizeOfData = memory.size();
 
-		
-			file->read(memory.data(), sizeOfData);
+			system::ISystem::future_t<uint32_t> future;
+			sys->readFile(future, file, memory.data(), 0, sizeOfData);
+			future.get();
 
 			if (fileName.rfind(".dds") != std::string::npos)
 				texture = gli::load_dds(memory.data(), sizeOfData);
@@ -243,11 +244,11 @@ namespace nbl
 				return true;
 			else
 			{
-				os::Printer::log("LOADING GLI: failed to load the file", file->getFileName().c_str(), ELL_ERROR);
+				os::Printer::log("LOADING GLI: failed to load the file", file->getFileName().string(), ELL_ERROR);
 				return false;
 			}
 		}
-#endif
+
 		bool CGLILoader::isALoadableFileFormat(system::IFile* _file) const
 		{
 			const auto fileName = std::string(_file->getFileName().string());

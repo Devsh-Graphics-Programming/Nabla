@@ -174,10 +174,13 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	if (!_file || _file->getSize()>0xffffffffull)
         return {};
 
-	const io::path& Filename = _file->getFileName();
+	const auto& Filename = _file->getFileName();
 
 	uint8_t* input = new uint8_t[_file->getSize()];
-	_file->read(input, static_cast<uint32_t>(_file->getSize()));
+
+	system::ISystem::future_t<uint32_t> future;
+	m_system->readFile(future, _file, input, 0, _file->getSize());
+	future.get();
 
 	// allocate and initialize JPEG decompression object
 	struct jpeg_decompress_struct cinfo;
