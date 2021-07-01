@@ -2,14 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #version 430 core
-#extension GL_NV_fragment_shader_barycentric : require
 #extension GL_EXT_shader_16bit_storage : require
 
 
 #define _NBL_GLSL_EXT_MITSUBA_LOADER_INSTANCE_DATA_BINDING_ 0
 #include "virtualGeometry.glsl"
 
-
+#undef NBL_GL_NV_fragment_shader_barycentric
 #include <nbl/builtin/glsl/barycentric/frag.glsl>
 layout(location = 2) flat in uint BackfacingBit_BatchInstanceGUID;
 layout(location = 3) flat in uint drawCmdFirstIndex;

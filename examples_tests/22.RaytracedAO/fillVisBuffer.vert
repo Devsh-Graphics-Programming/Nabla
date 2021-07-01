@@ -14,6 +14,7 @@ layout(set=2, binding=0, row_major) readonly restrict buffer PerInstancePerCamer
     DrawData_t data[];
 } instanceDataPerCamera;
 
+#undef NBL_GL_NV_fragment_shader_barycentric
 #include <nbl/builtin/glsl/barycentric/vert.glsl>
 layout(location = 2) flat out uint BackfacingBit_BatchInstanceGUID;
 layout(location = 3) flat out uint drawCmdFirstIndex;
