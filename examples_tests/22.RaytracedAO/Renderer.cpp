@@ -351,6 +351,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 					constexpr uint32_t kIndicesPerTriangle = 3u;
 					core::vector<CPUMeshPacker::CombinedDataOffsetTable> cdot(mdiBoundMax);
+					core::vector<core::aabbox3df> aabbs(mdiBoundMax);
 					MDICall* mdiCall = nullptr;
 					core::vector<int32_t> fatIndicesForRR(maxTrisBatch*kIndicesPerTriangle);
 					for (const auto& asset : contents)
@@ -361,7 +362,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						const auto& instanceAuxData = meta->m_instanceAuxData;
 
 						auto meshBuffers = cpumesh->getMeshBuffers();
-						const uint32_t actualMdiCnt = cpump->commit(&*pmbdIt,cdot.data(),nullptr,&*allocDataIt,meshBuffers.begin(),meshBuffers.end());
+						const uint32_t actualMdiCnt = cpump->commit(&*pmbdIt,cdot.data(),aabbs.data(),&*allocDataIt,meshBuffers.begin(),meshBuffers.end());
 						allocDataIt += meshBuffers.size();
 						if (actualMdiCnt==0u)
 						{
@@ -374,6 +375,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						const auto aabbMesh = cpumesh->getBoundingBox();
 						// meshbuffers
 						auto cdotIt = cdot.begin();
+						auto aabbsIt = aabbs.begin();
 						for (auto mb : meshBuffers)
 						{
 							assert(mb->getInstanceCount()==instanceData.size());
@@ -402,7 +404,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 								);
 
 								const auto thisShapeInstancesBeginIx = rrInstances.size();
-								const auto& batchAABB = mb->getBoundingBox();// TODO: replace with batch AABB
+								const auto& batchAABB = *aabbsIt;
 								for (auto auxIt=instanceAuxData.begin(); auxIt!=instanceAuxData.end(); auxIt++)
 								{
 									const auto batchInstanceGUID = cullData.size();
@@ -460,6 +462,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 								for (auto j=thisShapeInstancesBeginIx; j!=rrInstances.size(); j++)
 									rr->AttachShape(rrInstances[j]);
 								cdotIt++;
+								aabbsIt++;
 							}
 							//
 							if (!mdiCall || pmbdIt->mdiParameterOffset!=mdiCall->mdiOffset+mdiCall->mdiCount)
