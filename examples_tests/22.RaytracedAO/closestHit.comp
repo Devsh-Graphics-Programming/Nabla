@@ -68,9 +68,9 @@ void main()
 			const uvec3 indices = get_triangle_indices(batchInstanceData,triangleID);
 			
 			// positions
-			const vec3 lastVxPos = load_positions(indices,batchInstanceData);
-			const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
-			const bool frontfacing = bool((batchInstanceData.determinantSignBit^floatBitsToUint(dot(geomNormal,normalizedV)))&0x80000000u);
+			vec3 geomDenormal;
+			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
+			const bool frontfacing = bool((batchInstanceData.determinantSignBit^floatBitsToUint(dot(geomDenormal,normalizedV)))&0x80000000u);
 
 			// get material
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
@@ -82,7 +82,9 @@ void main()
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
 				const vec2 compactBary = vec2(1.f-intersection.uvwt.x-intersection.uvwt.y,intersection.uvwt.x); // radeon rays is a special boy
 				
-				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(compactBary,indices,batchInstanceData,material,outPixelLocation,vertex_depth
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
+					batchInstanceData,indices,compactBary,geomDenormal,
+					material,outPixelLocation,vertex_depth
 #ifdef TEX_PREFETCH_STREAM
 					,mat2(0.0) // TODO: Covariance Rendering
 #endif

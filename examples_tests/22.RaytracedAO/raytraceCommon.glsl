@@ -114,21 +114,32 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 	return normalizedN;
 }
 
+
+bool has_world_transform(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
+{
+	return true;
+}
+
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
+vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
 		nbl_glsl_fetchVtxPos(indices[1],batchInstanceData),
 		nbl_glsl_fetchVtxPos(indices[2],batchInstanceData)
 	);
-	const mat4x3 tform = batchInstanceData.tform;
-	positions = mat3(tform)*positions;
+	const bool tform = has_world_transform(batchInstanceData);
+	if (tform)
+		positions = mat3(batchInstanceData.tform)*positions;
 	//
 	for (int i=0; i<2; i++)
 		dPdBary[i] = positions[i]-positions[2];
-	return positions[2]+tform[3];
+	geomDenormal = cross(dPdBary[0],dPdBary[1]);
+	//
+	if (tform)
+		positions[2] += batchInstanceData.tform[3];
+	return positions[2];
 }
 
 #ifdef TEX_PREFETCH_STREAM
@@ -146,7 +157,8 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
 nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
-	in vec2 compactBary, in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
+	in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
+	in uvec3 indices, in vec2 compactBary, in vec3 geomDenormal,
 	in nbl_glsl_MC_oriented_material_t material,
 	in uvec2 outPixelLocation, in uint vertex_depth_mod_2
 #ifdef TEX_PREFETCH_STREAM
@@ -161,31 +173,42 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 		nbl_glsl_fetchVtxUV(indices[1],batchInstanceData),
 		nbl_glsl_fetchVtxUV(indices[2],batchInstanceData)
 	);
+	
 	const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
-	#endif
-	// only needed for continuing
-	const mat3 normals = mat3(
-		nbl_glsl_fetchVtxNormal(indices[0],batchInstanceData),
-		nbl_glsl_fetchVtxNormal(indices[1],batchInstanceData),
-		nbl_glsl_fetchVtxNormal(indices[2],batchInstanceData)
-	);
 
-	#ifdef TEX_PREFETCH_STREAM
 	dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
 	const vec2 UV = dUVdBary*compactBary+uvs[2];
 	const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
 	nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
 	#endif
-	// not needed for NEE unless doing Area or Projected Solid Angle Sampling
-	const vec3 normal = normals*nbl_glsl_barycentric_expand(compactBary);
+	// the rest is always only needed for continuing
 
-	// init scramble while waiting for getting the instance's normal matrix
+	// init scramble
 	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,1u/*vertex_depth_mod_2*/)).rg;
 
 	// while waiting for the scramble state
-	normalizedN.x = dot(batchInstanceData.normalMatrixRow0,normal);
-	normalizedN.y = dot(batchInstanceData.normalMatrixRow1,normal);
-	normalizedN.z = dot(batchInstanceData.normalMatrixRow2,normal);
+	const bool needsSmoothNormals = false;
+	if (needsSmoothNormals)
+	{
+		const mat3 normals = mat3(
+			nbl_glsl_fetchVtxNormal(indices[0],batchInstanceData),
+			nbl_glsl_fetchVtxNormal(indices[1],batchInstanceData),
+			nbl_glsl_fetchVtxNormal(indices[2],batchInstanceData)
+		);
+
+		// not needed for NEE unless doing Area or Projected Solid Angle Sampling
+		normalizedN = normals*nbl_glsl_barycentric_expand(compactBary);
+		if (has_world_transform(batchInstanceData))
+		{
+			normalizedN = vec3(
+				dot(batchInstanceData.normalMatrixRow0,normalizedN),
+				dot(batchInstanceData.normalMatrixRow1,normalizedN),
+				dot(batchInstanceData.normalMatrixRow2,normalizedN)
+			);
+		}
+	}
+	else
+		normalizedN = geomDenormal;
 	normalizedN = normalize(normalizedN);
 
 	return scramble_start_state;

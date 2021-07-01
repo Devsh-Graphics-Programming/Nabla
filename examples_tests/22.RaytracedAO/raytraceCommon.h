@@ -73,6 +73,12 @@ struct SLight
 #endif
 
 	mat4x3 obb; // needs row_major qualifier
+	/** TODO new and improved
+	mat2x3 obb_base;
+	uvec2 radianceRemainder;
+	vec3 offset;
+	float obb_height;
+	**/
 };
 
 
