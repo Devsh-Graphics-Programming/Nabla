@@ -844,8 +844,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     float sl_ver;
     sscanf(reinterpret_cast<const char*>(shaderVersion),"%f",&sl_ver);
     ShaderLanguageVersion = static_cast<uint16_t>(core::round(sl_ver*100.0f));
-
-
+	
 	//! For EXT-DSA testing
 	if (IsIntelGPU)
 	{

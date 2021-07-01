@@ -34,6 +34,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
   # barycentric
+  "nbl/builtin/glsl/barycentric/extensions.glsl"
   "nbl/builtin/glsl/barycentric/frag.glsl"
   "nbl/builtin/glsl/barycentric/vert.glsl"
   "nbl/builtin/glsl/barycentric/utils.glsl"
