@@ -76,6 +76,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 			inline InitializationData& operator=(InitializationData&& other)
 			{
+				mdiFirstIndices = std::move(other.mdiFirstIndices);
 				lights = std::move(other.lights);
 				lightCDF = std::move(other.lightCDF);
 				globalMeta = other.globalMeta;
@@ -94,8 +95,10 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		void initSceneNonAreaLights(InitializationData& initData);
 		void finalizeScene(InitializationData& initData);
 
+		//
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
 
+		//
 		uint32_t traceBounce(uint32_t raycount);
 
 

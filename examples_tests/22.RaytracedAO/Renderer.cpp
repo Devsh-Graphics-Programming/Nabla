@@ -78,6 +78,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		break;
 	}
 
+<<<<<<< HEAD
 	// set up raycount buffers
 	{
 		const uint32_t zeros[RAYCOUNT_N_BUFFERING] = { 0u };
@@ -136,7 +137,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 6u;
+		constexpr auto raytracingCommonDescriptorCount = 4u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
@@ -157,7 +158,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	samplerParams.CompareEnable = false;
 	auto sampler = m_driver->createGPUSampler(samplerParams);
 	{
-
 		constexpr auto raygenDescriptorCount = 1u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount,EDT_COMBINED_IMAGE_SAMPLER);
@@ -255,7 +255,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 				constexpr uint8_t kIndicesPerTriangle = 3u;
 				constexpr uint16_t minIndicesBatch = minTrisBatch*kIndicesPerTriangle;
-				 
+
 				CPUMeshPacker::AllocationParams allocParams;
 				allocParams.vertexBuffSupportedByteSize = 1u<<31u;
 				allocParams.vertexBufferMinAllocByteSize = minTrisBatch*minVertexSize;
@@ -263,6 +263,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				allocParams.indexBufferMinAllocCnt = minIndicesBatch;
 				allocParams.MDIDataBuffSupportedCnt = allocParams.indexBuffSupportedCnt/minIndicesBatch;
 				allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
+
 
 				constexpr auto combinedNormalUVAttributeIx = 1;
 				constexpr auto newEnabledAttributeMask = (0x1u<<combinedNormalUVAttributeIx)|0b1;
@@ -325,6 +326,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					}
 					for (auto meshBuffer : meshBuffersToProcess)
 						const_cast<ICPUMeshBuffer*>(meshBuffer)->getPipeline()->getVertexInputParams().enabledAttribFlags = newEnabledAttributeMask;
+
 					allocData.resize(meshBuffersToProcess.size());
 
 					cpump->alloc(allocData.data(),meshBuffersToProcess.begin(),meshBuffersToProcess.end());
@@ -807,6 +809,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					core::smart_refctd_ptr(m_commonRaytracingDSLayout),
 					core::smart_refctd_ptr(m_raygenDSLayout)
 				);
+
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
@@ -982,6 +985,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				setDstSetAndDescTypesOnWrites(m_closestHitDS[i].get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
 				m_driver->updateDescriptorSets(descriptorUpdateCounts[3],writes,0u,nullptr);
 			}
+			initData = {}; // reclaim some memory
 			// set up m_resolveDS
 			{
 				infos[0].buffer = {0u,_staticViewDataBuffer->getSize()};
@@ -1157,6 +1161,8 @@ void Renderer::deinit()
 // one day it will just work like that
 //#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
 
+constexpr uint16_t m_maxDepth = 2u; // TODO: = 5u
+constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 void Renderer::render(nbl::ITimer* timer)
 {
 	if (m_cullPushConstants.maxGlobalInstanceCount==0u)
@@ -1374,6 +1380,7 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();
 		const cl_mem clObjects[] = {m_rayBuffer[descSetIx].asRRBuffer.second,m_intersectionBuffer[descSetIx].asRRBuffer.second};
+
 		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 		cl_event acquired=nullptr, raycastDone=nullptr;
 		// run the raytrace queries

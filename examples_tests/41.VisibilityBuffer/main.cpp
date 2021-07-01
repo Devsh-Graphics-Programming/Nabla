@@ -474,12 +474,16 @@ int main()
             allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
             allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
             allocParams.MDIDataBuffSupportedCnt = 8192u;
-            allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
-    
-            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
-
+            allocParams.MDIDataBuffMinAllocCnt = 16u;
+            
             auto wholeMbRangeBegin = pipelineMeshBufferRanges.front();
             auto wholeMbRangeEnd = pipelineMeshBufferRanges.back();
+
+            IMeshPackerV2Base::SupportedFormatsContainer formats;
+            formats.insertFormatsFromMeshBufferRange(wholeMbRangeBegin, wholeMbRangeEnd);
+
+            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,formats,minTrisBatch,maxTrisBatch);
+            
             const uint32_t mdiCntBound = mp->calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd);
 
             auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
@@ -513,7 +517,7 @@ int main()
                 const uint32_t meshMdiBound = mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
                 core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(std::distance(mbRangeBegin,mbRangeEnd));
                 core::vector<MeshPacker::CombinedDataOffsetTable> cdot(meshMdiBound);
-                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),&*allocDataIt,mbRangeBegin,mbRangeEnd);
+                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),nullptr,&*allocDataIt,mbRangeBegin,mbRangeEnd);
                 allocDataIt += meshMdiBound;
 
                 if (actualMdiCnt==0u)
