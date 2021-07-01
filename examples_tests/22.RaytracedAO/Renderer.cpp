@@ -78,7 +78,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		break;
 	}
 
-<<<<<<< HEAD
 	// set up raycount buffers
 	{
 		const uint32_t zeros[RAYCOUNT_N_BUFFERING] = { 0u };
@@ -268,7 +267,10 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				constexpr auto combinedNormalUVAttributeIx = 1;
 				constexpr auto newEnabledAttributeMask = (0x1u<<combinedNormalUVAttributeIx)|0b1;
 
-				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
+				IMeshPackerV2Base::SupportedFormatsContainer formats;
+				formats.insert(EF_R32G32B32_SFLOAT);
+				formats.insert(EF_R32G32_UINT);
+				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,formats,minTrisBatch,maxTrisBatch);
 				uint32_t mdiBoundMax=0u,batchInstanceBoundTotal=0u;
 				core::vector<CPUMeshPacker::ReservedAllocationMeshBuffers> allocData;
 				// virtually allocate and size the storage
@@ -359,7 +361,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						const auto& instanceAuxData = meta->m_instanceAuxData;
 
 						auto meshBuffers = cpumesh->getMeshBuffers();
-						const uint32_t actualMdiCnt = cpump->commit(&*pmbdIt,cdot.data(),&*allocDataIt,meshBuffers.begin(),meshBuffers.end());
+						const uint32_t actualMdiCnt = cpump->commit(&*pmbdIt,cdot.data(),nullptr,&*allocDataIt,meshBuffers.begin(),meshBuffers.end());
 						allocDataIt += meshBuffers.size();
 						if (actualMdiCnt==0u)
 						{
@@ -1161,8 +1163,6 @@ void Renderer::deinit()
 // one day it will just work like that
 //#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
 
-constexpr uint16_t m_maxDepth = 2u; // TODO: = 5u
-constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 void Renderer::render(nbl::ITimer* timer)
 {
 	if (m_cullPushConstants.maxGlobalInstanceCount==0u)

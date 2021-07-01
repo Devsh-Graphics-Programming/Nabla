@@ -76,7 +76,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 			inline InitializationData& operator=(InitializationData&& other)
 			{
-				mdiFirstIndices = std::move(other.mdiFirstIndices);
 				lights = std::move(other.lights);
 				lightCDF = std::move(other.lightCDF);
 				globalMeta = other.globalMeta;
