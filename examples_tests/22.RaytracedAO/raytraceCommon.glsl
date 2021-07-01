@@ -187,7 +187,7 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,1u/*vertex_depth_mod_2*/)).rg;
 
 	// while waiting for the scramble state
-	const bool needsSmoothNormals = false;
+	const bool needsSmoothNormals = true;
 	if (needsSmoothNormals)
 	{
 		const mat3 normals = mat3(

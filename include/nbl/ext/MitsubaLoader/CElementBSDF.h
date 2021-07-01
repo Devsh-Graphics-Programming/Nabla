@@ -58,6 +58,7 @@ class CElementBSDF : public IElement
 		struct AllDiffuse
 		{
 			AllDiffuse() : reflectance(0.5f), alpha(0.2f), useFastApprox(false) {}
+			~AllDiffuse() {}
 
 			inline AllDiffuse& operator=(const AllDiffuse& other)
 			{
@@ -67,7 +68,11 @@ class CElementBSDF : public IElement
 				return *this;
 			}
 
-			CElementTexture::SpectrumOrTexture	reflectance;
+			union // to support the unholy undocumented feature of Mitsuba
+			{
+				CElementTexture::SpectrumOrTexture	reflectance;
+				CElementTexture::SpectrumOrTexture	diffuseReflectance;
+			};
 			CElementTexture::FloatOrTexture		alpha; // not the parameter from Oren-Nayar
 			bool								useFastApprox;
 		};

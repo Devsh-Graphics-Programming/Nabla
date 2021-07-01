@@ -432,7 +432,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		});
 	};
 	auto processSpecularReflectance = SET_SPECTRUM(specularReflectance, SPECULAR_TYPES,Phong,Ward);
-	auto processDiffuseReflectance = SET_SPECTRUM(diffuseReflectance, AllPlastic,Phong,Ward);
+	auto processDiffuseReflectance = SET_SPECTRUM(diffuseReflectance, AllDiffuse,AllPlastic,Phong,Ward);
 	auto processSpecularTransmittance = SET_SPECTRUM(specularTransmittance, TRANSMISSIVE_TYPES);
 #undef SPECULAR_TYPES
 #undef TRANSMISSIVE_TYPES
@@ -693,7 +693,7 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 				auto processAlphaU = SET_TEXTURE(alphaU, SPECULAR_TYPES);
 				auto processAlphaV = SET_TEXTURE(alphaV, SPECULAR_TYPES);
 				auto processSpecularReflectance = SET_TEXTURE(specularReflectance, SPECULAR_TYPES,Phong,Ward);
-				auto processDiffuseReflectance = SET_TEXTURE(diffuseReflectance, AllPlastic,Phong,Ward);
+				auto processDiffuseReflectance = SET_TEXTURE(diffuseReflectance, AllDiffuse,AllPlastic,Phong,Ward);
 				auto processSpecularTransmittance = SET_TEXTURE(specularTransmittance, TRANSMISSIVE_TYPES);
 				auto processSigmaA = SET_TEXTURE(sigmaA, AllCoating);
 				auto processExponent = SET_TEXTURE(exponent, Phong);
