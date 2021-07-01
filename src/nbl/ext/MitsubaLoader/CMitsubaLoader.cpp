@@ -73,6 +73,7 @@ void main()
 
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
 R"(#version 430 core
+#extension GL_EXT_shader_integer_mix : require
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_INPUT_OUTPUT =
 R"(
@@ -145,7 +146,7 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = (!gl_FrontFacing) != (InstData.data[InstanceIndex].determinant < 0.0);
+	const bool front = bool((InstData.data[InstanceIndex].determinantSignBit^mix(~0u,0u,gl_FrontFacing))&0x80000000u);
 	precomp = nbl_glsl_MC_precomputeData(front);
 	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
@@ -643,6 +644,8 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	mb->setIndexType(_data.indexType);
 	mb->setBoundingBox(_data.bbox);
 	mb->setPipeline(std::move(pipeline));
+	constexpr auto NORMAL_ATTRIBUTE = 3;
+	mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
 
 	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
 	mesh->getMeshBufferVector().push_back(std::move(mb));
@@ -1306,25 +1309,10 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 
 
-// TODO: we need a GLSL to C++ compatibility wrapper
-//#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
-#define uint uint32_t
-#define uvec2 uint64_t
-#define mat4x3 nbl::core::matrix3x4SIMD
-struct nbl_glsl_MC_oriented_material_t
-{
-	uvec2 emissive;
-	uint prefetch_offset;
-	uint prefetch_count;
-	uint instr_offset;
-	uint rem_pdf_count;
-	uint nprecomp_count;
-	uint genchoice_count;
-};
 // TODO: this function shouldn't really exist because the backend should produce this directly @Crisspl
-nbl_glsl_MC_oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
+asset::material_compiler::oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
 {
-	nbl_glsl_MC_oriented_material_t orientedMaterial;
+	asset::material_compiler::oriented_material_t orientedMaterial;
 	orientedMaterial.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
 	orientedMaterial.prefetch_offset = streams.prefetch_offset;
 	orientedMaterial.prefetch_count = streams.tex_prefetch_count;
@@ -1334,26 +1322,6 @@ nbl_glsl_MC_oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf
 	orientedMaterial.genchoice_count = streams.gen_choice_count;
 	return orientedMaterial;
 }
-struct nbl_glsl_MC_material_data_t
-{
-	nbl_glsl_MC_oriented_material_t front;
-	nbl_glsl_MC_oriented_material_t back;
-};
-struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
-{
-	struct vec3
-	{
-		float x, y, z;
-	};
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint padding0;
-	vec3 normalMatrixRow1;
-	uint padding1;
-	vec3 normalMatrixRow2;
-	float determinant;
-	nbl_glsl_MC_material_data_t material;
-};
 
 
 // Also sets instance data buffer offset into meshbuffers' base instance
@@ -1442,7 +1410,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 			instData.tform = baseInstanceDataIt->worldTform;
 			instData.tform.getSub3x3InverseTranspose(reinterpret_cast<core::matrix3x4SIMD&>(instData.normalMatrixRow0));
-			instData.determinant = instData.tform.getPseudoDeterminant().x;
+			reinterpret_cast<float&>(instData.determinantSignBit) = instData.tform.getPseudoDeterminant().x;
+			instData.determinantSignBit &= 0x80000000;
 
 			auto bsdf = inst.bsdf;
 			auto bsdf_front = bsdf.front;

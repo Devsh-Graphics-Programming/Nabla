@@ -216,8 +216,8 @@ int main()
 	auto driver = device->getVideoDriver();
 
 
-	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
-	constexpr uint32_t MaxSamples = 1024u*1024u;
+	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
+	constexpr uint32_t MaxSamples = MAX_ACCUMULATED_SAMPLES;
 	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxSamples*Renderer::MaxDimensions);
 	{
 		bool generateNewSamples = true;
@@ -271,7 +271,7 @@ int main()
 		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
 		auto proj = camera->getProjectionMatrix();
 
-		camera = smgr->addCameraSceneNodeFPS(nullptr, 80.f, core::min(extent.X, extent.Y, extent.Z) * 0.00005f);
+		camera = smgr->addCameraSceneNodeFPS(nullptr, 80.f, core::min(extent.X, extent.Y, extent.Z) * 0.0001f);
 		camera->setPosition(ptu[0].getAsVector3df());
 		camera->setTarget(ptu[1].getAsVector3df());
 		camera->setUpVector(ptu[2]);

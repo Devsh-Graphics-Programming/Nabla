@@ -345,12 +345,12 @@ int main()
         auto meshes_bundle = am->getAsset("sponza.obj", lp);
         assert(!meshes_bundle.getContents().empty());
         auto mesh_raw = static_cast<asset::ICPUMesh*>(meshes_bundle.getContents().begin()->get());
+
         // ensure memory will be freed as soon as CPU assets are dropped
-        // am->clearAllAssetCache();
-
-
+        am->clearAllAssetCache();
         //saving cache to file
         qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
+        //qnc->clearCache<asset::EF_A2B10G10R10_SNORM_PACK32>(); // TODO
 
         //
         auto meshBuffers = mesh_raw->getMeshBufferVector();
@@ -425,6 +425,8 @@ int main()
                             const auto borderColor = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(smplr->getParams().BorderColor);
                             texData = getTextureData(vt_commits,img.get(),vt.get(),uwrap,vwrap,borderColor);
                             VTtexDataMap.insert({img,texData});
+                            // get rid of pixel storage
+                            img->convertToDummyObject(~0ull);
                         }
                     });
 
@@ -450,7 +452,9 @@ int main()
 
                 vt->shrink();
                 for (const auto& cm : vt_commits)
+                {
                     vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
+                }
             }
 
             gpuvt = core::make_smart_refctd_ptr<IGPUVirtualTexture>(driver, vt.get());
@@ -460,8 +464,6 @@ int main()
         smart_refctd_ptr<GPUMeshPacker> gpump;
         smart_refctd_ptr<IGPUBuffer> batchDataSSBO;
         {
-            assert(ranges.size()>=2u);
-
             constexpr uint16_t minTrisBatch = 256u; 
             constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
 
@@ -472,12 +474,16 @@ int main()
             allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
             allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
             allocParams.MDIDataBuffSupportedCnt = 8192u;
-            allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
-    
-            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
-
+            allocParams.MDIDataBuffMinAllocCnt = 16u;
+            
             auto wholeMbRangeBegin = pipelineMeshBufferRanges.front();
             auto wholeMbRangeEnd = pipelineMeshBufferRanges.back();
+
+            IMeshPackerV2Base::SupportedFormatsContainer formats;
+            formats.insertFormatsFromMeshBufferRange(wholeMbRangeBegin, wholeMbRangeEnd);
+
+            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,formats,minTrisBatch,maxTrisBatch);
+            
             const uint32_t mdiCntBound = mp->calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd);
 
             auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
@@ -511,7 +517,7 @@ int main()
                 const uint32_t meshMdiBound = mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
                 core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(std::distance(mbRangeBegin,mbRangeEnd));
                 core::vector<MeshPacker::CombinedDataOffsetTable> cdot(meshMdiBound);
-                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),&*allocDataIt,mbRangeBegin,mbRangeEnd);
+                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),nullptr,&*allocDataIt,mbRangeBegin,mbRangeEnd);
                 allocDataIt += meshMdiBound;
 
                 if (actualMdiCnt==0u)
@@ -553,7 +559,7 @@ int main()
             sceneData.mdiBuffer = gpump->getPackerDataStore().MDIDataBuffer;
             sceneData.idxBuffer = gpump->getPackerDataStore().indexBuffer;
         }
-        am->clearAllAssetCache();
+        mesh_raw->convertToDummyObject(~0u);
 
         //
         smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout;

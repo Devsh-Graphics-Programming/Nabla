@@ -1,15 +1,12 @@
-#ifndef _RAYGEN_COMMON_INCLUDED_
-#define _RAYGEN_COMMON_INCLUDED_
+#ifndef _RAYTRACE_COMMON_H_INCLUDED_
+#define _RAYTRACE_COMMON_H_INCLUDED_
 
-#include "common.glsl"
+#include "common.h"
+
 #if WORKGROUP_SIZE!=256
 	#error "Hardcoded 16 should be NBL_SQRT(WORKGROUP_SIZE)"
 #endif
 #define WORKGROUP_DIM 16
-#ifndef __cplusplus
-layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
-#endif
-
 
 /**
 Plan for lighting:
@@ -89,65 +86,22 @@ struct StaticViewData_t
 	vec2    rcpHalfPixelSize;
 	uvec2   imageDimensions;
 	uint    samplesPerPixelPerDispatch;
-	uint    samplesPerRowPerDispatch;
+	uint    samplesPerRowPerDispatch; // TODO: remove
 };
 
 struct RaytraceShaderCommonData_t
 {
 	mat4	inverseMVP;
 	mat4x3  ndcToV;
-	uint    samplesComputedPerPixel;
-	uint    framesDispatched;
-    float   rcpFramesDispatched;
-	float	padding0;
-};
-
-
-#ifndef __cplusplus
-layout(push_constant, row_major) uniform PushConstants
-{
-	RaytraceShaderCommonData_t cummon; 
-} pc;
-layout(set = 1, binding = 0, row_major) uniform StaticViewData
-{
-	StaticViewData_t staticViewData;
-};
-layout(set = 1, binding = 1, rg32ui) restrict uniform uimage2D accumulation;
-#include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
-layout(set = 1, binding = 2, std430) restrict /*writeonly/readonly TODO depending on stage*/ buffer Rays
-{
-	nbl_glsl_ext_RadeonRays_ray rays[];
-};
-// lights
-layout(set = 1, binding = 3, std430) restrict readonly buffer CumulativeLightPDF
-{
-	uint lightCDF[];
-};
-layout(set = 1, binding = 4, std430, row_major) restrict readonly buffer Lights
-{
-	SLight light[];
-};
-layout(set = 1, binding = 5, std430, row_major) restrict readonly buffer LightRadiances
-{
-	uvec2 lightRadiance[]; // Watts / steriadian / steradian in rgb19e7
-};
-
-#include <nbl/builtin/glsl/format/decode.glsl>
-#include <nbl/builtin/glsl/format/encode.glsl>
-//! @Crisspl we still dont survive roundtrip in RGB19E7
-vec3 fetchAccumulation(in ivec2 coord)
-{
-    const uvec2 data = imageLoad(accumulation,coord).rg;
-	//return vec4(unpackHalf2x16(data[0]),unpackHalf2x16(data[1])).rgb;
-	return nbl_glsl_decodeRGB19E7(data);
-}
-void storeAccumulation(in vec3 color, in ivec2 coord)
-{
-	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
-	//const uvec2 data = uvec2(packHalf2x16(color.rg),packHalf2x16(vec2(color.b,1.0)));
-	imageStore(accumulation,coord,uvec4(data,0u,0u));
-}
-
+	float   rcpFramesDispatched;
+#ifdef __cplusplus
+	uint16_t samplesComputed;
+	uint16_t depth;
+#else
+	uint	samplesComputed_depth;
 #endif
+	uint padding0;
+	uint padding1;
+};
 
 #endif

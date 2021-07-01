@@ -105,7 +105,7 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
+	const bool front = bool((InstData.data[InstanceIndex].determinantSignBit^mix(~0u,0u,gl_FrontFacing!=PC.camTformDeterminant<0.0))&0x80000000u);
 	precomp = nbl_glsl_MC_precomputeData(front);
 	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
