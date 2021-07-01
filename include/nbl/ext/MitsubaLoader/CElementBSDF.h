@@ -242,6 +242,7 @@ class CElementBSDF : public IElement
 		struct BumpMap : MetaBSDF
 		{
 			CElementTexture* texture;
+			bool wasNormal;
 		};
 		struct MixtureBSDF : MetaBSDF
 		{

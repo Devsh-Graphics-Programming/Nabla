@@ -40,6 +40,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementBSDF>(const 
 		{"coating",			CElementBSDF::Type::COATING},
 		{"roughcoating",	CElementBSDF::Type::ROUGHCOATING},
 		{"bumpmap",			CElementBSDF::Type::BUMPMAP},
+		{"normalmap",		CElementBSDF::Type::BUMPMAP},
 		{"phong",			CElementBSDF::Type::PHONG},
 		{"ward",			CElementBSDF::Type::WARD},
 		{"mixturebsdf",		CElementBSDF::Type::MIXTURE_BSDF},
@@ -96,6 +97,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementBSDF>(const 
 			break;
 		case CElementBSDF::Type::BUMPMAP:
 			obj->bumpmap = CElementBSDF::BumpMap();
+			obj->bumpmap.wasNormal = strcmp(type,"bumpmap")!=0;
 			break;
 		case CElementBSDF::Type::PHONG:
 			obj->phong = CElementBSDF::Phong();

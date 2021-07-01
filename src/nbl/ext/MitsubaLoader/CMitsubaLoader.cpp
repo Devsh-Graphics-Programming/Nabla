@@ -270,10 +270,12 @@ static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_
 
 	return asset::ICPUImageView::create(std::move(params));
 }
-static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr)
+static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr, bool fromNormalMap)
 {
 	const auto& sp = _smplr->getParams();
 
+	if (fromNormalMap) // TODO: use the normalmap to derivative map filter and utils from the glTF PR
+		os::Printer::log("Normalmaps not implemented yet! Treating with Bumpmap creation pipeline, expect results to be off!",ELL_ERROR);
 	return asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(
 			_heightMap,
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
@@ -1269,11 +1271,12 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 				// TODO check and restore if dummy (image and sampler)
 				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
 				auto sampler = std::get<1>(bm);
-				const std::string key = ctx.derivMapCacheKey(bumpmap_element);
+				const std::string key = ctx.derivMapCacheKey(bsdf->bumpmap);
 
 				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_assetMgr))
 				{
-					auto derivmap = createDerivMap(bumpmap.get(), sampler.get());
+					// TODO: @Crisspl retrieve the normalization factor from the deriv map filter, then adjust the scale accordingly!
+					auto derivmap = createDerivMap(bumpmap.get(),sampler.get(),bsdf->bumpmap.wasNormal);
 					asset::SAssetBundle imgBundle(nullptr,{ derivmap });
 					ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
 					auto derivmap_view = createImageView(std::move(derivmap));
