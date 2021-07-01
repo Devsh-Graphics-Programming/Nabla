@@ -43,7 +43,7 @@ public:
 
     E_STATUS getStatus(IOpenGL_FunctionTable* _gl)
     {
-        if (!m_sync->isInitialized())
+        if (!m_sync || !m_sync->isInitialized())
             return ES_NOT_READY;
         auto status = m_sync->waitCPU(_gl, 0ull);
         switch (status)

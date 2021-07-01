@@ -18,6 +18,9 @@
 #include "nbl/core/containers/CMemoryPool.h"
 #include "nbl/video/debug/debug.h"
 #include "nbl/video/COpenGLDebug.h"
+//#include "renderdoc_app.h"
+
+//extern RENDERDOC_API_1_1_2* g_rdoc_api;
 
 namespace nbl {
 namespace video
@@ -167,6 +170,9 @@ class COpenGL_Queue final : public IGPUQueue
                         barrierBits |= pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT, submit.pWaitDstStageMask[i]);
                     }
 
+                    //if (g_rdoc_api)
+                    //	g_rdoc_api->StartFrameCapture(NULL, NULL);
+
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
                         IGPUSemaphore* sem = submit.pWaitSemaphores[i].get();
@@ -187,6 +193,9 @@ class COpenGL_Queue final : public IGPUQueue
                     {
                         submit.syncToInit->init(m_device, &gl);
                     }
+
+                    //if (g_rdoc_api)
+                    //	g_rdoc_api->EndFrameCapture(NULL, NULL);
                 }
                 break;
                 case ERT_DESTROY_FRAMEBUFFER:

@@ -598,6 +598,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                 VAOMap.insert(hashVal, GLvao);
                 brandNewVAO = true;
             }
+
             GLuint vao = currentState.vertexInputParams.vaoval.GLname;
             gl->glVertex.pglBindVertexArray(vao);
 
@@ -638,6 +639,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             }
             //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
         }
+
+        UPDATE_STATE(vertexInputParams.vaoval.idxType);
+
         GLuint GLvao = currentState.vertexInputParams.vaoval.GLname;
         assert(GLvao);
         {

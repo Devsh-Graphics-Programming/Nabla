@@ -286,6 +286,14 @@ public:
 
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override final
     {
+#ifdef _NBL_DEBUG
+        for (uint32_t i = 0u; i < _count; ++i)
+        {
+            assert(_fences[i]);
+            auto* glfence = static_cast<COpenGLFence*>(_fences[i]);
+            assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
+        }
+#endif
         SRequestWaitForFences params{ core::SRange<IGPUFence*>(_fences, _fences + _count) , _waitAll, _timeout };
         IGPUFence::E_STATUS retval;
         auto& req = m_threadHandler.request(std::move(params), &retval);

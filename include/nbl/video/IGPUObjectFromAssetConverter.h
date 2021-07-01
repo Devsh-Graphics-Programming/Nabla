@@ -982,8 +982,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 compute_sem = _params.device->createSemaphore();
             auto* compute_sem_ptr = compute_sem.get();
             core::smart_refctd_ptr<IGPUFence> compute_fence;
-            if (_params.perQueue[EQU_COMPUTE].fence)
-                compute_fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+            compute_fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             auto* compute_fence_ptr = compute_fence.get();
 
             asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COMPUTE_SHADER_BIT;
@@ -1009,11 +1008,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         // separate cmdbufs per batch instead?
         if (it != _end)
         {
-            // wait to finish all batch work
+            // wait to finish all batch work in order to safely reset command buffers
             _params.device->waitForFences(1u, &batch_final_fence, false, 9999999999ull);
-            // reset the `fence` (will be reused in next batch)
-            auto* fence_ptr = fence.get();
-            _params.device->resetFences(1u, &fence_ptr);
 
             cmdbuf_transfer->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
             cmdbuf_transfer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
@@ -1022,6 +1018,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 cmdbuf_compute->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
                 cmdbuf_compute->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             }
+
+            // new fence for new batch
+            fence = _params.device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
         }
     };
 
