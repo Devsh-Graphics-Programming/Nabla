@@ -1,5 +1,5 @@
 #version 430 core
-#include <nbl/builtin/glsl/barycentric/frag.glsl>
+#include <nbl/builtin/glsl/barycentric/extensions.glsl>
 
 #include "common.glsl"
 
