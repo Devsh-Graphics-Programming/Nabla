@@ -264,6 +264,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
 
 
+				// TODO: after position moves to RGB21, need to split up normal from UV
 				constexpr auto combinedNormalUVAttributeIx = 1;
 				constexpr auto newEnabledAttributeMask = (0x1u<<combinedNormalUVAttributeIx)|0b1;
 
@@ -277,6 +278,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				{
 					core::vector<const ICPUMeshBuffer*> meshBuffersToProcess;
 					meshBuffersToProcess.reserve(contents.size());
+					// TODO: Optimize! Check which triangles need normals, bin into two separate meshbuffers, dont have normals for meshbuffers where all(abs(transpose(normals)*cross(pos1-pos0,pos2-pos0))~=1.f) 
+					// TODO: Optimize! Check which materials use any textures, if meshbuffer doens't use any textures, its pipeline doesn't need UV coordinates
+					// TODO: separate pipeline for stuff without UVs and separate out the barycentric derivative FBO attachment 
 					for (const auto& asset : contents)
 					{
 						auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());

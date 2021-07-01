@@ -1,4 +1,4 @@
-#version 430 core
+#version 460 core
 #include <nbl/builtin/glsl/barycentric/extensions.glsl>
 
 #include "common.glsl"

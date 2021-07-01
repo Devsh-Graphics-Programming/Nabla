@@ -41,6 +41,7 @@ void main()
 			const uint batchInstanceGUID = bitfieldExtract(visBuffer[0],0,31-triangleIDBitcount);
 			const vec2 compactBary = unpackUnorm2x16(visBuffer[1]);
 			#ifdef TEX_PREFETCH_STREAM
+			// TODO: separate pipeline and separate out the barycentric derivative FBO attachment, only write if need to, only fetch if `needs_texture_prefetch`
 			const mat2 dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
 			#endif
 			

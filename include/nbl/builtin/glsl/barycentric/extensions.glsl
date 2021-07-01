@@ -6,7 +6,7 @@
 #define _NBL_BUILTIN_GLSL_BARYCENTRIC_EXTENSIONS_INCLUDED_
 
 #ifdef NBL_GL_NV_fragment_shader_barycentric
-#extension GL_NV_fragment_shader_barycentric : require
+#extension GL_NV_fragment_shader_barycentric : enable
 #elif defined(NBL_GL_AMD_shader_explicit_vertex_parameter)
 #extension GL_AMD_shader_explicit_vertex_parameter : enable
 #endif
