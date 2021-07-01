@@ -266,7 +266,7 @@ int main()
 
 	auto extent = renderer->getSceneBound().getExtent();
 	// want dynamic camera or not?
-	if (false)
+	if (true)
 	{
 		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
 		auto proj = camera->getProjectionMatrix();
