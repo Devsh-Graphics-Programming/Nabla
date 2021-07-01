@@ -293,18 +293,9 @@ public:
     
     //TODO: REDESIGN
     //mdi allocation offset and index allocation offset should be shared
-    struct ReservedAllocationMeshBuffers
+    struct ReservedAllocationMeshBuffers : ReservedAllocationMeshBuffersBase
     {
-        uint32_t mdiAllocationOffset;
-        uint32_t mdiAllocationReservedCnt;
-        uint32_t indexAllocationOffset;
-        uint32_t indexAllocationReservedCnt;
         AttribAllocParams attribAllocParams[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
-
-        inline bool isValid()
-        {
-            return this->mdiAllocationOffset!=core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-        }
     };
     struct VirtualAttribute
     {
@@ -595,17 +586,13 @@ public:
     {
         for (uint32_t i = 0u; i < meshBuffersToFreeCnt; i++)
         {
-            const ReservedAllocationMeshBuffers* const ramb = rambIn + i;
+            const ReservedAllocationMeshBuffers& ramb = rambIn[i];
 
-            if (ramb->indexAllocationOffset != INVALID_ADDRESS)
-                m_idxBuffAlctr.free_addr(ramb->indexAllocationOffset, ramb->indexAllocationReservedCnt);
-            
-            if (ramb->mdiAllocationOffset != INVALID_ADDRESS)
-                m_MDIDataAlctr.free_addr(ramb->mdiAllocationOffset, ramb->mdiAllocationReservedCnt);
+            base_t::free(ramb);
             
             for (uint32_t j = 0; j < SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; j++)
             {
-                const AttribAllocParams& attrAllocParams = ramb->attribAllocParams[j];
+                const AttribAllocParams& attrAllocParams = ramb.attribAllocParams[j];
                 if (attrAllocParams.offset != INVALID_ADDRESS)
                     m_vtxBuffAlctr.free_addr(attrAllocParams.offset, attrAllocParams.size);
             }

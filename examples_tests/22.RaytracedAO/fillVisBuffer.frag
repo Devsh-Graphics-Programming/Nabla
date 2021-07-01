@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #version 430 core
+#extension GL_NV_fragment_shader_barycentric : require
 #extension GL_EXT_shader_16bit_storage : require
-#include <nbl/builtin/glsl/barycentric/extensions.glsl>
 
 
 #define _NBL_GLSL_EXT_MITSUBA_LOADER_INSTANCE_DATA_BINDING_ 0

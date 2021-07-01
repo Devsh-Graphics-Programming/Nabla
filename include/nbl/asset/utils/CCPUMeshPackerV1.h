@@ -32,21 +32,12 @@ public:
 		size_t perInstanceVertexBufferMinAllocByteSize = 32ull;
 	};
 
-	struct ReservedAllocationMeshBuffers
+	struct ReservedAllocationMeshBuffers : ReservedAllocationMeshBuffersBase
 	{
-		uint32_t mdiAllocationOffset;
-		uint32_t mdiAllocationReservedCnt;
 		uint32_t instanceAllocationOffset;
 		uint32_t instanceAllocationReservedSize;
-		uint32_t indexAllocationOffset;
-		uint32_t indexAllocationReservedCnt;
 		uint32_t vertexAllocationOffset;
 		uint32_t vertexAllocationReservedSize;
-
-		inline bool isValid() const
-		{
-			return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-		}
 	};
 
 	struct PackerDataStore : base_t::template PackerDataStoreCommon<ICPUBuffer>
@@ -78,17 +69,13 @@ public:
 
 	void free(const ReservedAllocationMeshBuffers& ramb)
 	{
-		if (ramb.indexAllocationOffset != INVALID_ADDRESS)
-			m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
-
-		if (ramb.mdiAllocationOffset != INVALID_ADDRESS)
-			m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
-
 		if (ramb.vertexAllocationOffset != INVALID_ADDRESS)
 			m_vtxBuffAlctr.free_addr(ramb.vertexAllocationOffset, ramb.vertexAllocationReservedSize);
 
 		if (ramb.instanceAllocationOffset != INVALID_ADDRESS)
 			m_vtxBuffAlctr.free_addr(ramb.instanceAllocationOffset, ramb.instanceAllocationReservedSize);
+
+		base_t::free(ramb);
 	}
 
 	//needs to be called before first `commit`
