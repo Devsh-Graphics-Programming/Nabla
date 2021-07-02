@@ -1221,6 +1221,9 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			switch (bsdf->type)
 			{
 			case CElementBSDF::COATING:
+				for (uint32_t i = 0u; i < bsdf->coating.childCount; ++i)
+					stack.push(bsdf->coating.bsdf[i]);
+				break;
 			case CElementBSDF::ROUGHCOATING:
 			case CElementBSDF::BUMPMAP:
 			case CElementBSDF::BLEND_BSDF:
@@ -1427,9 +1430,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				//os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				//ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
-				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.front = impl_backendToGLSLStream(emissive,streams);
@@ -1441,9 +1444,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				//os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				//ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
-				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.back = impl_backendToGLSLStream(emissive,streams);

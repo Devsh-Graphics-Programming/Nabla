@@ -105,10 +105,12 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
 	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
 	{
-		os::Printer::log("Invalid (non-TGA) file!", ELL_ERROR);
+		//os::Printer::log("Invalid (non-TGA) file!", _file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 
+	// why did it even check gamma in isALoadableFileFormat ???
+	/*
 	float gamma;
 
 	if (footer.ExtensionOffset == 0)
@@ -133,6 +135,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 		// TODO - pass gamma to LoadAsset()?
 		// Actually I think metadata will be in used here in near future
 	}
+	*/
 	
     _file->seek(prevPos);
 	

@@ -77,6 +77,26 @@ namespace MitsubaLoader
         return { nullptr, nullptr, _scale };
     }
 
+    auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
+    {
+        constexpr const char* ERR_TEX_CACHE_NAME = "nbl/builtin/image_view/dummy2d";
+        constexpr const char* ERR_SMPLR_CACHE_NAME = "nbl/builtin/sampler/default";
+
+        asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+        auto bundle = m_loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, m_loaderContext->inner, 0u);
+        assert(!bundle.getContents().empty()); // this shouldnt ever happen since ERR_TEX_CACHE_NAME is builtin asset
+        
+        auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
+
+        types[0] = asset::IAsset::ET_SAMPLER;
+        auto sbundle = m_loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, m_loaderContext->inner, 0u);
+        assert(!sbundle.getContents().empty()); // this shouldnt ever happen since ERR_SMPLR_CACHE_NAME is builtin asset
+
+        auto smplr = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(sbundle.getContents().begin()[0]);
+
+        return { view, smplr, 1.f };
+    }
+
     auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> IRNode*
     {
         using namespace asset;
@@ -352,7 +372,11 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
             if (tex.image)
                 dst = std::move(tex);
             else
-                dst = IR::INode::color_t(1.f, 0.f, 0.f); // red in case of no texture
+            {
+                // error texture in case of not-found texture
+                std::tie(tex.image, tex.sampler, tex.scale) = getErrorTexture();
+                dst = std::move(tex);
+            }
         }
         else dst = src.value.vvalue;
     };
@@ -387,11 +411,11 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
 
             if (parent.bsdf->isMeta())
             {
-                const auto& meta = parent.bsdf->meta_common;
-                for (uint32_t i = 0u; i < meta.childCount; ++i)
+                const uint32_t child_count = (parent.bsdf->type == CElementBSDF::COATING) ? parent.bsdf->coating.childCount : parent.bsdf->meta_common.childCount;
+                for (uint32_t i = 0u; i < child_count; ++i)
                 {
                     SNode child_node;
-                    child_node.bsdf = meta.bsdf[i];
+                    child_node.bsdf = (parent.bsdf->type == CElementBSDF::COATING) ? parent.bsdf->coating.bsdf[i] : parent.bsdf->meta_common.bsdf[i];
                     child_node.parent_ix = parent.type() == CElementBSDF::TWO_SIDED ? parent.parent_ix : bfs.size();
                     child_node.twosided = (child_node.type() == CElementBSDF::TWO_SIDED) || parent.twosided;
                     child_node.child_num = (parent.type() == CElementBSDF::TWO_SIDED) ? parent.child_num : i;

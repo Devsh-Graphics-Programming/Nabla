@@ -5,6 +5,7 @@
 #ifndef __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 #define __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 
+#include "nbl/core/compile_config.h"
 #include "nbl/asset/metadata/IAssetMetadata.h"
 
 #include "nbl/ext/MitsubaLoader/SContext.h"
@@ -67,6 +68,9 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 					CElementEmitter frontEmitter; // type is invalid if not used
 					CElementEmitter backEmitter; // type is invalid if not used
 					CMitsubaMaterialCompilerFrontend::front_and_back_t bsdf;
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+					std::string bsdf_id;
+#endif
 				};
 
 				core::SRange<const SInstanceAuxilaryData> m_instanceAuxData;
@@ -162,7 +166,14 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 				{
 					auto& inst = it->second;
 					(m_instanceStorageIt++)->worldTform = inst.tform;
-					*(m_instanceAuxStorageIt++) = {inst.emitter.front,inst.emitter.back,inst.bsdf};
+					*(m_instanceAuxStorageIt++) = {
+						inst.emitter.front,
+						inst.emitter.back,
+						inst.bsdf
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+						,inst.bsdf_id
+#endif
+					};
 				}
 				meta->m_instances = { instanceStorageBegin,m_instanceStorageIt };
 				meta->m_instanceAuxData = { instanceAuxStorageBegin,m_instanceAuxStorageIt };

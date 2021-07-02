@@ -691,7 +691,6 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 
 			assert(node->children.count == 1u);
 			auto* coated = const_cast<IR::INode*>(node->children[0]);
-			out_next = IR::INode::createChildrenArray(coat, coated);
 
 			instr = instr_stream::OP_COATING;
 
@@ -700,9 +699,19 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 				instr = instr_stream::OP_INVALID;
 			const IR::CBSDFNode::E_TYPE coated_bxdf = static_cast<const IR::CBSDFNode*>(coated)->type;
 			const bool is_coated_diffuse = (coated_bxdf == IR::CBSDFNode::ET_MICROFACET_DIFFUSE || coated_bxdf == IR::CBSDFNode::ET_MICROFACET_DIFFTRANS);
-			assert(is_coated_diffuse);
+			//assert(is_coated_diffuse);
+			// we dont support coating over non-diffuse materials
+			// so we ignore coating layer and process only the coated material
 			if (!is_coated_diffuse)
-				instr = instr_stream::OP_INVALID;
+			{
+				auto retval = processSubtree(ir, coated, out_next, cache);
+				instr = retval.first;
+				tree = retval.second;
+			}
+			else
+			{
+				out_next = IR::INode::createChildrenArray(coat, coated);
+			}
 		}
 			break;
 		case IR::CBSDFNode::ET_MICROFACET_DIELECTRIC:
