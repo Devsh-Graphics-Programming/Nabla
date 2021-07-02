@@ -1271,12 +1271,13 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 				// TODO check and restore if dummy (image and sampler)
 				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
 				auto sampler = std::get<1>(bm);
-				const std::string key = ctx.derivMapCacheKey(bsdf->bumpmap);
+				const bool wasNormal = bsdf->bumpmap.wasNormal;
+				const std::string key = ctx.derivMapCacheKey(bumpmap_element,wasNormal);
 
 				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_assetMgr))
 				{
 					// TODO: @Crisspl retrieve the normalization factor from the deriv map filter, then adjust the scale accordingly!
-					auto derivmap = createDerivMap(bumpmap.get(),sampler.get(),bsdf->bumpmap.wasNormal);
+					auto derivmap = createDerivMap(bumpmap.get(),sampler.get(),wasNormal);
 					asset::SAssetBundle imgBundle(nullptr,{ derivmap });
 					ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
 					auto derivmap_view = createImageView(std::move(derivmap));

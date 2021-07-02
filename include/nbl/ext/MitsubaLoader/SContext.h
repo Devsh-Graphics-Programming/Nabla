@@ -61,7 +61,7 @@ namespace MitsubaLoader
 			return imageCacheKey + "?view";
 		}
 
-		static std::string derivMapCacheKey(const CElementBSDF::BumpMap& _bump)
+		static std::string derivMapCacheKey(const CElementTexture* bitmap, bool wasNormal)
 		{
 			using namespace std::string_literals;
 			static const char* wrap[5]
@@ -73,18 +73,17 @@ namespace MitsubaLoader
 				"?one"
 			};
 
-			const auto* bitmap = _bump.texture;
 			std::string key = bitmap->bitmap.filename.svalue + "?deriv"s;
-			key += _bump.wasNormal ? "n"s:"h"s;
+			key += wasNormal ? "?n"s:"?h"s;
 			key += wrap[bitmap->bitmap.wrapModeU];
 			key += wrap[bitmap->bitmap.wrapModeV];
 
 			return key;
 		}
 
-		static std::string derivMapViewCacheKey(const CElementBSDF::BumpMap& _bump)
+		static std::string derivMapViewCacheKey(const CElementTexture* bitmap, bool wasNormal)
 		{
-			return imageViewCacheKey(derivMapCacheKey(_bump));
+			return imageViewCacheKey(derivMapCacheKey(bitmap,wasNormal));
 		}
 
 		static std::string blendWeightViewCacheKey(const CElementTexture* bitmap)
