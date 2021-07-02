@@ -40,10 +40,6 @@ void main()
 			const uint triangleID = bitfieldExtract(visBuffer[0],31-triangleIDBitcount,triangleIDBitcount);
 			const uint batchInstanceGUID = bitfieldExtract(visBuffer[0],0,31-triangleIDBitcount);
 			const vec2 compactBary = unpackUnorm2x16(visBuffer[1]);
-			#ifdef TEX_PREFETCH_STREAM
-			// TODO: separate pipeline and separate out the barycentric derivative FBO attachment, only write if need to, only fetch if `needs_texture_prefetch`
-			const mat2 dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
-			#endif
 			
 			//
 			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
@@ -51,6 +47,11 @@ void main()
 			
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
+			// get barycentric derivatives while waiting for the material
+			#ifdef TEX_PREFETCH_STREAM
+			// TODO: separate pipeline and separate out the barycentric derivative FBO attachment, only write if need to, only fetch if `needs_texture_prefetch`
+			const mat2 dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
+			#endif
 			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			
 			const uint vertex_depth_mod_2 = 0x1u;

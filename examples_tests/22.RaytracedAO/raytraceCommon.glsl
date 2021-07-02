@@ -157,15 +157,15 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
 
-bool needs_texture_prefetch(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
+bool needs_texture_prefetch(in nbl_glsl_MC_instr_stream_t tps)
 {
-	return true;
+	return tps.count!=0u;
 }
 
 nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 	in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
 	in uvec3 indices, in vec2 compactBary, in vec3 geomDenormal,
-	in nbl_glsl_MC_oriented_material_t material,
+	in nbl_glsl_MC_oriented_material_t material, // TODO: change to the tps, dont need the whole material
 	in uvec2 outPixelLocation, in uint vertex_depth_mod_2
 #ifdef TEX_PREFETCH_STREAM
 	,in mat2 dBarydScreen
@@ -174,15 +174,14 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 {
 	// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
 	#ifdef TEX_PREFETCH_STREAM
-	if (needs_texture_prefetch(batchInstanceData))
+	const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
+	if (needs_texture_prefetch(tps))
 	{
 		const mat3x2 uvs = mat3x2(
 			nbl_glsl_fetchVtxUV(indices[0],batchInstanceData),
 			nbl_glsl_fetchVtxUV(indices[1],batchInstanceData),
 			nbl_glsl_fetchVtxUV(indices[2],batchInstanceData)
 		);
-	
-		const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
 
 		dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
 		const vec2 UV = dUVdBary*compactBary+uvs[2];
