@@ -8,7 +8,10 @@
 
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
-
+#include "nbl/system/ISystem.h"
+using namespace nbl;
+using namespace system;
+using namespace core;
 
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 
@@ -20,13 +23,30 @@
 
 #include "nbl/system/IFile.h"
 
+// A struct that is stored as a libpng user pointer (user_chunk_ptr)
+struct SUserData
+{
+	system::ISystem* system;
+	// Made file_pos initial value 8 cause it's first set to 8 in CImageLoaderPng::loadAsset
+	// and set to 8 but you cannot access this struct from there
+	size_t file_pos = 8; 
+};
+
 namespace nbl
 {
 namespace asset
 {
 
+
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
+
+void updateFilePos(png_structp png_pt, size_t new_file_pos)
+{
+	auto ptr = (SUserData*)png_get_user_chunk_ptr(png_pt);
+	ptr->file_pos = new_file_pos;
+	png_set_read_user_chunk_fn(png_pt, ptr, nullptr);
+}
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
 	os::Printer::log("PNG fatal error", msg, ELL_ERROR);
@@ -43,14 +63,20 @@ static void png_cpexcept_warn(png_structp png_ptr, png_const_charp msg)
 void PNGAPI user_read_data_fcn(png_structp png_pt, png_bytep data, png_size_t length)
 {
 	png_size_t check;
-	png_pt->mode;
-	// changed by zola {
+
+	auto* userData = (SUserData*)png_get_user_chunk_ptr(png_pt);
+	size_t file_pos = userData->file_pos;
+
 	system::IFile* file=(system::IFile*)png_get_io_ptr(png_pt);
-	check=(png_size_t) file->read((void*)data,(uint32_t)length);
-	// }
+
+	system::ISystem::future_t<uint32_t> future;
+	userData->system->readFile(future, file, data, file_pos, length);
+	
+	file_pos += length;
+	updateFilePos(png_pt, file_pos);
 
 	if (check != length)
-		png_error(png_ptr, "Read Error");
+		png_error(png_pt, "Read Error");
 }
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
@@ -62,17 +88,16 @@ bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file) const
 	if (!_file)
 		return false;
 
-    const size_t prevPos = _file->getPos();
-
 
 	png_byte buffer[8];
+
+	system::ISystem::future_t<uint32_t> future;
+	m_system->readFile(future, _file, buffer, 0, 8);
 	// Read the first few bytes of the PNG _file
-    if (_file->read(buffer, 8) != 8)
+    if (future.get() != 8)
     {
-        _file->seek(prevPos);
         return false;
     }
-    _file->seek(prevPos);
 	// Check if it really is a PNG _file
 	return !png_sig_cmp(buffer, 0, 8);
 #else
@@ -140,6 +165,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	}
 
 	// changed by zola so we don't need to have public FILE pointers
+	png_set_read_user_chunk_fn(png_ptr, &m_userData, nullptr);
+
 	png_set_read_fn(png_ptr, _file, user_read_data_fcn);
 
 	png_set_sig_bytes(png_ptr, 8); // Tell png that we read the signature
