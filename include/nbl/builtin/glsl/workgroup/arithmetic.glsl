@@ -142,15 +142,15 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupMul)
 
 uint nbl_glsl_workgroupMin_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveMin_impl,val,UINT_MAX,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_REDUCE(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_UINT_MAX,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupMin_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(int,nbl_glsl_subgroupInclusiveMin_impl,val,INT_MAX,uint);
+	NBL_GLSL_WORKGROUP_REDUCE(int,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_INT_MAX,uint);
 }
 float nbl_glsl_workgroupMin_noBarriers(in float val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,nbl_glsl_subgroupInclusiveMin_impl,val,FLT_INF,floatBitsToUint);
+	NBL_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_FLT_INF,floatBitsToUint);
 }
 
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupMin)
@@ -160,15 +160,15 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupMin)
 
 uint nbl_glsl_workgroupMax_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveMax_impl,val,UINT_MIN,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_REDUCE(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveMax_impl,val,nbl_glsl_UINT_MIN,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupMax_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(int,nbl_glsl_subgroupInclusiveMax_impl,val,INT_MIN,uint);
+	NBL_GLSL_WORKGROUP_REDUCE(int,nbl_glsl_subgroupInclusiveMax_impl,val,nbl_glsl_INT_MIN,uint);
 }
 float nbl_glsl_workgroupMax_noBarriers(in float val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,nbl_glsl_subgroupInclusiveMax_impl,val,-FLT_INF,floatBitsToUint);
+	NBL_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,nbl_glsl_subgroupInclusiveMax_impl,val,-nbl_glsl_FLT_INF,floatBitsToUint);
 }
 
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupMax)
@@ -370,15 +370,15 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupExclusiveMul)
 
 uint nbl_glsl_workgroupInclusiveMin_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(false,nbl_glsl_identityFunction,min,nbl_glsl_subgroupInclusiveMin_impl,val,UINT_MAX,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_SCAN(false,nbl_glsl_identityFunction,min,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_UINT_MAX,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupInclusiveMin_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(false,int,min,nbl_glsl_subgroupInclusiveMin_impl,val,INT_MAX,uint);
+	NBL_GLSL_WORKGROUP_SCAN(false,int,min,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_INT_MAX,uint);
 }
 float nbl_glsl_workgroupInclusiveMin_noBarriers(in float val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(false,uintBitsToFloat,min,nbl_glsl_subgroupInclusiveMin_impl,val,FLT_INF,floatBitsToUint);
+	NBL_GLSL_WORKGROUP_SCAN(false,uintBitsToFloat,min,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_FLT_INF,floatBitsToUint);
 }
 
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupInclusiveMin)
@@ -388,15 +388,15 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupInclusiveMin)
 
 uint nbl_glsl_workgroupExclusiveMin_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,nbl_glsl_identityFunction,min,nbl_glsl_subgroupInclusiveMin_impl,val,UINT_MAX,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_SCAN(true,nbl_glsl_identityFunction,min,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_UINT_MAX,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupExclusiveMin_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,int,min,nbl_glsl_subgroupInclusiveMin_impl,val,INT_MAX,uint);
+	NBL_GLSL_WORKGROUP_SCAN(true,int,min,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_INT_MAX,uint);
 }
 float nbl_glsl_workgroupExclusiveMin_noBarriers(in float val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,uintBitsToFloat,min,nbl_glsl_subgroupInclusiveMin_impl,val,FLT_INF,floatBitsToUint);
+	NBL_GLSL_WORKGROUP_SCAN(true,uintBitsToFloat,min,nbl_glsl_subgroupInclusiveMin_impl,val,nbl_glsl_FLT_INF,floatBitsToUint);
 }
 
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupExclusiveMin)
@@ -407,15 +407,15 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupExclusiveMin)
 
 uint nbl_glsl_workgroupInclusiveMax_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(false,nbl_glsl_identityFunction,max,nbl_glsl_subgroupInclusiveMax_impl,val,UINT_MIN,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_SCAN(false,nbl_glsl_identityFunction,max,nbl_glsl_subgroupInclusiveMax_impl,val,nbl_glsl_UINT_MIN,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupInclusiveMax_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(false,int,max,nbl_glsl_subgroupInclusiveMax_impl,val,INT_MIN,uint);
+	NBL_GLSL_WORKGROUP_SCAN(false,int,max,nbl_glsl_subgroupInclusiveMax_impl,val,nbl_glsl_INT_MIN,uint);
 }
 float nbl_glsl_workgroupInclusiveMax_noBarriers(in float val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(false,uintBitsToFloat,max,nbl_glsl_subgroupInclusiveMax_impl,val,-FLT_INF,floatBitsToUint);
+	NBL_GLSL_WORKGROUP_SCAN(false,uintBitsToFloat,max,nbl_glsl_subgroupInclusiveMax_impl,val,-nbl_glsl_FLT_INF,floatBitsToUint);
 }
 
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupInclusiveMax)
@@ -425,15 +425,15 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupInclusiveMax)
 
 uint nbl_glsl_workgroupExclusiveMax_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,nbl_glsl_identityFunction,max,nbl_glsl_subgroupInclusiveMax_impl,val,UINT_MIN,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_SCAN(true,nbl_glsl_identityFunction,max,nbl_glsl_subgroupInclusiveMax_impl,val,nbl_glsl_UINT_MIN,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupExclusiveMax_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,int,max,nbl_glsl_subgroupInclusiveMax_impl,val,INT_MIN,uint);
+	NBL_GLSL_WORKGROUP_SCAN(true,int,max,nbl_glsl_subgroupInclusiveMax_impl,val,nbl_glsl_INT_MIN,uint);
 }
 float nbl_glsl_workgroupExclusiveMax_noBarriers(in float val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,uintBitsToFloat,max,nbl_glsl_subgroupInclusiveMax_impl,val,-FLT_INF,floatBitsToUint);
+	NBL_GLSL_WORKGROUP_SCAN(true,uintBitsToFloat,max,nbl_glsl_subgroupInclusiveMax_impl,val,-nbl_glsl_FLT_INF,floatBitsToUint);
 }
 
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupExclusiveMax)

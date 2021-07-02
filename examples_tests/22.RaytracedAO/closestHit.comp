@@ -1,0 +1,109 @@
+#version 430 core
+#extension GL_EXT_shader_16bit_storage : require
+
+#include "raytraceCommon.h"
+layout(local_size_x = WORKGROUP_SIZE) in;
+
+// TODO : NEE
+#define MAX_RAYS_GENERATED 1
+#include "raytraceCommon.glsl"
+
+uint get_path_vertex_depth()
+{
+	return pc.cummon.depth;
+}
+
+#include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
+layout(set = 3, binding = 0, std430) restrict readonly buffer SourceRays
+{
+	nbl_glsl_ext_RadeonRays_ray sourceRays[];
+};
+layout(set = 3, binding = 1, std430) restrict buffer Queries
+{
+	nbl_glsl_ext_RadeonRays_Intersection intersections[];
+};
+
+
+bool get_sample_job()
+{
+	return gl_GlobalInvocationID.x<rayCount[(pc.cummon.rayCountWriteIx-1u)&uint(RAYCOUNT_N_BUFFERING_MASK)];
+}
+
+void main()
+{
+	clear_raycount();
+	bool hit = false;
+	if (get_sample_job())
+	{
+		vec3 emissive = staticViewData.envmapBaseColor;	
+
+		// basic reads
+		const uint vertex_depth = get_path_vertex_depth();
+		const uint vertex_depth_mod_2 = vertex_depth&0x1u;
+		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[gl_GlobalInvocationID.x];
+		const nbl_glsl_ext_RadeonRays_ray ray = sourceRays[gl_GlobalInvocationID.x];
+
+		const uint batchInstanceGUID = intersection.shapeid;
+		const uint invalidID = 0xffffffffu;
+		hit = batchInstanceGUID!=invalidID;
+
+		const uvec2 outPixelLocation = unpackOutPixelLocation(ray.time);
+		const vec3 throughput = vec3(
+			unpackHalf2x16(ray.useless_padding[0]).rg,
+			unpackHalf2x16(ray.useless_padding[1])[0]
+		);
+		const uint sampleID = bitfieldExtract(ray.useless_padding[1],16,16);
+
+		//
+		if (hit)
+		{
+			const uint triangleID = intersection.primid;
+			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
+			
+			// obtain ray incoming direction
+			normalizedV = -ray.direction;
+			// clear the hit success flag
+			intersections[gl_GlobalInvocationID.x].shapeid = -1;
+
+			const uvec3 indices = get_triangle_indices(batchInstanceData,triangleID);
+			
+			// positions
+			vec3 geomDenormal;
+			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
+			const bool frontfacing = bool((batchInstanceData.determinantSignBit^floatBitsToUint(dot(geomDenormal,normalizedV)))&0x80000000u);
+
+			// get material
+			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
+			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+	
+			const bool _continue = vertex_depth!=MAX_PATH_DEPTH && ray.maxT==nbl_glsl_FLT_MAX; // last vertex or was a NEE path
+			if (_continue)
+			{
+				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
+				const vec2 compactBary = vec2(1.f-intersection.uvwt.x-intersection.uvwt.y,intersection.uvwt.x); // radeon rays is a special boy
+				
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
+					batchInstanceData,indices,compactBary,geomDenormal,
+					material,outPixelLocation,vertex_depth
+#ifdef TEX_PREFETCH_STREAM
+					,mat2(0.0) // TODO: Covariance Rendering
+#endif
+				);
+				
+				const vec3 origin = dPdBary*compactBary+lastVxPos;
+
+				generate_next_rays(
+					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,scramble_start_state,
+					sampleID,outPixelLocation,origin,throughput
+				);
+			}
+		}
+
+		// TODO: finish MIS
+		vec3 acc;
+		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
+		const bool first_accumulating_path_vertex = get_path_vertex_depth()==2u&&accumulationLocation.z!=0u;
+		if (record_emission_common(acc,accumulationLocation,emissive*throughput,first_accumulating_path_vertex))
+			storeAccumulation(acc,accumulationLocation);
+	}
+}

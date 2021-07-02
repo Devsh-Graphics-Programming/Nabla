@@ -15,6 +15,20 @@ namespace asset
 class IMeshPackerBase : public virtual core::IReferenceCounted
 {
     public:
+        constexpr static uint32_t MAX_TRIANGLES_IN_BATCH_CNT = 21845u;
+        
+        struct ReservedAllocationMeshBuffersBase
+        {
+            uint32_t mdiAllocationOffset;
+            uint32_t mdiAllocationReservedCnt;
+            uint32_t indexAllocationOffset;
+            uint32_t indexAllocationReservedCnt;
+
+            inline bool isValid()
+            {
+                return this->mdiAllocationOffset!=core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+            }
+        };
         struct PackedMeshBufferData
         {
             uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
@@ -30,15 +44,14 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
         inline uint16_t getMaxTriangleCountPerMDI() const { return m_maxTriangleCountPerMDIData; }
 
     protected:
+        using alctrTraits = core::address_allocator_traits<core::GeneralpurposeAddressAllocator<uint32_t>>;
+
         IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
             :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
-             m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
-             m_MDIDataAlctrResSpc(nullptr),
-             m_idxBuffAlctrResSpc(nullptr),
-             m_vtxBuffAlctrResSpc(nullptr)
+             m_minTriangleCountPerMDIData(minTriangleCountPerMDIData)
         {
-            assert(minTriangleCountPerMDIData <= 21845u);
-            assert(maxTriangleCountPerMDIData <= 21845u);
+            assert(minTriangleCountPerMDIData <= MAX_TRIANGLES_IN_BATCH_CNT);
+            assert(maxTriangleCountPerMDIData <= MAX_TRIANGLES_IN_BATCH_CNT);
             assert(minTriangleCountPerMDIData <= maxTriangleCountPerMDIData);
             assert(minTriangleCountPerMDIData > 0u);
             assert(maxTriangleCountPerMDIData > 0u);
@@ -46,22 +59,11 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
 
         virtual ~IMeshPackerBase()
         {
-            _NBL_ALIGNED_FREE(m_MDIDataAlctrResSpc);
-            _NBL_ALIGNED_FREE(m_idxBuffAlctrResSpc);
-            _NBL_ALIGNED_FREE(m_vtxBuffAlctrResSpc);
+            _NBL_ALIGNED_FREE(const_cast<void*>(alctrTraits::getReservedSpacePtr(m_MDIDataAlctr)));
+            _NBL_ALIGNED_FREE(const_cast<void*>(alctrTraits::getReservedSpacePtr(m_idxBuffAlctr)));
+            _NBL_ALIGNED_FREE(const_cast<void*>(alctrTraits::getReservedSpacePtr(m_vtxBuffAlctr)));
         }
 
-        struct MinimumAllocationParamsCommon
-        {
-            // Minimum count of 16 bit indicies allocated per allocation
-            size_t indexBufferMinAllocCnt = 256ull;
-
-            // Minimum bytes of vertex data allocated per allocation
-            size_t vertexBufferMinAllocByteSize = 32ull;
-
-            // Minimum count of MDI structs allocated per allocation
-            size_t MDIDataBuffMinAllocCnt = 32ull;
-        };
         struct AllocationParamsCommon
         {
             // Maximum number of 16 bit indicies that may be allocated
@@ -76,9 +78,6 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             // Maximum number of MDI structs that may be allocated
             size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*   16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
 
-            // TODO: get rid of these, replace with
-            // MinimumAllocationParamsCommon minAllocParams;
-            // 
             // Minimum count of 16 bit indicies allocated per allocation
             size_t indexBufferMinAllocCnt = 256ull;
 
@@ -89,39 +88,62 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             size_t MDIDataBuffMinAllocCnt = 32ull;
         };
 
-        // TODO: make a function which initializes allocators as a copy (incl resized copy)
         void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
         {
             if (allocParams.indexBuffSupportedCnt)
             {
-                m_idxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt), _NBL_SIMD_ALIGNMENT);
-                _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
-                assert(m_idxBuffAlctrResSpc != nullptr);
-                m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
+                
+                void* resSpcTmp = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt), _NBL_SIMD_ALIGNMENT);
+                assert(resSpcTmp != nullptr);
+                m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpcTmp, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocCnt);
             }
 
             if (allocParams.vertexBuffSupportedByteSize)
             {
-                m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
-                _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
-                assert(m_vtxBuffAlctrResSpc != nullptr);
-                m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize);
+                void* resSpcTmp = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize), _NBL_SIMD_ALIGNMENT);
+                assert(resSpcTmp != nullptr);
+                m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpcTmp, 0u, 0u, 32u, allocParams.vertexBuffSupportedByteSize, allocParams.vertexBufferMinAllocByteSize);
             }
 
             if (allocParams.MDIDataBuffSupportedCnt)
             {
-                m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt), _NBL_SIMD_ALIGNMENT);
-                _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
-                assert(m_MDIDataAlctrResSpc != nullptr);
-                m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt);
+                void* resSpcTmp = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt), _NBL_SIMD_ALIGNMENT);
+                assert(resSpcTmp != nullptr);
+                m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpcTmp, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocCnt);
             }
         }
 
-    protected:
-        // TODO: don't hold the reserved spaces, they're held by the allocators anyway
-        void* m_MDIDataAlctrResSpc;
-        void* m_idxBuffAlctrResSpc;
-        void* m_vtxBuffAlctrResSpc;
+        void initializeCommonAllocators(
+            const core::GeneralpurposeAddressAllocator<uint32_t>& mdiAlctr,
+            const core::GeneralpurposeAddressAllocator<uint32_t>& idxAlctr,
+            const core::GeneralpurposeAddressAllocator<uint32_t>& vtxAlctr
+            )
+        {
+            uint32_t alctrBuffSz = alctrTraits::get_total_size(mdiAlctr);
+            void* resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, mdiAlctr), _NBL_SIMD_ALIGNMENT);
+            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, mdiAlctr, resSpcTmp);
+
+            alctrBuffSz = alctrTraits::get_total_size(idxAlctr);
+            resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, idxAlctr), _NBL_SIMD_ALIGNMENT);
+            m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, idxAlctr, resSpcTmp);
+
+            alctrBuffSz = alctrTraits::get_total_size(vtxAlctr);
+            resSpcTmp = _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(alctrBuffSz, vtxAlctr), _NBL_SIMD_ALIGNMENT);
+            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, vtxAlctr, resSpcTmp);
+        }
+
+        void free(const ReservedAllocationMeshBuffersBase& rambb)
+        {
+            if (rambb.indexAllocationOffset != INVALID_ADDRESS)
+                m_idxBuffAlctr.free_addr(rambb.indexAllocationOffset,rambb.indexAllocationReservedCnt);
+
+            if (rambb.mdiAllocationOffset != INVALID_ADDRESS)
+                m_MDIDataAlctr.free_addr(rambb.mdiAllocationOffset,rambb.mdiAllocationReservedCnt);
+        }
+        
+        //
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+
         core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
         core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
         core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
@@ -144,6 +166,44 @@ public:
     IMeshPacker(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
         :IMeshPackerBase(minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
     {
+    }
+
+    //! shrinks byte size of all output buffers, so they are large enough to fit currently allocated contents. Call this function before `instantiateDataStorage`
+    virtual void shrinkOutputBuffersSize()
+    {
+        uint32_t mdiDataBuffNewSize = m_MDIDataAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_MDIDataAlctr));
+        uint32_t idxBuffNewSize = m_idxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_idxBuffAlctr));
+        uint32_t vtxBuffNewSize = m_vtxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_vtxBuffAlctr));
+
+        const void* oldReserved = alctrTraits::getReservedSpacePtr(m_MDIDataAlctr);
+        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator(mdiDataBuffNewSize, std::move(m_MDIDataAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(mdiDataBuffNewSize, m_MDIDataAlctr), _NBL_SIMD_ALIGNMENT));
+        _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
+
+        oldReserved = alctrTraits::getReservedSpacePtr(m_idxBuffAlctr);
+        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator(idxBuffNewSize, std::move(m_idxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(idxBuffNewSize, m_idxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+        _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
+
+        oldReserved = alctrTraits::getReservedSpacePtr(m_vtxBuffAlctr);
+        m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator(vtxBuffNewSize, std::move(m_vtxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(vtxBuffNewSize, m_vtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+        _NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
+    }
+
+    //! Returns maximum number of mdi structs needed to draw range of mesh buffers described by range mbBegin .. mbEnd, actual number of MDI structs needed may differ
+    template <typename MeshBufferIterator>
+    uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+    {
+        uint32_t acc = 0u;
+        for (auto mbIt = mbBegin; mbIt != mbEnd; mbIt++)
+        {
+            auto mb = *mbIt;
+            const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(mb);
+            const uint32_t triCnt = idxCnt / 3;
+            assert(idxCnt % 3 == 0);
+
+            acc += calcBatchCountBound(triCnt);
+        }
+
+        return acc;
     }
 
 protected:
@@ -195,20 +255,19 @@ protected:
 
     struct IdxBufferParams
     {
-        SBufferBinding<ICPUBuffer> idxBuffer;
-        uint32_t idxCnt = 0u; //TODO: if you will be sure that it will not be used anywhere, delete this and modify `convertIdxBufferToTriangles` to return only idx buffer
-        E_INDEX_TYPE indexType = EIT_UNKNOWN;
+        SBufferBinding<ICPUBuffer> idxBuffer = { 0u, nullptr };
+        E_INDEX_TYPE idxType = EIT_UNKNOWN;
     };
 
     //TODO: functions: constructTriangleBatches, convertIdxBufferToTriangles, deinterleaveAndCopyAttribute and deinterleaveAndCopyPerInstanceAttribute
     //will not work with IGPUMeshBuffer as MeshBufferType, move it to new `ICPUMeshPacker`
 
-    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams) const
+    TriangleBatches constructTriangleBatches(const MeshBufferType* meshBuffer, IdxBufferParams idxBufferParams, core::aabbox3df*& aabbs) const
     {
         uint32_t triCnt;
         const bool success = IMeshManipulator::getPolyCount(triCnt,meshBuffer);
         assert(success);
-
+         
         const uint32_t batchCnt = calcBatchCountBound(triCnt);
         assert(batchCnt != 0u);
 
@@ -234,7 +293,6 @@ protected:
 
             uint64_t key;
         };
-        
 
         //TODO: use SoA instead (with core::radix_sort):
         //core::vector<Triangle> triangles;
@@ -254,32 +312,27 @@ protected:
         TriangleBatches triangleBatches(triCnt);
         core::vector<TriangleMortonCodePair> triangles(triCnt); //#1
 
+        core::smart_refctd_ptr<ICPUMeshBuffer> mbTmp = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(meshBuffer->clone());
+        mbTmp->setIndexBufferBinding(std::move(idxBufferParams.idxBuffer));
+        mbTmp->setIndexType(idxBufferParams.idxType);
+        mbTmp->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
+
         //triangle reordering
         {
-            //this is needed for mesh buffers with no index buffer (triangle strips and triagnle fans)
-            //TODO: fix
-            //bool wasTmpIdxBufferSet = false;
-            //if (meshBuffer->getIndexBufferBinding().buffer == nullptr)
-            //{
-            //    //temporary use generated index buffer
-            //    wasTmpIdxBufferSet = true;
-            //    meshBuffer->setIndexBufferBinding(idxBufferParams.idxBuffer);
-            //}
-
-            const core::aabbox3df aabb = IMeshManipulator::calculateBoundingBox(meshBuffer);
+            const core::aabbox3df aabb = IMeshManipulator::calculateBoundingBox(mbTmp.get());
 
             uint32_t ix = 0u;
             float maxTriangleArea = 0.0f;
             for (auto it = triangles.begin(); it != triangles.end(); it++)
             {
-                auto triangleIndices = IMeshManipulator::getTriangleIndices(meshBuffer, ix++);
+                auto triangleIndices = IMeshManipulator::getTriangleIndices(mbTmp.get(), ix++);
                 //have to copy there
                 std::copy(triangleIndices.begin(), triangleIndices.end(), it->triangle.oldIndices);
 
                 core::vectorSIMDf trianglePos[3];
-                trianglePos[0] = meshBuffer->getPosition(it->triangle.oldIndices[0]);
-                trianglePos[1] = meshBuffer->getPosition(it->triangle.oldIndices[1]);
-                trianglePos[2] = meshBuffer->getPosition(it->triangle.oldIndices[2]);
+                trianglePos[0] = mbTmp->getPosition(it->triangle.oldIndices[0]);
+                trianglePos[1] = mbTmp->getPosition(it->triangle.oldIndices[1]);
+                trianglePos[2] = mbTmp->getPosition(it->triangle.oldIndices[2]);
 
                 const core::vectorSIMDf centroid = ((trianglePos[0] + trianglePos[1] + trianglePos[2]) / 3.0f) - core::vectorSIMDf(aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z);
                 uint16_t fixedPointPos[3];
@@ -293,9 +346,6 @@ protected:
                 if (area > maxTriangleArea)
                     maxTriangleArea = area;
             }
-
-            /*if (wasTmpIdxBufferSet)
-                meshBuffer->setIndexBufferBinding(nullptr);*/
 
             //complete morton code
             for (auto it = triangles.begin(); it != triangles.end(); it++)
@@ -350,7 +400,9 @@ protected:
                 float batchArea = halfAreaAABB();
                 for (uint16_t i = m_minTriangleCountPerMDIData; nextTriangle != triangleArrayEnd && i < m_maxTriangleCountPerMDIData; i++)
                 {
-                    // TODO: save the AABB of the MDI batch before it gets "try extended" (will be needed in the future for culling)
+                    if(aabbs)
+                        *aabbs = core::aabbox3df(core::vector3df(min.x, min.y, min.z), core::vector3df(max.x, max.y, max.z));
+
                     extendAABB(nextTriangle);
                     float newBatchArea = halfAreaAABB();
                     if (newBatchArea > kGrowthLimit* batchArea)
@@ -359,8 +411,16 @@ protected:
                     batchArea = newBatchArea;
                 }
 
+                if (aabbs)
+                {
+                    if (nextTriangle == triangleArrayEnd || m_minTriangleCountPerMDIData == m_maxTriangleCountPerMDIData)
+                        *aabbs = core::aabbox3df(core::vector3df(min.x, min.y, min.z), core::vector3df(max.x, max.y, max.z));
+                    aabbs++;
+                }
+
                 triangleBatches.ranges.push_back(nextTriangle);
             }
+                
         }
 
         return triangleBatches;
@@ -438,7 +498,7 @@ protected:
         }
     }
 
-    uint32_t calcIdxCntAfterConversionToTriangleList(MeshBufferType* meshBuffer)
+    inline uint32_t calcIdxCntAfterConversionToTriangleList(const MeshBufferType* meshBuffer)
     {
         const auto& params = meshBuffer->getPipeline()->getPrimitiveAssemblyParams();
 
@@ -467,8 +527,11 @@ protected:
 
         return triCnt * 3;
     }
-
-    uint32_t calcIdxCntAfterConversionToTriangleList(core::smart_refctd_ptr<MeshBufferType> meshBuffer)
+    inline uint32_t calcIdxCntAfterConversionToTriangleList(const core::smart_refctd_ptr<MeshBufferType>& meshBuffer)
+    {
+        return calcIdxCntAfterConversionToTriangleList(meshBuffer.get());
+    }
+    inline uint32_t calcIdxCntAfterConversionToTriangleList(const core::smart_refctd_ptr<const MeshBufferType>& meshBuffer)
     {
         return calcIdxCntAfterConversionToTriangleList(meshBuffer.get());
     }
@@ -525,24 +588,24 @@ protected:
         }
     }
 
-    IdxBufferParams retriveOrCreateNewIdxBufferParams(MeshBufferType* meshBuffer)
+    IdxBufferParams createNewIdxBufferParamsForNonTriangleListTopologies(MeshBufferType* meshBuffer)
     {
         IdxBufferParams output;
 
-        const auto mbPrimitiveType = meshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
+        const auto& mbPrimitiveType = meshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
         if (mbPrimitiveType == EPT_TRIANGLE_LIST)
         {
-            output.idxCnt = meshBuffer->getIndexCount();
-            output.idxBuffer = meshBuffer->getIndexBufferBinding();
-            output.indexType = meshBuffer->getIndexType();
+            const auto& mbIdxBuff = meshBuffer->getIndexBufferBinding();
+            output.idxBuffer.offset = mbIdxBuff.offset;
+            output.idxBuffer.buffer = core::smart_refctd_ptr(mbIdxBuff.buffer);
+            output.idxType = meshBuffer->getIndexType();
         }
         else
         {
             auto newIdxBuffer = convertIdxBufferToTriangles(meshBuffer);
-            output.idxCnt = newIdxBuffer.first;
             output.idxBuffer.offset = 0u;
             output.idxBuffer.buffer = newIdxBuffer.second;
-            output.indexType = EIT_32BIT;
+            output.idxType = EIT_32BIT;
         }
 
         return output;
@@ -561,8 +624,6 @@ protected:
             return this->MDIDataBuffer->getPointer() != nullptr;
         }
     };
-
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
 
 };
 

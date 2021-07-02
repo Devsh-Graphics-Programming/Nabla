@@ -130,6 +130,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 					result.vvalue = retrieveHex(desiredAttributes[0], success);
 				for (auto i=0; i<3u; i++)
 					result.vvalue[i] = core::srgb2lin(result.vvalue[i]);
+				result.type = SPropertyElementData::Type::RGB; // now its an RGB value
 			}
 			break;
 		case SPropertyElementData::Type::VECTOR:

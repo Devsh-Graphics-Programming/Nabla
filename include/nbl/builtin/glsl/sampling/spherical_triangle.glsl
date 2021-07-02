@@ -66,7 +66,7 @@ vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in 
     const float sinC_ = sqrt(1.0-cosC_*cosC_);
 
     const float subTriSolidAngleRatio = nbl_glsl_getArccosSumofABC_minus_PI(cos_vertices[0],cosB_,cosC_,sin_vertices[0],sinB_,sinC_)*pdf; // will only be NaN if either the original triangle has zero solid angle or the subtriangle has zero solid angle (all can be satisfied with u=0) 
-    const float u = subTriSolidAngleRatio>FLT_MIN ? subTriSolidAngleRatio:0.0; // tiny overruns of u>1.0 will not affect the PDF much because a bilinear warp is used and the gradient has a bound (won't be true if LTC will get used)
+    const float u = subTriSolidAngleRatio>nbl_glsl_FLT_MIN ? subTriSolidAngleRatio:0.0; // tiny overruns of u>1.0 will not affect the PDF much because a bilinear warp is used and the gradient has a bound (won't be true if LTC will get used)
 
     // INF if any angle is 0 degrees, which implies L lays along BA arc, if the angle at A is PI minus the angle at either B_ or C_ while the other of C_ or B_ has a zero angle, we get a NaN (which is also a zero solid angle subtriangle, implying L along AB arc)
     const float cosBC_s = (cos_vertices[0]+cosB_*cosC_)/(sinB_*sinC_);

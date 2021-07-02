@@ -1,52 +1,33 @@
 #version 430 core
-#include "raytraceCommon.glsl"
+#include "raytraceCommon.h"
+layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
-#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl>
-
-#include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
-layout(set = 2, binding = 0, std430) restrict buffer Queries
+layout(set = 0, binding = 0, row_major) uniform StaticViewData
 {
-	nbl_glsl_ext_RadeonRays_Intersection hits[];
+	StaticViewData_t staticViewData;
 };
-layout(set = 2, binding = 1, r32ui) restrict uniform uimage2D framebuffer;
+layout(set = 0, binding = 1) uniform usampler2DArray accumulation;
+layout(set = 0, binding = 2, r32ui) restrict uniform uimage2D framebuffer;
 
+#include <nbl/builtin/glsl/format/decode.glsl>
+#include <nbl/builtin/glsl/format/encode.glsl>
+vec3 fetchAccumulation(in uvec2 coord, in uint subsample)
+{
+	const uvec2 data = texelFetch(accumulation,ivec3(coord,subsample),0).rg;
+	return nbl_glsl_decodeRGB19E7(data);
+}
 
 void main()
 {
-	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
-	const uint baseID = pixelCoord.y*staticViewData.samplesPerRowPerDispatch+pixelCoord.x*staticViewData.samplesPerPixelPerDispatch;
+	const ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 	if (all(lessThan(pixelCoord,staticViewData.imageDimensions)))
 	{
-		vec3 acc = fetchAccumulation(pixelCoord);
-		
-		vec3 color = vec3(0.0);
-		uvec2 groupLocation = gl_WorkGroupID.xy*gl_WorkGroupSize.xy;
-		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
-		{
-			const uint rayID = baseID+i;
-			nbl_glsl_ext_RadeonRays_Intersection hit = hits[rayID];
+		vec3 acc = fetchAccumulation(gl_GlobalInvocationID.xy,0u);
+		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+			acc += fetchAccumulation(gl_GlobalInvocationID.xy,i);
+		acc /= float(staticViewData.samplesPerPixelPerDispatch);
 
-			const vec3 thoughput = vec3(unpackHalf2x16(rays[rayID].useless_padding).yx,unpackHalf2x16(rays[rayID].backfaceCulling).yx);
-			// init to miss color
-			vec3 emissive = staticViewData.envmapBaseColor;
-			// actually got a hit	
-			if (hit.shapeid>=0)
-			{
-				const bool frontface = true; // TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
-
-				// hit buffer needs clearing
-				hits[rayID].shapeid = -1;
-
-				nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[hit.shapeid].material,frontface);
-				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-			}
-			color += emissive*thoughput;
-		}
-		if (pc.cummon.rcpFramesDispatched<1.0)
-			acc += (color-acc)*pc.cummon.rcpFramesDispatched;
-		else
-			acc += color;
-		storeAccumulation(acc,pixelCoord);
 		imageStore(framebuffer,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2(vec4(acc,1.0)),0u,0u,0u));
 	}
+	// TODO: record autoexposure histogram
 }

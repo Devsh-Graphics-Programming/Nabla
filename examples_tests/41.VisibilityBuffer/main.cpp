@@ -10,12 +10,47 @@
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 
+#ifdef DEBUG_AABBS
+#include "nbl/ext/DebugDraw/CDraw3DLine.h"
+#endif
+
 using namespace nbl;
 using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
+bool freezeCulling = false;
+
+class MyEventReceiver : public QToQuitEventReceiver
+{
+public:
+
+    MyEventReceiver()
+    {
+    }
+
+    bool OnEvent(const SEvent& event)
+    {
+        if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+        {
+            switch (event.KeyInput.Key)
+            {
+            case nbl::KEY_KEY_Q: // so we can quit
+                return QToQuitEventReceiver::OnEvent(event);
+            case nbl::KEY_KEY_C: // freeze culling
+                freezeCulling = !freezeCulling; // Not enabled/necessary yet
+                return true;
+            default:
+                break;
+            }
+        }
+
+        return false;
+    }
+};
+
 #include "common.h"
+#include "rasterizationCommon.h"
 
 //vt stuff
 using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
@@ -31,6 +66,8 @@ struct commit_t
     asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
     asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
     asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
+
+    core::vector<CullData_t> cullData;
 };
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
@@ -155,6 +192,19 @@ struct SceneData
     smart_refctd_ptr<IGPUBuffer> ubo;
 };
 
+struct CullShaderData
+{
+    core::smart_refctd_ptr<IGPUBuffer> perBatchCull;
+    core::smart_refctd_ptr<IGPUBuffer> commandBuffer;
+    core::smart_refctd_ptr<IGPUBuffer> mvpBuffer;
+
+    core::smart_refctd_ptr<IGPUComputePipeline> cullPipeline;
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> cullDSLayout;
+    core::smart_refctd_ptr<IGPUDescriptorSet> cullDS;
+
+    uint32_t maxBatchCount;
+};
+
 using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 using GPUMeshPacker = CGPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 
@@ -204,13 +254,17 @@ int main()
 
     //! Since our cursor will be enslaved, there will be no way to close the window
     //! So we listen for the "Q" key being pressed and exit the application
-    QToQuitEventReceiver receiver;
+    MyEventReceiver receiver;
     device->setEventReceiver(&receiver);
 
     auto* driver = device->getVideoDriver();
     auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
     auto* fs = am->getFileSystem();
+
+#ifdef DEBUG_AABBS
+    auto draw3DLine = ext::DebugDraw::CDraw3DLine::create(driver);
+#endif
 
     //
     auto createScreenSizedImage = [driver,&params](const E_FORMAT format) -> auto
@@ -250,6 +304,10 @@ int main()
 
     //
     SceneData sceneData;
+    CullShaderData cullShaderData;
+#ifdef DEBUG_AABBS
+    core::vector<std::pair<ext::DebugDraw::S3DLineVertex, ext::DebugDraw::S3DLineVertex>> dbgLines;
+#endif
     {
         //
         smart_refctd_ptr<IGPUDescriptorSetLayout> perFrameDSLayout,shadingDSLayout;
@@ -345,12 +403,12 @@ int main()
         auto meshes_bundle = am->getAsset("sponza.obj", lp);
         assert(!meshes_bundle.getContents().empty());
         auto mesh_raw = static_cast<asset::ICPUMesh*>(meshes_bundle.getContents().begin()->get());
+
         // ensure memory will be freed as soon as CPU assets are dropped
-        // am->clearAllAssetCache();
-
-
+        am->clearAllAssetCache();
         //saving cache to file
         qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
+        //qnc->clearCache<asset::EF_A2B10G10R10_SNORM_PACK32>(); // TODO
 
         //
         auto meshBuffers = mesh_raw->getMeshBufferVector();
@@ -425,6 +483,8 @@ int main()
                             const auto borderColor = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(smplr->getParams().BorderColor);
                             texData = getTextureData(vt_commits,img.get(),vt.get(),uwrap,vwrap,borderColor);
                             VTtexDataMap.insert({img,texData});
+                            // get rid of pixel storage
+                            img->convertToDummyObject(~0ull);
                         }
                     });
 
@@ -450,7 +510,9 @@ int main()
 
                 vt->shrink();
                 for (const auto& cm : vt_commits)
+                {
                     vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
+                }
             }
 
             gpuvt = core::make_smart_refctd_ptr<IGPUVirtualTexture>(driver, vt.get());
@@ -460,8 +522,6 @@ int main()
         smart_refctd_ptr<GPUMeshPacker> gpump;
         smart_refctd_ptr<IGPUBuffer> batchDataSSBO;
         {
-            assert(ranges.size()>=2u);
-
             constexpr uint16_t minTrisBatch = 256u; 
             constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
 
@@ -472,12 +532,16 @@ int main()
             allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
             allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
             allocParams.MDIDataBuffSupportedCnt = 8192u;
-            allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
-    
-            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
-
+            allocParams.MDIDataBuffMinAllocCnt = 16u;
+            
             auto wholeMbRangeBegin = pipelineMeshBufferRanges.front();
             auto wholeMbRangeEnd = pipelineMeshBufferRanges.back();
+
+            IMeshPackerV2Base::SupportedFormatsContainer formats;
+            formats.insertFormatsFromMeshBufferRange(wholeMbRangeBegin, wholeMbRangeEnd);
+
+            auto mp = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,formats,minTrisBatch,maxTrisBatch);
+            
             const uint32_t mdiCntBound = mp->calcMDIStructMaxCount(wholeMbRangeBegin,wholeMbRangeEnd);
 
             auto allocData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<MeshPacker::ReservedAllocationMeshBuffers>>(mdiCntBound);
@@ -501,6 +565,9 @@ int main()
             core::vector<BatchInstanceData> batchData;
             batchData.reserve(mdiCntBound);
 
+            core::vector<CullData_t> batchCullData(mdiCntBound);
+            auto batchCullDataEnd = batchCullData.begin();
+
             allocDataIt = allocData->begin();
             uint32_t mdiListOffset = 0u;
             for (auto it=pipelineMeshBufferRanges.begin(); it!=pipelineMeshBufferRanges.end()-1u; )
@@ -511,13 +578,38 @@ int main()
                 const uint32_t meshMdiBound = mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
                 core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(std::distance(mbRangeBegin,mbRangeEnd));
                 core::vector<MeshPacker::CombinedDataOffsetTable> cdot(meshMdiBound);
-                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),&*allocDataIt,mbRangeBegin,mbRangeEnd);
+                core::vector<aabbox3df> aabbs(meshMdiBound);
+                uint32_t actualMdiCnt = mp->commit(pmbd.data(),cdot.data(),aabbs.data(),&*allocDataIt,mbRangeBegin,mbRangeEnd);
                 allocDataIt += meshMdiBound;
 
                 if (actualMdiCnt==0u)
                 {
                     std::cout << "Commit failed \n";
                     _NBL_DEBUG_BREAK_IF(true);
+                }
+
+                uint32_t aabbIdx = 0u;
+                for (auto packedMeshBufferData : pmbd)
+                {
+                    for (uint32_t i = 0u; i < packedMeshBufferData.mdiParameterCount; i++)
+                    {
+                        batchCullDataEnd->aabbMinEdge.x = aabbs[aabbIdx].MinEdge.X;
+                        batchCullDataEnd->aabbMinEdge.y = aabbs[aabbIdx].MinEdge.Y;
+                        batchCullDataEnd->aabbMinEdge.z = aabbs[aabbIdx].MinEdge.Z;
+
+                        batchCullDataEnd->aabbMaxEdge.x = aabbs[aabbIdx].MaxEdge.X;
+                        batchCullDataEnd->aabbMaxEdge.y = aabbs[aabbIdx].MaxEdge.Y;
+                        batchCullDataEnd->aabbMaxEdge.z = aabbs[aabbIdx].MaxEdge.Z;
+
+                        batchCullDataEnd->drawCommandGUID = packedMeshBufferData.mdiParameterOffset + i;
+
+#ifdef DEBUG_AABBS
+                        draw3DLine->enqueueBox(dbgLines, aabbs[aabbIdx], 0.0f, 0.0f, 0.0f, 1.0f, core::matrix3x4SIMD());
+#endif
+
+                        batchCullDataEnd++;
+                        aabbIdx++;
+                    }
                 }
 
                 sceneData.pushConstantsData.push_back(mdiListOffset);
@@ -552,8 +644,13 @@ int main()
             gpump = core::make_smart_refctd_ptr<CGPUMeshPackerV2<>>(driver,mp.get());
             sceneData.mdiBuffer = gpump->getPackerDataStore().MDIDataBuffer;
             sceneData.idxBuffer = gpump->getPackerDataStore().indexBuffer;
+
+            cullShaderData.commandBuffer = gpump->getPackerDataStore().MDIDataBuffer;
+            cullShaderData.maxBatchCount = std::distance(batchCullData.begin(), batchCullDataEnd);
+            cullShaderData.perBatchCull = driver->createFilledDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(CullData_t), batchCullData.data());
+            cullShaderData.mvpBuffer = driver->createDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(core::matrix4SIMD));
         }
-        am->clearAllAssetCache();
+        mesh_raw->convertToDummyObject(~0u);
 
         //
         smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout;
@@ -732,6 +829,94 @@ int main()
         }
     }
 
+    // cull shader ds
+    {
+        SPushConstantRange range{ ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t) };
+        
+        {
+            IGPUDescriptorSetLayout::SBinding bindings[3];
+            bindings[0].binding = 0u;
+            bindings[0].count = 1u;
+            bindings[0].samplers = nullptr;
+            bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
+            bindings[0].type = EDT_STORAGE_BUFFER;
+        
+            bindings[1].binding = 1u;
+            bindings[1].count = 1u;
+            bindings[1].samplers = nullptr;
+            bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
+            bindings[1].type = EDT_STORAGE_BUFFER;
+            
+            bindings[2].binding = 2u;
+            bindings[2].count = 1u;
+            bindings[2].samplers = nullptr;
+            bindings[2].stageFlags = ISpecializedShader::ESS_COMPUTE;
+            bindings[2].type = EDT_STORAGE_BUFFER;
+
+            cullShaderData.cullDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+        }
+        
+        {
+            IGPUDescriptorSet::SDescriptorInfo infos[3];
+        
+            infos[0].desc = core::smart_refctd_ptr(cullShaderData.perBatchCull);
+            infos[0].buffer.offset = 0u;
+            infos[0].buffer.size = cullShaderData.perBatchCull->getSize();
+        
+            infos[1].desc = core::smart_refctd_ptr(cullShaderData.commandBuffer);
+            infos[1].buffer.offset = 0u;
+            infos[1].buffer.size = cullShaderData.commandBuffer->getSize();
+
+            infos[2].desc = core::smart_refctd_ptr(cullShaderData.mvpBuffer);
+            infos[2].buffer.offset = 0u;
+            infos[2].buffer.size = cullShaderData.mvpBuffer->getSize();
+
+            cullShaderData.cullDS = driver->createGPUDescriptorSet(smart_refctd_ptr(cullShaderData.cullDSLayout));
+        
+            IGPUDescriptorSet::SWriteDescriptorSet writes[3];
+        
+            for (uint32_t i = 0u; i < 3; i++)
+            {
+                writes[i].dstSet = cullShaderData.cullDS.get();
+                writes[i].binding = i;
+                writes[i].arrayElement = 0u;
+                writes[i].count = 1u;
+                writes[i].descriptorType = EDT_STORAGE_BUFFER;
+                writes[i].info = infos + i;
+            }
+        
+            driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
+        }
+        
+        asset::IAssetLoader::SAssetLoadParams lp;
+        auto cullShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset("../cull.comp", lp).getContents().begin());
+        assert(cullShader);
+        const asset::ICPUShader* unspec = cullShader->getUnspecialized();
+        assert(unspec->containsGLSL());
+        
+        auto gpuCullShader = driver->getGPUObjectsFromAssets(&cullShader, &cullShader + 1u)->begin()[0];
+        
+        auto cullPipelineLayout = driver->createGPUPipelineLayout(&range, &range + 1u, core::smart_refctd_ptr(cullShaderData.cullDSLayout));
+        cullShaderData.cullPipeline = driver->createGPUComputePipeline(nullptr, std::move(cullPipelineLayout), std::move(gpuCullShader));
+    }
+
+    auto cullBatches = [&driver, &cullShaderData](const core::matrix4SIMD& vp, bool freezeCulling)
+    {
+        driver->bindDescriptorSets(EPBP_COMPUTE, cullShaderData.cullPipeline->getLayout(), 0u, 1u, &cullShaderData.cullDS.get(), nullptr);
+        driver->bindComputePipeline(cullShaderData.cullPipeline.get());
+
+        CullShaderData_t cullPushConstants;
+        cullPushConstants.viewProjMatrix = vp;
+        cullPushConstants.maxBatchCount = cullShaderData.maxBatchCount;
+        cullPushConstants.freezeCulling = static_cast<uint32_t>(freezeCulling);
+
+        driver->pushConstants(cullShaderData.cullPipeline->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &cullPushConstants);
+
+        const uint32_t cullWorkGroups = (cullPushConstants.maxBatchCount - 1u) / WORKGROUP_SIZE + 1u;
+
+        driver->dispatch(cullWorkGroups, 1u, 1u);
+    };
+
     //! we want to move around the scene and view it from different angles
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.5f);
 
@@ -741,8 +926,8 @@ int main()
     camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
-    
 
+    bool asdf = true;
     uint64_t lastFPSTime = 0;
     while (device->run() && receiver.keepOpen())
     {
@@ -758,7 +943,9 @@ int main()
         memcpy(uboData.NormalMat, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
         driver->updateBufferRangeViaStagingBuffer(sceneData.ubo.get(), 0u, sizeof(SBasicViewParameters), &uboData);
 
-        // TODO: Cull MDIs
+        // cull MDIs
+        cullBatches(camera->getConcatenatedMatrix(), freezeCulling);
+        COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
         driver->setRenderTarget(visBuffer);
         driver->clearZBuffer();
@@ -782,6 +969,11 @@ int main()
             );
         }
 
+#ifdef DEBUG_AABBS
+        //draw aabbs
+        draw3DLine->draw(camera->getConcatenatedMatrix(), dbgLines);
+#endif
+
         // shade
         driver->bindDescriptorSets(video::EPBP_COMPUTE,sceneData.shadeVBufferPpln->getLayout(),0u,4u,ds,nullptr);
         driver->bindComputePipeline(sceneData.shadeVBufferPpln.get());
@@ -794,6 +986,7 @@ int main()
 
         // blit
         driver->blitRenderTargets(fb,0);
+
         driver->endScene();
 
         // display frames per second in window title

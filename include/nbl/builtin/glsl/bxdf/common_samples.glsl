@@ -17,7 +17,7 @@ nbl_glsl_LightSample nbl_glsl_transmission_cos_generate(in nbl_glsl_AnisotropicV
 - The `remainder_and_pdf` functions are meant to be used with MIS
 - Our own generator can never pick an improbable path, so no checking necessary
 - For other generators the estimator will be `f_BSDF*f_Light*f_Visibility*clampedCos(theta)/(1+(p_BSDF^alpha+p_otherNonChosenGenerator^alpha+...)/p_ChosenGenerator^alpha)`
-	when `p_BSDF` equals `FLT_INF` it will drive the overall MIS estimator for the other generators to 0 so no checking necessary
+	when `p_BSDF` equals `nbl_glsl_FLT_INF` it will drive the overall MIS estimator for the other generators to 0 so no checking necessary
 **/
 float nbl_glsl_transmission_cos_remainder_and_pdf(out float pdf)
 {

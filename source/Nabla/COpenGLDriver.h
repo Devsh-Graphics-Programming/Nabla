@@ -1026,6 +1026,9 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         uint32_t getMaxTextureBindingsCompute() const override { return COpenGLExtensionHandler::maxTextureBindingsCompute; }
         uint32_t getMaxImageBindings() const override { return COpenGLExtensionHandler::maxImageBindings; }
 
+		//!
+		bool runningInRenderdoc() const { return runningInRenderDoc; }
+
     private:
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());
 

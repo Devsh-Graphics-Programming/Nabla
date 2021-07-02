@@ -161,6 +161,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams;
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
+				if (bundle.getContents().empty())
+					break;
+
 				auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
 				if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)
 				for (auto ass : bundle.getContents())
@@ -370,6 +373,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
+
+	// prune out invalid empty shape groups (TODO: convert to AoS and use an erase_if)
+	for (size_t i = 0ull; i < submeshes.size(); ++i)
+	if (indices[i].size())
+		i++;
+	else
+	{
+		submeshes.erase(submeshes.begin()+i);
+		indices.erase(indices.begin()+i);
+		recalcNormals.erase(recalcNormals.begin()+i);
+		submeshWasLoadedFromCache.erase(submeshWasLoadedFromCache.begin()+i);
+		submeshCacheKeys.erase(submeshCacheKeys.begin()+i);
+		submeshMaterialNames.erase(submeshMaterialNames.begin()+i);
+	}
 	
     core::unordered_set<pipeline_meta_pair_t,hash_t,key_equal_t> usedPipelines;
     {

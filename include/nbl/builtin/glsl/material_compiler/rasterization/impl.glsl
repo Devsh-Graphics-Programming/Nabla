@@ -14,7 +14,7 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 	const bool is_bsdf = !nbl_glsl_MC_op_isBRDF(op); //note: true for everything besides BRDF ops (combiners, SET_GEOM_NORMAL and BUMPMAP too)
 	const float cosFactor = nbl_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 	const float NdotV = nbl_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
-	const bool positiveCosFactors = (cosFactor > FLT_MIN) && (NdotV > FLT_MIN);
+	const bool positiveCosFactors = (cosFactor > nbl_glsl_FLT_MIN) && (NdotV > nbl_glsl_FLT_MIN);
 	const bool is_bxdf_or_combiner = nbl_glsl_MC_op_isBXDForCoatOrBlend(op);
 
 	uvec3 regs = nbl_glsl_MC_instr_decodeRegisters(instr);
