@@ -641,8 +641,8 @@ public:
 				vt->shrink();
 
 				bool success = true;
-				//for (commit_t& cm : pendingCommits)
-				//	success &= commit(cm);
+				for (commit_t& cm : pendingCommits)
+					success &= commit(cm);
 				pendingCommits.clear();
 				return success;
 			}
