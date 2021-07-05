@@ -18,9 +18,9 @@ namespace asset
 //!  Surface Loader for PNG files
 class CGLSLLoader final : public asset::IAssetLoader
 {
-	system::ISystem* m_system;
+	core::smart_refctd_ptr<system::ISystem> m_system;
 	public:
-		CGLSLLoader(system::ISystem* sys) : m_system(sys)
+		CGLSLLoader(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
 		{
 			
 		}

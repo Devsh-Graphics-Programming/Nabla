@@ -23,6 +23,7 @@ namespace asset
 class CImageLoaderPng : public asset::IAssetLoader
 {
     core::smart_refctd_ptr<system::ISystem> m_system;
+public:
     struct SUserData
     {
         SUserData(system::ISystem* sys) : system(sys) {}
@@ -30,9 +31,8 @@ class CImageLoaderPng : public asset::IAssetLoader
         // Made file_pos initial value 8 cause it's first set to 8 in CImageLoaderPng::loadAsset
         // and set to 8 but you cannot access this struct from there
         size_t file_pos = 8;
-    } m_userData;
-public:
-    explicit CImageLoaderPng(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)), m_userData(m_system.get()) {}
+    };
+    explicit CImageLoaderPng(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
     virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
     virtual const char** getAssociatedFileExtensions() const override

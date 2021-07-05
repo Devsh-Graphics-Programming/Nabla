@@ -39,7 +39,7 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
         };
 
 	public:
-        CGraphicsPipelineLoaderMTL(IAssetManager* _am, system::ISystem* sys);
+        CGraphicsPipelineLoaderMTL(IAssetManager* _am);
 
         void initialize() override;
 

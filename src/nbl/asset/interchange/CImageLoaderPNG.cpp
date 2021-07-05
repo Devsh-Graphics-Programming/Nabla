@@ -163,9 +163,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 			_NBL_DELETE_ARRAY(RowPointers, Height);
         return {};
 	}
-
-	// changed by zola so we don't need to have public FILE pointers
-	png_set_read_user_chunk_fn(png_ptr, &m_userData, nullptr);
+	SUserData usrData(m_system.get());
+	png_set_read_user_chunk_fn(png_ptr, &usrData, nullptr);
 
 	png_set_read_fn(png_ptr, _file, user_read_data_fcn);
 

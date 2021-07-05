@@ -7,7 +7,7 @@
 #include <xlocbuf>
 
 #include <Windows.h>
-#include <hidpi.h>
+//#include <hidpi.h>
 #include <hidusage.h>
 
 #include "os.h"
@@ -19,8 +19,18 @@ namespace nbl::ui
 	{
 	public:
 		CWindowManagerWin32() = default;
-		~CWindowManagerWin32() = default;
+		~CWindowManagerWin32() {};
 
+		IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)
+		{
+			IWindowWin32::native_handle_t out_handle;
+			m_windowThreadManager.createWindow(_x, _y, _w, _h, _flags, &out_handle, caption);
+			return out_handle;
+		}
+		void destroyNativeWindow(IWindowWin32::native_handle_t wnd)
+		{
+			m_windowThreadManager.destroyWindow(wnd);
+		}
 	private:
 		enum E_REQUEST_TYPE
 		{
@@ -82,6 +92,7 @@ namespace nbl::ui
 			{
 				this->start();
 			}
+			~CThreadHandler() {};
 
 		private:
 			void waitForCompletion(SRequest& req)

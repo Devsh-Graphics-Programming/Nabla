@@ -11,6 +11,7 @@
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
 
 #include "nbl/asset/interchange/IAssetWriter.h"
+#include "nbl/system/ISystem.h"
 
 namespace nbl
 {
@@ -19,9 +20,10 @@ namespace asset
 
 class CImageWriterJPG : public asset::IAssetWriter
 {
+    core::smart_refctd_ptr<system::ISystem> m_system;
     public:
 	    //! constructor
-	    CImageWriterJPG();
+	    explicit CImageWriterJPG(core::smart_refctd_ptr<system::ISystem>&& sys);
 
         virtual const char** getAssociatedFileExtensions() const
         {

@@ -1,6 +1,8 @@
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/CWindowWin32.h"
+#include "nbl/ui/CWindowManagerWin32.h"
+#include "nbl/ui/IInputEventChannel.h"
 #include <hidusage.h>
 #include <hidpi.h>
 #include <codecvt>
@@ -9,16 +11,21 @@ namespace nbl {
 namespace ui
 {
 
-	CWindowWin32::CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, int _x, int _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+	CWindowWin32::CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, int _x, int _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags, const std::string_view& caption) : m_windowManager(winManager)
 	{
 		m_width = _w; m_height = _h;
-		windowThreadHandler.createWindow(_x, _y, _w, _h, _flags, m_native);
+		m_native = m_windowManager->createNativeWindow(_x, _y, _w, _h, _flags, caption);
 		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 	}
 
 	CWindowWin32::~CWindowWin32()
 	{
-		windowThreadHandler.destroyWindow(m_native);
+		m_windowManager->destroyNativeWindow(m_native);
+	}
+
+	IClipboardManager* CWindowWin32::getClipboardManager()
+	{
+		return nullptr;
 	}
 
     LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)

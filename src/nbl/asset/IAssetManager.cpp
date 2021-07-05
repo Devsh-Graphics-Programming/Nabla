@@ -144,22 +144,22 @@ void IAssetManager::addLoadersAndWriters()
 	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
 #endif
 #ifdef  _NBL_COMPILE_WITH_GLI_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
 	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
@@ -171,19 +171,19 @@ void IAssetManager::addLoadersAndWriters()
 	//addAssetWriter(core::make_smart_refctd_ptr<asset::CSTLMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 
     for (auto& loader : m_loaders.vector)

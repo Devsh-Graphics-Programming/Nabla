@@ -9,7 +9,7 @@
 namespace nbl {
 namespace ui
 {
-
+class CWindowManagerWin32;
 class CWindowWin32 final : public IWindowWin32
 {
 public:
@@ -17,33 +17,35 @@ public:
 	static E_KEY_CODE getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode);
 
 	//TODO
-	explicit CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, native_handle_t hwnd) : IWindowWin32(std::move(sys))
-	{
-		assert(false);
-		RECT rect;
-		GetWindowRect(hwnd, &rect);
-
-		m_width = rect.right - rect.left;
-		m_height = rect.bottom - rect.top;
-		// TODO m_flags
-	}
+	//explicit CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, native_handle_t hwnd) : IWindowWin32(std::move(sys))
+	//{
+	//	assert(false);
+	//	RECT rect;
+	//	GetWindowRect(hwnd, &rect);
+	//
+	//	m_width = rect.right - rect.left;
+	//	m_height = rect.bottom - rect.top;
+	//	// TODO m_flags
+	//}
 
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowWin32> create(core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+	static core::smart_refctd_ptr<CWindowWin32> create(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags, const std::string_view& caption)
 	{
 		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
 
-		CWindowWin32* win = new CWindowWin32(std::move(sys), _x, _y, _w, _h, _flags);
+		CWindowWin32* win = new CWindowWin32(winManager, std::move(sys), _x, _y, _w, _h, _flags, caption);
 		return core::smart_refctd_ptr<CWindowWin32>(win, core::dont_grab);
 	}
 
 	~CWindowWin32() override;
 private:
-	CWindowWin32(core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
+	CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags, const std::string_view& caption);
 
     native_handle_t m_native;
+
+	CWindowManagerWin32* m_windowManager;
 
 	std::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannel;
 	std::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannel;
@@ -87,6 +89,10 @@ private:
 		return m_keyboardEventChannel.find(deviceHandle)->second.get();
 	}
 	
+
+	// Inherited via IWindowWin32
+	virtual IClipboardManager* getClipboardManager() override;
+
 };
 
 }
