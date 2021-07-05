@@ -21,14 +21,14 @@ mat3 nbl_glsl_mul_with_bounds_wo_gamma(out mat3 error, in mat3 a, in mat3 b, in 
             error[i] += abs(tmp);
         }
     }
-    const float error_factor = 1.f+b_relative_error/nbl_glsl_numeric_limits_float_epsilon(2);
+    const float error_factor = 1.f+b_relative_error/nbl_glsl_numeric_limits_float_epsilon(3);
     error *= error_factor;
     return retval;
 }
 mat3 nbl_glsl_mul_with_bounds(out mat3 error, in mat3 a, in mat3 b, in float b_relative_error)
 {
     mat3 retval = nbl_glsl_mul_with_bounds_wo_gamma(error,a,b,b_relative_error);
-    error *= nbl_glsl_ieee754_gamma(2u);
+    error *= nbl_glsl_ieee754_gamma(3u);
     return retval;
 }
 

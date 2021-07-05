@@ -303,7 +303,12 @@ for (uint i=1u; i!=vertex_depth; i++)
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
 	
-	float ray_offset = dot(abs(normalizedN),origin_error)*1.03f+0.000001f; // I pulled the added constant out of my @$$
+	const float inversesqrt_precision = 1.03125f;
+
+	// TODO: investigate why we can't use `normalizedN` here
+	const vec3 ray_offset_vector = normalize(cross(dPdBary[0],dPdBary[1]))*inversesqrt_precision;
+
+	float origin_offset = dot(abs(ray_offset_vector), origin_error);
 	// TODO: in the future run backward error analysis of
 	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
 	// where
@@ -315,14 +320,22 @@ for (uint i=1u; i!=vertex_depth; i++)
 	//float ray_offset = ?;
 	//ray_offset = nbl_glsl_ieee754_next_ulp_away_from_zero(ray_offset);
 	// adjust for the fact that the normal might be too short (inversesqrt precision)
-	ray_offset *= 1.03125f;
+	origin_offset += nbl_glsl_numeric_limits_float_epsilon(1u);
+	
+	const vec3 ray_offset = ray_offset_vector*origin_offset;
+	const vec3 ray_origin[2] = {origin+ray_offset,origin-ray_offset};
+
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
-		newRay.origin = nbl_glsl_robust_ray_origin_impl(origin,direction[i],ray_offset,normalizedN);
-		//newRay.origin = nbl_glsl_robust_ray_origin_impl(origin,direction[i],ray_offset,geomNormal);
+
+		if (dot(ray_offset_vector,direction[i])<0.f)
+			newRay.origin = ray_origin[1];
+		else
+			newRay.origin = ray_origin[0];
+
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);
