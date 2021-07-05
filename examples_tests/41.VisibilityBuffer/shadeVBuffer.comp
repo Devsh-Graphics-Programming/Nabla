@@ -87,6 +87,7 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 layout (push_constant) uniform Block 
 {
     vec3 camPos;
+    uint backCommandBufferIx;
 } pc;
 #define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
 
@@ -112,6 +113,8 @@ vec3 uintIDToColor(uint id)
 {
     return vec3(bitfieldExtract(id,0,4),bitfieldExtract(id,4,4),bitfieldExtract(id,8,4))/15.0;
 }
+
+#include "occlusionCullingShaderCommon.glsl"
 
 void main()
 {
@@ -174,6 +177,9 @@ void main()
         ViewPos = pos-pc.camPos; // weird global for MTL shader
         nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(pc.camPos,pos,normal);
         color.rgb = nbl_computeLighting(interaction);
+
+        // set instance count of batches that are visible in this frame to 1 (to the back buffer)
+        commandBuff[pc.backCommandBufferIx].draws[drawGUID].instanceCount = 1;
     }
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));
