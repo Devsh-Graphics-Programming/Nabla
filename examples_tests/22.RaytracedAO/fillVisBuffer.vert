@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#version 430 core
+#version 460 core
 #extension GL_EXT_shader_16bit_storage : require
+#include <nbl/builtin/glsl/barycentric/extensions.glsl>
 
 #include "rasterizationCommon.h"
 

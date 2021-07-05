@@ -99,6 +99,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
         {
             auto cp = core::make_smart_refctd_ptr<ICPUMesh>();
             clone_common(cp.get());
+			cp->m_cachedBoundingBox = m_cachedBoundingBox;
             cp->m_meshBuffers.resize(m_meshBuffers.size());
 
 			auto outIt = cp->m_meshBuffers.begin();

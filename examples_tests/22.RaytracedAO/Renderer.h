@@ -46,6 +46,10 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
+		uint64_t getTotalRaysCast() const
+		{
+			return m_totalRaysCast;
+		}
 
 		//! Brief guideline to good path depth limits
 		// Want to see stuff with indirect lighting on the other side of a pane of glass
@@ -63,7 +67,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		struct InitializationData
 		{
-			InitializationData() : mdiFirstIndices(), lights(),lightCDF(),globalMeta(nullptr) {}
+			InitializationData() : lights(),lightCDF(),globalMeta(nullptr) {}
 			InitializationData(InitializationData&& other) : InitializationData()
 			{
 				operator=(std::move(other));
@@ -72,14 +76,12 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 			inline InitializationData& operator=(InitializationData&& other)
 			{
-				mdiFirstIndices = std::move(other.mdiFirstIndices);
 				lights = std::move(other.lights);
 				lightCDF = std::move(other.lightCDF);
 				globalMeta = other.globalMeta;
 				return *this;
 			}
 
-			nbl::core::vector<uint32_t> mdiFirstIndices;
 			nbl::core::vector<SLight> lights;
 			union
 			{
@@ -92,8 +94,10 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		void initSceneNonAreaLights(InitializationData& initData);
 		void finalizeScene(InitializationData& initData);
 
+		//
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
 
+		//
 		uint32_t traceBounce(uint32_t raycount);
 
 
@@ -132,6 +136,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_framesDispatched;
 		vec2 m_rcpPixelSize;
+		uint64_t m_totalRaysCast;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
 

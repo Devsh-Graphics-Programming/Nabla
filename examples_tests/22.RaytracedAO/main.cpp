@@ -306,8 +306,9 @@ int main()
 		{
 			std::wostringstream str;
 			auto samples = renderer->getTotalSamplesComputed();
+			auto rays = renderer->getTotalRaysCast();
 			str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
-				<< double(samples)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
+				<< double(rays)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
 
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;

@@ -31,8 +31,8 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         using AttribAllocParams = typename base_t::AttribAllocParams;
 
     public:
-        CGPUMeshPackerV2(IVideoDriver* driver, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-            : base_t(allocParams,minTriangleCountPerMDIData,maxTriangleCountPerMDIData), m_driver(driver)
+        CGPUMeshPackerV2(IVideoDriver* driver, const AllocationParams& allocParams, const asset::IMeshPackerV2Base::SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+            : base_t(allocParams, formats, minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_driver(driver)
         {}
 
         // TODO: protect against empty cpuMP (no allocations and then shrinked)
@@ -44,8 +44,6 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
             const auto& cpuIdxBuff = cpuMP->getPackerDataStore().indexBuffer;
             const auto& cpuVtxBuff = cpuMP->getPackerDataStore().vertexBuffer;
 
-            // TODO: why are the allocators not copied!?
-
             // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
             m_packerDataStore.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
             m_packerDataStore.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuIdxBuff->getSize(),cpuIdxBuff->getPointer());
@@ -55,7 +53,7 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         void instantiateDataStorage();
 
         template <typename MeshBufferIterator>
-        bool commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+        bool commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, core::aabbox3df* aabbs, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
         
         inline std::pair<uint32_t,uint32_t> getDescriptorSetWritesForUTB(
             IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet,
@@ -76,14 +74,18 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
 template <typename MDIStructType>
 void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
-    m_packerDataStore.MDIDataBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
-    m_packerDataStore.indexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
-    m_packerDataStore.vertexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.vertexBuffSupportedByteSize);
+    const uint32_t MDIDataBuffByteSize = m_MDIDataAlctr.get_total_size() * sizeof(MDIStructType);
+    const uint32_t idxBuffByteSize = m_idxBuffAlctr.get_total_size() * sizeof(uint16_t);
+    const uint32_t vtxBuffByteSize = m_vtxBuffAlctr.get_total_size();
+
+    m_packerDataStore.MDIDataBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(MDIDataBuffByteSize);
+    m_packerDataStore.indexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(idxBuffByteSize);
+    m_packerDataStore.vertexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(vtxBuffByteSize);
 }
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, core::aabbox3df* aabbs, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     assert(0);
     return false;

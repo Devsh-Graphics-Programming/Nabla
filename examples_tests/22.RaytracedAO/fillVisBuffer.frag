@@ -1,13 +1,13 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#version 430 core
+#version 460 core
 #extension GL_EXT_shader_16bit_storage : require
+#include <nbl/builtin/glsl/barycentric/extensions.glsl>
 
 
 #define _NBL_GLSL_EXT_MITSUBA_LOADER_INSTANCE_DATA_BINDING_ 0
 #include "virtualGeometry.glsl"
-
 
 #include <nbl/builtin/glsl/barycentric/frag.glsl>
 layout(location = 2) flat in uint BackfacingBit_BatchInstanceGUID;

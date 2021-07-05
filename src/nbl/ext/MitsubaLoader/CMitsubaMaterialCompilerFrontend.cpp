@@ -13,15 +13,16 @@ namespace ext
 namespace MitsubaLoader
 {
 
-    auto CMitsubaMaterialCompilerFrontend::getDerivMap(const CElementTexture* _element) const -> tex_ass_type
+    auto CMitsubaMaterialCompilerFrontend::getDerivMap(const CElementBSDF::BumpMap& _bump) const -> tex_ass_type
     {
+        const CElementTexture* texture = nullptr;
         float scale = 1.f;
-        std::tie(_element, scale) = getTexture_common(_element);
-        std::string key = m_loaderContext->derivMapCacheKey(_element);
-        if (_element->type != CElementTexture::BITMAP)
+        std::tie(texture, scale) = getTexture_common(_bump.texture);
+        std::string key = m_loaderContext->derivMapCacheKey(_bump);
+        if (texture->type != CElementTexture::BITMAP)
             return { nullptr, nullptr, 0.f };
 
-        return getTexture(key, _element, scale);
+        return getTexture(key, texture, scale);
     }
 
     auto CMitsubaMaterialCompilerFrontend::getBlendWeightTex(const CElementTexture* _element) const -> tex_ass_type
@@ -250,7 +251,7 @@ namespace MitsubaLoader
             //no other source supported for now (uncomment in the future) [far future TODO]
             //node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
 
-            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = getDerivMap(_bsdf->bumpmap.texture);
+            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = getDerivMap(_bsdf->bumpmap);
         }
         break;
         case CElementBSDF::COATING:

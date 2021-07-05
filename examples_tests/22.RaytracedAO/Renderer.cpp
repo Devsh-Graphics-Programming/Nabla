@@ -136,16 +136,15 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 7u;
+		constexpr auto raytracingCommonDescriptorCount = 6u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
-		bindings[1].type = asset::EDT_STORAGE_BUFFER;
-		bindings[2].type = asset::EDT_STORAGE_IMAGE;
-		bindings[3].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
-		bindings[4].type = asset::EDT_STORAGE_IMAGE;
+		bindings[1].type = asset::EDT_STORAGE_IMAGE;
+		bindings[2].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+		bindings[3].type = asset::EDT_STORAGE_IMAGE;
+		bindings[4].type = asset::EDT_STORAGE_BUFFER;
 		bindings[5].type = asset::EDT_STORAGE_BUFFER;
-		bindings[6].type = asset::EDT_STORAGE_BUFFER;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
@@ -158,7 +157,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	samplerParams.CompareEnable = false;
 	auto sampler = m_driver->createGPUSampler(samplerParams);
 	{
-
 		constexpr auto raygenDescriptorCount = 1u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount,EDT_COMBINED_IMAGE_SAMPLER);
@@ -247,7 +245,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				// one instance data per instance of a batch
 				core::smart_refctd_ptr<ICPUBuffer> newInstanceDataBuffer;
 
-				constexpr uint16_t minTrisBatch = 256u; 
+				constexpr uint16_t minTrisBatch = MAX_TRIANGLES_IN_BATCH>>1u;
 				constexpr uint16_t maxTrisBatch = MAX_TRIANGLES_IN_BATCH;
 				constexpr uint8_t minVertexSize = 
 					asset::getTexelOrBlockBytesize<asset::EF_R32G32B32_SFLOAT>()+
@@ -256,7 +254,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 				constexpr uint8_t kIndicesPerTriangle = 3u;
 				constexpr uint16_t minIndicesBatch = minTrisBatch*kIndicesPerTriangle;
-				 
+
 				CPUMeshPacker::AllocationParams allocParams;
 				allocParams.vertexBuffSupportedByteSize = 1u<<31u;
 				allocParams.vertexBufferMinAllocByteSize = minTrisBatch*minVertexSize;
@@ -265,16 +263,24 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				allocParams.MDIDataBuffSupportedCnt = allocParams.indexBuffSupportedCnt/minIndicesBatch;
 				allocParams.MDIDataBuffMinAllocCnt = 1u; //so structs from different meshbuffers are adjacent in memory
 
+
+				// TODO: after position moves to RGB21, need to split up normal from UV
 				constexpr auto combinedNormalUVAttributeIx = 1;
 				constexpr auto newEnabledAttributeMask = (0x1u<<combinedNormalUVAttributeIx)|0b1;
 
-				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,minTrisBatch,maxTrisBatch);
+				IMeshPackerV2Base::SupportedFormatsContainer formats;
+				formats.insert(EF_R32G32B32_SFLOAT);
+				formats.insert(EF_R32G32_UINT);
+				auto cpump = core::make_smart_refctd_ptr<CCPUMeshPackerV2<>>(allocParams,formats,minTrisBatch,maxTrisBatch);
 				uint32_t mdiBoundMax=0u,batchInstanceBoundTotal=0u;
 				core::vector<CPUMeshPacker::ReservedAllocationMeshBuffers> allocData;
 				// virtually allocate and size the storage
 				{
 					core::vector<const ICPUMeshBuffer*> meshBuffersToProcess;
 					meshBuffersToProcess.reserve(contents.size());
+					// TODO: Optimize! Check which triangles need normals, bin into two separate meshbuffers, dont have normals for meshbuffers where all(abs(transpose(normals)*cross(pos1-pos0,pos2-pos0))~=1.f) 
+					// TODO: Optimize! Check which materials use any textures, if meshbuffer doens't use any textures, its pipeline doesn't need UV coordinates
+					// TODO: separate pipeline for stuff without UVs and separate out the barycentric derivative FBO attachment 
 					for (const auto& asset : contents)
 					{
 						auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
@@ -326,6 +332,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					}
 					for (auto meshBuffer : meshBuffersToProcess)
 						const_cast<ICPUMeshBuffer*>(meshBuffer)->getPipeline()->getVertexInputParams().enabledAttribFlags = newEnabledAttributeMask;
+
 					allocData.resize(meshBuffersToProcess.size());
 
 					cpump->alloc(allocData.data(),meshBuffersToProcess.begin(),meshBuffersToProcess.end());
@@ -336,7 +343,6 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					cullData.reserve(batchInstanceBoundTotal);
 
 					newInstanceDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ext::MitsubaLoader::instance_data_t)*batchInstanceBoundTotal);
-					retval.mdiFirstIndices.resize(batchInstanceBoundTotal);
 				}
 				// actually commit the physical memory, compute batches and set up instance data
 				{
@@ -346,10 +352,10 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					auto* vertexPtr = reinterpret_cast<const float*>(cpump->getPackerDataStore().vertexBuffer->getPointer());
 					auto* mdiPtr = reinterpret_cast<DrawElementsIndirectCommand_t*>(cpump->getPackerDataStore().MDIDataBuffer->getPointer());
 					auto* newInstanceData = reinterpret_cast<ext::MitsubaLoader::instance_data_t*>(newInstanceDataBuffer->getPointer());
-					auto batchFirstIndexIt = retval.mdiFirstIndices.begin();
 
 					constexpr uint32_t kIndicesPerTriangle = 3u;
 					core::vector<CPUMeshPacker::CombinedDataOffsetTable> cdot(mdiBoundMax);
+					core::vector<core::aabbox3df> aabbs(mdiBoundMax);
 					MDICall* mdiCall = nullptr;
 					core::vector<int32_t> fatIndicesForRR(maxTrisBatch*kIndicesPerTriangle);
 					for (const auto& asset : contents)
@@ -360,7 +366,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						const auto& instanceAuxData = meta->m_instanceAuxData;
 
 						auto meshBuffers = cpumesh->getMeshBuffers();
-						const uint32_t actualMdiCnt = cpump->commit(&*pmbdIt,cdot.data(),&*allocDataIt,meshBuffers.begin(),meshBuffers.end());
+						const uint32_t actualMdiCnt = cpump->commit(&*pmbdIt,cdot.data(),aabbs.data(),&*allocDataIt,meshBuffers.begin(),meshBuffers.end());
 						allocDataIt += meshBuffers.size();
 						if (actualMdiCnt==0u)
 						{
@@ -373,6 +379,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						const auto aabbMesh = cpumesh->getBoundingBox();
 						// meshbuffers
 						auto cdotIt = cdot.begin();
+						auto aabbsIt = aabbs.begin();
 						for (auto mb : meshBuffers)
 						{
 							assert(mb->getInstanceCount()==instanceData.size());
@@ -401,7 +408,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 								);
 
 								const auto thisShapeInstancesBeginIx = rrInstances.size();
-								const auto& batchAABB = mb->getBoundingBox();// TODO: replace with batch AABB
+								const auto& batchAABB = *aabbsIt;
 								for (auto auxIt=instanceAuxData.begin(); auxIt!=instanceAuxData.end(); auxIt++)
 								{
 									const auto batchInstanceGUID = cullData.size();
@@ -455,11 +462,11 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 									}
 
 									newInstanceData++;
-									*(batchFirstIndexIt++) = firstIndex;
 								}
 								for (auto j=thisShapeInstancesBeginIx; j!=rrInstances.size(); j++)
 									rr->AttachShape(rrInstances[j]);
 								cdotIt++;
+								aabbsIt++;
 							}
 							//
 							if (!mdiCall || pmbdIt->mdiParameterOffset!=mdiCall->mdiOffset+mdiCall->mdiCount)
@@ -474,9 +481,16 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						}
 					}
 				}
+				printf("Scene Bound: %f,%f,%f -> %f,%f,%f\n",
+					m_sceneBound.MinEdge.X,
+					m_sceneBound.MinEdge.Y,
+					m_sceneBound.MinEdge.Z,
+					m_sceneBound.MaxEdge.X,
+					m_sceneBound.MaxEdge.Y,
+					m_sceneBound.MaxEdge.Z
+				);
 				instanceDataDescPtr->buffer = {0u,cullData.size()*sizeof(ext::MitsubaLoader::instance_data_t)};
 				instanceDataDescPtr->desc = std::move(newInstanceDataBuffer); // TODO: trim the buffer
-				retval.mdiFirstIndices.resize(cullData.size());
 				{
 					auto gpump = core::make_smart_refctd_ptr<GPUMeshPacker>(m_driver,cpump.get());
 					const auto& dataStore = gpump->getPackerDataStore();
@@ -651,7 +665,7 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-constexpr uint16_t m_maxDepth = 2u;
+constexpr uint16_t m_maxDepth = 8u;
 constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
 {
@@ -804,6 +818,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					core::smart_refctd_ptr(m_commonRaytracingDSLayout),
 					core::smart_refctd_ptr(m_raygenDSLayout)
 				);
+
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
@@ -833,7 +848,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 
 			//
 			constexpr uint32_t descriptorUpdates = 5;
-			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,7u,2u,2u,3u};
+			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,6u,2u,2u,3u};
 			constexpr uint32_t descriptorUpdateMaxCount = *std::max_element(descriptorUpdateCounts,descriptorUpdateCounts+descriptorUpdates);
 
 			//
@@ -866,7 +881,10 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			auto createEmptyInteropBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, InteropBuffer& interopBuffer, size_t size) -> void
 			{
 				if (static_cast<COpenGLDriver*>(m_driver)->runningInRenderdoc()) // makes Renderdoc capture the modifications done by OpenCL
+				{
 					interopBuffer.buffer = m_driver->createUpStreamingGPUBufferOnDedMem(size);
+					//interopBuffer.buffer->getBoundMemory()->mapMemoryRange(IDriverMemoryAllocation::EMCAF_WRITE,{0u,size})
+				}
 				else
 					interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
 				interopBuffer.asRRBuffer = m_rrManager->linkBuffer(interopBuffer.buffer.get(), CL_MEM_READ_ONLY);
@@ -904,7 +922,6 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
 			{
 				_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
-				createFilledBufferAndSetUpInfoFromVector(infos+1,initData.mdiFirstIndices);
 				{
 					constexpr auto ScrambleStateChannels = 2u;
 					auto tmpBuff = m_driver->createCPUSideGPUVisibleGPUBufferOnDedMem(sizeof(uint32_t)*ScrambleStateChannels*renderPixelCount);
@@ -927,7 +944,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
 					auto scrambleKeys = createScreenSizedTexture(EF_R32G32_UINT,2u);
 					m_driver->copyBufferToImage(tmpBuff.get(),scrambleKeys->getCreationParameters().image.get(),1u,&region);
-					setImageInfo(infos+2,asset::EIL_GENERAL,std::move(scrambleKeys));
+					setImageInfo(infos+1,asset::EIL_GENERAL,std::move(scrambleKeys));
 				}
 				{
 					// TODO: maybe use the sample limit in the future to stop a converged render
@@ -935,15 +952,14 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
 					// upload sequence to GPU (TODO: clip its size to the dimensions we'll actually use)
 					auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
-					infos[3].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
+					infos[2].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
 				}
-				setImageInfo(infos+4,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-				createEmptyInteropBufferAndSetUpInfo(infos+5,m_rayBuffer[0],raygenBufferSize);
-				setBufferInfo(infos+6,m_rayCountBuffer);
+				setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
+				createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
+				setBufferInfo(infos+5,m_rayCountBuffer);
 
 				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
 					EDT_UNIFORM_BUFFER,
-					EDT_STORAGE_BUFFER,
 					EDT_STORAGE_IMAGE,
 					EDT_UNIFORM_TEXEL_BUFFER,
 					EDT_STORAGE_IMAGE,
@@ -952,7 +968,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				});
 				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
 				// set up second DS
-				createEmptyInteropBufferAndSetUpInfo(infos+5,m_rayBuffer[1],raygenBufferSize);
+				createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[1],raygenBufferSize);
 				for (auto i=0u; i<descriptorUpdateCounts[1]; i++)
 					writes[i].dstSet = m_commonRaytracingDS[1].get();
 				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
@@ -978,6 +994,7 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				setDstSetAndDescTypesOnWrites(m_closestHitDS[i].get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
 				m_driver->updateDescriptorSets(descriptorUpdateCounts[3],writes,0u,nullptr);
 			}
+			initData = {}; // reclaim some memory
 			// set up m_resolveDS
 			{
 				infos[0].buffer = {0u,_staticViewDataBuffer->getSize()};
@@ -1131,6 +1148,7 @@ void Renderer::deinit()
 
 	m_raytraceCommonData = {vec3(),0,0,0,0u};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
+	m_totalRaysCast = 0ull;
 	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
 	std::fill_n(m_prevView.pointer(),12u,0.f);
@@ -1360,9 +1378,11 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
 		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");
 		glFinish(); // sync CPU to GL
+		//auto start = std::chrono::steady_clock::now();
 		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
 		if (nextTraceRaycount==0u)
 			return 0u;
+		m_totalRaysCast += nextTraceRaycount;
 		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 
 		auto commandQueue = m_rrManager->getCLCommandQueue();
@@ -1386,6 +1406,9 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
 		ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
 		ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
+		//const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count();
+		//if (elapsed>100000ull)
+			//printf("Path Vertex: %d took %d us\n",m_raytraceCommonData.depth,elapsed);
 		return nextTraceRaycount;
 	}
 	else

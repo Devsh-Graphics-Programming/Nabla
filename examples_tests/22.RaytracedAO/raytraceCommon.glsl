@@ -23,23 +23,19 @@ layout(set = 2, binding = 0, row_major) uniform StaticViewData
 {
 	StaticViewData_t staticViewData;
 };
-layout(set = 2, binding = 1) readonly restrict buffer ExtraBatchData
-{
-	uint firstIndex[];
-} extraBatchData;
 // rng
-layout(set = 2, binding = 2, rg32ui) uniform uimage2DArray scramblebuf;
-layout(set = 2, binding = 3) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1, rg32ui) uniform uimage2DArray scramblebuf;
+layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
 // accumulation
-layout(set = 2, binding = 4, rg32ui) restrict uniform uimage2DArray accumulation;
+layout(set = 2, binding = 3, rg32ui) restrict uniform uimage2DArray accumulation;
 // ray data
 #include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
-layout(set = 2, binding = 5, std430) restrict writeonly buffer SinkRays
+layout(set = 2, binding = 4, std430) restrict writeonly buffer SinkRays
 {
 	nbl_glsl_ext_RadeonRays_ray sinkRays[];
 };
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
-layout(set = 2, binding = 6) restrict coherent buffer RayCount // maybe remove coherent keyword
+layout(set = 2, binding = 5) restrict coherent buffer RayCount // maybe remove coherent keyword
 {
 	uint rayCount[RAYCOUNT_N_BUFFERING];
 };
@@ -51,9 +47,9 @@ void clear_raycount()
 }
 
 //
-uvec3 get_triangle_indices(in uint batchInstanceGUID, in uint triangleID)
+uvec3 get_triangle_indices(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uint triangleID)
 {
-	const uint baseTriangleVertex = triangleID*3u+extraBatchData.firstIndex[batchInstanceGUID];
+	const uint baseTriangleVertex = triangleID*3u+batchInstanceData.padding0;
 	return uvec3(
 		nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,0u),
 		nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,1u),
@@ -118,30 +114,32 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 	return normalizedN;
 }
 
+
+bool has_world_transform(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
+{
+	return true;
+}
+
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(out mat2x3 dPdBary_error, out vec3 lastVxPos_error,in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData)
+vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
 		nbl_glsl_fetchVtxPos(indices[1],batchInstanceData),
 		nbl_glsl_fetchVtxPos(indices[2],batchInstanceData)
 	);
-	const mat4x3 tform = batchInstanceData.tform;
-	mat3 positions_error;
-	// when we quantize positions to RGB21_USCALED, change to exp2(-22.f)
-	const float quantizationError = nbl_glsl_numeric_limits_float_epsilon(1u);
-	positions = nbl_glsl_mul_with_bounds_wo_gamma(positions_error,mat3(tform),positions,quantizationError);
-	positions_error *= nbl_glsl_ieee754_gamma(3u);
+	const bool tform = has_world_transform(batchInstanceData);
+	if (tform)
+		positions = mat3(batchInstanceData.tform)*positions;
 	//
 	for (int i=0; i<2; i++)
-	{
-		dPdBary[i] = nbl_glsl_ieee754_sub_with_bounds_wo_gamma(dPdBary_error[i],positions[i],positions_error[i],positions[2],positions_error[2]);
-		dPdBary_error[i] *= nbl_glsl_ieee754_gamma(1u);
-	}
-	const vec3 lastVx = nbl_glsl_ieee754_add_with_bounds_wo_gamma(lastVxPos_error,positions[2],positions_error[2],tform[3],vec3(0.f));
-	lastVxPos_error *= nbl_glsl_ieee754_gamma(1u);
-	return lastVx;
+		dPdBary[i] = positions[i]-positions[2];
+	geomDenormal = cross(dPdBary[0],dPdBary[1]);
+	//
+	if (tform)
+		positions[2] += batchInstanceData.tform[3];
+	return positions[2];
 }
 
 #ifdef TEX_PREFETCH_STREAM
@@ -158,9 +156,16 @@ mat2 nbl_glsl_perturbNormal_dUVdSomething()
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
+
+bool needs_texture_prefetch(in nbl_glsl_MC_instr_stream_t tps)
+{
+	return tps.count!=0u;
+}
+
 nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
-	in vec2 compactBary, in uvec3 indices, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
-	in nbl_glsl_MC_oriented_material_t material,
+	in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
+	in uvec3 indices, in vec2 compactBary, in vec3 geomDenormal,
+	in nbl_glsl_MC_oriented_material_t material, // TODO: change to the tps, dont need the whole material
 	in uvec2 outPixelLocation, in uint vertex_depth_mod_2
 #ifdef TEX_PREFETCH_STREAM
 	,in mat2 dBarydScreen
@@ -169,68 +174,53 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 {
 	// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
 	#ifdef TEX_PREFETCH_STREAM
-	const mat3x2 uvs = mat3x2(
-		nbl_glsl_fetchVtxUV(indices[0],batchInstanceData),
-		nbl_glsl_fetchVtxUV(indices[1],batchInstanceData),
-		nbl_glsl_fetchVtxUV(indices[2],batchInstanceData)
-	);
 	const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
-	#endif
-	// only needed for continuing
-	const mat3 normals = mat3(
-		nbl_glsl_fetchVtxNormal(indices[0],batchInstanceData),
-		nbl_glsl_fetchVtxNormal(indices[1],batchInstanceData),
-		nbl_glsl_fetchVtxNormal(indices[2],batchInstanceData)
-	);
+	if (needs_texture_prefetch(tps))
+	{
+		const mat3x2 uvs = mat3x2(
+			nbl_glsl_fetchVtxUV(indices[0],batchInstanceData),
+			nbl_glsl_fetchVtxUV(indices[1],batchInstanceData),
+			nbl_glsl_fetchVtxUV(indices[2],batchInstanceData)
+		);
 
-	#ifdef TEX_PREFETCH_STREAM
-	dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
-	const vec2 UV = dUVdBary*compactBary+uvs[2];
-	const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
-	nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
+		dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
+		const vec2 UV = dUVdBary*compactBary+uvs[2];
+		const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
+		nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
+	}
 	#endif
-	// not needed for NEE unless doing Area or Projected Solid Angle Sampling
-	const vec3 normal = normals*nbl_glsl_barycentric_expand(compactBary);
+	// the rest is always only needed for continuing
 
-	// init scramble while waiting for getting the instance's normal matrix
+	// init scramble
 	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,1u/*vertex_depth_mod_2*/)).rg;
 
 	// while waiting for the scramble state
-	normalizedN.x = dot(batchInstanceData.normalMatrixRow0,normal);
-	normalizedN.y = dot(batchInstanceData.normalMatrixRow1,normal);
-	normalizedN.z = dot(batchInstanceData.normalMatrixRow2,normal);
-	normalizedN = normalize(normal);
+	const bool needsSmoothNormals = true;
+	if (needsSmoothNormals)
+	{
+		const mat3 normals = mat3(
+			nbl_glsl_fetchVtxNormal(indices[0],batchInstanceData),
+			nbl_glsl_fetchVtxNormal(indices[1],batchInstanceData),
+			nbl_glsl_fetchVtxNormal(indices[2],batchInstanceData)
+		);
+
+		// not needed for NEE unless doing Area or Projected Solid Angle Sampling
+		normalizedN = normals*nbl_glsl_barycentric_expand(compactBary);
+		if (has_world_transform(batchInstanceData))
+		{
+			normalizedN = vec3(
+				dot(batchInstanceData.normalMatrixRow0,normalizedN),
+				dot(batchInstanceData.normalMatrixRow1,normalizedN),
+				dot(batchInstanceData.normalMatrixRow2,normalizedN)
+			);
+		}
+	}
+	else
+		normalizedN = geomDenormal;
+	normalizedN = normalize(normalizedN);
 
 	return scramble_start_state;
 }
-
-// TODO MOVE to some other header!
-vec3 nbl_glsl_interpolate_with_bounds(out vec3 error, in mat2x3 triangleEdges, in mat2x3 triangleEdges_error,
-	in vec3 origin, in vec3 origin_error, in vec2 compactBary, in float compactBary_error
-)
-{
-	vec3 error1;
-	const vec3 col1 = nbl_glsl_ieee754_mul_with_bounds_wo_gamma(error1,triangleEdges[0],triangleEdges_error[0],compactBary.x,compactBary_error);
-	error1 *= nbl_glsl_ieee754_gamma(1u);
-	vec3 error2;
-	const vec3 col2 = nbl_glsl_ieee754_mul_with_bounds_wo_gamma(error2,triangleEdges[1],triangleEdges_error[1],compactBary.y,compactBary_error);
-	error2 *= nbl_glsl_ieee754_gamma(1u);
-	vec3 error3;
-	vec3 retval = nbl_glsl_ieee754_add_with_bounds_wo_gamma(error3,col1,error1,col2,error2);
-	error3 *= nbl_glsl_ieee754_gamma(1u);
-	retval = nbl_glsl_ieee754_add_with_bounds_wo_gamma(error,retval,error3,origin,origin_error);
-	//error *= nbl_glsl_ieee754_gamma(1u);
-	error *= nbl_glsl_ieee754_gamma(8u); // cause PBRT says so
-	return retval;
-}
-// robust ray origins
-vec3 nbl_glsl_robust_ray_origin_impl(in vec3 origin, in vec3 direction, float offset, vec3 normal)
-{
-	// flip it in the correct direction
-	offset = uintBitsToFloat(floatBitsToUint(offset)^(floatBitsToUint(dot(normal,direction))&0x80000000u));
-	return origin+normal*offset;
-}
-
 
 vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in int _sample, in int depth)
 {
@@ -256,12 +246,11 @@ void gen_sample_ray(
 	direction = s.L;
 }
 
-uint triangleID;
-uint batchInstanceGUID;
+
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, vec3 origin_error, in vec3 prevThroughput)
+	in vec3 origin, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -295,20 +284,20 @@ for (uint i=1u; i!=vertex_depth; i++)
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] *= prevThroughput;
-		if (any(greaterThan(nextThroughput[i],vec3(nbl_glsl_FLT_MIN))))
+		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>exp2(-19.f)) // TODO: reverse tonemap to adjust the threshold
 			raysToAllocate++;
 		else
 			maxT[i] = 0.f;
 	}
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
-	
-	const float inversesqrt_precision = 1.03125f;
 
+	// the 1.03125f adjusts for the fact that the normal might be too short (inversesqrt precision)
+	const float inversesqrt_precision = 1.03125f;
 	// TODO: investigate why we can't use `normalizedN` here
 	const vec3 ray_offset_vector = normalize(cross(dPdBary[0],dPdBary[1]))*inversesqrt_precision;
-
-	float origin_offset = dot(abs(ray_offset_vector), origin_error);
+	float origin_offset = nbl_glsl_numeric_limits_float_epsilon(44u); // I pulled the constants out of my @$$
+	origin_offset += dot(abs(ray_offset_vector),abs(origin))*nbl_glsl_numeric_limits_float_epsilon(32u);
 	// TODO: in the future run backward error analysis of
 	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
 	// where
@@ -319,30 +308,24 @@ for (uint i=1u; i!=vertex_depth; i++)
 	//const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
 	//float ray_offset = ?;
 	//ray_offset = nbl_glsl_ieee754_next_ulp_away_from_zero(ray_offset);
-	// adjust for the fact that the normal might be too short (inversesqrt precision)
-	origin_offset += nbl_glsl_numeric_limits_float_epsilon(1u);
-	
 	const vec3 ray_offset = ray_offset_vector*origin_offset;
 	const vec3 ray_origin[2] = {origin+ray_offset,origin-ray_offset};
-
 	uint offset = 0u;
 	for (uint i=0u; i<maxRaysToGen; i++)
 	if (maxT[i]!=0.f)
 	{
 		nbl_glsl_ext_RadeonRays_ray newRay;
-
 		if (dot(ray_offset_vector,direction[i])<0.f)
 			newRay.origin = ray_origin[1];
 		else
 			newRay.origin = ray_origin[0];
-
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
 		newRay.time = packOutPixelLocation(outPixelLocation);
 		newRay.mask = -1;
 		newRay._active = 1;
-		newRay.useless_padding[0] = batchInstanceGUID;//packHalf2x16(nextThroughput[i].rg);
-		newRay.useless_padding[1] = bitfieldInsert(triangleID/*packHalf2x16(nextThroughput[i].bb)*/,sampleID+i,16,16);
+		newRay.useless_padding[0] = packHalf2x16(nextThroughput[i].rg);
+		newRay.useless_padding[1] = bitfieldInsert(packHalf2x16(nextThroughput[i].bb),sampleID+i,16,16);
 		const uint outputID = baseOutputID+(offset++);
 		sinkRays[outputID] = newRay;
 	}
@@ -350,7 +333,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 
 /* TODO: optimize and reorganize
 void main()
-{
+{ 
 	clear_raycount();
 	const bool alive = useful_invocation();
 	uint raysToAllocate = 0u;
