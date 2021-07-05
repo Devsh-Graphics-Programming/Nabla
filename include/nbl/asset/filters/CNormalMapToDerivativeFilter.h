@@ -52,14 +52,14 @@ class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableF
 
 				const core::vectorSIMDf getAbsoluteLayerScaleValues(size_t layer)
 				{
-					if (!scaleValuesPointer)
+					if (scaleValuesPointer)
 					{
 						auto offset = layer * forcedScratchChannelAmount;
 						auto* data = scaleValuesPointer + offset;
 						return core::vectorSIMDf (*data, *(data + 1));
 					}
 					else
-						return 0; // or maybe assert?
+						return core::vectorSIMDf(0.f); // or maybe assert?
 				}
 
 			protected:
