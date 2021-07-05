@@ -122,7 +122,7 @@ bool has_world_transform(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchIns
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
+vec3 load_positions(out mat3 transformedPositions, out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
@@ -132,7 +132,9 @@ vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instan
 	const bool tform = has_world_transform(batchInstanceData);
 	if (tform)
 		positions = mat3(batchInstanceData.tform)*positions;
-	//
+	
+	transformedPositions = positions;
+
 	for (int i=0; i<2; i++)
 		dPdBary[i] = positions[i]-positions[2];
 	geomDenormal = cross(dPdBary[0],dPdBary[1]);
@@ -246,11 +248,12 @@ void gen_sample_ray(
 	direction = s.L;
 }
 
-
+uint triangleID;
+uint batchInstanceGUID;
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, in vec3 prevThroughput)
+	in vec3 origin, in vec3 origin_error_box, in vec3 prevThroughput)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -296,18 +299,11 @@ for (uint i=1u; i!=vertex_depth; i++)
 	const float inversesqrt_precision = 1.03125f;
 	// TODO: investigate why we can't use `normalizedN` here
 	const vec3 ray_offset_vector = normalize(cross(dPdBary[0],dPdBary[1]))*inversesqrt_precision;
-	float origin_offset = nbl_glsl_numeric_limits_float_epsilon(44u); // I pulled the constants out of my @$$
-	origin_offset += dot(abs(ray_offset_vector),abs(origin))*nbl_glsl_numeric_limits_float_epsilon(32u);
-	// TODO: in the future run backward error analysis of
-	// dot(mat3(WorldToObj)*(origin+offset*geomNormal/length(geomNormal))+(WorldToObj-vx_pos[1]),geomNormal)
-	// where
-	// origin = mat3x2(vx_pos[2]-vx_pos[1],vx_pos[0]-vx_pos[1])*barys+vx_pos[1]
-	// geonNormal = cross(vx_pos[2]-vx_pos[1],vx_pos[0]-vx_pos[1])
-	// and we assume only `WorldToObj`, `vx_pos[i]` and `barys` are accurate values. So far:
-	// offset > (1+gamma(2))/(1-gamma(2))*(dot(abs(geomNormal),omega_error)+dot(abs(omega),geomNormal_error)+dot(omega_error,geomNormal_error))
-	//const vec3 geomNormal = cross(dPdBary[0],dPdBary[1]);
-	//float ray_offset = ?;
+	float origin_offset = dot(abs(ray_offset_vector),origin_error_box);
+
 	//ray_offset = nbl_glsl_ieee754_next_ulp_away_from_zero(ray_offset);
+	origin_offset += nbl_glsl_numeric_limits_float_epsilon(1u);
+
 	const vec3 ray_offset = ray_offset_vector*origin_offset;
 	const vec3 ray_origin[2] = {origin+ray_offset,origin-ray_offset};
 	uint offset = 0u;
@@ -324,8 +320,8 @@ for (uint i=1u; i!=vertex_depth; i++)
 		newRay.time = packOutPixelLocation(outPixelLocation);
 		newRay.mask = -1;
 		newRay._active = 1;
-		newRay.useless_padding[0] = packHalf2x16(nextThroughput[i].rg);
-		newRay.useless_padding[1] = bitfieldInsert(packHalf2x16(nextThroughput[i].bb),sampleID+i,16,16);
+		newRay.useless_padding[0] = batchInstanceGUID;//packHalf2x16(nextThroughput[i].rg);
+		newRay.useless_padding[1] = bitfieldInsert(triangleID/*packHalf2x16(nextThroughput[i].bb)*/,sampleID+i,16,16);
 		const uint outputID = baseOutputID+(offset++);
 		sinkRays[outputID] = newRay;
 	}

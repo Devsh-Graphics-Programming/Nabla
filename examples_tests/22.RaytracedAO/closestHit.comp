@@ -43,7 +43,7 @@ void main()
 		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[gl_GlobalInvocationID.x];
 		const nbl_glsl_ext_RadeonRays_ray ray = sourceRays[gl_GlobalInvocationID.x];
 
-		const uint batchInstanceGUID = intersection.shapeid;
+		/*const uint */ batchInstanceGUID = intersection.shapeid;
 		const uint invalidID = 0xffffffffu;
 		hit = batchInstanceGUID!=invalidID;
 
@@ -57,7 +57,7 @@ void main()
 		//
 		if (hit)
 		{
-			const uint triangleID = intersection.primid;
+			/*const uint */ triangleID = intersection.primid;
 			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
 			
 			// obtain ray incoming direction
@@ -69,7 +69,8 @@ void main()
 			
 			// positions
 			vec3 geomDenormal;
-			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
+			mat3 transformedPositions;
+			const vec3 lastVxPos = load_positions(transformedPositions,geomDenormal,batchInstanceData,indices);
 			const bool frontfacing = bool((batchInstanceData.determinantSignBit^floatBitsToUint(dot(geomDenormal,normalizedV)))&0x80000000u);
 
 			// get material
@@ -89,21 +90,45 @@ void main()
 					,mat2(0.0) // TODO: Covariance Rendering
 #endif
 				);
+
+				const float quantizationError = nbl_glsl_numeric_limits_float_epsilon(1u);
+				const mat3 transormedPositions_error = mat3(
+					(quantizationError + nbl_glsl_ieee754_gamma(3u)) * abs(transformedPositions[0]),
+					(quantizationError + nbl_glsl_ieee754_gamma(3u)) * abs(transformedPositions[1]),
+					(quantizationError + nbl_glsl_ieee754_gamma(3u)) * abs(transformedPositions[2]));
 				
-				const vec3 origin = dPdBary*compactBary+lastVxPos;
+				const vec3 dPdBary0_error = abs(dPdBary[0]) * nbl_glsl_ieee754_gamma(1u) + transormedPositions_error[0] + transormedPositions_error[2];
+				const vec3 dPdBary1_error = abs(dPdBary[1]) * nbl_glsl_ieee754_gamma(1u) + transormedPositions_error[1] + transormedPositions_error[2];
+
+				const float compactBary_error = nbl_glsl_ieee754_gamma(1u);
+				const vec3 lastVtxPos_error = transormedPositions_error[2] + nbl_glsl_ieee754_gamma(1u) * abs(lastVxPos);
+
+				const vec3 local_origin = dPdBary * compactBary;
+				const vec3 localOrigin_error = abs(local_origin) * nbl_glsl_ieee754_gamma(2u) 
+													+ compactBary_error * abs(dPdBary[0]) + abs(compactBary.x) * dPdBary0_error
+													+ compactBary_error * abs(dPdBary[1]) + abs(compactBary.y) * dPdBary1_error;
+
+				const vec3 origin = local_origin + lastVxPos;
+				vec3 origin_error = nbl_glsl_ieee754_gamma(1u) * abs(origin) + localOrigin_error + lastVtxPos_error;
 
 				generate_next_rays(
 					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,scramble_start_state,
-					sampleID,outPixelLocation,origin,throughput
+					sampleID,outPixelLocation,origin,origin_error,throughput
 				);
 			}
+
+			if (vertex_depth!=2u)
+				emissive = vec3(0.f);
+			else
+				emissive = ray.useless_padding[0]!=batchInstanceGUID||bitfieldExtract(ray.useless_padding[1],0,16)!=triangleID ? vec3(0.f,1.f,0.f):vec3(1.f,0.f,0.f);
+		
 		}
 
 		// TODO: finish MIS
 		vec3 acc;
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
 		const bool first_accumulating_path_vertex = get_path_vertex_depth()==2u&&accumulationLocation.z!=0u;
-		if (record_emission_common(acc,accumulationLocation,emissive*throughput,first_accumulating_path_vertex))
+		if (record_emission_common(acc,accumulationLocation,emissive/*throughput*/,first_accumulating_path_vertex))
 			storeAccumulation(acc,accumulationLocation);
 	}
 }
