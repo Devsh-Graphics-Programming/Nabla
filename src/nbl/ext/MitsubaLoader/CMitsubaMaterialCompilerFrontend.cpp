@@ -67,6 +67,14 @@ namespace MitsubaLoader
         if (!viewBundle.getContents().empty())
         {
             auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
+
+            auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
+            if (found != m_loaderContext->derivMapCache.end())
+            {
+                const float normalizationFactor = found->second;
+                _scale *= normalizationFactor;
+            }
+
             types[0] = asset::IAsset::ET_SAMPLER;
             auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
             assert(!samplerBundle.getContents().empty());

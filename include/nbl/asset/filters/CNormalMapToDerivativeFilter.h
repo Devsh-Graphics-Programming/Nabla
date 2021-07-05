@@ -108,6 +108,9 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 				CStateBase() = default;
 				virtual ~CStateBase() = default;
 
+				using override_normalization_factor_t = std::function<void(float*)>;
+				override_normalization_factor_t override_normalization_factor;
+
 			private:
 
 				void setLayerScaleValuesOffset()
@@ -237,6 +240,11 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 
 					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
 					CBasicImageFilterCommon::executePerRegion(state->inImage, decodeAndDivide, inRegions.begin(), inRegions.end(), clipFunctor);
+				}
+
+				if (state->override_normalization_factor)
+				{
+					state->override_normalization_factor(decodeAbsValuesOffset);
 				}
 
 				{

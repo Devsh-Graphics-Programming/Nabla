@@ -18,8 +18,10 @@ public:
     static core::smart_refctd_ptr<asset::ICPUImage> createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor);
     static core::smart_refctd_ptr<asset::ICPUImageView> createDerivativeMapViewFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor);
 
-    static core::smart_refctd_ptr<asset::ICPUImage> createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg);
-    static core::smart_refctd_ptr<asset::ICPUImageView> createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg);
+	//! `oneNormFactor` makes filter to use max value of all channels for normalization instead of per-channel max
+	//! Normalization is always done per-layer
+    static core::smart_refctd_ptr<asset::ICPUImage> createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor = false);
+    static core::smart_refctd_ptr<asset::ICPUImageView> createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor = false);
 
 private:
        

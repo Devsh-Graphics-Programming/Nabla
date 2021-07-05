@@ -212,7 +212,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CDerivativeMapCreator::createDeriva
 	return asset::ICPUImageView::create(std::move(params));
 }
 
-core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg)
+core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor/* = false*/)
 {
 	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
 	{
@@ -248,6 +248,13 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle, asset::IdentityDither>;
 	DerivativeNormalMapFilter derivativeNormalFilter;
 	DerivativeNormalMapFilter::state_type state;
+	DerivativeNormalMapFilter::state_type::override_normalization_factor_t normalizationFactorOverride = 
+		[](float inout_nfactor[2]) -> void
+		{
+			const float mx = std::max(inout_nfactor[0], inout_nfactor[1]);
+			inout_nfactor[0] = mx;
+			inout_nfactor[1] = mx;
+		};
 
 	state.inImage = cpuImageNormalTexture;
 	state.outImage = newDerivativeNormalMapImage.get();
@@ -264,17 +271,31 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	state.inMipLevel = 0;
 	state.outMipLevel = 0;
 
-	if (!derivativeNormalFilter.execute(&state))
-		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
+	if (oneNormFactor)
+		state.override_normalization_factor = std::move(normalizationFactorOverride);
+
+	const bool result = derivativeNormalFilter.execute(&state);
+	if (result)
+	{
+		auto factor = state.getAbsoluteLayerScaleValues(0u);
+		out_normalizationFactor[0] = factor.x;
+		out_normalizationFactor[1] = factor.y;
+	}
 
 	_NBL_ALIGNED_FREE(state.scratchMemory);
+
+	if (!result)
+	{
+		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
+		return nullptr;
+	}
 
 	return core::smart_refctd_ptr<ICPUImage>(state.outImage);
 }
 
-core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg)
+core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor/* = false*/)
 {
-	auto cpuDerivativeImage = createDerivativeMapFromNormalMap(_inImg);
+	auto cpuDerivativeImage = createDerivativeMapFromNormalMap(_inImg, out_normalizationFactor, oneNormFactor);
 
 	ICPUImageView::SCreationParams imageViewInfo;
 	imageViewInfo.image = core::smart_refctd_ptr(cpuDerivativeImage);

@@ -49,6 +49,8 @@ namespace MitsubaLoader
 		core::map<const CElementShape*, shape_ass_type> shapeCache;
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>>;
+		//image, scale
+		core::map<core::smart_refctd_ptr<asset::ICPUImage>, float> derivMapCache;
 
 		static std::string blendWeightImageCacheKey(const CElementTexture* bitmap)
 		{
