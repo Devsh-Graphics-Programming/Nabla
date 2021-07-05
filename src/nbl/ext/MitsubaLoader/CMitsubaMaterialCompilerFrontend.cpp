@@ -18,7 +18,7 @@ namespace MitsubaLoader
         const CElementTexture* texture = nullptr;
         float scale = 1.f;
         std::tie(texture, scale) = getTexture_common(_bump.texture);
-        std::string key = m_loaderContext->derivMapCacheKey(_bump);
+        std::string key = m_loaderContext->derivMapCacheKey(texture,_bump.wasNormal);
         if (texture->type != CElementTexture::BITMAP)
             return { nullptr, nullptr, 0.f };
 
