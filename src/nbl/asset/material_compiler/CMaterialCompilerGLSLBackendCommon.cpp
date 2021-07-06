@@ -704,6 +704,8 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 			// so we ignore coating layer and process only the coated material
 			if (!is_coated_diffuse)
 			{
+				os::Printer::log("Material compiler GLSL: Coating over non-diffuse materials is not supported. Ignoring coating layer!", ELL_WARNING);
+
 				auto retval = processSubtree(ir, coated, out_next, cache);
 				instr = retval.first;
 				tree = retval.second;
