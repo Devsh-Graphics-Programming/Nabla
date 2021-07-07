@@ -89,8 +89,8 @@ public:
         asset::VkExtent3D minImageTransferGranularity;
     };
 
-    IPhysicalDevice(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-        m_fs(std::move(fs)), m_GLSLCompiler(std::move(glslc))
+    IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+        m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
     {
 
     }
@@ -151,7 +151,7 @@ protected:
 
     virtual ~IPhysicalDevice() = default;
 
-    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
     SLimits m_limits;

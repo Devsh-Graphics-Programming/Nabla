@@ -20,7 +20,26 @@ namespace nbl::ui
 	public:
 		CWindowManagerWin32() = default;
 		~CWindowManagerWin32() {};
-
+		virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override
+		{
+			CWindowWin32::native_handle_t handle = createNativeWindow(creationParams.x,
+				creationParams.y,
+				creationParams.width,
+				creationParams.height,
+				creationParams.flags,
+				creationParams.windowCaption);
+			// TODO: params validation
+			if (false)
+			{
+				return nullptr;
+			}
+			return core::make_smart_refctd_ptr<CWindowWin32>(this, std::move(creationParams), handle);
+		}
+		virtual void destroyWindow(IWindow* wnd) override
+		{
+			destroyNativeWindow(static_cast<IWindowWin32*>(wnd)->getNativeHandle());
+		}
+	private:
 		IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)
 		{
 			IWindowWin32::native_handle_t out_handle;
@@ -68,12 +87,15 @@ namespace nbl::ui
 				SRequestParams_CreateWindow createWindowParam;
 				SRequestParams_DestroyWindow destroyWindowParam;
 			};
+			SRequest() {}
+			~SRequest() {}
 		};
 
 		class CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>
 		{
 			using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>;
 			friend base_t;
+			friend base_t::base_t;
 		public:
 			void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t* wnd, const std::string_view& caption)
 			{
@@ -92,7 +114,9 @@ namespace nbl::ui
 			{
 				this->start();
 			}
-			~CThreadHandler() {};
+			~CThreadHandler() override
+			{
+			}
 
 		private:
 			void waitForCompletion(SRequest& req)

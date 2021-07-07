@@ -16,32 +16,22 @@ public:
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	static E_KEY_CODE getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode);
 
-	//TODO
-	//explicit CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, native_handle_t hwnd) : IWindowWin32(std::move(sys))
-	//{
-	//	assert(false);
-	//	RECT rect;
-	//	GetWindowRect(hwnd, &rect);
-	//
-	//	m_width = rect.right - rect.left;
-	//	m_height = rect.bottom - rect.top;
-	//	// TODO m_flags
-	//}
+	CWindowWin32(CWindowManagerWin32* winManager, SCreationParams&& params, native_handle_t hwnd);
 
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowWin32> create(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags, const std::string_view& caption)
+	static core::smart_refctd_ptr<CWindowWin32> create(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params)
 	{
-		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
+		if ((params.flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
 			return nullptr;
 
-		CWindowWin32* win = new CWindowWin32(winManager, std::move(sys), _x, _y, _w, _h, _flags, caption);
+		CWindowWin32* win = new CWindowWin32(winManager, std::move(sys), std::move(params));
 		return core::smart_refctd_ptr<CWindowWin32>(win, core::dont_grab);
 	}
 
 	~CWindowWin32() override;
 private:
-	CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags, const std::string_view& caption);
+	CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params);
 
     native_handle_t m_native;
 

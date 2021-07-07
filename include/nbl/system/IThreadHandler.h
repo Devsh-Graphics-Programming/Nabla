@@ -138,7 +138,7 @@ public:
         return false;
     }
 
-    ~IThreadHandler()
+    virtual ~IThreadHandler()
     {
         terminate();
     }

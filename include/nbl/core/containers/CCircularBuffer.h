@@ -163,12 +163,12 @@ protected:
 
         auto xormask = static_cast<typename base_t::atomic_alive_flags_block_t::value_type>(1) << local_ix;
 
-        typename base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
+        auto* flags = base_t::getAliveFlagsStorage();
         flags[block_n].fetch_xor(xormask);
     }
 
 private:
-    static inline counter_t wrapAround(counter_t x)
+    counter_t wrapAround(counter_t x)
     {
         const counter_t mask = static_cast<counter_t>(base_t::capacity()) - static_cast<counter_t>(1);
         return x & mask;

@@ -15,8 +15,11 @@ namespace impl
     class IAsyncQueueDispatcherBase
     {
     public:
+        IAsyncQueueDispatcherBase() {};
+        virtual ~IAsyncQueueDispatcherBase() {};
         struct request_base_t
         {
+            virtual ~request_base_t() {}
             // TODO since c++20 we can get rid of both mutex and cvar
             // and do wait/notify on atomic itself
             std::mutex mtx;
@@ -55,9 +58,10 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
     static_assert(BufferSize>0u, "BufferSize must not be 0!");
     static_assert(core::isPoT(BufferSize), "BufferSize must be power of two!");
 
+protected:
     using base_t = IThreadHandler<CRTP, InternalStateType>;
     friend base_t;
-
+private:
     constexpr static inline uint32_t MaxRequestCount = BufferSize;
 
     using atomic_counter_t = std::atomic_uint64_t;
@@ -73,7 +77,12 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
         return x & Mask;
     }
 
+
 public:
+
+    IAsyncQueueDispatcher() {}
+    virtual ~IAsyncQueueDispatcher() {}
+
     using mutex_t = typename base_t::mutex_t;
     using lock_t = typename base_t::lock_t;
     using cvar_t = typename base_t::cvar_t;

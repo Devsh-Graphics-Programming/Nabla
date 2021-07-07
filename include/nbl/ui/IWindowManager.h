@@ -6,7 +6,7 @@ namespace nbl::ui
 {
 	class IWindowManager : public core::IReferenceCounted
 	{
-		virtual core::smart_refctd_ptr<IWindow> createWindow(const IWindow::SCreationParams& creationParams) = 0;
+		virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) = 0;
 		virtual void destroyWindow(IWindow* wnd) = 0;
 	protected:
 		virtual ~IWindowManager() = default;

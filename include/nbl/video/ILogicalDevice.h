@@ -64,7 +64,7 @@ public:
         size_t offset;
     };
 
-    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_apiType(api_type), m_fs(std::move(fs)), m_GLSLCompiler(std::move(glslc))
+    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_apiType(api_type), m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
     {
         uint32_t qcnt = 0u;
         uint32_t greatestFamNum = 0u;
@@ -707,7 +707,7 @@ protected:
     virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
     virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
 
-    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
     using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUQueue>>;
