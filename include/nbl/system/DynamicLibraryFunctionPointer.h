@@ -6,15 +6,12 @@
 #define __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
 
 
+#include "nbl/core/declarations.h"
+
 #include <functional>
 
 
-#include "nbl/core/core.h"
-
-
-namespace nbl
-{
-namespace system
+namespace nbl::system
 {
 
 template<typename FuncT, class UniqueStringType>
@@ -88,7 +85,6 @@ class DynamicLibraryFunctionPointer
 		const char* name = UniqueStringType::value;
 };
 
-}
 }
 
 #define NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(FUNC_NAME) nbl::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)> p ## FUNC_NAME;

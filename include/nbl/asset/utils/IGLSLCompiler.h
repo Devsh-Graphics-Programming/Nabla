@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
 #define __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/system/system.h"
 
 #include "IReadFile.h"

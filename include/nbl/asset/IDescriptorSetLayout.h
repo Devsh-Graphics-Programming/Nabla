@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 #define __NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/core/SRange.h"
 #include "nbl/asset/ISpecializedShader.h"
 

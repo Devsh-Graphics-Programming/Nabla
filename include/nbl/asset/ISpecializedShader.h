@@ -7,9 +7,8 @@
 
 #include <cstdint>
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/SRange.h"
-#include "nbl/core/Types.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
 
 #include "nbl/asset/ICPUBuffer.h"

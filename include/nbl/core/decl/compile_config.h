@@ -7,17 +7,14 @@
 
 //! Irrlicht SDK Version
 #define NABLA_VERSION_MAJOR 0
-#define NABLA_VERSION_MINOR 3
+#define NABLA_VERSION_MINOR 4
 #define NABLA_VERSION_REVISION 0
 #define NABLA_VERSION_INTEGER (NABLA_VERSION_MAJOR*100 + NABLA_VERSION_MINOR*10 + NABLA_VERSION_REVISION)
-// This flag will be defined only in SVN, the official release code will have
-// it undefined
-//#define IRRLICHT_VERSION_SVN -alpha
-#define NABLA_SDK_VERSION "0.3.0-beta2"
+#define NABLA_SDK_VERSION "0.4.0-alpha1"
 
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
 
-//#define _NBL_TEST_WAYLAND
+//#define _NBL_TEST_WAYLAND // TODO: need!?
 
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
@@ -78,7 +75,7 @@
 #endif // _NBL_WINDOWS_API_
 
 #ifndef _NBL_WINDOWS_API_
-#   undef _NBL_WCHAR_FILESYSTEM
+#   undef _NBL_WCHAR_FILESYSTEM // TODO: need?
 #endif
 
 #endif

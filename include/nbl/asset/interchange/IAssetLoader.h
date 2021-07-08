@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "IFileSystem.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"

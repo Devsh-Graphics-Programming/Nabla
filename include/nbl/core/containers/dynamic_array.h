@@ -6,7 +6,7 @@
 #define __NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED__
 
 #include "nbl/macros.h"
-#include "nbl/core/Types.h"//for core::allocator
+#include "nbl/core/decl/Types.h" //for core::allocator
 
 namespace nbl
 {

@@ -5,7 +5,7 @@
 #ifndef __NBL_MACROS_H_INCLUDED__
 #define __NBL_MACROS_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 #include "assert.h"
 
 // basics

@@ -6,7 +6,7 @@
 #ifndef __NBL_I_OS_OPERATOR_H_INCLUDED__
 #define __NBL_I_OS_OPERATOR_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/system/compile_config.h"
 
 namespace nbl

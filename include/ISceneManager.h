@@ -6,7 +6,7 @@
 #ifndef __NBL_I_SCENE_MANAGER_H_INCLUDED__
 #define __NBL_I_SCENE_MANAGER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "path.h"
 #include "vector3d.h"

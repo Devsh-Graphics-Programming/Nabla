@@ -5,13 +5,11 @@
 #ifndef __NBL_CORE_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 #define __NBL_CORE_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/alloc/AlignedBase.h"
 #include "nbl/core/containers/dynamic_array.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 //! Class for array type, that allocates memory one time dynamically for specified constant amount of objects
@@ -84,7 +82,6 @@ inline smart_refctd_dynamic_array_type make_refctd_dynamic_array(Args&&... args)
 }
 
 
-}
 }
 
 #endif

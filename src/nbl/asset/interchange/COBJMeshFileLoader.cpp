@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/utils/IMeshManipulator.h"

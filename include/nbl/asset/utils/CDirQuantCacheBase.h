@@ -13,7 +13,7 @@
 #include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "vectorSIMD.h"
 
 #include "nbl/system/system.h"

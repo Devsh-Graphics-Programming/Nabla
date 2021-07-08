@@ -8,7 +8,7 @@
 
 #include <iterator>
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 //#include "nbl/asset/asset.h"
 
 //#include "IDriverMemoryBacked.h"

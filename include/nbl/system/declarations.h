@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_SYSTEM_H_INCLUDED__
-#define __NBL_SYSTEM_H_INCLUDED__
+#ifndef __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
+#define __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/system/compile_config.h"
 
 // dependencies

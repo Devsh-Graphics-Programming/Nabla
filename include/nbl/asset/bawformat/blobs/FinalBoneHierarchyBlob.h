@@ -6,7 +6,7 @@
 #ifndef __NBL_ASSET_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
 #define __NBL_ASSET_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 namespace nbl
 {

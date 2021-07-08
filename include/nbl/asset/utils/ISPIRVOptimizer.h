@@ -1,7 +1,7 @@
 #ifndef __IRR_I_SPIRV_OPTIMIZER_H_INCLUDED__
 #define __IRR_I_SPIRV_OPTIMIZER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUBuffer.h"
 
 namespace nbl

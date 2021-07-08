@@ -3,7 +3,7 @@
 #include "spirv-tools/optimizer.hpp" 
 #include "spirv-tools/libspirv.hpp"
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl_os.h"
 

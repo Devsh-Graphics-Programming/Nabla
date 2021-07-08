@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_LOADER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 #include "nbl/asset/interchange/IAssetLoader.h"

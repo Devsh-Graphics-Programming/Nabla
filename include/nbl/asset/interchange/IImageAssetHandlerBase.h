@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_IMAGE_ASSET_HANDLER_BASE_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_ASSET_HANDLER_BASE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "ILogger.h"
 #include "nbl_os.h"

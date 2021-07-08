@@ -8,13 +8,10 @@
 #include <string>
 
 
-#include "nbl/core/core.h"
-#include "nbl/system/system.h"
-#include "IFileSystem.h"
+#include "nbl/core/declarations.h"
+#include "nbl/system/declarations.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IIncluder : public core::IReferenceCounted
@@ -57,7 +54,6 @@ class IIncluder : public core::IReferenceCounted
 		virtual std::string getInclude_internal(const std::string& _path) const = 0;
 };
 
-}
 }
 
 #endif

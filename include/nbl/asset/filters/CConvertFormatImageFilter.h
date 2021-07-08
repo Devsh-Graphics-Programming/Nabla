@@ -5,15 +5,11 @@
 #ifndef __NBL_ASSET_C_CONVERT_FORMAT_IMAGE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_C_CONVERT_FORMAT_IMAGE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
-
-#include <type_traits>
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Convert Filter
@@ -42,7 +38,6 @@ class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,
 		using state_type = typename CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,Normalize,Clamp,Dither>::state_type;
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif
