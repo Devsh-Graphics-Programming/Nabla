@@ -12,12 +12,8 @@
 
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
-<<<<<<< HEAD
-#include "nbl_os.h"
-
-=======
 #include "os.h"
->>>>>>> remotes/origin/danylo_system
+
 namespace nbl
 {
 using namespace system;

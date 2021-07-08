@@ -7,13 +7,9 @@
 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
-<<<<<<< HEAD
-#include "IReadFile.h"
-#include "nbl_os.h"
-=======
 #include "nbl/system/IFile.h"
 #include "os.h"
->>>>>>> remotes/origin/danylo_system
+
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImage.h"
 

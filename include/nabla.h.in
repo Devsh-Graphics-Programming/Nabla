@@ -20,12 +20,13 @@
 #ifndef __NABLA_H_INCLUDED__
 #define __NABLA_H_INCLUDED__
 
+
 // core lib
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 // system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
-#include "nbl/system/system.h"
-// should we move "core/parallel" to "system/parallel"
+#include "nbl/system/declarations.h"
+// TODO: should we move "core/parallel" to "system/parallel"
 
 // asset lib (importing and exporting meshes, textures and shaders) [DEPENDS: system]
 #include "nbl/asset/asset.h"
@@ -38,6 +39,15 @@
 // scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
 #include "nbl/scene/scene.h"
 
+
+// core lib
+#include "nbl/core/definitions.h"
+
+// system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
+#include "nbl/system/definitions.h"
+
+
+
 #include "aabbox3d.h"
 #include "vector2d.h"
 #include "vector3d.h"
@@ -48,14 +58,11 @@
 #include "quaternion.h"
 #include "rect.h"
 #include "dimension2d.h"
-#include "EDriverTypes.h"
 #include "ICameraSceneNode.h"
 #include "ICursorControl.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IEventReceiver.h"
 #include "ILogger.h"
-#include "IrrlichtDevice.h"
-#include "path.h"
 #include "ISceneManager.h"
 #include "ISceneNode.h"
 #include "ISceneNodeAnimator.h"

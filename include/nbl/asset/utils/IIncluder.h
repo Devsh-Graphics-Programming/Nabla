@@ -28,6 +28,9 @@ class IIncluder : public core::IReferenceCounted
 
 		std::string getIncludeStandard(const std::string& _path) const
 		{
+			assert(false); // TODO: change arguments to std::filesystem::path and use their utilities
+			return "\n#error TODO in asset::IIncluder!\n";
+#if 0
 			for (const std::string& searchDir : m_searchDirectories)
 			{
 				io::path path = searchDir.c_str();
@@ -37,16 +40,21 @@ class IIncluder : public core::IReferenceCounted
 				if (!res.empty())
 					return res;
 			}
+#endif
 			return {};
 		}
 		std::string getIncludeRelative(const std::string& _path, const std::string& _workingDir) const
 		{
+			assert(false); // TODO: change arguments to std::filesystem::path and use their utilities
+			return "\n#error TODO in asset::IIncluder!\n";
+#if 0
 			io::path path = _workingDir.c_str();
 			if (!_workingDir.empty() && _workingDir.back() != '/')
 				path += "/";
 			path += _path.c_str();
 			path = io::IFileSystem::flattenFilename(path);
 			return getInclude_internal(path.c_str());
+#endif
 		}
 
 	protected:

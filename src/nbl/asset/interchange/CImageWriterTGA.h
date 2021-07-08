@@ -11,28 +11,16 @@
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 
 #include "nbl/asset/interchange/IAssetWriter.h"
-<<<<<<< HEAD
-
-namespace nbl::asset
-=======
 #include "nbl/system/ISystem.h"
-namespace nbl
-{
-namespace asset
->>>>>>> remotes/origin/danylo_system
+namespace nbl::asset
 {
 
 class CImageWriterTGA : public asset::IAssetWriter
 {
-    core::smart_refctd_ptr<system::ISystem> m_system;
+        core::smart_refctd_ptr<system::ISystem> m_system; // TODO: remove
     public:
-<<<<<<< HEAD
-	//! constructor
-	CImageWriterTGA();
-=======
 	    //! constructor
 	    explicit CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys);
->>>>>>> remotes/origin/danylo_system
 
         virtual const char** getAssociatedFileExtensions() const override
         {
@@ -49,14 +37,7 @@ class CImageWriterTGA : public asset::IAssetWriter
 
         virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-<<<<<<< HEAD
-        virtual bool writeAsset(
-        	io::IWriteFile* _file, const SAssetWriteParams& _params,
-        	IAssetWriterOverride* _override = nullptr
-        ) override;
-=======
         virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
->>>>>>> remotes/origin/danylo_system
 };
 
 } // namespace nbl::asset

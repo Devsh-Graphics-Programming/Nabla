@@ -6,7 +6,7 @@
 #define __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
-#include "nbl/system/system.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/system/IFile.h"
 #include "nbl/system/ISystem.h"

@@ -10,15 +10,9 @@
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
-<<<<<<< HEAD
-#include "nbl_os.h"
-#include "IFileSystem.h"
-#include "IReadFile.h"
-=======
 #include "os.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
->>>>>>> remotes/origin/danylo_system
 
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "COBJMeshFileLoader.h"

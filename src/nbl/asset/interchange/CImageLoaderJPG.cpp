@@ -9,13 +9,9 @@
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
-<<<<<<< HEAD
-#include "IReadFile.h"
-#include "nbl_os.h"
-=======
 #include "nbl/system/IFile.h"
 #include "os.h"
->>>>>>> remotes/origin/danylo_system
+
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
 

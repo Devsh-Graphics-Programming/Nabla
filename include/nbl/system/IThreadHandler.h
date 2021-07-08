@@ -184,17 +184,9 @@ protected:
         }
     }
 
-<<<<<<< HEAD
-    ~IThreadHandler()
-    {
-        terminate();
-    }
-
 protected:
     alignas(internal_state_t) uint8_t m_internal_state_storage[sizeof(internal_state_t)];
 
-=======
->>>>>>> remotes/origin/danylo_system
     mutex_t m_mutex;
     cvar_t m_cvar;
     bool m_quit = false;

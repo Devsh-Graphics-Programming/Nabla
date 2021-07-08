@@ -87,7 +87,7 @@ enum STANDARD_TGA_IMAGE_TYPE
 */
 class CImageLoaderTGA final : public IImageLoader
 {
-	core::smart_refctd_ptr<system::ISystem> m_system;
+		core::smart_refctd_ptr<system::ISystem> m_system; // TODO: remove
 	public:
 		CImageLoaderTGA(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
 		virtual bool isALoadableFileFormat(system::IFile* _file) const override;
@@ -103,29 +103,12 @@ class CImageLoaderTGA final : public IImageLoader
 			return asset::IAsset::ET_IMAGE;
 		}
 
-<<<<<<< HEAD
-		virtual asset::SAssetBundle loadAsset(
-			io::IReadFile* _file,
-			const asset::IAssetLoader::SAssetLoadParams& _params,
-			asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr,
-			uint32_t _hierarchyLevel = 0u
-		) override;
-=======
 		virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
->>>>>>> remotes/origin/danylo_system
+
 
 	private:
-
 		//! loads a compressed tga. Was written and sent in by Jon Pry, thank you very much!
-<<<<<<< HEAD
-		void loadCompressedImage(
-			io::IReadFile *file,
-			const STGAHeader& header,
-			const uint32_t wholeSizeWithPitchInBytes,
-			core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
-=======
 		void loadCompressedImage(system::IFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
->>>>>>> remotes/origin/danylo_system
 };
 
 } // end namespace nbl::asset
