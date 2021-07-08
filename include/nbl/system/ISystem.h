@@ -19,7 +19,7 @@ namespace nbl::system
 class ISystem final : public core::IReferenceCounted
 {
 public:
-    class ISystemCaller : public core::IReferenceCounted
+    class ISystemCaller : public core::IReferenceCounted // why does `ISystemCaller` need to be public?
     {
     protected:
         virtual ~ISystemCaller() = default;
@@ -178,6 +178,7 @@ public:
         return true;
     }
 
+    // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
     bool readFile(future_t<uint32_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
     {
         SRequestParams_READ params;
@@ -204,6 +205,7 @@ public:
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
 
+    // TODO: file views can create themselves, they dont need a factory!
     core::smart_refctd_ptr<IFile> createFileView(const void* data, size_t size, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags, const std::filesystem::path &filename)
     {
         auto fileView = core::make_smart_refctd_ptr<CFileView>(filename, flags);

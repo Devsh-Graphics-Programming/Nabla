@@ -4,12 +4,11 @@
 #include <atomic>
 #include <thread>
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/math/intutil.h"
 
-namespace nbl {
-namespace core
+namespace nbl::core
 {
 
 namespace impl
@@ -396,7 +395,6 @@ public:
     }
 };
 
-}
 }
 
 #endif

@@ -6,8 +6,6 @@
 
 #include "nbl/system/IFile.h"
 
-#include "nbl_os.h"
-
 #include "nbl/asset/format/convertColor.h"
 
 
@@ -109,7 +107,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		break;
 		default:
 		{
-			os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+			assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
 			return false;
 		}
 	}

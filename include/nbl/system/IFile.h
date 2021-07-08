@@ -49,7 +49,7 @@ class IFile : public core::IReferenceCounted
 
 	protected:
 		// the ISystem is the factory, so this starys protected
-		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, std::underlying_type_t<E_CREATE_FLAGS> _flags); // TODO: implement in IFile.cpp
+		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, std::underlying_type_t<E_CREATE_FLAGS> _flags);
 
 		const core::smart_refctd_ptr<ISystem> m_system;
 		std::underlying_type_t<E_CREATE_FLAGS> m_flags;

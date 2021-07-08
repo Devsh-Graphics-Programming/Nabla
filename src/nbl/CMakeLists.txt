@@ -175,6 +175,7 @@ set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
 )
 set(NBL_SYSTEM_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 # Junk to refactor
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp

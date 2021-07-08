@@ -1,18 +1,16 @@
 #ifndef __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
 #define __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/video/EApiType.h"
-#include "IFileSystem.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include <type_traits>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IPhysicalDevice : public core::IReferenceCounted
@@ -160,7 +158,6 @@ protected:
     qfam_props_array_t m_qfamProperties;
 };
 
-}
 }
 
 #endif

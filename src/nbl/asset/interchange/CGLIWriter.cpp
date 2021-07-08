@@ -20,8 +20,6 @@ SOFTWARE.
 
 #include "CGLIWriter.h"
 
-#include "nbl_os.h"
-
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
@@ -63,7 +61,8 @@ bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _para
 
 bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView)
 {
-	os::Printer::log("WRITING GLI: writing the file", file->getFileName().string(), ELL_INFORMATION);
+	assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("WRITING GLI: writing the file", file->getFileName().string(), ELL_INFORMATION);
 
 	const auto& imageViewInfo = imageView->getCreationParameters();
 	const auto& imageInfo = imageViewInfo.image->getCreationParameters();
@@ -71,7 +70,8 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 
 	if (image->getRegions().size() == 0)
 	{
-		os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().string(), ELL_INFORMATION);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().string(), ELL_INFORMATION);
 		return false;
 	}
 
@@ -233,7 +233,8 @@ bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::IS
 	}
 	else
 	{
-		os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().string(), ELL_ERROR);
 		return false;
 	}
 }
@@ -270,8 +271,10 @@ inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> get
 	auto getTranslatedFinalFormat = [&](const gli::texture::format_type& format = FORMAT_UNDEFINED, const std::string_view& specialErrorOnUnknown = "Unsupported format!")
 	{
 		if (format == FORMAT_UNDEFINED)
-			os::Printer::log(("WRITING GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
-
+		{
+			assert(false); // TODO: implement proper engine-wide logger
+			//os::Printer::log(("WRITING GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
+		}
 		return std::make_pair(format, compomentMapping);
 	};
 
