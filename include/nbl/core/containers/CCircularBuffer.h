@@ -60,6 +60,11 @@ protected:
         return reinterpret_cast<const T*>(m_mem);
     }
 
+    atomic_alive_flags_block_t* getAliveFlagsStorage()
+    {
+        return m_flags.get();
+    }
+
     const atomic_alive_flags_block_t* getAliveFlagsStorage() const
     {
         return m_flags.get();
@@ -108,6 +113,11 @@ protected:
         return reinterpret_cast<const T*>(m_mem);
     }
 
+    atomic_alive_flags_block_t* getAliveFlagsStorage()
+    {
+        return m_flags;
+    }
+
     const atomic_alive_flags_block_t* getAliveFlagsStorage() const
     {
         return m_flags;
@@ -149,7 +159,7 @@ class CCircularBufferBase : public Base
 protected:
     bool isAlive(uint32_t ix) const
     {
-        typename base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
+        typename const base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
         const auto block_n = ix / base_t::bits_per_flags_block;
         const auto block = flags[block_n].load();
         const auto local_ix = ix & (base_t::bits_per_flags_block - 1u);

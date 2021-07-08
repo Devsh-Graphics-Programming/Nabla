@@ -288,7 +288,7 @@ namespace nbl::ui
 				{
 					req.createWindowParam = std::move(params);
 				}
-				else
+				else if constexpr (std::is_same_v<RequestParams, SRequestParams_DestroyWindow>)
 				{
 					req.destroyWindowParam = std::move(params);
 				}
