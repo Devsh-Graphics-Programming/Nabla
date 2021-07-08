@@ -25,7 +25,11 @@ namespace impl
         mutable system::SReadWriteSpinLock m_lock;
 
     protected:
+<<<<<<< HEAD
         auto lock_read() const  { return system::read_lock_guard<>(m_lock); }
+=======
+        auto lock_read() const { return system::read_lock_guard<>(m_lock); }
+>>>>>>> remotes/origin/danylo_system
         auto lock_write() const { return system::write_lock_guard<>(m_lock); }
     };
 
@@ -131,7 +135,11 @@ namespace impl
         {
             auto lk = lock_read();
             const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
+<<<<<<< HEAD
             return r;
+=======
+            return true;
+>>>>>>> remotes/origin/danylo_system
         }
 
         inline bool changeObjectKey(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key, const typename BaseCache::KeyType_impl& _newKey)

@@ -24,14 +24,14 @@ namespace ui
         }
     }
 
-    CWindowWayland::CWindowWayland(wl_display* dpy, native_handle_t win) : m_dpy(dpy), m_native(win)
+    CWindowWayland::CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, wl_display* dpy, native_handle_t win) : IWindowWayland(std::move(sys)), m_dpy(dpy), m_native(win)
     {
         // TODO
         // get window extent
         // flags
     }
 
-    CWindowWayland::CWindowWayland(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+    CWindowWayland::CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowWayland(std::move(sys), _w, _h, _flags)
     {
         std::pair<struct wl_compositor*, struct wl_shell*> data;
 

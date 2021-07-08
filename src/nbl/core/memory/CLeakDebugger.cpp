@@ -6,7 +6,10 @@
 
 #include "utf8/unchecked.h"
 #include "ConvertUTF.h"
+<<<<<<< HEAD
 
+=======
+>>>>>>> remotes/origin/danylo_system
 
 namespace std
 {

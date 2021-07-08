@@ -4,7 +4,7 @@
 // See the original file in irrlicht source for authors
 
 
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 
 #include "nbl_os.h"
 
@@ -19,14 +19,14 @@
 namespace nbl::asset
 {
 
-CImageWriterTGA::CImageWriterTGA()
+CImageWriterTGA::CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
 {
 #ifdef _NBL_DEBUG
 	setDebugName("CImageWriterTGA");
 #endif
 }
 
-bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	if (!_override)
 		getDefaultOverride(_override);
@@ -35,7 +35,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	auto* imageView = IAsset::castDown<const ICPUImageView>(_params.rootAsset);
 
-	io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
+	system::IFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
 
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{
@@ -114,7 +114,10 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		}
 	}
 
-	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
+	system::ISystem::future_t<uint32_t> future;
+	m_system->writeFile(future, file, &imageHeader, 0, sizeof(imageHeader));
+
+	if (future.get() != sizeof(imageHeader))
 		return false;
 
 	uint8_t* scan_lines = (uint8_t*)convertedImage->getBuffer()->getPointer();
@@ -135,27 +138,39 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	auto row_pointer = reinterpret_cast<uint8_t*>(rowPointerBuffer->getPointer());
 
 	uint32_t y;
+	size_t offset = sizeof(imageHeader);
 	for (y = 0; y < imageHeader.ImageHeight; ++y)
 	{
 		memcpy(row_pointer, &scan_lines[y * row_stride], row_size);
 		
-		if (file->write(row_pointer, row_size) != row_size)
+		system::ISystem::future_t<uint32_t> future;
+		m_system->writeFile(future, file, row_pointer, offset, row_size);
+		if (future.get() != row_size)
 			break;
+		offset += row_size;
 	}
 	
 	STGAExtensionArea extension;
 	extension.ExtensionSize = sizeof(extension);
 	extension.Gamma = isSRGBFormat(convertedFormat) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
 	
-	STGAFooter imageFooter;
-	imageFooter.ExtensionOffset = _file->getPos();
-	imageFooter.DeveloperOffset = 0;
-	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
+	system::ISystem::future_t<uint32_t> extFuture;
+	m_system->writeFile(extFuture, file, &extension, offset, sizeof(extension));
 	
-	if (file->write(&extension, sizeof(extension)) < (int32_t)sizeof(extension))
+	if (extFuture.get() < (int32_t)sizeof(extension))
 		return false;
 
-	if (file->write(&imageFooter, sizeof(imageFooter)) < (int32_t)sizeof(imageFooter))
+	offset += sizeof extension;
+
+	STGAFooter imageFooter;
+	imageFooter.ExtensionOffset = offset;
+	imageFooter.DeveloperOffset = 0;
+	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
+
+	system::ISystem::future_t<uint32_t> footerFuture;
+	m_system->writeFile(footerFuture, file, &extension, offset, sizeof(extension));
+
+	if (footerFuture.get() < (int32_t)sizeof(imageFooter))
 		return false;
 
 	return imageHeader.ImageHeight <= y;

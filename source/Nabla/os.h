@@ -7,11 +7,10 @@
 #define __NBL_OS_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
+#include "nbl/core/math/floatutil.h"
 
 #include "irrString.h"
-#include "path.h"
 #include "ILogger.h"
-#include "ITimer.h"
 
 namespace nbl
 {
@@ -19,7 +18,7 @@ namespace nbl
 namespace os
 {
 
-	class Printer // TODO: This whole header needs to disappear
+	class Printer // TODO: this needs to go
 	{
 	    Printer() = delete;
 	public:

@@ -5,8 +5,7 @@
 #include <thread>
 #include <mutex> // for std::adopt_lock_t
 
-namespace nbl {
-namespace system
+namespace nbl::system
 {
 
 namespace impl
@@ -52,10 +51,10 @@ public:
 
     void lock_read(std::memory_order rmw_order = std::memory_order_seq_cst, std::memory_order ld_order = std::memory_order_seq_cst)
     {
-        if (m_lock.fetch_add(1u, rmw_order) > (impl::SReadWriteSpinLockBase::LockWriteVal-1u))
+        if (m_lock.fetch_add(1u, rmw_order) > (LockWriteVal-1u))
         {
             uint32_t i = 0u;
-            while (m_lock.load(ld_order) >= impl::SReadWriteSpinLockBase::LockWriteVal)
+            while (m_lock.load(ld_order) >= LockWriteVal)
                 if (i++ >= SpinsBeforeYield)
                     std::this_thread::yield();
         }
@@ -73,7 +72,7 @@ public:
 
     void unlock_write(std::memory_order rmw_order = std::memory_order_seq_cst)
     {
-        m_lock.fetch_sub(impl::SReadWriteSpinLockBase::LockWriteVal, rmw_order);
+        m_lock.fetch_sub(LockWriteVal, rmw_order);
     }
 };
 
@@ -109,7 +108,7 @@ class read_lock_guard : public impl::rw_lock_guard_base
 {
 public:
     read_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}
-    explicit read_lock_guard(SReadWriteSpinLock& lk) : read_lock_guard(lk, std::adopt_lock)
+    explicit read_lock_guard(SReadWriteSpinLock& lk) : read_lock_guard(lk, std::adopt_lock_t())
     {
         m_lock->lock_read(ReadModWriteOrder, LoadOrder);
     }
@@ -127,7 +126,7 @@ class write_lock_guard : public impl::rw_lock_guard_base
 {
 public:
     write_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}
-    explicit write_lock_guard(SReadWriteSpinLock& lk) : write_lock_guard(lk, std::adopt_lock)
+    explicit write_lock_guard(SReadWriteSpinLock& lk) : write_lock_guard(lk, std::adopt_lock_t())
     {
         m_lock->lock_write(ReadModWriteOrder);
     }
@@ -142,8 +141,8 @@ public:
 
 template <std::memory_order LoadOrder, std::memory_order ReadModWriteOrder>
 inline read_lock_guard<LoadOrder, ReadModWriteOrder>::read_lock_guard(write_lock_guard<LoadOrder, ReadModWriteOrder>&& wl) : impl::rw_lock_guard_base(std::move(wl))
-{
-    m_lock->m_lock.fetch_sub(impl::SReadWriteSpinLockBase::LockWriteVal - 1u, ReadModWriteOrder);
+{=
+    m_lock->m_lock.fetch_sub(LockWriteVal - 1u, ReadModWriteOrder);
 }
 
 template <std::memory_order LoadOrder, std::memory_order ReadModWriteOrder>
@@ -153,7 +152,5 @@ inline write_lock_guard<LoadOrder, ReadModWriteOrder>::write_lock_guard(read_loc
 }
 
 }
-}
 
 #endif
-

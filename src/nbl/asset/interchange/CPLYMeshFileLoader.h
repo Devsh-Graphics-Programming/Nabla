@@ -40,7 +40,7 @@ public:
 	//! Constructor
 	CPLYMeshFileLoader(IAssetManager* _am);
 
-    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+    virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
     virtual const char** getAssociatedFileExtensions() const override
     {
@@ -51,7 +51,7 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
 
 	//! creates/loads an animated mesh from the file.
-    virtual SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 

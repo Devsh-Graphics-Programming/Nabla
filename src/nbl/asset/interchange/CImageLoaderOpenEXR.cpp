@@ -59,7 +59,7 @@ namespace nbl
 		using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
 		class SContext;
-		bool readVersionField(io::IReadFile* _file, SContext& ctx);
+		bool readVersionField(system::IFile* _file, SContext& ctx);
 		bool readHeader(const char fileName[], SContext& ctx);
 		template<typename rgbaFormat>
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
@@ -218,20 +218,20 @@ namespace nbl
 		}
 
 
-		SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
-			const auto& fileName = _file->getFileName().c_str();
+			std::string fileName = _file->getFileName().string();
 
 			SContext ctx;
-			InputFile file = fileName;
+			InputFile file = fileName.c_str();
 
 			if (!readVersionField(_file, ctx))
 				return {};
 
-			if (!readHeader(fileName, ctx))
+			if (!readHeader(fileName.c_str(), ctx))
 				return {};
 
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
@@ -308,14 +308,11 @@ namespace nbl
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
-		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file) const
 		{	
-			const size_t begginingOfFile = _file->getPos();
-            _file->seek(0ull);
-
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
-			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
-			_file->seek(begginingOfFile);
+			system::ISystem::future_t<uint32_t> future;
+			m_manager->getSystem()->readFile(future, _file, magicNumberBuffer, 0, sizeof(SContext::magicNumber));
 
 			return isImfMagic(magicNumberBuffer);
 		}
@@ -400,9 +397,9 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(io::IReadFile* _file, SContext& ctx)
+		bool readVersionField(system::IFile* _file, SContext& ctx)
 		{
-			RgbaInputFile file(_file->getFileName().c_str());
+			RgbaInputFile file(_file->getFileName().string().c_str());
 			auto& versionField = ctx.versionField;
 			
 			versionField.mainDataRegisterField = file.version();

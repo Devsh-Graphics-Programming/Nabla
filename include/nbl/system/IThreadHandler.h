@@ -4,6 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+#include <string>
 
 namespace nbl {
 namespace system
@@ -59,8 +60,8 @@ protected:
         raii_dispatch_handler_t(mutex_t& _mtx, cvar_t& _cv) : lk(_mtx), cv(_cv) {}
         ~raii_dispatch_handler_t()
         {
-            lk.unlock();
             cv.notify_one();
+            // raii-style unlock happens after notification
         }
 
     private:
@@ -68,7 +69,8 @@ protected:
         cvar_t& cv;
     };
 
-    inline lock_t createLock() { return lock_t{ m_mutex }; }
+    inline lock_t createLock() { return lock_t(m_mutex); }
+    inline lock_t tryCreateLock() { return lock_t(m_mutex, std::try_to_lock); }
     inline raii_dispatch_handler_t createRAIIDispatchHandler() { return raii_dispatch_handler_t(m_mutex, m_cvar); }
 
     // Required accessible methods of class being CRTP parameter:
@@ -88,7 +90,8 @@ private:
 
     inline void init_impl()
     {
-        static_assert(has_internal_state == has_init::value, "Custom internal state require implementation of init() method!");
+        //TODO!! temporarily commented (couldn't find the source) 
+        //static_assert(has_internal_state == has_init::value, "Custom internal state require implementation of init() method!");
 
         internal_state_t* state_ptr = getInternalStatePtr();
         size_t aaaa = alignof(internal_state_t);
@@ -136,6 +139,12 @@ public:
         return false;
     }
 
+    ~IThreadHandler()
+    {
+        terminate();
+    }
+
+protected:
     void thread()
     {
         CRTP* this_ = static_cast<CRTP*>(this);
@@ -175,6 +184,7 @@ public:
         }
     }
 
+<<<<<<< HEAD
     ~IThreadHandler()
     {
         terminate();
@@ -183,6 +193,8 @@ public:
 protected:
     alignas(internal_state_t) uint8_t m_internal_state_storage[sizeof(internal_state_t)];
 
+=======
+>>>>>>> remotes/origin/danylo_system
     mutex_t m_mutex;
     cvar_t m_cvar;
     bool m_quit = false;

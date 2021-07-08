@@ -40,10 +40,10 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 			return args;
 		}
 		
-		io::IFileSystem* fs;
+		system::ISystem* s;
 
 	public:
-		IGLSLEmbeddedIncludeLoader(io::IFileSystem* filesystem) : fs(filesystem) {}
+		IGLSLEmbeddedIncludeLoader(system::ISystem* system) : s(system) {}
 
 		//
 		const char* getVirtualDirectoryName() const override { return ""; }
@@ -52,12 +52,19 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
 		{
 			auto path = "nbl/builtin/" + _name;
-			auto data = fs->loadBuiltinData(path);
-			if (!data)
-				return "";
-			auto begin = reinterpret_cast<const char*>(data->getPointer());
-			auto end = begin+data->getSize();
-			return std::string(begin,end);
+			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+			bool validInput = s->createFile(future, path, system::IFile::ECF_READ);
+			assert(validInput);
+			core::smart_refctd_ptr<system::IFile> file = future.get();
+
+			size_t fileSize = file->getSize();
+			std::string content(fileSize, '/0');
+			system::ISystem::future_t<uint32_t> read_future;
+			validInput = s->readFile(read_future, file.get(), content.data(), 0, fileSize);
+			assert(validInput);
+			read_future.get();
+
+			return content;
 		}
 };
 

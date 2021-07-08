@@ -20,11 +20,12 @@ namespace asset
 //! Texture writer capable of saving in .ktx, .dds and .kmg file extensions
 class CGLIWriter final : public asset::IAssetWriter
 {
+	core::smart_refctd_ptr<system::ISystem> m_system;
 	protected:
 		virtual ~CGLIWriter() {}
 
 	public:
-		CGLIWriter() {}
+		explicit CGLIWriter(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
 
 		virtual const char** getAssociatedFileExtensions() const override
 		{
@@ -38,12 +39,12 @@ class CGLIWriter final : public asset::IAssetWriter
 
 		uint32_t getForcedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
 
-		bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
 	protected:
 
 	private:
-		bool writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* imageView);
+		bool writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView);
 
 		static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
 		{

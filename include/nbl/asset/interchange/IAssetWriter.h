@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 #include "nbl/asset/IAsset.h"
 
 namespace nbl
@@ -111,7 +111,7 @@ public:
     struct SAssetWriteContext
     {
         const SAssetWriteParams params;
-        io::IWriteFile* outputFile;
+        system::IFile* outputFile;
     };
 
 public:
@@ -165,21 +165,21 @@ public:
         //! If the writer has to output multiple files (e.g. write out textures)
         inline virtual void getExtraFilePaths(std::string& inOutAbsoluteFileWritePath, std::string& inOutPathToRecord, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLevel) {} // do absolutely nothing, no changes to paths
 
-        inline virtual io::IWriteFile* getOutputFile(io::IWriteFile* origIntendedOutput, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLeve)
+        inline virtual system::IFile* getOutputFile(system::IFile* origIntendedOutput, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLeve)
         {
             // if you want to return something else, better drop origIntendedOutput
             return origIntendedOutput;
         }
 
         //!This function is supposed to give an already seeked file the IAssetWriter can write to 
-        inline virtual io::IWriteFile* handleWriteError(io::IWriteFile* failingFile, const uint32_t& failedPos, const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        inline virtual system::IFile* handleWriteError(system::IFile* failingFile, const uint32_t& failedPos, const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             return nullptr; // no handling of fail
         }
     };
 
     //! Writes asset to a file (can be a memory write file)
-    virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) = 0;
+    virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) = 0;
 
 private:
     static IAssetWriterOverride s_defaultOverride;

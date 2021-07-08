@@ -162,9 +162,8 @@ set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 set(NABLA_HEADERS_PUBLIC
-#	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_os.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h" 
+	"${NBL_ROOT_PATH}/source/Nabla/os.h"
+	"${NBL_ROOT_PATH}/source/Nabla/CLogger.h" 
 )
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
@@ -178,23 +177,15 @@ set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" ${NABLA_HEA
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
-# Core Memory
-	${NBL_ROOT_PATH}/src/nbl/core/memory/CLeakDebugger.cpp
 )
 set(NBL_SYSTEM_SOURCES
 # Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
 	${NBL_ROOT_PATH}/source/Nabla/nbl_os.cpp
 )
 set(NBL_UI_SOURCES
@@ -292,7 +283,6 @@ set(NBL_VIDEO_SOURCES
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
 #${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES

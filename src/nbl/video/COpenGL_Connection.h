@@ -30,7 +30,11 @@ public:
         // would be nice to initialize this in create() and return nullptr on failure
         // but DynamicFunctionCallerBase is unmovable!! why?? So i cannot move into m_egl
         if (m_egl.initialize())
+<<<<<<< HEAD
             m_pdevice = PhysicalDeviceType::create(core::smart_refctd_ptr(m_fs), core::smart_refctd_ptr(m_GLSLCompiler), &m_egl, &m_debugCallback);
+=======
+            m_pdevice = PhysicalDeviceType::create(core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler), &m_egl, dbgCb);
+>>>>>>> remotes/origin/danylo_system
     }
 
     E_API_TYPE getAPIType() const override

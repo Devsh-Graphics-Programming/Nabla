@@ -10,9 +10,15 @@
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
+<<<<<<< HEAD
 #include "nbl_os.h"
 #include "IFileSystem.h"
 #include "IReadFile.h"
+=======
+#include "os.h"
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
+>>>>>>> remotes/origin/danylo_system
 
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "COBJMeshFileLoader.h"
@@ -37,7 +43,7 @@ constexpr uint32_t NORMAL = 3u;
 constexpr uint32_t BND_NUM = 0u;
 
 //! Constructor
-COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
+COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), System(_manager->getSystem())
 {
 }
 
@@ -47,7 +53,7 @@ COBJMeshFileLoader::~COBJMeshFileLoader()
 {
 }
 
-asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
@@ -75,13 +81,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 	uint32_t smoothingGroup=0;
 
-	const std::string fullName = _file->getFileName().c_str();
+	const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = std::filesystem::path(fullName).parent_path().string();
-		if (dir.empty())
-			return "";
-		return dir+"/";
+		auto dir = fullName.parent_path().string();
+		return dir;
 	}();
 
     //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
@@ -105,7 +109,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     std::string fileContents;
     fileContents.resize(filesize);
 	char* const buf = fileContents.data();
-	_file->read(buf, filesize);
+	system::ISystem::future_t<uint32_t> future;
+	System->readFile(future, _file, buf, 0, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information
@@ -240,7 +245,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 if (ctx.useMaterials && !ctx.useGroups)
                 {
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
                     auto mbs = mb_bundle.getContents();
 					bool notempty = mbs.size()!=0ull;
                     {
@@ -253,7 +258,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     recalcNormals.push_back(false);
                     submeshWasLoadedFromCache.push_back(notempty);
                     //if submesh was loaded from cache - insert empty "cache key" (submesh loaded from cache won't be added to cache again)
-                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName));
+                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName));
                     submeshMaterialNames.push_back(mtlName);
                 }
 			}
@@ -269,7 +274,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				indices.emplace_back();
 				recalcNormals.push_back(false);
 				submeshWasLoadedFromCache.push_back(false);
-				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), NO_MATERIAL_MTL_NAME, grpName));
+				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().string(), NO_MATERIAL_MTL_NAME, grpName));
 				submeshMaterialNames.push_back(NO_MATERIAL_MTL_NAME);
 			}
 

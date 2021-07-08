@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include <nbl/system/ISystem.h>
 
 namespace nbl
 {
@@ -17,27 +18,30 @@ namespace asset
 //!  Surface Loader for PNG files
 class CGLSLLoader final : public asset::IAssetLoader
 {
+	core::smart_refctd_ptr<system::ISystem> m_system;
 	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override
+		CGLSLLoader(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
 		{
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
+			
+		}
+		bool isALoadableFileFormat(system::IFile* _file) const override
+		{
 			char tmp[10] = { 0 };
 			char* end = tmp+sizeof(tmp);
 			auto filesize = _file->getSize();
-			while (_file->getPos()+sizeof(tmp)<filesize)
+			size_t readPos = 0;
+			while (readPos+sizeof(tmp)<filesize)
 			{
-				_file->read(tmp,sizeof(tmp));
+				system::ISystem::future_t<uint32_t> future;
+				m_system->readFile(future, _file, tmp, 0, sizeof(tmp));
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
 
 				auto found = std::find(tmp,end,'#');
 				if (found==end || found==tmp)
 					continue;
-
-				_file->seek(_file->getPos()+found-end);
+				readPos += found - end;
 			}
-			_file->seek(prevPos);
 
 			return false;
 		}
@@ -50,7 +54,7 @@ class CGLSLLoader final : public asset::IAssetLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SPECIALIZED_SHADER; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
 } // namespace asset

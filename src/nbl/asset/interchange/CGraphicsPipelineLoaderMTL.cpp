@@ -31,7 +31,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : IRe
     //create vertex shaders and insert them into cache
     auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
     {
-        auto data = m_assetMgr->getFileSystem()->loadBuiltinData<decltype(constexprStringType)>();
+        auto data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
         
         ICPUSpecializedShader::SInfo specInfo(
@@ -78,35 +78,33 @@ void CGraphicsPipelineLoaderMTL::initialize()
     }
 
     // default pipelines
-    auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
+    system::ISystem::future_t<core::smart_refctd_ptr<system::CFileView>> future;
+    constexpr std::string_view filename = "Nabla default MTL material";
+    m_assetMgr->getSystem()->createFileView(DUMMY_MTL_CONTENT, sizeof(DUMMY_MTL_CONTENT), system::IFile::ECF_READ, filename);
+    auto default_mtl_file = future.get();
 
     SAssetLoadParams assetLoadParams;
-    auto bundle = loadAsset(default_mtl_file, assetLoadParams, &dfltOver);
-
-    default_mtl_file->drop();
+    auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);
 
 
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
-bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
+bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file) const
 {
     if (!_file)
         return false;
 
-    const size_t prevPos = _file->getPos();
-
-    _file->seek(0ull);
-
     std::string mtl;
     mtl.resize(_file->getSize());
-    _file->read(mtl.data(), _file->getSize());
-    _file->seek(prevPos);
+    system::ISystem::future_t<uint32_t> future;
+    m_assetMgr->getSystem()->readFile(future, _file, mtl.data(), 0, _file->getSize());
+    future.get();
 
     return mtl.find("newmtl") != std::string::npos;
 }
 
-SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
@@ -116,7 +114,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         _hierarchyLevel,
         _override
     );
-    const std::string fullName = _file->getFileName().c_str();
+    const std::string fullName = _file->getFileName().string();
 	const std::string relPath = [&fullName]() -> std::string
 	{
 		auto dir = std::filesystem::path(fullName).parent_path().string();
@@ -694,11 +692,15 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     return ds;
 }
 
-auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> core::vector<SMtl>
+auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> core::vector<SMtl>
 {
     std::string mtl;
-    mtl.resize(_file->getSize());
-    _file->read(mtl.data(), _file->getSize());
+    size_t fileSize = _file->getSize();
+    mtl.resize(fileSize);
+    system::ISystem::future_t<uint32_t> fut;
+    
+    m_assetMgr->getSystem()->readFile(fut, _file, mtl.data(), 0, fileSize);
+    fut.get();
 
     const char* bufPtr = mtl.c_str();
     const char* const bufEnd = mtl.c_str()+mtl.size();

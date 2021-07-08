@@ -7,8 +7,13 @@
 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
+<<<<<<< HEAD
 #include "IReadFile.h"
 #include "nbl_os.h"
+=======
+#include "nbl/system/IFile.h"
+#include "os.h"
+>>>>>>> remotes/origin/danylo_system
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImage.h"
 
@@ -44,7 +49,7 @@ namespace asset
 	}
 
 //! loads a compressed tga.
-void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const
+void CImageLoaderTGA::loadCompressedImage(system::IFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const
 {
 	// This was written and sent in by Jon Pry, thank you very much!
 	// I only changed the formatting a little bit.
@@ -57,13 +62,16 @@ void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader&
 	while(currentByte < imageSizeInBytes)
 	{
 		uint8_t chunkheader = 0;
-		file->read(&chunkheader, sizeof(uint8_t)); // Read The Chunk's Header
-
+		{
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, file, &chunkheader, 0, sizeof(uint8_t)); // Read The Chunk's Header
+		}
 		if(chunkheader < 128) // If The Chunk Is A 'RAW' Chunk
 		{
 			chunkheader++; // Add 1 To The Value To Get Total Number Of Raw Pixels
 
-			file->read(&data[currentByte], bytesPerPixel * chunkheader);
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, file, &data[currentByte], 0, bytesPerPixel * chunkheader);
 			currentByte += bytesPerPixel * chunkheader;
 		}
 		else
@@ -74,7 +82,8 @@ void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader&
 			chunkheader -= 127; // Subtract 127 To Get Rid Of The ID Bit
 
 			int32_t dataOffset = currentByte;
-			file->read(&data[dataOffset], bytesPerPixel);
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, file, &data[currentByte], 0, bytesPerPixel);
 
 			currentByte += bytesPerPixel;
 
@@ -90,18 +99,17 @@ void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader&
 }
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
+bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 {
 	if (!_file)
 		return false;
 	
-    const size_t prevPos = _file->getPos();
-
 	STGAFooter footer;
 	memset(&footer, 0, sizeof(STGAFooter));
-	_file->seek(_file->getSize() - sizeof(STGAFooter));
-	_file->read(&footer, sizeof(STGAFooter));
-	
+	{
+		system::ISystem::future_t<uint32_t> future;
+		m_system->readFile(future, _file, &footer, _file->getSize() - sizeof(STGAFooter), sizeof(STGAFooter));
+	}
 	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
 	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
 	{
@@ -119,9 +127,10 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	else
 	{
 		STGAExtensionArea extension;
-		_file->seek(footer.ExtensionOffset);
-		_file->read(&extension, sizeof(STGAExtensionArea));
-		
+		{
+			system::ISystem::future_t<uint32_t> future;
+			m_system->readFile(future, _file, &extension, footer.ExtensionOffset, sizeof(STGAExtensionArea));
+		}
 		gamma = extension.Gamma;
 		
 		if (gamma == 0.0f)
@@ -134,7 +143,6 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 		// Actually I think metadata will be in used here in near future
 	}
 	
-    _file->seek(prevPos);
 	
 	return true;
 }
@@ -223,22 +231,29 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 };
 
 //! creates a surface from the file
-asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
-	_file->read(&header, sizeof(STGAHeader));
+	system::ISystem::future_t<uint32_t> headerFuture;
+	m_system->readFile(headerFuture, _file, &header, 0, sizeof header);
+	headerFuture.get();
+
 
 	core::smart_refctd_ptr<ICPUBuffer> colorMap; // not used, but it's texel buffer may be useful in future
 	const auto bytesPerTexel = header.PixelDepth / 8;
 
+	size_t offset = sizeof header;
 	if (header.IdLength) // skip image identification field
-		_file->seek(header.IdLength, true);
+		offset += header.IdLength;
 
 	if (header.ColorMapType)
 	{
 		auto colorMapEntryByteSize = header.ColorMapEntrySize / 8 * header.ColorMapLength;
 		auto colorMapEntryBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(colorMapEntryByteSize);
-		_file->read(colorMapEntryBuffer->getPointer(), header.ColorMapEntrySize / 8 * header.ColorMapLength);
+		system::ISystem::future_t<uint32_t> colfut;
+		m_system->readFile(colfut, _file, colorMapEntryBuffer->getPointer(), offset, header.ColorMapEntrySize / 8 * header.ColorMapLength);
+		colfut.get();
+		offset += header.ColorMapEntrySize / 8 * header.ColorMapLength;
 		
 		switch ( header.ColorMapEntrySize ) // convert to 32-bit color map since input is dependend to header.ColorMapEntrySize, so it may be 8, 16, 24 or 32 bits per entity
 		{
@@ -287,7 +302,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	{
 		case STIT_NONE:
 		{
-			os::Printer::log("The given TGA doesn't have image data", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("The given TGA doesn't have image data", _file->getFileName().string(), ELL_ERROR);
 			return {};
 		}
 		case STIT_UNCOMPRESSED_RGB_IMAGE: [[fallthrough]];
@@ -296,7 +311,10 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
 			const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * bytesPerTexel;
 			texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(imageSize);
-			_file->read(texelBuffer->getPointer(), imageSize);
+			system::ISystem::future_t<uint32_t> texelfut;
+			m_system->readFile(texelfut, _file, texelBuffer->getPointer(), offset, imageSize);
+			texelfut.get();
+			offset += imageSize;
 		}
 		break;
 		case STIT_RLE_TRUE_COLOR_IMAGE: 
@@ -308,7 +326,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		}
 		default:
 		{
-			os::Printer::log("Unsupported TGA file type", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Unsupported TGA file type", _file->getFileName().string(), ELL_ERROR);
             return {};
 		}
 	}
@@ -346,7 +364,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 			}
 			break;
 		default:
-			os::Printer::log("Unsupported TGA format", _file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Unsupported TGA format", _file->getFileName().string(), ELL_ERROR);
 			break;
 	}
 
