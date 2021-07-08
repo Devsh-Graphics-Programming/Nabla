@@ -11,8 +11,6 @@
 
 #include "nbl/system/IFile.h"
 
-#include "nbl_os.h" // for logging
-
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
@@ -31,14 +29,16 @@ namespace asset
 // PNG function for error handling
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG fatal error", msg, ELL_ERROR);
+	assert(false); // TODO: implement proper engine-wide logger
+	//os::Printer::log("PNG fatal error", msg, ELL_ERROR);
 	longjmp(png_jmpbuf(png_ptr), 1);
 }
 
 // PNG function for warning handling
 static void png_cpexcept_warning(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG warning", msg, ELL_WARNING);
+	assert(false); // TODO: implement proper engine-wide logger
+	//os::Printer::log("PNG warning", msg, ELL_WARNING);
 }
 
 // PNG function for file writing
@@ -89,7 +89,8 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warning);
 	if (!png_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", file->getFileName().string(), ELL_ERROR);
 		return false;
 	}
 
@@ -97,7 +98,8 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if (!info_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", file->getFileName().string(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, nullptr);
 		return false;
 	}
@@ -152,7 +154,8 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		break;
 		default:
 			{
-				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+			assert(false); // TODO: implement proper engine-wide logger
+	//os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
 				return false;
 			}
 	}
@@ -171,7 +174,8 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 			break;
 		default:
 			{
-				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+			assert(false); // TODO: implement proper engine-wide logger
+	//os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
 				return false;
 			}
 	}
@@ -181,7 +185,8 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	constexpr uint32_t maxPNGFileHeight = 16u * 1024u; // arbitrary limit
 	if (trueExtent.Y>maxPNGFileHeight)
 	{
-		os::Printer::log("PNGWriter: Image dimensions too big!\n", file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("PNGWriter: Image dimensions too big!\n", file->getFileName().string(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		return false;
 	}

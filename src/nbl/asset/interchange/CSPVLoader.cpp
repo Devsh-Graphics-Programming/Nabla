@@ -9,7 +9,6 @@
 #include "CSPVLoader.h"
 
 using namespace nbl;
-using namespace nbl::io;
 using namespace nbl::asset;
 
 // load in the image data

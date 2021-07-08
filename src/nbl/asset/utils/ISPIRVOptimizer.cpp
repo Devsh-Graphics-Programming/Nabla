@@ -4,8 +4,6 @@
 #include "spirv-tools/libspirv.hpp"
 
 #include "nbl/core/declarations.h"
-#include "nbl/core/IReferenceCounted.h"
-#include "nbl_os.h"
 
 using namespace nbl::asset;
 
@@ -46,6 +44,8 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     {
         using namespace std::string_literals;
 
+        assert(false);
+#if 0 // TODO: Implement a proper-engine wide logger
         constexpr static ELOG_LEVEL lvl2lvl[6]{
             ELL_ERROR,
             ELL_ERROR,
@@ -58,6 +58,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         const std::string location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
 
         os::Printer::log(location, msg, lvl);
+#endif
     };
 
     spvtools::Optimizer opt(SPIRV_VERSION);

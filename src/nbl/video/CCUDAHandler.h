@@ -5,10 +5,7 @@
 #ifndef __NBL_VIDEO_C_CUDA_HANDLER_H__
 #define __NBL_VIDEO_C_CUDA_HANDLER_H__
 
-#include "nbl/macros.h"
-#include "nbl/system/IFile.h"
-#include "nbl/core/compile_config.h"
-#include "nbl/system/system.h"
+#include "nbl/system/declarations.h"
 
 
 #ifdef _NBL_COMPILE_WITH_CUDA_

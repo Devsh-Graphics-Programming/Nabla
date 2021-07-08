@@ -22,8 +22,6 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_GLI_LOADER_
 
-#include "nbl_os.h"
-
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 #ifdef _NBL_COMPILE_WITH_GLI_
@@ -244,7 +242,8 @@ namespace nbl
 				return true;
 			else
 			{
-				os::Printer::log("LOADING GLI: failed to load the file", file->getFileName().string(), ELL_ERROR);
+				assert(false); // TODO: implement proper engine-wide logger
+				//os::Printer::log("LOADING GLI: failed to load the file", file->getFileName().string(), ELL_ERROR);
 				return false;
 			}
 		}
@@ -268,7 +267,10 @@ namespace nbl
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-DDS) file!", ELL_ERROR);
+				{
+					assert(false); // TODO: implement proper engine-wide logger
+					//os::Printer::log("LOAD GLI: Invalid (non-DDS) file!", ELL_ERROR);
+				}
 			}
 			else if (fileName.rfind(".kmg") != std::string::npos)
 			{
@@ -280,7 +282,10 @@ namespace nbl
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-KMG) file!", ELL_ERROR);
+				{
+					assert(false); // TODO: implement proper engine-wide logger
+					//os::Printer::log("LOAD GLI: Invalid (non-KMG) file!", ELL_ERROR);
+				}
 			}
 			else if (fileName.rfind(".ktx") != std::string::npos)
 			{
@@ -292,7 +297,10 @@ namespace nbl
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-KTX) file!", ELL_ERROR);
+				{
+					assert(false); // TODO: implement proper engine-wide logger
+					//os::Printer::log("LOAD GLI: Invalid (non-KTX) file!", ELL_ERROR);
+				}
 			}
 			
 			return false;
@@ -330,8 +338,10 @@ namespace nbl
 			auto getTranslatedFinalFormat = [&](const E_FORMAT& format = EF_UNKNOWN, const std::string_view &specialErrorOnUnknown = "Unsupported format!")
 			{
 				if(format == EF_UNKNOWN)
-					os::Printer::log(("LOAD GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
-
+				{
+					assert(false); // TODO: implement proper engine-wide logger
+					//os::Printer::log(("LOAD GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
+				}
 				return std::make_pair(format, compomentMapping);
 			};
 

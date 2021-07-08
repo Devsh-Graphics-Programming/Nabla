@@ -5,10 +5,9 @@
 #ifndef __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 
-#include "nbl/core/declarations.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
-#include "nbl/system/IFile.h"
 
 namespace nbl::asset
 {

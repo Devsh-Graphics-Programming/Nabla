@@ -1,16 +1,19 @@
 #ifndef __NBL_I_SYSTEM_H_INCLUDED__
 #define __NBL_I_SYSTEM_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+#include "nbl/builtin/common.h"
+
 #include <variant>
-#include "nbl/core/IReferenceCounted.h"
+
 #include "nbl/system/ICancellableAsyncQueueDispatcher.h"
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IFile.h"
 #include "nbl/system/CMemoryFile.h"
-#include "CObjectCache.h"
 
-namespace nbl {
-namespace system
+#include "nbl/asset/ICPUBuffer.h" // this is a horrible no-no (circular dependency), `ISystem::loadBuiltinData` should return some other type (probably an `IFile` which is mapped for reading)
+
+namespace nbl::system
 {
 
 class ISystem final : public core::IReferenceCounted
@@ -126,7 +129,7 @@ private:
     struct Loaders {
         core::vector<core::smart_refctd_ptr<IArchiveLoader> > vector;
         //! The key is file extension
-        core::CMultiObjectCache<std::string, core::smart_refctd_ptr<IArchiveLoader>, std::vector> perFileExt;
+        core::CMultiObjectCache<std::string,core::smart_refctd_ptr<IArchiveLoader>,std::vector> perFileExt;
 
         void pushToVector(core::smart_refctd_ptr<IArchiveLoader>&& _loader)
         {
@@ -282,7 +285,6 @@ public:
     }
 };
 
-}
 }
 
 #endif

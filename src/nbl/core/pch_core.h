@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_PCH_CORE_H_INCLUDED__
 #define __NBL_CORE_PCH_CORE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 // private headers
 

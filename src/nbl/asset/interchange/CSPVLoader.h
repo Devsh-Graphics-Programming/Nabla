@@ -7,9 +7,7 @@
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class CSPVLoader final : public asset::IAssetLoader
@@ -40,8 +38,7 @@ class CSPVLoader final : public asset::IAssetLoader
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // namespace asset
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif
 

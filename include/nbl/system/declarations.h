@@ -8,12 +8,14 @@
 #include "nbl/core/declarations.h"
 #include "nbl/system/compile_config.h"
 
-// dependencies
-
+// basic stuff
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
 #include "nbl/system/FuncPtrLoader.h"
 #include "nbl/system/DefaultFuncPtrLoader.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/SReadWriteSpinLock.h"
+
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 
 #endif

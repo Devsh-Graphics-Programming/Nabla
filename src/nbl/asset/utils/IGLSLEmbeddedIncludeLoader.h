@@ -5,14 +5,11 @@
 #ifndef __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
 
-#include "nbl/system/system.h"
-#include "IFileSystem.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
@@ -68,7 +65,6 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		}
 };
 
-}
 }
 
 #endif

@@ -16,6 +16,7 @@
 #include "nbl/core/decl/Types.h"
 
 // TODO: split the rest into declarations and definitions
+#include "CConcurrentObjectCache.h"
 // allocator
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"

@@ -1,7 +1,6 @@
 #ifndef __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
-#include "nbl_os.h" // Printer::log
 
 #include <atomic>
 #include "nbl/video/COpenGLFeatureMap.h"

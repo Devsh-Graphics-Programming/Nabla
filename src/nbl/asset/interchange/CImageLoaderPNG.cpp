@@ -4,11 +4,10 @@
 // See the original file in irrlicht source for authors
 
 
-#include "nbl_os.h"
-
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 #include "nbl/system/ISystem.h"
+
 using namespace nbl;
 using namespace system;
 using namespace core;
@@ -49,14 +48,16 @@ void updateFilePos(png_structp png_pt, size_t new_file_pos)
 }
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG fatal error", msg, ELL_ERROR);
+	assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("PNG fatal error", msg, ELL_ERROR);
 	longjmp(png_jmpbuf(png_ptr), 1);
 }
 
 // PNG function for warning handling
 static void png_cpexcept_warn(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG warning", msg, ELL_WARNING);
+	assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("PNG warning", msg, ELL_WARNING);
 }
 
 // PNG function for file reading
@@ -126,14 +127,16 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	m_system->readFile(future, _file, buffer, 0, sizeof buffer);
 	if(future.get() != 8 )
 	{
-		os::Printer::log("LOAD PNG: can't read _file\n", _file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("LOAD PNG: can't read _file\n", _file->getFileName().string(), ELL_ERROR);
         return {};
 	}
 
 	// Check if it really is a PNG _file
 	if( png_sig_cmp(buffer, 0, 8) )
 	{
-		os::Printer::log("LOAD PNG: not really a png\n", _file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("LOAD PNG: not really a png\n", _file->getFileName().string(), ELL_ERROR);
         return {};
 	}
 
@@ -142,7 +145,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
 	if (!png_ptr)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", _file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", _file->getFileName().string(), ELL_ERROR);
         return {};
 	}
 
@@ -150,7 +154,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if (!info_ptr)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", _file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", _file->getFileName().string(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
         return {};
 	}
@@ -264,7 +269,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 			break;
 		default:
 			{
-				os::Printer::log("Unsupported PNG colorspace (only RGB/RGBA/8-bit grayscale), operation aborted.", ELL_ERROR);
+			assert(false); // TODO: implement proper engine-wide logger
+	//os::Printer::log("Unsupported PNG colorspace (only RGB/RGBA/8-bit grayscale), operation aborted.", ELL_ERROR);
                 return {};
 			}
 	}
@@ -273,7 +279,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
     RowPointers = _NBL_NEW_ARRAY(png_bytep, Height);
 	if (!RowPointers)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().string(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
         return {};
 	}
@@ -342,7 +349,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 
 	if (!image)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().string(), ELL_ERROR);
+		assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().string(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		return {};
 	}

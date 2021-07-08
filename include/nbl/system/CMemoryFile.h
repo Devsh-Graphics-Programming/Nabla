@@ -7,8 +7,9 @@ namespace nbl::system
 class CFileView : public IFile
 {
 public:
-	CFileView(const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags) : IFile(_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name)
+	CFileView(const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags) : IFile(nullptr,_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name)
 	{
+		assert(false); // TODO: fix the filename of this source file
 	}
 
 	virtual const std::filesystem::path& getFileName() const override
@@ -16,10 +17,10 @@ public:
 		return m_name;
 	}
 
-	virtual void* getMappedPointer() override { return m_buffer.data(); }
-	virtual const void* getMappedPointer() const override { return m_buffer.data(); }
+	void* getMappedPointer() override final { return m_buffer.data(); }
+	const void* getMappedPointer() const override final { return m_buffer.data(); }
 
-	virtual int32_t read(void* buffer, size_t offset, size_t sizeToRead) override
+	int32_t read(void* buffer, size_t offset, size_t sizeToRead) override final
 	{
 		if (offset + sizeToRead > m_buffer.size())
 		{
@@ -29,7 +30,7 @@ public:
 		return sizeToRead;
 	}
 
-	virtual int32_t write(const void* buffer, size_t offset, size_t sizeToWrite) override
+	int32_t write(const void* buffer, size_t offset, size_t sizeToWrite) override final
 	{
 		if (offset + sizeToWrite > m_buffer.size())
 		{
@@ -38,7 +39,7 @@ public:
 		memcpy(m_buffer.data() + offset, buffer, sizeToWrite);
 		return sizeToWrite;
 	}
-	virtual size_t getSize() const
+	size_t getSize() const override final
 	{
 		return m_buffer.size();
 	}

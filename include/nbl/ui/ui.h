@@ -6,6 +6,6 @@
 #define __NBL_UI_H_INCLUDED__
 
 // dependencies
-#include "nbl/system/system.h"
+#include "nbl/system/declarations.h"
 
 #endif

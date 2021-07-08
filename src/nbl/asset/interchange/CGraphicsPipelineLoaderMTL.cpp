@@ -2,14 +2,12 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "nbl/asset/asset.h"
+
 #include <utility>
 #include <regex>
 #include <filesystem>
 
-
-#include "nbl_os.h"
-
-#include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
@@ -840,7 +838,8 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> co
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
                     sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
-                    os::Printer::log(tmpbuf, ELL_WARNING);
+                    assert(false); // TODO: implement a proper engine-wide logger
+                    //os::Printer::log(tmpbuf, ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d
                     currMaterial->params.opacity = (1.f - readFloat());

@@ -8,7 +8,6 @@
 #include "nbl/core/declarations.h"
 
 #include "ILogger.h"
-#include "nbl_os.h"
 
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
@@ -148,13 +147,17 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 
 					if (!COPY_FILTER::execute(&state)) // execute is a static method
-						os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
+					{
+						assert(false); // TODO: implement a proper engine-wide logger
+						//os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
+					}
 				}
 				else
 				{
 					if (asset::isBlockCompressionFormat(finalFormat)) // execute is a static method
 					{
-						os::Printer::log("Transcoding to Block Compressed formats not supported!", ELL_ERROR);
+						assert(false); // TODO: implement a proper engine-wide logger
+						//os::Printer::log("Transcoding to Block Compressed formats not supported!", ELL_ERROR);
 						return newImage;
 					}
 
@@ -162,8 +165,11 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 					state.swizzle = viewParams.components;
 
-						if (!CONVERSION_FILTER::execute(&state)) // static method
-							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
+					if (!CONVERSION_FILTER::execute(&state)) // static method
+					{
+						assert(false); // TODO: implement a proper engine-wide logger
+						//os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
+					}
 				}
 			}
 
@@ -232,7 +238,10 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
 					if (!convertFilter.execute(&state))
-						os::Printer::log("Something went wrong while converting from R8 to R8G8B8 format!", ELL_WARNING);
+					{
+						assert(false); // TODO: implement a proper engine-wide logger
+						//os::Printer::log("Something went wrong while converting from R8 to R8G8B8 format!", ELL_WARNING);
+					}
 				}
 			}
 			return newConvertedImage;

@@ -10,11 +10,8 @@
 #include <functional>
 
 #include "CMeshManipulator.h"
-#include "nbl_os.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold)
@@ -275,4 +272,4 @@ size_t COverdrawMeshOptimizer::updateCache(uint32_t _a, uint32_t _b, uint32_t _c
 	return cacheMisses;
 }
 
-}} // nbl::scene
+} // nbl::asset
