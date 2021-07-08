@@ -1,6 +1,7 @@
 #ifndef C_WINDOWMANAGER_WIN32
 #define C_WINDOWMANAGER_WIN32
 #ifdef _NBL_PLATFORM_WINDOWS_
+#include "nbl/ui/IWindowManager.h"
 #include <cstdint>
 #include <queue>
 #include <codecvt>
@@ -11,7 +12,6 @@
 #include <hidusage.h>
 
 #include "os.h"
-#include "nbl/ui/IWindowManager.h"
 #include "nbl/ui/CWindowWin32.h"
 namespace nbl::ui
 {
@@ -20,7 +20,7 @@ namespace nbl::ui
 	public:
 		CWindowManagerWin32() = default;
 		~CWindowManagerWin32() {};
-		virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override
+		core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override final
 		{
 			CWindowWin32::native_handle_t handle = createNativeWindow(creationParams.x,
 				creationParams.y,
@@ -28,14 +28,13 @@ namespace nbl::ui
 				creationParams.height,
 				creationParams.flags,
 				creationParams.windowCaption);
-			// TODO: params validation
-			if (false)
+			if (handle == nullptr)
 			{
 				return nullptr;
 			}
 			return core::make_smart_refctd_ptr<CWindowWin32>(this, std::move(creationParams), handle);
 		}
-		virtual void destroyWindow(IWindow* wnd) override
+		void destroyWindow(IWindow* wnd) override final
 		{
 			destroyNativeWindow(static_cast<IWindowWin32*>(wnd)->getNativeHandle());
 		}
@@ -114,7 +113,7 @@ namespace nbl::ui
 			{
 				this->start();
 			}
-			~CThreadHandler() override
+			~CThreadHandler()
 			{
 			}
 

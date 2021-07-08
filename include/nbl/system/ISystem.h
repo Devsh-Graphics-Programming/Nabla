@@ -23,7 +23,7 @@ public:
 
     public:  
         virtual core::smart_refctd_ptr<IFile> createFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
-        virtual core::smart_refctd_ptr<CMemoryFile> createBufferedFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
+        virtual core::smart_refctd_ptr<CFileView> createBufferedFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
         virtual size_t read(IFile* file, void* buffer, size_t offset, size_t size) = 0;
         virtual size_t write(IFile* file, const void* buffer, size_t offset, size_t size) = 0;
         virtual bool invalidateMapping(IFile* file, size_t offset, size_t size) = 0;
@@ -37,7 +37,6 @@ private:
     enum E_REQUEST_TYPE
     {
         ERT_CREATE_FILE,
-        ERT_CREATE_BUFFERED_FILE,
         ERT_READ,
         ERT_WRITE
     };
@@ -51,13 +50,6 @@ private:
         inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
 
         char filename[MAX_FILENAME_LENGTH] {};
-        IFile::E_CREATE_FLAGS flags;
-    };
-    struct SRequestParams_CREATE_BUFFERED_FILE : SRequestParamsBase<ERT_CREATE_BUFFERED_FILE>
-    {
-        inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
-
-        char filename[MAX_FILENAME_LENGTH]{};
         IFile::E_CREATE_FLAGS flags;
     };
     struct SRequestParams_READ : SRequestParamsBase<ERT_READ>
@@ -79,7 +71,6 @@ private:
         E_REQUEST_TYPE type;
         std::variant<
             SRequestParams_CREATE_FILE,
-            SRequestParams_CREATE_BUFFERED_FILE,
             SRequestParams_READ,
             SRequestParams_WRITE
         > params;
@@ -109,12 +100,6 @@ private:
             {
                 auto& p = std::get<SRequestParams_CREATE_FILE>(req.params);
                 base_t::notify_future<core::smart_refctd_ptr<IFile>>(req, m_caller->createFile(m_owner, p.filename, p.flags));
-            }
-                break;
-            case ERT_CREATE_BUFFERED_FILE:
-            {
-                auto& p = std::get<SRequestParams_CREATE_BUFFERED_FILE>(req.params);
-                base_t::notify_future<core::smart_refctd_ptr<CMemoryFile>>(req, m_caller->createBufferedFile(m_owner, p.filename, p.flags));
             }
                 break;
             case ERT_READ:
@@ -216,18 +201,14 @@ public:
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
 
-    bool createBufferedFile(future_t<core::smart_refctd_ptr<CMemoryFile>>& future, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags)
+    core::smart_refctd_ptr<IFile> createFileView(const void* data, size_t size, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags, const std::filesystem::path &filename)
     {
-        SRequestParams_CREATE_BUFFERED_FILE params;
-        if (filename.string().size() >= sizeof(params.filename))
-            return false;
-
-        strcpy(params.filename, filename.string().c_str());
-        params.flags = flags;
-
-        m_dispatcher.request(future, params);
-
-        return true;
+        auto fileView = core::make_smart_refctd_ptr<CFileView>(filename, flags);
+        if (size > 0ull)
+        {
+            fileView->write(data, 0, size);
+        }
+        return fileView;
     }
 
     inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)

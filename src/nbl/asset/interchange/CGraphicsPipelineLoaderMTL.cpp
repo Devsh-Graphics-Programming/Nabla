@@ -78,14 +78,13 @@ void CGraphicsPipelineLoaderMTL::initialize()
     }
 
     // default pipelines
-    system::ISystem::future_t<core::smart_refctd_ptr<system::CMemoryFile>> future;
-    m_assetMgr->getSystem()->createBufferedFile(future, "default IrrlichtBAW material", system::IFile::ECF_READ);
+    system::ISystem::future_t<core::smart_refctd_ptr<system::CFileView>> future;
+    constexpr std::string_view filename = "Nabla default MTL material";
+    m_assetMgr->getSystem()->createFileView(DUMMY_MTL_CONTENT, sizeof(DUMMY_MTL_CONTENT), system::IFile::ECF_READ, filename);
     auto default_mtl_file = future.get();
 
     SAssetLoadParams assetLoadParams;
     auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);
-
-    default_mtl_file->drop();
 
 
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");

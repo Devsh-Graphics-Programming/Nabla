@@ -21,9 +21,9 @@ class CImageWriterPNG : public asset::IAssetWriter
 {
     core::smart_refctd_ptr<system::ISystem> m_system;
 public:
-    struct SUserData
+    struct SContext
     {
-        SUserData(system::ISystem* sys) : system(sys) {}
+        SContext(system::ISystem* sys) : system(sys) {}
         system::ISystem* system;
         size_t file_pos = 0;
     };

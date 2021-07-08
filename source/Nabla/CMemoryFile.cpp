@@ -2,6 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
+#if 0
 
 #include "CMemoryFile.h"
 
@@ -19,7 +20,6 @@ CMemoryFile::~CMemoryFile()
 {
 }
 
-#if 0
 //! Constructor
 CMemoryWriteFile::CMemoryWriteFile(const size_t& len, const io::path& fileName)
                 : CMemoryFile(len,fileName)
@@ -47,8 +47,8 @@ int32_t CMemoryWriteFile::write(const void* buffer, uint32_t sizeToWrite)
 
 	return sizeToWrite;
 }
-#endif
 
 } // end namespace io
 } // end namespace nbl
+#endif
 

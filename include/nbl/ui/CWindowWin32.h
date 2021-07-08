@@ -20,15 +20,6 @@ public:
 
 	native_handle_t getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowWin32> create(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params)
-	{
-		if ((params.flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
-			return nullptr;
-
-		CWindowWin32* win = new CWindowWin32(winManager, std::move(sys), std::move(params));
-		return core::smart_refctd_ptr<CWindowWin32>(win, core::dont_grab);
-	}
-
 	~CWindowWin32() override;
 private:
 	CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params);

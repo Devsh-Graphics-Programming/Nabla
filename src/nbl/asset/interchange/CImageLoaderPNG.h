@@ -24,9 +24,9 @@ class CImageLoaderPng : public asset::IAssetLoader
 {
     core::smart_refctd_ptr<system::ISystem> m_system;
 public:
-    struct SUserData
+    struct SContext
     {
-        SUserData(system::ISystem* sys) : system(sys) {}
+        SContext(system::ISystem* sys) : system(sys) {}
         system::ISystem* system;
         // Made file_pos initial value 8 cause it's first set to 8 in CImageLoaderPng::loadAsset
         // and set to 8 but you cannot access this struct from there

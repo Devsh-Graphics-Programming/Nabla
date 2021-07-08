@@ -15,11 +15,11 @@ namespace impl
     class IAsyncQueueDispatcherBase
     {
     public:
-        IAsyncQueueDispatcherBase() {};
-        virtual ~IAsyncQueueDispatcherBase() {};
+        IAsyncQueueDispatcherBase() = default;
+        ~IAsyncQueueDispatcherBase() = default;
         struct request_base_t
         {
-            virtual ~request_base_t() {}
+            ~request_base_t() = default;
             // TODO since c++20 we can get rid of both mutex and cvar
             // and do wait/notify on atomic itself
             std::mutex mtx;
@@ -80,8 +80,8 @@ private:
 
 public:
 
-    IAsyncQueueDispatcher() {}
-    virtual ~IAsyncQueueDispatcher() {}
+    IAsyncQueueDispatcher() = default;
+    ~IAsyncQueueDispatcher() = default;
 
     using mutex_t = typename base_t::mutex_t;
     using lock_t = typename base_t::lock_t;

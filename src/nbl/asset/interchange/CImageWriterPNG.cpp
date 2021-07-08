@@ -48,7 +48,7 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 
 	system::IFile* file=(system::IFile*)png_get_io_ptr(png_ptr);
 	//check=(png_size_t) file->write((const void*)data,(uint32_t)length);
-	auto usrData = (CImageWriterPNG::SUserData*)png_get_user_chunk_ptr(png_ptr);
+	auto usrData = (CImageWriterPNG::SContext*)png_get_user_chunk_ptr(png_ptr);
 	
 	system::ISystem::future_t<uint32_t> future;
 	usrData->system->writeFile(future, file, data, usrData->file_pos, length);
@@ -203,7 +203,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		return false;
 	}
 
-	SUserData usrData(m_system.get());
+	SContext usrData(m_system.get());
 	png_set_read_user_chunk_fn(png_ptr, &usrData, nullptr);
 	png_set_rows(png_ptr, info_ptr, RowPointers);
 	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, nullptr);

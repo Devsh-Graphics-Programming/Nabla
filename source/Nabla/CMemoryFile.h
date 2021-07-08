@@ -5,6 +5,7 @@
 
 #ifndef __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
 #define __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
+#if 0 
 
 #include "nbl/system/IFile.h"
 #include "nbl/core/core.h"
@@ -64,7 +65,6 @@ namespace io
             io::path    Filename;
 	};
 
-#if 0 
 	class CMemoryWriteFile : public system::IFile, public CMemoryFile
 	{
         public:
@@ -201,9 +201,9 @@ namespace io
         {
         }
     };
-#endif 
 } // end namespace io
 } // end namespace nbl
+#endif 
 
 #endif
 
