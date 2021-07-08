@@ -632,7 +632,7 @@ public:
 
 			bool commit(const commit_t& cm)
 			{
-				auto texture = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(cm.image.get(), cm.uwrap, cm.vwrap, cm.border).first;
+				auto texture = vt->createPoTPaddedSquareImageWithMipLevels(cm.image.get(), cm.uwrap, cm.vwrap, cm.border).first;
 				return vt->commit(cm.addr, texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
 			}
 			//! @returns if all commits succeeded

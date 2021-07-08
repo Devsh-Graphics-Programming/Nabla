@@ -139,7 +139,7 @@ public:
         uint64_t pgTab_x : 8;
         uint64_t pgTab_y : 8;
         uint64_t pgTab_layer : 8;
-        uint64_t maxMip : 4;
+        uint64_t maxMip : 4; // value 0x0fu means, the texture takes only 1 page of physical storage (miptail)
         uint64_t wrap_x : 2;
         uint64_t wrap_y : 2;
 
@@ -210,7 +210,9 @@ protected:
 		texData.pgTab_y = _offset.y;
         texData.pgTab_layer = _offset.z;
 
-        texData.maxMip = _mipCount-1u-m_pgSzxy_log2;
+        const uint32_t maxMip = _mipCount - 1u - m_pgSzxy_log2;
+        assert(static_cast<int32_t>(maxMip) >= -1); // only textures of size at least half page size must be packed
+        texData.maxMip = maxMip;
 
         texData.wrap_x = SMasterTextureData::ETC_to_EWM(_wrapu);
         texData.wrap_y = SMasterTextureData::ETC_to_EWM(_wrapv);

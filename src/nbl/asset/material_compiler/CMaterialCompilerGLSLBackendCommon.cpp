@@ -279,6 +279,7 @@ namespace material_compiler
 				return found->second;
 
 			auto img = tex.image->getCreationParameters().image;
+			img = m_ctx->vt.vt->createUpscaledImage(img.get());
 			auto* sampler = tex.sampler.get();
 
 			const auto& extent = img->getCreationParameters().extent;
@@ -302,6 +303,10 @@ namespace material_compiler
 			alloc.uwrap = uwrap;
 			alloc.vwrap = vwrap;
 			auto addr = m_ctx->vt.alloc(alloc, std::move(img), border);
+			/*if (alloc.extent.width == 64u && alloc.extent.height == 64u)
+			{
+				printf("allocated 64x64: %u, %u, %u, maxmip=%u\n", (uint32_t)addr.pgTab_x, (uint32_t)addr.pgTab_y, (uint32_t)addr.pgTab_layer, (uint32_t) addr.maxMip);
+			}*/
 
 			std::pair<SContext::VTallocKey, instr_stream::VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
 			m_ctx->VTallocMap.insert(item);

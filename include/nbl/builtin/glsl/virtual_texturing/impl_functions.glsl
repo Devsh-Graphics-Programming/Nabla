@@ -26,9 +26,10 @@ uvec2 nbl_glsl_unpackWrapModes(in uvec2 texData)
 {
     return (texData >> uvec2(28u, 30u))& uvec2(0x03u);
 }
-uint nbl_glsl_unpackMaxMipInVT(in uvec2 texData)
+int nbl_glsl_unpackMaxMipInVT(in uvec2 texData)
 {
-    return (texData.y >> 24) & 0x0fu;
+    uint mm = (texData.y >> 24) & 0x0fu;
+    return mm == 0x0fu ? -1 : int(mm);
 }
 vec3 nbl_glsl_unpackVirtualUV(in uvec2 texData)
 {
@@ -118,13 +119,15 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	// are we performing minification
 	bool positiveLoD = LoD>0.0;
 	// magnification samples LoD 0, else clip to max representable in VT
-	int clippedLoD = positiveLoD ? min(LoD_high,originalMaxFullMip):0;
+	int clippedLoD = positiveLoD ? min(LoD_high,originalMaxFullMip):0; // originalMaxFullMip is always -1 in case of no miplevel taking at least 1 full page
+    clippedLoD = originalMaxFullMip < 0 ? 0 : clippedLoD;
 
 	// if minification is being performaed then get tail position
 	int levelInTail = LoD_high-clippedLoD;
 	// have to do trilinear only if doing minification AND larger than 1x1 footprint
 	bool haveToDoTrilinear = levelInTail<int(_NBL_VT_IMPL_PAGE_SZ_LOG2) && positiveLoD;
 	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(_NBL_VT_IMPL_PAGE_SZ_LOG2):0);
+    levelInTail += (originalMaxFullMip < 0) ? 1 : 0;
 
 	// get the higher resolution mip-map level
 	vec3 hiPhysCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
@@ -133,9 +136,10 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	// speculative if (haveToDoTrilinear)
 	{
 		// now we have absolute guarantees that both LoD_high and LoD_low are in the valid original mip range
-		bool highNotInLastFull = LoD_high<originalMaxFullMip;
+		bool highNotInLastFull = originalMaxFullMip>=0 && LoD_high<originalMaxFullMip;
 		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
 		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
+        levelInTail = min(levelInTail, int(_NBL_VT_IMPL_PAGE_SZ_LOG2));
 		loPhysCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	}
 
@@ -184,7 +188,7 @@ vec4 nbl_glsl_vTextureGrad(in uvec2 _texData, in vec2 uv, in mat2 dUV)
     virtualUV.xy += uv*originalSz;
     virtualUV.xy *= nbl_glsl_VT_getVTexSzRcp();
 
-    return nbl_glsl_vTextureGrad_impl(formatID, virtualUV, dUV, int(nbl_glsl_unpackMaxMipInVT(_texData)));
+    return nbl_glsl_vTextureGrad_impl(formatID, virtualUV, dUV, nbl_glsl_unpackMaxMipInVT(_texData));
 }
 #endif //_NBL_VT_FLOAT_VIEWS_COUNT
 
@@ -226,7 +230,7 @@ ivec4 nbl_glsl_iVTextureLod(in uvec2 _texData, in vec2 uv, in uint lod)
     virtualUV.xy += uv * originalSz;
     virtualUV.xy *= nbl_glsl_VT_getVTexSzRcp();
 	
-    return nbl_glsl_iVTextureLod_impl(formatID, virtualUV, lod, int(nbl_glsl_unpackMaxMipInVT(_texData)));
+    return nbl_glsl_iVTextureLod_impl(formatID, virtualUV, lod, nbl_glsl_unpackMaxMipInVT(_texData));
 }
 #endif //_NBL_VT_INT_VIEWS_COUNT
 
@@ -268,7 +272,7 @@ uvec4 nbl_glsl_uVTextureLod(in uvec2 _texData, in vec2 uv, in uint lod)
     virtualUV.xy += uv * originalSz;
     virtualUV.xy *= nbl_glsl_VT_getVTexSzRcp();
 	
-    return nbl_glsl_uVTextureLod_impl(formatID, virtualUV, lod, int(nbl_glsl_unpackMaxMipInVT(_texData)));
+    return nbl_glsl_uVTextureLod_impl(formatID, virtualUV, lod, nbl_glsl_unpackMaxMipInVT(_texData));
 }
 #endif //_NBL_VT_UINT_VIEWS_COUNT
 
@@ -314,7 +318,7 @@ retval_t funcName(in uvec2 _texData, in vec2 uv, in uint lod) \
     virtualUV.xy += uv * originalSz; \
     virtualUV.xy *= nbl_glsl_VT_getVTexSzRcp(); \
 	\
-    return nbl_glsl_vTextureLod_impl(formatID, virtualUV, lod, int(nbl_glsl_unpackMaxMipInVT(_texData))); \
+    return nbl_glsl_vTextureLod_impl(formatID, virtualUV, lod, nbl_glsl_unpackMaxMipInVT(_texData)); \
 }
 
 _NBL_DEFINE_VT_INTEGER_FUNCTIONS(nbl_glsl_iVTextureLod, nbl_glsl_iVTextureLod_impl, ivec4, iphysicalTileStorageFormatView)

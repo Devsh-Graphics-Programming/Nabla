@@ -5,6 +5,7 @@
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include "../source/Nabla/COpenCLHandler.h"
+#include "COpenGLDriver.h"
 
 
 #ifndef _NBL_BUILD_OPTIX_
