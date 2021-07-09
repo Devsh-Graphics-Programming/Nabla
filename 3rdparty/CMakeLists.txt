@@ -24,7 +24,6 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./libpng)
 	update_git_submodule(./openssl)
 	update_git_submodule(./libjpeg-turbo)
-	update_git_submodule(./libjpeg) # soon to be killed
 	update_git_submodule(./parallel-hashmap)
 	update_git_submodule(./gli)
 	# exceptions that get automatically cloned
@@ -177,13 +176,14 @@ if (UNIX)
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
-#manipulating libjpeg cmake options from within cmake script
-#option(ENABLE_SHARED "jpeg-turbo" OFF)
-#set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/doc" CACHE PATH "For libjpeg-turbo" FORCE)
-option(BUILD_STATIC "jpeg" ON)
-option(BUILD_EXECUTABLES "jpeg" OFF)
-option(BUILD_TESTS "jpeg" OFF)
-add_subdirectory(libjpeg libjpeg EXCLUDE_FROM_ALL)
+# libjpeg-turbo
+option(ENABLE_STATIC "libjpeg-turbo" ON)
+option(ENABLE_SHARED "libjpeg-turbo" OFF)
+set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/docdir")
+set(CMAKE_INSTALL_MANDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/mandir")
+add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
+unset(CMAKE_INSTALL_DOCDIR)
+unset(CMAKE_INSTALL_MANDIR)
 
 #manipulating libpng cmake options from within cmake script
 set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
