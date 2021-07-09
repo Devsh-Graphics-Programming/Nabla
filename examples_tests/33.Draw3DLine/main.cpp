@@ -9,8 +9,6 @@
 #include "../common/CommonAPI.h"
 
 
-#include "../common/QToQuitEventReceiver.h"
-
 using namespace nbl;
 using namespace core;
 

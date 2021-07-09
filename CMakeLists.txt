@@ -98,7 +98,7 @@ else()
 endif()
 
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
-option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" ON)
+option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" OFF)
 
 # CUDA test
 include(CheckLanguage)
