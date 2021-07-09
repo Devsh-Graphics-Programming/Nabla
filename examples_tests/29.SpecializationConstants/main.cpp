@@ -22,7 +22,7 @@ int main()
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Draw3DLine");
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Specialization constants");
 	auto win = std::move(initOutp.window);
 	auto gl = std::move(initOutp.apiConnection);
 	auto surface = std::move(initOutp.surface);
@@ -203,9 +203,9 @@ int main()
 	asset::SBufferBinding<video::IGPUBuffer> vtxBindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
 	vtxBindings[0].buffer = gpuParticleBuf;
 	vtxBindings[0].offset = 0u;
-	auto meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(nullptr, nullptr, vtxBindings, asset::SBufferBinding<video::IGPUBuffer>{});
-	meshbuffer->setIndexCount(PARTICLE_COUNT);
-	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
+	//auto meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(nullptr, nullptr, vtxBindings, asset::SBufferBinding<video::IGPUBuffer>{});
+	//meshbuffer->setIndexCount(PARTICLE_COUNT);
+	//meshbuffer->setIndexType(asset::EIT_UNKNOWN);
 
 	auto createSpecShader = [&](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage) {
 		auto file = am->getFileSystem()->createAndOpenFile(filepath);
