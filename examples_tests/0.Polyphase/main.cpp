@@ -10,35 +10,73 @@ using namespace nbl::asset;
 using namespace nbl::core;
 using namespace nbl::video;
 
-/*
-	Discrete convolution for getting input image after SAT calculations
+using ScaledBoxKernel = asset::CScaledImageFilterKernel<CBoxImageFilterKernel>;
+using BlitFilter = asset::CBlitImageFilter<false, false, asset::VoidSwizzle, asset::IdentityDither, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
 
-	- support [-1.5,1.5]
-	- (weight = -1) in [-1.5,-0.5]
-	- (weight = 1) in [-0.5,0.5]
-	- (weight = 0) in [0.5,1.5] and in range over the support
-*/
-
-using CDiscreteConvolutionRatioForSupport = std::ratio<3, 2>; //!< 1.5
-class CDiscreteConvolutionFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel>
+core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 2>& dims)
 {
-	using Base = CFloatingPointSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel>;
+	IImage::SCreationParams imageParams = {};
+	imageParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+	imageParams.type = IImage::ET_2D;
+	imageParams.format = asset::EF_R32_SFLOAT;
+	imageParams.extent = { dims[0], dims[1], 1 };
+	imageParams.mipLevels = 1u;
+	imageParams.arrayLayers = 1u;
+	imageParams.samples = asset::ICPUImage::ESCF_1_BIT;
 
-public:
-	CDiscreteConvolutionFilterKernel() : Base(1.5f, 0.5f) {}
+	auto imageRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull);
+	auto& region = (*imageRegions)[0];
+	region.bufferImageHeight = 0u;
+	region.bufferOffset = 0ull;
+	region.bufferRowLength = dims[0];
+	region.imageExtent = { dims[0], dims[1], 1u };
+	region.imageOffset = { 0u, 0u, 0u };
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.imageSubresource.mipLevel = 0;
 
-	inline float weight(float x, int32_t channel) const
-	{
-		if (x >= -1.5f && x <= -0.5f)
-			return -1.0f;
-		else if (x >= -0.5f && x <= 0.5f)
-			return 1.0f;
-		else
-			return 0.0f;
-	}
-};
+	size_t bufferSize = asset::getTexelOrBlockBytesize(imageParams.format) * region.imageExtent.width * region.imageExtent.height;
+	auto imageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferSize);
+	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imageParams));
+	image->setBufferAndRegions(core::smart_refctd_ptr(imageBuffer), imageRegions);
 
-using DiscreteConvolutionBlitFilter = asset::CBlitImageFilter<false, true, DefaultSwizzle, CWhiteNoiseDither, CDiscreteConvolutionFilterKernel, CDiscreteConvolutionFilterKernel, CBoxImageFilterKernel>;
+	return image;
+}
+
+void blit(core::smart_refctd_ptr<ICPUImage> inImage, core::smart_refctd_ptr<ICPUImage> outImage, bool useLUT)
+{
+	const core::vectorSIMDf scaleX(3.f, 1.f, 1.f, 1.f);
+	const core::vectorSIMDf scaleY(1.f, 3.f, 1.f, 1.f);
+	const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
+
+	auto kernelX = ScaledBoxKernel(scaleX, CBoxImageFilterKernel()); // [-3/2, 3/2]
+	auto kernelY = ScaledBoxKernel(scaleY, CBoxImageFilterKernel()); // [-3/2, 3/2]
+	auto kernelZ = ScaledBoxKernel(scaleZ, CBoxImageFilterKernel()); // [-1/2, 1/2]
+
+	BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
+	blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
+	blitFilterState.inExtentLayerCount = core::vectorSIMDu32(0u, 0u, 0u, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize();
+	blitFilterState.inImage = inImage.get();
+
+	blitFilterState.outOffsetBaseLayer = core::vectorSIMDu32();
+	blitFilterState.outExtentLayerCount = core::vectorSIMDu32(0u, 0u, 0u, outImage->getCreationParameters().arrayLayers) + outImage->getMipSize();
+	blitFilterState.outImage = outImage.get();
+
+	blitFilterState.axisWraps[0] = ISampler::ETC_CLAMP_TO_EDGE;
+	blitFilterState.axisWraps[1] = ISampler::ETC_CLAMP_TO_EDGE;
+	blitFilterState.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
+	blitFilterState.borderColor = ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE;
+
+	blitFilterState.enableLUTUsage = useLUT;
+
+	blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
+	blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
+
+	if (!BlitFilter::execute(&blitFilterState))
+		os::Printer::log("Blit filter just shit the bed", ELL_WARNING);
+
+	_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
+}
 
 int main()
 {
@@ -60,87 +98,53 @@ int main()
 	video::IVideoDriver* driver = device->getVideoDriver();
     IAssetManager* assetManager = device->getAssetManager();
 
-	// Create inImage from buffer
-	const std::array<uint32_t, 2> inImageDims = { 3u, 2u };
+	const std::array<uint32_t, 2> inImageDims = { 800u, 5u };
+	const std::array<uint32_t, 2> outImageDims = { 16u, 8u };
 
-	IImage::SCreationParams inImageParams = {};
-	inImageParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
-	inImageParams.type = IImage::ET_2D;
-	inImageParams.format = asset::EF_R32_SFLOAT;
-	inImageParams.extent = { inImageDims[0], inImageDims[1], 1 };
-	inImageParams.arrayLayers = 1u;
-	inImageParams.mipLevels = 1u;
-	inImageParams.samples = asset::ICPUImage::ESCF_1_BIT;
+	core::smart_refctd_ptr<ICPUImage> inImage = createCPUImage(inImageDims);
 
-	auto inImageRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull);
-	auto& region = (*inImageRegions)[0];
-	region.bufferImageHeight = 0u;
-	region.bufferOffset = 0ull;
-	region.bufferRowLength = inImageDims[0];
-	region.imageExtent = { inImageDims[0], inImageDims[1], 1u };
-	region.imageOffset = { 0u, 0u, 0u };
-	region.imageSubresource.baseArrayLayer = 0u;
-	region.imageSubresource.layerCount = 1u;
-	region.imageSubresource.mipLevel = 0u;
+	std::random_device rd;
+	std::mt19937 mt(rd());
+	const float anyRandomLowerBound = 0.f;
+	const float anyRandomUpperBound = 1.5f;
+	std::uniform_real_distribution<float> dist(anyRandomLowerBound, anyRandomUpperBound);
 
-	auto inImageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(inImageDims[0] * inImageDims[1] * asset::getTexelOrBlockBytesize(inImageParams.format));
-
-	float* inPixel = (float*)inImageBuffer->getPointer();
 	float k = 1.f;
-	for (uint32_t y = 0u; y < inImageDims[1]; ++y)
+	float* inImagePixel = (float*)inImage->getBuffer()->getPointer();
+	for (uint32_t y = 0; y < inImageDims[1]; ++y)
 	{
-		for (uint32_t x = 0u; x < inImageDims[0]; ++x)
+		for (uint32_t x = 0; x < inImageDims[0]; ++x)
 		{
-			inPixel[y * inImageDims[0] + x] = k++;
+			*inImagePixel++ = k++;// dist(mt);
 		}
 	}
+	core::smart_refctd_ptr<ICPUImage> outImage_withoutLUT = createCPUImage(outImageDims);
+	core::smart_refctd_ptr<ICPUImage> outImage_withLUT = createCPUImage(outImageDims);
 
-	core::smart_refctd_ptr<ICPUImage> inImage = ICPUImage::create(std::move(inImageParams));
-	inImage->setBufferAndRegions(core::smart_refctd_ptr(inImageBuffer), inImageRegions);
+	using ScaledBoxKernel = asset::CScaledImageFilterKernel<CBoxImageFilterKernel>;
+	using BlitFilter = asset::CBlitImageFilter<false, false, asset::VoidSwizzle, asset::IdentityDither, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
 
-	// Create out image
-	auto outImage = core::move_and_static_cast<ICPUImage>(inImage->clone());
-	memset(outImage->getBuffer()->getPointer(), 0, outImage->getBuffer()->getSize());
+	blit(inImage, outImage_withoutLUT, false);
+	blit(inImage, outImage_withLUT, true);
 
+	// Test
+	printf("Result: ");
+	float* outPixel_withoutLUT = (float*)outImage_withoutLUT->getBuffer()->getPointer();
+	float* outPixel_withLUT = (float*)outImage_withLUT->getBuffer()->getPointer();
+	for (uint32_t y = 0; y < outImageDims[1]; ++y)
 	{
-		DiscreteConvolutionBlitFilter blitImageFilter;
-		DiscreteConvolutionBlitFilter::state_type state = {};
-
-		core::vectorSIMDu32 extentLayerCount = core::vectorSIMDu32(0, 0, 0, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize();
-
-		state.inOffsetBaseLayer = core::vectorSIMDu32();
-		state.inExtentLayerCount = extentLayerCount;
-		state.inImage = inImage.get();
-
-		state.outOffsetBaseLayer = core::vectorSIMDu32();
-		state.outExtentLayerCount = extentLayerCount;
-		state.outImage = outImage.get();
-
-		state.swizzle = {};
-
-		state.ditherState = _NBL_NEW(std::remove_pointer<decltype(state.ditherState)>::type);
-		state.scratchMemoryByteSize = blitImageFilter.getRequiredScratchByteSize(&state);
-		state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
-
-		if (!blitImageFilter.execute(std::execution::par_unseq, &state))
-			os::Printer::log("Something went wrong while performing discrete convolution operation!", ELL_WARNING);
-
-		_NBL_DELETE(state.ditherState);
-		_NBL_ALIGNED_FREE(state.scratchMemory);
-	}
-
-	// Print the output buffer
-	{
-		float* outPixel = (float*)outImage->getBuffer()->getPointer();
-		for (uint32_t y = 0; y < inImageDims[1]; ++y)
+		for (uint32_t x = 0; x < outImageDims[0]; ++x)
 		{
-			for (uint32_t x = 0; x < inImageDims[0]; ++x)
+			if (outPixel_withoutLUT[y * outImageDims[0] + x] != outPixel_withLUT[y * outImageDims[0] + x])
 			{
-				std::cout << *outPixel++ << "\t";
+				printf("Failed at (%u, %u)\n", x, y);
+				printf("Without LUT: %f\n", outPixel_withoutLUT[y * outImageDims[0] + x]);
+				printf("With LUT: %f\n", outPixel_withLUT[y * outImageDims[0] + x]);
+				__debugbreak();
 			}
-			std::cout << std::endl;
 		}
 	}
+	printf("Passed\n");
 
 	return 0;
 }

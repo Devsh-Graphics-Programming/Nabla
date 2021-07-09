@@ -187,13 +187,15 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 					};
 				};
 				
-				uint32_t				inMipLevel = 0u;
-				uint32_t				outMipLevel = 0u;
-				ICPUImage*				inImage = nullptr;
-				ICPUImage*				outImage = nullptr;
-				KernelX					kernelX;
-				KernelY					kernelY;
-				KernelZ					kernelZ;
+				uint32_t							inMipLevel = 0u;
+				uint32_t							outMipLevel = 0u;
+				ICPUImage*							inImage = nullptr;
+				ICPUImage*							outImage = nullptr;
+				KernelX								kernelX;
+				KernelY								kernelY;
+				KernelZ								kernelZ;
+				core::smart_refctd_ptr<ICPUBuffer>	phaseSupportLUT = nullptr;
+				bool								enableLUTUsage = true; // temporary state for testing, will remove before merge
 		};
 		using state_type = CState;
 		
@@ -362,6 +364,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				CBasicImageFilterCommon::clip_region_functor_t clip({static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outOffsetLayer.w,1}, {outOffset,outExtent}, outFormat);
 				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions.begin(),outRegions.end(),clip);
 			};
+			
 			// process
 			const core::vectorSIMDf fInExtent(inExtentLayerCount);
 			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
@@ -372,6 +375,18 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				return core::vectorSIMDi32(kernelX.getWindowMinCoord(halfTexelOffset).x-1,kernelY.getWindowMinCoord(halfTexelOffset).y-1,kernelZ.getWindowMinCoord(halfTexelOffset).z-1,0);
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
+
+			const core::vectorSIMDu32 phaseCount
+			(
+				getPhaseCount(inExtentLayerCount[0], outExtentLayerCount[0]),
+				getPhaseCount(inExtentLayerCount[1], outExtentLayerCount[1]),
+				getPhaseCount(inExtentLayerCount[2], outExtentLayerCount[2])
+			);
+
+			// I don't think there should be a MaxChannels factor here, its not like you can specify a different kernel evaluation point for each channel
+			const size_t maxPhaseSupportLUTSize = core::max(phaseCount[0], core::max(phaseCount[1], phaseCount[2])) * core::max(kernelX.getWindowSize()[0], core::max(kernelY.getWindowSize()[1], kernelZ.getWindowSize()[2])) * sizeof(double);
+			state->phaseSupportLUT = core::make_smart_refctd_ptr<ICPUBuffer>(maxPhaseSupportLUTSize);
+
 			for (uint32_t layer=0; layer!=layerCount; layer++) // TODO: could be parallelized
 			{
 				const core::vectorSIMDi32 vLayer(0,0,0,layer);
@@ -409,7 +424,64 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 					if (otherScale)
 					for (auto k=0; k<MaxChannels; k++)
 						scale.factor[k] *= otherScale->factor[k];
-						
+
+					// compute the phaseSupportLUT
+
+					// a dummy load functor
+					// does nothing but fills up the `windowSample` with 1s (identity) so we can preserve the value of kernel
+					// weights when eventually `windowSample` gets multiplied by them later in
+					// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()`
+					// this exists only because `evaluateImpl` expects a pre filtering step.
+					// 
+					// Here I suggest to make something like a CImageFilterKernel<CRTP,value_type>::computeWeights which goes through
+					// the same pipeline of injecting other pre filtering stages (like `wrap` for the `CScaledImageFilterKernel`, for example)
+					// and which doesn't take this functor as argument.
+					auto dummyLoad = [](value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1,
+						const IImageFilterKernel::UserData* unused2) -> void
+					{
+						for (auto h = 0; h < MaxChannels; h++)
+							windowSample[h] = value_type(1);
+					};
+
+					assert(state->phaseSupportLUT);
+
+					value_type kernelWeight[MaxChannels];
+					// actually used to put values in the LUT
+					// Here, again, I would prefer to do it inline but we need to pass something for `evaluateImpl`'s post filtering step.
+					auto dummyEvaluate = [&kernelWeight](const value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1,
+						const IImageFilterKernel::UserData* unused2) -> void
+					{
+						for (auto h = 0; h < MaxChannels; h++)
+							kernelWeight[h] = windowSample[h];
+					};
+
+					for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
+					{
+						core::vectorSIMDf tmp;
+						tmp[axis] = float(i) + 0.5f;
+
+						core::vectorSIMDi32 windowCoord;
+						windowCoord[axis] = kernel.getWindowMinCoord(tmp * fScale, tmp)[axis];
+
+						float relativePos = tmp[axis] - float(windowCoord[axis]); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
+
+						for (int32_t j = 0; j < windowSize; ++j)
+						{
+							// There's no real reason that this should have `MaxChannels` number of elements except for the fact that
+							// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()` expects that.
+							// So this, for now, just replicates the same value in all 4 channels.
+							core::vectorSIMDf tmp(relativePos, 0.f, 0.f);
+							kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, windowCoord, &scale); // `windowCoord` should be unused
+
+							// store kernelWeight[0] in the LUT at i,j
+							double* phaseSupportLUTPixel = (double*)state->phaseSupportLUT->getPointer();
+							phaseSupportLUTPixel[i * windowSize + j] = kernelWeight[0];
+
+							relativePos -= 1.f;
+							windowCoord[axis]++; // shouldn't need to do this
+						}
+					}
+	
 					// z y x output along x
 					// z x y output along y
 					// x y z output along z
@@ -468,7 +540,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							const auto windowEnd = inExtent.width+window_last.x;
 							decode_offset = alloc_decode_scratch();
 							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*windowEnd;
-							for (auto& i=localTexCoord.x; i<windowEnd; i++)
+							for (auto& i=localTexCoord.x; i<=windowEnd; i++)
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
@@ -502,6 +574,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 								}
 							}
 						}
+
+						double* phaseSupportLUTPixel = (double*)state->phaseSupportLUT->getPointer();
+
 						// TODO: this loop should probably get rewritten
 						for (auto& i=(localTexCoord[axis]=0); i<outExtentLayerCount[axis]; i++)
 						{
@@ -509,9 +584,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
 							std::fill(value,value+MaxChannels,value_type(0));
 							// kernel load functor
-							auto load = [axis,&windowMinCoord,lineBuffer](value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData) -> void
+							auto load = [axis,&windowMinCoord,lineBuffer](value_type* windowSample, const core::vectorSIMDf& unused0,
+								const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData) -> void
 							{
-								for (auto h=0; h<MaxChannels; h++)
+								for (auto h = 0; h < MaxChannels; h++)
 									windowSample[h] = lineBuffer[(globalTexelCoord[axis]-windowMinCoord[axis])*MaxChannels+h];
 							};
 							// kernel evaluation functor
@@ -520,19 +596,32 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 								for (auto h=0; h<MaxChannels; h++)
 									value[h] += windowSample[h];
 							};
-							// do the filtering 
+							// do the filtering
 							core::vectorSIMDf tmp;
 							tmp[axis] = float(i)+0.5f;
 							core::vectorSIMDi32 windowCoord;
 							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
 							auto relativePos = tmp[axis]-float(windowCoord[axis]);
+							const uint32_t phaseIndex = i % phaseCount[axis];
 							for (auto h=0; h<windowSize; h++)
 							{
-								value_type windowSample[MaxChannels];
+								if (state->enableLUTUsage)
+								{
+									value_type windowSample[MaxChannels];
+									for (auto ch = 0; ch < MaxChannels; ch++)
+										windowSample[ch] = phaseSupportLUTPixel[phaseIndex*windowSize+h] * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + ch];
 
-								core::vectorSIMDf tmp(relativePos,0.f,0.f);
-								kernel.evaluateImpl(load,evaluate,windowSample,tmp,windowCoord,&scale);
-								relativePos -= 1.f;
+									for (auto ch = 0; ch < MaxChannels; ch++)
+										value[ch] += windowSample[ch];
+								}
+								else
+								{
+									value_type windowSample[MaxChannels];
+									core::vectorSIMDf tmp(relativePos,0.f,0.f);
+									kernel.evaluateImpl(load,evaluate,windowSample,tmp,windowCoord,&scale);
+									relativePos -= 1.f;
+								}
+
 								windowCoord[axis]++;
 							}
 							if (!coverageSemantic && lastPass) // store to image, we're done
@@ -587,6 +676,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				texelCount += core::max<uint32_t>(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_last[2]),(state->inExtent.width+window_last[0])*std::thread::hardware_concurrency()*VectorizationBoundSTL);
 			// obviously we have multiple channels and each channel has a certain type for arithmetic
 			return texelCount*MaxChannels*sizeof(value_type);
+		}
+
+		static inline uint32_t getPhaseCount(const uint32_t inDim, const uint32_t outDim)
+		{
+			return outDim / std::gcd(inDim, outDim);
 		}
 };
 

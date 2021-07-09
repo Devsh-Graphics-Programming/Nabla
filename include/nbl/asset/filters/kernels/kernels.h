@@ -22,36 +22,6 @@ namespace nbl
 {
 namespace asset
 {
-	
-/*
-// caches weights, also should we call it Polyphase?
-template<class Kernel>
-class CMultiphaseKernel : public CImageFilterKernel<CMultiphaseKernel<Kernel> >, private Kernel
-{
-	public:
-		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel;
-
-		CMultiphaseKernel(Kernel&& k) : Kernel(std::move(k)
-		{
-		}
-		
-	protected:
-		static inline core::vectorSIMDu32 computePhases(const core::vectorSIMDu32& from, const core::vectorSIMDu32& to)
-		{
-			assert(!(to>from).any()); // Convolution Kernel cannot be used for upscaling!
-			return from/core::gcd(to,from);
-		}
-		static inline uint32_t computePhaseStorage(const core::vectorSIMDu32& from, const core::vectorSIMDu32& to)
-		{
-			auto phases = computePhases(from,to);
-			auto samplesInSupports = ceil();
-			if constexpr(is_separable)
-			{
-
-			}
-		}
-};
-*/
 
 // to be inline this function relies on any kernel's `create_sample_functor_t` being defined
 template<class CRTP, typename value_type>
