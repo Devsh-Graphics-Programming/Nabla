@@ -376,14 +376,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 
-			const core::vectorSIMDu32 phaseCount
-			(
-				getPhaseCount(inExtentLayerCount[0], outExtentLayerCount[0]),
-				getPhaseCount(inExtentLayerCount[1], outExtentLayerCount[1]),
-				getPhaseCount(inExtentLayerCount[2], outExtentLayerCount[2])
-			);
+			const core::vectorSIMDu32 phaseCount = getPhaseCount(inExtentLayerCount, outExtentLayerCount);
 
-			// I don't think there should be a MaxChannels factor here, its not like you can specify a different kernel evaluation point for each channel
 			const size_t maxPhaseSupportLUTSize = core::max(phaseCount[0], core::max(phaseCount[1], phaseCount[2])) * core::max(kernelX.getWindowSize()[0], core::max(kernelY.getWindowSize()[1], kernelZ.getWindowSize()[2])) * sizeof(double);
 			state->phaseSupportLUT = core::make_smart_refctd_ptr<ICPUBuffer>(maxPhaseSupportLUTSize);
 
@@ -436,6 +430,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 					// Here I suggest to make something like a CImageFilterKernel<CRTP,value_type>::computeWeights which goes through
 					// the same pipeline of injecting other pre filtering stages (like `wrap` for the `CScaledImageFilterKernel`, for example)
 					// and which doesn't take this functor as argument.
+
 					auto dummyLoad = [](value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1,
 						const IImageFilterKernel::UserData* unused2) -> void
 					{
@@ -443,8 +438,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							windowSample[h] = value_type(1);
 					};
 
-					assert(state->phaseSupportLUT);
-
+					// There's no real reason that this should have `MaxChannels` number of elements except for the fact that
+					// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()` expects that.
+					// So this, for now, just replicates the same value in all 4 channels.
 					value_type kernelWeight[MaxChannels];
 					// actually used to put values in the LUT
 					// Here, again, I would prefer to do it inline but we need to pass something for `evaluateImpl`'s post filtering step.
@@ -467,14 +463,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 
 						for (int32_t j = 0; j < windowSize; ++j)
 						{
-							// There's no real reason that this should have `MaxChannels` number of elements except for the fact that
-							// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()` expects that.
-							// So this, for now, just replicates the same value in all 4 channels.
 							core::vectorSIMDf tmp(relativePos, 0.f, 0.f);
 							kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, windowCoord, &scale); // `windowCoord` should be unused
 
 							// store kernelWeight[0] in the LUT at i,j
-							double* phaseSupportLUTPixel = (double*)state->phaseSupportLUT->getPointer();
+							double* phaseSupportLUTPixel = (double*)state->phaseSupportLUT->getPointer(); // TODO: can move out of the loop
 							phaseSupportLUTPixel[i * windowSize + j] = kernelWeight[0];
 
 							relativePos -= 1.f;
@@ -537,10 +530,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
 						else
 						{
-							const auto windowEnd = inExtent.width+window_last.x;
+							const auto windowEnd = inExtent.width+window_last.x+1;
 							decode_offset = alloc_decode_scratch();
 							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*windowEnd;
-							for (auto& i=localTexCoord.x; i<=windowEnd; i++)
+							for (auto& i=localTexCoord.x; i<windowEnd; i++)
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
@@ -678,9 +671,12 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 			return texelCount*MaxChannels*sizeof(value_type);
 		}
 
-		static inline uint32_t getPhaseCount(const uint32_t inDim, const uint32_t outDim)
+		static inline core::vectorSIMDu32 getPhaseCount(const core::vectorSIMDu32& in, const core::vectorSIMDu32& out)
 		{
-			return outDim / std::gcd(inDim, outDim);
+			core::vectorSIMDu32 result(0u);
+			for (uint32_t i = 0u; i < 3u; ++i)
+				result[i] = out[i] / std::gcd(in[i], out[i]);
+			return result;
 		}
 };
 

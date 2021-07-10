@@ -99,15 +99,9 @@ int main()
     IAssetManager* assetManager = device->getAssetManager();
 
 	const std::array<uint32_t, 2> inImageDims = { 800u, 5u };
-	const std::array<uint32_t, 2> outImageDims = { 16u, 8u };
+	const std::array<uint32_t, 2> outImageDims = { 16u, 69u };
 
 	core::smart_refctd_ptr<ICPUImage> inImage = createCPUImage(inImageDims);
-
-	std::random_device rd;
-	std::mt19937 mt(rd());
-	const float anyRandomLowerBound = 0.f;
-	const float anyRandomUpperBound = 1.5f;
-	std::uniform_real_distribution<float> dist(anyRandomLowerBound, anyRandomUpperBound);
 
 	float k = 1.f;
 	float* inImagePixel = (float*)inImage->getBuffer()->getPointer();
@@ -115,7 +109,7 @@ int main()
 	{
 		for (uint32_t x = 0; x < inImageDims[0]; ++x)
 		{
-			*inImagePixel++ = k++;// dist(mt);
+			*inImagePixel++ = k++;
 		}
 	}
 	core::smart_refctd_ptr<ICPUImage> outImage_withoutLUT = createCPUImage(outImageDims);
