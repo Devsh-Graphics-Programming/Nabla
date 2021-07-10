@@ -380,7 +380,7 @@ set(COMMON_INCLUDE_DIRS
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
-	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
+	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
@@ -418,9 +418,9 @@ macro(nbl_target_link_shaderc _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
 endmacro()
 macro(nbl_target_link_libjpeg_turbo _trgt)
-	add_dependencies(${_trgt} jpeg)
+	add_dependencies(${_trgt} jpeg-static)
 	target_link_libraries(${_trgt} INTERFACE
-		jpeg
+		jpeg-static
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
 endmacro()
@@ -646,7 +646,7 @@ nbl_install_lib(glslang)
 nbl_install_lib(GenericCodeGen)
 nbl_install_lib(MachineIndependent)
 nbl_install_lib(HLSL)
-nbl_install_lib(jpeg)
+nbl_install_lib(jpeg-static)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_install_lib(Half)
 	nbl_install_lib(Iex)

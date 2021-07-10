@@ -506,7 +506,7 @@ set(NBL_3RDPARTY_TARGETS
 				zlibstatic
 				shaderc_util
 				shaderc
-				jpeg
+				jpeg-static
 				convert_utf
 				bzip2			
 				glslang
