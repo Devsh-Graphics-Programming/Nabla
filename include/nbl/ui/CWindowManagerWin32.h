@@ -228,6 +228,8 @@ namespace nbl::ui
 						windowLeft = 0;
 						windowTop = 0;
 					}
+					*params.nativeWindow = CreateWindow(classname, __TEXT(""), style, windowLeft, windowTop,
+						realWidth, realHeight, NULL, NULL, hinstance, NULL);
 					{
 						//TODO: thoroughly test this stuff	
 						constexpr uint32_t INPUT_DEVICES_COUNT = 5;
@@ -259,8 +261,6 @@ namespace nbl::ui
 
 						RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
 					}
-					*params.nativeWindow = CreateWindow(classname, __TEXT(""), style, windowLeft, windowTop,
-						realWidth, realHeight, NULL, NULL, hinstance, NULL);
 					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
 						ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
 					UpdateWindow(*params.nativeWindow);

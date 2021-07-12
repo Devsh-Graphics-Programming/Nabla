@@ -1,5 +1,5 @@
-#ifndef	CFILE_WIN32_H
-#define	CFILE_WIN32_H
+#ifndef	_NBL_SYSTEM_CFILEWIN32_H_INCLUDED_
+#define	_NBL_SYSTEM_CFILEWIN32_H_INCLUDED_
 #include "IFile.h"
 namespace nbl::system
 {

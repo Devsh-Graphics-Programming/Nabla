@@ -78,10 +78,8 @@ void CGraphicsPipelineLoaderMTL::initialize()
     }
 
     // default pipelines
-    system::ISystem::future_t<core::smart_refctd_ptr<system::CFileView>> future;
     constexpr std::string_view filename = "Nabla default MTL material";
-    m_assetMgr->getSystem()->createFileView(DUMMY_MTL_CONTENT, sizeof(DUMMY_MTL_CONTENT), system::IFile::ECF_READ, filename);
-    auto default_mtl_file = future.get();
+    auto default_mtl_file = m_assetMgr->getSystem()->createFileView(DUMMY_MTL_CONTENT, sizeof(DUMMY_MTL_CONTENT), system::IFile::ECF_READ, filename);
 
     SAssetLoadParams assetLoadParams;
     auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);

@@ -28,6 +28,10 @@ namespace ui
     LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		CWindowWin32* window = reinterpret_cast<CWindowWin32*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		if (window == nullptr)
+		{
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
 		auto* eventCallback = window->getEventCallback();
 		switch (message)
 		{

@@ -1,5 +1,5 @@
-#ifndef CSYSTEM_WIN32
-#define CSYSTEM_WIN32
+#ifndef _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
+#define _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
 #include "ISystem.h"
 #include "CFileWin32.h"
 namespace nbl::system

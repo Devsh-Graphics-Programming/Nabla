@@ -1,5 +1,4 @@
-#include "C:/dev/work/Nabla-vs/src/nbl/CMakeFiles/Nabla.dir/Debug/cmake_pch.hxx"
-#include "CFileWin32.h"
+#include "nbl/system/CFileWin32.h"
 
 #define LODWORD(_qw)    ((DWORD)(_qw))
 #define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))

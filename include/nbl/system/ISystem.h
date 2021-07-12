@@ -16,6 +16,7 @@ namespace system
 class ISystem final : public core::IReferenceCounted
 {
 public:
+    static core::smart_refctd_ptr<ISystem> create();
     class ISystemCaller : public core::IReferenceCounted
     {
     protected:
@@ -81,7 +82,9 @@ private:
         friend base_t;
 
     public:
-        CAsyncQueue(ISystem* owner, core::smart_refctd_ptr<ISystemCaller>&& caller) : base_t(base_t::start_on_construction), m_owner(owner), m_caller(std::move(caller)) {}
+        CAsyncQueue(ISystem* owner, core::smart_refctd_ptr<ISystemCaller>&& caller) : base_t(base_t::start_on_construction), m_owner(owner), m_caller(std::move(caller)) {
+            this->start();
+        }
 
         template <typename FutureType, typename RequestParams>
         void request_impl(SRequestType& req, FutureType& future, RequestParams&& params)
