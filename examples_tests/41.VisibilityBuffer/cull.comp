@@ -3,21 +3,32 @@
 #include "rasterizationCommon.h"
 layout(local_size_x = WORKGROUP_SIZE) in;
 
-#include <nbl/builtin/glsl/utils/indirect_commands.glsl>
-
 layout(set=0, binding=0, std430, row_major) restrict readonly buffer PerInstanceCull
 {
     CullData_t cullData[];
 };
-layout(set=0, binding=1, std430) restrict coherent buffer IndirectDraws
-{
-    nbl_glsl_DrawElementsIndirectCommand_t draws[];
-} commandBuff;
-layout(set=0, binding=2, std430) restrict coherent buffer MVPs
+layout(set=0, binding=1, std430) restrict coherent buffer MVPs
 {
     mat4 mvps[];
 } mvpBuff;
 
+#define ENABLE_CUBE_COMMAND_BUFFER
+#define ENABLE_COMMAND_BUFFER
+#define CUBE_COMMAND_BUFF_SET 0
+#define CUBE_COMMAND_BUFF_BINDING 2
+#define COMMAND_BUFF_SET 0
+#define COMMAND_BUFF_BINDING 3
+#include "occlusionCullingShaderCommon.glsl"
+
+layout(set=0, binding=4, std430) restrict coherent buffer CubeMVPs
+{
+    mat4 cubeMVPs[];
+} cubeMvpBuff;
+
+layout(set=0, binding=5, std430) restrict coherent buffer CubeDrawGUID
+{
+    uint drawGUID[];
+} cubeDrawGUIDBuffer;
 
 
 layout(push_constant, row_major) uniform PushConstants
@@ -45,6 +56,26 @@ void main()
 
     const mat2x3 bbox = mat2x3(batchCullData.aabbMinEdge,batchCullData.aabbMaxEdge);
     bool couldBeVisible = nbl_glsl_couldBeVisible(pc.data.viewProjMatrix,bbox);
+    
+    const uint drawCommandGUID = batchCullData.drawCommandGUID + pc.data.frontMdiBufferOffset;
 
-    commandBuff.draws[batchCullData.drawCommandGUID].instanceCount = couldBeVisible == true ? 1 : 0;
+    if(!couldBeVisible)
+        commandBuff.draws[drawCommandGUID].instanceCount = 0;
+
+    // if not frustum culled and batch was not visible in the last frame
+    if(couldBeVisible && commandBuff.draws[drawCommandGUID].instanceCount == 0)
+    {
+        const uint currCubeIdx = atomicAdd(cubeIndirectDraw.draw.instanceCount,1);
+
+        vec3 aabbExtent = batchCullData.aabbMaxEdge - batchCullData.aabbMinEdge;
+        cubeMvpBuff.cubeMVPs[currCubeIdx] = mat4(
+            pc.data.viewProjMatrix[0]*aabbExtent.x,
+            pc.data.viewProjMatrix[1]*aabbExtent.y,
+            pc.data.viewProjMatrix[2]*aabbExtent.z,
+            vec4(mat3(pc.data.viewProjMatrix)*batchCullData.aabbMinEdge,1)+pc.data.viewProjMatrix[3]
+        );
+
+        cubeDrawGUIDBuffer.drawGUID[currCubeIdx] = drawCommandGUID;
+    }
+
 }
