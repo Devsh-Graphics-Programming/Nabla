@@ -8,9 +8,12 @@
 namespace nbl {
 namespace system
 {
-
 class IFile : public core::IReferenceCounted
 {
+	// Don't like this approach, gonna stack up many forward declarations, @criss any suggestions?
+	// I also had an idea to make interfaces public in the implementations of IFile
+	// and static_cast files before calling, but that would invalidate any other IFile descendants calls
+	friend class CSystemCallerWin32;
 public:
 	enum E_CREATE_FLAGS : uint32_t
 	{
@@ -42,8 +45,7 @@ public:
 	{
 		return (m_flags & ECF_COHERENT) == ECF_COHERENT;
 	}
-
-protected:
+protected: 
 	virtual int32_t read(void* buffer, size_t offset, size_t sizeToRead) = 0;
 	virtual int32_t write(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
 protected:

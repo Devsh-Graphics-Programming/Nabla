@@ -1,6 +1,6 @@
 #include "nbl/video/IAPIConnection.h"
 
-#include "CFileSystem.h"
+#include "nbl/system/CSystemWin32.h"
 #include "nbl/builtin/common.h"
 
 namespace nbl {
@@ -41,9 +41,14 @@ IAPIConnection::IAPIConnection()
 #else
         "";
 #endif
-    assert(false);
-    //TODO: system implementation
-    m_system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
+    core::smart_refctd_ptr<system::ISystem::ISystemCaller> caller;
+#ifdef _NBL_PLATFORM_WINDOWS_
+    caller = core::make_smart_refctd_ptr<system::CSystemCallerWin32>();
+#else
+    caller = nullptr;
+#endif
+
+    m_system = core::make_smart_refctd_ptr<system::ISystem>(std::move(caller));
 
     m_GLSLCompiler = core::make_smart_refctd_ptr<asset::IGLSLCompiler>(m_system.get());
 }

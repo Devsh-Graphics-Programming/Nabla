@@ -23,7 +23,6 @@ public:
 
     public:  
         virtual core::smart_refctd_ptr<IFile> createFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
-        virtual core::smart_refctd_ptr<CFileView> createBufferedFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
         virtual size_t read(IFile* file, void* buffer, size_t offset, size_t size) = 0;
         virtual size_t write(IFile* file, const void* buffer, size_t offset, size_t size) = 0;
         virtual bool invalidateMapping(IFile* file, size_t offset, size_t size) = 0;

@@ -4,7 +4,7 @@
 #define LODWORD(_qw)    ((DWORD)(_qw))
 #define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
 
-nbl::system::CFileWin32::CFileWin32(const std::string_view& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags) : base_t(_flags), m_filename{ _filename }
+nbl::system::CFileWin32::CFileWin32(const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags) : base_t(_flags), m_filename{ _filename }
 {
 	DWORD access = m_flags | ECF_READ_WRITE ? GENERIC_READ | GENERIC_WRITE :
 		(m_flags | ECF_READ ? GENERIC_READ : (m_flags | ECF_WRITE ? GENERIC_WRITE : 0));

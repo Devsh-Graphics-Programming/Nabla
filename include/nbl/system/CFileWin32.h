@@ -13,7 +13,7 @@ private:
 	size_t m_size = 0;
 	native_file_handle_t m_native = nullptr;
 public:
-	CFileWin32(const std::string_view& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags);
+	CFileWin32(const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags);
 	~CFileWin32();
 	static core::smart_refctd_ptr<CFileWin32> create(const std::string_view& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags)
 	{
