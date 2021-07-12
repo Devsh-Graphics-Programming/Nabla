@@ -228,6 +228,29 @@ After dealing with *CUDA* installing just install *Optix SKD*.
 
 - **[OptiX SDK](https://developer.nvidia.com/designworks/optix/download)** 
 
+### Android Build
+
+**Required:**
+
+- **[Android Studio](https://developer.android.com/studio)**
+- **[NDK r22b](https://developer.android.com/ndk/downloads#stable-downloads)**
+- **[Java 8](https://www.java.com/download/)**
+- **[Ninja](https://ninja-build.org/)**
+
+The first step is to install Android Studio and Java 8. When done, extract NDK r22b into *Android SDK root directory* usually located at `C:/Users/<your_user>/AppData/Local/AndroidSdk`. If you however can't find it, open Android Studio and go to **File** and **Project Structure** that will show you where your Android SDKs are installed.
+
+Now you can begin CMake generating. On Android Build there is only Ninja generator available. Before configuring you need to specify toolchain file for cross-compiling by passing path to `android.toolchain.cmake`. You can find it in NDK directory in `build/cmake/android.toolchain.cmake` and according to example of Android SDK root directory path it should look entirely like `C:/Users/<your_user>/AppData/Local/AndroidSdk/android-ndk-r22b/build/cmake/android.toolchain.cmake`.
+
+Having Nabla generated you need to enter build directory, launch the terminal and type `cmake --build . --target Nabla -j4 -v` or if you want build android sample example you would type `cmake --build . --target android_sample_apk -j4 -v`. The android sample example produces *.apk* file you can use for debugging and profiling.
+
+#### Chrome Book upload
+
+To upload generated *.apk* into your ChromeBook you need first to make sure your device is in *developer mode* state. If it is, you can open Android Studio and choose Debug or Profile choosing *.apk* file. Then you will need to connect to your device using **adb** connector. To make use of adb, you need to find path to the executable that is placed in `C:/Users/<your_user>/AppData/Local/AndroidSdk/platform-tools` directory. When found, you can type in Android Studio command line `C:/Users/<your_user>/AppData/Local/AndroidSdk/platform-tools/adb connect <IP of ChromeBook network>`. You can find ChromeBook's IP by entering network settings and choosing current network ChromeBook is connected to. This way the ChromeBook should be listed in available devices and you should be able to upload *.apk* to the machine through debugging app shortcut. Take into account that you won't probably be able to debug in that scenario, but you will be able to upload *.apk* to the device.
+
+#### Chrome Book debug
+
+Because we encountered some troubles with debugging Android apps, it will be introduced soon.
+
 ## External Dependencies
 
 - **gl.h** header for *OpenGL* (possible to obtain even on headless servers from *mesa-libgl-devel*)
@@ -352,11 +375,21 @@ Remember you have to set up **starting target project** in *Visual Studio* befor
 To get **Nabla** to be used by an external application *without adding it as a subdirectory*,but still using a submodule, you should perform following:
 
 ```cmake
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_EXAMPLES:BOOL=OFF")
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+set(NBL_SOURCE_DIR "<YOUR_NABLA_SOURCE_DIRECTORY>") # PAY ATTENTION: you have to fill this one with Nabla source directory
+set(NBL_BINARY_DIR "${NBL_SOURCE_DIR}/build")
+set(NBL_INSTALL_DIR "${NBL_BINARY_DIR}/install")
+
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_EXAMPLES:BOOL=OFF")
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-DNBL_COMPILE_WITH_SDL2:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_OPEN_EXR_:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_LOADER_:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_WRITER_:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_OBJ_LOADER_:BOOL=OFF") # you probably don't want this extension
 list(APPEND NBL_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${NBL_INSTALL_DIR}") # because of https://gitlab.kitware.com/cmake/cmake/-/issues/18790
+
 ExternalProject_Add(Nabla
     DOWNLOAD_COMMAND  ""
     SOURCE_DIR        "${NBL_SOURCE_DIR}"
@@ -365,66 +398,83 @@ ExternalProject_Add(Nabla
     TEST_COMMAND      ""
 )
 
-# replace with whatever you need ${PROJECT_NAME}
-target_include_directories(${PROJECT_NAME}
+function(addNablaModule target)	
+	target_include_directories(${target}
     PUBLIC
         $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/include>
         $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/include>
         $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/include>
-     # these are needed because we haven't cleaned up the API properly yet
+        # these are needed because we haven't cleaned up the API properly yet
         $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/source/Nabla>
         $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/source/Nabla>
         $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/source/Nabla>
-)
-target_link_libraries(${PROJECT_NAME} 
-	 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/Nabla_debug.lib>
-	 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/Nabla_rwdi.lib>
-	 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/Nabla.lib>
-)
-function(link_nbl_dependency DEPENDENCY_NAME)
-	target_link_libraries(${PROJECT_NAME} 
-		 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}d.lib>
-		 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
-		 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
 	)
+	target_link_libraries(${target} PRIVATE
+		 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/Nabla_debug.lib>
+		 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/Nabla_rwdi.lib>
+		 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/Nabla.lib>
+	)
+	
+	function(link_nbl_dependency DEPENDENCY_NAME)
+		target_link_libraries(${target} PRIVATE
+			 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}d.lib> # d POSTFIX
+			 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+			 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+		)
+	endfunction()
+	
+	function(link_nbl_dependency_ DEPENDENCY_NAME)
+		target_link_libraries(${target} PRIVATE
+			 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}_d.lib> # _d POSTFIX
+			 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+			 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+		)
+	endfunction()
+	
+	function(link_nbl_dependency_nond DEPENDENCY_NAME)
+		target_link_libraries(${target} PRIVATE
+			 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}.lib> # none d POSTFIX
+			 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+			 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+		)
+	endfunction()
+	
+	link_nbl_dependency(glslang)
+	link_nbl_dependency_nond(jpeg)
+	link_nbl_dependency(libpng16_static)
+	
+	# OpenSSL only ever exists in the Release variant
+	if(WIN32)
+		target_link_libraries(${target} PRIVATE
+			 ${NBL_INSTALL_DIR}/lib/libeay32.lib
+			 ${NBL_INSTALL_DIR}/lib/ssleay32.lib
+		)
+	else()
+		target_link_libraries(${target} PRIVATE
+			 ${NBL_INSTALL_DIR}/lib/libcrypto.a
+			 ${NBL_INSTALL_DIR}/lib/libssl.a
+		)
+	endif()
+	link_nbl_dependency(libpng16_static)
+	link_nbl_dependency(OGLCompiler)
+	link_nbl_dependency(OSDependent)
+	link_nbl_dependency_nond(shaderc)
+	link_nbl_dependency_nond(shaderc_util)
+	link_nbl_dependency(SPIRV)
+	link_nbl_dependency_nond(SPIRV-Tools)
+	link_nbl_dependency_nond(SPIRV-Tools-opt)
+	link_nbl_dependency(zlibstatic)
+	link_nbl_dependency(GenericCodeGen)
+	link_nbl_dependency(HLSL)
+	link_nbl_dependency(MachineIndependent)
+	link_nbl_dependency_nond(egl)
 endfunction()
-function(link_nbl_dependency_ DEPENDENCY_NAME)
-	target_link_libraries(${PROJECT_NAME} 
-		 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}_d.lib>
-		 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
-		 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
-	)
-endfunction()
-link_nbl_dependency(glslang)
-link_nbl_dependency_(jpeg)
-link_nbl_dependency_(IlmImf-2_4)
-link_nbl_dependency_(IexMath-2_4)
-link_nbl_dependency_(Iex-2_4)
-link_nbl_dependency_(IlmThread-2_4)
-link_nbl_dependency_(Half-2_4)
-link_nbl_dependency_(Imath-2_4)
-link_nbl_dependency(libpng16_static)
-# OpenSSL only ever exists in the Release variant
-if(WIN32)
-	target_link_libraries(${PROJECT_NAME} 
-		 ${NBL_INSTALL_DIR}/lib/libeay32.lib
-		 ${NBL_INSTALL_DIR}/lib/ssleay32.lib
-	)
-else()
-	target_link_libraries(${PROJECT_NAME} 
-		 ${NBL_INSTALL_DIR}/lib/libcrypto.lib
-		 ${NBL_INSTALL_DIR}/lib/libssl.lib
-	)
-endif()
-link_nbl_dependency_(shaderc)
-link_nbl_dependency_(shaderc_util)
-link_nbl_dependency(SPIRV)
-link_nbl_dependency_(SPIRV-Tools)
-link_nbl_dependency_(SPIRV-Tools-opt)
-link_nbl_dependency(OGLCompiler)
-link_nbl_dependency(OSDependent)
-link_nbl_dependency(HLSL)
-link_nbl_dependency(zlibstatic)
+
+# now if you create executable you can use addNablaModule
+add_executable(executableTest main.cpp) # assuming main.cpp exsists
+
+# add Nabla module to "executableTest"
+addNablaModule(executableTest)
 ```
 
  If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
@@ -451,7 +501,8 @@ Permament members of *Devsh Graphics Programming Sp. z O.O.* use this to organis
 - **Krzysztof Szenk** ***[@crisspl](https://github.com/Crisspl)*** (Core Engineer)
 - **Arkadiusz Lachowicz** ***[@AnastaZIuk](https://github.com/AnastaZIuk)*** (Junior Programmer)
 - **Przemysław Pachytel** ***[@Przemog1](https://github.com/Przemog1)*** (Junior Programmer)
-- **Cyprian Skrzypczak** ***[@Hazardu](https://github.com/Hazardu)*** (Junior Programmer)
+- **Achal Pandey [@achalpandeyy](https://github.com/achalpandeyy)** (Junior Programmer)
+- **Danylo Sadivnychyi [@sadiuk](https://github.com/sadiuk)** (Junior Programmer)
 - **Søren Gronbech** 
 
 #### Past Authors and Contributors:
@@ -459,6 +510,7 @@ Permament members of *Devsh Graphics Programming Sp. z O.O.* use this to organis
 - ***[@khom-khun](https://github.com/khom-khun)*** (Bullet Physics Extension + Example and **[the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)**)
 - ***[@manhnt9](https://github.com/manhnt9)*** **Nguyễn Tiến Mạnh** (CEGUI, Build System and Radeon Rays Proof-of-Concept Integration in Prime Engine X with IrrlichtBaW back-end)
 - ***[@florastamine](https://github.com/florastamine)*** **Nguyễn Ngọc Huy** (sRGB-Correct Image Loaders, CEGUI and BRDF Explorer GUI)
+- **Cyprian Skrzypczak** ***[@Hazardu](https://github.com/Hazardu)*** (embeded resources and optimalizations)
 
 #### Words of appreciation for developers whose software has been used in **Nabla**, currently and in the past:
 
