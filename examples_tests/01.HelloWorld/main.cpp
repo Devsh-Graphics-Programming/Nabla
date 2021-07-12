@@ -45,6 +45,7 @@ int main()
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
+
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
 	auto surface = gl->createSurface(win.get());
 
