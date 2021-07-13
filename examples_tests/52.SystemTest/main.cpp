@@ -28,5 +28,10 @@ int main()
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
+	params.callback = make_smart_refctd_ptr<IWindow::IEventCallback>();
 	auto window = winManager->createWindow(std::move(params));
+	while (true)
+	{
+
+	}
 }

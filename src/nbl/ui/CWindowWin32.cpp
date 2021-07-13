@@ -32,7 +32,7 @@ namespace ui
 		{
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
-		auto* eventCallback = window->getEventCallback();
+		IEventCallback* eventCallback =  window->getEventCallback();
 		switch (message)
 		{
 		case WM_SHOWWINDOW:
