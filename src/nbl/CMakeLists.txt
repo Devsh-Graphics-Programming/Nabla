@@ -331,16 +331,17 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
-	#${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
@@ -532,7 +533,7 @@ nbl_target_link_spirv_tools(Nabla)
 if (NBL_COMPILE_WITH_SDL2)
 	nbl_target_link_SDL2(Nabla)
 endif()
-#nbl_target_link_volk(Nabla)
+nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})

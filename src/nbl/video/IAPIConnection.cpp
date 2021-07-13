@@ -12,6 +12,7 @@ namespace video
 // as a result, if one wants to turn off compilation of whole backend, one can just remove corresponding API connection's .cpp from build
 core::smart_refctd_ptr<IAPIConnection> createOpenGLConnection(const SDebugCallback& dbgCb);
 core::smart_refctd_ptr<IAPIConnection> createOpenGLESConnection(const SDebugCallback& dbgCb);
+core::smart_refctd_ptr<IAPIConnection> createVulkanConnection(uint32_t appVer, const char* appName, const SDebugCallback& dbgCb);
 
 
 core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(E_API_TYPE apiType, uint32_t appVer, const char* appName, const SDebugCallback& dbgCb)
@@ -22,8 +23,8 @@ core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(E_API_TYPE apiType
         return createOpenGLConnection(dbgCb);
     case EAT_OPENGL_ES:
         return createOpenGLESConnection(dbgCb);
-    //case EAT_VULKAN:
-        //
+    case EAT_VULKAN:
+        return createVulkanConnection(appVer, appName, dbgCb);
     default:
         return nullptr;
     }

@@ -10,6 +10,7 @@ nothing fancy, just to show that Irrlicht links fine
 #include <iostream>
 #include <cstdio>
 #include <nabla.h>
+// #include <volk/volk.h>
 
 #include "../common/CommonAPI.h"
 
@@ -36,16 +37,29 @@ inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::vi
 
 int main()
 {
+	// if (volkInitialize() != VK_SUCCESS)
+	// 	printf("failed to initialize Vulkan\n");
+	// 
+	// uint32_t version = volkGetInstanceVersion();
+	// 
+	// uint32_t layerCount;
+	// vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+	// std::vector<VkLayerProperties> layers(layerCount);
+	// vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
+
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
-
+	
 	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
-
+	
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
+	
+	auto vk = video::IAPIConnection::create(video::EAT_VULKAN, 0, "New API Test", dbgcb);
 
+#if 0
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
 	auto surface = gl->createSurface(win.get());
 
@@ -158,6 +172,7 @@ int main()
 	}
 
 	device->waitIdle();
+#endif
 
 	return 0;
 }

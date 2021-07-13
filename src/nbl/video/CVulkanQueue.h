@@ -15,7 +15,9 @@ class CVulkanQueue final : public IGPUQueue
 public:
     CVulkanQueue(CVKLogicalDevice* vkdev, VkQueue vkq, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority);
 
-    void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
+    bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
+
+    bool present(const SPresentInfo& info) override;
 
     inline VkQueue getInternalObject() const { return m_vkqueue; }
 
