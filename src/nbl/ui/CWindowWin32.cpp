@@ -5,6 +5,7 @@
 #include <hidusage.h>
 #include <hidpi.h>
 #include <codecvt>
+#include <windowsx.h>
 
 namespace nbl {
 namespace ui
@@ -13,6 +14,7 @@ namespace ui
 	CWindowWin32::CWindowWin32(CWindowManagerWin32* winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
 	{
 		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+		addAlreadyConnectedInputDevices();
 	}
 
 	CWindowWin32::~CWindowWin32()
@@ -25,7 +27,38 @@ namespace ui
 		return nullptr;
 	}
 
-    LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+	void CWindowWin32::addAlreadyConnectedInputDevices()
+	{
+		UINT deviceCount;
+		GetRawInputDeviceList(nullptr, &deviceCount, sizeof(RAWINPUTDEVICELIST));
+		std::vector<RAWINPUTDEVICELIST> devices(deviceCount);
+		GetRawInputDeviceList(devices.data(), &deviceCount, sizeof(RAWINPUTDEVICELIST));
+		auto deviceList = devices.data();
+		for (int i = 0; i < deviceCount; i++)
+		{
+			switch (deviceList[i].dwType)
+			{
+			case RIM_TYPEKEYBOARD:
+			{
+				auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+				addKeyboardEventChannel(deviceList[i].hDevice, std::move(channel));
+				break;
+			}
+			case RIM_TYPEMOUSE:
+			{
+				auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+				addMouseEventChannel(deviceList[i].hDevice, std::move(channel));
+				break;
+			}
+			default:
+			{
+				break;
+			}
+			}
+		}
+	}
+
+	LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		CWindowWin32* window = reinterpret_cast<CWindowWin32*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		if (window == nullptr)
@@ -47,18 +80,19 @@ namespace ui
 			}
 			break;
 		}
-		case WM_MOVING: [[fallthrough]];
 		case WM_MOVE:
 		{
-			int newX = (int)LOWORD(lParam);
-			int newY = (int)HIWORD(lParam);
+			int32_t newX = GET_X_LPARAM(lParam);
+			int32_t newY = GET_Y_LPARAM(lParam);
+
 			eventCallback->onWindowMoved(window, newX, newY);
+			break;
 		}
-		case WM_SIZING: [[fallthrough]];
 		case WM_SIZE:
-		{
+		{			
 			uint32_t newWidth = LOWORD(lParam);
 			uint32_t newHeight = HIWORD(lParam);
+		
 			eventCallback->onWindowResized(window, newWidth, newHeight);
 			switch (wParam)
 			{
@@ -85,7 +119,8 @@ namespace ui
 		{
 			switch (wParam)
 			{
-			case WA_CLICKACTIVE:
+			case WA_CLICKACTIVE: [[fallthrough]];
+			case WA_ACTIVE:
 				eventCallback->onGainedMouseFocus(window);
 				break;
 			case WA_INACTIVE:
@@ -96,7 +131,6 @@ namespace ui
 		}
 		case WM_INPUT_DEVICE_CHANGE:
 		{
-			constexpr uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
 			RID_DEVICE_INFO deviceInfo;
 			deviceInfo.cbSize = sizeof(RID_DEVICE_INFO);
 			UINT size = sizeof(RID_DEVICE_INFO);
@@ -150,28 +184,34 @@ namespace ui
 		}
 		case WM_INPUT:
 		{
-			RAWINPUT rawInput;
+			RAWINPUT* rawInput;
 			UINT size;
-			GetRawInputData((HRAWINPUT)lParam, RID_HEADER, &rawInput, &size, sizeof rawInput.header);
-			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &rawInput, &size, sizeof rawInput.header);
-			HANDLE device = rawInput.header.hDevice;
-			switch (rawInput.header.dwType)
+			UINT headerSize;
+			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
+			std::vector<std::byte> data(size);
+			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data.data(), &size, sizeof(RAWINPUTHEADER));
+			rawInput = reinterpret_cast<RAWINPUT*>(data.data());
+			HANDLE device = rawInput->header.hDevice;
+			switch (rawInput->header.dwType)
 			{
 			case RIM_TYPEMOUSE:
 			{
 				auto* inputChannel = window->getMouseEventChannel(device);
-				RAWMOUSE rawMouse = rawInput.data.mouse;
+				RAWMOUSE rawMouse = rawInput->data.mouse;
  
 				if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
 				{
-					assert(rawMouse.lLastX != 0 || rawMouse.lLastY != 0);
-					SMouseEvent event;
-					event.type = SMouseEvent::EET_MOVEMENT;
-					event.movementEvent.movementX = rawMouse.lLastX;
-					event.movementEvent.movementY = rawMouse.lLastY;
-					event.window = window;
-					auto lk = inputChannel->lockBackgroundBuffer();
-					inputChannel->pushIntoBackground(std::move(event));
+					// XD apparently a flag can be set, but there will be no actual movement
+					if (rawMouse.lLastX != 0 || rawMouse.lLastY != 0)
+					{
+						SMouseEvent event;
+						event.type = SMouseEvent::EET_MOVEMENT;
+						event.movementEvent.movementX = rawMouse.lLastX;
+						event.movementEvent.movementY = rawMouse.lLastY;
+						event.window = window;
+						auto lk = inputChannel->lockBackgroundBuffer();
+						inputChannel->pushIntoBackground(std::move(event));
+					}
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)
 				{
@@ -262,7 +302,7 @@ namespace ui
 			case RIM_TYPEKEYBOARD:
 			{
 				auto inputChannel = window->getKeyboardEventChannel(device);
-				RAWKEYBOARD rawKeyboard = rawInput.data.keyboard;
+				RAWKEYBOARD rawKeyboard = rawInput->data.keyboard;
 				switch (rawKeyboard.Message)
 				{
 				case WM_KEYDOWN: [[fallthrough]];

@@ -131,10 +131,8 @@ namespace nbl::ui
 				MSG message;
 				constexpr uint32_t timeoutInMS = 8; // gonna become 10 anyway
 				if (getMessageWithTimeout(&message, timeoutInMS))
-				//if (GetMessage(&message, nullptr, 0, 0))
 				{
 					TranslateMessage(&message);
-					if (message.hwnd != nullptr) __debugbreak();
 					DispatchMessage(&message);
 				}
 			}
@@ -302,8 +300,7 @@ namespace nbl::ui
 				UINT_PTR timerId = SetTimer(NULL, NULL, timeoutInMilliseconds, NULL);
 				res = GetMessage(msg, nullptr, 0, 0);
 
-				PostMessage(nullptr, WM_NULL, 0, 0);
-				//KillTimer(NULL, timerId);
+				KillTimer(NULL, timerId);
 
 				if (!res)
 					return false;

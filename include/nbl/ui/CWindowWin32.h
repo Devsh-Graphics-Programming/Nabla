@@ -33,14 +33,14 @@ private:
 
 	void addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
 	{
-		assert(m_mouseEventChannel.find(deviceHandle) == m_mouseEventChannel.end());
-		m_mouseEventChannel.emplace(deviceHandle, channel);
+		if (m_mouseEventChannel.find(deviceHandle) == m_mouseEventChannel.end())
+			m_mouseEventChannel.emplace(deviceHandle, channel);
 	}
 
 	void addKeyboardEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
 	{
-		assert(m_keyboardEventChannel.find(deviceHandle) == m_keyboardEventChannel.end());
-		m_keyboardEventChannel.emplace(deviceHandle, channel);
+		if(m_keyboardEventChannel.find(deviceHandle) == m_keyboardEventChannel.end())
+			m_keyboardEventChannel.emplace(deviceHandle, channel);
 	}
 
 	core::smart_refctd_ptr<IMouseEventChannel> removeMouseEventChannel(HANDLE deviceHandle)
@@ -62,6 +62,17 @@ private:
 	
 	IMouseEventChannel* getMouseEventChannel(HANDLE deviceHandle)
 	{
+		/** 
+		*   This checking is necessary because some devices (like a laptop precision touchpad)
+		*   don't get listed in GetRawInputDeviceList but will visible when you get an actual input
+		*   from it (the handle to it will be nullptr).
+		**/
+		auto ch = m_mouseEventChannel.find(deviceHandle);
+		if (ch == m_mouseEventChannel.end())
+		{
+			auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+			addMouseEventChannel(deviceHandle, std::move(channel));
+		}
 		return m_mouseEventChannel.find(deviceHandle)->second.get();
 	}
 
@@ -70,10 +81,16 @@ private:
 		return m_keyboardEventChannel.find(deviceHandle)->second.get();
 	}
 	
-
+	
 	// Inherited via IWindowWin32
 	virtual IClipboardManager* getClipboardManager() override;
 
+
+private:
+	static constexpr uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
+
+	void addAlreadyConnectedInputDevices();
+	POINT workspaceCoordinatesToScreen(const POINT& p);
 };
 
 }
