@@ -134,7 +134,7 @@ namespace ui
 			RID_DEVICE_INFO deviceInfo;
 			deviceInfo.cbSize = sizeof(RID_DEVICE_INFO);
 			UINT size = sizeof(RID_DEVICE_INFO);
-			GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
+			bool success = GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
 
 			HANDLE deviceHandle = HANDLE(lParam);
 
@@ -163,17 +163,22 @@ namespace ui
 			}
 			case GIDC_REMOVAL:
 			{
-				if (deviceInfo.dwType == RIM_TYPEMOUSE)
+				// Apparently on device removal the info about its type
+				// isn't accessible any more, so it requires a bit of tweaking
+				int32_t deviceType = window->getDeviceType(deviceHandle);
+				if (deviceType == -1) break;
+
+				if (deviceType == RIM_TYPEMOUSE)
 				{
 					auto channel = window->removeMouseEventChannel(deviceHandle);
 					eventCallback->onMouseDisconnected(window, channel.get());
 				}
-				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
+				else if (deviceType == RIM_TYPEKEYBOARD)
 				{
 					auto channel = window->removeKeyboardEventChannel(deviceHandle);
 					eventCallback->onKeyboardDisconnected(window, channel.get());
 				}
-				else if (deviceInfo.dwType == RIM_TYPEHID)
+				else if (deviceType == RIM_TYPEHID)
 				{
 					// TODO 
 				}

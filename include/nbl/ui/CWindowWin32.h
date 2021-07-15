@@ -28,36 +28,56 @@ private:
 
 	CWindowManagerWin32* m_windowManager;
 
-	std::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannel;
-	std::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannel;
-
+	std::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;
+	std::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;
+	
+	/* 
+	*  Storing this data is required for the device removal to work properly
+	*  When you get a message about the device removal, its type isn't accessible anymore.
+	*/
+	std::map<HANDLE, uint32_t> m_deviceTypes;
 	void addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
 	{
-		if (m_mouseEventChannel.find(deviceHandle) == m_mouseEventChannel.end())
-			m_mouseEventChannel.emplace(deviceHandle, channel);
+		if (m_mouseEventChannels.find(deviceHandle) == m_mouseEventChannels.end())
+		{
+			m_mouseEventChannels.emplace(deviceHandle, channel);
+			m_deviceTypes.emplace(deviceHandle, RIM_TYPEMOUSE);
+		}
 	}
 
 	void addKeyboardEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
 	{
-		if(m_keyboardEventChannel.find(deviceHandle) == m_keyboardEventChannel.end())
-			m_keyboardEventChannel.emplace(deviceHandle, channel);
+		if (m_keyboardEventChannels.find(deviceHandle) == m_keyboardEventChannels.end())
+		{
+			m_keyboardEventChannels.emplace(deviceHandle, channel);
+			m_deviceTypes.emplace(deviceHandle, RIM_TYPEKEYBOARD);
+		}
 	}
 
 	core::smart_refctd_ptr<IMouseEventChannel> removeMouseEventChannel(HANDLE deviceHandle)
 	{
 		RAWINPUT;
-		auto it = m_mouseEventChannel.find(deviceHandle);
+		auto it = m_mouseEventChannels.find(deviceHandle);
 		auto channel = std::move(it->second);
-		m_mouseEventChannel.erase(it);
+		m_mouseEventChannels.erase(it);
+		m_deviceTypes.erase(m_deviceTypes.find(deviceHandle));
 		return channel;
 	}
 
 	core::smart_refctd_ptr<IKeyboardEventChannel> removeKeyboardEventChannel(HANDLE deviceHandle)
 	{
-		auto it = m_keyboardEventChannel.find(deviceHandle);
+		auto it = m_keyboardEventChannels.find(deviceHandle);
 		auto channel = std::move(it->second);
-		m_keyboardEventChannel.erase(it);
+		m_keyboardEventChannels.erase(it);
+		m_deviceTypes.erase(m_deviceTypes.find(deviceHandle));
 		return channel;
+	}
+
+	int32_t getDeviceType(HANDLE h)
+	{
+		auto type = m_deviceTypes.find(h);
+		if (type != m_deviceTypes.end()) return type->second;
+		return -1;
 	}
 	
 	IMouseEventChannel* getMouseEventChannel(HANDLE deviceHandle)
@@ -67,18 +87,18 @@ private:
 		*   don't get listed in GetRawInputDeviceList but will visible when you get an actual input
 		*   from it (the handle to it will be nullptr).
 		**/
-		auto ch = m_mouseEventChannel.find(deviceHandle);
-		if (ch == m_mouseEventChannel.end())
+		auto ch = m_mouseEventChannels.find(deviceHandle);
+		if (ch == m_mouseEventChannels.end())
 		{
 			auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
 			addMouseEventChannel(deviceHandle, std::move(channel));
 		}
-		return m_mouseEventChannel.find(deviceHandle)->second.get();
+		return m_mouseEventChannels.find(deviceHandle)->second.get();
 	}
 
 	IKeyboardEventChannel* getKeyboardEventChannel(HANDLE deviceHandle)
 	{
-		return m_keyboardEventChannel.find(deviceHandle)->second.get();
+		return m_keyboardEventChannels.find(deviceHandle)->second.get();
 	}
 	
 	

@@ -8,11 +8,78 @@
 #include <nabla.h>
 #include <nbl/ui/CWindowManagerWin32.h>
 #include <nbl/system/ISystem.h>
+#include <CLogger.h>
 using namespace nbl;
 using namespace core;
 using namespace ui;
 using namespace system;
 using namespace asset;
+using namespace os;
+
+// Don't wanna use Printer::log
+#define LOG(...) printf(__VA_ARGS__); printf("\n");
+class DemoEventCallback : public IWindow::IEventCallback
+{
+	void onWindowShown_impl() override 
+	{
+		LOG("Window Shown");
+	}
+	void onWindowHidden_impl() override 
+	{
+		LOG("Window hidden");
+	}
+	void onWindowMoved_impl(int32_t x, int32_t y) override
+	{
+		LOG("Window window moved to { %d, %d }", x, y);
+	}
+	void onWindowResized_impl(uint32_t w, uint32_t h) override
+	{
+		LOG("Window resized to { %u, %u }", w, h);
+
+	}
+	void onWindowMinimized_impl() override
+	{
+		LOG("Window minimized");
+	}
+	void onWindowMaximized_impl() override
+	{
+		LOG("Window maximized");
+	}
+	void onGainedMouseFocus_impl() override
+	{
+		LOG("Window gained mouse focus");
+	}
+	void onLostMouseFocus_impl() override
+	{
+		LOG("Window lost mouse focus");
+	}
+	void onGainedKeyboardFocus_impl() override
+	{
+		LOG("Window gained keyboard focus");
+	}
+	void onLostKeyboardFocus_impl() override
+	{
+		LOG("Window lost keyboard focus");
+	}
+
+	void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) override
+	{
+		LOG("A mouse has been connected");
+	}
+	void onMouseDisconnected_impl(IMouseEventChannel* mch) override
+	{
+		LOG("A mouse has been disconnected");
+	}
+	void onKeyboardConnected_impl(core::smart_refctd_ptr<IKeyboardEventChannel>&& kbch) override
+	{
+		LOG("A keyboard has been connected");
+	}
+	void onKeyboardDisconnected_impl(IKeyboardEventChannel* mch) override
+	{
+		LOG("A keyboard has been disconnected");
+	}
+};
+
 int main()
 {
 	auto system = ISystem::create();
@@ -28,7 +95,7 @@ int main()
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
-	params.callback = make_smart_refctd_ptr<IWindow::IEventCallback>();
+	params.callback = make_smart_refctd_ptr<DemoEventCallback>();
 	auto window = winManager->createWindow(std::move(params));
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
