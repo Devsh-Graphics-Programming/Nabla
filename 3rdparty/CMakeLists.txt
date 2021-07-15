@@ -37,13 +37,13 @@ endif()
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # volk
-if (Vulkan_FOUND)
+if(DEFINED ENV{VULKAN_SDK})
 	set(VOLK_PULL_IN_VULKAN ON)
 	if (WIN32)
 		set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
 	endif()
 	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
-endif(Vulkan_FOUND)
+endif()
 
 # SDL2
 if (NBL_COMPILE_WITH_SDL2)
