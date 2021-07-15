@@ -384,9 +384,8 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-macro(nbl_target_link_vulkan _trgt)
-	target_link_libraries(${_trgt} INTERFACE ${Vulkan_LIBRARIES})
-	target_include_directories(${_trgt} PUBLIC ${Vulkan_INCLUDE_DIRS})
+macro(nbl_target_link_vulkan _trgt) # we don't want to link against library directly
+	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
 endmacro()
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
@@ -514,7 +513,7 @@ endif()
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Nabla openssl_build)
-if(Vulkan_FOUND)
+if(DEFINED ENV{VULKAN_SDK})
 	nbl_target_link_vulkan(Nabla)
 endif()
 nbl_target_link_openssl(Nabla)
