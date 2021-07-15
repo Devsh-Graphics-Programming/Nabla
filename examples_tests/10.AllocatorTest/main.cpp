@@ -461,19 +461,6 @@ int main()
 
     constexpr size_t kMinAllocs = 10000u;
     constexpr size_t kMaxAllocs = 20000u;
-	/*
-		TODO: make all the commented below stuff from the previous API work here
-	*/
-
-//	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-//	reqs.vulkanReqs.size = 0x1000000u;
-//	reqs.vulkanReqs.alignment = 4;
-//	reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-//	reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-//	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
-//	reqs.prefersDedicatedAllocation = true;
-//	reqs.requiresDedicatedAllocation = true;
-//	auto buffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferST<> >(driver, reqs);
 
 	std::mt19937 mt(0xdeadu);
 	std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs, kMaxAllocs);
@@ -484,20 +471,15 @@ int main()
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
 		auto allocsThisFrame = allocsPerFrame(mt);
-		//uint32_t outAddr[kMaxAllocs];
+		uint32_t outAddr[kMaxAllocs];
 		uint32_t sizes[kMaxAllocs];
 		uint32_t alignments[kMaxAllocs];
 		for (size_t i = 0; i < allocsThisFrame; i++)
 		{
-			//outAddr[i] = video::StreamingTransientDataBufferST<>::invalid_address;
+			outAddr[i] = video::StreamingTransientDataBufferST<>::invalid_address;
 			sizes[i] = size(mt);
 			alignments[i] = alignment(mt);
 		}
-
-		//buffer->multi_alloc(allocsThisFrame, (uint32_t*)outAddr, (const uint32_t*)sizes, (const uint32_t*)alignments);
-		//buffer->multi_free(allocsThisFrame, (const uint32_t*)outAddr, (const uint32_t*)sizes, driver->placeFence());
-
-		CommonAPI::Present<SC_IMG_COUNT>(device, sc, cmdbuf, queue);
 	}
 
 	device->waitIdle();

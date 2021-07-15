@@ -40,12 +40,12 @@ int main()
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 
-	auto win = CWindowT::create(WIN_W, WIN_H, system::IWindow::ECF_NONE);
+	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
 
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
-	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
+	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
 	auto surface = gl->createSurface(win.get());
 
 	auto gpus = gl->getPhysicalDevices();
@@ -145,7 +145,15 @@ int main()
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
  	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
-		CommonAPI::Present<SC_IMG_COUNT>(device, sc, cmdbuf, queue);
+		auto img_acq_sem = device->createSemaphore();
+		auto render1_finished_sem = device->createSemaphore();
+
+		uint32_t imgnum = 0u;
+		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
+
+		CommonAPI::Submit(device.get(), sc.get(), cmdbuf, queue, img_acq_sem.get(), render1_finished_sem.get(), SC_IMG_COUNT, imgnum);
+
+		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
 	}
 
 	device->waitIdle();
