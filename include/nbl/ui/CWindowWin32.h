@@ -28,14 +28,14 @@ private:
 
 	CWindowManagerWin32* m_windowManager;
 
-	std::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;
-	std::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;
+	core::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;
+	core::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;
 	
 	/* 
 	*  Storing this data is required for the device removal to work properly
 	*  When you get a message about the device removal, its type isn't accessible anymore.
 	*/
-	std::map<HANDLE, uint32_t> m_deviceTypes;
+	core::map<HANDLE, uint32_t> m_deviceTypes;
 	void addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
 	{
 		if (m_mouseEventChannels.find(deviceHandle) == m_mouseEventChannels.end())

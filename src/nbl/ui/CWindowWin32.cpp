@@ -31,7 +31,7 @@ namespace ui
 	{
 		UINT deviceCount;
 		GetRawInputDeviceList(nullptr, &deviceCount, sizeof(RAWINPUTDEVICELIST));
-		std::vector<RAWINPUTDEVICELIST> devices(deviceCount);
+		core::vector<RAWINPUTDEVICELIST> devices(deviceCount);
 		GetRawInputDeviceList(devices.data(), &deviceCount, sizeof(RAWINPUTDEVICELIST));
 		auto deviceList = devices.data();
 		for (int i = 0; i < deviceCount; i++)
@@ -193,7 +193,7 @@ namespace ui
 			UINT size;
 			UINT headerSize;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-			std::vector<std::byte> data(size);
+			core::vector<std::byte> data(size);
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data.data(), &size, sizeof(RAWINPUTHEADER));
 			rawInput = reinterpret_cast<RAWINPUT*>(data.data());
 			HANDLE device = rawInput->header.hDevice;
