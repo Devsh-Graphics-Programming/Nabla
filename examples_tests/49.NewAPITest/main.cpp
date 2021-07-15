@@ -3,10 +3,14 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
+#include <nabla.h>
+
 #include <iostream>
 #include <cstdio>
-#include <nabla.h>
+
+// TODO: remove as will be replaced with ISystem
 #include "CFileSystem.h" // tmp, this should be accessible via IFileSystem and not required to be created explicitely by user
+
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #include <nbl/ui/CWindowWin32.h>
 using CWindowT = nbl::ui::CWindowWin32;
@@ -22,6 +26,7 @@ using CWindowT = nbl::ui::CWindowX11;
 
 using namespace nbl;
 
+// TODO: replace with a engine-wide system::ILogger
 static void debugCallback(video::E_DEBUG_MESSAGE_SEVERITY severity, video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
 {
 	const char* sev = nullptr;
@@ -69,17 +74,50 @@ void main()
 }
 )";
 
-	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
+	// change window creation order because they seem to not be movable!?
 	auto win2 = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
+	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
+	// TODO: can I move the window?
 
-	video::SDebugCallback dbgcb;
-	dbgcb.callback = &debugCallback;
-	dbgcb.userData = nullptr;
-	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", &dbgcb);
-	auto surface = gl->createSurface(win.get());
-	auto surface2 = gl->createSurface(win2.get());
+	core::smart_refctd_ptr<video::IAPIConnection> api;
+	 // TODO: Change API Connection creation (the copy this code to CommonAPI.h)
+#if 0
+	{
+		std::cout <<
+			R"(
+Choose Graphics API:
+0) Vulkan
+1) OpenGL ES
+2) OpenGL core
+)" << std::endl;
+		uint8_t apiType;
+		std::cin >> apiType;
+		switch (apiType)
+		{
+			case 1:
+				api = video::COpenGLConnection::create(0,"New API Test",std::move(logger_smart_ptr));
+				break;
+			case 2:
+				api = video::COpenGLESConnection::create(0,"New API Test",std::move(logger_smart_ptr));
+				break;
+			default:
+				api = video::CVulkanConnection::create(0, "New API Test", std::move(logger_smart_ptr));
+				break;
+		}
+	}
+#else
+	{
+		video::SDebugCallback dbgcb;
+		dbgcb.callback = &debugCallback;
+		dbgcb.userData = nullptr;
+		api = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
+	}
+#endif
 
-	auto gpus = gl->getPhysicalDevices();
+	auto surface = api->createSurface(win.get());
+	auto surface2 = api->createSurface(win2.get());
+
+	auto gpus = api->getPhysicalDevices();
 	assert(!gpus.empty());
 	auto gpu = gpus.begin()[0];
 
@@ -368,9 +406,9 @@ void main()
 
 		cb->begin(0);
 		
-		auto* buf = buffer.get();
+		const video::IGPUBuffer* buf = buffer.get();
 		size_t offset = 0u;
-		cb->bindVertexBuffers(0u, 1u, &buf, &offset);
+		cb->bindVertexBuffers(0u,1u,&buf,&offset);
 		cb->bindGraphicsPipeline(pipeline.get());
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::SClearValue clear;
