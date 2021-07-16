@@ -644,9 +644,10 @@ public:
 
 	void extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats) override
 	{
-		if (gl4Texture.pglBindImageTextures)
-			gl4Texture.pglBindImageTextures(first, count, textures);
-		else
+		// TODO: File a bug report with NVidia about this breaking on a mobile GTX 1050 4GB with driver 471
+		//if (gl4Texture.pglBindImageTextures)
+		//	gl4Texture.pglBindImageTextures(first, count, textures);
+		//else
 			base_t::extGlBindImageTextures(first, count, textures, formats);
 	}
 
