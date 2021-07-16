@@ -159,14 +159,14 @@ private:
         static_assert(sizeof...(optional_internal_state) <= 1u, "How did this happen");
 
         static_cast<CRTP*>(this)->background_work();
-        auto r_id = cb_begin++;
-#if __cplusplus >= 202002L
-        cb_begin.notify_one();
-#endif
-        r_id = wrapAround(r_id);
 
         if (cb_begin != cb_end)
         {
+            uint64_t r_id = cb_begin;
+#if __cplusplus >= 202002L
+            cb_begin.notify_one();
+#endif
+            r_id = wrapAround(r_id);
             request_t& req = request_pool[r_id];
 #if __cplusplus >= 202002L
             req.ready_for_work.wait(false);
@@ -185,6 +185,7 @@ private:
             req.ready_for_work = false;
             req.ready = true;
             req.cvar.notify_all();
+            cb_begin++;
         }
     }
 

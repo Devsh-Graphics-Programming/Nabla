@@ -64,3 +64,5 @@ add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(49.NewAPITest EXCLUDE_FROM_ALL)
 add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL) # TODO adjust example numbers
 add_subdirectory(50.MeshPacking EXCLUDE_FROM_ALL)
+
+add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)

@@ -338,9 +338,9 @@ void CWindowManagerX11::destroyWindow(IWindow* wnd)
     m_windowThreadManager.destroyWindow(static_cast<CWindowX11*>(wnd)->getNativeHandle());
 }
 
-std::vector<XID> CWindowManagerX11::getConnectedMice() const
+core::vector<XID> CWindowManagerX11::getConnectedMice() const
 {
-    std::vector<XID> result;
+    core::vector<XID> result;
     int deviceCount;
     XDeviceInfo* devices = xinput.pXListInputDevices(m_dpy, &deviceCount);
     for(int i = 0; i < deviceCount; i++)
@@ -356,9 +356,9 @@ std::vector<XID> CWindowManagerX11::getConnectedMice() const
     }
 }
 
-std::vector<XID> CWindowManagerX11::getConnectedKeyboards() const
+core::vector<XID> CWindowManagerX11::getConnectedKeyboards() const
 {
-    std::vector<XID> result;
+    core::vector<XID> result;
     int deviceCount;
     XDeviceInfo* devices = xinput.pXListInputDevices(m_dpy, &deviceCount);
     for(int i = 0; i < deviceCount; i++)

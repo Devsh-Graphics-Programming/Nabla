@@ -74,8 +74,8 @@ public:
 	core::smart_refctd_ptr<IWindow> createWindow(const IWindow::SCreationParams& creationParams) override;
 	void destroyWindow(IWindow* wnd) override;
 private:
-	std::vector<XID> getConnectedMice() const;
-	std::vector<XID> getConnectedKeyboards() const;
+	core::vector<XID> getConnectedMice() const;
+	core::vector<XID> getConnectedKeyboards() const;
 
 	Display* m_dpy;
 private:

@@ -63,16 +63,14 @@ namespace nbl::ui
 		struct SRequestParams_CreateWindow : SRequestParamsBase<ERT_CREATE_WINDOW>
 		{
 			SRequestParams_CreateWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t* wnd, const std::string_view& caption) :
-				x(_x), y(_y), width(_w), height(_h), flags(_flags), nativeWindow(wnd)
+				x(_x), y(_y), width(_w), height(_h), flags(_flags), nativeWindow(wnd), windowCaption(caption)
 			{
-				std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-				windowCaption = converter.from_bytes(std::string(caption));
 			}
 			int32_t x, y;
 			uint32_t width, height;
 			CWindowWin32::E_CREATE_FLAGS flags;
 			CWindowWin32::native_handle_t* nativeWindow;
-			std::wstring windowCaption;
+			std::string windowCaption;
 		};
 		struct SRequestParams_DestroyWindow : SRequestParamsBase<ERT_DESTROY_WINDOW>
 		{
@@ -158,7 +156,7 @@ namespace nbl::ui
 					wcex.cbWndExtra = 0;
 					wcex.hInstance = hinstance;
 					wcex.hIcon = NULL;
-					wcex.hCursor = 0; // LoadCursor(NULL, IDC_ARROW);
+					wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
 					wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 					wcex.lpszMenuName = 0;
 					wcex.lpszClassName = classname;
@@ -203,7 +201,7 @@ namespace nbl::ui
 					{
 						style |= WS_VISIBLE;
 					}
-
+					style |= WS_OVERLAPPEDWINDOW;
 
 					// TODO:
 					// if (hasMouseCaptured())
@@ -228,6 +226,15 @@ namespace nbl::ui
 						windowLeft = 0;
 						windowTop = 0;
 					}
+					*params.nativeWindow = CreateWindow(classname, params.windowCaption.c_str(), style, windowLeft, windowTop,
+						realWidth, realHeight, NULL, NULL, hinstance, NULL);
+					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
+						ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
+					UpdateWindow(*params.nativeWindow);
+
+					// fix ugly ATI driver bugs. Thanks to ariaci
+					// TODO still needed?
+					MoveWindow(*params.nativeWindow, windowLeft, windowTop, realWidth, realHeight, TRUE);
 					{
 						//TODO: thoroughly test this stuff	
 						constexpr uint32_t INPUT_DEVICES_COUNT = 5;
@@ -259,15 +266,6 @@ namespace nbl::ui
 
 						RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
 					}
-					*params.nativeWindow = CreateWindow(classname, __TEXT(""), style, windowLeft, windowTop,
-						realWidth, realHeight, NULL, NULL, hinstance, NULL);
-					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
-						ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
-					UpdateWindow(*params.nativeWindow);
-
-					// fix ugly ATI driver bugs. Thanks to ariaci
-					// TODO still needed?
-					MoveWindow(*params.nativeWindow, windowLeft, windowTop, realWidth, realHeight, TRUE);
 					break;
 				}
 				case ERT_DESTROY_WINDOW:
@@ -283,15 +281,18 @@ namespace nbl::ui
 			void request_impl(SRequest& req, RequestParams&& params)
 			{
 				req.type = params.type;
-				if constexpr (std::is_same_v<RequestParams, SRequestParams_CreateWindow>)
+				if constexpr (std::is_same_v<RequestParams, SRequestParams_CreateWindow&>)
 				{
 					req.createWindowParam = std::move(params);
 				}
-				else if constexpr (std::is_same_v<RequestParams, SRequestParams_DestroyWindow>)
+				else if constexpr (std::is_same_v<RequestParams, SRequestParams_DestroyWindow&>)
 				{
 					req.destroyWindowParam = std::move(params);
 				}
 			}
+
+			bool wakeupPredicate() const { return true; }
+			bool continuePredicate() const { return true; }
 		private:
 			static bool getMessageWithTimeout(MSG* msg, uint32_t timeoutInMilliseconds)
 			{
@@ -299,8 +300,7 @@ namespace nbl::ui
 				UINT_PTR timerId = SetTimer(NULL, NULL, timeoutInMilliseconds, NULL);
 				res = GetMessage(msg, nullptr, 0, 0);
 
-				PostMessage(nullptr, WM_NULL, 0, 0);
-				//KillTimer(NULL, timerId);
+				KillTimer(NULL, timerId);
 
 				if (!res)
 					return false;
