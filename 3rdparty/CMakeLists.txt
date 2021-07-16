@@ -46,9 +46,6 @@ if(DEFINED ENV{VULKAN_SDK})
 	endif()
 	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
 	
-	target_link_libraries(volk PUBLIC Vulkan::Vulkan)
-    target_link_libraries(volk_headers INTERFACE Vulkan::Vulkan)
-	
     target_include_directories(volk PUBLIC "$ENV{VULKAN_SDK}/include")
     target_include_directories(volk_headers INTERFACE "$ENV{VULKAN_SDK}/include")
 endif()
