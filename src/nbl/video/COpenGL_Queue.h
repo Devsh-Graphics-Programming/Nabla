@@ -112,8 +112,12 @@ class COpenGL_Queue final : public IGPUQueue
             {
                 egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-                EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
-                assert(mcres == EGL_TRUE);
+                EGLBoolean mcres = EGL_FALSE;
+                while (mcres!=EGL_TRUE)
+                {
+                    mcres = egl->call.peglMakeCurrent(egl->display,pbuffer,pbuffer,thisCtx);
+                    _NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
+                }
 
                 new (state_ptr) ThreadInternalStateType(egl, features);
                 auto& gl = state_ptr->gl;
