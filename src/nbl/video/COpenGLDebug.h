@@ -1,7 +1,7 @@
 #ifndef __NBL_C_OPENGL_DEBUG_H_INCLUDED__
 #define __NBL_C_OPENGL_DEBUG_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 #include "nbl/video/debug/debug.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 

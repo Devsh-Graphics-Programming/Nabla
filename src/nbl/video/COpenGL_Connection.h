@@ -24,12 +24,12 @@ template <typename PhysicalDeviceType, E_API_TYPE API_TYPE>
 class COpenGL_Connection final : public IAPIConnection
 {
 public:
-    COpenGL_Connection(const SDebugCallback& dbgCb) : IAPIConnection(dbgCb)
+    COpenGL_Connection(SDebugCallback& dbgCb) : IAPIConnection(dbgCb)
     {
         // would be nice to initialize this in create() and return nullptr on failure
         // but DynamicFunctionCallerBase is unmovable!! why?? So i cannot move into m_egl
         if (m_egl.initialize())
-            m_pdevice = PhysicalDeviceType::create(core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler), &m_egl, dbgCb);
+            m_pdevice = PhysicalDeviceType::create(core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler), &m_egl, const_cast<SDebugCallback*>(&dbgCb));
     }
 
     E_API_TYPE getAPIType() const override

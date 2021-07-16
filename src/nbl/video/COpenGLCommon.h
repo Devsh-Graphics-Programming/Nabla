@@ -9,7 +9,7 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/asset/format/EFormat.h"
-
+#include "os.h"
 namespace nbl
 {
 namespace video

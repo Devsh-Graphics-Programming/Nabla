@@ -1,7 +1,7 @@
 #ifndef __NBL_C_WIN32_SURFACE_H_INCLUDED__
 #define __NBL_C_WIN32_SURFACE_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
