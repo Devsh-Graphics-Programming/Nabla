@@ -5,35 +5,17 @@
 namespace nbl::system
 {
 	
-class CSystemCallerWin32 : public ISystem::ISystemCaller        
+class CSystemCallerWin32 : public ISystemCaller        
 {
 protected:
     ~CSystemCallerWin32() override = default;
 
 public:
-    core::smart_refctd_ptr<IFile> createFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) override final
+    core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) override final
     {
-        return core::make_smart_refctd_ptr<CFileWin32>(filename, flags);
+        return core::make_smart_refctd_ptr<CFileWin32>(std::move(sys), filename, flags);
     }
-    size_t read(IFile* file, void* buffer, size_t offset, size_t size) override final
-    {
-        return file->read(buffer, offset, size); 
-    }
-    size_t write(IFile* file, const void* buffer, size_t offset, size_t size) override final
-    {
-        return file->write(buffer, offset, size);
-    }
-    //TODO:
-    bool invalidateMapping(IFile* file, size_t offset, size_t size) override final
-    {
-        assert(false);
-        return true;
-    }
-    bool flushMapping(IFile* file, size_t offset, size_t size) override final
-    {
-        assert(false);
-        return true;
-    }
+
 };
 }
 

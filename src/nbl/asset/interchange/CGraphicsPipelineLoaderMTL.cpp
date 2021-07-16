@@ -77,7 +77,12 @@ void CGraphicsPipelineLoaderMTL::initialize()
 
     // default pipelines
     constexpr std::string_view filename = "Nabla default MTL material";
-    auto default_mtl_file = m_assetMgr->getSystem()->createFileView(DUMMY_MTL_CONTENT, sizeof(DUMMY_MTL_CONTENT), system::IFile::ECF_READ, filename);
+
+    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView>(m_assetMgr->getSystem(), filename, system::IFile::ECF_READ);
+    
+    system::os_future_t<size_t> future;
+    default_mtl_file->write(future, DUMMY_MTL_CONTENT, 0, strlen(DUMMY_MTL_CONTENT));
+    future.get();
 
     SAssetLoadParams assetLoadParams;
     auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);
@@ -367,7 +372,7 @@ namespace
 
 const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const
 {
-    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
+    static const std::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
     {
         {"Ka", CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT},
         {"Kd", CMTLMetadata::CRenderpassIndependentPipeline::EMP_DIFFUSE},
@@ -383,7 +388,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
         {"Pm", CMTLMetadata::CRenderpassIndependentPipeline::EMP_METALLIC},
         {"Ps", CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHEEN}
     };
-    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> refl_str2type =
+    static const std::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> refl_str2type =
     {
         {"top", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSY},
         {"bottom", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_NEGY},

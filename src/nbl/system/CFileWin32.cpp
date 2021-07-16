@@ -3,7 +3,7 @@
 #define LODWORD(_qw)    ((DWORD)(_qw))
 #define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
 
-nbl::system::CFileWin32::CFileWin32(const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags) : base_t(_flags), m_filename{ _filename }
+nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _flags), m_filename{ _filename }
 {
 	DWORD access = m_flags | ECF_READ_WRITE ? GENERIC_READ | GENERIC_WRITE :
 		(m_flags | ECF_READ ? GENERIC_READ : (m_flags | ECF_WRITE ? GENERIC_WRITE : 0));
@@ -46,7 +46,7 @@ const void* nbl::system::CFileWin32::getMappedPointer() const
 	return nullptr;
 }
 
-int32_t nbl::system::CFileWin32::read(void* buffer, size_t offset, size_t sizeToRead)
+size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t sizeToRead)
 {
 	seek(offset);
 	DWORD numOfBytesRead;
@@ -54,7 +54,7 @@ int32_t nbl::system::CFileWin32::read(void* buffer, size_t offset, size_t sizeTo
 	return numOfBytesRead;
 }
 
-int32_t nbl::system::CFileWin32::write(const void* buffer, size_t offset, size_t sizeToWrite)
+size_t nbl::system::CFileWin32::write_impl(const void* buffer, size_t offset, size_t sizeToWrite)
 {
 	seek(offset);
 	DWORD numOfBytesWritten;

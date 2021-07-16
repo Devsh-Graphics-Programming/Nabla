@@ -7,9 +7,8 @@ namespace nbl::system
 class CFileView : public IFile
 {
 public:
-	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name)
+	CFileView(const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags) : IFile(nullptr,_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name)
 	{
-		assert(false); // TODO: fix the filename of this source file
 	}
 
 	virtual const std::filesystem::path& getFileName() const override

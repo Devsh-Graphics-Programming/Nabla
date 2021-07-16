@@ -6,7 +6,6 @@
 #include "nbl/video/EApiType.h"
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/ui/IWindow.h"
-#include "IFileSystem.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/video/debug/debug.h"
 

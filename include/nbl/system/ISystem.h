@@ -15,23 +15,34 @@
 
 namespace nbl::system
 {
+class ISystemCaller : public core::IReferenceCounted // why does `ISystemCaller` need to be public?
+{
+protected:
+    virtual ~ISystemCaller() = default;
 
+public:  
+    virtual core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags);
+
+    size_t read(IFile* file, void* buffer, size_t offset, size_t size)
+    {
+        return file->read_impl(buffer, offset, size);
+    }
+    size_t write(IFile* file, const void* buffer, size_t offset, size_t size)
+    {
+        return file->write_impl(buffer, offset, size);
+    }
+    bool invalidateMapping(IFile* file, size_t offset, size_t size)
+    {
+        return false;
+    }
+    bool flushMapping(IFile* file, size_t offset, size_t size)
+    {
+        return false;
+    }
+};
 class ISystem final : public core::IReferenceCounted
 {
 public:
-    class ISystemCaller : public core::IReferenceCounted // why does `ISystemCaller` need to be public?
-    {
-    protected:
-        virtual ~ISystemCaller() = default;
-
-    public:  
-        virtual core::smart_refctd_ptr<IFile> createFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
-        virtual core::smart_refctd_ptr<CFileView> createBufferedFile(ISystem* sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
-        virtual size_t read(IFile* file, void* buffer, size_t offset, size_t size) = 0;
-        virtual size_t write(IFile* file, const void* buffer, size_t offset, size_t size) = 0;
-        virtual bool invalidateMapping(IFile* file, size_t offset, size_t size) = 0;
-        virtual bool flushMapping(IFile* file, size_t offset, size_t size) = 0;
-    };
 
 private:
     static inline constexpr uint32_t CircularBufferSize = 256u;
@@ -102,7 +113,7 @@ private:
             case ERT_CREATE_FILE:
             {
                 auto& p = std::get<SRequestParams_CREATE_FILE>(req.params);
-                base_t::notify_future<core::smart_refctd_ptr<IFile>>(req, m_caller->createFile(m_owner, p.filename, p.flags));
+                base_t::notify_future<core::smart_refctd_ptr<IFile>>(req, m_caller->createFile(core::smart_refctd_ptr<ISystem>(m_owner), p.filename, p.flags));
             }
                 break;
             case ERT_READ:
@@ -122,7 +133,7 @@ private:
     public:
         void init() {}
     private:
-        ISystem* m_owner;
+        core::smart_refctd_ptr<ISystem> m_owner;
         core::smart_refctd_ptr<ISystemCaller> m_caller;
     };
 
@@ -164,6 +175,7 @@ public:
         return m_loaders.vector.size() - 1u;
     }
 
+public:
     bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags)
     {
         SRequestParams_CREATE_FILE params;
@@ -178,6 +190,7 @@ public:
         return true;
     }
 
+private:
     // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
     bool readFile(future_t<uint32_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
     {
@@ -205,16 +218,6 @@ public:
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
 
-    // TODO: file views can create themselves, they dont need a factory!
-    core::smart_refctd_ptr<IFile> createFileView(const void* data, size_t size, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags, const std::filesystem::path &filename)
-    {
-        auto fileView = core::make_smart_refctd_ptr<CFileView>(filename, flags);
-        if (size > 0ull)
-        {
-            fileView->write(data, 0, size);
-        }
-        return fileView;
-    }
 
     inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
     {
@@ -287,6 +290,8 @@ public:
     }
 };
 
+template<typename T>
+class os_future_t : public ISystem::future_t<T> {};
 }
 
 #endif

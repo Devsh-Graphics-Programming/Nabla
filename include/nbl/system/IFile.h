@@ -10,9 +10,12 @@ namespace nbl::system
 {
 
 class ISystem;
+template<typename T>
+class os_future_t;
 
 class IFile : public core::IReferenceCounted
 {
+	friend class ISystemCaller;
 	public:
 		enum E_CREATE_FLAGS : uint32_t
 		{
@@ -44,10 +47,13 @@ class IFile : public core::IReferenceCounted
 		}
 
 		// TODO: make the `ISystem` methods protected instead 
-		virtual int32_t read(void* buffer, size_t offset, size_t sizeToRead) = 0;
-		virtual int32_t write(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
+		void read(os_future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
+		void write(os_future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
 
 	protected:
+		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) = 0;
+		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
+
 		// the ISystem is the factory, so this starys protected
 		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, std::underlying_type_t<E_CREATE_FLAGS> _flags);
 
