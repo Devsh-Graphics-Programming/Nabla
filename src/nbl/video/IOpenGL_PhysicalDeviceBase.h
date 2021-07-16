@@ -353,8 +353,13 @@ public:
 		GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_glfeatures.DimAliasedLine);
 		GetFloatv(GL_ALIASED_POINT_SIZE_RANGE, m_glfeatures.DimAliasedPoint);
 
-		if constexpr (!IsGLES)
+		if constexpr (!IsGLES) // TODO: useless to try and support smoothed lines and points
 		{
+			/**
+			As per the spec
+				Enable/Disable targets POINT_SMOOTH and POINT_SPRITE, and all associated state.
+				Point rasterization is always performed as though POINT_SPRITE were enabled.
+			**/
 			GetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, m_glfeatures.DimSmoothedLine);
 			GetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, m_glfeatures.DimSmoothedPoint);
 		}
