@@ -232,15 +232,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 			return retval;
 		}
 
-
-		//! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
-        virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) { return nullptr; }
-
-
-        //! Creates an Image (@see ICPUImage)
-        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params)
-		{ return nullptr; }
-
 		//! The counterpart of @see bindBufferMemory for images
 		virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
 
@@ -267,63 +258,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 			this->copyImage(srcImage,retval.get(),regionCount,pRegions);
 			return retval;
 		}
-
-
-		//! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
-		virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params)
-		{ return nullptr; }
-
-
-		//! Create a sampler object to use with images
-		virtual core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) { return nullptr; }
-			
-
-		//! Create a shader from SPIR-V or GLSL source stored in a ICPUShader (@see ICPUShader)
-        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) { return nullptr; }
-
-		//! Specialize the plain shader (@see ICPUSpecializedShader)
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) { return nullptr; }
-
-		//! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) { return nullptr; }
-
-		//! Create a pipeline layout (@see ICPUPipelineLayout)
-        virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
-            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
-        ) {
-            return nullptr;
-        }
-
-		//! Create a renderpass independent graphics pipeline (@see ICPURenderpassIndependentPipeline)
-        virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
-            const asset::SVertexInputParams& _vertexInputParams,
-            const asset::SBlendParams& _blendParams,
-            const asset::SPrimitiveAssemblyParams& _primAsmParams,
-            const asset::SRasterizationParams& _rasterParams
-        )
-        {
-            return nullptr;
-        }
-
-		//! Create a descriptor set with missing descriptors
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout)
-        {
-            return nullptr;
-        }
-
-        virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
-        )
-        {
-            return nullptr;
-        }
 
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
 /*
@@ -355,10 +289,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
             //glFlush();
         }
 */
-
-		//! Fill out the descriptor sets with descriptors
-		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
-
 
 		//!
 		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;

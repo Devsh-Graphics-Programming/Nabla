@@ -7,7 +7,6 @@
 #define __NBL_I_EVENT_RECEIVER_H_INCLUDED__
 
 #include "ILogger.h"
-#include "Keycodes.h"
 #include "irrString.h"
 
 namespace nbl

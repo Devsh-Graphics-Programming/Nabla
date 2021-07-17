@@ -12,7 +12,6 @@
 #include "dimension2d.h"
 #include "position2d.h"
 #include "IDriverFence.h"
-#include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "nbl/video/IGPUBufferView.h"
 #include "nbl/video/IGPURenderpassIndependentPipeline.h"
@@ -21,13 +20,6 @@ namespace nbl
 {
 namespace video
 {
-	enum E_SCREEN_BUFFERS
-	{
-		ESB_FRONT_LEFT=0,
-		ESB_FRONT_RIGHT,
-		ESB_BACK_LEFT,
-		ESB_BACK_RIGHT
-	};
 	//TODO move to IGPUCommandBuffer.h or higher level header
     enum E_PIPELINE_BIND_POINT
     {
@@ -40,8 +32,6 @@ namespace video
 	class IVideoDriver : public IDriver
 	{
 	public:
-        IVideoDriver(asset::IAssetManager* assmgr) : IDriver(assmgr) {}
-
 		//!
 		virtual void issueGPUTextureBarrier() =0;
 
@@ -73,16 +63,6 @@ namespace video
 		//! Queries
 		virtual void beginQuery(IQueryObject* query) = 0;
 		virtual void endQuery(IQueryObject* query) = 0;
-
-		//! Sets a new viewport.
-		/** Every rendering operation is done into this new area.
-		\param area: Rectangle defining the new area of rendering
-		operations. */
-		virtual void setViewPort(const core::rect<int32_t>& area) {}
-
-		//! Gets the area of the current viewport.
-		/** \return Rectangle of the current viewport. */
-		virtual const core::rect<int32_t>& getViewPort() const =0;
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */

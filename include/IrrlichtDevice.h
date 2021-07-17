@@ -7,7 +7,6 @@
 #define __NBL_I_NABLA_DEVICE_H_INCLUDED__
 
 #include "dimension2d.h"
-#include "IEventReceiver.h"
 #include "ICursorControl.h"
 #include "ITimer.h"
 #include "IOSOperator.h"
@@ -19,7 +18,6 @@
 namespace nbl
 {
 	class ILogger;
-	class IEventReceiver;
 
 	//! The Irrlicht device. You can create it with createDevice() or createDeviceEx().
 	/** This is the most important class of the Irrlicht Engine. You can
@@ -123,17 +121,6 @@ namespace nbl
 		//! Get the current color format of the window
 		/** \return Color format of the window. */
 		virtual asset::E_FORMAT getColorFormat() const = 0;
-
-		//! Sets a new user event receiver which will receive events from the engine.
-		/** Return true in IEventReceiver::OnEvent to prevent the event from continuing along
-		the chain of event receivers. The path that an event takes through the system depends
-		on its type. See nbl::EEVENT_TYPE for details.
-		\param receiver New receiver to be used. */
-		virtual void setEventReceiver(IEventReceiver* receiver) = 0;
-
-		//! Provides access to the current event receiver.
-		/** \return Pointer to the current event receiver. Returns 0 if there is none. */
-		virtual IEventReceiver* getEventReceiver() = 0;
 
 		//! Sends a user created event to the engine.
 		/** Is is usually not necessary to use this. However, if you
