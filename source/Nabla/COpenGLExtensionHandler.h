@@ -11,7 +11,23 @@
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
-#include "COpenGLStateManager.h"
+#ifdef _NBL_WINDOWS_API_
+    #define WIN32_LEAN_AND_MEAN
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+    #include <Windows.h>
+    #include <wingdi.h>
+#endif
+
+#define GL_GLEXT_LEGACY 1
+#include "GL/gl.h"
+#undef GL_GLEXT_LEGACY
+#include "GL/glext.h"
+
+#ifndef GL_SRG8_EXT
+#define GL_SRG8_EXT 0x8FBE
+#endif
 
 #ifdef _NBL_WINDOWS_API_
 	// include windows headers for HWND

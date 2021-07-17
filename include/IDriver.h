@@ -8,11 +8,10 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/video/asset_traits.h"
-//#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
+#if 0
 namespace nbl
 {
-	class IrrlichtDevice;
 
 namespace video
 {
@@ -328,12 +327,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
 /*
-        //!
-        virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer.get();}
-
-        //!
-        virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer.get();}
-
         //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
         inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
         {
@@ -371,8 +364,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 	//====================== THIS STUFF NEEDS A REWRITE =====================
-        //! Creates a framebuffer object with no attachments
-        virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
 
 
         //these will have to be created by a query pool anyway
@@ -381,26 +372,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
 
-		//! Utility function to convert all your CPU asset data into GPU objects ready for use
-        // With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
-
-        template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr);
-        template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr)
-        {
-            core::SRange<const core::smart_refctd_ptr<asset::IAsset>> tmp(
-                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.begin()), // I know what I'm doing
-                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.end()) // I know what I'm doing
-            );
-            return getGPUObjectsFromAssets<AssetType>(tmp,_converter);
-        }
-        //!
-        template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const AssetType* const* const _begin, const AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
-		//! 
-		template<typename AssetType>
-		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 
 	//====================== THIS STUFF SHOULD BE IN A video::ICommandBuffer =====================
         //!
@@ -433,7 +404,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 } // end namespace video
 } // end namespace nbl
-
+#endif
 
 #endif
 
