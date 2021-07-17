@@ -5,18 +5,15 @@
 #ifndef __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
 #define __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
 
+#include "nbl/core/core.h"
+
 #include <type_traits>
 #include <mutex>
 
-#include "nbl/core/IReferenceCounted.h"
-#include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
-#include "nbl/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
 #include "nbl/video/IGPUFence.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 // this buffer is not growabl
@@ -260,7 +257,6 @@ using SubAllocatedDataBufferST = SubAllocatedDataBuffer<core::HeterogenousMemory
 
 //MT version?
 
-}
 }
 
 #endif

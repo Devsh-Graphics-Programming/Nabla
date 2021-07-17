@@ -9,9 +9,7 @@
 #include "nbl/core/alloc/address_allocator_traits.h"
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 /** The BufferAllocator concept
@@ -154,7 +152,6 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         }
 };
 
-}
 }
 
 #endif
