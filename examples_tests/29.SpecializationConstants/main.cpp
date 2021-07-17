@@ -32,6 +32,7 @@ int main()
 	auto renderpass = std::move(initOutp.renderpass);
 	auto fbo = std::move(initOutp.fbo);
 	auto cmdpool = std::move(initOutp.commandPool);
+	// TODO: stop state bleeding between cmdbuffers!!!
 	{
 		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
@@ -277,60 +278,60 @@ int main()
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	asset::SBufferRange<video::IGPUBuffer> computeUBORange{ 0, gpuUboCompute->getSize(), gpuUboCompute };
 	asset::SBufferRange<video::IGPUBuffer> graphicsUBORange{ 0, gpuUboGraphics->getSize(), gpuUboGraphics };
+
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
+	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,SC_IMG_COUNT,cmdbuf);
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
 		memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
 		device->updateBufferRangeViaStagingBuffer(queue,graphicsUBORange,&viewParams);
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
-		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT, cmdbuf);
-		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-		{
-			auto& cb = cmdbuf[i];
-			auto& fb = fbo[i];
 
-			cb->begin(0);
+		const auto resourceIx = i%SC_IMG_COUNT;
+		auto& cb = cmdbuf[resourceIx];
+		auto& fb = fbo[resourceIx];
 
-			size_t offset = 0u;
-			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
-			asset::SClearValue clear;
-			asset::VkRect2D area;
-			area.offset = { 0, 0 };
-			area.extent = { WIN_W, WIN_H };
-			clear.color.float32[0] = 0.f;
-			clear.color.float32[1] = 0.f;
-			clear.color.float32[2] = 0.f;
-			clear.color.float32[3] = 1.f;
-			info.renderpass = renderpass;
-			info.framebuffer = fb;
-			info.clearValueCount = 1u;
-			info.clearValues = &clear;
-			info.renderArea = area;
+		cb->begin(0);
 
-			//TODO: make those functions take const pointers
-			cb->bindComputePipeline(gpuComputePipeline.get());
-			cb->bindDescriptorSets(asset::EPBP_COMPUTE,
-				gpuComputePipeline->getLayout(),
-				COMPUTE_SET,
-				1u,
-				&gpuds0Compute.get(),
-				nullptr);
-			cb->dispatch(PARTICLE_COUNT/WORKGROUP_SIZE,1u,1u);
+		size_t offset = 0u;
+		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
+		asset::SClearValue clear;
+		asset::VkRect2D area;
+		area.offset = { 0, 0 };
+		area.extent = { WIN_W, WIN_H };
+		clear.color.float32[0] = 0.f;
+		clear.color.float32[1] = 0.f;
+		clear.color.float32[2] = 0.f;
+		clear.color.float32[3] = 1.f;
+		info.renderpass = renderpass;
+		info.framebuffer = fb;
+		info.clearValueCount = 1u;
+		info.clearValues = &clear;
+		info.renderArea = area;
 
-			asset::SMemoryBarrier memBarrier;
-			memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-			memBarrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
-			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+		//TODO: make those functions take const pointers
+		cb->bindComputePipeline(gpuComputePipeline.get());
+		cb->bindDescriptorSets(asset::EPBP_COMPUTE,
+			gpuComputePipeline->getLayout(),
+			COMPUTE_SET,
+			1u,
+			&gpuds0Compute.get(),
+			nullptr);
+		cb->dispatch(PARTICLE_COUNT/WORKGROUP_SIZE,1u,1u);
 
-			cb->bindGraphicsPipeline(graphicsPipeline.get());
-			size_t vbOffset = 0;
-			cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
-			cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
-			cb->beginRenderPass(&info, asset::ESC_INLINE);
-			cb->draw(PARTICLE_COUNT, 1, 0, 0);
-			cb->endRenderPass();
+		asset::SMemoryBarrier memBarrier;
+		memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		memBarrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
+		cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
 
-			cb->end();
-		}
+		cb->bindGraphicsPipeline(graphicsPipeline.get());
+		size_t vbOffset = 0;
+		cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
+		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
+		cb->beginRenderPass(&info, asset::ESC_INLINE);
+		cb->draw(PARTICLE_COUNT, 1, 0, 0);
+		cb->endRenderPass();
+
+		cb->end();
 
 		auto img_acq_sem = device->createSemaphore();
 		auto render1_finished_sem = device->createSemaphore();
@@ -344,7 +345,7 @@ int main()
 		uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>((time - lastTime)).count() * 1e-4;
 		device->updateBufferRangeViaStagingBuffer(queue,computeUBORange,&uboComputeData);
 		lastTime = time;
-		CommonAPI::Submit(device.get(), sc.get(), cmdbuf, queue, img_acq_sem.get(), render1_finished_sem.get(), SC_IMG_COUNT, imgnum);
+		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, img_acq_sem.get(), render1_finished_sem.get());
 
 		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
 	}
