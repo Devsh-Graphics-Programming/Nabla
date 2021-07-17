@@ -283,13 +283,12 @@ int main()
 	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,SC_IMG_COUNT,cmdbuf);
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
-		memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
-		device->updateBufferRangeViaStagingBuffer(queue,graphicsUBORange,&viewParams);
-
 		const auto resourceIx = i%SC_IMG_COUNT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fb = fbo[resourceIx];
 
+		// TODO: cycle and reuse semaphores (will be apparent when vulkan comes) but before any fence reset we must poll the deferred events to exhaustion
+		auto transientFence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 		cb->begin(0);
 
 		size_t offset = 0u;
@@ -308,7 +307,16 @@ int main()
 		info.clearValues = &clear;
 		info.renderArea = area;
 
-		//TODO: make those functions take const pointers
+		{
+			const auto time = std::chrono::high_resolution_clock::now();
+
+			core::vector3df_SIMD gravPoint = cameraPosition+camFront*250.f;
+			uboComputeData.gravPointAndDt = gravPoint;
+			uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>(time-lastTime).count()*1e-4;
+			device->updateBufferRangeViaStagingBuffer(cb.get(),transientFence.get(),	queue,computeUBORange,&uboComputeData);
+
+			lastTime = time;
+		}
 		cb->bindComputePipeline(gpuComputePipeline.get());
 		cb->bindDescriptorSets(asset::EPBP_COMPUTE,
 			gpuComputePipeline->getLayout(),
@@ -322,7 +330,12 @@ int main()
 		memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 		memBarrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
 		cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
-
+		
+		{
+			memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
+			// might submit to queue if overflows
+			device->updateBufferRangeViaStagingBuffer(cb.get(),transientFence.get(),queue,graphicsUBORange,&viewParams);
+		}
 		cb->bindGraphicsPipeline(graphicsPipeline.get());
 		size_t vbOffset = 0;
 		cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
@@ -333,20 +346,13 @@ int main()
 
 		cb->end();
 
+		// TODO: cycle and reuse semaphores (will be apparent when vulkan comes)
 		auto img_acq_sem = device->createSemaphore();
 		auto render1_finished_sem = device->createSemaphore();
 
 		uint32_t imgnum = 0u;
 		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-
-		core::vector3df_SIMD gravPoint = cameraPosition + camFront * 250.f;
-		auto time = std::chrono::high_resolution_clock::now();
-		uboComputeData.gravPointAndDt = gravPoint;
-		uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>((time - lastTime)).count() * 1e-4;
-		device->updateBufferRangeViaStagingBuffer(queue,computeUBORange,&uboComputeData);
-		lastTime = time;
-		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, img_acq_sem.get(), render1_finished_sem.get());
-
+		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, img_acq_sem.get(), render1_finished_sem.get(), transientFence.get());
 		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
 	}
 

@@ -12,9 +12,7 @@
 
 #include <memory>
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 //! Doesn't resize memory arenas, therefore once allocated pointers shall not move
@@ -212,7 +210,6 @@ class SimpleBlockBasedAllocator
 
 // no aliases
 
-}
 }
 
 #endif

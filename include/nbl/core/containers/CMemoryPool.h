@@ -7,8 +7,7 @@
 
 #include <memory>
 
-namespace nbl {
-namespace core
+namespace nbl::core
 {
 
 template <class AddressAllocator, template<class> class DataAllocator>
@@ -78,7 +77,6 @@ private:
     allocator_type m_alctr;
 };
 
-}
 }
 
 #endif

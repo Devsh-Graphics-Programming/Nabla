@@ -184,7 +184,8 @@ public:
 		nbl::video::IGPUCommandBuffer* cmdbuf,
 		nbl::video::IGPUQueue* queue,
 		nbl::video::IGPUSemaphore* imgAcqSemaphore,
-		nbl::video::IGPUSemaphore* renderFinishedSemaphore)
+		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
+		nbl::video::IGPUFence* fence=nullptr)
 	{
 		using namespace nbl;
 		video::IGPUQueue::SSubmitInfo submit;
@@ -200,7 +201,7 @@ public:
 			submit.pWaitSemaphores = &waitsem;
 			submit.pWaitDstStageMask = &dstWait;
 
-			queue->submit(1u, &submit, nullptr);
+			queue->submit(1u,&submit,fence);
 		}
 	}
 
