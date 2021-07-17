@@ -283,32 +283,21 @@ int main()
 	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,SC_IMG_COUNT,cmdbuf);
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
-		memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
-		device->updateBufferRangeViaStagingBuffer(queue,graphicsUBORange,&viewParams);
-
 		const auto resourceIx = i%SC_IMG_COUNT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fb = fbo[resourceIx];
 
 		cb->begin(0);
+		
+		{
+			auto time = std::chrono::high_resolution_clock::now();
+			core::vector3df_SIMD gravPoint = cameraPosition+camFront*250.f;
+			uboComputeData.gravPointAndDt = gravPoint;
+			uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>(time-lastTime).count()*1e-4;
 
-		size_t offset = 0u;
-		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
-		asset::SClearValue clear;
-		asset::VkRect2D area;
-		area.offset = { 0, 0 };
-		area.extent = { WIN_W, WIN_H };
-		clear.color.float32[0] = 0.f;
-		clear.color.float32[1] = 0.f;
-		clear.color.float32[2] = 0.f;
-		clear.color.float32[3] = 1.f;
-		info.renderpass = renderpass;
-		info.framebuffer = fb;
-		info.clearValueCount = 1u;
-		info.clearValues = &clear;
-		info.renderArea = area;
-
-		//TODO: make those functions take const pointers
+			lastTime = time;
+			cb->updateBuffer(computeUBORange.buffer.get(),computeUBORange.offset,computeUBORange.size,&uboComputeData);
+		}
 		cb->bindComputePipeline(gpuComputePipeline.get());
 		cb->bindDescriptorSets(asset::EPBP_COMPUTE,
 			gpuComputePipeline->getLayout(),
@@ -323,11 +312,29 @@ int main()
 		memBarrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
 		cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
 
+		{
+			memcpy(viewParams.MVP, &viewProj, sizeof(viewProj));
+			cb->updateBuffer(graphicsUBORange.buffer.get(),graphicsUBORange.offset,graphicsUBORange.size,&viewParams);
+		}
 		cb->bindGraphicsPipeline(graphicsPipeline.get());
 		size_t vbOffset = 0;
 		cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
 		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
-		cb->beginRenderPass(&info, asset::ESC_INLINE);
+		{
+			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
+			asset::SClearValue clear;
+			clear.color.float32[0] = 0.f;
+			clear.color.float32[1] = 0.f;
+			clear.color.float32[2] = 0.f;
+			clear.color.float32[3] = 1.f;
+			info.renderpass = renderpass;
+			info.framebuffer = fb;
+			info.clearValueCount = 1u;
+			info.clearValues = &clear;
+			info.renderArea.offset = { 0, 0 };
+			info.renderArea.extent = { WIN_W, WIN_H };
+			cb->beginRenderPass(&info, asset::ESC_INLINE);
+		}
 		cb->draw(PARTICLE_COUNT, 1, 0, 0);
 		cb->endRenderPass();
 
@@ -339,12 +346,6 @@ int main()
 		uint32_t imgnum = 0u;
 		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
 
-		core::vector3df_SIMD gravPoint = cameraPosition + camFront * 250.f;
-		auto time = std::chrono::high_resolution_clock::now();
-		uboComputeData.gravPointAndDt = gravPoint;
-		uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>((time - lastTime)).count() * 1e-4;
-		device->updateBufferRangeViaStagingBuffer(queue,computeUBORange,&uboComputeData);
-		lastTime = time;
 		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, img_acq_sem.get(), render1_finished_sem.get());
 
 		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
