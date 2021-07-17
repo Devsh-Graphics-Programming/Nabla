@@ -15,7 +15,7 @@ layout (set = 0, binding = 0, std430) restrict buffer PARTICLE_DATA
 {
 	vec3 p[PARTICLE_COUNT];
 } data[BUF_COUNT];
-layout (push_constant) uniform UBO
+layout (set = 0, binding = 1, std140) uniform UBO
 {
 	vec3 gravP;
 	float dt;
