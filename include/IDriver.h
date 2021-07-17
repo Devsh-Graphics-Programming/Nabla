@@ -222,15 +222,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! Low level function used to implement the above, use with caution
         virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
-		//!
-		inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
-		{
-			auto retval = createDeviceLocalGPUBufferOnDedMem(size);
-
-			//updateBufferRangeViaStagingBuffer(retval.get(), 0u, size, data);
-
-			return retval;
-		}
 
 		//! The counterpart of @see bindBufferMemory for images
 		virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
@@ -260,35 +251,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		}
 
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
-/*
-        //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
-        inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
-        {
-            for (size_t uploadedSize=0; uploadedSize<size;)
-            {
-                const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
-                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
-
-                defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
-                // keep trying again
-                if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
-                    continue;
-
-                // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-                if (defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
-                    this->flushMappedMemoryRanges({{defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize}});
-                // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-                this->copyBuffer(defaultUploadBuffer.get()->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
-                // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence(true));
-                uploadedSize += subSize;
-            }
-            // TODO: for other threads to play nice.
-            //glFlush();
-        }
-*/
 
 		//!
 		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
@@ -318,18 +280,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 		//!
 		virtual void copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) {}
-
-	/** https://github.com/buildaworldnet/IrrlichtBAW/issues/339 would need an implicit (cached) FBO under OpenGL to work
-		//!
-		virtual void blitImage(	IGPUImage* srcImage, IGPUImage::E_IMAGE_LAYOUT srcLayout,
-								IGPUImage* dstImage, IGPUImage::E_IMAGE_LAYOUT dstLayout,
-								uint32_t regionCount, const IGPUImage::SImageBlit* pRegions, VkFilter filter) {}
-
-		//!
-		virtual void resolveImage(	IGPUImage* srcImage, IGPUImage::E_IMAGE_LAYOUT srcLayout,
-									IGPUImage* dstImage, IGPUImage::E_IMAGE_LAYOUT dstLayout,
-									uint32_t regionCount, const IGPUImage::SImageResolve* pRegions) {}
-	*/
 };
 
 } // end namespace video

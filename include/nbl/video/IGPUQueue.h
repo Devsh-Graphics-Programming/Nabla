@@ -9,8 +9,7 @@
 #include "nbl/video/IBackendObject.h"
 #include "nbl/video/ISwapchain.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IGPUQueue : public core::IReferenceCounted, public IBackendObject
@@ -24,19 +23,19 @@ public:
     struct SSubmitInfo
     {
         uint32_t waitSemaphoreCount;
-        IGPUSemaphore** pWaitSemaphores;
+        IGPUSemaphore*const * pWaitSemaphores;
         const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask;
         uint32_t signalSemaphoreCount;
-        IGPUSemaphore** pSignalSemaphores;
+        IGPUSemaphore*const * pSignalSemaphores;
         uint32_t commandBufferCount;
-        IGPUCommandBuffer** commandBuffers;
+        IGPUCommandBuffer*const * commandBuffers;
     };
     struct SPresentInfo
     {
         uint32_t waitSemaphoreCount;
-        IGPUSemaphore** waitSemaphores;
+        IGPUSemaphore*const * waitSemaphores;
         uint32_t swapchainCount;
-        ISwapchain** swapchains;
+        ISwapchain*const * swapchains;
         const uint32_t* imgIndices;
     };
 
@@ -80,6 +79,6 @@ inline bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPU
     return true;
 }
 
-}}
+}
 
 #endif

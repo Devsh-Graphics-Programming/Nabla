@@ -591,7 +591,7 @@ public:
         resetFences(1u, &fence);
         for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
         {
-            const void* dataPtr = reinterpret_cast<const uint8_t*>(data) + uploadedSize;
+            const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
             uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
             uint32_t alignment = 64u; // smallest mapping alignment capability
             uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), bufferRange.size - uploadedSize));
@@ -648,14 +648,13 @@ public:
         cmdbuf->end();
         IGPUQueue::SSubmitInfo submit;
         submit.commandBufferCount = 1u;
-        auto* cmdbuf_raw = cmdbuf.get();
-        submit.commandBuffers = &cmdbuf_raw;
+        submit.commandBuffers = &cmdbuf.get();
         submit.signalSemaphoreCount = 0u;
         submit.pSignalSemaphores = nullptr;
         submit.waitSemaphoreCount = 0u;
         submit.pWaitSemaphores = nullptr;
         submit.pWaitDstStageMask = nullptr;
-        _queue->submit(1u, &submit, fence); // <threadsafeSubmit==true> means submit while locking an internal mutex
+        _queue->submit(1u,&submit,fence); // <threadsafeSubmit==true> means submit while locking an internal mutex
         //func.optionalCmdBuffToDrop = std::move(cmdbuf); // ?????? wtf is optionalCmdBuffToDrop?
     }
 

@@ -11,8 +11,6 @@
 #include "matrixutil.h"
 #include "dimension2d.h"
 #include "position2d.h"
-#include "IDriverFence.h"
-#include "IDriver.h"
 #include "nbl/video/IGPUBufferView.h"
 #include "nbl/video/IGPURenderpassIndependentPipeline.h"
 
