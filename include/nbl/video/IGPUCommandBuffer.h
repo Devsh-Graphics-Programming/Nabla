@@ -15,8 +15,7 @@
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IBackendObject.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IGPUCommandBuffer :
@@ -65,7 +64,7 @@ protected:
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
 
 
-    static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)
+    static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)
     {
         int32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
         for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
@@ -92,7 +91,6 @@ protected:
     }
 };
 
-}
 }
 
 #endif

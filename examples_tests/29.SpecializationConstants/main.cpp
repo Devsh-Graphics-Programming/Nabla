@@ -309,10 +309,10 @@ int main()
 			//TODO: make those functions take const pointers
 			cb->bindComputePipeline(gpuComputePipeline.get());
 			cb->bindDescriptorSets(asset::EPBP_COMPUTE,
-				const_cast<nbl::video::IGPUPipelineLayout*>(gpuComputePipeline->getLayout()),
+				gpuComputePipeline->getLayout(),
 				COMPUTE_SET,
 				1u,
-				const_cast<video::IGPUDescriptorSet**>(&gpuds0Compute.get()),
+				&gpuds0Compute.get(),
 				nullptr);
 			cb->dispatch(PARTICLE_COUNT/WORKGROUP_SIZE,1u,1u);
 
@@ -323,11 +323,8 @@ int main()
 
 			cb->bindGraphicsPipeline(graphicsPipeline.get());
 			size_t vbOffset = 0;
-			cb->bindVertexBuffers(0, 1, const_cast<const video::IGPUBuffer**>(&gpuParticleBuf.get()), &vbOffset);
-			cb->bindDescriptorSets(asset::EPBP_GRAPHICS,
-				const_cast<nbl::video::IGPUPipelineLayout*>(rpIndependentPipeline->getLayout()),
-				GRAPHICS_SET,1u,const_cast<video::IGPUDescriptorSet**>(&gpuds0Graphics.get()),nullptr
-			);
+			cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
+			cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
 			cb->beginRenderPass(&info, asset::ESC_INLINE);
 			cb->draw(PARTICLE_COUNT, 1, 0, 0);
 			cb->endRenderPass();
