@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+// TODO: rename Eta to something more fitting to let it be known that reciprocal Eta convention is used (ior_dest/ior_src)
+
 #ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 #define _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 
