@@ -13,22 +13,23 @@ layout(set=0, binding=1, std430) restrict coherent buffer MVPs
 } mvpBuff;
 
 #define ENABLE_CUBE_COMMAND_BUFFER
-#define ENABLE_COMMAND_BUFFER
+#define ENABLE_FRUSTUM_CULLED_COMMAND_BUFFER
+#define ENABLE_OCCLUSION_CULLED_COMMAND_BUFFER
+#define ENABLE_CUBE_DRAW_GUID_BUFFER
 #define CUBE_COMMAND_BUFF_SET 0
 #define CUBE_COMMAND_BUFF_BINDING 2
-#define COMMAND_BUFF_SET 0
-#define COMMAND_BUFF_BINDING 3
+#define FRUSTUM_CULLED_COMMAND_BUFF_SET 0
+#define FRUSTUM_CULLED_COMMAND_BUFF_BINDING 3
+#define OCCLUSION_CULLED_COMMAND_BUFF_SET 0
+#define OCCLUSION_CULLED_COMMAND_BUFF_BINDING 4
+#define CUBE_DRAW_GUID_BUFF_SET 0
+#define CUBE_DRAW_GUID_BUFF_BINDING 5
 #include "occlusionCullingShaderCommon.glsl"
 
-layout(set=0, binding=4, std430) restrict coherent buffer CubeMVPs
+layout(set=0, binding=6, std430) restrict buffer CubeMVPs
 {
     mat4 cubeMVPs[];
 } cubeMvpBuff;
-
-layout(set=0, binding=5, std430) restrict coherent buffer CubeDrawGUID
-{
-    uint drawGUID[];
-} cubeDrawGUIDBuffer;
 
 
 layout(push_constant, row_major) uniform PushConstants
@@ -47,7 +48,7 @@ void main()
     if (gl_GlobalInvocationID.x >= pc.data.maxBatchCount)
         return;
 
-    mvpBuff.mvps[gl_GlobalInvocationID.x] = pc.data.viewProjMatrix;
+    mvpBuff.mvps[gl_GlobalInvocationID.x] = pc.data.viewProjMatrix; // no model matrices
 
     if (bool(pc.data.freezeCulling))
         return;
@@ -57,13 +58,13 @@ void main()
     const mat2x3 bbox = mat2x3(batchCullData.aabbMinEdge,batchCullData.aabbMaxEdge);
     bool couldBeVisible = nbl_glsl_couldBeVisible(pc.data.viewProjMatrix,bbox);
     
-    const uint drawCommandGUID = batchCullData.drawCommandGUID + pc.data.frontMdiBufferOffset;
+    const uint drawCommandGUID = batchCullData.drawCommandGUID;
 
     if(!couldBeVisible)
-        commandBuff.draws[drawCommandGUID].instanceCount = 0;
+        frustumCommandBuff.draws[drawCommandGUID].instanceCount = 0;
 
     // if not frustum culled and batch was not visible in the last frame
-    if(couldBeVisible && commandBuff.draws[drawCommandGUID].instanceCount == 0)
+    if(couldBeVisible && frustumCommandBuff.draws[drawCommandGUID].instanceCount == 0)
     {
         const uint currCubeIdx = atomicAdd(cubeIndirectDraw.draw.instanceCount,1);
 
@@ -77,5 +78,7 @@ void main()
 
         cubeDrawGUIDBuffer.drawGUID[currCubeIdx] = drawCommandGUID;
     }
+
+    occlusionCommandBuff.draws[drawCommandGUID].instanceCount = 0;
 
 }

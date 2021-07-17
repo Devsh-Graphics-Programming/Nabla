@@ -8,7 +8,6 @@ struct CullShaderData_t
     mat4    viewProjMatrix;
     uint    maxBatchCount;
     uint    freezeCulling;
-    uint    frontMdiBufferOffset;
 };
 
 struct CullData_t

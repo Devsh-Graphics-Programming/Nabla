@@ -1,15 +1,13 @@
 #version 460 core
 
-#extension GL_EXT_shader_16bit_storage : require
+layout(location = 0) in flat uint instanceID;
 
-layout(location = 0) in flat uint drawGUID;
-
-layout(set = 0, binding = 0, std430) restrict coherent buffer VisibleBuff
-{
-    uint16_t visible[];
-} visibleBuff;
+#define ENABLE_VISIBLE_BUFFER
+#define VISIBLE_BUFF_SET 0
+#define VISIBLE_BUFF_BINDING 0
+#include "occlusionCullingShaderCommon.glsl"
 
 void main()
 {
-    visibleBuff.visible[drawGUID] = uint16_t(1);
+    visibleBuff.visible[instanceID] = uint16_t(1);
 }
