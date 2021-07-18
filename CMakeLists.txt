@@ -195,7 +195,8 @@ endif()
 
 project(Nabla LANGUAGES CXX C)
 
-if(DEFINED ENV{VULKAN_SDK})
+find_package(Vulkan)
+if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
 else()
 	message(STATUS "Vulkan driver is not enabled")
