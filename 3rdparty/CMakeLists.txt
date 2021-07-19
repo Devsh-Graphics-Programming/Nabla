@@ -37,13 +37,18 @@ endif()
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # volk
-if (Vulkan_FOUND)
-	set(VOLK_PULL_IN_VULKAN ON)
+if(DEFINED ENV{VULKAN_SDK})
+	# workaround to make sure vulkan library will not be linked in examples
+	set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE)
+	
 	if (WIN32)
 		set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
 	endif()
 	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
-endif(Vulkan_FOUND)
+	
+    target_include_directories(volk PUBLIC "$ENV{VULKAN_SDK}/include")
+    target_include_directories(volk_headers INTERFACE "$ENV{VULKAN_SDK}/include")
+endif()
 
 # SDL2
 if (NBL_COMPILE_WITH_SDL2)
