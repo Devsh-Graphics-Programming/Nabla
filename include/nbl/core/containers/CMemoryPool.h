@@ -10,19 +10,18 @@
 namespace nbl::core
 {
 
-template <class AddressAllocator, template<class> class DataAllocator>
+template <class AddressAllocator, template<class> class DataAllocator, typename... Args>
 class CMemoryPool : public Uncopyable
 {
 public:
     using addr_allocator_type = AddressAllocator;
-    using allocator_type = SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, uint32_t>;
+    using allocator_type = SimpleBlockBasedAllocator<AddressAllocator,DataAllocator,Args...>;
     using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;
     using addr_type = size_type;
 
-    CMemoryPool(size_type _blockSize, size_type _maxBlockCount) :
-        m_alctr(_blockSize, _maxBlockCount, 1u)
+    CMemoryPool(size_type _blockSize, size_type _maxBlockCount, Args&&... args) :
+        m_alctr(_blockSize,_maxBlockCount,std::forward<Args>(args)...)
     {
-
     }
 
     template <typename T, typename... Args>

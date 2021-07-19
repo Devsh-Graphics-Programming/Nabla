@@ -11,30 +11,38 @@ namespace nbl::video
 
 class COpenGLCommandPool final : public IGPUCommandPool
 {
-        // TODO: tune these variables
-        constexpr static inline size_t BLOCK_SIZE = 4096u*1024u;
+        constexpr static inline size_t MIN_ALLOC_SZ = 64ull;
+        // TODO: there's an optimization possible if we set the block size to 64kb (max cmd upload size) and then:
+        // - use Pool Address Allocator within a block
+        // - allocate new block whenever we want to update buffer via cmdbuf
+        // - set the pool's brick size to the maximum data store by any command possible
+        // - when a command needs an unbounded variable length list of arguments, store it via linked list (chunk it)
+        //constexpr static inline size_t MAX_COMMAND_STORAGE_SZ = 32ull;
+        constexpr static inline size_t BLOCK_SIZE = 1ull<<21u;
         constexpr static inline size_t MAX_BLOCK_COUNT = 256u;
 
     public:
         using IGPUCommandPool::IGPUCommandPool;
-        COpenGLCommandPool(ILogicalDevice* dev, E_CREATE_FLAGS _flags, uint32_t _familyIx) : IGPUCommandPool(dev, _flags, _familyIx), mempool(BLOCK_SIZE, MAX_BLOCK_COUNT) {}
+        COpenGLCommandPool(ILogicalDevice* dev, E_CREATE_FLAGS _flags, uint32_t _familyIx) : IGPUCommandPool(dev, _flags, _familyIx), mempool(BLOCK_SIZE,MAX_BLOCK_COUNT,MIN_ALLOC_SZ) {}
 
         template <typename T, typename... Args>
         T* emplace_n(uint32_t n, Args&&... args)
         {
+            //static_assert(n*sizeof(T)<=MAX_COMMAND_STORAGE_SZ,"Command Data Store Type larger than preset limit!");
             std::unique_lock<std::mutex> lk(mutex);
             return mempool.emplace_n<T>(n, std::forward<Args>(args)...);
         }
         template <typename T>
         void free_n(const T* ptr, uint32_t n)
         {
+            //static_assert(n*sizeof(T)<=MAX_COMMAND_STORAGE_SZ,"Command Data Store Type larger than preset limit!");
             std::unique_lock<std::mutex> lk(mutex);
             mempool.free_n<T>(const_cast<T*>(ptr), n);
         }
 
     private:
         std::mutex mutex;
-        core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator> mempool;
+        core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,uint32_t> mempool;
 };
 
 }

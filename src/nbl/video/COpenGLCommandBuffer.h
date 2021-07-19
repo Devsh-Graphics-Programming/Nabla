@@ -506,7 +506,7 @@ protected:
     {
         m_commands.emplace_back(std::move(cmd));
     }
-    core::vector<SCommand> m_commands;
+    core::vector<SCommand> m_commands; // TODO: embed in the command pool via the use of linked list
 
 public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
