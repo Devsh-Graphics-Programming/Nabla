@@ -9,7 +9,7 @@
 #include "nbl/system/ICancellableAsyncQueueDispatcher.h"
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IFile.h"
-#include "nbl/system/CMemoryFile.h"
+#include "nbl/system/CFileView.h"
 
 #include "nbl/asset/ICPUBuffer.h" // this is a horrible no-no (circular dependency), `ISystem::loadBuiltinData` should return some other type (probably an `IFile` which is mapped for reading)
 
@@ -21,7 +21,7 @@ protected:
     virtual ~ISystemCaller() = default;
 
 public:  
-    virtual core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags);
+    virtual core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
 
     size_t read(IFile* file, void* buffer, size_t offset, size_t size)
     {
@@ -42,7 +42,7 @@ public:
 };
 class ISystem final : public core::IReferenceCounted
 {
-public:
+    friend class IFile;
 
 private:
     static inline constexpr uint32_t CircularBufferSize = 256u;
@@ -192,7 +192,7 @@ public:
 
 private:
     // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
-    bool readFile(future_t<uint32_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
+    bool readFile(future<size_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
     {
         SRequestParams_READ params;
         params.buffer = buffer;
@@ -203,7 +203,7 @@ private:
         return true;
     }
 
-    bool writeFile(future_t<uint32_t>& future, IFile* file, const void* buffer, size_t offset, size_t size)
+    bool writeFile(future<size_t>& future, IFile* file, const void* buffer, size_t offset, size_t size)
     {
         SRequestParams_WRITE params;
         params.buffer = buffer;
@@ -218,7 +218,7 @@ private:
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
 
-
+public:
     inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
     {
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
@@ -291,7 +291,7 @@ private:
 };
 
 template<typename T>
-class os_future_t : public ISystem::future_t<T> {};
+class future : public ISystem::future_t<T> {};
 }
 
 #endif

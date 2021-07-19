@@ -310,9 +310,9 @@ namespace nbl
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file) const
 		{	
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
-			system::ISystem::future_t<uint32_t> future;
-			m_manager->getSystem()->readFile(future, _file, magicNumberBuffer, 0, sizeof(SContext::magicNumber));
-
+			system::future<size_t> future;
+			_file->read(future, magicNumberBuffer, 0, sizeof(SContext::magicNumber));
+			future.get();
 			return isImfMagic(magicNumberBuffer);
 		}
 

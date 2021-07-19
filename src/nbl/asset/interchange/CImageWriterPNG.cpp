@@ -50,9 +50,8 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 	//check=(png_size_t) file->write((const void*)data,(uint32_t)length);
 	auto usrData = (CImageWriterPNG::SContext*)png_get_user_chunk_ptr(png_ptr);
 	
-	system::ISystem::future_t<uint32_t> future;
-	usrData->system->writeFile(future, file, data, usrData->file_pos, length);
-	
+	system::future<size_t> future;
+	file->write(future, data, usrData->file_pos, length);
 	usrData->file_pos += length;
 	png_set_read_user_chunk_fn(png_ptr, usrData, nullptr);
 

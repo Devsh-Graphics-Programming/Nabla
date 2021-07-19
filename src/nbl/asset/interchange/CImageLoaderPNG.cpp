@@ -70,9 +70,9 @@ void PNGAPI user_read_data_fcn(png_structp png_pt, png_bytep data, png_size_t le
 
 	system::IFile* file=(system::IFile*)png_get_io_ptr(png_pt);
 
-	system::ISystem::future_t<uint32_t> future;
-	userData->system->readFile(future, file, data, file_pos, length);
-	
+	system::future<size_t> future;
+	file->read(future, data, file_pos, length);
+	future.get();
 	file_pos += length;
 	updateFilePos(png_pt, file_pos);
 
@@ -92,8 +92,8 @@ bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file) const
 
 	png_byte buffer[8];
 
-	system::ISystem::future_t<uint32_t> future;
-	m_system->readFile(future, _file, buffer, 0, 8);
+	system::future<size_t> future;
+	_file->read(future, buffer, 0, 8);
 	// Read the first few bytes of the PNG _file
     if (future.get() != 8)
     {
@@ -123,8 +123,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	png_byte buffer[8];
 	// Read the first few bytes of the PNG _file
 
-	system::ISystem::future_t<uint32_t> future;
-	m_system->readFile(future, _file, buffer, 0, sizeof buffer);
+	system::future<size_t> future;
+	_file->read(future, buffer, 0, sizeof buffer);
 	if(future.get() != 8 )
 	{
 		assert(false); // TODO: implement proper engine-wide logger

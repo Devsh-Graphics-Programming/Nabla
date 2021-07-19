@@ -11,4 +11,13 @@ IFile::IFile(core::smart_refctd_ptr<ISystem>&& _system, std::underlying_type_t<E
 {
 }
 
+void IFile::read(future<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead)
+{
+	m_system->readFile(fut, this, buffer, offset, sizeToRead);
+}
+
+void IFile::write(future<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite)
+{
+	m_system->writeFile(fut, this, buffer, offset, sizeToWrite);
+}
 #include "nbl/core/definitions.h"

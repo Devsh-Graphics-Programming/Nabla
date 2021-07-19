@@ -1,6 +1,6 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-
+#include "nbl/system/CSystemWin32.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #include <nbl/ui/CWindowWin32.h>
 using CWindowT = nbl::ui::CWindowWin32;
@@ -14,6 +14,17 @@ class CommonAPI
 {
 	CommonAPI() = delete;
 public:
+	static nbl::core::smart_refctd_ptr < nbl::system::ISystem > createSystem()
+	{
+		using namespace nbl;
+		using namespace core;
+		using namespace system;
+		smart_refctd_ptr<ISystemCaller> caller = nullptr;
+#ifdef _NBL_PLATFORM_WINDOWS_
+		caller = make_smart_refctd_ptr<CSystemCallerWin32>();
+#endif
+		return make_smart_refctd_ptr<ISystem>(std::move(caller));
+	}
 	template<uint32_t sc_image_count>
 	struct InitOutput
 	{
@@ -283,5 +294,4 @@ public:
 		}
 		std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 	}
-
 };

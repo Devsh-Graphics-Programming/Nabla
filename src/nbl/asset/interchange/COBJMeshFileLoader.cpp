@@ -103,8 +103,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     std::string fileContents;
     fileContents.resize(filesize);
 	char* const buf = fileContents.data();
-	system::ISystem::future_t<uint32_t> future;
-	System->readFile(future, _file, buf, 0, filesize);
+	system::future<size_t> future;
+	_file->read(future, buf, 0, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information

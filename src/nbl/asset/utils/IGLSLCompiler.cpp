@@ -78,8 +78,8 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(system::IF
 {
     size_t fileSize = _sourcefile->getSize();
     std::string glsl(fileSize, '\0');
-    system::ISystem::future_t<uint32_t> future;
-    m_system->readFile(future, _sourcefile, glsl.data(), 0, fileSize);
+    system::future<size_t> future;
+   _sourcefile->read(future, glsl.data(), 0, fileSize);
     future.get();
     return createSPIRVFromGLSL(glsl.c_str(), _stage, _entryPoint, _compilationId, _opt, _outAssembly);
 }
@@ -254,8 +254,8 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
 core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
-    system::ISystem::future_t<uint32_t> future;
-    m_system->readFile(future, _sourcefile, glsl.data(), 0, _sourcefile->getSize());
+    system::future<size_t> future;
+    _sourcefile->read(future, glsl.data(), 0, _sourcefile->getSize());
     future.get();
     return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt);
 }

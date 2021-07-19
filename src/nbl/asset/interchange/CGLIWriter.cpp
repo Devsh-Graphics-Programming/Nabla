@@ -227,8 +227,9 @@ bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::IS
 
 	if (properlyStatus)
 	{
-		system::ISystem::future_t<uint32_t> future;
-		sys->writeFile(future, file, memory.data(), 0, memory.size());
+		system::future<size_t> future;
+		file->read(future, memory.data(), 0, memory.size());
+		future.get();
 		return true;
 	}
 	else

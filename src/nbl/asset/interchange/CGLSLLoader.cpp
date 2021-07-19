@@ -17,8 +17,9 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 
 	auto len = _file->getSize();
 	void* source = _NBL_ALIGNED_MALLOC(len+1u,_NBL_SIMD_ALIGNMENT);
-	system::ISystem::future_t<uint32_t> future;
-	m_system->readFile(future, _file, source, 0, len);
+	system::future<size_t> future;
+	_file->read(future, source, 0, len);
+	future.get();
 	reinterpret_cast<char*>(source)[len] = 0;
 
 

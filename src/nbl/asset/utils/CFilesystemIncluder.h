@@ -36,9 +36,8 @@ public:
         }
         size_t size = f->getSize();
         std::string contents(size, '\0');
-        system::ISystem::future_t<uint32_t> future;
-        bool valid = m_system->readFile(future, f.get(), contents.data(), 0, size);
-        if (!valid) return false;
+        system::future<size_t> future;
+        f->read(future, contents.data(), 0, size);
         future.get();
 
         return contents;

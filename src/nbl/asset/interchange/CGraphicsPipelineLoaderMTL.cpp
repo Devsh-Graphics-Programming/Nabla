@@ -24,7 +24,8 @@ using namespace asset;
 #define FRAG_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
 #define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
 
-CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : IRenderpassIndependentPipelineLoader(_am)
+CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys) : 
+    IRenderpassIndependentPipelineLoader(_am), m_system(std::move(sys))
 {
     //create vertex shaders and insert them into cache
     auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
@@ -78,9 +79,9 @@ void CGraphicsPipelineLoaderMTL::initialize()
     // default pipelines
     constexpr std::string_view filename = "Nabla default MTL material";
 
-    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView>(m_assetMgr->getSystem(), filename, system::IFile::ECF_READ);
+    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ);
     
-    system::os_future_t<size_t> future;
+    system::future<size_t> future;
     default_mtl_file->write(future, DUMMY_MTL_CONTENT, 0, strlen(DUMMY_MTL_CONTENT));
     future.get();
 
@@ -98,8 +99,8 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file) con
 
     std::string mtl;
     mtl.resize(_file->getSize());
-    system::ISystem::future_t<uint32_t> future;
-    m_assetMgr->getSystem()->readFile(future, _file, mtl.data(), 0, _file->getSize());
+    system::future<size_t> future;
+    _file->read(future, mtl.data(), 0, _file->getSize());
     future.get();
 
     return mtl.find("newmtl") != std::string::npos;
@@ -698,9 +699,9 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> co
     std::string mtl;
     size_t fileSize = _file->getSize();
     mtl.resize(fileSize);
-    system::ISystem::future_t<uint32_t> fut;
+    system::future<size_t> fut;
     
-    m_assetMgr->getSystem()->readFile(fut, _file, mtl.data(), 0, fileSize);
+    _file->read(fut, mtl.data(), 0, fileSize);
     fut.get();
 
     const char* bufPtr = mtl.c_str();
@@ -841,7 +842,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> co
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
                     sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
-                    assert(false); // TODO: implement a proper engine-wide logger
+                    //assert(false); // TODO: implement a proper engine-wide logger
                     //os::Printer::log(tmpbuf, ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d

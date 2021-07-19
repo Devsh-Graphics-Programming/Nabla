@@ -113,8 +113,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		}
 	}
 
-	system::ISystem::future_t<uint32_t> future;
-	m_system->writeFile(future, file, &imageHeader, 0, sizeof(imageHeader));
+	system::future<size_t> future;
+	file->write(future, &imageHeader, 0, sizeof(imageHeader));
 
 	if (future.get() != sizeof(imageHeader))
 		return false;
@@ -142,8 +142,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	{
 		memcpy(row_pointer, &scan_lines[y * row_stride], row_size);
 		
-		system::ISystem::future_t<uint32_t> future;
-		m_system->writeFile(future, file, row_pointer, offset, row_size);
+		system::future<size_t> future;
+		file->write(future, row_pointer, offset, row_size);
 		if (future.get() != row_size)
 			break;
 		offset += row_size;
@@ -153,8 +153,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	extension.ExtensionSize = sizeof(extension);
 	extension.Gamma = isSRGBFormat(convertedFormat) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
 	
-	system::ISystem::future_t<uint32_t> extFuture;
-	m_system->writeFile(extFuture, file, &extension, offset, sizeof(extension));
+	system::future<size_t> extFuture;
+	file->write(future, &extension, offset, sizeof(extension));
 	
 	if (extFuture.get() < (int32_t)sizeof(extension))
 		return false;
@@ -166,8 +166,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	imageFooter.DeveloperOffset = 0;
 	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
 
-	system::ISystem::future_t<uint32_t> footerFuture;
-	m_system->writeFile(footerFuture, file, &extension, offset, sizeof(extension));
+	system::future<size_t> footerFuture;
+	file->write(footerFuture, &extension, offset, sizeof(extension));
 
 	if (footerFuture.get() < (int32_t)sizeof(imageFooter))
 		return false;

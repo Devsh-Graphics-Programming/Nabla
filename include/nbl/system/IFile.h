@@ -11,7 +11,7 @@ namespace nbl::system
 
 class ISystem;
 template<typename T>
-class os_future_t;
+class future;
 
 class IFile : public core::IReferenceCounted
 {
@@ -47,8 +47,8 @@ class IFile : public core::IReferenceCounted
 		}
 
 		// TODO: make the `ISystem` methods protected instead 
-		void read(os_future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
-		void write(os_future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
+		void read(future<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
+		void write(future<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
 
 	protected:
 		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) = 0;

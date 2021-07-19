@@ -21,9 +21,9 @@ class CSPVLoader final : public asset::IAssetLoader
 			uint32_t magicNumber = 0u;
 
 			
-			system::ISystem::future_t<uint32_t> future;
-			m_system->readFile(future, _file, &magicNumber, 0, sizeof magicNumber);
-
+			system::future<size_t> future;
+			_file->read(future, &magicNumber, 0, sizeof magicNumber);
+			future.get();
 			return magicNumber==SPV_MAGIC_NUMBER;
 		}
 

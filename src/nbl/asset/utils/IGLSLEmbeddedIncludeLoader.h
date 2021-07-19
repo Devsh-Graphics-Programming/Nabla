@@ -56,8 +56,8 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 
 			size_t fileSize = file->getSize();
 			std::string content(fileSize, '/0');
-			system::ISystem::future_t<uint32_t> read_future;
-			validInput = s->readFile(read_future, file.get(), content.data(), 0, fileSize);
+			system::future<size_t> read_future;
+			file->read(read_future, content.data(), 0, fileSize);
 			assert(validInput);
 			read_future.get();
 

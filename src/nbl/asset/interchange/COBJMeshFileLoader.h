@@ -86,9 +86,9 @@ public:
     virtual bool isALoadableFileFormat(system::IFile* _file) const override
     {
         // OBJ doesn't really have any header but usually starts with a comment
-        system::ISystem::future_t<uint32_t> future;
+        system::future<size_t> future;
         char firstChar = 0;
-        System->readFile(future, _file, &firstChar, 0, 1);
+        _file->read(future, &firstChar, 0, 1);
         return firstChar =='#' || firstChar =='v';
     }
 

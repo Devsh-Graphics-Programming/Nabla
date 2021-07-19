@@ -227,8 +227,8 @@ namespace nbl
 			core::vector<char> memory(file->getSize());
 			const auto sizeOfData = memory.size();
 
-			system::ISystem::future_t<uint32_t> future;
-			sys->readFile(future, file, memory.data(), 0, sizeOfData);
+			system::future<size_t> future;
+			file->read(future, memory.data(), 0, sizeOfData);
 			future.get();
 
 			if (fileName.rfind(".dds") != std::string::npos)
@@ -256,11 +256,11 @@ namespace nbl
 			constexpr std::array<uint8_t, 12> ktxMagic = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
-			system::ISystem::future_t<uint32_t> future;
+			system::future<size_t> future;
 			if (fileName.rfind(".dds") != std::string::npos)
 			{
 				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;
-				m_system->readFile(future, _file, &tmpBuffer, 0, sizeof(ddsMagic));
+				_file->read(future, &tmpBuffer, 0, sizeof(ddsMagic));
 				future.get();
 				if (*reinterpret_cast<decltype(ddsMagic)*>(&tmpBuffer) == ddsMagic)
 				{
@@ -275,7 +275,7 @@ namespace nbl
 			else if (fileName.rfind(".kmg") != std::string::npos)
 			{
 				std::remove_const<decltype(kmgMagic)>::type tmpBuffer;
-				m_system->readFile(future, _file, tmpBuffer.data(), 0, sizeof(kmgMagic[0]) * kmgMagic.size());
+				_file->read(future, tmpBuffer.data(), 0, sizeof(kmgMagic[0]) * kmgMagic.size());
 				future.get();
 				if (tmpBuffer == kmgMagic)
 				{
@@ -290,7 +290,8 @@ namespace nbl
 			else if (fileName.rfind(".ktx") != std::string::npos)
 			{
 				std::remove_const<decltype(ktxMagic)>::type tmpBuffer;
-				m_system->readFile(future, _file, tmpBuffer.data(), 0, sizeof(ktxMagic[0]) * ktxMagic.size());
+				_file->read(future, tmpBuffer.data(), 0, sizeof(ktxMagic[0]) * ktxMagic.size());
+
 				future.get();
 				if (tmpBuffer == ktxMagic)
 				{
