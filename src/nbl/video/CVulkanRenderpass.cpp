@@ -6,7 +6,8 @@ namespace nbl {
 namespace video
 {
 
-CVulkanRenderpass::CVulkanRenderpass(const SCreationParams& params) : IGPURenderpass(params)
+CVulkanRenderpass::CVulkanRenderpass(CVKLogicalDevice* logicalDevice, const SCreationParams& params)
+    : IGPURenderpass(logicalDevice, params), m_vkdev(logicalDevice)
 {
     auto* vk = m_vkdev->getFunctionTable();
     auto vkdev = m_vkdev->getInternalObject();

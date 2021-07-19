@@ -2,7 +2,8 @@
 
 #include "nbl/video/CVulkanPhysicalDevice.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
 

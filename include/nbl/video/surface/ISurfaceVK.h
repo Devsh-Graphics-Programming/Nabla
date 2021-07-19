@@ -4,7 +4,8 @@
 #include <volk.h>
 #include "nbl/video/surface/ISurface.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
 

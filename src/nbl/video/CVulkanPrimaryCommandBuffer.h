@@ -4,20 +4,24 @@
 #include "nbl/video/IGPUPrimaryCommandBuffer.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
+
+class CVKLogicalDevice;
 
 class CVulkanPrimaryCommandBuffer final : public IGPUPrimaryCommandBuffer, public CVulkanCommandBuffer
 {
 public:
-    CVulkanPrimaryCommandBuffer(const IGPUCommandPool* _cmdpool, VkCommandBuffer _vkcmdbuf) : 
-        IGPUCommandBuffer(_cmdpool), // init virtual base
-        IGPUPrimaryCommandBuffer(),
-        CVulkanCommandBuffer(_vkcmdbuf)
+    CVulkanPrimaryCommandBuffer(CVKLogicalDevice* logicalDevice, IGPUCommandPool* _cmdpool, VkCommandBuffer commandBuffer) : 
+        IGPUCommandBuffer(logicalDevice, EL_PRIMARY, _cmdpool), // init virtual base
+        IGPUPrimaryCommandBuffer(logicalDevice, EL_PRIMARY, _cmdpool),
+        CVulkanCommandBuffer(logicalDevice, EL_PRIMARY, commandBuffer, _cmdpool)
     {}
 };
 
-}}
+}
+}
 
 #endif

@@ -10,7 +10,6 @@ nothing fancy, just to show that Irrlicht links fine
 #include <iostream>
 #include <cstdio>
 #include <nabla.h>
-// #include <volk/volk.h>
 
 #include "../common/CommonAPI.h"
 
@@ -22,31 +21,20 @@ inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::vi
 	const char* sev = nullptr;
 	switch (severity)
 	{
-	case video::EDMS_VERBOSE:
+        case video::EDMS_VERBOSE:
 		sev = "verbose"; break;
-	case video::EDMS_INFO:
+        case video::EDMS_INFO:
 		sev = "info"; break;
-	case video::EDMS_WARNING:
+        case video::EDMS_WARNING:
 		sev = "warning"; break;
-	case video::EDMS_ERROR:
+        case video::EDMS_ERROR:
 		sev = "error"; break;
 	}
 	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 }
 
-
 int main()
 {
-	// if (volkInitialize() != VK_SUCCESS)
-	// 	printf("failed to initialize Vulkan\n");
-	// 
-	// uint32_t version = volkGetInstanceVersion();
-	// 
-	// uint32_t layerCount;
-	// vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-	// std::vector<VkLayerProperties> layers(layerCount);
-	// vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
-
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -57,18 +45,18 @@ int main()
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
 	
-	auto vk = video::IAPIConnection::create(video::EAT_VULKAN, 0, "New API Test", dbgcb);
-
+	// auto vk = video::IAPIConnection::create(video::EAT_VULKAN, 0, "New API Test", dbgcb);
+    
 #if 0
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
 	auto surface = gl->createSurface(win.get());
-
+    
 	auto gpus = gl->getPhysicalDevices();
 	assert(!gpus.empty());
 	auto gpu = gpus.begin()[0];
-
+    
 	assert(surface->isSupported(gpu.get(), 0u));
-
+    
 	video::ILogicalDevice::SCreationParams dev_params;
 	dev_params.queueParamsCount = 1u;
 	video::ILogicalDevice::SQueueCreationParams q_params;
@@ -79,30 +67,30 @@ int main()
 	q_params.priorities = priority;
 	dev_params.queueCreateInfos = &q_params;
 	auto device = gpu->createLogicalDevice(dev_params);
-
+    
 	auto* queue = device->getQueue(0u, 0u);
-
+    
 	core::smart_refctd_ptr<video::ISwapchain> sc  = CommonAPI::createSwapchain(WIN_W, WIN_H, SC_IMG_COUNT, device, surface, video::ISurface::EPM_FIFO_RELAXED);
 	assert(sc);
-
+    
 	core::smart_refctd_ptr<video::IGPURenderpass> renderpass = CommonAPI::createRenderpass(device);
-
+    
 	auto fbo = CommonAPI::createFBOWithSwapchainImages<SC_IMG_COUNT, WIN_W, WIN_H>(device, sc, renderpass);
-
+    
 	auto cmdpool = device->createCommandPool(0u, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
 	assert(cmdpool);
-
-
+    
+    
 	{
 		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
-
-
+        
+        
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
 		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cb);
 		assert(cb);
-
+        
 		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
+        
 		asset::SViewport vp;
 		vp.minDepth = 1.f;
 		vp.maxDepth = 0.f;
@@ -111,9 +99,9 @@ int main()
 		vp.width = WIN_W;
 		vp.height = WIN_H;
 		cb->setViewport(0u, 1u, &vp);
-
+        
 		cb->end();
-
+        
 		video::IGPUQueue::SSubmitInfo info;
 		auto* cb_ = cb.get();
 		info.commandBufferCount = 1u;
@@ -125,16 +113,16 @@ int main()
 		info.pWaitDstStageMask = nullptr;
 		queue->submit(1u, &info, nullptr);
 	}
-
+    
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
 	device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT, cmdbuf);
 	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
 	{
 		auto& cb = cmdbuf[i];
 		auto& fb = fbo[i];
-
+        
 		cb->begin(0);
-
+        
 		size_t offset = 0u;
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::SClearValue clear;
@@ -152,27 +140,27 @@ int main()
 		info.renderArea = area;
 		cb->beginRenderPass(&info, asset::ESC_INLINE);
 		cb->endRenderPass();
-
+        
 		cb->end();
 	}
-
+    
 	constexpr uint32_t FRAME_COUNT = 500000u;
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
- 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+    for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
 		auto img_acq_sem = device->createSemaphore();
 		auto render1_finished_sem = device->createSemaphore();
-
+        
 		uint32_t imgnum = 0u;
 		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-
+        
 		CommonAPI::Submit(device.get(), sc.get(), cmdbuf, queue, img_acq_sem.get(), render1_finished_sem.get(), SC_IMG_COUNT, imgnum);
-
+        
 		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
 	}
-
+    
 	device->waitIdle();
 #endif
-
+    
 	return 0;
 }

@@ -5,17 +5,18 @@
 #include "nbl/video/CVulkanSemaphore.h"
 #include "nbl/video/CVulkanPrimaryCommandBuffer.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
 
 CVulkanQueue::CVulkanQueue(CVKLogicalDevice* vkdev, VkQueue vkq, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) : 
-    IGPUQueue(_famIx, _flags, _priority), m_vkdevice(vkdev), m_vkqueue(vkq)
+    IGPUQueue(vkdev, _famIx, _flags, _priority), m_vkdevice(vkdev), m_vkqueue(vkq)
 {
     
 }
 
-void CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
+bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
     auto vkdev = m_vkdevice->getInternalObject();
     auto* vk = m_vkdevice->getFunctionTable();
@@ -64,7 +65,7 @@ void CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     {
         auto& sb = submits[i];
 
-        auto& _sb = _submits[i];
+        const SSubmitInfo& _sb = _submits[i];
 #ifdef _NBL_DEBUG
         for (uint32_t j = 0u; j < _sb.commandBufferCount; ++j)
             assert(_sb.commandBuffers[j]->getLevel() != CVulkanCommandBuffer::EL_SECONDARY);
@@ -72,8 +73,8 @@ void CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
 
         sb.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         sb.pNext = nullptr;
-        auto* cbs = cmdbufs + cmdBufOffset;
-        sb.pCommandBuffers = cbs;
+        VkCommandBuffer* commandBuffers = cmdbufs + cmdBufOffset;
+        sb.pCommandBuffers = commandBuffers;
         sb.commandBufferCount = _sb.commandBufferCount;
         auto* waits = waitSemaphores + waitSemOffset;
         sb.pWaitSemaphores = waits;
@@ -92,7 +93,7 @@ void CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         }
         for (uint32_t j = 0u; j < sb.commandBufferCount; ++j)
         {
-            cbs[j] = static_cast<CVulkanPrimaryCommandBuffer*>(_sb.commandBuffers[j])->getInternalObject();
+            commandBuffers[j] = reinterpret_cast<CVulkanPrimaryCommandBuffer*>(_sb.commandBuffers[j])->getInternalObject();
         }
 
         waitSemOffset += sb.waitSemaphoreCount;
@@ -105,6 +106,14 @@ void CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
 
     VkFence fence = _fence ? static_cast<CVulkanFence*>(_fence)->getInternalObject() : VK_NULL_HANDLE;
     vk->vk.vkQueueSubmit(m_vkqueue, _count, submits, fence);
+
+    // Todo(achal): THIS IS FAKE !!!!
+    return false;
+}
+
+bool CVulkanQueue::present(const SPresentInfo& info)
+{
+    return false;
 }
 
 }

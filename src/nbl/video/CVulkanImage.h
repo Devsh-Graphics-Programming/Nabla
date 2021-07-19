@@ -7,13 +7,12 @@
 
 #include <volk.h>
 #include "nbl/video/IGPUImage.h"
+#include "nbl/video/CVKLogicalDevice.h"
 
 namespace nbl
 {
 namespace video
 {
-
-class CVKLogicalDevice;
 
 class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
 {
@@ -28,7 +27,7 @@ class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
 		//! constructor
 		CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
 		CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
-			IGPUImage(std::move(_params)), m_vkdevice(_vkdev), m_vkimg(_vkimg)
+			IGPUImage(_vkdev, std::move(_params)), m_vkdevice(_vkdev), m_vkimg(_vkimg)
 		{
 
 		}
@@ -42,10 +41,10 @@ class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
 		inline size_t getBoundMemoryOffset() const override { return 0ull; }
 
 		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
-		inline void unmapMemory() override {}
+		// This exists as a pure virtual function in ILogicalDevice which takes in a IDriverMemoryAllocation* --which is not a base class of this class
+		// inline void unmapMemory() override {}
 		inline bool isDedicated() const override { return true; }
 };
-
 
 } // end namespace video
 } // end namespace nbl

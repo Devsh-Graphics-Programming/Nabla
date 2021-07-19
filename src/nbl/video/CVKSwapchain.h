@@ -4,7 +4,8 @@
 #include <volk.h>
 #include "nbl/video/ISwapchain.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
 

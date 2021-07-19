@@ -6,7 +6,7 @@ namespace nbl {
 namespace video
 {
 
-CVulkanSemaphore::CVulkanSemaphore(CVKLogicalDevice* _vkdev) : m_vkdev(_vkdev)
+CVulkanSemaphore::CVulkanSemaphore(CVKLogicalDevice* _vkdev) : IGPUSemaphore(_vkdev), m_vkdev(_vkdev)
 {
     auto* vk = m_vkdev->getFunctionTable();
     auto vkdev = m_vkdev->getInternalObject();

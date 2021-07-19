@@ -8,7 +8,7 @@ namespace nbl {
 namespace video
 {
 
-CVulkanFramebuffer::CVulkanFramebuffer(CVKLogicalDevice* _vkdev, SCreationParams&& params) : IGPUFramebuffer(std::move(params)), m_vkdevice(_vkdev)
+CVulkanFramebuffer::CVulkanFramebuffer(CVKLogicalDevice* _vkdev, SCreationParams&& params) : IGPUFramebuffer(_vkdev, std::move(params)), m_vkdevice(_vkdev)
 {
     constexpr uint32_t MemSize = 1u<<12;
     constexpr uint32_t MaxAttachments = MemSize / sizeof(VkImageView);

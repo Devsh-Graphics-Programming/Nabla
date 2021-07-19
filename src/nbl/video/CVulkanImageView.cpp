@@ -7,7 +7,7 @@ namespace nbl {
 namespace video
 {
 
-CVulkanImageView::CVulkanImageView(CVKLogicalDevice* _vkdev, SCreationParams&& _params) : IGPUImageView(std::move(_params)), m_vkdev(_vkdev)
+CVulkanImageView::CVulkanImageView(CVKLogicalDevice* _vkdev, SCreationParams&& _params) : IGPUImageView(_vkdev, std::move(_params)), m_vkdev(_vkdev)
 {
     auto* vk = m_vkdev->getFunctionTable();
     auto vkdev = m_vkdev->getInternalObject();

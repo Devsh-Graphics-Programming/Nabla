@@ -5,7 +5,8 @@
 
 #include <volk.h>
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
 
@@ -17,7 +18,8 @@ public:
     // TODO impl member functions
 
 protected:
-    explicit CVulkanCommandBuffer(VkCommandBuffer _vkcmdbuf) : IGPUCommandBuffer(nullptr), m_cmdbuf(_vkcmdbuf) {}
+    explicit CVulkanCommandBuffer(CVKLogicalDevice* logicalDevice, E_LEVEL level, VkCommandBuffer _vkcmdbuf, IGPUCommandPool* commandPool)
+        : IGPUCommandBuffer(logicalDevice, level, commandPool), m_cmdbuf(_vkcmdbuf) {}
 
     VkCommandBuffer m_cmdbuf;
 };

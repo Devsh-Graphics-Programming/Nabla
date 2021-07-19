@@ -14,7 +14,7 @@ class CVKLogicalDevice;
 class CVulkanRenderpass final : public IGPURenderpass
 {
 public:
-    explicit CVulkanRenderpass(const SCreationParams& params);
+    explicit CVulkanRenderpass(CVKLogicalDevice* logicalDevice, const SCreationParams& params);
 
     ~CVulkanRenderpass();
 

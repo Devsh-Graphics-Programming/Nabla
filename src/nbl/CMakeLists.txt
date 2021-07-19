@@ -332,16 +332,16 @@ endif()
 set(NABLA_SRCS_NORMAL
 	# Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
-	# ${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
@@ -385,7 +385,6 @@ set(COMMON_INCLUDE_DIRS
 )
 
 macro(nbl_target_link_vulkan _trgt)
-	target_link_libraries(${_trgt} INTERFACE ${Vulkan_LIBRARIES})
 	target_include_directories(${_trgt} PUBLIC ${Vulkan_INCLUDE_DIRS})
 endmacro()
 

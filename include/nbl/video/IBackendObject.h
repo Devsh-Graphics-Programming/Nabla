@@ -4,7 +4,8 @@
 #include "nbl/video/EApiType.h"
 #include <type_traits>
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
 
