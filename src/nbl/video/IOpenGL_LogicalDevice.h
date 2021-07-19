@@ -793,7 +793,7 @@ protected:
                         if(now>=end)
                             return IGPUFence::ES_TIMEOUT;
                         else if (_waitAll) // all fences have to get signalled anyway so no use round robining
-                            timeout = (end-now).count();
+                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(end-now).count();
                         else if (i==0u) // if we're only looking for one to succeed then poll with increasing timeouts until deadline
                             timeout <<= 1u;
                     }
