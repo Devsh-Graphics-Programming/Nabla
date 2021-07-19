@@ -32,37 +32,7 @@ int main()
 	auto renderpass = std::move(initOutp.renderpass);
 	auto fbo = std::move(initOutp.fbo);
 	auto cmdpool = std::move(initOutp.commandPool);
-	// TODO: stop state bleeding between cmdbuffers!!!
-	{
-		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
-		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cb);
-		assert(cb);
 
-		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-		asset::SViewport vp;
-		vp.minDepth = 1.f;
-		vp.maxDepth = 0.f;
-		vp.x = 0u;
-		vp.y = 0u;
-		vp.width = WIN_W;
-		vp.height = WIN_H;
-		cb->setViewport(0u, 1u, &vp);
-
-		cb->end();
-
-		video::IGPUQueue::SSubmitInfo info;
-		auto* cb_ = cb.get();
-		info.commandBufferCount = 1u;
-		info.commandBuffers = &cb_;
-		info.pSignalSemaphores = nullptr;
-		info.signalSemaphoreCount = 0u;
-		info.pWaitSemaphores = nullptr;
-		info.waitSemaphoreCount = 0u;
-		info.pWaitDstStageMask = nullptr;
-		queue->submit(1u, &info, nullptr);
-	}
 	video::IDescriptorPool::SDescriptorPoolSize poolSize[2];
 	poolSize[0].count = 1;
 	poolSize[0].type = asset::EDT_STORAGE_BUFFER;
@@ -178,7 +148,10 @@ int main()
 	device->updateBufferRangeViaStagingBuffer(queue, range, particlePos.data());
 	particlePos.clear();
 
-	auto gpuUboCompute = device->createDeviceLocalGPUBufferOnDedMem(core::roundUp(sizeof(UBOCompute), 64ull));
+	auto devLocalReqs = device->getDeviceLocalGPUMemoryReqs();
+
+	devLocalReqs.vulkanReqs.size = core::roundUp(sizeof(UBOCompute), 64ull);
+	auto gpuUboCompute = device->createGPUBufferOnDedMem(devLocalReqs, true);
 	auto gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 	{
 		video::IGPUDescriptorSet::SDescriptorInfo i[3];
@@ -256,7 +229,8 @@ int main()
 	constexpr uint32_t GRAPHICS_SET = 0u;
 	constexpr uint32_t GRAPHICS_DATA_UBO_BINDING = 0u;
 	asset::SBasicViewParameters viewParams;
-	auto gpuUboGraphics = device->createDeviceLocalGPUBufferOnDedMem(sizeof(viewParams));
+	devLocalReqs.vulkanReqs.size = sizeof(viewParams);
+	auto gpuUboGraphics = device->createGPUBufferOnDedMem(devLocalReqs, true);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet w;
 		video::IGPUDescriptorSet::SDescriptorInfo i;
@@ -315,6 +289,16 @@ int main()
 		{
 			memcpy(viewParams.MVP, &viewProj, sizeof(viewProj));
 			cb->updateBuffer(graphicsUBORange.buffer.get(),graphicsUBORange.offset,graphicsUBORange.size,&viewParams);
+		}
+		{
+			asset::SViewport vp;
+			vp.minDepth = 1.f;
+			vp.maxDepth = 0.f;
+			vp.x = 0u;
+			vp.y = 0u;
+			vp.width = WIN_W;
+			vp.height = WIN_H;
+			cb->setViewport(0u, 1u, &vp);
 		}
 		cb->bindGraphicsPipeline(graphicsPipeline.get());
 		size_t vbOffset = 0;

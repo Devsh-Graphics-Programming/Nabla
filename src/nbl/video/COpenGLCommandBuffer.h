@@ -1053,6 +1053,9 @@ public:
             return false;
         if (dataSize > 65536ull)
             return false;
+        if (!dstBuffer->canUpdateSubRange())
+            return false;
+
         SCmd<impl::ECT_UPDATE_BUFFER> cmd;
         uint8_t* data = getGLCommandPool()->emplace_n<uint8_t>(dataSize);
         if (!data)
