@@ -41,12 +41,71 @@ int main()
 	
 	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
 	
+	// Note(achal): This is unused, for now
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
 	
-	// auto vk = video::IAPIConnection::create(video::EAT_VULKAN, 0, "New API Test", dbgcb);
-    
+	core::smart_refctd_ptr<video::IAPIConnection> vk = video::IAPIConnection::create(video::EAT_VULKAN, 0, "New API Test", dbgcb);
+	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(win.get());
+
+	auto gpus = vk->getPhysicalDevices();
+	assert(!gpus.empty());
+	
+	// Find a suitable gpu, whose only criteria for now is the required queue family support
+	core::smart_refctd_ptr<video::IPhysicalDevice> gpu = nullptr;
+	uint32_t graphicsFamilyIndex(~0u);
+	uint32_t presentFamilyIndex(~0u);
+
+	for (size_t i = 0ull; i < gpus.size(); ++i)
+	{
+		gpu = *(gpus.begin() + i);
+
+		bool isGPUSuitable = false;
+		{
+			const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
+
+			for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+			{
+				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT)
+					graphicsFamilyIndex = familyIndex;
+
+				if (surface->isSupported(gpu.get(), familyIndex))
+					presentFamilyIndex = familyIndex;
+
+				if ((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))
+				{
+					isGPUSuitable = true;
+					break;
+				}
+			}
+		}
+
+		if (isGPUSuitable)
+			break;
+	}
+	assert((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
+
+	video::ILogicalDevice::SCreationParams deviceCreationParams;
+	deviceCreationParams.queueParamsCount = (graphicsFamilyIndex == presentFamilyIndex) ? 1u : 2u;
+
+	const uint32_t queueFamilyIndices[] = { graphicsFamilyIndex, presentFamilyIndex };
+	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
+	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
+	{
+		queueCreationParams[i].familyIndex = queueFamilyIndices[i];
+		queueCreationParams[i].count = 1u;
+		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+		const float priority = 1.f;
+		queueCreationParams[i].priorities = &priority;
+	}
+	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
+	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
+
+	// core::smart_refctd_ptr<video::ISwapchain> sc = CommonAPI::createSwapchain(WIN_W, WIN_H, SC_IMG_COUNT, device, surface, video::ISurface::EPM_FIFO_RELAXED);
+	// assert(sc);
+
 #if 0
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
 	auto surface = gl->createSurface(win.get());

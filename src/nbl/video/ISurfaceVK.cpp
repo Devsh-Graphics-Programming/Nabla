@@ -9,7 +9,7 @@ namespace video
 
 bool ISurfaceVK::isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
 {
-    // TODO runtime check if vulkan physical device?
+    // TODO runtime check if vulkan physical device? -- umm.. what is this ??
 
     auto vkphd = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
     VkBool32 supported;

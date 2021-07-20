@@ -14,10 +14,10 @@ class IAPIConnection;
 class CSurfaceVKWin32 final : public ISurfaceWin32, public ISurfaceVK
 {
 public:
-    static core::smart_refctd_ptr<CSurfaceVKWin32> create(IAPIConnection* api, SCreationParams&& params);
+    static core::smart_refctd_ptr<CSurfaceVKWin32> create(const IAPIConnection* api, SCreationParams&& params);
 
-//private:
-    CSurfaceVKWin32(VkInstance instance, SCreationParams&& params) : ISurfaceWin32(std::move(params))
+// private:
+    CSurfaceVKWin32(VkInstance instance, SCreationParams&& params) : ISurfaceWin32(std::move(params)), ISurfaceVK(instance)
     {
         VkWin32SurfaceCreateInfoKHR ci;
         ci.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;

@@ -3,16 +3,12 @@
 
 #include <volk.h>
 #include "nbl/video/IAPIConnection.h"
-#include "nbl/video/surface/CSurfaceVKWin32.h"
 #include "nbl/video/CVulkanPhysicalDevice.h"
 
-// Todo(achal): Need to merge this with passed SDebugCallback to CVulkanConnection
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
-    const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)
-{
-    printf("Validation Layer: %s\n", callbackData->pMessage);
-    return VK_FALSE;
-}
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#   include "nbl/ui/IWindowWin32.h"
+#   include "nbl/video/surface/CSurfaceVKWin32.h"
+#endif
 
 namespace nbl
 {
@@ -34,33 +30,46 @@ public:
         applicationInfo.applicationVersion = appVer;
         applicationInfo.pApplicationName = appName;
         
-        // Todo(achal): Where to put this? Also, do we need more (validation) layers, if there are?
-        const uint32_t instanceLayerCount = 1u;
-        const char* instanceLayers[instanceLayerCount] = { "VK_LAYER_KHRONOS_validation" }; // Todo(achal): Need to check availability for this
+        // Todo(achal): Get this from the user
+        const std::vector<const char*> requiredInstanceLayerNames({ "VK_LAYER_KHRONOS_validation" });
+        assert(areAllInstanceLayersAvailable(requiredInstanceLayerNames));
 
-        // Todo(achal): This needs to be handled in a platform agnostic way.
-        // These extensions are necessary for creating Vulkan surfaces.
-        // VK_KHR_surface introduces VkSurfaceKHR
-        // Not sure if we want VK_KHR_win32_surface yet
-        // Todo(achal): Not always use the debug messenger
-        const uint32_t instanceExtensionCount = 3u;
-        const char* instanceExtensions[instanceExtensionCount] = { "VK_KHR_surface", "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME }; // Todo(achal): Need to check availability for this
-
-        // Note(achal): This debug messenger is not application wide but _only_ for instance creation. In other words, it is for internal
-        // use only.
+        // Note(achal): This exact create info is used for application wide debug messenger for now
         VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
         debugUtilsMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         debugUtilsMessengerCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        debugUtilsMessengerCreateInfo.pfnUserCallback = debugCallback;
+        debugUtilsMessengerCreateInfo.pfnUserCallback = &placeholderDebugCallback;
 
         VkInstanceCreateInfo instanceCreateInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
         instanceCreateInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugUtilsMessengerCreateInfo;
         instanceCreateInfo.pApplicationInfo = &applicationInfo;
-        instanceCreateInfo.enabledLayerCount = instanceLayerCount;
-        instanceCreateInfo.ppEnabledLayerNames = instanceLayers;
-        instanceCreateInfo.enabledExtensionCount = instanceExtensionCount;
-        instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
+        instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(requiredInstanceLayerNames.size());
+        instanceCreateInfo.ppEnabledLayerNames = requiredInstanceLayerNames.data();
+
+        {
+            // Todo(achal): Get this from the user
+            const bool isWorkloadHeadlessCompute = false;
+
+            // Todo(achal): Not always use the debug messenger. There are also other extensions for this, check if we want to use them.
+            if (isWorkloadHeadlessCompute)
+            {
+                const uint32_t instanceExtensionCount = 1u;
+                const char* instanceExtensions[instanceExtensionCount] = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+
+                instanceCreateInfo.enabledExtensionCount = instanceExtensionCount;
+                instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
+            }
+            else
+            {
+                // Todo(achal): This needs to be handled in a platform agnostic way.
+                const uint32_t instanceExtensionCount = 3u;
+                char* instanceExtensions[instanceExtensionCount] = { "VK_KHR_surface", "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+
+                instanceCreateInfo.enabledExtensionCount = instanceExtensionCount;
+                instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
+            }
+        }
         
         vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
         assert(m_instance);
@@ -68,6 +77,9 @@ public:
         // Todo(achal): I gotta look into this ie if (and how) we want to use volkLoadInstanceOnly
         // volkLoadInstanceOnly(m_instance);
         volkLoadInstance(m_instance);
+
+        vkCreateDebugUtilsMessengerEXT(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugMessenger);
+        assert(m_debugMessenger);
         
         uint32_t devCount = 0u;
         vkEnumeratePhysicalDevices(m_instance, &devCount, nullptr);
@@ -90,7 +102,18 @@ public:
 
     core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const override
     {
-        return nullptr;
+        // Todo(achal): handle other platforms
+#ifdef _NBL_PLATFORM_WINDOWS_
+        {
+            ui::IWindowWin32* w32 = static_cast<ui::IWindowWin32*>(window);
+
+            CSurfaceVKWin32::SCreationParams params;
+            params.hinstance = GetModuleHandle(NULL);
+            params.hwnd = w32->getNativeHandle();
+
+            return CSurfaceVKWin32::create(this, std::move(params));
+        }
+#endif
     }
 
     VkInstance getInternalObject() const { return m_instance; }
@@ -98,13 +121,47 @@ public:
 protected:
     ~CVulkanConnection()
     {
+        vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
         vkDestroyInstance(m_instance, nullptr);
     }
 
 private:
     VkInstance m_instance = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
     using physical_devs_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IPhysicalDevice>>;
     physical_devs_array_t m_physDevices;
+
+    static VKAPI_ATTR VkBool32 VKAPI_CALL placeholderDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)
+    {
+        printf("Validation Layer: %s\n", callbackData->pMessage);
+        return VK_FALSE;
+    }
+
+    static inline bool areAllInstanceLayersAvailable(const std::vector<const char*>& requiredInstanceLayerNames)
+    {
+        uint32_t instanceLayerCount;
+        vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr);
+        std::vector<VkLayerProperties> instanceLayers(instanceLayerCount);
+        vkEnumerateInstanceLayerProperties(&instanceLayerCount, instanceLayers.data());
+
+        for (uint32_t i = 0u; i < requiredInstanceLayerNames.size(); ++i)
+        {
+            bool layerFound = false;
+            for (uint32_t j = 0u; j < instanceLayerCount; ++j)
+            {
+                if (strcmp(requiredInstanceLayerNames[i], instanceLayers[j].layerName) == 0)
+                {
+                    layerFound = true;
+                    break;
+                }
+            }
+            if (!layerFound)
+                return false;
+        }
+
+        return true;
+    }
 };
 
 }

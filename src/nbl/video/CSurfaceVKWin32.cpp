@@ -6,10 +6,10 @@ namespace nbl {
 namespace video
 {
 
-core::smart_refctd_ptr<CSurfaceVKWin32> CSurfaceVKWin32::create(IAPIConnection* api, SCreationParams&& params)
+core::smart_refctd_ptr<CSurfaceVKWin32> CSurfaceVKWin32::create(const IAPIConnection* api, SCreationParams&& params)
 {
-    auto* vk = static_cast<CVulkanConnection*>(api);
-    auto instance = vk->getInternalObject();
+    const CVulkanConnection* vk = static_cast<const CVulkanConnection*>(api);
+    VkInstance instance = vk->getInternalObject();
 
     return core::make_smart_refctd_ptr<CSurfaceVKWin32>(instance, std::move(params));
 }

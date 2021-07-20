@@ -19,9 +19,11 @@ public:
     bool isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const override;
 
 protected:
-    ISurfaceVK() = default;
+    ISurfaceVK(VkInstance instance) : m_instance(instance) {}
+    virtual ~ISurfaceVK() { vkDestroySurfaceKHR(m_instance, m_surface, nullptr); }
 
     VkSurfaceKHR m_surface;
+    VkInstance m_instance;
 };
 
 }

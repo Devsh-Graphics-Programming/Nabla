@@ -107,8 +107,11 @@ protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {
         VkDeviceCreateInfo createInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
-        // createInfo.enabledLayerCount = ;          // deprecated and ignored
-        // createInfo.ppEnabledLayerNames = ;    // deprecated and ignored
+        // Todo(achal): Need to get this from the user
+        createInfo.enabledLayerCount = 1u;
+        const char* validationLayerName[] = { "VK_LAYER_KHRONOS_validation" };
+        createInfo.ppEnabledLayerNames = validationLayerName;
+
         createInfo.queueCreateInfoCount = params.queueParamsCount;
                 
         core::vector<VkDeviceQueueCreateInfo> queueCreateInfos(createInfo.queueCreateInfoCount);
@@ -126,21 +129,20 @@ protected:
         }
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
                 
-        // Todo(achal): Not hardcode
+        // Todo(achal): Need to get this from the user based on if its a headless compute or some presentation worthy workload
         const uint32_t deviceExtensionCount = 1u;
         const char* deviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
                 
         createInfo.enabledExtensionCount = deviceExtensionCount;
         createInfo.ppEnabledExtensionNames = deviceExtensions;
                 
-        // Todo(achal): Probably make it a member
+        // Todo(achal): Need to get this from the user, which features they want
         VkPhysicalDeviceFeatures deviceFeatures = {};
                 
         createInfo.pEnabledFeatures = &deviceFeatures;
                 
         VkDevice vkdev = VK_NULL_HANDLE;
-        vkCreateDevice(m_vkphysdev, &createInfo, nullptr, &vkdev);
-        assert(vkdev);
+        assert(vkCreateDevice(m_vkphysdev, &createInfo, nullptr, &vkdev) == VK_SUCCESS);
                 
         return core::make_smart_refctd_ptr<CVKLogicalDevice>(vkdev, params, core::smart_refctd_ptr(m_fs), core::smart_refctd_ptr(m_GLSLCompiler));
     }
