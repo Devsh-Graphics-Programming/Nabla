@@ -9,6 +9,8 @@
 #include <nbl/ui/CWindowManagerWin32.h>
 #include <nbl/system/ISystem.h>
 #include "nbl/system/CStdoutLogger.h"
+#include "nbl/system/CFileLogger.h"
+
 using namespace nbl;
 using namespace core;
 using namespace ui;
@@ -90,6 +92,11 @@ int main()
 	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system));
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
 	
+	std::string logFileName = "log.txt";
+	std::ofstream logFile(logFileName, std::ios_base::app | std::ios_base::out);
+	assert(logFile.is_open());
+	logFile.close();
+
 	IWindow::SCreationParams params;
 	params.callback = nullptr;
 	params.width = 720;
@@ -99,7 +106,8 @@ int main()
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
-	params.callback = make_smart_refctd_ptr<DemoEventCallback>(make_smart_refctd_ptr<system::CStdoutLogger>());
+	//params.callback = make_smart_refctd_ptr<DemoEventCallback>(make_smart_refctd_ptr<system::CStdoutLogger>());
+	params.callback = make_smart_refctd_ptr<DemoEventCallback>(system::CFileLogger::create(logFileName));
 	auto window = winManager->createWindow(std::move(params));
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;

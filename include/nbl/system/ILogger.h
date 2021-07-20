@@ -1,3 +1,6 @@
+#ifndef _NBL_SYSTEM_I_LOGGER_INCLUDED_
+#define _NBL_SYSTEM_I_LOGGER_INCLUDED_
+
 #include <string>
 #include <cstdint>
 #include <chrono>
@@ -6,6 +9,7 @@
 #include <iomanip>
 #include <regex>
 #include <cstdarg>
+#include <codecvt>
 
 #include "nbl/core/IReferenceCounted.h"
 
@@ -47,7 +51,7 @@ namespace nbl::system
 
 			constexpr size_t DATE_STR_LENGTH = 28;
 			std::string timeStr(DATE_STR_LENGTH, '\0');
-			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", time->tm_mday, time->tm_mon, time->tm_year, time->tm_hour, time->tm_min, time->tm_sec, (int)time_since_epoch.count());
+			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", time->tm_mday, time->tm_mon, 1900 + time->tm_year, time->tm_hour, time->tm_min, time->tm_sec, (int)time_since_epoch.count());
 			
 			std::string messageTypeStr;
 			switch (logLevel)
@@ -81,8 +85,13 @@ namespace nbl::system
 		}
 		virtual std::wstring constructLogWstring(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
 		{
-			assert(false); // TODO
-			return L"";
+			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+			std::string narrow = converter.to_bytes(std::wstring(fmtString));
+			std::string narrowStr = constructLogString(narrow, logLevel, l);
+			std::wstring wide = converter.from_bytes(narrowStr);
+			return wide;
 		}
 	};
 }
+
+#endif

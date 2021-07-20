@@ -1,3 +1,6 @@
+#ifndef _NBL_SYSTEM_I_THREADSAFE_LOGGER_INCLUDED_
+#define _NBL_SYSTEM_I_THREADSAFE_LOGGER_INCLUDED_
+
 #include "ILogger.h"
 #include <mutex>
 #include <cstdarg>
@@ -36,3 +39,4 @@ private:
 
 };
 }
+#endif
