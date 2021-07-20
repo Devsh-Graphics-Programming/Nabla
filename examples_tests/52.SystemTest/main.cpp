@@ -10,6 +10,7 @@
 #include <nbl/system/ISystem.h>
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/system/CFileLogger.h"
+#include "nbl/system/CColoredStdoutLoggerWin32.h"
 
 using namespace nbl;
 using namespace core;
@@ -35,19 +36,19 @@ private:
 	}
 	void onWindowMoved_impl(int32_t x, int32_t y) override
 	{
-		m_logger->log("Window window moved to { %d, %d }", system::ILogger::ELL_INFO, x, y);
+		m_logger->log("Window window moved to { %d, %d }", system::ILogger::ELL_WARNING, x, y);
 	}
 	void onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
-		m_logger->log("Window resized to { %u, %u }", system::ILogger::ELL_INFO, w, h);
+		m_logger->log("Window resized to { %u, %u }", system::ILogger::ELL_DEBUG, w, h);
 	}
 	void onWindowMinimized_impl() override
 	{
-		m_logger->log("Window minimized", system::ILogger::ELL_INFO);
+		m_logger->log("Window minimized", system::ILogger::ELL_ERROR);
 	}
 	void onWindowMaximized_impl() override
 	{
-		m_logger->log("Window maximized", system::ILogger::ELL_INFO);
+		m_logger->log("Window maximized", system::ILogger::ELL_PERFORMANCE);
 	}
 	void onGainedMouseFocus_impl() override
 	{
@@ -106,8 +107,8 @@ int main()
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
-	//params.callback = make_smart_refctd_ptr<DemoEventCallback>(make_smart_refctd_ptr<system::CStdoutLogger>());
-	params.callback = make_smart_refctd_ptr<DemoEventCallback>(system::CFileLogger::create(logFileName));
+	params.callback = make_smart_refctd_ptr<DemoEventCallback>(make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>());
+	//params.callback = make_smart_refctd_ptr<DemoEventCallback>(system::CFileLogger::create(logFileName));
 	auto window = winManager->createWindow(std::move(params));
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
