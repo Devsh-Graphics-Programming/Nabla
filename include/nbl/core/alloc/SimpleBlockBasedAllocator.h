@@ -12,9 +12,7 @@
 
 #include <memory>
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 //! Doesn't resize memory arenas, therefore once allocated pointers shall not move
@@ -73,8 +71,8 @@ class SimpleBlockBasedAllocator
 
 		SimpleBlockBasedAllocator(size_type _blockSize, size_type _maxBlockCount, Args&&... args) :
 			blockSize(_blockSize), effectiveBlockSize(Block::size_of(blockSize,args...)), maxBlockCount(_maxBlockCount),
-			metaAlloc(), blocks(metaAlloc.allocate(maxBlockCount, meta_alignment)),
-			blockAlloc(), blockCreationArgs(args...)
+			metaAlloc(), blocks(metaAlloc.allocate(maxBlockCount,meta_alignment)),
+			blockAlloc(), blockCreationArgs(std::forward<Args>(args)...)
 		{
 			assert(maxBlockCount > 0u);
 			std::fill(blocks,blocks+maxBlockCount,nullptr);
@@ -212,7 +210,6 @@ class SimpleBlockBasedAllocator
 
 // no aliases
 
-}
 }
 
 #endif

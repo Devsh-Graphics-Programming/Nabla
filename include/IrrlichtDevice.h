@@ -7,10 +7,6 @@
 #define __NBL_I_NABLA_DEVICE_H_INCLUDED__
 
 #include "dimension2d.h"
-#include "IVideoDriver.h"
-#include "EDriverTypes.h"
-#include "EDeviceTypes.h"
-#include "IEventReceiver.h"
 #include "ICursorControl.h"
 #include "ITimer.h"
 #include "IOSOperator.h"
@@ -22,7 +18,6 @@
 namespace nbl
 {
 	class ILogger;
-	class IEventReceiver;
 
 	//! The Irrlicht device. You can create it with createDevice() or createDeviceEx().
 	/** This is the most important class of the Irrlicht Engine. You can
@@ -74,26 +69,6 @@ namespace nbl
 		\param pauseTimer: If true, pauses the device timer while sleeping
 		*/
 		virtual void sleep(uint32_t timeMs, bool pauseTimer=false) = 0;
-
-		//! Provides access to the video driver for drawing 3d and 2d geometry.
-		/** \return Pointer the video driver. */
-		virtual video::IVideoDriver* getVideoDriver() = 0;
-
-		//! Provides access to the virtual file system.
-		/** \return Pointer to the file system. */
-		virtual io::IFileSystem* getFileSystem() = 0;
-
-		//! Provides access to the scene manager.
-		/** \return Pointer to the scene manager. */
-		virtual scene::ISceneManager* getSceneManager() = 0;
-
-		//! Provides access to the cursor control.
-		/** \return Pointer to the mouse cursor control interface. */
-		virtual gui::ICursorControl* getCursorControl() = 0;
-
-		//! Provides access to the message logger.
-		/** \return Pointer to the logger. */
-		virtual ILogger* getLogger() = 0;
 
 		//! Provides access to the operation system operator object.
 		/** The OS operator provides methods for
@@ -147,27 +122,6 @@ namespace nbl
 		/** \return Color format of the window. */
 		virtual asset::E_FORMAT getColorFormat() const = 0;
 
-		//! Notifies the device that it should close itself.
-		/** IrrlichtDevice::run() will always return false after closeDevice() was called. */
-		virtual void closeDevice() = 0;
-
-		//! Get the version of the engine.
-		/** The returned string
-		will look like this: "1.2.3" or this: "1.2".
-		\return String which contains the version. */
-		virtual const char* getVersion() const = 0;
-
-		//! Sets a new user event receiver which will receive events from the engine.
-		/** Return true in IEventReceiver::OnEvent to prevent the event from continuing along
-		the chain of event receivers. The path that an event takes through the system depends
-		on its type. See nbl::EEVENT_TYPE for details.
-		\param receiver New receiver to be used. */
-		virtual void setEventReceiver(IEventReceiver* receiver) = 0;
-
-		//! Provides access to the current event receiver.
-		/** \return Pointer to the current event receiver. Returns 0 if there is none. */
-		virtual IEventReceiver* getEventReceiver() = 0;
-
 		//! Sends a user created event to the engine.
 		/** Is is usually not necessary to use this. However, if you
 		are using an own input library for example for doing joystick
@@ -206,49 +160,6 @@ namespace nbl
 				is defined, false if joysticks are not supported or support is compiled out.
 		*/
 		virtual bool activateJoysticks(core::vector<SJoystickInfo>& joystickInfo) =0;
-
-		//! Remove messages pending in the system message loop
-		/** This function is usually used after messages have been buffered for a longer time, for example
-		when loading a large scene. Clearing the message loop prevents that mouse- or buttonclicks which users
-		have pressed in the meantime will now trigger unexpected actions in the gui. <br>
-		So far the following messages are cleared:<br>
-		Win32: All keyboard and mouse messages<br>
-		Linux: All keyboard and mouse messages<br>
-		All other devices are not yet supported here.<br>
-		The function is still somewhat experimental, as the kind of messages we clear is based on just a few use-cases.
-		If you think further messages should be cleared, or some messages should not be cleared here, then please tell us. */
-		virtual void clearSystemMessages() = 0;
-
-		//! Get the type of the device.
-		/** This allows the user to check which windowing system is currently being
-		used. */
-		virtual E_DEVICE_TYPE getType() const = 0;
-
-		//! Check if a driver type is supported by the engine.
-		/** Even if true is returned the driver may not be available
-		for a configuration requested when creating the device. */
-		static bool isDriverSupported(video::E_DRIVER_TYPE driver)
-		{
-			switch (driver)
-			{
-				case video::EDT_NULL:
-					return true;
-				case video::EDT_OPENGL:
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-					return true;
-#else
-					return false;
-#endif
-				default:
-					return false;
-			}
-		}
-
-        virtual asset::IAssetManager* getAssetManager();
-        virtual const asset::IAssetManager* getAssetManager() const;
-
-    private:
-        core::smart_refctd_ptr<asset::IAssetManager> m_assetMgr;
 	};
 
 } // end namespace nbl

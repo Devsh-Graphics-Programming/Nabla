@@ -7,9 +7,7 @@
 
 #include "IGPUBuffer.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class ILogicalDevice;
@@ -17,7 +15,8 @@ class ILogicalDevice;
 class GPUMemoryAllocatorBase
 {
     protected:
-        ILogicalDevice*   mDriver;
+        ILogicalDevice* mDriver;
+        // TODO: figure out if this needs to be some sort of a deferred thing with a cmbuffer/event or something
         void            copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen);
 
         GPUMemoryAllocatorBase(ILogicalDevice* inDriver) : mDriver(inDriver) {}
@@ -26,7 +25,6 @@ class GPUMemoryAllocatorBase
         ILogicalDevice*    getDriver() noexcept {return mDriver;}
 };
 
-}
 }
 
 

@@ -11,8 +11,7 @@
 #include "nbl/video/COpenGLSemaphore.h"
 #include "nbl/video/debug/debug.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IOpenGL_LogicalDevice;
@@ -27,7 +26,7 @@ public:
     using FunctionTableType = FunctionTableType_;
 
     // should be called by GL/GLES backend's impl of vkQueuePresentKHR
-    inline bool present(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore** sems)
+    inline bool present(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore*const *const sems)
     {
         if (_imgIx >= m_params.minImageCount)
             return false;
@@ -150,7 +149,7 @@ private:
             base_t::start();
         }
 
-        void requestBlit(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore** sems)
+        void requestBlit(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore*const *const sems)
         {
             auto raii_handler = base_t::createRAIIDispatchHandler();
 
@@ -288,7 +287,6 @@ private:
     uint32_t m_imgIx = 0u;
 };
 
-}
 }
 
 #endif

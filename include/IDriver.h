@@ -8,11 +8,10 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/video/asset_traits.h"
-//#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
+#if 0
 namespace nbl
 {
-	class IrrlichtDevice;
 
 namespace video
 {
@@ -223,24 +222,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! Low level function used to implement the above, use with caution
         virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
-		//!
-		inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
-		{
-			auto retval = createDeviceLocalGPUBufferOnDedMem(size);
-
-			//updateBufferRangeViaStagingBuffer(retval.get(), 0u, size, data);
-
-			return retval;
-		}
-
-
-		//! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
-        virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) { return nullptr; }
-
-
-        //! Creates an Image (@see ICPUImage)
-        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params)
-		{ return nullptr; }
 
 		//! The counterpart of @see bindBufferMemory for images
 		virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
@@ -269,110 +250,12 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 			return retval;
 		}
 
-
-		//! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
-		virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params)
-		{ return nullptr; }
-
-
-		//! Create a sampler object to use with images
-		virtual core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) { return nullptr; }
-			
-
-		//! Create a shader from SPIR-V or GLSL source stored in a ICPUShader (@see ICPUShader)
-        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) { return nullptr; }
-
-		//! Specialize the plain shader (@see ICPUSpecializedShader)
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) { return nullptr; }
-
-		//! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) { return nullptr; }
-
-		//! Create a pipeline layout (@see ICPUPipelineLayout)
-        virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
-            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
-        ) {
-            return nullptr;
-        }
-
-		//! Create a renderpass independent graphics pipeline (@see ICPURenderpassIndependentPipeline)
-        virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
-            const asset::SVertexInputParams& _vertexInputParams,
-            const asset::SBlendParams& _blendParams,
-            const asset::SPrimitiveAssemblyParams& _primAsmParams,
-            const asset::SRasterizationParams& _rasterParams
-        )
-        {
-            return nullptr;
-        }
-
-		//! Create a descriptor set with missing descriptors
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout)
-        {
-            return nullptr;
-        }
-
-        virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
-        )
-        {
-            return nullptr;
-        }
-
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
-/*
-        //!
-        virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer.get();}
-
-        //!
-        virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer.get();}
-
-        //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
-        inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
-        {
-            for (size_t uploadedSize=0; uploadedSize<size;)
-            {
-                const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
-                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
-
-                defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
-                // keep trying again
-                if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
-                    continue;
-
-                // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-                if (defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
-                    this->flushMappedMemoryRanges({{defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize}});
-                // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-                this->copyBuffer(defaultUploadBuffer.get()->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
-                // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence(true));
-                uploadedSize += subSize;
-            }
-            // TODO: for other threads to play nice.
-            //glFlush();
-        }
-*/
-
-		//! Fill out the descriptor sets with descriptors
-		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
-
 
 		//!
 		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 	//====================== THIS STUFF NEEDS A REWRITE =====================
-        //! Creates a framebuffer object with no attachments
-        virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
 
 
         //these will have to be created by a query pool anyway
@@ -381,26 +264,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
 
-		//! Utility function to convert all your CPU asset data into GPU objects ready for use
-        // With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
-
-        template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr);
-        template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr)
-        {
-            core::SRange<const core::smart_refctd_ptr<asset::IAsset>> tmp(
-                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.begin()), // I know what I'm doing
-                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.end()) // I know what I'm doing
-            );
-            return getGPUObjectsFromAssets<AssetType>(tmp,_converter);
-        }
-        //!
-        template<typename AssetType>
-        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const AssetType* const* const _begin, const AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
-		//! 
-		template<typename AssetType>
-		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 
 	//====================== THIS STUFF SHOULD BE IN A video::ICommandBuffer =====================
         //!
@@ -417,23 +280,11 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 		//!
 		virtual void copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) {}
-
-	/** https://github.com/buildaworldnet/IrrlichtBAW/issues/339 would need an implicit (cached) FBO under OpenGL to work
-		//!
-		virtual void blitImage(	IGPUImage* srcImage, IGPUImage::E_IMAGE_LAYOUT srcLayout,
-								IGPUImage* dstImage, IGPUImage::E_IMAGE_LAYOUT dstLayout,
-								uint32_t regionCount, const IGPUImage::SImageBlit* pRegions, VkFilter filter) {}
-
-		//!
-		virtual void resolveImage(	IGPUImage* srcImage, IGPUImage::E_IMAGE_LAYOUT srcLayout,
-									IGPUImage* dstImage, IGPUImage::E_IMAGE_LAYOUT dstLayout,
-									uint32_t regionCount, const IGPUImage::SImageResolve* pRegions) {}
-	*/
 };
 
 } // end namespace video
 } // end namespace nbl
-
+#endif
 
 #endif
 

@@ -29,8 +29,7 @@
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
 #endif
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -778,41 +777,55 @@ protected:
         }
         IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout)
         {
-            if (_waitAll)
-            {
-                using clock_t = std::chrono::high_resolution_clock;
+            using clock_t = std::chrono::high_resolution_clock;
+            const auto start = clock_t::now();
+            const auto end = start+std::chrono::nanoseconds(_timeout);
 
-                auto start = clock_t::time_point();
-                for (uint32_t i = 0u; i < _count; ++i)
+            // poll once with zero timeout
+            uint64_t timeout = 0ull;
+            while (true)
+            {
+                for (uint32_t i=0u; i<_count; )
                 {
-                    COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
-                    IGPUFence::E_STATUS status;
-                    
-                    uint64_t timeout = _timeout;
-                    if (start == clock_t::time_point())
-                        start = clock_t::now();
-                    else
+                    const auto now = clock_t::now();
+                    if (timeout)
                     {
-                        const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
-                        if (dt >= timeout)
+                        if(now>=end)
                             return IGPUFence::ES_TIMEOUT;
-                        timeout -= dt;
+                        else if (_waitAll) // all fences have to get signalled anyway so no use round robining
+                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(end-now).count();
+                        else if (i==0u) // if we're only looking for one to succeed then poll with increasing timeouts until deadline
+                            timeout <<= 1u;
                     }
-
-                    status = fence->wait(&gl, timeout);
-                    if (status != IGPUFence::ES_SUCCESS)
-                        return status;
+                    const auto result = static_cast<COpenGLFence*>(_fences[i])->wait(&gl,timeout);
+                    switch (result)
+                    {
+                        case IGPUFence::ES_SUCCESS:
+                            if (!_waitAll)
+                                return result;
+                            break;
+                        case IGPUFence::ES_TIMEOUT:
+                        case IGPUFence::ES_NOT_READY:
+                            if (_waitAll) // keep polling this fence until success or overall timeout
+                            {
+                                timeout = 0x45u; // to make it start computing and using timeouts
+                                continue;
+                            }
+                            break;
+                        case IGPUFence::ES_ERROR:
+                            return result;
+                            break;
+                    }
+                    i++;
                 }
-                return IGPUFence::ES_SUCCESS;
+                if (_waitAll)
+                    return IGPUFence::ES_SUCCESS;
+                else if (!timeout)
+                    timeout = 256u>>1u; // want ~1/4 us on second try
             }
-            else
-            {
-                for (uint32_t i = 0u; i < _count; ++i)
-                {
-                    COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
-                    return fence->wait(&gl, _timeout);
-                }
-            }
+            // everything below this line is just to make the compiler shut up
+            assert(false);
+            return IGPUFence::ES_ERROR;
         }
 
         // currently used by shader programs only
@@ -858,7 +871,6 @@ public:
     virtual void destroySync(GLsync sync) = 0;
 };
 
-}
 }
 
 #endif

@@ -8,11 +8,11 @@
 
 #include "ILogger.h"
 #include "nbl_os.h"
-#include "IEventReceiver.h"
 
 namespace nbl
 {
 
+#if 0
 //! Class for logging messages, warnings and errors to stdout
 class CLogger : public ILogger
 {
@@ -57,6 +57,7 @@ private:
 	ELOG_LEVEL LogLevel;
 	IEventReceiver* Receiver;
 };
+#endif
 
 } // end namespace
 

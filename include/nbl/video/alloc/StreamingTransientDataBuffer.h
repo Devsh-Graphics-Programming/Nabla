@@ -12,17 +12,16 @@
         static inline void operator delete[](void* ptr)              noexcept {Base::operator delete[](ptr);}\
         static inline void operator delete(void* ptr, size_t size)   noexcept {Base::operator delete(ptr,size);}\
         static inline void operator delete[](void* ptr, size_t size) noexcept {Base::operator delete[](ptr,size);}
+
+#include "nbl/core/core.h"
+
 #include <cstring>
 
-#include "nbl/core/IReferenceCounted.h"
 #include "nbl/video/alloc/SubAllocatedDataBuffer.h"
 #include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
-#include "IDriverFence.h"
 
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 
@@ -192,7 +191,6 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
 };
 
 
-}
 }
 
 #endif

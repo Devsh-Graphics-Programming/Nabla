@@ -6,8 +6,7 @@
 #include "nbl/core/EventDeferredHandler.h"
 #include "nbl/core/BaseClasses.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IGPUFence : public core::IReferenceCounted, public IBackendObject
@@ -122,7 +121,6 @@ public:
 template<class Functor>
 using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
-}
 }
 
 #endif

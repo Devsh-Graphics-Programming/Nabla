@@ -107,8 +107,8 @@ private:
     {
         auto lock = createLock();
         m_quit = true;
-        lock.unlock();
         m_cvar.notify_one();
+        lock.unlock();
 
         if (m_thread.joinable())
             m_thread.join();

@@ -9,6 +9,7 @@
 namespace nbl
 {
 
+#if 0
 	CLogger::CLogger(IEventReceiver* r)
 		: LogLevel(ELL_INFORMATION), Receiver(r)
 	{
@@ -99,7 +100,7 @@ namespace nbl
 	{
 		Receiver = r;
 	}
-
+#endif
 
 } // end namespace nbl
 

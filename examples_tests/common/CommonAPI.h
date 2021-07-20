@@ -33,6 +33,7 @@ public:
 	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name)
 	{
 		using namespace nbl;
+		using namespace nbl::video;
 		InitOutput<sc_image_count> result = {};
 		result.window = CWindowT::create(window_width, window_height, ui::IWindow::ECF_NONE);
 
@@ -70,7 +71,7 @@ public:
 
 		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass);
 
-		result.commandPool = result.logicalDevice->createCommandPool(familyIndex, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
+		result.commandPool = result.logicalDevice->createCommandPool(familyIndex,IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
 		result.physicalDevice = std::move(gpu);
 
@@ -180,19 +181,17 @@ public:
 
 	static void Submit(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer>* cmdbuf,
+		nbl::video::IGPUCommandBuffer* cmdbuf,
 		nbl::video::IGPUQueue* queue,
 		nbl::video::IGPUSemaphore* imgAcqSemaphore,
 		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
-		size_t imageCount,
-		uint32_t imgNum)
+		nbl::video::IGPUFence* fence=nullptr)
 	{
 		using namespace nbl;
 		video::IGPUQueue::SSubmitInfo submit;
 		{
-			auto* cb = cmdbuf[imgNum].get();
 			submit.commandBufferCount = 1u;
-			submit.commandBuffers = &cb;
+			submit.commandBuffers = &cmdbuf;
 			video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
 			submit.signalSemaphoreCount = 1u;
 			submit.pSignalSemaphores = &signalsem;
@@ -202,7 +201,7 @@ public:
 			submit.pWaitSemaphores = &waitsem;
 			submit.pWaitDstStageMask = &dstWait;
 
-			queue->submit(1u, &submit, nullptr);
+			queue->submit(1u,&submit,fence);
 		}
 	}
 

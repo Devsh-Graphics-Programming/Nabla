@@ -10,8 +10,7 @@
 
 #include <type_traits>
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 //TODO move and possibly rename
@@ -201,7 +200,12 @@ public:
     virtual void begin(uint32_t _flags)
     {
         assert(m_state != ES_PENDING);
-        assert(m_state != ES_RECORDING);
+        /* TODO: use the declarations_fix branch, and have a smartpointer to the pool in ICommandBuffer (or in IGPUCommandBuffer) and check for the reset condition violation
+        if (m_pool->getFlags()&RESET_COMMAND_BUFFER==0u)
+        {
+            assert(m_state != ES_INITIAL);
+        }
+        */
 
         m_state = ES_RECORDING;
         m_recordingFlags = _flags;
@@ -223,11 +227,11 @@ public:
         m_state = ES_EXECUTABLE;
     }
 
-    virtual bool bindIndexBuffer(buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
+    virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
     virtual bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) = 0;
     virtual bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) = 0;
-    virtual bool drawIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
-    virtual bool drawIndexedIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
+    virtual bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
+    virtual bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
 
     virtual bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const SViewport* pViewports) = 0;
 
@@ -236,14 +240,14 @@ public:
 
     virtual bool setBlendConstants(const float blendConstants[4]) = 0;
 
-    virtual bool copyBuffer(buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const SBufferCopy* pRegions) = 0;
-    virtual bool copyImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) = 0;
-    virtual bool copyBufferToImage(buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
-    virtual bool copyImageToBuffer(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
-    virtual bool blitImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) = 0;
-    virtual bool resolveImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const SImageResolve* pRegions) = 0;
+    virtual bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const SBufferCopy* pRegions) = 0;
+    virtual bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) = 0;
+    virtual bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
+    virtual bool copyImageToBuffer(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
+    virtual bool blitImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) = 0;
+    virtual bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
-    virtual bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t** pBuffers, const size_t* pOffsets) = 0;
+    virtual bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t*const *const pBuffers, const size_t* pOffsets) = 0;
 
     virtual bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) = 0;
     virtual bool setDepthBounds(float minDepthBounds, float maxDepthBounds) = 0;
@@ -252,13 +256,13 @@ public:
     virtual bool setStencilReference(E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) = 0;
 
     virtual bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) = 0;
-    virtual bool dispatchIndirect(buffer_t* buffer, size_t offset) = 0;
+    virtual bool dispatchIndirect(const buffer_t* buffer, size_t offset) = 0;
     virtual bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) = 0;
 
     virtual bool setEvent(event_t* event, const SDependencyInfo& depInfo) = 0;
     virtual bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
 
-    virtual bool waitEvents(uint32_t eventCount, event_t** pEvents, const SDependencyInfo* depInfos) = 0;
+    virtual bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) = 0;
 
     virtual bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<E_DEPENDENCY_FLAGS> dependencyFlags,
@@ -273,8 +277,8 @@ public:
     virtual bool setDeviceMask(uint32_t deviceMask) { m_deviceMask = deviceMask; return true; }
 
     //those two instead of bindPipeline(E_PIPELINE_BIND_POINT, pipeline)
-    virtual bool bindGraphicsPipeline(graphics_pipeline_t* pipeline) = 0;
-    virtual bool bindComputePipeline(compute_pipeline_t* pipeline) = 0;
+    virtual bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) = 0;
+    virtual bool bindComputePipeline(const compute_pipeline_t* pipeline) = 0;
 
     //virtual bool resetQueryPool(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;
     //virtual bool beginQuery(IGPUQueryPool* queryPool, uint32_t entry, std::underlying_type_t<E_QUERY_CONTROL_FLAGS> flags) = 0;
@@ -283,10 +287,10 @@ public:
     //virtual bool writeTimestamp(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
-    virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        descriptor_set_t** pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr
+    virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        const descriptor_set_t*const *const pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr
     ) = 0;
-    virtual bool pushConstants(pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
+    virtual bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
 
     virtual bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
     virtual bool clearDepthStencilImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
@@ -294,7 +298,7 @@ public:
     virtual bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) = 0;
     virtual bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) = 0;
 
-    virtual bool executeCommands(uint32_t count, cmdbuf_t** cmdbufs)
+    virtual bool executeCommands(uint32_t count, cmdbuf_t*const *const cmdbufs)
     {
         for (uint32_t i = 0u; i < count; ++i)
         {
@@ -323,6 +327,6 @@ protected:
     uint32_t m_deviceMask = ~0u;
 };
 
-}}
+}
 
 #endif

@@ -15,6 +15,7 @@ nothing fancy, just to show that Irrlicht links fine
 
 using namespace nbl;
 
+// TODO: replace with CFileLogger logs to .txt files, derived from ILogger
 inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
 {
 	using namespace nbl;
@@ -42,6 +43,7 @@ int main()
 
 	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
 
+	// TODO: API choice once its figured out in example 49, then copy that code here and remove it there
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;

@@ -1192,14 +1192,6 @@ public:
 	uint32_t MaxGPUWaitTimeout;
 	//! Gives the upper and lower bound on warp/wavefront/SIMD-lane size
 	uint32_t InvocationSubGroupSize[2];
-	//! Minimal and maximal supported thickness for lines without smoothing
-	float DimAliasedLine[2];
-	//! Minimal and maximal supported thickness for points without smoothing
-	float DimAliasedPoint[2];
-	//! Minimal and maximal supported thickness for lines with smoothing
-	float DimSmoothedLine[2];
-	//! Minimal and maximal supported thickness for points with smoothing
-	float DimSmoothedPoint[2];
 	//!
 	uint32_t MaxColorAttachments;
 

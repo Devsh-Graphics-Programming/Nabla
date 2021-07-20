@@ -166,87 +166,6 @@ bool COpenGLDriver::initDriver(CIrrDeviceStub* device)
 	return true;
 }
 
-bool COpenGLDriver::initAuxContext()
-{
-	if (!AuxContexts) // opengl dead and never inited
-		return false;
-
-    bool retval = false;
-    const std::lock_guard<std::mutex> lock(glContextMutex);
-    SAuxContext* found = getThreadContext_helper(true,std::thread::id());
-    if (found)
-    {
-        eglBindAPI(EGL_OPENGL_API);
-        retval = eglMakeCurrent(Display, found->surface, found->surface, found->ctx);
-        if (retval)
-            found->threadId = std::this_thread::get_id();
-    }
-    return retval;
-}
-
-bool COpenGLDriver::deinitAuxContext()
-{
-    bool retval = false;
-    const std::lock_guard<std::mutex> lock(glContextMutex);
-    SAuxContext* found = getThreadContext_helper(true);
-    if (found)
-    {
-        {
-            const core::unlock_guard<std::mutex> lock(glContextMutex);
-            cleanUpContextBeforeDelete();
-        }
-        retval = eglMakeCurrent(Display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        if (retval)
-            found->threadId = std::thread::id();
-    }
-    return retval;
-}
-
-
-//! destructor
-COpenGLDriver::~COpenGLDriver()
-{
-	if (!AuxContexts) //opengl dead and never initialized in the first place
-		return;
-
-    quitEventHandler.execute();
-    cleanUpContextBeforeDelete();
-
-    //! Spin wait for other contexts to deinit
-    //! @TODO: Change trylock to semaphore
-	while (true)
-    {
-        while (!glContextMutex.try_lock()) {}
-
-        bool allDead = true;
-        for (size_t i=1; i<=Params.AuxGLContexts; i++)
-        {
-            if (AuxContexts[i].threadId==std::thread::id())
-                continue;
-
-            // found one alive
-            glContextMutex.unlock();
-            allDead = false;
-            break;
-        }
-
-        if (allDead)
-            break;
-    }
-
-    for (size_t i = 1; i <= Params.AuxGLContexts; i++)
-    {
-        eglDestroyContext(Display, AuxContexts[i].ctx);
-        eglDestroySurface(Display, AuxContexts[i].surface);
-    }
-    eglDestroyContext(Display, AuxContexts[0].ctx);
-    eglDestroySurface(Display, AuxContexts[0].surface);
-
-    _NBL_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
-    glContextMutex.unlock();
-}
-
-
 // -----------------------------------------------------------------------
 // METHODS
 // -----------------------------------------------------------------------
@@ -279,77 +198,6 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
     return 0u;
 #endif
 }
-
-const COpenGLDriver::SAuxContext* COpenGLDriver::getThreadContext(const std::thread::id& tid)
-{
-    const std::lock_guard<std::mutex> lock(glContextMutex);
-    for (size_t i=0; i<=Params.AuxGLContexts; i++)
-    {
-        if (AuxContexts[i].threadId==tid)
-            return AuxContexts+i;
-    }
-    return NULL;
-}
-
-COpenGLDriver::SAuxContext* COpenGLDriver::getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid)
-{
-    if (!alreadyLockedMutex)
-        glContextMutex.lock();
-    for (size_t i=0; i<=Params.AuxGLContexts; i++)
-    {
-        if (AuxContexts[i].threadId==tid)
-        {
-            if (!alreadyLockedMutex)
-                glContextMutex.unlock();
-            return AuxContexts+i;
-        }
-    }
-    if (!alreadyLockedMutex)
-        glContextMutex.unlock();
-    return NULL;
-}
-
-void COpenGLDriver::cleanUpContextBeforeDelete()
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-    found->CurrentRendertargetSize = Params.WindowSize;
-    extGlBindFramebuffer(GL_FRAMEBUFFER, 0);
-    if (found->CurrentFBO)
-    {
-        found->CurrentFBO->drop();
-        found->CurrentFBO = NULL;
-    }
-
-    removeAllFrameBuffers();
-
-    extGlBindVertexArray(0);
-    for (auto& vao : found->VAOMap)
-    {
-        extGlDeleteVertexArrays(1, &vao.second.GLname);
-    }
-    found->VAOMap.clear();
-
-    extGlUseProgram(0);
-    extGlBindProgramPipeline(0);
-    for (auto& ppln : found->GraphicsPipelineMap)
-        extGlDeleteProgramPipelines(1, &ppln.second.GLname);
-    found->GraphicsPipelineMap.clear();
-
-    //force drop of all all grabbed (through smart_refctd_ptr) resources (descriptor sets, buffers, program pipeline)
-    found->currentState = SOpenGLState();
-    found->nextState = SOpenGLState();
-    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-        found->effectivelyBoundDescriptors.descSets[i] = SOpenGLState::SDescSetBnd();
-    found->pushConstantsStateCompute.layout = nullptr;
-    found->pushConstantsStateGraphics.layout = nullptr;
-
-    glFinish();
-}
-
-
 bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 {
 	if (!AuxContexts) // opengl dead and never inited
@@ -479,42 +327,6 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 }
 
 
-//! presents the rendered scene on the screen, returns false if failed
-bool COpenGLDriver::endScene()
-{
-	CNullDriver::endScene();
-
-    auto ctx = getThreadContext_helper(false);
-    assert(ctx->ID == 0); // other ones have pbuffer surface
-
-    eglSwapBuffers(Display, ctx->surface);
-
-	ctx->freeUpVAOCache(false);
-    ctx->freeUpGraphicsPipelineCache(false);
-
-	return false;
-}
-
-
-//! init call for rendering start
-bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
-		const SExposedVideoData& videoData, core::rect<int32_t>* sourceRect)
-{
-	CNullDriver::beginScene(backBuffer, zBuffer, color, videoData, sourceRect);
-
-    if (zBuffer)
-    {
-        clearZBuffer(0.0);
-    }
-
-    if (backBuffer)
-    {
-        core::vectorSIMDf colorf(color.getRed(),color.getGreen(),color.getBlue(),color.getAlpha());
-        colorf /= 255.f;
-        clearScreen(Params.Doublebuffer ? ESB_BACK_LEFT:ESB_FRONT_LEFT,colorf.pointer);
-    }
-	return true;
-}
 
 
 const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedGLSLExtensions() const

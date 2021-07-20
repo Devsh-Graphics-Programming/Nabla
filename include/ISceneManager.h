@@ -53,11 +53,6 @@ namespace scene
 	class ISceneManager : public virtual core::IReferenceCounted
 	{
 	public:
-		//! Get the video driver.
-		/** \return Pointer to the video Driver.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual video::IVideoDriver* getVideoDriver() = 0;
-
 		//! Adds a camera scene node to the scene tree and sets it as active camera.
 		/** This camera does not react on user input like for example the one created with
 		addCameraSceneNodeFPS(). If you want to move or animate it, use animators or the
