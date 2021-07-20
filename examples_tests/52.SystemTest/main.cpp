@@ -8,7 +8,7 @@
 #include <nabla.h>
 #include <nbl/ui/CWindowManagerWin32.h>
 #include <nbl/system/ISystem.h>
-#include <CLogger.h>
+#include "nbl/system/CStdoutLogger.h"
 using namespace nbl;
 using namespace core;
 using namespace ui;
@@ -20,64 +20,68 @@ using namespace os;
 #define LOG(...) printf(__VA_ARGS__); printf("\n");
 class DemoEventCallback : public IWindow::IEventCallback
 {
+public:
+	DemoEventCallback(smart_refctd_ptr<system::ILogger>&& logger) : m_logger(std::move(logger)) {}
+private:
 	void onWindowShown_impl() override 
 	{
-		LOG("Window Shown");
+		m_logger->log("Window Shown", system::ILogger::ELL_INFO);
 	}
 	void onWindowHidden_impl() override 
 	{
-		LOG("Window hidden");
+		m_logger->log("Window hidden", system::ILogger::ELL_INFO);
 	}
 	void onWindowMoved_impl(int32_t x, int32_t y) override
 	{
-		LOG("Window window moved to { %d, %d }", x, y);
+		m_logger->log("Window window moved to { %d, %d }", system::ILogger::ELL_INFO, x, y);
 	}
 	void onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
-		LOG("Window resized to { %u, %u }", w, h);
-
+		m_logger->log("Window resized to { %u, %u }", system::ILogger::ELL_INFO, w, h);
 	}
 	void onWindowMinimized_impl() override
 	{
-		LOG("Window minimized");
+		m_logger->log("Window minimized", system::ILogger::ELL_INFO);
 	}
 	void onWindowMaximized_impl() override
 	{
-		LOG("Window maximized");
+		m_logger->log("Window maximized", system::ILogger::ELL_INFO);
 	}
 	void onGainedMouseFocus_impl() override
 	{
-		LOG("Window gained mouse focus");
+		m_logger->log("Window gained mouse focus", system::ILogger::ELL_INFO);
 	}
 	void onLostMouseFocus_impl() override
 	{
-		LOG("Window lost mouse focus");
+		m_logger->log("Window lost mouse focus", system::ILogger::ELL_INFO);
 	}
 	void onGainedKeyboardFocus_impl() override
 	{
-		LOG("Window gained keyboard focus");
+		m_logger->log("Window gained keyboard focus", system::ILogger::ELL_INFO);
 	}
 	void onLostKeyboardFocus_impl() override
 	{
-		LOG("Window lost keyboard focus");
+		m_logger->log("Window lost keyboard focus", system::ILogger::ELL_INFO);
 	}
 
 	void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) override
 	{
-		LOG("A mouse has been connected");
+		m_logger->log("A mouse has been connected", system::ILogger::ELL_INFO);
 	}
 	void onMouseDisconnected_impl(IMouseEventChannel* mch) override
 	{
-		LOG("A mouse has been disconnected");
+		m_logger->log("A mouse has been disconnected", system::ILogger::ELL_INFO);
 	}
 	void onKeyboardConnected_impl(core::smart_refctd_ptr<IKeyboardEventChannel>&& kbch) override
 	{
-		LOG("A keyboard has been connected");
+		m_logger->log("A keyboard has been connected", system::ILogger::ELL_INFO);
 	}
 	void onKeyboardDisconnected_impl(IKeyboardEventChannel* mch) override
 	{
-		LOG("A keyboard has been disconnected");
+		m_logger->log("A keyboard has been disconnected", system::ILogger::ELL_INFO);
 	}
+private:
+	smart_refctd_ptr<system::ILogger> m_logger;
 };
 
 int main()
@@ -95,7 +99,7 @@ int main()
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
-	params.callback = make_smart_refctd_ptr<DemoEventCallback>();
+	params.callback = make_smart_refctd_ptr<DemoEventCallback>(make_smart_refctd_ptr<system::CStdoutLogger>());
 	auto window = winManager->createWindow(std::move(params));
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;

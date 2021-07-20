@@ -4,9 +4,14 @@
 #include <cassert>
 #include <sstream>
 #include <iomanip>
+#include <regex>
+#include <cstdarg>
+
+#include "nbl/core/IReferenceCounted.h"
+
 namespace nbl::system
 {
-	class ILogger
+	class ILogger : public core::IReferenceCounted
 	{
 	public:
 		enum E_LOG_LEVEL : uint8_t
@@ -19,46 +24,65 @@ namespace nbl::system
 			ELL_ERROR = 16
 		};
 
-		virtual void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel, ...) = 0;
-		virtual void log(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel, ...) = 0;
+		virtual void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...) = 0;
+		virtual void log(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...) = 0;
+
 	protected:
 		virtual std::string constructLogString(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
 		{
 			using namespace std::literals;
+			using namespace std::chrono;
 			auto currentTime = std::chrono::system_clock::now();
 			const std::time_t t = std::chrono::system_clock::to_time_t(currentTime);
-			std::stringstream ss;
-			ss << '[' << std::put_time(std::localtime(&t), "%F %T.\n") << ']';
+			
+			// Since there is no real way in c++ to get current time with microseconds, this is my weird approach
+			auto time_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+			auto time_since_epoch_s = duration_cast<seconds>(system_clock::now().time_since_epoch());
+			time_since_epoch -= duration_cast<microseconds>(time_since_epoch_s);
+
+			// This while is for the microseconds which are less that 6 digits long to be aligned with the others
+			while (time_since_epoch.count() / 100000 == 0) time_since_epoch *= 10;
+
+			auto time = std::localtime(&t);
+
+			constexpr size_t DATE_STR_LENGTH = 28;
+			std::string timeStr(DATE_STR_LENGTH, '\0');
+			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", time->tm_mday, time->tm_mon, time->tm_year, time->tm_hour, time->tm_min, time->tm_sec, (int)time_since_epoch.count());
+			
+			std::string messageTypeStr;
 			switch (logLevel)
 			{
 			case ELL_DEBUG:
-				ss << "[DEBUG]: ";
+				messageTypeStr = "[DEBUG]";
 				break;
 			case ELL_INFO:
-				ss << "[INFO]: ";
+				messageTypeStr = "[INFO]";
 				break;
 			case ELL_WARNING:
-				ss << "[WARNING]: ";
+				messageTypeStr = "[WARNING]";
 				break;
 			case ELL_PERFORMANCE:
-				ss << "[PERFORMANCE]: ";
+				messageTypeStr = "[PERFORMANCE]";
 				break;
 			case ELL_ERROR:
-				ss << "[ERROR]: ";
+				messageTypeStr = "[ERROR]";
 				break;
 			case ELL_NONE:
 				return "";
 			}
 
-			std::string message(fmtString); 
-			assert(false); //TODO: calculate the length of the output message
+			size_t newSize = vsnprintf(nullptr, 0, fmtString.data(), l);
+			std::string message(newSize, '\0'); 
 			vsprintf(message.data(), fmtString.data(), l);
-			ss << message << '\n';
-			return ss.str();
+			
+			std::string out_str(timeStr.length() + messageTypeStr.length() + message.length() + 3, '\0');
+			sprintf(out_str.data(), "%s%s: %s\n", timeStr.data(), messageTypeStr.data(), message.data());
+ 			return out_str;
 		}
 		virtual std::wstring constructLogWstring(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
 		{
-			assert(false);
+			assert(false); // TODO
+			return L"";
 		}
 	};
 }
