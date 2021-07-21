@@ -103,6 +103,9 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             return (caps&EMCF_COHERENT)==0u;
         }
 
+        //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
+        virtual bool isDedicated() const = 0;
+
         //! Returns the size of the memory allocation
         virtual size_t getAllocationSize() const = 0;
 
@@ -112,10 +115,10 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //!
         inline E_MAPPING_CPU_ACCESS_FLAG getCurrentMappingCaps() const {return currentMappingAccess;}
 
-        //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
-        virtual bool isDedicated() const = 0;
-
         inline bool isCurrentlyMapped() const { return mappedPtr != nullptr; }
+
+        //! Only valid if `isCurrentlyMapped` is true
+        inline const MemoryRange& getMappedRange() const { return mappedRange; }
 
         //! Gets internal pointer.
         /** It is best you use a GPU Fence to ensure any operations that you have queued up which are or will be writing to this memory

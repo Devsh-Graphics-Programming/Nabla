@@ -56,7 +56,7 @@ class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
 
 }
 
-#include "IDriver.h"
+#include "nbl/video/ILogicalDevice.h"
 
 namespace nbl::video
 {

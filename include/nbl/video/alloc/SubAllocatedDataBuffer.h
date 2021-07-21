@@ -21,10 +21,10 @@ template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunct
 class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
     public:
-        typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType  GPUBufferAllocator;
+        typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType GPUBufferAllocator;
         typedef typename HeterogenousMemoryAddressAllocator::HostAllocatorType  CPUAllocator;
-        typedef typename HeterogenousMemoryAddressAllocator::size_type  size_type;
-        static constexpr size_type invalid_address                                          = HeterogenousMemoryAddressAllocator::invalid_address;
+        typedef typename HeterogenousMemoryAddressAllocator::size_type          size_type;
+        static constexpr size_type invalid_address                              = HeterogenousMemoryAddressAllocator::invalid_address;
 
     private:
         #ifdef _NBL_DEBUG
@@ -32,12 +32,12 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         #endif // _NBL_DEBUG
         typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor> ThisType;
 
-        template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
-        template<class,class=void> struct is_std_get_0_defined                                   : std::false_type {};
-        template<class U> struct is_std_get_0_defined<U,std::void_t<std_get_0<U> > > : std::true_type {};
+        template<class U> using buffer_type = decltype(U::buffer);
+        template<class,class=void> struct has_buffer_member : std::false_type {};
+        template<class U> struct has_buffer_member<U,std::void_t<buffer_type<U>> > : std::is_same<buffer_type<U>,core::smart_refctd_ptr<IGPUBuffer>> {};
     protected:
         HeterogenousMemoryAddressAllocator mAllocator;
-        ILogicalDevice* mDevice;
+        ILogicalDevice* mDevice; // TODO: smartpointer backlink
 
         template<typename... Args>
         inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
@@ -159,13 +159,13 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-			if constexpr(is_std_get_0_defined<decltype(allocation)>::value)
+			if constexpr(has_buffer_member<decltype(allocation)>::value)
 			{
-				retval = std::get<0u>(allocation);
+				retval = allocation.buffer.get();
 			}
 			else
 			{
-				retval = allocation;
+				retval = allocation.get();
 			}
 			
 

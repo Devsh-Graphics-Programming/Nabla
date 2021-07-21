@@ -54,7 +54,8 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
                 SimpleGPUBufferAllocator::deallocate(buff);
                 return {nullptr,nullptr};
             }
-            return {std::move(buff),mappedPtr+buff->getBoundMemoryOffset()};
+            mappedPtr += buff->getBoundMemoryOffset();
+            return {std::move(buff),mappedPtr};
         }
 
         inline void                 deallocate(value_type& allocation) noexcept

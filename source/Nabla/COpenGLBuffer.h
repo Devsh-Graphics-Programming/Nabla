@@ -6,15 +6,14 @@
 #define __NBL_C_OPEN_GL_BUFFER_H_INCLUDED__
 
 #include "nbl/core/core.h"
-#include "IGPUBuffer.h"
+#include "nbl/video/IGPUBuffer.h"
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
+
 #include <assert.h>
 #include <atomic>
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
@@ -30,7 +29,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
     public:
         COpenGLBuffer(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(dev, mreqs), BufferName(0), cachedFlags(0)
         {
-			lastTimeReallocated = 0;
             gl->extGlCreateBuffers(1,&BufferName);
             if (BufferName==0)
                 return;
@@ -54,15 +52,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 
         //!
         inline bool canUpdateSubRange() const override {return cachedFlags&IOpenGL_FunctionTable::DYNAMIC_STORAGE_BIT;}
-
-        //!
-        /*
-        inline void updateSubRange(const MemoryRange& memrange, const void* data) override
-        {
-            if (canUpdateSubRange())
-                COpenGLExtensionHandler::extGlNamedBufferSubData(BufferName,memrange.offset,memrange.length,data);
-        }
-        */
 
         //! Returns the allocation which is bound to the resource
         inline IDriverMemoryAllocation* getBoundMemory() override {return this;}
@@ -93,7 +82,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         GLuint BufferName;
 };
 
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::video
 
 #endif
