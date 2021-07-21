@@ -313,7 +313,8 @@ int main()
 			core::vector3df_SIMD gravPoint = cameraPosition+camFront*250.f;
 			uboComputeData.gravPointAndDt = gravPoint;
 			uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>(time-lastTime).count()*1e-4;
-			device->updateBufferRangeViaStagingBuffer(cb.get(),transientFence.get(),	queue,computeUBORange,&uboComputeData);
+			device->updateBufferRangeViaStagingBuffer(cb.get(),transientFence.get(),queue,computeUBORange,&uboComputeData);
+            device->resetFences(1u,&transientFence.get());
 
 			lastTime = time;
 		}
@@ -335,6 +336,7 @@ int main()
 			memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
 			// might submit to queue if overflows
 			device->updateBufferRangeViaStagingBuffer(cb.get(),transientFence.get(),queue,graphicsUBORange,&viewParams);
+            device->resetFences(1u,&transientFence.get());
 		}
 		cb->bindGraphicsPipeline(graphicsPipeline.get());
 		size_t vbOffset = 0;

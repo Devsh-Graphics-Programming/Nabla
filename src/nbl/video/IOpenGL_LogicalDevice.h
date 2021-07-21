@@ -780,9 +780,18 @@ protected:
             using clock_t = std::chrono::high_resolution_clock;
             const auto start = clock_t::now();
             const auto end = start+std::chrono::nanoseconds(_timeout);
+            
+            assert(_count!=0u);
 
-            // poll once with zero timeout
+            // want ~1/4 us on second try when not waiting for all
+            constexpr uint64_t pollingFirstTimeout = 256ull>>1u;
+            // poll once with zero timeout if have multiple fences to wait on
             uint64_t timeout = 0ull;
+            if (_count==1u) // if we're only waiting for one fence, we can skip all the shenanigans
+            {
+                _waitAll = true;
+                timeout = 0xdeadbeefBADC0FFEull;
+            }
             while (true)
             {
                 for (uint32_t i=0u; i<_count; )
@@ -821,7 +830,7 @@ protected:
                 if (_waitAll)
                     return IGPUFence::ES_SUCCESS;
                 else if (!timeout)
-                    timeout = 256u>>1u; // want ~1/4 us on second try
+                    timeout = pollingFirstTimeout;
             }
             // everything below this line is just to make the compiler shut up
             assert(false);

@@ -278,7 +278,7 @@ public:
         return retval;
     }
 
-    void resetFences(uint32_t _count, IGPUFence** _fences) override final
+    void resetFences(uint32_t _count, IGPUFence*const * _fences) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
             static_cast<COpenGLFence*>(_fences[i])->reset();

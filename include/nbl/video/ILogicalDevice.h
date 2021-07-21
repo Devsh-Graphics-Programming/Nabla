@@ -120,7 +120,7 @@ public:
 
     virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) = 0;
     virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
-    virtual void resetFences(uint32_t _count, IGPUFence** _fences) = 0;
+    virtual void resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
     virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
 
     virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
@@ -649,6 +649,7 @@ public:
 
     virtual void unmapMemory(IDriverMemoryAllocation* memory) = 0;
 
+    // `fence` needs to be in unsignalled state
     inline void updateBufferRangeViaStagingBuffer(IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
     {
         auto* cmdpool = cmdbuf->getPool();
@@ -656,7 +657,6 @@ public:
         assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
 
         //EventHandle event = null;
-        resetFences(1u, &fence);
         for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
         {
             const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
@@ -678,10 +678,10 @@ public:
                 submit.waitSemaphoreCount = 0u;
                 submit.pWaitSemaphores = nullptr;
                 submit.pWaitDstStageMask = nullptr;
-                queue->submit(1u, &submit, fence); // <threadsafeSubmit==true> means submit while locking an internal mutex
-                waitForFences(1u, &fence, false, 9999999999ull);
+                queue->submit(1u,&submit,fence);
+                waitForFences(1u,&fence,false,9999999999ull);
                 //event.manuallySignal(); // ???????? just to be exact, probably would still work without, simply because we're resetting a fence that was previously queued up
-                resetFences(1u, &fence);
+                resetFences(1u,&fence);
                 cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
                 cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
                 continue;
@@ -705,6 +705,7 @@ public:
         //return event.deferred_function; // ????? wtf is deferred_function? why would i have an event here??
     }
     //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
+    // `fence` needs to be in unsignalled state
     inline void updateBufferRangeViaStagingBuffer(IGPUFence* fence, IGPUQueue* _queue, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
     {
         core::smart_refctd_ptr<IGPUCommandPool> pool = createCommandPool(_queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
@@ -722,7 +723,7 @@ public:
         submit.waitSemaphoreCount = 0u;
         submit.pWaitSemaphores = nullptr;
         submit.pWaitDstStageMask = nullptr;
-        _queue->submit(1u,&submit,fence); // <threadsafeSubmit==true> means submit while locking an internal mutex
+        _queue->submit(1u,&submit,fence);
         //func.optionalCmdBuffToDrop = std::move(cmdbuf); // ?????? wtf is optionalCmdBuffToDrop?
     }
     //! WARNING: This function blocks and stalls the GPU!
