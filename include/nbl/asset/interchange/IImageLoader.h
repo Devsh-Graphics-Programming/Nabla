@@ -22,7 +22,7 @@ class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 
 	protected:
 
-		IImageLoader() = default;
+		IImageLoader(core::smart_refctd_ptr<system::ILogger>&& logger) : IImageAssetHandlerBase(std::move(logger)) {}
 		virtual ~IImageLoader() = 0;
 
 	private:

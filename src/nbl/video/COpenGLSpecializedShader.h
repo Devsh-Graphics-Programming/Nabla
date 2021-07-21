@@ -51,7 +51,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 				return true;
 			if (!pc.info.name.size()) // cannot handle anonymous push constant blocks (we loose the names)
 			{
-				os::Printer::log("Push Constant blocks need to be named (limitation of SPIR-V Cross). Creation of COpenGLSpecializedShader failed.", ELL_ERROR);
+				m_logger->log("Push Constant blocks need to be named (limitation of SPIR-V Cross). Creation of COpenGLSpecializedShader failed.", system::ILogger::ELL_ERROR);
 				return false;
 			}
 		
@@ -101,7 +101,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			return true;
 		}
 
-		COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
+		COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList, core::smart_refctd_ptr<system::ILogger>&& logger);
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
@@ -130,6 +130,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		//alignas(128) uint8_t m_uniformValues[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
 		core::vector<SUniform> m_uniformsList;
 		mutable core::vector<GLint> m_locations;
+		core::smart_refctd_ptr<system::ILogger> m_logger;
 };
 
 }

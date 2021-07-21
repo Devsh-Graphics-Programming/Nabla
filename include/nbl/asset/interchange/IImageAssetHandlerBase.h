@@ -7,7 +7,7 @@
 
 #include "nbl/core/core.h"
 
-#include "ILogger.h"
+#include "nbl/system/ILogger.h"
 #include "os.h"
 
 #include "nbl/asset/filters/CCopyImageFilter.h"
@@ -20,9 +20,9 @@ namespace asset
 
 class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 {
+	core::smart_refctd_ptr<system::ILogger> m_logger;
 	protected:
-
-		IImageAssetHandlerBase() = default;
+		IImageAssetHandlerBase(core::smart_refctd_ptr<system::ILogger>&& logger) : m_logger(std::move(logger)) {}
 		virtual ~IImageAssetHandlerBase() = 0;
 
 	public:
@@ -234,7 +234,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
 					if (!convertFilter.execute(&state))
-						os::Printer::log("Something went wrong while converting from R8 to R8G8B8 format!", ELL_WARNING);
+						m_logger->log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
 				}
 			}
 			return newConvertedImage;

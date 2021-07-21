@@ -95,7 +95,7 @@ class CImageLoaderTGA final : public IImageLoader
 {
 	core::smart_refctd_ptr<system::ISystem> m_system;
 	public:
-		CImageLoaderTGA(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
+		CImageLoaderTGA(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<system::ILogger>&& logger) : IImageLoader(std::move(logger)), m_system(std::move(sys)) {}
 		virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
 		virtual const char** getAssociatedFileExtensions() const override

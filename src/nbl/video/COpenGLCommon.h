@@ -125,7 +125,7 @@ inline GLbitfield accessFlagsToMemoryBarrierBits(asset::E_ACCESS_FLAGS flags)
 	return barrier;
 }
 
-inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format)
+inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, system::ILogger* logger)
 {
 	using namespace asset;
 	switch (format)
@@ -451,7 +451,7 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset
 			break;
 	}
 #ifdef _NBL_DEBUG
-	os::Printer::log("Unsupported texture format", ELL_ERROR);
+	logger->log("Unsupported texture format", system::ILogger::ELL_ERROR);
 #endif // _NBL_DEBUG
 	return GL_INVALID_ENUM;
 }
@@ -925,7 +925,7 @@ static GLenum formatEnumToGLenum(IOpenGL_FunctionTable* gl, asset::E_FORMAT fmt)
 
 
 //! Get opengl values for the GPU texture storage
-inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
+inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type, system::ILogger* logger)
 {
 	using namespace asset;
 	// default
@@ -1696,7 +1696,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 	}
 
 	if (colorformat == GL_INVALID_ENUM || type == GL_INVALID_ENUM)
-		os::Printer::log("Unsupported upload format", ELL_ERROR);
+		logger->log("Unsupported upload format", system::ILogger::ELL_ERROR);
 }
 
 }

@@ -9,7 +9,7 @@
 #include "EDriverTypes.h"
 #include "EDeviceTypes.h"
 #include "dimension2d.h"
-#include "ILogger.h"
+#include "nbl/system/ILogger.h"
 #include "nbl/builtin/common.h"
 
 namespace nbl
@@ -39,7 +39,7 @@ namespace nbl
 			EventReceiver(0),
 			WindowId(0),
 #ifdef _NBL_DEBUG
-			LoggingLevel(ELL_DEBUG),
+			LoggingLevel(system::ILogger::ELL_DEBUG),
 #else
 			LoggingLevel(ELL_INFORMATION),
 #endif
@@ -223,7 +223,7 @@ namespace nbl
 		But if you need more or less logging information already from device creation,
 		then you have to change it here.
 		*/
-		ELOG_LEVEL LoggingLevel;
+		system::ILogger::E_LOG_LEVEL LoggingLevel;
 
 		//!
 		uint8_t AuxGLContexts;

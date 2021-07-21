@@ -51,7 +51,7 @@
 #include "ICursorControl.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IEventReceiver.h"
-#include "ILogger.h"
+#include "nbl/system/ILogger.h"
 #include "IrrlichtDevice.h"
 #include "path.h"
 #include "ISceneManager.h"

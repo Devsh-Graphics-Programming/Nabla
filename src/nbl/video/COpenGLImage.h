@@ -26,16 +26,16 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		GLenum internalFormat;
 		GLenum target;
 		GLuint name;
-
+		core::smart_refctd_ptr<system::ILogger> m_logger;
 	public:
 		//! constructor
-		COpenGLImage(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(dev, std::move(_params)),
-			internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+		COpenGLImage(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params, core::smart_refctd_ptr<system::ILogger>&& logger) : IGPUImage(dev, std::move(_params)),
+			internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u), m_logger(std::move(logger))
 		{
 			#ifdef OPENGL_LEAK_DEBUG
 				COpenGLExtensionHandler::textureLeaker.registerObj(this);
 			#endif // OPENGL_LEAK_DEBUG
-			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
+			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format, m_logger.get());
 			GLsizei samples = params.samples;
 			switch (params.type) // TODO what about multisample targets?
 			{

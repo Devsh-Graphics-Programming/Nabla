@@ -19,8 +19,6 @@ using namespace system;
 using namespace asset;
 using namespace os;
 
-// Don't wanna use Printer::log
-#define LOG(...) printf(__VA_ARGS__); printf("\n");
 class DemoEventCallback : public IWindow::IEventCallback
 {
 public:

@@ -11,7 +11,7 @@
 
 #include "irrString.h"
 #include "path.h"
-#include "ILogger.h"
+#include "nbl/system/ILogger.h"
 
 namespace nbl
 {
@@ -54,20 +54,6 @@ namespace os
 			static inline uint8_t  byteswap(uint8_t num) { return num; }
 			static inline int8_t  byteswap(int8_t num) { return num; }
 	};
-
-	class Printer
-	{
-	    Printer() = delete;
-	public:
-		// prints out a string to the console out stdout or debug log or whatever
-		static void print(const std::string& message);
-		static void log(const std::string& message, ELOG_LEVEL ll = ELL_INFORMATION);
-		static void log(const std::wstring& message, ELOG_LEVEL ll = ELL_INFORMATION);
-		static void log(const std::string& message, const std::string& hint, ELOG_LEVEL ll = ELL_INFORMATION);
-
-		static ILogger* Logger;
-	};
-
 
 } // end namespace os
 } // end namespace nbl

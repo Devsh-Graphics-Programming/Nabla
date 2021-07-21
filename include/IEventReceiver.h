@@ -6,7 +6,7 @@
 #ifndef __NBL_I_EVENT_RECEIVER_H_INCLUDED__
 #define __NBL_I_EVENT_RECEIVER_H_INCLUDED__
 
-#include "ILogger.h"
+#include "nbl/system/ILogger.h"
 #include "Keycodes.h"
 #include "irrString.h"
 
@@ -273,7 +273,7 @@ struct SEvent
 		const char* Text;
 
 		//! Log level in which the text has been logged
-		ELOG_LEVEL Level;
+		system::ILogger::E_LOG_LEVEL Level;
 	};
 
 	//! Any kind of user event.

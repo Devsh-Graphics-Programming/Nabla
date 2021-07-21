@@ -430,7 +430,7 @@ namespace nbl {
 					glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
 					break;
 				default:
-					os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+					m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 					return;
 				}
 				glTexture.pglBindTexture(target, texture);
@@ -450,7 +450,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawArraysInstancedBaseInstance unsupported!", ELL_ERROR);
+					m_logger->log("GlDrawArraysInstancedBaseInstance unsupported!", system::ILogger::ELL_ERROR);
 				}
 #endif
 			}
@@ -462,7 +462,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawElementsInstancedBaseInstance unsupported!", ELL_ERROR);
+					m_logger->log("GlDrawElementsInstancedBaseInstance unsupported!", system::ILogger::ELL_ERROR);
 				}
 #endif
 			}
@@ -474,7 +474,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawElementsInstancedBaseVertex unsupported!", ELL_ERROR);
+					m_logger->log("GlDrawElementsInstancedBaseVertex unsupported!", system::ILogger::ELL_ERROR);
 				}
 #endif
 			}
@@ -488,7 +488,7 @@ namespace nbl {
 #ifdef _NBL_DEBUG
 				else
 				{
-					os::Printer::log("GlDrawElementsInstancedBaseVertexBaseInstance unsupported!", ELL_ERROR);
+					m_logger->log("GlDrawElementsInstancedBaseVertexBaseInstance unsupported!", system::ILogger::ELL_ERROR);
 				}
 #endif
 			}
@@ -506,8 +506,11 @@ namespace nbl {
 
 			uint32_t getGUID() const { return m_guid; }
 
+			core::smart_refctd_ptr<system::ILogger> m_logger;
+
 			// constructor
-			IOpenGL_FunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
+			IOpenGL_FunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features, core::smart_refctd_ptr<system::ILogger>&& logger) :
+				m_logger(std::move(logger)),
 				glSync(_egl),
 				glFramebuffer(_egl),
 				glBuffer(_egl),
@@ -555,7 +558,7 @@ namespace nbl {
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -568,7 +571,7 @@ namespace nbl {
 			GLint bound;
 			if (target != GL_TEXTURE_2D_MULTISAMPLE)
 			{
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			else
@@ -582,7 +585,7 @@ namespace nbl {
 			GLint bound;
 			if (target != GL_TEXTURE_2D_MULTISAMPLE_ARRAY)
 			{
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			else
@@ -613,7 +616,7 @@ namespace nbl {
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -639,7 +642,7 @@ namespace nbl {
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
