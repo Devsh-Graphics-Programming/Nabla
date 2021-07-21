@@ -284,6 +284,14 @@ int main()
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,cmdbuf);
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+	for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)
+	{
+		imageAcquire[i] = device->createSemaphore();
+		renderFinished[i] = device->createSemaphore();
+	}
+	// render loop
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
 		const auto resourceIx = i%FRAMES_IN_FLIGHT;
@@ -330,12 +338,9 @@ int main()
 			device->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),queue,graphicsUBORange,&viewParams);
             device->resetFences(1u,&fence.get());
 		}
-		// TODO: cycle and reuse semaphores (will be apparent when vulkan comes)
-		auto img_acq_sem = device->createSemaphore();
 		// renderpass 
 		uint32_t imgnum = 0u;
-		sc->acquireNextImage(MAX_TIMEOUT,img_acq_sem.get(),nullptr,&imgnum);
-		auto& fb = fbo[imgnum];
+		sc->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clear;
@@ -347,7 +352,7 @@ int main()
 			clear.color.float32[2] = 0.f;
 			clear.color.float32[3] = 1.f;
 			info.renderpass = renderpass;
-			info.framebuffer = fb;
+			info.framebuffer = fbo[imgnum];
 			info.clearValueCount = 1u;
 			info.clearValues = &clear;
 			info.renderArea = area;
@@ -365,10 +370,8 @@ int main()
 
 		cb->end();
 
-		// TODO: cycle and reuse semaphores (will be apparent when vulkan comes)
-		auto render1_finished_sem = device->createSemaphore();
-		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, img_acq_sem.get(), render1_finished_sem.get(), fence.get());
-		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
+		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
 	}
 
 	return 0;
