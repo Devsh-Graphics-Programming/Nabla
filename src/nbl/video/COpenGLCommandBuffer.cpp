@@ -5,8 +5,7 @@
 
 //extern RENDERDOC_API_1_1_2* g_rdoc_api;
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
     COpenGLCommandBuffer::~COpenGLCommandBuffer()
@@ -1017,5 +1016,4 @@ namespace video
         GLint dy1 = dstOffsets[1].y;
         gl->extGlBlitNamedFramebuffer(src, dst, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GL_COLOR_BUFFER_BIT, filter==asset::ISampler::ETF_NEAREST?GL_NEAREST:GL_LINEAR);
     }
-}
 }

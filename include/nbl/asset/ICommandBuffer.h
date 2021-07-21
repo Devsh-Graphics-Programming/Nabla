@@ -200,13 +200,6 @@ public:
     virtual void begin(uint32_t _flags)
     {
         assert(m_state != ES_PENDING);
-        /* TODO: use the declarations_fix branch, and have a smartpointer to the pool in ICommandBuffer (or in IGPUCommandBuffer) and check for the reset condition violation
-        if (m_pool->getFlags()&RESET_COMMAND_BUFFER==0u)
-        {
-            assert(m_state != ES_INITIAL);
-        }
-        */
-
         m_state = ES_RECORDING;
         m_recordingFlags = _flags;
     }
