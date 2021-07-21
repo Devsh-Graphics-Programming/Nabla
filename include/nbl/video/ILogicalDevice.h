@@ -121,7 +121,7 @@ public:
     virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) = 0;
     virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
     virtual void resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
-    virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
+    virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) = 0;
 
     virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
 
