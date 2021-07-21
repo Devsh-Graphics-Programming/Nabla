@@ -124,17 +124,25 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ### Screenshots
 
-##### <u>Pseudo Spectral rendering</u>
+##### <u>Path-tracing without MIS </u>
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/spectral%20renderering.png?raw=true)
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render.png?raw=true)
 
-##### <u>Thindielectric</u>
+##### <u>Path-tracing without MIS</u>
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render3.png)
+
+##### <u>Path-tracing without MIS</u>
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render4.png)
+
+##### <u>Path-tracing without MIS</u>
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render5.png)
 
 **<u>Stairs raytracing</u>** 
 
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/c727e929e45e3fe6af824eae4c296ae82f538dff/site_media/readme/screenshots/RTAA.png)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render2.png)
 
 **<u>Bathroom raytracing</u>** 
 
@@ -160,6 +168,9 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
 
+##### <u>Thindielectric</u>
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
 
 ## Main Features
 
