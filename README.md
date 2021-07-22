@@ -64,6 +64,10 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render3.png)
 
+##### <u>Bathroom scene</u>
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/6e8c37ca0132ae9bf84359be3faeed649341e434/site_media/readme/screenshots/render6.png)
+
 ##### <u>1 Megapixel, 1 Million Samples</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
