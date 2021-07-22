@@ -26,10 +26,9 @@ uvec2 nbl_glsl_unpackWrapModes(in uvec2 texData)
 {
     return (texData >> uvec2(28u, 30u))& uvec2(0x03u);
 }
-int nbl_glsl_unpackMaxMipInVT(in uvec2 texData)
+uint nbl_glsl_unpackMaxMipInVT(in uvec2 texData)
 {
-    uint mm = (texData.y >> 24) & 0x0fu;
-    return mm == 0x0fu ? -1 : int(mm);
+    return bitfieldExtract(texData.y,24,4);
 }
 vec3 nbl_glsl_unpackVirtualUV(in uvec2 texData)
 {
@@ -87,7 +86,7 @@ vec3 nbl_glsl_vTexture_helper(in uint formatID, in vec3 virtualUV, in int clippe
 
 #if _NBL_VT_FLOAT_VIEWS_COUNT
 // textureGrad emulation
-vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
+vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in uint originalMaxFullMip)
 {
 	// returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
 	// https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
@@ -119,15 +118,15 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	// are we performing minification
 	bool positiveLoD = LoD>0.0;
 	// magnification samples LoD 0, else clip to max representable in VT
-	int clippedLoD = positiveLoD ? min(LoD_high,originalMaxFullMip):0; // originalMaxFullMip is always -1 in case of no miplevel taking at least 1 full page
-    clippedLoD = originalMaxFullMip < 0 ? 0 : clippedLoD;
+	int clippedLoD = positiveLoD ? min(LoD_high,int(originalMaxFullMip)-1):0; // originalMaxFullMip is always -1 in case of no miplevel taking at least 1 full page
+    clippedLoD = originalMaxFullMip<1u ? 0 : clippedLoD;
 
 	// if minification is being performaed then get tail position
 	int levelInTail = LoD_high-clippedLoD;
 	// have to do trilinear only if doing minification AND larger than 1x1 footprint
 	bool haveToDoTrilinear = levelInTail<int(_NBL_VT_IMPL_PAGE_SZ_LOG2) && positiveLoD;
 	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(_NBL_VT_IMPL_PAGE_SZ_LOG2):0);
-    levelInTail += (originalMaxFullMip < 0) ? 1 : 0;
+    levelInTail += originalMaxFullMip<1u ? 1 : 0;
 
 	// get the higher resolution mip-map level
 	vec3 hiPhysCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
@@ -136,7 +135,7 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	// speculative if (haveToDoTrilinear)
 	{
 		// now we have absolute guarantees that both LoD_high and LoD_low are in the valid original mip range
-		bool highNotInLastFull = originalMaxFullMip>=0 && LoD_high<originalMaxFullMip;
+		bool highNotInLastFull = originalMaxFullMip>=1u && LoD_high<(int(originalMaxFullMip)-1);
 		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
 		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
         levelInTail = min(levelInTail, int(_NBL_VT_IMPL_PAGE_SZ_LOG2));
@@ -193,7 +192,7 @@ vec4 nbl_glsl_vTextureGrad(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 #endif //_NBL_VT_FLOAT_VIEWS_COUNT
 
 #if _NBL_VT_INT_VIEWS_COUNT
-ivec4 nbl_glsl_iVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip)
+ivec4 nbl_glsl_iVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in uint originalMaxFullMip)
 {
     int nonnegativeLod = int(lod);
     int clippedLoD = min(nonnegativeLod,originalMaxFullMip);
@@ -235,7 +234,7 @@ ivec4 nbl_glsl_iVTextureLod(in uvec2 _texData, in vec2 uv, in uint lod)
 #endif //_NBL_VT_INT_VIEWS_COUNT
 
 #if _NBL_VT_UINT_VIEWS_COUNT
-uvec4 nbl_glsl_uVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip)
+uvec4 nbl_glsl_uVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in uint originalMaxFullMip)
 {
     int nonnegativeLod = int(lod);
     int clippedLoD = min(nonnegativeLod,originalMaxFullMip);

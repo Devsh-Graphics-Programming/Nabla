@@ -457,11 +457,10 @@ public:
         const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
         ICPUVTResidentStorage* storage = static_cast<ICPUVTResidentStorage*>(getStorageForFormatClass(getFormatClass(format)));
         if (!storage)
-            return nullptr;
+            return false;
 
         //free physical pages
         VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
-        const uint32_t levelCount = _addr.maxMip+1u;
 
 #ifdef _NBL_DEBUG
         CFillImageFilter::state_type fill;
@@ -478,7 +477,7 @@ public:
         std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
 
         auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
-        for (uint32_t i = 0u; i < levelCount; ++i)
+        for (uint32_t i=0u; i<core::max(_addr.maxMip,1u); ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, i);
             const uint32_t h = neededPageCountForSide(extent.height, i);

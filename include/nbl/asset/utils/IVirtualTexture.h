@@ -139,7 +139,7 @@ public:
         uint64_t pgTab_x : 8;
         uint64_t pgTab_y : 8;
         uint64_t pgTab_layer : 8;
-        uint64_t maxMip : 4; // value 0x0fu means, the texture takes only 1 page of physical storage (miptail)
+        uint64_t maxMip : 4; // this is number of mip-maps plus 1 that the texture will have in the virtual texture (before the mip-tail)
         uint64_t wrap_x : 2;
         uint64_t wrap_y : 2;
 
@@ -210,8 +210,8 @@ protected:
 		texData.pgTab_y = _offset.y;
         texData.pgTab_layer = _offset.z;
 
-        const uint32_t maxMip = _mipCount - 1u - m_pgSzxy_log2;
-        assert(static_cast<int32_t>(maxMip) >= -1); // only textures of size at least half page size must be packed
+        const uint32_t maxMip = _mipCount-m_pgSzxy_log2;
+        assert(static_cast<int32_t>(maxMip) >= 0); // only textures of size at least half page size must be packed
         texData.maxMip = maxMip;
 
         texData.wrap_x = SMasterTextureData::ETC_to_EWM(_wrapu);
@@ -720,7 +720,7 @@ protected:
 
     bool validateAliasCreation(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster)
     {
-        if (_subresRelativeToMaster.baseMipLevel+_subresRelativeToMaster.levelCount > _addr.maxMip+1u)
+        if (_subresRelativeToMaster.baseMipLevel+_subresRelativeToMaster.levelCount > _addr.maxMip)
             return false;
         return true;
     }
