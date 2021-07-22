@@ -26,6 +26,7 @@ We would also be happy to sponsor your master thesis as long as:
 The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. 
 
 **We provide expertise in:**
+
  - OpenGL
  - OpenGL ES 
  - WebGL
@@ -45,120 +46,91 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ## Showcase
 
-### Videos
-
-#### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%202.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
-
-
-
-### [Bathroom Scene Raytracing](https://www.youtube.com/watch?t=28&v=vqKZKP1hYcc&feature=youtu.be)
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%207.gif)
-
-
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%208.gif)
-
-
-
-### [Stairs Scene Raytracing](https://www.youtube.com/watch?v=2uRBiLdvva4)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%206.gif?raw=true)
-
-
-
-### Tonemapping with AutoExposure and Temporal Adaptation
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
-
-
-
-### [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%201.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%202.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%203.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%204.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%205.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
-
-### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
-
 ### Screenshots
 
-##### <u>Pseudo Spectral rendering</u>
+##### <u>Path-tracing without MIS</u>
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/spectral%20renderering.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render5.png)
 
-##### <u>Thindielectric</u>
+#####  <u>Path-tracing without MIS</u>
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render4.png)
 
-**<u>Stairs raytracing</u>** 
+##### <u>Path-tracing without MIS </u>
 
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/c727e929e45e3fe6af824eae4c296ae82f538dff/site_media/readme/screenshots/RTAA.png)
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render.png?raw=true)
 
-**<u>Bathroom raytracing</u>** 
+##### <u>Path-tracing without MIS</u>
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/screenshots/BathroomScene.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render3.png)
 
-##### <u>Raytracing sample</u>
+##### <u>Bathroom scene</u>
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/6e8c37ca0132ae9bf84359be3faeed649341e434/site_media/readme/screenshots/render6.png)
 
 ##### <u>1 Megapixel, 1 Million Samples</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
 
+##### <u>Raytracing sample</u>
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
+
+**<u>Stairs raytracing</u>** 
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render2.png)
+
+##### <u>Thindielectric</u>
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
+
 ##### <u>BRDF Explorer</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
-
-##### <u>.OBJ Loader with MTL pipeline integration</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
 
 ##### <u>Different Shape Area Light emitters</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
 
+### Videos
+
+##### [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%201.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%202.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%203.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%204.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%205.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
+
+##### [Bathroom Scene Raytracing](https://www.youtube.com/watch?t=28&v=vqKZKP1hYcc&feature=youtu.be)
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%207.gif)
+
+##### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
+
+##### Tonemapping with AutoExposure and Temporal Adaptation
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
+
+##### [Stairs Scene Raytracing](https://www.youtube.com/watch?v=2uRBiLdvva4)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%206.gif?raw=true)
+
+##### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
 
 ## Main Features
 
@@ -227,6 +199,28 @@ You can also thank NVidia for making the CUDA SDK a whole whopping 2.5 GB on Win
 After dealing with *CUDA* installing just install *Optix SKD*.
 
 - **[OptiX SDK](https://developer.nvidia.com/designworks/optix/download)** 
+
+### Android Build
+
+**Required:**
+
+- **[Android Studio](https://developer.android.com/studio)**
+- **[NDK r22b](https://developer.android.com/ndk/downloads#stable-downloads)**
+- **[Java 8](https://www.java.com/download/)**
+
+The first step is to install Android Studio and Java 8. When done, extract NDK r22b into *Android SDK root directory* usually located at `C:/Users/<your_user>/AppData/Local/AndroidSdk`. If you however can't find it, open Android Studio and go to **File** and **Project Structure** that will show you where your Android SDKs are installed.
+
+Now you can begin CMake generating. On Android Build there is an extra optional Ninja generator available. Before configuring you need to specify toolchain file for cross-compiling by passing path to `android.toolchain.cmake`. You can find it in NDK directory in `build/cmake/android.toolchain.cmake` and according to example of Android SDK root directory path it should look entirely like `C:/Users/<your_user>/AppData/Local/AndroidSdk/android-ndk-r22b/build/cmake/android.toolchain.cmake`.
+
+Having Nabla generated you need to enter build directory, launch the terminal and type `cmake --build . --target Nabla -j4 -v` or if you want build android sample example you would type `cmake --build . --target android_sample_apk -j4 -v`. The android sample example produces *.apk* file you can use for debugging and profiling.
+
+#### Chrome Book upload
+
+To upload generated *.apk* into your ChromeBook you need first to make sure your device is in *developer mode* state. If it is, you can open Android Studio and choose Debug or Profile choosing *.apk* file. Then you will need to connect to your device using **adb** connector. To make use of adb, you need to find path to the executable that is placed in `C:/Users/<your_user>/AppData/Local/AndroidSdk/platform-tools` directory. When found, you can type in Android Studio command line `C:/Users/<your_user>/AppData/Local/AndroidSdk/platform-tools/adb connect <IP of ChromeBook network>`. You can find ChromeBook's IP by entering network settings and choosing current network ChromeBook is connected to. This way the ChromeBook should be listed in available devices and you should be able to upload *.apk* to the machine through debugging app shortcut. Take into account that you won't probably be able to debug in that scenario, but you will be able to upload *.apk* to the device.
+
+#### Chrome Book debug
+
+Unfortunately debbuging android apps works 3 times out of a 100 for unknown reasons, contributions would be welcome.
 
 ## External Dependencies
 
@@ -352,11 +346,19 @@ Remember you have to set up **starting target project** in *Visual Studio* befor
 To get **Nabla** to be used by an external application *without adding it as a subdirectory*,but still using a submodule, you should perform following:
 
 ```cmake
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_EXAMPLES:BOOL=OFF")
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
-list(APPEND NBL_CMAKE_ARGS "-DIRR_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+set(NBL_SOURCE_DIR "<YOUR_NABLA_SOURCE_DIRECTORY>") # PAY ATTENTION: you have to fill this one with Nabla source directory
+set(NBL_BINARY_DIR "${NBL_SOURCE_DIR}/build")
+set(NBL_INSTALL_DIR "${NBL_BINARY_DIR}/install")
+
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_EXAMPLES:BOOL=OFF")
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
+list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-DNBL_COMPILE_WITH_SDL2:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_LOADER_:BOOL=OFF") # you probably don't want this extension
+list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_WRITER_:BOOL=OFF") # you probably don't want this extension
 list(APPEND NBL_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${NBL_INSTALL_DIR}") # because of https://gitlab.kitware.com/cmake/cmake/-/issues/18790
+
 ExternalProject_Add(Nabla
     DOWNLOAD_COMMAND  ""
     SOURCE_DIR        "${NBL_SOURCE_DIR}"
@@ -365,66 +367,13 @@ ExternalProject_Add(Nabla
     TEST_COMMAND      ""
 )
 
-# replace with whatever you need ${PROJECT_NAME}
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-        $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/include>
-        $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/include>
-        $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/include>
-     # these are needed because we haven't cleaned up the API properly yet
-        $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/source/Nabla>
-        $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/source/Nabla>
-        $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/source/Nabla>
-)
-target_link_libraries(${PROJECT_NAME} 
-	 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/Nabla_debug.lib>
-	 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/Nabla_rwdi.lib>
-	 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/Nabla.lib>
-)
-function(link_nbl_dependency DEPENDENCY_NAME)
-	target_link_libraries(${PROJECT_NAME} 
-		 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}d.lib>
-		 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
-		 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
-	)
-endfunction()
-function(link_nbl_dependency_ DEPENDENCY_NAME)
-	target_link_libraries(${PROJECT_NAME} 
-		 $<$<CONFIG:Debug>:${NBL_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}_d.lib>
-		 $<$<CONFIG:RelWithDebInfo>:${NBL_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
-		 $<$<CONFIG:Release>:${NBL_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
-	)
-endfunction()
-link_nbl_dependency(glslang)
-link_nbl_dependency_(jpeg)
-link_nbl_dependency_(IlmImf-2_4)
-link_nbl_dependency_(IexMath-2_4)
-link_nbl_dependency_(Iex-2_4)
-link_nbl_dependency_(IlmThread-2_4)
-link_nbl_dependency_(Half-2_4)
-link_nbl_dependency_(Imath-2_4)
-link_nbl_dependency(libpng16_static)
-# OpenSSL only ever exists in the Release variant
-if(WIN32)
-	target_link_libraries(${PROJECT_NAME} 
-		 ${NBL_INSTALL_DIR}/lib/libeay32.lib
-		 ${NBL_INSTALL_DIR}/lib/ssleay32.lib
-	)
-else()
-	target_link_libraries(${PROJECT_NAME} 
-		 ${NBL_INSTALL_DIR}/lib/libcrypto.lib
-		 ${NBL_INSTALL_DIR}/lib/libssl.lib
-	)
-endif()
-link_nbl_dependency_(shaderc)
-link_nbl_dependency_(shaderc_util)
-link_nbl_dependency(SPIRV)
-link_nbl_dependency_(SPIRV-Tools)
-link_nbl_dependency_(SPIRV-Tools-opt)
-link_nbl_dependency(OGLCompiler)
-link_nbl_dependency(OSDependent)
-link_nbl_dependency(HLSL)
-link_nbl_dependency(zlibstatic)
+include(${NBL_SOURCE_DIR}/cmake/build/AddNablaModule.cmake)
+
+# now if you create executable you can use addNablaModule
+add_executable(executableTest main.cpp) # assuming main.cpp exsists
+
+# add Nabla module to "executableTest"
+addNablaModule(executableTest "${NBL_INSTALL_DIR}")
 ```
 
  If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
@@ -451,14 +400,17 @@ Permament members of *Devsh Graphics Programming Sp. z O.O.* use this to organis
 - **Krzysztof Szenk** ***[@crisspl](https://github.com/Crisspl)*** (Core Engineer)
 - **Arkadiusz Lachowicz** ***[@AnastaZIuk](https://github.com/AnastaZIuk)*** (Junior Programmer)
 - **Przemysław Pachytel** ***[@Przemog1](https://github.com/Przemog1)*** (Junior Programmer)
-- **Cyprian Skrzypczak** ***[@Hazardu](https://github.com/Hazardu)*** (Junior Programmer)
-- **Søren Gronbech** 
+- **Achal Pandey [@achalpandeyy](https://github.com/achalpandeyy)** (Junior Programmer)
+- **Danylo Sadivnychyi [@sadiuk](https://github.com/sadiuk)** (Junior Programmer)
+- **Erfan Ahmadi [@Erfan](https://github.com/Erfan-Ahmadi)** (Junior Programmer)
 
 #### Past Authors and Contributors:
 
 - ***[@khom-khun](https://github.com/khom-khun)*** (Bullet Physics Extension + Example and **[the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)**)
 - ***[@manhnt9](https://github.com/manhnt9)*** **Nguyễn Tiến Mạnh** (CEGUI, Build System and Radeon Rays Proof-of-Concept Integration in Prime Engine X with IrrlichtBaW back-end)
 - ***[@florastamine](https://github.com/florastamine)*** **Nguyễn Ngọc Huy** (sRGB-Correct Image Loaders, CEGUI and BRDF Explorer GUI)
+- **Søren Gronbech** 
+- **Cyprian Skrzypczak** ***[@Hazardu](https://github.com/Hazardu)*** (embeded resources and optimalizations)
 
 #### Words of appreciation for developers whose software has been used in **Nabla**, currently and in the past:
 
