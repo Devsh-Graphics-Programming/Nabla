@@ -46,83 +46,15 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ## Showcase
 
-### Videos
-
-#### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%202.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
-
-
-
-### [Bathroom Scene Raytracing](https://www.youtube.com/watch?t=28&v=vqKZKP1hYcc&feature=youtu.be)
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%207.gif)
-
-
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%208.gif)
-
-
-
-### [Stairs Scene Raytracing](https://www.youtube.com/watch?v=2uRBiLdvva4)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%206.gif?raw=true)
-
-
-
-### Tonemapping with AutoExposure and Temporal Adaptation
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
-
-
-
-### [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%201.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%202.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%203.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%204.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%205.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
-
-### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
-
 ### Screenshots
+
+##### <u>Path-tracing without MIS</u>
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render5.png)
+
+#####  <u>Path-tracing without MIS</u>
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render4.png)
 
 ##### <u>Path-tracing without MIS </u>
 
@@ -132,45 +64,69 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render3.png)
 
-##### <u>Path-tracing without MIS</u>
+##### <u>1 Megapixel, 1 Million Samples</u>
 
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render4.png)
-
-##### <u>Path-tracing without MIS</u>
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render5.png)
-
-**<u>Stairs raytracing</u>** 
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render2.png)
-
-**<u>Bathroom raytracing</u>** 
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/screenshots/BathroomScene.png?raw=true)
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
 
 ##### <u>Raytracing sample</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
 
-##### <u>1 Megapixel, 1 Million Samples</u>
+**<u>Stairs raytracing</u>** 
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render2.png)
+
+##### <u>Thindielectric</u>
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
 
 ##### <u>BRDF Explorer</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
 
-##### <u>.OBJ Loader with MTL pipeline integration</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
-
 ##### <u>Different Shape Area Light emitters</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
 
-##### <u>Thindielectric</u>
+### Videos
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
+##### [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%201.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%202.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%203.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%204.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%205.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
+
+##### [Bathroom Scene Raytracing](https://www.youtube.com/watch?t=28&v=vqKZKP1hYcc&feature=youtu.be)
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%207.gif)
+
+##### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
+
+##### Tonemapping with AutoExposure and Temporal Adaptation
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
+
+##### [Stairs Scene Raytracing](https://www.youtube.com/watch?v=2uRBiLdvva4)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%206.gif?raw=true)
+
+##### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
 
 ## Main Features
 
