@@ -58,7 +58,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         //! Mutable version for protected usage
         inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept {return mAllocator;}
 
-        inline core::allocator<std::tuple<size_type,size_type> >& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustGeneralpurposeAllocator a-la naughty dog
+        inline auto& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustGeneralpurposeAllocator a-la naughty dog
 
         class DefaultDeferredFreeFunctor
         {
@@ -67,12 +67,25 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
                 size_type*  rangeData;
                 size_type   numAllocs;
             public:
-				inline DefaultDeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes)
+                template<typename T>
+				inline DefaultDeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes, const T*const *const objectsToHold)
                                                     : sadbRef(_this), rangeData(nullptr), numAllocs(numAllocsToFree)
                 {
-                    rangeData = reinterpret_cast<size_type*>(sadbRef->getFunctorAllocator().allocate(numAllocs,sizeof(size_type)));
-                    memcpy(rangeData            ,addrs,sizeof(size_type)*numAllocs);
-                    memcpy(rangeData+numAllocs  ,bytes,sizeof(size_type)*numAllocs);
+                    static_assert(std::is_base_of_v<core::IReferenceCounted,T>);
+                    
+                    rangeData = reinterpret_cast<size_type*>(sadbRef->getFunctorAllocator().allocate(numAllocs,sizeof(void*)));
+                    auto out = rangeData;
+                    memcpy(out,addrs,sizeof(size_type)*numAllocs);
+                    out += numAllocs;
+                    memcpy(out,bytes,sizeof(size_type)*numAllocs);
+                    out += numAllocs;
+                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(out);
+                    for (size_t i=0u; i<numAllocs; i++)
+                    {
+                        reinterpret_cast<const void**>(out)[i] = nullptr; // clear it first
+                        if (objectsToHold)
+                            objHoldIt[i] = core::smart_refctd_ptr<const IReferenceCounted>(objectsToHold[i]);
+                    }
                 }
                 DefaultDeferredFreeFunctor(const DefaultDeferredFreeFunctor& other) = delete;
 				inline DefaultDeferredFreeFunctor(DefaultDeferredFreeFunctor&& other) : sadbRef(nullptr), rangeData(nullptr), numAllocs(0u)
@@ -92,7 +105,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
                 DefaultDeferredFreeFunctor& operator=(const DefaultDeferredFreeFunctor& other) = delete;
                 inline DefaultDeferredFreeFunctor& operator=(DefaultDeferredFreeFunctor&& other)
                 {
-                    if (rangeData)
+                    if (rangeData) // could swap the values instead
                     {
                         auto alloctr = sadbRef->getFunctorAllocator();
                         alloctr.deallocate(reinterpret_cast<typename std::remove_pointer<decltype(alloctr)>::type::pointer>(rangeData),numAllocs);
@@ -130,12 +143,15 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
                     #endif // _NBL_DEBUG
                     HeterogenousMemoryAddressAllocator& alloctr = sadbRef->getAllocator();
                     alloctr.multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
+                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(rangeData+numAllocs*2u);
+                    for (size_t i=0u; i<numAllocs; i++)
+                        objHoldIt[i] = nullptr;
                 }
         };
         constexpr static bool UsingDefaultFunctor = std::is_same<CustomDeferredFreeFunctor,void>::value;
-        typedef typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type DeferredFreeFunctor;
+        using DeferredFreeFunctor = typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type;
         GPUDeferredEventHandlerST<DeferredFreeFunctor> deferredFrees;
-        core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustGeneralpurposeAllocator a-la naughty dog, unbounded allocation, but without resize, use blocks
+        core::allocator<std::tuple<size_type,size_type,void*> > functorAllocator; // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty dog
 
     public:
         #define DUMMY_DEFAULT_CONSTRUCTOR SubAllocatedDataBuffer() {}
@@ -241,11 +257,11 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             #endif // _NBL_DEBUG
             mAllocator.multi_free_addr(count,addr,bytes);
         }
-        template<typename Q=DeferredFreeFunctor>
-        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IGPUFence>&& fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
+        template<typename T>
+        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IGPUFence>&& fence, const T*const *const objectsToDrop=nullptr) noexcept
         {
             if (fence)
-                multi_free(std::move(fence),DeferredFreeFunctor(this,count,addr,bytes));
+                multi_free(std::move(fence),DeferredFreeFunctor(this,count,addr,bytes,objectsToDrop));
             else
                 multi_free(count,addr,bytes);
         }
