@@ -108,34 +108,6 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 		//os::Printer::log("Invalid (non-TGA) file!", _file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
-
-	// why did it even check gamma in isALoadableFileFormat ???
-	/*
-	float gamma;
-
-	if (footer.ExtensionOffset == 0)
-	{
-		os::Printer::log("Gamma information is not present! Assuming 2.333333", ELL_WARNING);
-		gamma = 2.333333f;
-	}
-	else
-	{
-		STGAExtensionArea extension;
-		_file->seek(footer.ExtensionOffset);
-		_file->read(&extension, sizeof(STGAExtensionArea));
-		
-		gamma = extension.Gamma;
-		
-		if (gamma == 0.0f)
-		{
-			os::Printer::log("Gamma information is not present! Assuming 2.333333", ELL_WARNING);
-			gamma = 2.333333f;
-		}
-		
-		// TODO - pass gamma to LoadAsset()?
-		// Actually I think metadata will be in used here in near future
-	}
-	*/
 	
     _file->seek(prevPos);
 	

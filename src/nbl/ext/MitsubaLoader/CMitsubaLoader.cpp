@@ -1299,7 +1299,6 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_assetMgr))
 				{
-					printf("%s\n", bumpmap_element->id.c_str());
 					auto derivmap = createDerivMap(ctx, bumpmap.get(),sampler.get(),wasNormal);
 					asset::SAssetBundle imgBundle(nullptr,{ derivmap });
 					ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);

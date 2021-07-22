@@ -62,8 +62,7 @@
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 // TODO even though it is defined in RWDI build, _DEBUG #define is not defined in msvc (in rwdi) so debug break is not triggered anyway
 // idk what about other compilers
-//#define _NBL_DEBUG_BREAK_IF( _CONDITION_ ) _NBL_BREAK_IF(_CONDITION_)
-#define _NBL_DEBUG_BREAK_IF( _CONDITION_ )
+#define _NBL_DEBUG_BREAK_IF( _CONDITION_ ) _NBL_BREAK_IF(_CONDITION_)
 #else
 #define _NBL_DEBUG_BREAK_IF( _CONDITION_ )
 #endif
