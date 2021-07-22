@@ -23,7 +23,6 @@
 #include "nbl/core/alloc/IAddressAllocator.h"
 #include "nbl/core/alloc/IAllocator.h"
 #include "nbl/core/alloc/LinearAddressAllocator.h"
-#include "nbl/core/alloc/MultiBufferingAllocatorBase.h"
 #include "nbl/core/alloc/null_allocator.h"
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 #include "nbl/core/alloc/IteratablePoolAddressAllocator.h"

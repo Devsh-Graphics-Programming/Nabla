@@ -19,8 +19,8 @@ public:
     using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;
     using addr_type = size_type;
 
-    CMemoryPool(size_type _blockSize, size_type _maxBlockCount, Args... args) : // intentionally no && here, i dont wont to do here anything like reference collapsing, `Args` come from class template
-        m_alctr(_blockSize,_maxBlockCount,std::forward<Args>(args)...)
+    CMemoryPool(size_type _blockSize, size_type _minBlockCount, size_type _maxBlockCount, Args... args) : // intentionally no && here, i dont wont to do here anything like reference collapsing, `Args` come from class template
+        m_alctr(_blockSize,_minBlockCount,_maxBlockCount,std::forward<Args>(args)...)
     {
     }
 

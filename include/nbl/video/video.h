@@ -9,16 +9,12 @@
 
 // dependencies
 #include "nbl/asset/asset.h"
-#include "nbl/ui/ui.h" // unsure yet
+#include "nbl/ui/ui.h"
 
 // alloc
-//#include "nbl/video/alloc/GPUMemoryAllocatorBase.h"
-//#include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
-//#include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
-//#include "nbl/video/alloc/ResizableBufferingAllocator.h"
-//#include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
-//#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
-//#include "nbl/video/alloc/SubAllocatedDataBuffer.h"
+#include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
+#include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
+#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // properties
 //#include "nbl/video/CPropertyPool.h"

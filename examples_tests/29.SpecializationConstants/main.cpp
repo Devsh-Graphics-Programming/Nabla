@@ -20,6 +20,8 @@ int main()
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT>SC_IMG_COUNT);
 
 	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Specialization constants");
 	auto win = std::move(initOutp.window);
@@ -278,34 +280,32 @@ int main()
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	asset::SBufferRange<video::IGPUBuffer> computeUBORange{ 0, gpuUboCompute->getSize(), gpuUboCompute };
 	asset::SBufferRange<video::IGPUBuffer> graphicsUBORange{ 0, gpuUboGraphics->getSize(), gpuUboGraphics };
-
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
-	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,SC_IMG_COUNT,cmdbuf);
+	
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
+	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,cmdbuf);
+	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+	for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)
+	{
+		imageAcquire[i] = device->createSemaphore();
+		renderFinished[i] = device->createSemaphore();
+	}
+	// render loop
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
-		const auto resourceIx = i%SC_IMG_COUNT;
+		const auto resourceIx = i%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
-		auto& fb = fbo[resourceIx];
+		auto& fence = frameComplete[resourceIx];
+		if (fence)
+		while (device->waitForFences(1u,&fence.get(),false,MAX_TIMEOUT)==video::IGPUFence::ES_TIMEOUT)
+		{
+		}
+		else
+			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		// TODO: cycle and reuse semaphores (will be apparent when vulkan comes) but before any fence reset we must poll the deferred events to exhaustion
-		auto transientFence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		// safe to proceed
 		cb->begin(0);
-
-		size_t offset = 0u;
-		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
-		asset::SClearValue clear;
-		asset::VkRect2D area;
-		area.offset = { 0, 0 };
-		area.extent = { WIN_W, WIN_H };
-		clear.color.float32[0] = 0.f;
-		clear.color.float32[1] = 0.f;
-		clear.color.float32[2] = 0.f;
-		clear.color.float32[3] = 1.f;
-		info.renderpass = renderpass;
-		info.framebuffer = fb;
-		info.clearValueCount = 1u;
-		info.clearValues = &clear;
-		info.renderArea = area;
 
 		{
 			const auto time = std::chrono::high_resolution_clock::now();
@@ -313,7 +313,8 @@ int main()
 			core::vector3df_SIMD gravPoint = cameraPosition+camFront*250.f;
 			uboComputeData.gravPointAndDt = gravPoint;
 			uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>(time-lastTime).count()*1e-4;
-			device->updateBufferRangeViaStagingBuffer(cb.get(),transientFence.get(),	queue,computeUBORange,&uboComputeData);
+			device->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),queue,computeUBORange,&uboComputeData);
+            device->resetFences(1u,&fence.get());
 
 			lastTime = time;
 		}
@@ -334,26 +335,43 @@ int main()
 		{
 			memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
 			// might submit to queue if overflows
-			device->updateBufferRangeViaStagingBuffer(cb.get(),transientFence.get(),queue,graphicsUBORange,&viewParams);
+			device->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),queue,graphicsUBORange,&viewParams);
+            device->resetFences(1u,&fence.get());
 		}
-		cb->bindGraphicsPipeline(graphicsPipeline.get());
-		size_t vbOffset = 0;
-		cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
-		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
-		cb->beginRenderPass(&info, asset::ESC_INLINE);
-		cb->draw(PARTICLE_COUNT, 1, 0, 0);
+		// renderpass 
+		uint32_t imgnum = 0u;
+		sc->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
+		{
+			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
+			asset::SClearValue clear;
+			asset::VkRect2D area;
+			area.offset = { 0, 0 };
+			area.extent = { WIN_W, WIN_H };
+			clear.color.float32[0] = 0.f;
+			clear.color.float32[1] = 0.f;
+			clear.color.float32[2] = 0.f;
+			clear.color.float32[3] = 1.f;
+			info.renderpass = renderpass;
+			info.framebuffer = fbo[imgnum];
+			info.clearValueCount = 1u;
+			info.clearValues = &clear;
+			info.renderArea = area;
+			cb->beginRenderPass(&info,asset::ESC_INLINE);
+		}
+		// individual draw
+		{
+			cb->bindGraphicsPipeline(graphicsPipeline.get());
+			size_t vbOffset = 0;
+			cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
+			cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
+			cb->draw(PARTICLE_COUNT, 1, 0, 0);
+		}
 		cb->endRenderPass();
 
 		cb->end();
 
-		// TODO: cycle and reuse semaphores (will be apparent when vulkan comes)
-		auto img_acq_sem = device->createSemaphore();
-		auto render1_finished_sem = device->createSemaphore();
-
-		uint32_t imgnum = 0u;
-		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, img_acq_sem.get(), render1_finished_sem.get(), transientFence.get());
-		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
+		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
 	}
 
 	return 0;

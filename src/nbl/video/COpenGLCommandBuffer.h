@@ -9,8 +9,7 @@
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -514,6 +513,11 @@ public:
 
     COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
 
+    inline void begin(uint32_t _flags) override final
+    {
+        IGPUCommandBuffer::begin(_flags);
+        reset(_flags);
+    }
     bool reset(uint32_t _flags) override final;
 
 
@@ -1093,7 +1097,6 @@ public:
     }
 };
 
-}
 }
 
 #endif

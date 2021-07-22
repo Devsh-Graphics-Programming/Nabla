@@ -4,7 +4,9 @@
 
 #ifndef __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
 #define __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
-#define NBL_NEW_OPERATOR_PASSTHTHROUGH  static inline void* operator new(size_t size)                noexcept {return (Base::operator new(size));}\
+
+// TODO: move this to somewhere in nbl/core headers
+#define NBL_NEW_OPERATOR_PASSTHTHROUGH(Base)  static inline void* operator new(size_t size)                noexcept {return (Base::operator new(size));}\
         static inline void* operator new[](size_t size)              noexcept {return Base::operator new[](size);}\
         static inline void* operator new(size_t size, void* where)   noexcept {return (Base::operator new(size,where));}\
         static inline void* operator new[](size_t size, void* where) noexcept {return Base::operator new[](size,where);}\
@@ -44,8 +46,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
-        StreamingTransientDataBufferST(ILogicalDevice* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
-                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
+        StreamingTransientDataBufferST(ILogicalDevice* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs, const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
                                 Base(inDriver, reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),0u,0u,bufferReqs.vulkanReqs.alignment,bufferReqs.vulkanReqs.size,minAllocSize)
         {
         }
@@ -58,7 +59,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         inline IGPUBuffer*  getBuffer() noexcept {return Base::getBuffer();}
         inline const IGPUBuffer*  getBuffer() const noexcept {return Base::getBuffer();}
 
-        inline void*        getBufferPointer() noexcept {return Base::mAllocator.getCurrentBufferAllocation().second;}
+        inline void*        getBufferPointer() noexcept {return Base::mAllocator.getCurrentBufferAllocation().ptr;}
 
 
         inline size_type    max_size() noexcept {return Base::max_size();}
@@ -99,7 +100,8 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         {
             Base::multi_free(std::forward<Args>(args)...);
         }
-       NBL_NEW_OPERATOR_PASSTHTHROUGH
+
+        NBL_NEW_OPERATOR_PASSTHTHROUGH(Base)
 };
 
 
@@ -112,8 +114,8 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
 
         virtual ~StreamingTransientDataBufferMT() {}
     public:
-        typedef typename Base::size_type                        size_type;
-        static constexpr size_type                                      invalid_address = Base::invalid_address;
+        using size_type = typename Base::size_type;
+        static constexpr size_type invalid_address = Base::invalid_address;
 
         using Base::Base;
 
@@ -187,7 +189,8 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         {
             return lock;
         }
-        NBL_NEW_OPERATOR_PASSTHTHROUGH
+
+        NBL_NEW_OPERATOR_PASSTHTHROUGH(Base)
 };
 
 

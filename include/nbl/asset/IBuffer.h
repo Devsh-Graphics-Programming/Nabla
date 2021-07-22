@@ -8,9 +8,7 @@
 #include "nbl/core/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IBuffer : public core::IBuffer, public IDescriptor
@@ -46,7 +44,6 @@ struct SBufferRange
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
 };
 
-}
 }
 
 #endif

@@ -211,7 +211,7 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_FOR_FENCES;
             using retval_t = IGPUFence::E_STATUS;
-            core::SRange<IGPUFence*> fences = { nullptr, nullptr };
+            core::SRange<IGPUFence*const,IGPUFence*const*,IGPUFence*const*> fences = { nullptr, nullptr };
             bool waitForAll;
             uint64_t timeout;
         };
@@ -610,7 +610,7 @@ protected:
             {
                 auto& p = std::get<SRequestWaitForFences>(req.params_variant);
                 uint32_t _count = p.fences.size();
-                IGPUFence** _fences = p.fences.begin();
+                IGPUFence*const *const _fences = p.fences.begin();
                 bool _waitAll = p.waitForAll;
                 uint64_t _timeout = p.timeout;
 
@@ -775,14 +775,23 @@ protected:
 
             return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
-        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout)
+        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, uint64_t _timeout)
         {
             using clock_t = std::chrono::high_resolution_clock;
             const auto start = clock_t::now();
             const auto end = start+std::chrono::nanoseconds(_timeout);
+            
+            assert(_count!=0u);
 
-            // poll once with zero timeout
+            // want ~1/4 us on second try when not waiting for all
+            constexpr uint64_t pollingFirstTimeout = 256ull>>1u;
+            // poll once with zero timeout if have multiple fences to wait on
             uint64_t timeout = 0ull;
+            if (_count==1u) // if we're only waiting for one fence, we can skip all the shenanigans
+            {
+                _waitAll = true;
+                timeout = 0xdeadbeefBADC0FFEull;
+            }
             while (true)
             {
                 for (uint32_t i=0u; i<_count; )
@@ -821,7 +830,7 @@ protected:
                 if (_waitAll)
                     return IGPUFence::ES_SUCCESS;
                 else if (!timeout)
-                    timeout = 256u>>1u; // want ~1/4 us on second try
+                    timeout = pollingFirstTimeout;
             }
             // everything below this line is just to make the compiler shut up
             assert(false);
