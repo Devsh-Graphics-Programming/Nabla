@@ -12,6 +12,7 @@
 namespace nbl::core
 {
 
+#if 0 // TODO: until we figure out the API for HeterogenousMemoryAllocator (how it resizes a buffer)
 // if only we could use c++17 if-constexpr
 namespace impl
 {
@@ -36,7 +37,6 @@ namespace impl
     };
 }
 
-#if 0 // TODO: until we figure out the API for HeterogenousMemoryAllocator (how it resizes a buffer)
 template<class HeterogenousMemoryAllocator>
 class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> // make protected?
 {

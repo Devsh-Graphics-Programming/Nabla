@@ -246,7 +246,7 @@ class COpenGL_Queue final : public IGPUQueue
         COpenGL_Queue(IOpenGL_LogicalDevice* gldev, ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _ctx, EGLSurface _surface, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority, SDebugCallback* _dbgCb) :
             IGPUQueue(dev, _famIx, _flags, _priority),
             threadHandler(_egl, gldev, _features, _ctx, _surface, _ctxid, _dbgCb),
-            m_mempool(1u<<20,1u),
+            m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {
 
@@ -366,7 +366,7 @@ class COpenGL_Queue final : public IGPUQueue
 
     private:
         CThreadHandler threadHandler;
-        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator>;
+        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,uint32_t>;
         memory_pool_t m_mempool;
         uint32_t m_ctxid;
 };

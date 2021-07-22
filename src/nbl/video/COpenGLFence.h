@@ -61,9 +61,6 @@ public:
     {
         IOpenGLSyncPrimitiveBase::reset();
     }
-
-private:
-    IOpenGL_LogicalDevice* m_device;
 };
 
 }}

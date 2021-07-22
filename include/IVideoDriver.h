@@ -7,24 +7,15 @@
 #define __NBL_I_VIDEO_DRIVER_H_INCLUDED__
 
 #include "rect.h"
-#include "SColor.h"
 #include "matrixutil.h"
 #include "dimension2d.h"
 #include "position2d.h"
-#include "nbl/video/IGPUBufferView.h"
 #include "nbl/video/IGPURenderpassIndependentPipeline.h"
 
 namespace nbl
 {
 namespace video
 {
-	//TODO move to IGPUCommandBuffer.h or higher level header
-    enum E_PIPELINE_BIND_POINT
-    {
-        EPBP_GRAPHICS = 0,
-        EPBP_COMPUTE = 1,
-        EPBP_COUNT
-    };
 #if 0
 	//! Legacy and deprecated system
 	class IVideoDriver : public IDriver
@@ -57,10 +48,6 @@ namespace video
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) {}
-
-		//! Queries
-		virtual void beginQuery(IQueryObject* query) = 0;
-		virtual void endQuery(IQueryObject* query) = 0;
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */

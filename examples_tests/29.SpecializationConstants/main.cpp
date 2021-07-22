@@ -20,6 +20,8 @@ int main()
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT>SC_IMG_COUNT);
 
 	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Specialization constants");
 	auto win = std::move(initOutp.window);
@@ -252,15 +254,31 @@ int main()
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	asset::SBufferRange<video::IGPUBuffer> computeUBORange{ 0, gpuUboCompute->getSize(), gpuUboCompute };
 	asset::SBufferRange<video::IGPUBuffer> graphicsUBORange{ 0, gpuUboGraphics->getSize(), gpuUboGraphics };
-
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
-	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,SC_IMG_COUNT,cmdbuf);
+	
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
+	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,cmdbuf);
+	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+	for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)
+	{
+		imageAcquire[i] = device->createSemaphore();
+		renderFinished[i] = device->createSemaphore();
+	}
+	// render loop
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
-		const auto resourceIx = i%SC_IMG_COUNT;
+		const auto resourceIx = i%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
-		auto& fb = fbo[resourceIx];
+		auto& fence = frameComplete[resourceIx];
+		if (fence)
+		while (device->waitForFences(1u,&fence.get(),false,MAX_TIMEOUT)==video::IGPUFence::ES_TIMEOUT)
+		{
+		}
+		else
+			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
+		// safe to proceed
 		cb->begin(0);
 		
 		{
@@ -287,7 +305,7 @@ int main()
 		cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
 
 		{
-			memcpy(viewParams.MVP, &viewProj, sizeof(viewProj));
+			memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
 			cb->updateBuffer(graphicsUBORange.buffer.get(),graphicsUBORange.offset,graphicsUBORange.size,&viewParams);
 		}
 		{
@@ -300,39 +318,38 @@ int main()
 			vp.height = WIN_H;
 			cb->setViewport(0u, 1u, &vp);
 		}
-		cb->bindGraphicsPipeline(graphicsPipeline.get());
-		size_t vbOffset = 0;
-		cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
-		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
+		// renderpass 
+		uint32_t imgnum = 0u;
+		sc->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clear;
+			asset::VkRect2D area;
 			clear.color.float32[0] = 0.f;
 			clear.color.float32[1] = 0.f;
 			clear.color.float32[2] = 0.f;
 			clear.color.float32[3] = 1.f;
 			info.renderpass = renderpass;
-			info.framebuffer = fb;
+			info.framebuffer = fbo[imgnum];
 			info.clearValueCount = 1u;
 			info.clearValues = &clear;
 			info.renderArea.offset = { 0, 0 };
 			info.renderArea.extent = { WIN_W, WIN_H };
-			cb->beginRenderPass(&info, asset::ESC_INLINE);
+			cb->beginRenderPass(&info,asset::ESC_INLINE);
 		}
-		cb->draw(PARTICLE_COUNT, 1, 0, 0);
+		// individual draw
+		{
+			cb->bindGraphicsPipeline(graphicsPipeline.get());
+			size_t vbOffset = 0;
+			cb->bindVertexBuffers(0, 1, &gpuParticleBuf.get(), &vbOffset);
+			cb->bindDescriptorSets(asset::EPBP_GRAPHICS,rpIndependentPipeline->getLayout(),GRAPHICS_SET,1u,&gpuds0Graphics.get(),nullptr);
+			cb->draw(PARTICLE_COUNT, 1, 0, 0);
+		}
 		cb->endRenderPass();
-
 		cb->end();
 
-		auto img_acq_sem = device->createSemaphore();
-		auto render1_finished_sem = device->createSemaphore();
-
-		uint32_t imgnum = 0u;
-		sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-
-		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, img_acq_sem.get(), render1_finished_sem.get());
-
-		CommonAPI::Present(device.get(), sc.get(), queue, render1_finished_sem.get(), imgnum);
+		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
 	}
 
 	return 0;

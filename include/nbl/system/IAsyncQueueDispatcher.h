@@ -108,17 +108,20 @@ public:
 
         request_t& req = request_pool[r_id];
         auto lk = req.lock();
-        req.ready = false;
+        req.ready.store(false);
         static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
         // unlock request after we've written everything into it
         lk.unlock();
-        req.ready_for_work = true;
+        req.ready_for_work.store(true);
 #if __cplusplus >= 202002L
         req.ready_for_work.notify_one();
 #endif
-        // wake up queue thread
-        base_t::m_cvar.notify_one();
 
+        {
+            auto global_lk = base_t::createLock();
+            // wake up queue thread
+            base_t::m_cvar.notify_one();
+        }
         return req;
     }
 
@@ -126,6 +129,7 @@ private:
     template <typename... Args>
     void work(lock_t& lock, Args&&... optional_internal_state)
     {
+        lock.unlock();
         static_assert(sizeof...(optional_internal_state) <= 1u, "How did this happen");
 
         auto r_id = cb_begin++;
@@ -145,9 +149,10 @@ private:
 
         static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
 
-        req.ready_for_work = false;
-        req.ready = true;
+        req.ready_for_work.store(false);
+        req.ready.store(true);
         req.cvar.notify_all();
+        lock.lock();
     }
 
     bool wakeupPredicate() const { return (cb_begin != cb_end); }

@@ -200,13 +200,6 @@ public:
     virtual void begin(uint32_t _flags)
     {
         assert(m_state != ES_PENDING);
-        /* TODO: use the declarations_fix branch, and have a smartpointer to the pool in ICommandBuffer (or in IGPUCommandBuffer) and check for the reset condition violation
-        if (m_pool->getFlags()&RESET_COMMAND_BUFFER==0u)
-        {
-            assert(m_state != ES_INITIAL);
-        }
-        */
-
         m_state = ES_RECORDING;
         m_recordingFlags = _flags;
     }
@@ -228,6 +221,7 @@ public:
     }
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
+    // TODO: drawmeshbuffer would be handy
     virtual bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) = 0;
     virtual bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) = 0;
     virtual bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;

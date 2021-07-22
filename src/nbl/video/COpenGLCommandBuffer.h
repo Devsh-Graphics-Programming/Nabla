@@ -9,8 +9,7 @@
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -506,7 +505,7 @@ protected:
     {
         m_commands.emplace_back(std::move(cmd));
     }
-    core::vector<SCommand> m_commands;
+    core::vector<SCommand> m_commands; // TODO: embed in the command pool via the use of linked list
 
 public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
@@ -514,6 +513,11 @@ public:
 
     COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
 
+    inline void begin(uint32_t _flags) override final
+    {
+        IGPUCommandBuffer::begin(_flags);
+        reset(_flags);
+    }
     bool reset(uint32_t _flags) override final;
 
 
@@ -1096,7 +1100,6 @@ public:
     }
 };
 
-}
 }
 
 #endif
