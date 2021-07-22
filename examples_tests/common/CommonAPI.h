@@ -26,7 +26,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
 		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, sc_image_count> fbo;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
 
 	};
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count>

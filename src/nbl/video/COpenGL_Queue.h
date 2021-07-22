@@ -161,6 +161,7 @@ class COpenGL_Queue final : public IGPUQueue
             void process_request(SRequest& req, ThreadInternalStateType& _state)
             {
                 auto& gl = _state.gl;
+                auto& ctxlocal = _state.ctxlocal;
 
                 switch (req.type)
                 {
@@ -189,6 +190,8 @@ class COpenGL_Queue final : public IGPUQueue
 
                     for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
                     {
+                        // reset initial state to default before cmdbuf execution (in Vulkan command buffers are independent of each other)
+                        ctxlocal.nextState = SOpenGLState();
                         auto* cmdbuf = static_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get());
                         cmdbuf->executeAll(&gl, &_state.ctxlocal, m_ctxid);
                     }

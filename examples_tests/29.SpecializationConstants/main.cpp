@@ -34,37 +34,7 @@ int main()
 	auto renderpass = std::move(initOutp.renderpass);
 	auto fbo = std::move(initOutp.fbo);
 	auto cmdpool = std::move(initOutp.commandPool);
-	// TODO: stop state bleeding between cmdbuffers!!!
-	{
-		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;
-		device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cb);
-		assert(cb);
 
-		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-		asset::SViewport vp;
-		vp.minDepth = 1.f;
-		vp.maxDepth = 0.f;
-		vp.x = 0u;
-		vp.y = 0u;
-		vp.width = WIN_W;
-		vp.height = WIN_H;
-		cb->setViewport(0u, 1u, &vp);
-
-		cb->end();
-
-		video::IGPUQueue::SSubmitInfo info;
-		auto* cb_ = cb.get();
-		info.commandBufferCount = 1u;
-		info.commandBuffers = &cb_;
-		info.pSignalSemaphores = nullptr;
-		info.signalSemaphoreCount = 0u;
-		info.pWaitSemaphores = nullptr;
-		info.waitSemaphoreCount = 0u;
-		info.pWaitDstStageMask = nullptr;
-		queue->submit(1u, &info, nullptr);
-	}
 	video::IDescriptorPool::SDescriptorPoolSize poolSize[2];
 	poolSize[0].count = 1;
 	poolSize[0].type = asset::EDT_STORAGE_BUFFER;
@@ -180,7 +150,10 @@ int main()
 	device->updateBufferRangeViaStagingBuffer(queue, range, particlePos.data());
 	particlePos.clear();
 
-	auto gpuUboCompute = device->createDeviceLocalGPUBufferOnDedMem(core::roundUp(sizeof(UBOCompute), 64ull));
+	auto devLocalReqs = device->getDeviceLocalGPUMemoryReqs();
+
+	devLocalReqs.vulkanReqs.size = core::roundUp(sizeof(UBOCompute), 64ull);
+	auto gpuUboCompute = device->createGPUBufferOnDedMem(devLocalReqs, true);
 	auto gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 	{
 		video::IGPUDescriptorSet::SDescriptorInfo i[3];
@@ -258,7 +231,8 @@ int main()
 	constexpr uint32_t GRAPHICS_SET = 0u;
 	constexpr uint32_t GRAPHICS_DATA_UBO_BINDING = 0u;
 	asset::SBasicViewParameters viewParams;
-	auto gpuUboGraphics = device->createDeviceLocalGPUBufferOnDedMem(sizeof(viewParams));
+	devLocalReqs.vulkanReqs.size = sizeof(viewParams);
+	auto gpuUboGraphics = device->createGPUBufferOnDedMem(devLocalReqs, true);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet w;
 		video::IGPUDescriptorSet::SDescriptorInfo i;
@@ -306,17 +280,15 @@ int main()
 
 		// safe to proceed
 		cb->begin(0);
-
+		
 		{
-			const auto time = std::chrono::high_resolution_clock::now();
-
+			auto time = std::chrono::high_resolution_clock::now();
 			core::vector3df_SIMD gravPoint = cameraPosition+camFront*250.f;
 			uboComputeData.gravPointAndDt = gravPoint;
 			uboComputeData.gravPointAndDt.w = std::chrono::duration_cast<std::chrono::milliseconds>(time-lastTime).count()*1e-4;
-			device->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),queue,computeUBORange,&uboComputeData);
-            device->resetFences(1u,&fence.get());
 
 			lastTime = time;
+			cb->updateBuffer(computeUBORange.buffer.get(),computeUBORange.offset,computeUBORange.size,&uboComputeData);
 		}
 		cb->bindComputePipeline(gpuComputePipeline.get());
 		cb->bindDescriptorSets(asset::EPBP_COMPUTE,
@@ -331,12 +303,20 @@ int main()
 		memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 		memBarrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
 		cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
-		
+
 		{
 			memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
-			// might submit to queue if overflows
-			device->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),queue,graphicsUBORange,&viewParams);
-            device->resetFences(1u,&fence.get());
+			cb->updateBuffer(graphicsUBORange.buffer.get(),graphicsUBORange.offset,graphicsUBORange.size,&viewParams);
+		}
+		{
+			asset::SViewport vp;
+			vp.minDepth = 1.f;
+			vp.maxDepth = 0.f;
+			vp.x = 0u;
+			vp.y = 0u;
+			vp.width = WIN_W;
+			vp.height = WIN_H;
+			cb->setViewport(0u, 1u, &vp);
 		}
 		// renderpass 
 		uint32_t imgnum = 0u;
@@ -345,8 +325,6 @@ int main()
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clear;
 			asset::VkRect2D area;
-			area.offset = { 0, 0 };
-			area.extent = { WIN_W, WIN_H };
 			clear.color.float32[0] = 0.f;
 			clear.color.float32[1] = 0.f;
 			clear.color.float32[2] = 0.f;
@@ -355,7 +333,8 @@ int main()
 			info.framebuffer = fbo[imgnum];
 			info.clearValueCount = 1u;
 			info.clearValues = &clear;
-			info.renderArea = area;
+			info.renderArea.offset = { 0, 0 };
+			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
 		}
 		// individual draw
@@ -367,7 +346,6 @@ int main()
 			cb->draw(PARTICLE_COUNT, 1, 0, 0);
 		}
 		cb->endRenderPass();
-
 		cb->end();
 
 		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
