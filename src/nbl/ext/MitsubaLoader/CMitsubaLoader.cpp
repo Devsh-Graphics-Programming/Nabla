@@ -17,7 +17,7 @@
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-#	define DEBUG_MITSUBA_LOADER
+//#	define DEBUG_MITSUBA_LOADER
 #endif
 
 namespace nbl
