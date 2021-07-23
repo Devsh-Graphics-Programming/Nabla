@@ -155,8 +155,8 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
     // maybe unroll a few times manually
     while (outstandingSampleMask!=uvec2(0u))
     {
-		uvec2 tmp = outstandingSampleMask;
-        uint subgroupFormatID = subgroupBroadcast(formatID,tmp[1]!=0u ? 32u:findLSB(tmp[0]));
+        const bool bottomNotEmpty = outstandingSampleMask[0]!=0u;
+        uint subgroupFormatID = subgroupBroadcast(formatID,findLSB(bottomNotEmpty ? outstandingSampleMask[0]:outstandingSampleMask[1])+(bottomNotEmpty ? 0:32));
         bool canSample = subgroupFormatID==formatID; // do I need this? && (outstandingSampleMask&gl_SubGroupEqMaskARB)==gl_SubGroupEqMaskARB;
         outstandingSampleMask ^= subgroupBallot(canSample).xy;
         if (canSample)
@@ -196,11 +196,10 @@ vec4 nbl_glsl_vTextureGrad(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 #if _NBL_VT_INT_VIEWS_COUNT
 ivec4 nbl_glsl_iVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in uint originalMaxFullMip)
 {
-    int nonnegativeLod = int(lod);
-    int clippedLoD = min(nonnegativeLod,originalMaxFullMip);
-    int levelInTail = nonnegativeLod - clippedLoD;
+    const int clippedLoD = originalMaxFullMip!=0u ? min(lod,originalMaxFullMip):0u;
+    const int levelInTail = lod-clippedLoD;
     
-    vec3 physCoord = nbl_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail);
+    const vec3 physCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
 #ifdef NBL_GL_EXT_nonuniform_qualifier
 	return textureLod(iphysicalTileStorageFormatView[nonuniformEXT(formatID)], physCoord, lod);
 #else
@@ -238,11 +237,10 @@ ivec4 nbl_glsl_iVTextureLod(in uvec2 _texData, in vec2 uv, in uint lod)
 #if _NBL_VT_UINT_VIEWS_COUNT
 uvec4 nbl_glsl_uVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in uint originalMaxFullMip)
 {
-    int nonnegativeLod = int(lod);
-    int clippedLoD = min(nonnegativeLod,originalMaxFullMip);
-    int levelInTail = nonnegativeLod - clippedLoD;
+    const int clippedLoD = originalMaxFullMip!=0u ? min(lod,originalMaxFullMip):0u;
+    const int levelInTail = lod-clippedLoD;
     
-    vec3 physCoord = nbl_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail);
+    const vec3 physCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
 #ifdef NBL_GL_EXT_nonuniform_qualifier
 	return textureLod(uphysicalTileStorageFormatView[nonuniformEXT(formatID)], physCoord, lod);
 #else
@@ -276,55 +274,5 @@ uvec4 nbl_glsl_uVTextureLod(in uvec2 _texData, in vec2 uv, in uint lod)
     return nbl_glsl_uVTextureLod_impl(formatID, virtualUV, lod, nbl_glsl_unpackMaxMipInVT(_texData));
 }
 #endif //_NBL_VT_UINT_VIEWS_COUNT
-
-/*
-#ifdef NBL_GL_EXT_nonuniform_qualifier
-	#define _NBL_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName) return textureLod(physicalSamplerName[nonuniformEXT(formatID)], physCoord, lod)
-#else
-	#define _NBL_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName) \
-    retval_t retval; \
-    uint64_t outstandingSampleMask = ballotARB(true); \
-    while (outstandingSampleMask != uint64_t(0u)) \ 
-    { \
-        uvec2 tmp = unpackUint2x32(outstandingSampleMask); \
-        uint subgroupFormatID = readInvocationARB(formatID, tmp[1] != 0u ? 32u : findLSB(tmp[0])); \
-        bool canSample = subgroupFormatID == formatID; \
-        outstandingSampleMask ^= ballotARB(canSample); \
-        if (canSample) \
-            retval = textureLod(physicalSamplerName[subgroupFormatID], physCoord, lod); \
-    } \
-    return retval
-#endif
-
-//problem is with this line below "unexpected LEFT_BRACE", no idea why
-#define _NBL_DEFINE_VT_INTEGER_FUNCTIONS(funcName, implFuncName, retval_t, physicalSamplerName) retval_t implFuncName##(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip) \
-{ \
-    int nonnegativeLod = int(lod); \
-    int clippedLoD = min(nonnegativeLod,originalMaxFullMip); \
-    int levelInTail = nonnegativeLod - clippedLoD; \
-    \
-    vec3 physCoord = nbl_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail); \
-	_NBL_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName); \
-} \
-retval_t funcName(in uvec2 _texData, in vec2 uv, in uint lod) \
-{ \
-    vec2 originalSz = nbl_glsl_unpackSize(_texData); \
-	\
-    uvec2 wrap = nbl_glsl_unpackWrapModes(_texData); \
-    uv.x = nbl_glsl_wrapTexCoord(uv.x, wrap.x); \
-    uv.y = nbl_glsl_wrapTexCoord(uv.y, wrap.y); \
-    \
-    vec3 virtualUV = nbl_glsl_unpackVirtualUV(_texData); \
-    uint formatID = nbl_glsl_VT_layer2pid(uint(virtualUV.z)); \
-    virtualUV.xy += uv * originalSz; \
-    virtualUV.xy *= nbl_glsl_VT_getVTexSzRcp(); \
-	\
-    return nbl_glsl_vTextureLod_impl(formatID, virtualUV, lod, nbl_glsl_unpackMaxMipInVT(_texData)); \
-}
-
-_NBL_DEFINE_VT_INTEGER_FUNCTIONS(nbl_glsl_iVTextureLod, nbl_glsl_iVTextureLod_impl, ivec4, iphysicalTileStorageFormatView)
-_NBL_DEFINE_VT_INTEGER_FUNCTIONS(nbl_glsl_uVTextureLod, nbl_glsl_uVTextureLod_impl, uvec4, uphysicalTileStorageFormatView)
-#undef _NBL_DIVERGENT_SAMPLING_IMPL
-*/
 
 #endif //!_NBL_BUILTIN_GLSL_VIRTUAL_TEXTURING_IMPL_FUNCTIONS_INCLUDED_

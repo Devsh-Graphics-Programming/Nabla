@@ -245,7 +245,7 @@ protected:
 
         return params;
     }
-    ISampler::SParams getPhysicalPageSamplerParams() const
+    ISampler::SParams getPhysicalStorageFloatSamplerParams() const
     {
         ISampler::SParams params;
         params.AnisotropicFilter = m_tilePadding ? core::findMSB(m_tilePadding<<1) : 0u;
@@ -262,20 +262,43 @@ protected:
 
         return params;
     }
+    ISampler::SParams getPhysicalStorageNonFloatSamplerParams() const
+    {
+        ISampler::SParams params;
+        params.AnisotropicFilter = 0u; // TODO: don't apply padding to uint and int textures (is it even possible with all the view aliasing going on?)
+        params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
+        params.CompareEnable = false;
+        params.CompareFunc = ISampler::ECO_NEVER;
+        params.LodBias = 0.f;
+        params.MaxLod = 0.f;
+        params.MinLod = 0.f;
+        params.MaxFilter = ISampler::ETF_NEAREST;
+        params.MinFilter = ISampler::ETF_NEAREST;
+        params.MipmapMode = ISampler::ESMM_NEAREST;
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+
+        return params;
+    }
 
     virtual core::smart_refctd_ptr<sampler_t> createSampler(const ISampler::SParams& _params) const = 0;
 
-    core::smart_refctd_ptr<sampler_t> getPhysicalPageSampler() const
-    {
-        if (!m_physicalPageSampler)
-            m_physicalPageSampler = createSampler(getPhysicalPageSamplerParams());
-        return m_physicalPageSampler;
-    }
     core::smart_refctd_ptr<sampler_t> getPageTableSampler() const
     {
         if (!m_pageTableSampler)
             m_pageTableSampler = createSampler(getPageTableSamplerParams());
         return m_pageTableSampler;
+    }
+    core::smart_refctd_ptr<sampler_t> getPhysicalStorageFloatSampler() const
+    {
+        if (!m_physicalStorageFloatSampler)
+            m_physicalStorageFloatSampler = createSampler(getPhysicalStorageFloatSamplerParams());
+        return m_physicalStorageFloatSampler;
+    }
+    core::smart_refctd_ptr<sampler_t> getPhysicalStorageNonFloatSampler() const
+    {
+        if (!m_physicalStorageNonFloatSampler)
+            m_physicalStorageNonFloatSampler = createSampler(getPhysicalStorageNonFloatSamplerParams());
+        return m_physicalStorageNonFloatSampler;
     }
 
     uint32_t getMaxAllocationPageCount() const
@@ -384,7 +407,8 @@ protected:
     core::smart_refctd_ptr<image_t> m_pageTable;
     mutable core::smart_refctd_ptr<image_view_t> m_pageTableView;
     mutable core::smart_refctd_ptr<sampler_t> m_pageTableSampler;
-    mutable core::smart_refctd_ptr<sampler_t> m_physicalPageSampler;
+    mutable core::smart_refctd_ptr<sampler_t> m_physicalStorageFloatSampler;
+    mutable core::smart_refctd_ptr<sampler_t> m_physicalStorageNonFloatSampler;
 
     using pg_tab_addr_alctr_t = core::GeneralpurposeAddressAllocator<uint32_t>;
     std::array<pg_tab_addr_alctr_t, MAX_PAGE_TABLE_LAYERS> m_pageTableLayerAllocators;
@@ -1012,7 +1036,8 @@ protected:
         auto* samplers = _outSamplers;
 
         samplers[0] = getPageTableSampler();
-        std::fill(samplers+1, samplers+samplerCount, getPhysicalPageSampler());
+        std::fill(samplers+1, samplers+samplerCount, getPhysicalStorageFloatSampler());
+        //std::fill(samplers+1, samplers+samplerCount, getPhysicalStorageNonFloatSampler()); // TODO: @Crisspl fix issue #106 please
 
         auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
             bnd.binding = _binding;
@@ -1022,7 +1047,7 @@ protected:
             bnd.samplers = _samplers;
         };
 
-        fillBinding(bindings[0], _pgtBinding, 1u, samplers); // @Crisspl why is the count hardcoded to 1 !?
+        fillBinding(bindings[0], _pgtBinding, 1u, samplers);
 
         uint32_t i = 1u;
         if (getFloatViews().size())
@@ -1032,12 +1057,12 @@ protected:
         }
         if (getIntViews().size())
         {
-            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1); // @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
+            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1); // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
             ++i;
         }
         if (getUintViews().size())
         {
-            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1); // @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
+            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1); // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
         }
 
         return std::make_pair(bindingCount, samplerCount);
