@@ -117,31 +117,19 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	int LoD_high = int(LoD);
 
     bool haveToDoTrilinear = false; // have to do trilinear only if doing minification AND larger than 1x1 footprint
-    int levelInTail = 0;
+    int levelInTail = originalMaxFullMip!=0u ? 0:1;
     int clippedLoD = 0;
     if (LoD>0.f) // are we performing minification
     {
-        const bool bbbb = LoD_high>=originalMaxFullMip;
+        const bool inMipTail = LoD_high>=originalMaxFullMip;
 	    // clip to max representable in VT, originalMaxFullMip is always -1 in case of no miplevel taking at least 1 full page
-	    clippedLoD = bbbb ? (int(max(originalMaxFullMip,1u))-1):LoD_high;
-
-        if (bbbb)
-        {
-	        // if minification is being performaed then get tail position
-	        levelInTail = LoD_high-clippedLoD;
-	        // have to do trilinear only if doing minification AND larger than 1x1 footprint
-	        haveToDoTrilinear = LoD_high-clippedLoD<int(_NBL_VT_IMPL_PAGE_SZ_LOG2);
-	        levelInTail = haveToDoTrilinear ? levelInTail:int(_NBL_VT_IMPL_PAGE_SZ_LOG2);
-            levelInTail += originalMaxFullMip!=0u ? 0:1;
-        }
-        else
-        {
-            levelInTail += originalMaxFullMip!=0u ? 0:1;
-            haveToDoTrilinear = true;
-        }
+        const int actualMaxFullMip = int(originalMaxFullMip)-1;
+	    clippedLoD = inMipTail ? max(actualMaxFullMip,0):LoD_high;
+        
+	    haveToDoTrilinear = LoD_high<originalMaxFullMip+_NBL_VT_IMPL_PAGE_SZ_LOG2;
+        if (inMipTail)
+	        levelInTail = min(LoD_high-actualMaxFullMip,int(_NBL_VT_IMPL_PAGE_SZ_LOG2));
     }
-    else
-        levelInTail = originalMaxFullMip!=0u ? 0:1;
 
 	// get the higher resolution mip-map level
 	vec3 hiPhysCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
