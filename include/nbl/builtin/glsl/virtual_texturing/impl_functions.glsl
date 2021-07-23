@@ -112,7 +112,6 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 #else
 	LoD *= 0.5;
 #endif
-    LoD += 5.f;
 	// WARNING: LoD_high will round up when LoD negative, its not a floor
 	int LoD_high = int(LoD);
 
@@ -126,6 +125,7 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
         const int actualMaxFullMip = int(originalMaxFullMip)-1;
 	    clippedLoD = inMipTail ? max(actualMaxFullMip,0):LoD_high;
         
+        // TODO: investigate the next 3 lines some more
 	    haveToDoTrilinear = LoD_high<originalMaxFullMip+_NBL_VT_IMPL_PAGE_SZ_LOG2;
         if (inMipTail)
 	        levelInTail = min(LoD_high-actualMaxFullMip,int(_NBL_VT_IMPL_PAGE_SZ_LOG2));
@@ -137,11 +137,10 @@ vec4 nbl_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
     vec3 loPhysCoord;
 	// speculative if (haveToDoTrilinear)
 	{
-		// now we have absolute guarantees that both LoD_high and LoD_low are in the valid original mip range
-		bool highNotInLastFull = originalMaxFullMip>=1u && LoD_high<(int(originalMaxFullMip)-1);
-		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
-		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
-        levelInTail = min(levelInTail, int(_NBL_VT_IMPL_PAGE_SZ_LOG2));
+        if (LoD_high<int(originalMaxFullMip)-1)
+		    clippedLoD++;
+        else if (levelInTail<int(_NBL_VT_IMPL_PAGE_SZ_LOG2))
+            levelInTail++;
 		loPhysCoord = nbl_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	}
 
