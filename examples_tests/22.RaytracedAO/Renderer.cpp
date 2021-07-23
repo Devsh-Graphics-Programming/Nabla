@@ -446,7 +446,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 									{
 										if (mb==*meshBuffers.begin())
 											m_sceneBound.addInternalBox(core::transformBoxEx(aabbMesh,newInstanceData->tform));
-										auto emitter = auxIt->frontEmitter;
+										const auto& emitter = auxIt->frontEmitter;
 										if (emitter.type!=ext::MitsubaLoader::CElementEmitter::Type::INVALID)
 										{
 											assert(emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
