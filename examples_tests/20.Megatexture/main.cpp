@@ -149,9 +149,10 @@ struct commit_t
 };
 STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
-    const auto& extent = _img->getCreationParameters().extent;
+    auto img = _vt->createUpscaledImage(_img);
+    const auto& extent = img->getCreationParameters().extent;
 
-    auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
+    auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(img.get(), _uwrap, _vwrap, _borderColor);
 
     asset::IImage::SSubresourceRange subres;
     subres.baseMipLevel = 0u;
@@ -159,7 +160,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     subres.baseArrayLayer = 0u;
     subres.layerCount = 1u;
 
-    auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
+    auto addr = _vt->alloc(img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
     commit_t cm{ addr, std::move(imgAndOrigSz.first), subres, _uwrap, _vwrap, _borderColor };
 
     _out_commits.push_back(cm);

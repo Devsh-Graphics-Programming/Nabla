@@ -17,7 +17,7 @@
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-#	define DEBUG_MITSUBA_LOADER
+//#	define DEBUG_MITSUBA_LOADER
 #endif
 
 namespace nbl
@@ -270,18 +270,32 @@ static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_
 
 	return asset::ICPUImageView::create(std::move(params));
 }
-static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr, bool fromNormalMap)
+static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr, bool fromNormalMap)
 {
 	const auto& sp = _smplr->getParams();
 
-	if (fromNormalMap) // TODO: use the normalmap to derivative map filter and utils from the glTF PR
-		os::Printer::log("Normalmaps not implemented yet! Treating with Bumpmap creation pipeline, expect results to be off!",ELL_ERROR);
-	return asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(
+	core::smart_refctd_ptr<asset::ICPUImage> derivmap_img;
+	float scale[2]{ 1.f, 1.f };
+	if (fromNormalMap)
+	{
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(_heightMap, scale, true);
+		assert(scale[0] == scale[1]);
+	}
+	else
+	{
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(
 			_heightMap,
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapV),
-			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor)
-	);
+			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor));
+	}
+
+	if (!derivmap_img)
+		return nullptr;
+
+	ctx.derivMapCache.insert({ derivmap_img, scale[0] });
+
+	return derivmap_img;
 }
 static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const asset::ICPUImage* _img)
 {
@@ -536,6 +550,12 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		ctx.meta->m_global.m_materialCompilerGLSL_declarations = compResult.fragmentShaderSource_declarations;
 		ctx.meta->m_global.m_materialCompilerGLSL_source = compResult.fragmentShaderSource;
 		ctx.meta->m_global.m_ds0 = ds0;
+
+		ctx.meta->reserveDerivMapStorage(ctx.derivMapCache.size());
+		for (auto& derivMap : ctx.derivMapCache)
+		{
+			ctx.meta->addDerivMapMeta(derivMap.first.get(), derivMap.second);
+		}
 
 		auto meshSmartPtrArray = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(meshes.size());
 		auto meshSmartPtrArrayIt = meshSmartPtrArray->begin();
@@ -1221,6 +1241,9 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			switch (bsdf->type)
 			{
 			case CElementBSDF::COATING:
+				for (uint32_t i = 0u; i < bsdf->coating.childCount; ++i)
+					stack.push(bsdf->coating.bsdf[i]);
+				break;
 			case CElementBSDF::ROUGHCOATING:
 			case CElementBSDF::BUMPMAP:
 			case CElementBSDF::BLEND_BSDF:
@@ -1276,8 +1299,7 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_assetMgr))
 				{
-					// TODO: @Crisspl retrieve the normalization factor from the deriv map filter, then adjust the scale accordingly!
-					auto derivmap = createDerivMap(bumpmap.get(),sampler.get(),wasNormal);
+					auto derivmap = createDerivMap(ctx, bumpmap.get(),sampler.get(),wasNormal);
 					asset::SAssetBundle imgBundle(nullptr,{ derivmap });
 					ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
 					auto derivmap_view = createImageView(std::move(derivmap));
@@ -1427,9 +1449,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				//os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				//ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
-				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.front = impl_backendToGLSLStream(emissive,streams);
@@ -1441,9 +1463,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				//os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				//ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
-				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.back = impl_backendToGLSLStream(emissive,streams);

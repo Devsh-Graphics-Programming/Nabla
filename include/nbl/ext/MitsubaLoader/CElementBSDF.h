@@ -220,11 +220,11 @@ class CElementBSDF : public IElement
 		size_t childCount = 0u;
 		CElementBSDF* bsdf[MaxChildCount] = { nullptr };
 	};
-		struct AllCoating : RoughSpecularBase, TransmissiveBase, MetaBSDF
+		struct AllCoating : MetaBSDF, RoughSpecularBase, TransmissiveBase
 		{
 			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
 
-			AllCoating() : RoughSpecularBase(0.1f), TransmissiveBase("bk7","air"), MetaBSDF(), thickness(1.f), sigmaA(0.f) {}
+			AllCoating() : MetaBSDF(), RoughSpecularBase(0.1f), TransmissiveBase("bk7","air"), thickness(1.f), sigmaA(0.f) {}
 
 			inline AllCoating& operator=(const AllCoating& other)
 			{

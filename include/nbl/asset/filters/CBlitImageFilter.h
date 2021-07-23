@@ -289,13 +289,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 
 			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
 			const auto inImageType = inParams.type;
-			const auto window_last = [&kernelX,&kernelY,&kernelZ]() -> core::vectorSIMDi32
-			{
-				return core::vectorSIMDi32(kernelX.getWindowSize().x-1,kernelY.getWindowSize().y-1,kernelZ.getWindowSize().z-1,0);
-			}();
+			const auto window_end = getWindowEnd(inImageType,kernelX,kernelY,kernelZ);
 			const core::vectorSIMDi32 intermediateExtent[3] = {
-				core::vectorSIMDi32(outExtent.width,inExtent.height+window_last[1],inExtent.depth+window_last[2]),
-				core::vectorSIMDi32(outExtent.width,outExtent.height,inExtent.depth+window_last[2]),
+				core::vectorSIMDi32(outExtent.width,inExtent.height+window_end[1],inExtent.depth+window_end[2]),
+				core::vectorSIMDi32(outExtent.width,outExtent.height,inExtent.depth+window_end[2]),
 				core::vectorSIMDi32(outExtent.width,outExtent.height,outExtent.depth)
 			};
 			const core::vectorSIMDi32 intermediateLastCoord[3] = {
@@ -465,7 +462,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
 						else
 						{
-							const auto windowEnd = inExtent.width+window_last.x;
+							const auto windowEnd = inExtent.width+window_end.x;
 							decode_offset = alloc_decode_scratch();
 							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*windowEnd;
 							for (auto& i=localTexCoord.x; i<windowEnd; i++)
@@ -566,6 +563,21 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 
 	private:
 		static inline constexpr uint32_t VectorizationBoundSTL = /*AVX2*/16u;
+		//
+		static inline core::vectorSIMDi32 getWindowEnd(const IImage::E_TYPE inImageType,
+			const CScaledImageFilterKernel<KernelX>& kernelX,
+			const CScaledImageFilterKernel<KernelY>& kernelY,
+			const CScaledImageFilterKernel<KernelZ>& kernelZ
+		)
+		{
+			// TODO: investigate properly if its supposed be `size` or `size-1` (polyphase kinda shows need for `size`)
+			core::vectorSIMDi32 last(kernelX.getWindowSize().x,0,0,0);
+			if (inImageType>=IImage::ET_2D)
+				last.y = kernelY.getWindowSize().x;
+			if (inImageType>=IImage::ET_3D)
+				last.z = kernelZ.getWindowSize().x;
+			return last;
+		}
 		// the blit filter will filter one axis at a time, hence necessitating "ping ponging" between two scratch buffers
 		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong)
 		{
@@ -574,17 +586,14 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 			const auto kernelY = state->contructScaledKernel(state->kernelY);
 			const auto kernelZ = state->contructScaledKernel(state->kernelZ);
 
-			const auto window_last = [&kernelX,&kernelY,&kernelZ]() -> core::vectorSIMDi32
-			{
-				return core::vectorSIMDi32(kernelX.getWindowSize().x-1,kernelY.getWindowSize().y-1,kernelZ.getWindowSize().z-1,0);
-			}();
+			const auto window_end = getWindowEnd(state->inImage->getCreationParameters().type,kernelX,kernelY,kernelZ);
 			// TODO: account for the size needed for coverage adjustment
 			// the first pass will be along X, so new temporary image will have the width of the output extent, but the height and depth will need to be padded
 			// but the last pass will be along Z and the new temporary image will have the exact dimensions of `outExtent` which is why there is a `core::max`
-			auto texelCount = state->outExtent.width*core::max<uint32_t>((state->inExtent.height+window_last[1])*(state->inExtent.depth+window_last[2]),state->outExtent.height*state->outExtent.depth);
+			auto texelCount = state->outExtent.width*core::max<uint32_t>((state->inExtent.height+window_end[1])*(state->inExtent.depth+window_end[2]),state->outExtent.height*state->outExtent.depth);
 			// the second pass will result in an image that has the width and height equal to `outExtent`
 			if (secondPong)
-				texelCount += core::max<uint32_t>(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_last[2]),(state->inExtent.width+window_last[0])*std::thread::hardware_concurrency()*VectorizationBoundSTL);
+				texelCount += core::max<uint32_t>(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_end[2]),(state->inExtent.width+window_end[0])*std::thread::hardware_concurrency()*VectorizationBoundSTL);
 			// obviously we have multiple channels and each channel has a certain type for arithmetic
 			return texelCount*MaxChannels*sizeof(value_type);
 		}

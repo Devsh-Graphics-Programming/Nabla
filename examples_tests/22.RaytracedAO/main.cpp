@@ -115,6 +115,7 @@ int main()
 
 	// TODO: Move into renderer?
 	bool rightHandedCamera = true;
+	float moveSpeed = core::nan<float>();
 	auto camera = smgr->addCameraSceneNode(nullptr);
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
@@ -204,6 +205,7 @@ int main()
 			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
 		else
 			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
+		moveSpeed = persp->moveSpeed;
 	}
 	else
 	{
@@ -271,7 +273,9 @@ int main()
 		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
 		auto proj = camera->getProjectionMatrix();
 
-		camera = smgr->addCameraSceneNodeFPS(nullptr, 80.f, core::min(extent.X, extent.Y, extent.Z) * 0.0001f);
+		if (core::isnan(moveSpeed))
+			moveSpeed = core::min(extent.X,extent.Y,extent.Z)*0.0001f;
+		camera = smgr->addCameraSceneNodeFPS(nullptr,80.f,moveSpeed);
 		camera->setPosition(ptu[0].getAsVector3df());
 		camera->setTarget(ptu[1].getAsVector3df());
 		camera->setUpVector(ptu[2]);

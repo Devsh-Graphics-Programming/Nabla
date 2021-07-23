@@ -5,6 +5,7 @@
 #ifndef __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 #define __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 
+#include "nbl/core/compile_config.h"
 #include "nbl/asset/metadata/IAssetMetadata.h"
 
 #include "nbl/ext/MitsubaLoader/SContext.h"
@@ -29,6 +30,14 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		{
 			public:
 				std::string m_id;
+		};
+		class CDerivativeMap : public asset::IImageMetadata
+		{
+			public:
+				CDerivativeMap() : m_scale(1.f) {}
+				explicit CDerivativeMap(float scale) : m_scale(scale) {}
+
+				float m_scale;
 		};
 		class CRenderpassIndependentPipeline : public asset::IRenderpassIndependentPipelineMetadata
 		{
@@ -67,6 +76,9 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 					CElementEmitter frontEmitter; // type is invalid if not used
 					CElementEmitter backEmitter; // type is invalid if not used
 					CMitsubaMaterialCompilerFrontend::front_and_back_t bsdf;
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+					std::string bsdf_id;
+#endif
 				};
 
 				core::SRange<const SInstanceAuxilaryData> m_instanceAuxData;
@@ -127,6 +139,9 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		CMesh::SInstance* m_instanceStorageIt;
 		CMesh::SInstanceAuxilaryData* m_instanceAuxStorageIt;
 
+		meta_container_t<CDerivativeMap> m_metaDerivMapStorage;
+		CDerivativeMap* m_metaDerivMapStorageIt;
+
 		inline void reservePplnStorage(uint32_t pplnCount, core::smart_refctd_dynamic_array<asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage)
 		{
 			m_metaPplnStorage = IAssetMetadata::createContainer<CRenderpassIndependentPipeline>(pplnCount);
@@ -141,6 +156,11 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 			m_meshStorageIt = m_metaMeshStorage->begin();
 			m_instanceStorageIt = m_metaMeshInstanceStorage->begin();
 			m_instanceAuxStorageIt = m_metaMeshInstanceAuxStorage->begin();
+		}
+		inline void reserveDerivMapStorage(uint32_t count)
+		{
+			m_metaDerivMapStorage = IAssetMetadata::createContainer<CDerivativeMap>(count);
+			m_metaDerivMapStorageIt = m_metaDerivMapStorage->begin();
 		}
 		inline void addPplnMeta(const asset::ICPURenderpassIndependentPipeline* ppln, core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0)
 		{
@@ -162,7 +182,14 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 				{
 					auto& inst = it->second;
 					(m_instanceStorageIt++)->worldTform = inst.tform;
-					*(m_instanceAuxStorageIt++) = {inst.emitter.front,inst.emitter.back,inst.bsdf};
+					*(m_instanceAuxStorageIt++) = {
+						inst.emitter.front,
+						inst.emitter.back,
+						inst.bsdf
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+						,inst.bsdf_id
+#endif
+					};
 				}
 				meta->m_instances = { instanceStorageBegin,m_instanceStorageIt };
 				meta->m_instanceAuxData = { instanceAuxStorageBegin,m_instanceAuxStorageIt };
@@ -171,6 +198,12 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 			IAssetMetadata::insertAssetSpecificMetadata(mesh,meta);
 
 			return meta->m_instances.size();
+		}
+		inline void addDerivMapMeta(const asset::ICPUImage* derivmap, float scale)
+		{
+			auto* meta = m_metaDerivMapStorageIt++;
+			meta->m_scale = scale;
+			IAssetMetadata::insertAssetSpecificMetadata(derivmap, meta);
 		}
 };
 

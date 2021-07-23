@@ -37,6 +37,7 @@ class CElementSensor : public IElement
 		};
 	struct ShutterSensor
 	{
+		float moveSpeed = core::nan<float>();
 		float shutterOpen = 0.f;
 		float shutterClose = 0.f;
 	};
