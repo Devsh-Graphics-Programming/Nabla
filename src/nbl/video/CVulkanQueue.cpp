@@ -5,9 +5,7 @@
 #include "nbl/video/CVulkanSemaphore.h"
 #include "nbl/video/CVulkanPrimaryCommandBuffer.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 CVulkanQueue::CVulkanQueue(CVKLogicalDevice* vkdev, VkQueue vkq, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) : 
@@ -116,5 +114,4 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     return false;
 }
 
-}
 }

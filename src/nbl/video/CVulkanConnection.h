@@ -10,9 +10,7 @@
 #   include "nbl/video/surface/CSurfaceVKWin32.h"
 #endif
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class CVulkanConnection final : public IAPIConnection
@@ -100,21 +98,7 @@ public:
         return core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>>{ m_physDevices->begin(), m_physDevices->end() };
     }
 
-    core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const override
-    {
-        // Todo(achal): handle other platforms
-#ifdef _NBL_PLATFORM_WINDOWS_
-        {
-            ui::IWindowWin32* w32 = static_cast<ui::IWindowWin32*>(window);
-
-            CSurfaceVKWin32::SCreationParams params;
-            params.hinstance = GetModuleHandle(NULL);
-            params.hwnd = w32->getNativeHandle();
-
-            return CSurfaceVKWin32::create(this, std::move(params));
-        }
-#endif
-    }
+    core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const override;
 
     VkInstance getInternalObject() const { return m_instance; }
 
@@ -145,18 +129,15 @@ private:
         std::vector<VkLayerProperties> instanceLayers(instanceLayerCount);
         vkEnumerateInstanceLayerProperties(&instanceLayerCount, instanceLayers.data());
 
-        for (uint32_t i = 0u; i < requiredInstanceLayerNames.size(); ++i)
+        for (const auto& requiredLayerName : requiredInstanceLayerNames)
         {
-            bool layerFound = false;
-            for (uint32_t j = 0u; j < instanceLayerCount; ++j)
-            {
-                if (strcmp(requiredInstanceLayerNames[i], instanceLayers[j].layerName) == 0)
+            const auto& result = std::find_if(instanceLayers.begin(), instanceLayers.end(),
+                [requiredLayerName](const VkLayerProperties& layer) -> bool
                 {
-                    layerFound = true;
-                    break;
-                }
-            }
-            if (!layerFound)
+                    return (strcmp(requiredLayerName, layer.layerName) == 0);
+                });
+
+            if (result == instanceLayers.end())
                 return false;
         }
 
@@ -164,7 +145,6 @@ private:
     }
 };
 
-}
 }
 
 

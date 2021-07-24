@@ -4,9 +4,7 @@
 #include <volk.h>
 #include "nbl/video/surface/ISurface.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class IPhysicalDevice;
@@ -18,15 +16,16 @@ public:
 
     bool isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const override;
 
-protected:
-    ISurfaceVK(VkInstance instance) : m_instance(instance) {}
+// protected:
+    ISurfaceVK(VkInstance instance)
+        : m_instance(instance) {}
+
     virtual ~ISurfaceVK() { vkDestroySurfaceKHR(m_instance, m_surface, nullptr); }
 
     VkSurfaceKHR m_surface;
     VkInstance m_instance;
 };
 
-}
 }
 
 #endif

@@ -11,6 +11,11 @@ nothing fancy, just to show that Irrlicht links fine
 #include <cstdio>
 #include <nabla.h>
 
+// Temporary
+#include <volk/volk.h>
+#include "../../src/nbl/video/CVulkanPhysicalDevice.h"
+#include "../../include/nbl/video/surface/ISurfaceVK.h"
+
 #include "../common/CommonAPI.h"
 
 using namespace nbl;
@@ -53,15 +58,24 @@ int main()
 	assert(!gpus.empty());
 	
 	// Find a suitable gpu, whose only criteria for now is the required queue family support
-	core::smart_refctd_ptr<video::IPhysicalDevice> gpu = nullptr;
+	// 
+	// Todo(achal): This process gets quite involved in Vulkan, do we want to delegate some of it to the engine.
+	// For example, the user just specifies if the application is a headless compute one and we could check the
+	// availability of the required extensions on the backend and report which physical device is suitable or
+	// some thing like that
+	core::smart_refctd_ptr<video::CVulkanPhysicalDevice> gpu = nullptr;
 	uint32_t graphicsFamilyIndex(~0u);
 	uint32_t presentFamilyIndex(~0u);
 
 	for (size_t i = 0ull; i < gpus.size(); ++i)
 	{
-		gpu = *(gpus.begin() + i);
+		// Todo(achal): Hacks, get rid
+		gpu = core::smart_refctd_ptr_static_cast<video::CVulkanPhysicalDevice>(*(gpus.begin() + i));
+		auto vk_surface = core::smart_refctd_ptr_static_cast<video::ISurfaceVK>(surface);
 
 		bool isGPUSuitable = false;
+
+		// Check if the physical device has queue families which support both graphics and presenting, not necessarily overlapping
 		{
 			const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
 
@@ -80,6 +94,44 @@ int main()
 					break;
 				}
 			}
+		}
+
+		// Check if this physical device supports the swapchain extension
+		// Todo(achal): Eventually move this to somewhere inside the engine
+		{
+			// Todo(achal): Get this from the user
+			const uint32_t requiredDeviceExtensionCount = 1u;
+			const char* requiredDeviceExtensionNames[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+			uint32_t availableExtensionCount;
+			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, NULL);
+			std::vector<VkExtensionProperties> availableExtensions(availableExtensionCount);
+			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, availableExtensions.data());
+
+			bool requiredDeviceExtensionsAvailable = false;
+			for (uint32_t i = 0u; i < availableExtensionCount; ++i)
+			{
+				if (strcmp(availableExtensions[i].extensionName, requiredDeviceExtensionNames[0]) == 0)
+				{
+					requiredDeviceExtensionsAvailable = true;
+					break;
+				}
+			}
+
+			if (!requiredDeviceExtensionsAvailable)
+				isGPUSuitable = false;
+		}
+
+		// Check if the surface is adequate
+		{
+			std::vector<video::ISurface::SFormat> surfaceFormats =
+				gpu->getAvailableFormatsForSurface(surface.get());
+
+			std::vector<video::ISurface::E_PRESENT_MODE> presentModes =
+				gpu->getAvailablePresentModesForSurface(surface.get());
+
+			if (surfaceFormats.empty() || presentModes.empty())
+				isGPUSuitable = false;
 		}
 
 		if (isGPUSuitable)

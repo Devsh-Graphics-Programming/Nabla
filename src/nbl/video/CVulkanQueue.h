@@ -4,9 +4,7 @@
 #include <volk.h>
 #include "nbl/video/IGPUQueue.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class CVKLogicalDevice;
@@ -28,7 +26,5 @@ private:
 };
 
 }
-}
-
 
 #endif

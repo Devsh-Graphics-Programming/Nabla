@@ -5,8 +5,7 @@
 #include "nbl/asset/format/EColorSpace.h"
 #include "nbl/asset/format/EFormat.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IPhysicalDevice;
@@ -35,17 +34,10 @@ public:
         EPM_FIFO_RELAXED = 3
     };
 
-    // TODO
-    // IPhysicalDevice::getAvailableFormatsForSurface(const ISurface*, SFormat* out);
-    // IPhysicalDevice::getAvailablePresentModesForSurface(const ISurface*, E_PRESENT_MODE* out);
-    // IPhysicalDevice::getMinImageCountForSurface(const ISurface*)
-
     // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
     virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
 };
 
 }
-}
-
 
 #endif

@@ -5,8 +5,7 @@
 #include "nbl/video/surface/ISurfaceWin32.h"
 #include "nbl/video/surface/ISurfaceVK.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IAPIConnection;
@@ -17,7 +16,8 @@ public:
     static core::smart_refctd_ptr<CSurfaceVKWin32> create(const IAPIConnection* api, SCreationParams&& params);
 
 // private:
-    CSurfaceVKWin32(VkInstance instance, SCreationParams&& params) : ISurfaceWin32(std::move(params)), ISurfaceVK(instance)
+    CSurfaceVKWin32(VkInstance instance, SCreationParams&& params)
+        : ISurfaceWin32(std::move(params)), ISurfaceVK(instance)
     {
         VkWin32SurfaceCreateInfoKHR ci;
         ci.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
@@ -25,11 +25,10 @@ public:
         ci.hwnd = m_params.hwnd;
         ci.flags = 0;
         ci.pNext = nullptr;
-        vkCreateWin32SurfaceKHR(instance, &ci, nullptr, &m_surface);
+        vkCreateWin32SurfaceKHR(m_instance, &ci, nullptr, &m_surface);
     }
 };
 
-}
 }
 
 #endif

@@ -3,10 +3,9 @@
 #include <volk.h>
 
 #include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/surface/ISurfaceVK.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
         
 class CVulkanPhysicalDevice final : public IPhysicalDevice
@@ -102,6 +101,56 @@ public:
     inline VkPhysicalDevice getInternalObject() const { return m_vkphysdev; }
             
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
+
+    std::vector<ISurface::SFormat> getAvailableFormatsForSurface(const ISurface* surface) const override
+    {
+        const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface); // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
+
+        uint32_t formatCount = 0u;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkphysdev, vk_surface->m_surface, &formatCount, nullptr);
+        std::vector<VkSurfaceFormatKHR> formats(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkphysdev, vk_surface->m_surface, &formatCount, formats.data());
+
+        std::vector<ISurface::SFormat> result(formatCount);
+
+        for (uint32_t i = 0u; i < formatCount; ++i)
+        {
+            result[i].format = getFormat(formats[i].format);
+            result[i].colorSpace = getColorSpace(formats[i].colorSpace);
+        }
+
+        return result;
+    }
+
+    std::vector<ISurface::E_PRESENT_MODE> getAvailablePresentModesForSurface(const ISurface* surface) const override
+    {
+        const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface); // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
+
+        uint32_t count = 0u;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkphysdev, vk_surface->m_surface, &count, NULL);
+        std::vector<VkPresentModeKHR> vk_presentModes(count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkphysdev, vk_surface->m_surface, &count, vk_presentModes.data());
+
+        std::vector<ISurface::E_PRESENT_MODE> result(count);
+        for (uint32_t i = 0u; i < count; ++i)
+        {
+            result[i] = getPresentMode(vk_presentModes[i]);
+        }
+
+        return result;
+    }
+    
+    uint32_t getMinImageCountForSurface(const ISurface* surface) const override
+    {
+        // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
+        const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface);
+
+        VkSurfaceCapabilitiesKHR surfaceCapabilities;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_vkphysdev, vk_surface->m_surface,
+            &surfaceCapabilities);
+
+        return surfaceCapabilities.minImageCount;
+    }
             
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
@@ -148,8 +197,156 @@ protected:
     }
             
 private:
+    static inline asset::E_FORMAT getFormat(VkFormat in)
+    {
+        if (in <= VK_FORMAT_BC7_SRGB_BLOCK)
+            return static_cast<asset::E_FORMAT>(in);
+
+        // Note(achal): Some of this ugliness could be remedied if we put the range [EF_ETC2_R8G8B8_UNORM_BLOCK, EF_EAC_R11G11_SNORM_BLOCK] just
+        // after EF_BC7_SRGB_BLOCK, not sure how rest of the code will react to it
+        if (in >= VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK && in <= VK_FORMAT_EAC_R11G11_SNORM_BLOCK) // [147, 156] --> [175, 184]
+            return static_cast<asset::E_FORMAT>(in + 28u);
+
+        if (in >= VK_FORMAT_ASTC_4x4_UNORM_BLOCK && in <= VK_FORMAT_ASTC_12x12_SRGB_BLOCK) // [157, 184]
+            return static_cast<asset::E_FORMAT>(in - 10u);
+
+        // Note(achal): This ugliness is not so easy to get rid of
+        if (in >= VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG && in <= VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG) // [1000054000, 1000054007] --> [185, 192]
+            return static_cast<asset::E_FORMAT>(in - 1000053815u);
+
+        if (in >= VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM && in <= VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM) // [1000156002, 1000156006] --> [193, 197]
+            return static_cast<asset::E_FORMAT>(in - 1000155809);
+
+        // Todo(achal): Log a warning that you got an unrecognized format
+        return asset::EF_UNKNOWN;
+    }
+
+    // Todo(achal): Check it, a lot of stuff could be incorrect!
+    static inline ISurface::SColorSpace getColorSpace(VkColorSpaceKHR in)
+    {
+        ISurface::SColorSpace result = {};
+
+        switch (in)
+        {
+            case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
+            {
+                result.primary = asset::ECP_SRGB;
+                result.eotf = asset::EOTF_sRGB;
+            } break;
+                
+            case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT:
+            {
+                result.primary = asset::ECP_DISPLAY_P3;
+                result.eotf = asset::EOTF_sRGB; // spec says "sRGB-like"
+            } break;
+
+            case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
+            {
+                result.primary = asset::ECP_SRGB;
+                result.eotf = asset::EOTF_IDENTITY;
+            } break;
+
+            case VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT:
+            {
+                result.primary = asset::ECP_DISPLAY_P3;
+                result.eotf = asset::EOTF_IDENTITY;
+            } break;
+
+            case VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT:
+            {
+                result.primary = asset::ECP_DCI_P3;
+                result.eotf = asset::EOTF_DCI_P3_XYZ;
+            } break;
+
+            case VK_COLOR_SPACE_BT709_LINEAR_EXT:
+            {
+                result.primary = asset::ECP_SRGB;
+                result.eotf = asset::EOTF_IDENTITY;
+            } break;
+
+            case VK_COLOR_SPACE_BT709_NONLINEAR_EXT:
+            {
+                result.primary = asset::ECP_SRGB;
+                result.eotf = asset::EOTF_SMPTE_170M;
+            } break;
+
+            case VK_COLOR_SPACE_BT2020_LINEAR_EXT:
+            {
+                result.primary = asset::ECP_BT2020;
+                result.eotf = asset::EOTF_IDENTITY;
+            } break;
+
+            case VK_COLOR_SPACE_HDR10_ST2084_EXT:
+            {
+                result.primary = asset::ECP_BT2020;
+                result.eotf = asset::EOTF_SMPTE_ST2084;
+            } break;
+
+            case VK_COLOR_SPACE_DOLBYVISION_EXT:
+            {
+                result.primary = asset::ECP_BT2020;
+                result.eotf = asset::EOTF_SMPTE_ST2084;
+            } break;
+
+            case VK_COLOR_SPACE_HDR10_HLG_EXT:
+            {
+                result.primary = asset::ECP_BT2020;
+                result.eotf = asset::EOTF_HDR10_HLG;
+            } break;
+
+            case VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT:
+            {
+                result.primary = asset::ECP_ADOBERGB;
+                result.eotf = asset::EOTF_IDENTITY;
+            } break;
+
+            case VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT:
+            {
+                result.primary = asset::ECP_ADOBERGB;
+                result.eotf = asset::EOTF_GAMMA_2_2;
+            } break;
+
+            case VK_COLOR_SPACE_PASS_THROUGH_EXT:
+            {
+                result.primary = asset::ECP_PASS_THROUGH;
+                result.eotf = asset::EOTF_IDENTITY;
+            } break;
+                
+            case VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT:
+            {
+                result.primary = asset::ECP_SRGB;
+                result.eotf = asset::EOTF_sRGB;
+            } break;
+
+            case VK_COLOR_SPACE_DISPLAY_NATIVE_AMD: // this one is completely bogus, I don't understand it at all
+            {
+                result.primary = asset::ECP_SRGB;
+                result.eotf = asset::EOTF_UNKNOWN;
+            } break;
+
+            default:
+            {
+                // Todo(achal): Log warning unknown color space
+            } break;
+        }
+
+        return result;
+    }
+
+    static inline ISurface::E_PRESENT_MODE getPresentMode(VkPresentModeKHR in)
+    {
+        if (in <= VK_PRESENT_MODE_FIFO_RELAXED_KHR)
+        {
+            return static_cast<ISurface::E_PRESENT_MODE>(in);
+        }
+        else
+        {
+            // Todo(achal): Log warning unknown present modes
+            return static_cast<ISurface::E_PRESENT_MODE>(0);
+        }
+    }
+
     VkPhysicalDevice m_vkphysdev;
 };
         
-}
 }

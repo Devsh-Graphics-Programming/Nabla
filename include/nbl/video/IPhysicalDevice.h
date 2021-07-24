@@ -117,6 +117,26 @@ public:
 
     virtual E_API_TYPE getAPIType() const = 0;
 
+    // Note(achal): Not making them pure virtual only because the OpenGL backends doesn't have any implementation
+    // for them
+    virtual std::vector<ISurface::SFormat> getAvailableFormatsForSurface(const ISurface* surface) const
+    {
+        assert(false); // Invalid code path
+        return {};
+    }
+
+    virtual std::vector<ISurface::E_PRESENT_MODE> getAvailablePresentModesForSurface(const ISurface* surface) const
+    {
+        assert(false); // Invalid code path
+        return {};
+    }
+
+    virtual uint32_t getMinImageCountForSurface(const ISurface* surface) const
+    {
+        assert(false); // Invalid code path
+        return ~0u;
+    }
+
 protected:
     virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) = 0;
 
