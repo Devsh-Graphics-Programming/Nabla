@@ -450,9 +450,14 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 		else()
 			string(SUBSTRING "${_NBL_DEF_}" 0 ${_NBL_POSITION_} _NBL_CLEANED_DEF_)
 			
+			string(LENGTH "${_NBL_DEF_}" _NBL_DEF_LENGTH_)
+			math(EXPR _NBL_SHIFTED_POSITION_ "${_NBL_POSITION_} + 1" OUTPUT_FORMAT DECIMAL)
+			math(EXPR _NBL_DEF_VALUE_LENGTH_ "${_NBL_DEF_LENGTH_} - ${_NBL_SHIFTED_POSITION_}" OUTPUT_FORMAT DECIMAL)
+			string(SUBSTRING "${_NBL_DEF_}" ${_NBL_SHIFTED_POSITION_} ${_NBL_DEF_VALUE_LENGTH_} _NBL_DEF_VALUE_)
+			
 			string(APPEND WRAPPER_CODE 
 				"#ifndef ${_NBL_CLEANED_DEF_}\n"
-				"#define ${_NBL_DEF_}\n"
+				"#define ${_NBL_CLEANED_DEF_} ${_NBL_DEF_VALUE_}\n"
 				"#endif // ${_NBL_CLEANED_DEF_}\n\n"
 			)
 		endif()
