@@ -438,12 +438,24 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 	
 	list(REMOVE_DUPLICATES ${NBL_REFERENCE_RETURN_VARIABLE})
 	
-	foreach(def IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
-		string(APPEND WRAPPER_CODE 
-			"#ifndef ${def}\n"
-			"#define ${def}\n"
-			"#endif // ${def}\n\n"
-		)
+	foreach(_NBL_DEF_ IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
+		string(FIND "${_NBL_DEF_}" "=" _NBL_POSITION_ REVERSE)
+		
+		if(_NBL_POSITION_ STREQUAL -1)
+			string(APPEND WRAPPER_CODE 
+				"#ifndef ${_NBL_DEF_}\n"
+				"#define ${_NBL_DEF_}\n"
+				"#endif // ${_NBL_DEF_}\n\n"
+			)
+		else()
+			string(SUBSTRING "${_NBL_DEF_}" 0 ${_NBL_POSITION_} _NBL_CLEANED_DEF_)
+			
+			string(APPEND WRAPPER_CODE 
+				"#ifndef ${_NBL_CLEANED_DEF_}\n"
+				"#define ${_NBL_DEF_}\n"
+				"#endif // ${_NBL_CLEANED_DEF_}\n\n"
+			)
+		endif()
 	endforeach()
 	
 	file(READ "${NBL_ROOT_PATH}/cmake/import/nabla.h.in" NBL_NABLA_IMPORT_HEADER_CODE)
