@@ -11,8 +11,8 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(VkPhysicalDevice _vkphd, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc)
-        : IPhysicalDevice(std::move(fs), std::move(glslc)), m_vkphysdev(_vkphd)
+    CVulkanPhysicalDevice(VkPhysicalDevice _vkphd, core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc)
+        : IPhysicalDevice(std::move(sys), std::move(glslc)), m_vkphysdev(_vkphd)
     {
         // Get physical device's limits
         VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES };
@@ -193,7 +193,7 @@ protected:
         VkDevice vkdev = VK_NULL_HANDLE;
         assert(vkCreateDevice(m_vkphysdev, &createInfo, nullptr, &vkdev) == VK_SUCCESS);
                 
-        return core::make_smart_refctd_ptr<CVKLogicalDevice>(vkdev, params, core::smart_refctd_ptr(m_fs), core::smart_refctd_ptr(m_GLSLCompiler));
+        return core::make_smart_refctd_ptr<CVKLogicalDevice>(vkdev, params, core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler));
     }
             
 private:

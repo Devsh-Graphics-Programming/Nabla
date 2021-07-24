@@ -16,7 +16,8 @@ namespace nbl::video
 class CVulkanConnection final : public IAPIConnection
 {
 public:
-    CVulkanConnection(uint32_t appVer, const char* appName, const SDebugCallback& dbgCb) : IAPIConnection(dbgCb)
+    CVulkanConnection(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer,
+        const char* appName, const SDebugCallback& dbgCb) : IAPIConnection(std::move(sys))
     {
         VkResult result = volkInitialize();
         assert(result == VK_SUCCESS);
@@ -87,7 +88,7 @@ public:
         m_physDevices = core::make_refctd_dynamic_array<physical_devs_array_t>(devCount);
         for (uint32_t i = 0u; i < devCount; ++i)
         {
-            (*m_physDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(vkphds[i], std::move(m_fs), std::move(m_GLSLCompiler));
+            (*m_physDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(vkphds[i], core::smart_refctd_ptr(m_system), std::move(m_GLSLCompiler));
         }
     }
 

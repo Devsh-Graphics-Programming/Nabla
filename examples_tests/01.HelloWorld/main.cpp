@@ -16,6 +16,8 @@ nothing fancy, just to show that Irrlicht links fine
 #include "../../src/nbl/video/CVulkanPhysicalDevice.h"
 #include "../../include/nbl/video/surface/ISurfaceVK.h"
 
+#include <nbl/ui/CWindowManagerWin32.h>
+#include <nbl/system/ISystem.h>
 #include "../common/CommonAPI.h"
 
 using namespace nbl;
@@ -38,21 +40,102 @@ inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::vi
 	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 }
 
+// Don't wanna use Printer::log
+#define LOG(...) printf(__VA_ARGS__); printf("\n");
+class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
+{
+	void onWindowShown_impl() override
+	{
+		LOG("Window Shown");
+	}
+	void onWindowHidden_impl() override
+	{
+		LOG("Window hidden");
+	}
+	void onWindowMoved_impl(int32_t x, int32_t y) override
+	{
+		LOG("Window window moved to { %d, %d }", x, y);
+	}
+	void onWindowResized_impl(uint32_t w, uint32_t h) override
+	{
+		LOG("Window resized to { %u, %u }", w, h);
+
+	}
+	void onWindowMinimized_impl() override
+	{
+		LOG("Window minimized");
+	}
+	void onWindowMaximized_impl() override
+	{
+		LOG("Window maximized");
+	}
+	void onGainedMouseFocus_impl() override
+	{
+		LOG("Window gained mouse focus");
+	}
+	void onLostMouseFocus_impl() override
+	{
+		LOG("Window lost mouse focus");
+	}
+	void onGainedKeyboardFocus_impl() override
+	{
+		LOG("Window gained keyboard focus");
+	}
+	void onLostKeyboardFocus_impl() override
+	{
+		LOG("Window lost keyboard focus");
+	}
+
+	void onMouseConnected_impl(core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+	{
+		LOG("A mouse has been connected");
+	}
+	void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+	{
+		LOG("A mouse has been disconnected");
+	}
+	void onKeyboardConnected_impl(core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+	{
+		LOG("A keyboard has been connected");
+	}
+	void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* mch) override
+	{
+		LOG("A keyboard has been disconnected");
+	}
+};
+
 int main()
 {
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 	
-	auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
+	// auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
+
 	
 	// Note(achal): This is unused, for now
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
 	
-	core::smart_refctd_ptr<video::IAPIConnection> vk = video::IAPIConnection::create(video::EAT_VULKAN, 0, "New API Test", dbgcb);
-	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(win.get());
+	auto system = CommonAPI::createSystem();
+
+	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
+
+	nbl::ui::IWindow::SCreationParams params;
+	params.callback = nullptr;
+	params.width = 720;
+	params.height = 480;
+	params.x = 0;
+	params.y = 0;
+	params.system = core::smart_refctd_ptr(system);
+	params.flags = nbl::ui::IWindow::ECF_NONE;
+	params.windowCaption = "Test Window";
+	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
+	auto window = winManager->createWindow(std::move(params));
+
+	core::smart_refctd_ptr<video::IAPIConnection> vk = video::IAPIConnection::create(std::move(system), video::EAT_VULKAN, 0, "New API Test", &dbgcb);
+	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(window.get());
 
 	auto gpus = vk->getPhysicalDevices();
 	assert(!gpus.empty());
@@ -154,6 +237,10 @@ int main()
 	}
 	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
 	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
+
+	while (true)
+	{
+	}
 
 	// core::smart_refctd_ptr<video::ISwapchain> sc = CommonAPI::createSwapchain(WIN_W, WIN_H, SC_IMG_COUNT, device, surface, video::ISurface::EPM_FIFO_RELAXED);
 	// assert(sc);

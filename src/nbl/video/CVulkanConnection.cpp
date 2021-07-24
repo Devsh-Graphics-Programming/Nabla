@@ -3,9 +3,9 @@
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<IAPIConnection> createVulkanConnection(uint32_t appVer, const char* appName, const SDebugCallback& dbgCb)
+core::smart_refctd_ptr<IAPIConnection> createVulkanConnection(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, const SDebugCallback& dbgCb)
 {
-    return core::make_smart_refctd_ptr<CVulkanConnection>(appVer, appName, dbgCb);
+    return core::make_smart_refctd_ptr<CVulkanConnection>(std::move(sys), appVer, appName, dbgCb);
 }
 
 core::smart_refctd_ptr<ISurface> CVulkanConnection::createSurface(ui::IWindow* window) const

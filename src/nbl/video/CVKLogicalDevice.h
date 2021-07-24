@@ -16,8 +16,8 @@ namespace video
 class CVKLogicalDevice final : public ILogicalDevice
 {
 public:
-    CVKLogicalDevice(VkDevice vkdev, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-    ILogicalDevice(EAT_VULKAN, params, std::move(fs), std::move(glslc)),
+    CVKLogicalDevice(VkDevice vkdev, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+    ILogicalDevice(EAT_VULKAN, params, std::move(sys), std::move(glslc)),
     m_vkdev(vkdev),
     m_devf(vkdev)
     {
