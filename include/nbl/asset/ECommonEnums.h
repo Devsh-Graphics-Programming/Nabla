@@ -1,11 +1,9 @@
 #ifndef __NBL_E_COMMON_ENUMS_H_INCLUDED__
 #define __NBL_E_COMMON_ENUMS_H_INCLUDED__
 
-#include <cstdint>
-#include "nbl/core/compile_config.h"
+#include "nbl/core/declarations.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 enum E_STENCIL_FACE_FLAGS : uint32_t
@@ -122,7 +120,6 @@ enum E_SHARING_MODE : uint32_t
     ESM_CONCURRENT = 1
 };
 
-}
 }
 
 #endif

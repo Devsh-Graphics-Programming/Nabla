@@ -112,7 +112,7 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_fileSystem.get());
+	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
@@ -135,7 +135,7 @@ void IAssetManager::addLoadersAndWriters()
 	//addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this, core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 	//addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
@@ -144,22 +144,22 @@ void IAssetManager::addLoadersAndWriters()
 	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
 #endif
 #ifdef  _NBL_COMPILE_WITH_GLI_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
 	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
@@ -171,19 +171,19 @@ void IAssetManager::addLoadersAndWriters()
 	//addAssetWriter(core::make_smart_refctd_ptr<asset::CSTLMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 
     for (auto& loader : m_loaders.vector)
@@ -214,7 +214,7 @@ void IAssetManager::insertBuiltinAssets()
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};
-		auto fileSystem = getFileSystem();
+		auto fileSystem = getSystem();
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,

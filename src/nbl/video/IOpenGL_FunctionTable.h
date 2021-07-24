@@ -1,14 +1,13 @@
 #ifndef __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
-#include "nbl_os.h" // Printer::log
 
 #include <atomic>
 #include "nbl/video/COpenGLFeatureMap.h"
 #include "nbl/core/string/UniqueStringLiteralType.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/video/CEGL.h"
-
+#include <os.h>
 
 #define GL_GLEXT_PROTOTYPES
 #include "GL/glcorearb.h"
@@ -23,7 +22,6 @@
 #undef GL_GLEXT_PROTOTYPES
 
 #ifdef _NBL_DEBUG
-#	include "nbl_os.h"
 
 namespace nbl {
 namespace video {

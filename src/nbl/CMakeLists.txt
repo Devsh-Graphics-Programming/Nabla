@@ -161,11 +161,6 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-set(NABLA_HEADERS_PUBLIC
-#	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_os.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h" 
-)
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
@@ -174,28 +169,20 @@ set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
-# Core Memory
-	${NBL_ROOT_PATH}/src/nbl/core/memory/CLeakDebugger.cpp
 )
 set(NBL_SYSTEM_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 # Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -292,7 +279,6 @@ set(NBL_VIDEO_SOURCES
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
 #${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES
@@ -547,7 +533,7 @@ if (UNIX)
 endif()
 
 target_include_directories(Nabla PUBLIC 
-	${CMAKE_CURRENT_BINARY_DIR}/build/import
+	${CMAKE_CURRENT_BINARY_DIR}/include
 	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
@@ -628,12 +614,11 @@ set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h
 #	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
 	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
-nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/build/import")
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)

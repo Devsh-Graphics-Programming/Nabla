@@ -6,7 +6,7 @@
 #ifndef __NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
@@ -83,15 +83,13 @@ public:
 	//! Constructor
 	COBJMeshFileLoader(IAssetManager* _manager);
 
-    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+    virtual bool isALoadableFileFormat(system::IFile* _file) const override
     {
         // OBJ doesn't really have any header but usually starts with a comment
-        const size_t prevPos = _file->getPos();
-        _file->seek(0u);
-        char c;
-        _file->read(&c, 1u);
-        _file->seek(prevPos);
-        return c=='#' || c=='v';
+        system::future<size_t> future;
+        char firstChar = 0;
+        _file->read(future, &firstChar, 0, 1);
+        return firstChar =='#' || firstChar =='v';
     }
 
     virtual const char** getAssociatedFileExtensions() const override
@@ -102,7 +100,7 @@ public:
 
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 	// returns a pointer to the first printable character available in the buffer
@@ -134,7 +132,7 @@ private:
     std::string genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const;
 
 	IAssetManager* AssetManager;
-	io::IFileSystem* FileSystem;
+	system::ISystem* System;
 
 	template<typename aType>
 	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))

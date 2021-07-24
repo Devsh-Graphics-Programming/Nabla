@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #include "CTarReader.h"
 
 #ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
@@ -239,3 +239,4 @@ IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 } // end namespace nbl
 
 #endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#endif

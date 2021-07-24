@@ -6,7 +6,6 @@
 #include "nbl/video/EApiType.h"
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/ui/IWindow.h"
-#include "IFileSystem.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/video/debug/debug.h"
 
@@ -17,7 +16,7 @@ namespace video
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
-    static core::smart_refctd_ptr<IAPIConnection> create(E_API_TYPE apiType, uint32_t appVer, const char* appName, const SDebugCallback& dbgCb);
+    static core::smart_refctd_ptr<IAPIConnection> create(core::smart_refctd_ptr<system::ISystem>&& sys, E_API_TYPE apiType, uint32_t appVer, const char* appName, SDebugCallback* dbgCb = nullptr);
 
     virtual E_API_TYPE getAPIType() const = 0;
 
@@ -26,14 +25,12 @@ public:
     virtual core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const = 0;
 
 protected:
-    IAPIConnection(const SDebugCallback& dbgCb);
+    IAPIConnection(core::smart_refctd_ptr<system::ISystem>&& sys);
     virtual ~IAPIConnection() = default;
 
     // idk where to put those, so here they are for now
-    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
-
-    SDebugCallback m_debugCallback;
 };
 
 }

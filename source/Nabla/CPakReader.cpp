@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #include "CPakReader.h"
 
 #ifdef __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
@@ -173,3 +173,4 @@ IReadFile* CPakReader::createAndOpenFile(const io::path& filename)
 
 #endif // __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
+#endif

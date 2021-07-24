@@ -19,23 +19,30 @@ namespace asset
 
 class CImageWriterPNG : public asset::IAssetWriter
 {
-    public:
-	    //! constructor
-	    CImageWriterPNG();
-
-        virtual const char** getAssociatedFileExtensions() const
-        {
-            static const char* ext[]{ "png", nullptr };
-            return ext;
-        }
-
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
-
-        virtual uint32_t getSupportedFlags() override { return 0u; }
-
-        virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
-
-        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+    core::smart_refctd_ptr<system::ISystem> m_system;
+public:
+    struct SContext
+    {
+        SContext(system::ISystem* sys) : system(sys) {}
+        system::ISystem* system;
+        size_t file_pos = 0;
+    };
+    //! constructor
+    explicit CImageWriterPNG(core::smart_refctd_ptr<system::ISystem>&& sys);
+    
+    virtual const char** getAssociatedFileExtensions() const
+    {
+        static const char* ext[]{ "png", nullptr };
+        return ext;
+    }
+    
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
+    
+    virtual uint32_t getSupportedFlags() override { return 0u; }
+    
+    virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+    
+    virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
 } // namespace video

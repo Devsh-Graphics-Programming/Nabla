@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
-# For conditions of distribution and use, see copyright notice in nabla.h
+# For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
 cmake_minimum_required(VERSION 3.20)
 #policies

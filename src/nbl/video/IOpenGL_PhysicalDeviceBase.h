@@ -158,9 +158,9 @@ protected:
 	}
 
 public:
-    IOpenGL_PhysicalDeviceBase(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
+    IOpenGL_PhysicalDeviceBase(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
 		const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor, SDebugCallback* dbgCb) :
-		IPhysicalDevice(std::move(fs), std::move(glslc)),
+		IPhysicalDevice(std::move(s), std::move(glslc)),
         m_egl(_egl), m_config(_config), m_gl_major(_major), m_gl_minor(_minor), m_dbgCb(dbgCb)
     {
         // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)

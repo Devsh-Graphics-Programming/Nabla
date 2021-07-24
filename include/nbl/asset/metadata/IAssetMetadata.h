@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_ASSET_METADATA_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_METADATA_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/metadata/IImageMetadata.h"
 #include "nbl/asset/metadata/IRenderpassIndependentPipelineMetadata.h"

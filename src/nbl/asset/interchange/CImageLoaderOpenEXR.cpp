@@ -32,8 +32,6 @@ SOFTWARE.
 
 #include "CImageLoaderOpenEXR.h"
 
-#include "nbl_os.h"
-
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfRgbaFile.h"
 #include "openexr/OpenEXR/IlmImf/ImfInputFile.h"
@@ -59,7 +57,7 @@ namespace nbl
 		using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
 		class SContext;
-		bool readVersionField(io::IReadFile* _file, SContext& ctx);
+		bool readVersionField(system::IFile* _file, SContext& ctx);
 		bool readHeader(const char fileName[], SContext& ctx);
 		template<typename rgbaFormat>
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
@@ -218,20 +216,20 @@ namespace nbl
 		}
 
 
-		SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
-			const auto& fileName = _file->getFileName().c_str();
+			std::string fileName = _file->getFileName().string();
 
 			SContext ctx;
-			InputFile file = fileName;
+			InputFile file = fileName.c_str();
 
 			if (!readVersionField(_file, ctx))
 				return {};
 
-			if (!readHeader(fileName, ctx))
+			if (!readHeader(fileName.c_str(), ctx))
 				return {};
 
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
@@ -259,7 +257,8 @@ namespace nbl
 
 					if (params.format == EF_UNKNOWN)
 					{
-						os::Printer::log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file", file.fileName(), ELL_INFORMATION);
+						assert(false); // TODO: implement proper engine-wide logger
+						//os::Printer::log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file", file.fileName(), ELL_INFORMATION);
 						continue;
 					}
 
@@ -308,15 +307,12 @@ namespace nbl
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
-		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file) const
 		{	
-			const size_t begginingOfFile = _file->getPos();
-            _file->seek(0ull);
-
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
-			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
-			_file->seek(begginingOfFile);
-
+			system::future<size_t> future;
+			_file->read(future, magicNumberBuffer, 0, sizeof(SContext::magicNumber));
+			future.get();
 			return isImfMagic(magicNumberBuffer);
 		}
 
@@ -369,6 +365,8 @@ namespace nbl
 			const auto bChannel = doesTheChannelExist("B", mapOfChannels);
 			const auto aChannel = doesTheChannelExist("A", mapOfChannels);
 
+			assert(false); // TODO: implement proper engine-wide logger
+			/*
 			if (rChannel && gChannel && bChannel && aChannel)
 				os::Printer::log("LOAD EXR: loading " + suffixName + " RGBA file", fileName, ELL_INFORMATION);
 			else if (rChannel && gChannel && bChannel)
@@ -379,7 +377,7 @@ namespace nbl
 				os::Printer::log("LOAD EXR: loading " + suffixName + " R file", fileName, ELL_INFORMATION);
 			else 
 				os::Printer::log("LOAD EXR: the file's channels are invalid to load", fileName, ELL_ERROR);
-
+			*/
 			auto doesMapOfChannelsFormatHaveTheSameFormatLikePassedToIt = [&](const PixelType ImfTypeToCompare)
 			{
 				for (auto& channel : mapOfChannels)
@@ -400,9 +398,9 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(io::IReadFile* _file, SContext& ctx)
+		bool readVersionField(system::IFile* _file, SContext& ctx)
 		{
-			RgbaInputFile file(_file->getFileName().c_str());
+			RgbaInputFile file(_file->getFileName().string().c_str());
 			auto& versionField = ctx.versionField;
 			
 			versionField.mainDataRegisterField = file.version();
@@ -421,7 +419,8 @@ namespace nbl
 				if (isTheBitActive(9))
 				{
 					versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::TILES;
-					os::Printer::log("LOAD EXR: the file consist of not supported tiles", file.fileName(), ELL_ERROR);
+					assert(false); // TODO: implement proper engine-wide logger
+					//os::Printer::log("LOAD EXR: the file consist of not supported tiles", file.fileName(), ELL_ERROR);
 					return false;
 				}
 				else
@@ -431,14 +430,16 @@ namespace nbl
 			{
 				versionField.Compoment.type = SContext::VersionField::Compoment::MULTI_PART_FILE;
 				versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::SCAN_LINES_OR_TILES;
-				os::Printer::log("LOAD EXR: the file is a not supported multi part file", file.fileName(), ELL_ERROR);
+				assert(false); // TODO: implement proper engine-wide logger
+				//os::Printer::log("LOAD EXR: the file is a not supported multi part file", file.fileName(), ELL_ERROR);
 				return false;
 			}
 
 			if (!isTheBitActive(9) && isTheBitActive(11) && isTheBitActive(12))
 			{
 				versionField.doesItSupportDeepData = true;
-				os::Printer::log("LOAD EXR: the file consist of not supported deep data", file.fileName(), ELL_ERROR);
+				assert(false); // TODO: implement proper engine-wide logger
+				//os::Printer::log("LOAD EXR: the file consist of not supported deep data", file.fileName(), ELL_ERROR);
 				return false;
 			}
 			else

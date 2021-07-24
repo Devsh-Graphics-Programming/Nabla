@@ -6,7 +6,7 @@
 #ifndef __NBL_ASSET_C_IMAGE_LOADER_JPG_H_INCLUDED__
 #define __NBL_ASSET_C_IMAGE_LOADER_JPG_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
@@ -21,15 +21,16 @@ namespace asset
 //! Surface Loader for JPG images
 class CImageLoaderJPG : public asset::IAssetLoader
 {
+    core::smart_refctd_ptr<system::ISystem> m_system;
     protected:
 	    //! destructor
 	    virtual ~CImageLoaderJPG();
 
     public:
 	    //! constructor
-	    CImageLoaderJPG();
+	    CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys);
 
-        virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+        virtual bool isALoadableFileFormat(system::IFile* _file) const override;
 
         virtual const char** getAssociatedFileExtensions() const override
         {
@@ -39,7 +40,7 @@ class CImageLoaderJPG : public asset::IAssetLoader
 
         virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-        virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+        virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
 } // end namespace video

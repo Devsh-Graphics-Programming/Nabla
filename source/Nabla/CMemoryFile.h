@@ -5,9 +5,9 @@
 
 #ifndef __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
 #define __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
+#if 0 
 
-#include "IReadFile.h"
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
 #include "nbl/core/core.h"
 
 namespace nbl
@@ -65,7 +65,7 @@ namespace io
             io::path    Filename;
 	};
 
-	class CMemoryWriteFile : public IWriteFile, public CMemoryFile
+	class CMemoryWriteFile : public system::IFile, public CMemoryFile
 	{
         public:
             //! Constructor
@@ -98,7 +98,7 @@ namespace io
 
 
     template<typename Alloc>
-    class CCustomAllocatorMemoryReadFile<Alloc, true> : public IReadFile
+    class CCustomAllocatorMemoryReadFile<Alloc, true> : public system::IFile
     {
         static_assert(sizeof(typename Alloc::value_type)==1, "Alloc::value_type must be of size 1");
 
@@ -201,9 +201,9 @@ namespace io
         {
         }
     };
-
 } // end namespace io
 } // end namespace nbl
+#endif 
 
 #endif
 

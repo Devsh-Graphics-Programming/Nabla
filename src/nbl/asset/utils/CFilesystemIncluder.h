@@ -6,7 +6,7 @@
 #define __NBL_ASSET_C_INCLUDER_H_INCLUDED__
 
 #include "nbl/asset/utils/IIncluder.h"
-#include "IFileSystem.h"
+#include "nbl/system/ISystem.h"
 
 namespace nbl { namespace asset
 {
@@ -14,31 +14,37 @@ namespace nbl { namespace asset
 class CFilesystemIncluder : public IIncluder
 {
 public:
-    CFilesystemIncluder(io::IFileSystem* _fs) : m_filesystem{_fs}
+    CFilesystemIncluder(system::ISystem* _sys) : m_system{_sys}
     {
     }
 
     void addSearchDirectory(const std::string& _searchDir) override
     {
-        io::path absPath = m_filesystem->getAbsolutePath(_searchDir.c_str());
-        IIncluder::addSearchDirectory(absPath.c_str());
+        std::filesystem::path absPath = std::filesystem::absolute(_searchDir);
+        IIncluder::addSearchDirectory(absPath.string());
     }
 
     std::string getInclude_internal(const std::string& _path) const override
     {
-        auto f = m_filesystem->createAndOpenFile(_path.c_str());
-        if (!f)
-            return {};
-        std::string contents(f->getSize(), '\0');
-        f->read(&contents.front(), f->getSize());
-
-        f->drop();
+        core::smart_refctd_ptr<system::IFile> f;
+        {
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            bool valid = m_system->createFile(future, _path.c_str(), system::IFile::ECF_READ);
+            if (valid) f = future.get();
+            if (!f)
+                return {};
+        }
+        size_t size = f->getSize();
+        std::string contents(size, '\0');
+        system::future<size_t> future;
+        f->read(future, contents.data(), 0, size);
+        future.get();
 
         return contents;
     }
 
 private:
-    io::IFileSystem* m_filesystem;
+    system::ISystem* m_system;
 };
 
 }}

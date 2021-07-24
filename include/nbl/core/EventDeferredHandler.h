@@ -6,11 +6,9 @@
 #define __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
 
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 template<class Event, class Functor>
@@ -265,7 +263,6 @@ class DeferredEventHandlerST
 
 //! EventDeferredHandlerMT coming later
 
-}
 }
 
 #endif

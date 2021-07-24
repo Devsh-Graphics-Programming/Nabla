@@ -6,9 +6,8 @@
 #ifndef __NBL_I_SCENE_MANAGER_H_INCLUDED__
 #define __NBL_I_SCENE_MANAGER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
-#include "path.h"
 #include "vector3d.h"
 #include "dimension2d.h"
 #include "SColor.h"
@@ -56,7 +55,7 @@ namespace scene
 		//! Get the video driver.
 		/** \return Pointer to the video Driver.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual video::IVideoDriver* getVideoDriver() = 0;
+		//virtual video::IVideoDriver* getVideoDriver() = 0;
 
 		//! Adds a camera scene node to the scene tree and sets it as active camera.
 		/** This camera does not react on user input like for example the one created with

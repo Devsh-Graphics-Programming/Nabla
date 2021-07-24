@@ -5,7 +5,8 @@
 #ifndef __NBL_C_OPEN_GL_BUFFER_H_INCLUDED__
 #define __NBL_C_OPEN_GL_BUFFER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
+
 #include "IGPUBuffer.h"
 
 #include "nbl/video/IOpenGL_FunctionTable.h"

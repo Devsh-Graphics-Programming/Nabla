@@ -839,7 +839,7 @@ protected:
     core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
-    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : ILogicalDevice(api_type, params, std::move(fs), std::move(glslc)), m_egl(_egl)
+    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : ILogicalDevice(api_type, params, std::move(s), std::move(glslc)), m_egl(_egl)
     {
 
     }

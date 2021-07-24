@@ -1,16 +1,16 @@
 #ifndef __NBL_C_OPENGL_COMMAND_BUFFER_H_INCLUDED__
 #define __NBL_C_OPENGL_COMMAND_BUFFER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+
 #include <variant>
 #include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/core/Types.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -1093,7 +1093,6 @@ public:
     }
 };
 
-}
 }
 
 #endif

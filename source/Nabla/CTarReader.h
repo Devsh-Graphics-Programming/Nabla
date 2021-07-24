@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #ifndef __NBL_C_TAR_READER_H_INCLUDED__
 #define __NBL_C_TAR_READER_H_INCLUDED__
 
@@ -11,9 +11,8 @@
 #ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 
 #include "nbl/core/IReferenceCounted.h"
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "IFileSystem.h"
-#include "CFileList.h"
 
 namespace nbl
 {
@@ -65,7 +64,7 @@ namespace io
 	public:
 
 		//! Constructor
-		CArchiveLoaderTAR(io::IFileSystem* fs);
+		CArchiveLoaderTAR(system::ISystem* fs);
 
 		//! returns true if the file maybe is able to be loaded by this class
 		//! based on the file extension (e.g. ".tar")
@@ -126,4 +125,5 @@ namespace io
 } // end namespace nbl
 
 #endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#endif
 #endif

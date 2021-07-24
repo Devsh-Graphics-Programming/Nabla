@@ -1,9 +1,9 @@
 #ifndef __NBL_C_MEMORY_POOL_H_INCLUDED__
 #define __NBL_C_MEMORY_POOL_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 #include "nbl/core/alloc/SimpleBlockBasedAllocator.h"
-#include "nbl/core/BaseClasses.h"
+#include "nbl/core/decl/BaseClasses.h"
 
 #include <memory>
 

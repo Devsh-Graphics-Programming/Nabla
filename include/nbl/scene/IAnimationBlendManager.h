@@ -5,7 +5,7 @@
 #ifndef __NBL_SCENE_I_ANIMATION_BLEND_MANAGER_H_INCLUDED__
 #define __NBL_SCENE_I_ANIMATION_BLEND_MANAGER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/video/video.h"
 
 #include "nbl/scene/ITransformTreeManager.h"
