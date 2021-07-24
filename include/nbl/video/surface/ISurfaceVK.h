@@ -8,6 +8,7 @@ namespace nbl::video
 {
 
 class IPhysicalDevice;
+class CVulkanConnection;
 
 class ISurfaceVK : public ISurface
 {
@@ -17,13 +18,12 @@ public:
     bool isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const override;
 
 // protected:
-    ISurfaceVK(VkInstance instance)
-        : m_instance(instance) {}
+    ISurfaceVK(core::smart_refctd_ptr<const CVulkanConnection>&& apiConnection);
 
-    virtual ~ISurfaceVK() { vkDestroySurfaceKHR(m_instance, m_surface, nullptr); }
+    virtual ~ISurfaceVK();
 
     VkSurfaceKHR m_surface;
-    VkInstance m_instance;
+    core::smart_refctd_ptr<const CVulkanConnection> m_apiConnection;
 };
 
 }

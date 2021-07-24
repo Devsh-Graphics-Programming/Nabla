@@ -8,9 +8,7 @@
 #include "nbl/video/CVKSwapchain.h"
 #include "nbl/video/CVulkanQueue.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class CVKLogicalDevice final : public ILogicalDevice
@@ -257,7 +255,6 @@ private:
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
 };
 
-}
 }
 
 #endif

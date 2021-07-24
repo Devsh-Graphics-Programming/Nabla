@@ -1,3 +1,6 @@
+#ifndef __NBL_C_VULKAN_PHYSICAL_DEVICE_H_INCLUDED__
+#define __NBL_C_VULKAN_PHYSICAL_DEVICE_H_INCLUDED__
+
 #include "nbl/video/IPhysicalDevice.h"
 
 #include <volk.h>
@@ -350,3 +353,5 @@ private:
 };
         
 }
+
+#endif

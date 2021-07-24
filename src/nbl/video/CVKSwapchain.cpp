@@ -3,6 +3,7 @@
 #include "nbl/video/CVKLogicalDevice.h"
 #include "nbl/video/surface/ISurfaceVK.h"
 // #include "nbl/video/CVulkanImage.h"
+#include "nbl/video/CVulkanConnection.h"
 
 namespace nbl
 {
