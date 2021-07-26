@@ -4,9 +4,7 @@
 #include <volk.h>
 #include "nbl/video/ISwapchain.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class CVKLogicalDevice;
@@ -24,7 +22,6 @@ private:
     VkSwapchainKHR m_swapchain;
 };
 
-}
 }
 
 #endif

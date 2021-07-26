@@ -28,8 +28,8 @@ public:
         core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
 
         //VkImageUsageFlags imageUsage;
-        //VkSharingMode imageSharingMode;
-        //VkSurfaceTransformFlagBitsKHR preTransform;
+        asset::E_SHARING_MODE imageSharingMode;
+        ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
         //VkCompositeAlphaFlagBitsKHR compositeAlpha;
         //VkBool32 clipped;
         //VkSwapchainKHR oldSwapchain;

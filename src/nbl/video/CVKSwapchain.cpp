@@ -2,74 +2,73 @@
 
 #include "nbl/video/CVKLogicalDevice.h"
 #include "nbl/video/surface/ISurfaceVK.h"
-// #include "nbl/video/CVulkanImage.h"
+#include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanConnection.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
-CVKSwapchain::CVKSwapchain(SCreationParams&& params, CVKLogicalDevice* dev) : ISwapchain(dev, std::move(params)), m_device(dev)
+CVKSwapchain::CVKSwapchain(SCreationParams&& params, CVKLogicalDevice* dev)
+    : ISwapchain(dev, std::move(params)), m_device(dev)
 {
-    VkSwapchainCreateInfoKHR ci;
-    ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    ci.pNext = nullptr;
-    ci.minImageCount = params.minImageCount;
-    ci.clipped = VK_TRUE;
-    ci.imageArrayLayers = params.arrayLayers;
-    // TODO function mapping ISurface::SFormat -> VkColorSpaceKHR
-    //ci.imageColorSpace = ...
-    ci.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
-    ci.imageExtent = { params.width, params.height };
-    ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; // single queue famility at a time
-    ci.queueFamilyIndexCount = params.queueFamilyIndices->size();
-    ci.pQueueFamilyIndices = params.queueFamilyIndices->data();
-    ci.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-    ci.oldSwapchain = VK_NULL_HANDLE;
-    //ci.imageUsage = ... // TODO (we dont have the enum yet)
-    ci.flags = 0;
-    ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    ci.imageFormat = static_cast<VkFormat>(params.surfaceFormat.format);
-    ci.surface = static_cast<ISurfaceVK*>(params.surface.get())->getInternalObject();
+    VkSwapchainCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+    createInfo.surface = static_cast<ISurfaceVK*>(m_params.surface.get())->getInternalObject();
+    createInfo.minImageCount = m_params.minImageCount;
+    createInfo.imageFormat = ISurfaceVK::getVkFormat(m_params.surfaceFormat.format);
+    createInfo.imageColorSpace = ISurfaceVK::getVkColorSpaceKHR(m_params.surfaceFormat.colorSpace);
+    createInfo.imageExtent = { m_params.width, m_params.height };
+    createInfo.imageArrayLayers = m_params.arrayLayers;
+
+    // Todo(achal): Probably need make an enum for this
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    createInfo.imageSharingMode = static_cast<VkSharingMode>(m_params.imageSharingMode);
+    createInfo.queueFamilyIndexCount = static_cast<uint32_t>(m_params.queueFamilyIndices->size());
+    createInfo.pQueueFamilyIndices = m_params.queueFamilyIndices->data();
+    createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(m_params.preTransform);
+
+    // Todo(achal): Probably need an enum here
+    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+    createInfo.presentMode = static_cast<VkPresentModeKHR>(m_params.presentMode);
+    createInfo.clipped = VK_TRUE;
+    createInfo.oldSwapchain = VK_NULL_HANDLE;
 
     // auto* vk = m_device->getFunctionTable();
     // VkDevice vkdev = m_device->getInternalObject();
 
-    VkSwapchainKHR sc;
-    // vk->vk.vkCreateSwapchainKHR(vkdev, &ci, nullptr, &sc);
-
-    m_swapchain = sc;
+    vkCreateSwapchainKHR(m_device->getInternalObject(), &createInfo, nullptr, &m_swapchain);
 
     uint32_t imgCount = 0u;
-    // vkGetSwapchainImagesKHR(vkdev, m_swapchain, &imgCount, nullptr);
-    m_images = core::make_refctd_dynamic_array<images_array_t>(imgCount); 
+    vkGetSwapchainImagesKHR(m_device->getInternalObject(), m_swapchain, &imgCount, nullptr);
+    m_images = core::make_refctd_dynamic_array<images_array_t>(imgCount);
 
-    VkImage vkimgs[100];
-    assert(imgCount > 100);
-    // vkGetSwapchainImagesKHR(vkdev, m_swapchain, &imgCount, vkimgs);
+    VkImage vk_Images[100];
+    assert(100 >= imgCount);
+    vkGetSwapchainImagesKHR(m_device->getInternalObject(), m_swapchain, &imgCount, vk_Images);
 
-    // uint32_t i = 0u;
-    // for (auto& img : (*m_images))
-    // {
-    //     CVulkanImage::SCreationParams params;
-    //     params.arrayLayers = m_params.arrayLayers;
-    //     params.extent = { m_params.width, m_params.height, 1u };
-    //     params.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0);
-    //     params.format = m_params.surfaceFormat.format;
-    //     params.mipLevels = 1u;
-    //     params.samples = CVulkanImage::ESCF_1_BIT;
-    //     params.type = CVulkanImage::ET_2D;
-    //     
-    //     // TODO might want to change this to dev->createImage()
-    //     img = core::make_smart_refctd_ptr<CVulkanImage>(m_device, std::move(params), vkimgs[i++]);
-    // }
+    uint32_t i = 0u;
+    for (auto& img : (*m_images))
+    {
+        CVulkanImage::SCreationParams params;
+        params.arrayLayers = m_params.arrayLayers;
+        params.extent = { m_params.width, m_params.height, 1u };
+        params.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0);
+        params.format = m_params.surfaceFormat.format;
+        params.mipLevels = 1u;
+        params.samples = CVulkanImage::ESCF_1_BIT;
+        params.type = CVulkanImage::ET_2D;
+        
+        // TODO might want to change this to dev->createImage()
+        img = core::make_smart_refctd_ptr<CVulkanImage>(m_device, std::move(params), vk_Images[i++]);
+    }
 }
 
 CVKSwapchain::~CVKSwapchain()
 {
     // auto* vk = m_device->getFunctionTable();
     // vk->vk.vkDestroySwapchainKHR(m_device->getInternalObject(), m_swapchain, nullptr);
+    vkDestroySwapchainKHR(m_device->getInternalObject(), m_swapchain, nullptr);
 }
 
 auto CVKSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) -> E_ACQUIRE_IMAGE_RESULT
@@ -79,21 +78,20 @@ auto CVKSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, 
 
     // TODO get semaphore and fence vk handles
     // VkResult result = vk->vk.vkAcquireNextImageKHR(dev, m_swapchain, timeout, 0, 0, out_imgIx);
-    // switch (result)
-    // {
-    // case VK_SUCCESS:
-    //     return EAIR_SUCCESS; break;
-    // case VK_TIMEOUT:
-    //     return EAIR_TIMEOUT; break;
-    // case VK_NOT_READY:
-    //     return EAIR_NOT_READY; break;
-    // case VK_SUBOPTIMAL_KHR:
-    //     return EAIR_SUBOPTIMAL; break;
-    // default:
-    //     return EAIR_ERROR; break;
-    // }
-    return EAIR_ERROR;
+    VkResult result = vkAcquireNextImageKHR(m_device->getInternalObject(), m_swapchain, timeout, 0, 0, out_imgIx);
+    switch (result)
+    {
+    case VK_SUCCESS:
+        return EAIR_SUCCESS;
+    case VK_TIMEOUT:
+        return EAIR_TIMEOUT;
+    case VK_NOT_READY:
+        return EAIR_NOT_READY;
+    case VK_SUBOPTIMAL_KHR:
+        return EAIR_SUBOPTIMAL;
+    default:
+        return EAIR_ERROR;
+    }
 }
 
-}
 }

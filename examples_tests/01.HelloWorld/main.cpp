@@ -59,7 +59,6 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 	void onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
 		LOG("Window resized to { %u, %u }", w, h);
-
 	}
 	void onWindowMinimized_impl() override
 	{
@@ -110,9 +109,6 @@ int main()
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 	
-	// auto win = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
-
-	
 	// Note(achal): This is unused, for now
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
@@ -124,8 +120,8 @@ int main()
 
 	nbl::ui::IWindow::SCreationParams params;
 	params.callback = nullptr;
-	params.width = 720;
-	params.height = 480;
+	params.width = WIN_W;
+	params.height = WIN_H;
 	params.x = 0;
 	params.y = 0;
 	params.system = core::smart_refctd_ptr(system);
@@ -140,15 +136,27 @@ int main()
 	auto gpus = vk->getPhysicalDevices();
 	assert(!gpus.empty());
 	
-	// Find a suitable gpu, whose only criteria for now is the required queue family support
+	// Find a suitable gpu
 	// 
 	// Todo(achal): This process gets quite involved in Vulkan, do we want to delegate some of it to the engine.
 	// For example, the user just specifies if the application is a headless compute one and we could check the
 	// availability of the required extensions on the backend and report which physical device is suitable or
 	// some thing like that
+
+	// Todo(achal): Look at this:
+	// https://github.com/Devsh-Graphics-Programming/Nabla/blob/6bd5061abe0a2020142efda827269ea6c07f0f2f/examples_tests/common/CommonAPI.h
 	core::smart_refctd_ptr<video::CVulkanPhysicalDevice> gpu = nullptr;
+
 	uint32_t graphicsFamilyIndex(~0u);
 	uint32_t presentFamilyIndex(~0u);
+
+	// Todo(achal): Probably want to put these into some struct
+	nbl::video::ISurface::SFormat surfaceFormat;
+	nbl::video::ISurface::E_PRESENT_MODE presentMode;
+	nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
+	nbl::asset::E_SHARING_MODE imageSharingMode;
+	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
+	QueueFamilyIndicesArrayType queueFamilyIndices;
 
 	for (size_t i = 0ull; i < gpus.size(); ++i)
 	{
@@ -213,23 +221,53 @@ int main()
 			std::vector<video::ISurface::E_PRESENT_MODE> presentModes =
 				gpu->getAvailablePresentModesForSurface(surface.get());
 
-			if (surfaceFormats.empty() || presentModes.empty())
+			// Todo(achal): Probably should make a ISurface::SCapabilities
+			// struct for this as a wrapper for VkSurfaceCapabilitiesKHR
+			// nbl::video::ISurface::SCapabilities surfaceCapabilities = ;
+			VkSurfaceCapabilitiesKHR surfaceCapabilities;
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->getInternalObject(),
+				vk_surface->m_surface, &surfaceCapabilities);
+
+			if ((surfaceCapabilities.maxImageCount != 0) && (SC_IMG_COUNT > surfaceCapabilities.maxImageCount)
+				|| (surfaceFormats.empty()) || (presentModes.empty()))
+			{
 				isGPUSuitable = false;
+			}
+
+			// Todo(achal): Probably a more sophisticated way to choose these
+			surfaceFormat = surfaceFormats[0];
+			presentMode = presentModes[0];
+			preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
 		}
 
-		if (isGPUSuitable)
+		if (isGPUSuitable) // find the first suitable GPU
 			break;
 	}
 	assert((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
 
 	video::ILogicalDevice::SCreationParams deviceCreationParams;
-	deviceCreationParams.queueParamsCount = (graphicsFamilyIndex == presentFamilyIndex) ? 1u : 2u;
+	if (graphicsFamilyIndex == presentFamilyIndex)
+	{
+		deviceCreationParams.queueParamsCount = 1u;
+		imageSharingMode = asset::ESM_EXCLUSIVE;
+	}
+	else
+	{
+		deviceCreationParams.queueParamsCount = 2u;
+		imageSharingMode = asset::ESM_CONCURRENT;
+	}
 
-	const uint32_t queueFamilyIndices[] = { graphicsFamilyIndex, presentFamilyIndex };
+	queueFamilyIndices = core::make_refctd_dynamic_array<QueueFamilyIndicesArrayType>(deviceCreationParams.queueParamsCount);
+	{
+		const uint32_t temp[] = { graphicsFamilyIndex, presentFamilyIndex };
+		for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
+			(*queueFamilyIndices)[i] = temp[i];
+	}
+
 	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
 	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
 	{
-		queueCreationParams[i].familyIndex = queueFamilyIndices[i];
+		queueCreationParams[i].familyIndex = (*queueFamilyIndices)[i];
 		queueCreationParams[i].count = 1u;
 		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
 		const float priority = 1.f;
@@ -238,12 +276,23 @@ int main()
 	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
 	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
 
+	nbl::video::ISwapchain::SCreationParams sc_params = {};
+	sc_params.surface = surface;
+	sc_params.minImageCount = SC_IMG_COUNT;
+	sc_params.surfaceFormat = surfaceFormat;
+	sc_params.presentMode = presentMode;
+	sc_params.width = WIN_W;
+	sc_params.height = WIN_H;
+	sc_params.queueFamilyIndices = queueFamilyIndices;
+	sc_params.imageSharingMode = imageSharingMode;
+	sc_params.preTransform = preTransform;
+
+	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(std::move(sc_params));
+
 	while (true)
 	{
 	}
 
-	// core::smart_refctd_ptr<video::ISwapchain> sc = CommonAPI::createSwapchain(WIN_W, WIN_H, SC_IMG_COUNT, device, surface, video::ISurface::EPM_FIFO_RELAXED);
-	// assert(sc);
 
 #if 0
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
