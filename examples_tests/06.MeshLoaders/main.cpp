@@ -13,116 +13,56 @@
 using namespace nbl;
 using namespace core;
 
-#define NABLA_QUEUE_COUNT 1             // per family
-#define NABLA_RENDER_QUEUE_INDEX 0      // index within family
-#define NABLA_TRANSFER_QUEUE_INDEX 0    // index within family
-#define NABLA_COMPUTE_QUEUE_INDEX 0     // index within family
-#define NABLA_SHARING_MODE ::nbl::asset::ESM_EXCLUSIVE
-#define NABLA_SWAPCHAIN_IMAGE_FORMAT ::nbl::asset::EF_R8G8B8A8_SRGB
-
-inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
-{
-    const char* sev = nullptr;
-
-    switch (severity)
-    {
-        case video::EDMS_VERBOSE:
-        {
-            sev = "verbose";
-        } break;
-
-        case video::EDMS_INFO:
-        {
-            sev = "info";
-        } break;
-
-        case video::EDMS_WARNING:
-        {
-            sev = "warning";
-        } break;
-
-        case video::EDMS_ERROR:
-        {
-            sev = "error";
-        } break;
-    }
-
-    std::cout << "OpenGL " << sev << ": " << msg << std::endl;
-}
-
 int main()
 {
-    constexpr uint32_t WIN_W = 800u;
-    constexpr uint32_t WIN_H = 600u;
-    constexpr uint32_t SC_IMG_COUNT = 3u;
+    constexpr uint32_t WIN_W = 1280;
+    constexpr uint32_t WIN_H = 720;
+    constexpr uint32_t FBO_COUNT = 1u;
 
-    auto window = CWindowT::create(WIN_W, WIN_H, ui::IWindow::ECF_NONE);
-
-    video::SDebugCallback debugCallbackObject;
-    debugCallbackObject.callback = &debugCallback;
-    debugCallbackObject.userData = nullptr;
-
-    auto glApiConnection = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", debugCallbackObject);
-    auto surface = glApiConnection->createSurface(window.get());
-
-    auto physicalDevices = glApiConnection->getPhysicalDevices();
-    assert(!physicalDevices.empty());
-
-    nbl::core::smart_refctd_dynamic_array<uint32_t> queueFamilyIxs = nullptr;
-    uint32_t queueFamilyIx_render = 0xffffFFFFu;
-    uint32_t queueFamilyIx_compute = 0xffffFFFFu;
-    uint32_t queueFamilyIx_transfer = 0xffffFFFFu;
-
-    auto gpuPhysicalDevice = physicalDevices.begin()[0];
+    auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Draw3DLine");
+    auto window = std::move(initOutput.window);
+    auto gl = std::move(initOutput.apiConnection);
+    auto surface = std::move(initOutput.surface);
+    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+    auto logicalDevice = std::move(initOutput.logicalDevice);
+    auto queue = std::move(initOutput.queue);
+    auto swapchain = std::move(initOutput.swapchain);
+    auto renderpass = std::move(initOutput.renderpass);
+    auto fbo = std::move(initOutput.fbo[0]);
+    auto commandPool = std::move(initOutput.commandPool);
     {
-        auto queueFamilyPropertiesRange = gpuPhysicalDevice->getQueueFamilyProperties();
-        for (uint32_t i = 0u; i < queueFamilyPropertiesRange.size(); ++i)
-        {
-            const auto& queueFamilyProperties = queueFamilyPropertiesRange.begin()[i];
+        video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
+        core::smart_refctd_ptr<video::IGPUCommandBuffer> gpuCommandBuffer;
+        logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
+        assert(gpuCommandBuffer);
 
-            if (queueFamilyProperties.queueFlags & nbl::video::IPhysicalDevice::EQF_GRAPHICS_BIT)
-                queueFamilyIx_render = i;
-            if (queueFamilyProperties.queueFlags & nbl::video::IPhysicalDevice::EQF_COMPUTE_BIT)
-                queueFamilyIx_compute = i;
-            if (queueFamilyProperties.queueFlags & nbl::video::IPhysicalDevice::EQF_TRANSFER_BIT)
-                queueFamilyIx_transfer = i;
+        gpuCommandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
-            if (queueFamilyIx_render < queueFamilyPropertiesRange.size() && queueFamilyIx_compute < queueFamilyPropertiesRange.size() && queueFamilyIx_transfer < queueFamilyPropertiesRange.size())
-                break;
-            else if (i == queueFamilyPropertiesRange.size() - 1u)
-                assert(false);
-        }
+        asset::SViewport viewport;
+        viewport.minDepth = 1.f;
+        viewport.maxDepth = 0.f;
+        viewport.x = 0u;
+        viewport.y = 0u;
+        viewport.width = WIN_W;
+        viewport.height = WIN_H;
+        gpuCommandBuffer->setViewport(0u, 1u, &viewport);
+
+        gpuCommandBuffer->end();
+
+        video::IGPUQueue::SSubmitInfo info;
+        info.commandBufferCount = 1u;
+        info.commandBuffers = &gpuCommandBuffer.get();
+        info.pSignalSemaphores = nullptr;
+        info.signalSemaphoreCount = 0u;
+        info.pWaitSemaphores = nullptr;
+        info.waitSemaphoreCount = 0u;
+        info.pWaitDstStageMask = nullptr;
+        queue->submit(1u, &info, nullptr);
     }
 
-    nbl::core::set<uint32_t> families = { queueFamilyIx_render, queueFamilyIx_compute, queueFamilyIx_transfer };
-
-    nbl::video::ILogicalDevice::SCreationParams deviceParams;
-    deviceParams.queueParamsCount = families.size();
-    nbl::core::vector<nbl::video::ILogicalDevice::SQueueCreationParams> queuesParams;
-    queuesParams.reserve(families.size());
-
-    float priorities[32];
-    std::fill_n(priorities, 32, 1.f);
-
-    for (auto& family : families)
-    {
-        nbl::video::ILogicalDevice::SQueueCreationParams qp;
-        qp.count = NABLA_QUEUE_COUNT;
-        qp.familyIndex = family;
-        qp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
-        qp.priorities = priorities;
-        queuesParams.push_back(qp);
-    }
-    deviceParams.queueCreateInfos = queuesParams.data();
-
-    auto logicalDevice = gpuPhysicalDevice->createLogicalDevice(deviceParams);
-
-    if (!logicalDevice)
-		return 1; // could not create selected driver.
-
-    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer[1];
-    auto commandPool = logicalDevice->createCommandPool(queueFamilyIx_render, nbl::video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-    logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, commandBuffer);
+    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffers[1];
+    logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, commandBuffers);
+    auto commandBuffer = commandBuffers[0];
 
     core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
     {
@@ -140,12 +80,12 @@ int main()
     nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
     cpu2gpuParams.assetManager = assetManager.get();
     cpu2gpuParams.device = logicalDevice.get();
-    cpu2gpuParams.finalQueueFamIx = queueFamilyIx_render;
+    cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
     cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
     cpu2gpuParams.pipelineCache = nullptr;
-    cpu2gpuParams.sharingMode = NABLA_SHARING_MODE;
-    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = logicalDevice->getQueue(queueFamilyIx_transfer, NABLA_TRANSFER_QUEUE_INDEX);
-    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = logicalDevice->getQueue(queueFamilyIx_compute, NABLA_COMPUTE_QUEUE_INDEX);
+    cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue;
+    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;
 
     auto createDescriptorPool = [&](const uint32_t textureCount)
     {
@@ -157,9 +97,6 @@ int main()
             return logicalDevice->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxItemCount, 1u, &poolSize);
         }
     };
-
-	//auto* driver = logicalDevice->getVideoDriver();
-	//auto* smgr = device->getSceneManager();
 
     asset::ICPUMesh* meshRaw = nullptr;
     const asset::COBJMetadata* metaOBJ = nullptr;
@@ -245,42 +182,9 @@ int main()
 
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
     {
-        nbl::video::IGPURenderpass::SCreationParams::SAttachmentDescription attachment;
-        attachment.initialLayout = nbl::asset::EIL_UNDEFINED;
-        attachment.finalLayout = nbl::asset::EIL_UNDEFINED;
-        attachment.format = NABLA_SWAPCHAIN_IMAGE_FORMAT;
-        attachment.samples = nbl::asset::IImage::ESCF_1_BIT;
-        attachment.loadOp = nbl::video::IGPURenderpass::ELO_CLEAR;
-        attachment.storeOp = nbl::video::IGPURenderpass::ESO_STORE;
-        
-        nbl::video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttachmentRef;
-        colorAttachmentRef.attachment = 0u;
-        colorAttachmentRef.layout = nbl::asset::EIL_UNDEFINED;
-
-        nbl::video::IGPURenderpass::SCreationParams::SSubpassDescription subpassDescription;
-        subpassDescription.colorAttachmentCount = 1u;
-        subpassDescription.colorAttachments = &colorAttachmentRef;
-        subpassDescription.depthStencilAttachment = nullptr;
-        subpassDescription.flags = nbl::video::IGPURenderpass::ESDF_NONE;
-        subpassDescription.inputAttachmentCount = 0u;
-        subpassDescription.inputAttachments = nullptr;
-        subpassDescription.preserveAttachmentCount = 0u;
-        subpassDescription.preserveAttachments = nullptr;
-        subpassDescription.resolveAttachments = nullptr;
-
-        nbl::video::IGPURenderpass::SCreationParams renderpassParams;
-        renderpassParams.attachmentCount = 1u;
-        renderpassParams.attachments = &attachment;
-        renderpassParams.dependencies = nullptr;
-        renderpassParams.dependencyCount = 0u;
-        renderpassParams.subpasses = &subpassDescription;
-        renderpassParams.subpassCount = 1u;
-
-        auto gpuRenderpass = logicalDevice->createGPURenderpass(renderpassParams);
-
         nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
         graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpumesh->getMeshBuffers().begin()[0]->getPipeline()));
-        graphicsPipelineParams.renderpass = gpuRenderpass;
+        graphicsPipelineParams.renderpass = renderpass;
 
         gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
     }
@@ -294,26 +198,27 @@ int main()
 
     sceneManager->setActiveCamera(camera);
 
-    nbl::asset::SViewport viewport;
-    {
-        viewport.maxDepth = 0.f;
-        viewport.minDepth = 1.f;
-        viewport.x = 0u;
-        viewport.y = 0u;
-        viewport.width = WIN_W;
-        viewport.height = WIN_H;
-    }
-
 	while(true)
 	{
-        // Shouldn't I need to invoke something like beginScene and endScene? Is there any such call on new API?
+        commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+        commandBuffer->begin(0);
 
-        commandBuffer[0]->setViewport(0, 1, &viewport);
+        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+        nbl::asset::VkRect2D area;
+        area.offset = { 0,0 };
+        area.extent = { WIN_W, WIN_H };
+        nbl::asset::SClearValue clear;
+        clear.color.float32[0] = 0.f;
+        clear.color.float32[1] = 0.f;
+        clear.color.float32[2] = 0.f;
+        clear.color.float32[3] = 1.f;
+        beginInfo.clearValueCount = 1u;
+        beginInfo.framebuffer = fbo;
+        beginInfo.renderpass = renderpass;
+        beginInfo.renderArea = area;
+        beginInfo.clearValues = &clear;
 
-        const size_t msTimeCount = 69; // device->getTimer()->getTime()).count(), how to get time in new API properly?
-
-		camera->OnAnimate(msTimeCount);
-		camera->render();
+        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
         core::vector<uint8_t> uboData(gpuubo->getSize());
         for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
@@ -343,24 +248,37 @@ int main()
             }
         }       
 
-        commandBuffer[0]->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
+        commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
         for (auto gpumb : gpumesh->getMeshBuffers())
         {
             const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpumb->getPipeline();
             const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
             
-            commandBuffer[0]->bindGraphicsPipeline(gpuGraphicsPipeline.get()); // I'm wondering if I should create gpuGraphicsPipeline for each mesh buffer before
+            commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get()); // I'm wondering if I should create gpuGraphicsPipeline for each mesh buffer before
 
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            commandBuffer[0]->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
             const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
             if (gpuds3_ptr)
-                commandBuffer[0]->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-            commandBuffer[0]->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+            commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
 
-            // commandBuffer[0]->draw(vertexCount, instanceCount, firstVertex, firstInstance); // TODO! Damn, do I need an access to VAO and vertex stuff?
+            // commandBuffer->drawMeshBuffer(gpumb) TODO: to implement
         }
+
+        commandBuffer->endRenderPass();
+        commandBuffer->end();
+
+        auto img_acq_sem = logicalDevice->createSemaphore();
+        auto render_finished_sem = logicalDevice->createSemaphore();
+
+        uint32_t imgnum = 0u;
+        constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; // ns
+        swapchain->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
+
+        CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queue, img_acq_sem.get(), render_finished_sem.get());
+        CommonAPI::Present(logicalDevice.get(), swapchain.get(), queue, render_finished_sem.get(), imgnum);
 	}
 
 	return 0;

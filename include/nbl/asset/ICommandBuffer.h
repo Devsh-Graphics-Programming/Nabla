@@ -226,6 +226,7 @@ public:
     virtual bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) = 0;
     virtual bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
     virtual bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
+    virtual bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) = 0;
 
     virtual bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const SViewport* pViewports) = 0;
 

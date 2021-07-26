@@ -575,6 +575,28 @@ public:
         return true;
     }
 
+    bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
+    {
+        const auto* pipeline = meshBuffer->getPipeline();
+        const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
+
+        for (uint16_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        {
+            // TODO
+
+            // bindVertexBuffers(,)
+        }
+
+        /*
+            if (indexed)
+                 drawIndexed();
+            else
+                 draw();
+        */
+
+        return false;
+    }
+
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
     {
         if (viewportCount == 0u)
