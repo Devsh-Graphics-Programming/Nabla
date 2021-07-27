@@ -40,6 +40,6 @@ nbl_create_ext_library_project(
   "${NBL_EXT_BULLET_SRC}"
   "${NBL_EXT_BULLET_EXTERNAL_INCLUDE}"
   ""
-  "_NBL_PCH_IGNORE_PRIVATE_HEADERS"
+  ""
 )
 
