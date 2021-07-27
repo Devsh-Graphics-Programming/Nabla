@@ -2,11 +2,8 @@
 
 #extension GL_EXT_shader_16bit_storage : require
 
-//TODO: choose different WORKGROUP_SIZE
 #include "cullShaderCommon.h"
 layout(local_size_x = WORKGROUP_SIZE) in;
-
-//TODO: optimize number of local workgroups
 
 #define ENABLE_OCCLUSION_CULLED_COMMAND_BUFFER
 #define ENABLE_VISIBLE_BUFFER

@@ -200,8 +200,6 @@ void main()
             cubeIndirectDraw.draw.instanceCount = 0;
             occlusionDispatchIndirect.di.num_groups_x = 0;
         }
-
-        //TODO: reset frustum culled mdi buffer
     }
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));
