@@ -6,8 +6,10 @@
 struct CullShaderData_t
 {
     mat4    viewProjMatrix;
+    vec3    worldCamPos;
     uint    maxBatchCount;
     uint    freezeCulling;
+    
 };
 
 struct CullData_t
@@ -15,7 +17,7 @@ struct CullData_t
     vec3    aabbMinEdge;
     uint    padding;
     vec3    aabbMaxEdge;
-    uint    drawCommandGUID;
+    uint    drawCommandGUID; // offset into mdi buffer
 };
 
 #endif

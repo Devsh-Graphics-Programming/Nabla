@@ -1,4 +1,5 @@
 #version 430 core
+#extension GL_EXT_shader_16bit_storage : require
 
 #line 4 // so we get good line numbers for errors
 #include "common.glsl"
@@ -114,11 +115,20 @@ vec3 uintIDToColor(uint id)
 }
 
 #define ENABLE_FRUSTUM_CULLED_COMMAND_BUFFER
-#define ENABLE_ID_TO_MDI_ELEMENT_OFFSET_BUFFER
+#define ENABLE_VISIBLE_BUFFER
+#define ENABLE_CUBE_COMMAND_BUFFER
+#define ENABLE_OCCLUSION_DISPATCH_INDIRECT_BUFFER
+
 #define FRUSTUM_CULLED_COMMAND_BUFF_SET 3
 #define FRUSTUM_CULLED_COMMAND_BUFF_BINDING 2
-#define ID_TO_MDI_ELEMENT_OFFSET_BUFF_SET 3
-#define ID_TO_MDI_ELEMENT_OFFSET_BUFF_BINDING 3
+#define VISIBLE_BUFF_SET 3
+#define VISIBLE_BUFF_BINDING 3
+#define CUBE_COMMAND_BUFF_SET 3
+#define CUBE_COMMAND_BUFF_BINDING 4
+#define OCCLUSION_DISPATCH_INDIRECT_BUFF_SET 3
+#define OCCLUSION_DISPATCH_INDIRECT_BUFF_BINDING 5
+
+
 #include "occlusionCullingShaderCommon.glsl"
 
 void main()
@@ -183,9 +193,15 @@ void main()
         nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(pc.camPos,pos,normal);
         color.rgb = nbl_computeLighting(interaction);
 
-        // set instance count of batches that are visible in this frame to 1 (to the back buffer)
-        const uint batchMdiOffset = idToMdiElementOffsetMap.offsets[drawGUID];
-        frustumCommandBuff.draws[batchMdiOffset].instanceCount = 1;
+        visibleBuff.visible[drawGUID] = uint16_t(1u);
+
+        if(gl_GlobalInvocationID.x == 0)
+        {
+            cubeIndirectDraw.draw.instanceCount = 0;
+            occlusionDispatchIndirect.di.num_groups_x = 0;
+        }
+
+        //TODO: reset frustum culled mdi buffer
     }
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));

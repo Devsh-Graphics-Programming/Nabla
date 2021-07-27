@@ -1,4 +1,7 @@
 #version 460 core
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(early_fragment_tests) in;
 
 layout(location = 0) in flat uint instanceID;
 
@@ -9,5 +12,5 @@ layout(location = 0) in flat uint instanceID;
 
 void main()
 {
-    visibleBuff.visible[instanceID] = uint16_t(1);
+    visibleBuff.visible[instanceID] = uint16_t(1u);
 }

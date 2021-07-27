@@ -1,4 +1,5 @@
 //TODO: rename
+//TODO: move buffers, that are not used by multiple shaders
 
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
 
@@ -13,7 +14,7 @@ layout(set=CUBE_COMMAND_BUFF_SET, binding=CUBE_COMMAND_BUFF_BINDING, std430) res
 
 #ifdef ENABLE_FRUSTUM_CULLED_COMMAND_BUFFER
 
-layout(set=FRUSTUM_CULLED_COMMAND_BUFF_SET, binding=FRUSTUM_CULLED_COMMAND_BUFF_BINDING, std430) restrict coherent buffer FrustumIndirectDraws
+layout(set=FRUSTUM_CULLED_COMMAND_BUFF_SET, binding=FRUSTUM_CULLED_COMMAND_BUFF_BINDING, std430) restrict buffer FrustumIndirectDraws
 {
     nbl_glsl_DrawElementsIndirectCommand_t draws[];
 } frustumCommandBuff;
@@ -22,26 +23,16 @@ layout(set=FRUSTUM_CULLED_COMMAND_BUFF_SET, binding=FRUSTUM_CULLED_COMMAND_BUFF_
 
 #ifdef ENABLE_OCCLUSION_CULLED_COMMAND_BUFFER
 
-layout(set=OCCLUSION_CULLED_COMMAND_BUFF_SET, binding=OCCLUSION_CULLED_COMMAND_BUFF_BINDING, std430) restrict coherent buffer OcclusionIndirectDraws
+layout(set=OCCLUSION_CULLED_COMMAND_BUFF_SET, binding=OCCLUSION_CULLED_COMMAND_BUFF_BINDING, std430) restrict buffer OcclusionIndirectDraws
 {
     nbl_glsl_DrawElementsIndirectCommand_t draws[];
 } occlusionCommandBuff;
 
 #endif
 
-#ifdef ENABLE_ID_TO_MDI_ELEMENT_OFFSET_BUFFER
-
-layout(set=ID_TO_MDI_ELEMENT_OFFSET_BUFF_SET, binding=ID_TO_MDI_ELEMENT_OFFSET_BUFF_BINDING, std430) restrict readonly buffer IdToMdiElementOffsetMap
-{
-    uint offsets[];
-} idToMdiElementOffsetMap;
-
-#endif
-
 #ifdef ENABLE_VISIBLE_BUFFER
-#extension GL_EXT_shader_16bit_storage : require
 
-layout(set = VISIBLE_BUFF_SET, binding = VISIBLE_BUFF_BINDING, std430) restrict coherent buffer VisibleBuff
+layout(set = VISIBLE_BUFF_SET, binding = VISIBLE_BUFF_BINDING, std430) restrict buffer VisibleBuff
 {
     uint16_t visible[];
 } visibleBuff;
@@ -50,9 +41,18 @@ layout(set = VISIBLE_BUFF_SET, binding = VISIBLE_BUFF_BINDING, std430) restrict 
 
 #ifdef ENABLE_CUBE_DRAW_GUID_BUFFER
 
-layout(set=CUBE_DRAW_GUID_BUFF_SET, binding=CUBE_DRAW_GUID_BUFF_BINDING, std430) restrict coherent buffer CubeDrawGUID
+layout(set=CUBE_DRAW_GUID_BUFF_SET, binding=CUBE_DRAW_GUID_BUFF_BINDING, std430) restrict buffer CubeDrawGUID
 {
     uint drawGUID[];
 } cubeDrawGUIDBuffer;
+
+#endif
+
+#ifdef ENABLE_OCCLUSION_DISPATCH_INDIRECT_BUFFER
+
+layout(set=OCCLUSION_DISPATCH_INDIRECT_BUFF_SET, binding=OCCLUSION_DISPATCH_INDIRECT_BUFF_BINDING, std430) restrict coherent buffer OcclusionDispatchIndirectBuffer
+{
+    nbl_glsl_DispatchIndirectCommand_t di;
+} occlusionDispatchIndirect;
 
 #endif

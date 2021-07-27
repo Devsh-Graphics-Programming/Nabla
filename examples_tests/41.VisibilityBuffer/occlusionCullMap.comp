@@ -1,50 +1,37 @@
 #version 460 core
 
+#extension GL_EXT_shader_16bit_storage : require
+
 //TODO: choose different WORKGROUP_SIZE
 #include "cullShaderCommon.h"
 layout(local_size_x = WORKGROUP_SIZE) in;
 
 //TODO: optimize number of local workgroups
 
-#define ENABLE_FRUSTUM_CULLED_COMMAND_BUFFER
 #define ENABLE_OCCLUSION_CULLED_COMMAND_BUFFER
-#define ENABLE_ID_TO_MDI_ELEMENT_OFFSET_BUFFER
 #define ENABLE_VISIBLE_BUFFER
 #define ENABLE_CUBE_DRAW_GUID_BUFFER
 #define ENABLE_CUBE_COMMAND_BUFFER
-#define FRUSTUM_CULLED_COMMAND_BUFF_SET 0
-#define FRUSTUM_CULLED_COMMAND_BUFF_BINDING 0
 #define OCCLUSION_CULLED_COMMAND_BUFF_SET 0
-#define OCCLUSION_CULLED_COMMAND_BUFF_BINDING 1
-#define ID_TO_MDI_ELEMENT_OFFSET_BUFF_SET 0
-#define ID_TO_MDI_ELEMENT_OFFSET_BUFF_BINDING 2
+#define OCCLUSION_CULLED_COMMAND_BUFF_BINDING 0
 #define VISIBLE_BUFF_SET 0
-#define VISIBLE_BUFF_BINDING 3
+#define VISIBLE_BUFF_BINDING 1
 #define CUBE_DRAW_GUID_BUFF_SET 0
-#define CUBE_DRAW_GUID_BUFF_BINDING 4
+#define CUBE_DRAW_GUID_BUFF_BINDING 2
 #define CUBE_COMMAND_BUFF_SET 0
-#define CUBE_COMMAND_BUFF_BINDING 5
+#define CUBE_COMMAND_BUFF_BINDING 3
 #include "occlusionCullingShaderCommon.glsl"
-
-layout (push_constant) uniform Block 
-{
-  uint testObjectsCnt;
-} pc;
 
 void main()
 {
-    if(gl_GlobalInvocationID.x > pc.testObjectsCnt)
+    if(gl_GlobalInvocationID.x > cubeIndirectDraw.draw.instanceCount)
         return;
 
     if(uint(visibleBuff.visible[gl_GlobalInvocationID.x]) == 0)
         return;
     
-    const uint batchMdiOffset = idToMdiElementOffsetMap.offsets[cubeDrawGUIDBuffer.drawGUID[gl_GlobalInvocationID.x]];
+    const uint batchMdiOffset = cubeDrawGUIDBuffer.drawGUID[gl_GlobalInvocationID.x];
     occlusionCommandBuff.draws[batchMdiOffset].instanceCount = 1;
-
-    // TODO: fix
-    for (uint i=gl_GlobalInvocationID.x; i<gl_NumWorkGroups.x*WORKGROUP_SIZE; i+=gl_NumWorkGroups.x*WORKGROUP_SIZE)
-        frustumCommandBuff.draws[i].instanceCount = 0;
-
-    cubeIndirectDraw.draw.instanceCount = 0;
+    
+    visibleBuff.visible[gl_GlobalInvocationID.x] = uint16_t(0u);
 }
