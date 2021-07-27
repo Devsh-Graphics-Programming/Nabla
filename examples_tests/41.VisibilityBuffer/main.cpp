@@ -321,10 +321,8 @@ int main()
     auto fb = driver->addFrameBuffer();
     fb->attach(EFAP_COLOR_ATTACHMENT0,createImageView(smart_refctd_ptr(framebuffer)));
 
-    // TODO: use z buff used by vis buff
     auto zBuffOnlyFrameBuffer = driver->addFrameBuffer();
-    auto zBuff = createImageView(createScreenSizedImage(EF_D32_SFLOAT));
-    zBuffOnlyFrameBuffer->attach(EFAP_DEPTH_ATTACHMENT, std::move(zBuff));
+    zBuffOnlyFrameBuffer->attach(EFAP_DEPTH_ATTACHMENT, std::move(depthBufferView));
 
     //
     SceneData sceneData;
@@ -1229,15 +1227,6 @@ int main()
         cullBatches(camera->getConcatenatedMatrix(), camera->getPosition(), freezeCulling);
         COpenGLExtensionHandler::pGlMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
-        driver->setRenderTarget(visBuffer);
-        driver->clearZBuffer();
-        const uint32_t invalidObjectCode[4] = {~0u,0u,0u,0u};
-        driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0,invalidObjectCode);
-
-        // first fill visibility buffer pass
-        fillVBuffer(sceneData.frustumCulledMdiBuffer);
-        COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
-
         // occlusion cull
         driver->setRenderTarget(zBuffOnlyFrameBuffer);
         driver->bindDescriptorSets(video::EPBP_GRAPHICS, cullShaderData.occlusionCullPipeline->getLayout(), 0u, 1u, &cullShaderData.occlusionCullDS.get(), nullptr);
@@ -1250,7 +1239,6 @@ int main()
             sizeof(DrawElementsIndirectCommand_t)
         );
         COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        driver->setRenderTarget(visBuffer);
 
         // map batchIDs of batches that passed occlusion test to the `occlusionCulledMdiBuffer`
         driver->bindDescriptorSets(video::EPBP_COMPUTE, cullShaderData.mapPipeline->getLayout(), 0u, 1u, &cullShaderData.mapDS.get(), nullptr);
@@ -1258,6 +1246,14 @@ int main()
         
         driver->dispatchIndirect(cullShaderData.dispatchIndirect.get(), 0u);
         COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+        driver->setRenderTarget(visBuffer);
+        driver->clearZBuffer();
+        const uint32_t invalidObjectCode[4] = { ~0u,0u,0u,0u };
+        driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, invalidObjectCode);
+
+        // first fill visibility buffer pass
+        fillVBuffer(sceneData.frustumCulledMdiBuffer);
 
         // second fill visibility buffer pass
         fillVBuffer(sceneData.occlusionCulledMdiBuffer);
