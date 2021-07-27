@@ -575,26 +575,43 @@ public:
         return true;
     }
 
-    bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
+    inline bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
     {
         const auto* pipeline = meshBuffer->getPipeline();
         const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
+        auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
 
         for (uint16_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
         {
-            // TODO
-
-            // bindVertexBuffers(,)
+            if (bindingFlags & core::createBitmask({ i }))
+            {
+                auto vertexBufferBinding = vertexBufferBindings[i];
+                bindVertexBuffers(i, 1, &vertexBufferBinding.buffer.get(), &vertexBufferBinding.offset);
+            }
         }
 
-        /*
-            if (indexed)
-                 drawIndexed();
-            else
-                 draw();
-        */
+        const bool isIndexed = meshBuffer->getIndexType() != nbl::asset::EIT_UNKNOWN;
 
-        return false;
+        const size_t instanceCount = 1;
+        const size_t firstInstance = 0;
+
+        if (isIndexed)
+        {
+            const size_t& indexCount = meshBuffer->getIndexCount();
+            const size_t firstIndex = 0;
+            const size_t vertexOffset = 0; // TODO, check it out (forgot what it is)
+
+            drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+        else
+        {
+            const size_t& vertexCount = meshBuffer->getIndexCount();
+            const size_t firstVertex = 0;
+
+            draw(vertexCount, instanceCount, firstVertex, firstInstance);
+        }
+
+        return true;
     }
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override

@@ -19,7 +19,7 @@ int main()
     constexpr uint32_t WIN_H = 720;
     constexpr uint32_t FBO_COUNT = 1u;
 
-    auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Draw3DLine");
+    auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "MeshLoaders");
     auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
@@ -180,13 +180,16 @@ int main()
         gpumesh = (*gpu_array)[0];
     }
 
-    core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
+    std::vector<core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuGraphicsPipelines;
     {
-        nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
-        graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpumesh->getMeshBuffers().begin()[0]->getPipeline()));
-        graphicsPipelineParams.renderpass = renderpass;
+        for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
+        {
+            nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+            graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpumesh->getMeshBuffers().begin()[i]->getPipeline()));
+            graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-        gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+            gpuGraphicsPipelines.emplace_back() = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+        }
     }
 
 	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0,100.0f,0.5f);
@@ -250,21 +253,24 @@ int main()
 
         commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
-        for (auto gpumb : gpumesh->getMeshBuffers())
+        for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
         {
-            const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpumb->getPipeline();
-            const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
+            auto gpuMeshBuffer = gpumesh->getMeshBuffers().begin()[i];
+            auto gpuGraphicsPipeline = core::smart_refctd_ptr(gpuGraphicsPipelines[i]);
+
+            const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
+            const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
             
-            commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get()); // I'm wondering if I should create gpuGraphicsPipeline for each mesh buffer before
+            commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
 
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
             commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
-            const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
+            const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
             if (gpuds3_ptr)
                 commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-            commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
+            commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
 
-            // commandBuffer->drawMeshBuffer(gpumb) TODO: to implement
+            commandBuffer->drawMeshBuffer(gpuMeshBuffer);
         }
 
         commandBuffer->endRenderPass();
