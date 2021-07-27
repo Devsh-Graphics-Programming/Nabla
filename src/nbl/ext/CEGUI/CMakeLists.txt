@@ -32,6 +32,7 @@ nbl_create_ext_library_project(
   "${NBL_EXT_CEGUI_SRC}"
   "${NBL_EXT_CEGUI_EXTERNAL_INCLUDE}"
   ""
+  ""
 )
 
 add_dependencies(IrrExtCEGUI CEGUIBase-0_Static)
