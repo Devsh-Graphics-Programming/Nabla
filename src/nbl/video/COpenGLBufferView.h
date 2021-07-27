@@ -21,12 +21,12 @@ namespace video
 class COpenGLBufferView : public IGPUBufferView
 {
 	public:
-		COpenGLBufferView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, core::smart_refctd_ptr<system::ILogger>&& logger, core::smart_refctd_ptr<IGPUBuffer>&& _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = COpenGLBufferView::whole_buffer) :
-			IGPUBufferView(dev, std::move(_buffer), _format, _offset, _size), m_textureName(0u), m_GLformat(GL_INVALID_ENUM), m_textureSize(0u), m_logger(logger)
+		COpenGLBufferView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, core::smart_refctd_ptr<IGPUBuffer>&& _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = COpenGLBufferView::whole_buffer) :
+			IGPUBufferView(dev, std::move(_buffer), _format, _offset, _size), m_textureName(0u), m_GLformat(GL_INVALID_ENUM), m_textureSize(0u)
 		{
 			gl->extGlCreateTextures(GL_TEXTURE_BUFFER, 1, &m_textureName);
 
-			m_GLformat = getSizedOpenGLFormatFromOurFormat(gl, m_format, m_logger.get());
+			m_GLformat = getSizedOpenGLFormatFromOurFormat(gl, m_format);
 
 			if (m_offset==0u && m_size==m_buffer->getSize())
 				gl->extGlTextureBuffer(m_textureName, m_GLformat, static_cast<COpenGLBuffer*>(m_buffer.get())->getOpenGLName());
@@ -46,7 +46,6 @@ class COpenGLBufferView : public IGPUBufferView
 		GLuint m_textureName;
 		GLenum m_GLformat;
 		uint32_t m_textureSize;
-		core::smart_refctd_ptr<system::ILogger> m_logger;
 };
 
 }

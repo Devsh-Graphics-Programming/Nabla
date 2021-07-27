@@ -259,7 +259,7 @@ namespace nbl
 
 					if (params.format == EF_UNKNOWN)
 					{
-						os::Printer::log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file", file.fileName(), ELL_INFORMATION);
+						_params.logger.log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file %s", system::ILogger::ELL_INFO, file.fileName());
 						continue;
 					}
 
@@ -308,7 +308,7 @@ namespace nbl
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
-		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file) const
+		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
 		{	
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
 			system::ISystem::future_t<uint32_t> future;

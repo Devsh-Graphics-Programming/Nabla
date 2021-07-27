@@ -125,7 +125,7 @@ inline GLbitfield accessFlagsToMemoryBarrierBits(asset::E_ACCESS_FLAGS flags)
 	return barrier;
 }
 
-inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, system::ILogger* logger)
+inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format)
 {
 	using namespace asset;
 	switch (format)
@@ -450,9 +450,6 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset
 		default:
 			break;
 	}
-#ifdef _NBL_DEBUG
-	logger->log("Unsupported texture format", system::ILogger::ELL_ERROR);
-#endif // _NBL_DEBUG
 	return GL_INVALID_ENUM;
 }
 

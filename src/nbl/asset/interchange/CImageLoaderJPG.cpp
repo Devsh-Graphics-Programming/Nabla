@@ -206,7 +206,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	// crashes when throwing within external c code
 	if (setjmp(jerr.setjmp_buffer))
 	{
-		os::Printer::log("Can't load libjpeg threw an error:", _file->getFileName().string(), ELL_ERROR);
+		_params.logger.log("Can't load libjpeg threw an error:", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 		// RAIIExiter takes care of cleanup
         return {};
 	}
@@ -271,23 +271,23 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
 			break;
 		case JCS_CMYK:
-			os::Printer::log("CMYK color space is unsupported:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("CMYK color space is unsupported:", _file->getFileName().string(), ELL_ERROR);
 			return {};
 			break;
 		case JCS_YCCK: // this I have no resources on
-			os::Printer::log("YCCK color space is unsupported:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("YCCK color space is unsupported: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 		case JCS_BG_RGB: // interesting
-			os::Printer::log("Loading JPEG Big Gamut RGB is not implemented yet:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("Loading JPEG Big Gamut RGB is not implemented yet: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 		case JCS_BG_YCC: // interesting
-			os::Printer::log("Loading JPEG Big Gamut YCbCr is not implemented yet:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("Loading JPEG Big Gamut YCbCr is not implemented yet: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 		default:
-			os::Printer::log("Can't load as color space is unknown:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("Can't load as color space is unknown: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 	}

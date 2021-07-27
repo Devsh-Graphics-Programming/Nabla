@@ -223,7 +223,7 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
-		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys)
+		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, system::logger_opt_ptr& logger = nullptr)
 		{
 			const auto fileName = file->getFileName().string();
 			core::vector<char> memory(file->getSize());
@@ -244,12 +244,12 @@ namespace nbl
 				return true;
 			else
 			{
-				os::Printer::log("LOADING GLI: failed to load the file", file->getFileName().string(), ELL_ERROR);
+				logger.log("LOADING GLI: failed to load the file %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
 				return false;
 			}
 		}
 
-		bool CGLILoader::isALoadableFileFormat(system::IFile* _file) const
+		bool CGLILoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
 		{
 			const auto fileName = std::string(_file->getFileName().string());
 
@@ -268,7 +268,9 @@ namespace nbl
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-DDS) file!", ELL_ERROR);
+				{
+					logger.log("LOAD GLI: Invalid (non-DDS) file!", ILogger::ELL_ERROR);
+				}
 			}
 			else if (fileName.rfind(".kmg") != std::string::npos)
 			{

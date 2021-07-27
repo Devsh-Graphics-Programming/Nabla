@@ -92,6 +92,44 @@ namespace nbl::system
 			return wide;
 		}
 	};
+
+
+// Didn't make it a template cause it sucks to pass an smart_refctd_ptr<ILogger>::get() with a cast
+class logger_opt_smart_ptr final
+{
+public:
+	logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
+	~logger_opt_smart_ptr() = default;
+
+	template<typename... Args>
+	void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
+	{
+		if (logger != nullptr)
+			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
+	}
+
+private:
+	mutable core::smart_refctd_ptr<ILogger> logger;
+};
+
+class logger_opt_ptr final
+{
+public:
+	logger_opt_ptr(ILogger* const _logger) : logger(_logger) {}
+	~logger_opt_ptr() = default;
+
+	template<typename... Args>
+	void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
+	{
+		if (logger != nullptr)
+			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
+	}
+
+private:
+	mutable ILogger* logger;
+};
+
+
 }
 
 #endif

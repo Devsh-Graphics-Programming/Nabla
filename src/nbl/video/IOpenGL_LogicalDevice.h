@@ -7,6 +7,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/CEGL.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
+#include "nbl/system/ILogger.h"
 #include "nbl/video/COpenGLComputePipeline.h"
 #include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
 #include "nbl/video/IGPUSpecializedShader.h"
@@ -303,6 +304,7 @@ namespace impl
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
 protected:
+    core::smart_refctd_ptr<system::ILogger> m_logger;
     struct SGLContext
     {
         EGLContext ctx = EGL_NO_CONTEXT;
@@ -397,15 +399,22 @@ protected:
         using base_t = system::IAsyncQueueDispatcher<CThreadHandler<FunctionTableType>, SRequest, 256u, FunctionTableType>;
         friend base_t;
         using FeaturesType = typename FunctionTableType::features_t;
-
+        core::smart_refctd_ptr<system::ILogger>&& m_logger;
     public:
-        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, const SGLContext& glctx, SDebugCallback* _dbgCb) :
+        CThreadHandler(IOpenGL_LogicalDevice* dev,
+            const egl::CEGL* _egl,
+            FeaturesType* _features,
+            uint32_t _qcount,
+            const SGLContext& glctx,
+            SDebugCallback* _dbgCb,
+            core::smart_refctd_ptr<system::ILogger>&& logger) :
             m_queueCount(_qcount),
             egl(_egl),
             thisCtx(glctx.ctx), pbuffer(glctx.pbuffer),
             features(_features),
             device(dev),
-            m_dbgCb(_dbgCb)
+            m_dbgCb(_dbgCb),
+            m_logger(std::move(logger))
         {
         }
 
@@ -440,7 +449,7 @@ protected:
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            new (state_ptr) FunctionTableType(egl, features);
+            new (state_ptr) FunctionTableType(egl, features, core::smart_refctd_ptr(m_logger));
             auto* gl = state_ptr;
             if (m_dbgCb)
                 gl->extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
@@ -827,7 +836,12 @@ protected:
     core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
-    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : ILogicalDevice(api_type, params, std::move(s), std::move(glslc)), m_egl(_egl)
+    IOpenGL_LogicalDevice(const egl::CEGL* _egl,
+        E_API_TYPE api_type, 
+        const SCreationParams& params, 
+        core::smart_refctd_ptr<system::ISystem>&& s,
+        core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
+        core::smart_refctd_ptr<system::ILogger>&& logger) : ILogicalDevice(api_type, params, std::move(s), std::move(glslc)), m_egl(_egl), m_logger(std::move(logger))
     {
 
     }

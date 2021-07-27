@@ -3,6 +3,7 @@
 
 #include "nbl/core/core.h"
 #include "nbl/asset/ICPUBuffer.h"
+#include "nbl/system/ILogger.h"
 
 namespace nbl
 {
@@ -40,8 +41,8 @@ public:
 
     ISPIRVOptimizer(std::initializer_list<E_OPTIMIZER_PASS> _passes) : m_passes(std::move(_passes)) {}
 
-    core::smart_refctd_ptr<ICPUBuffer> optimize(const uint32_t* _spirv, uint32_t _dwordCount) const;
-    core::smart_refctd_ptr<ICPUBuffer> optimize(const ICPUBuffer* _spirv) const;
+    core::smart_refctd_ptr<ICPUBuffer> optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr& logger) const;
+    core::smart_refctd_ptr<ICPUBuffer> optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr& logger) const;
 
 protected:
     const std::initializer_list<E_OPTIMIZER_PASS> m_passes;

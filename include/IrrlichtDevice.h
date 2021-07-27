@@ -20,7 +20,6 @@
 
 namespace nbl
 {
-	class ILogger;
 	class IEventReceiver;
 
 	//! The Irrlicht device. You can create it with createDevice() or createDeviceEx().
@@ -92,7 +91,7 @@ namespace nbl
 
 		//! Provides access to the message logger.
 		/** \return Pointer to the logger. */
-		virtual ILogger* getLogger() = 0;
+		//virtual ILogger* getLogger() = 0;
 
 		//! Provides access to the operation system operator object.
 		/** The OS operator provides methods for

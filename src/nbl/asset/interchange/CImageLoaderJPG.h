@@ -30,7 +30,7 @@ class CImageLoaderJPG : public asset::IAssetLoader
 	    //! constructor
 	    CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys);
 
-        virtual bool isALoadableFileFormat(system::IFile* _file) const override;
+        virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
 
         virtual const char** getAssociatedFileExtensions() const override
         {

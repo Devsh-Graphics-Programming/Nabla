@@ -23,9 +23,9 @@ class CImageLoaderOpenEXR final : public IImageLoader
 		~CImageLoaderOpenEXR(){}
 
 	public:
-		CImageLoaderOpenEXR(IAssetManager* _manager, core::smart_refctd_ptr<system::ILogger>&& logger) : IImageLoader(std::move(logger)), m_manager(_manager) {}
+		CImageLoaderOpenEXR(IAssetManager* _manager) : m_manager(_manager) {}
 
-		bool isALoadableFileFormat(system::IFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{

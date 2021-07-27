@@ -14,8 +14,8 @@ class COpenGLESLogicalDevice final : public COpenGL_LogicalDevice<COpenGLESQueue
     using base_t = COpenGL_LogicalDevice<COpenGLESQueue, COpenGLESSwapchain>;
 
 public:
-    COpenGLESLogicalDevice(const egl::CEGL* _egl, base_t::FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ISystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-        base_t(_egl, EAT_OPENGL_ES, _features, config, major, minor, params, _dbgCb, std::move(fs), std::move(glslc))
+    COpenGLESLogicalDevice(const egl::CEGL* _egl, base_t::FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ISystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, core::smart_refctd_ptr<system::ILogger>&& logger) :
+        base_t(_egl, EAT_OPENGL_ES, _features, config, major, minor, params, _dbgCb, std::move(fs), std::move(glslc), std::move(logger))
     {
 
     }

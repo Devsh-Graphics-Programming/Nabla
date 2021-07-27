@@ -20,9 +20,8 @@ namespace asset
 
 class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 {
-	core::smart_refctd_ptr<system::ILogger> m_logger;
 	protected:
-		IImageAssetHandlerBase(core::smart_refctd_ptr<system::ILogger>&& logger) : m_logger(std::move(logger)) {}
+		IImageAssetHandlerBase() {}
 		virtual ~IImageAssetHandlerBase() = 0;
 
 	public:
@@ -65,7 +64,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		*/
 
 		template<asset::E_FORMAT outFormat = asset::EF_UNKNOWN>
-		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
+		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, const system::logger_opt_ptr& logger, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
 		{ 
 			const auto& viewParams = imageView->getCreationParameters();
 			const auto& subresource = viewParams.subresourceRange;
@@ -150,13 +149,13 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 
 					if (!COPY_FILTER::execute(&state)) // execute is a static method
-						os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
+						logger.log("Something went wrong while copying texel block data!", system::ILogger::ELL_ERROR);
 				}
 				else
 				{
 					if (asset::isBlockCompressionFormat(finalFormat)) // execute is a static method
 					{
-						os::Printer::log("Transcoding to Block Compressed formats not supported!", ELL_ERROR);
+						logger.log("Transcoding to Block Compressed formats not supported!", system::ILogger::ELL_ERROR);
 						return newImage;
 					}
 
@@ -165,7 +164,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.swizzle = viewParams.components;
 
 						if (!CONVERSION_FILTER::execute(&state)) // static method
-							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
+							logger.log("Something went wrong while converting the image!", system::ILogger::ELL_ERROR);
 				}
 			}
 
@@ -178,7 +177,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			and texel buffer attached as well.
 		*/
 
-		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image)
+		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, system::ILogger* logger)
 		{
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
@@ -234,7 +233,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
 					if (!convertFilter.execute(&state))
-						m_logger->log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
+						logger->log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
 				}
 			}
 			return newConvertedImage;

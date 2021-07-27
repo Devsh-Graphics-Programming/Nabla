@@ -56,30 +56,30 @@ namespace os
 
 #endif // end linux / windows
 
-namespace os
-{
-	// The platform independent implementation of the printer
-	ILogger* Printer::Logger = 0;
-
-	void Printer::log(const std::string& message, ELOG_LEVEL ll)
-	{
-		if (Logger)
-			Logger->log(message, ll);
-	}
-
-	void Printer::log(const std::wstring& message, ELOG_LEVEL ll)
-	{
-		if (Logger)
-			Logger->log(message, ll);
-	}
-
-	void Printer::log(const std::string& message, const std::string& hint, ELOG_LEVEL ll)
-	{
-		if (Logger)
-			Logger->log(message, hint, ll);
-	}
-
-} // end namespace os
+//namespace os
+//{
+//	// The platform independent implementation of the printer
+//	ILogger* Printer::Logger = 0;
+//
+//	void Printer::log(const std::string& message, ELOG_LEVEL ll)
+//	{
+//		if (Logger)
+//			Logger->log(message, ll);
+//	}
+//
+//	void Printer::log(const std::wstring& message, ELOG_LEVEL ll)
+//	{
+//		if (Logger)
+//			Logger->log(message, ll);
+//	}
+//
+//	void Printer::log(const std::string& message, const std::string& hint, ELOG_LEVEL ll)
+//	{
+//		if (Logger)
+//			Logger->log(message, hint, ll);
+//	}
+//
+//} // end namespace os
 } // end namespace nbl
 
 

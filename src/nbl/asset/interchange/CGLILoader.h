@@ -27,7 +27,7 @@ class CGLILoader final : public asset::IAssetLoader
 	public:
 		explicit CGLILoader(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
 
-		bool isALoadableFileFormat(system::IFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
