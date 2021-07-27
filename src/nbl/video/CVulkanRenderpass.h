@@ -5,10 +5,8 @@
 
 #include <volk.h>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
-
 class CVKLogicalDevice;
 
 class CVulkanRenderpass final : public IGPURenderpass
@@ -25,7 +23,6 @@ private:
     VkRenderPass m_renderpass;
 };
 
-}
 }
 
 #endif

@@ -105,27 +105,26 @@ public:
             
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
-    std::vector<ISurface::SFormat> getAvailableFormatsForSurface(const ISurface* surface) const override
+    void getAvailableFormatsForSurface(const ISurface* surface, uint32_t& formatCount, ISurface::SFormat* formats) const override
     {
         const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface); // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
 
-        uint32_t formatCount = 0u;
         vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkphysdev, vk_surface->m_surface, &formatCount, nullptr);
-        std::vector<VkSurfaceFormatKHR> formats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkphysdev, vk_surface->m_surface, &formatCount, formats.data());
 
-        std::vector<ISurface::SFormat> result(formatCount);
+        if (!formats)
+            return;
+
+        std::vector<VkSurfaceFormatKHR> vk_formats(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkphysdev, vk_surface->m_surface, &formatCount, vk_formats.data());
 
         for (uint32_t i = 0u; i < formatCount; ++i)
         {
-            result[i].format = ISurfaceVK::getFormat(formats[i].format);
-            result[i].colorSpace = ISurfaceVK::getColorSpace(formats[i].colorSpace);
+            formats[i].format = ISurfaceVK::getFormat(vk_formats[i].format);
+            formats[i].colorSpace = ISurfaceVK::getColorSpace(vk_formats[i].colorSpace);
         }
-
-        return result;
     }
-
-    std::vector<ISurface::E_PRESENT_MODE> getAvailablePresentModesForSurface(const ISurface* surface) const override
+    
+    ISurface::E_PRESENT_MODE getAvailablePresentModesForSurface(const ISurface* surface) const override
     {
         const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface); // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
 
@@ -134,11 +133,10 @@ public:
         std::vector<VkPresentModeKHR> vk_presentModes(count);
         vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkphysdev, vk_surface->m_surface, &count, vk_presentModes.data());
 
-        std::vector<ISurface::E_PRESENT_MODE> result(count);
+        ISurface::E_PRESENT_MODE result = static_cast<ISurface::E_PRESENT_MODE>(0);
+
         for (uint32_t i = 0u; i < count; ++i)
-        {
-            result[i] = ISurfaceVK::getPresentMode(vk_presentModes[i]);
-        }
+            result = static_cast<ISurface::E_PRESENT_MODE>(result | ISurfaceVK::getPresentMode(vk_presentModes[i]));
 
         return result;
     }

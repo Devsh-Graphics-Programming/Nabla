@@ -17,7 +17,6 @@ nothing fancy, just to show that Irrlicht links fine
 #include "../../include/nbl/video/surface/ISurfaceVK.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
-#include <nbl/system/ISystem.h>
 #include "../common/CommonAPI.h"
 
 using namespace nbl;
@@ -188,7 +187,7 @@ int main()
 		}
 
 		// Check if this physical device supports the swapchain extension
-		// Todo(achal): Eventually move this to somewhere inside the engine
+		// Todo(achal): Eventually move this to CommonAPI.h
 		{
 			// Todo(achal): Get this from the user
 			const uint32_t requiredDeviceExtensionCount = 1u;
@@ -215,10 +214,12 @@ int main()
 
 		// Check if the surface is adequate
 		{
-			std::vector<video::ISurface::SFormat> surfaceFormats =
-				gpu->getAvailableFormatsForSurface(surface.get());
+			uint32_t surfaceFormatCount;
+			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, nullptr);
+			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
+			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, surfaceFormats.data());
 
-			std::vector<video::ISurface::E_PRESENT_MODE> presentModes =
+			video::ISurface::E_PRESENT_MODE presentModes =
 				gpu->getAvailablePresentModesForSurface(surface.get());
 
 			// Todo(achal): Probably should make a ISurface::SCapabilities
@@ -226,17 +227,17 @@ int main()
 			// nbl::video::ISurface::SCapabilities surfaceCapabilities = ;
 			VkSurfaceCapabilitiesKHR surfaceCapabilities;
 			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->getInternalObject(),
-				vk_surface->m_surface, &surfaceCapabilities);
+			vk_surface->m_surface, &surfaceCapabilities);
 
 			if ((surfaceCapabilities.maxImageCount != 0) && (SC_IMG_COUNT > surfaceCapabilities.maxImageCount)
-				|| (surfaceFormats.empty()) || (presentModes.empty()))
+				|| (surfaceFormats.empty()) || (presentModes == static_cast<video::ISurface::E_PRESENT_MODE>(0)))
 			{
 				isGPUSuitable = false;
 			}
 
 			// Todo(achal): Probably a more sophisticated way to choose these
 			surfaceFormat = surfaceFormats[0];
-			presentMode = presentModes[0];
+			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(presentModes && (1 << 0));
 			preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
 		}
 
@@ -288,6 +289,43 @@ int main()
 	sc_params.preTransform = preTransform;
 
 	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(std::move(sc_params));
+
+	// Create render pass
+	video::IGPURenderpass::SCreationParams::SAttachmentDescription attachmentDescription;
+	attachmentDescription.format = surfaceFormat.format; // this should be same as the imageview used for this attachment
+	attachmentDescription.samples = asset::IImage::ESCF_1_BIT;
+	attachmentDescription.loadOp = video::IGPURenderpass::ELO_CLEAR; // when the first subpass begins with this attachment, clear its color and depth components
+	attachmentDescription.storeOp = video::IGPURenderpass::ESO_STORE; // when the last subpass ends with this attachment, store its results
+	attachmentDescription.initialLayout = asset::EIL_UNDEFINED;
+	attachmentDescription.finalLayout = asset::EIL_PRESENT_SRC_KHR;
+
+	video::IGPURenderpass::SCreationParams::SSubpassDescription subpassDescription;
+	subpassDescription.flags = video::IGPURenderpass::ESDF_NONE;
+	subpassDescription.pipelineBindPoint = asset::EPBP_GRAPHICS;
+	subpassDescription.inputAttachmentCount = 0u;
+	subpassDescription.inputAttachments = nullptr;
+
+	video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
+	{
+		colorAttRef.attachment = 0u;
+		colorAttRef.layout = asset::EIL_COLOR_ATTACHMENT_OPTIMAL;
+	}
+	subpassDescription.colorAttachmentCount = 1u;
+	subpassDescription.colorAttachments = &colorAttRef;
+	subpassDescription.resolveAttachments = nullptr;
+	subpassDescription.depthStencilAttachment = nullptr;
+	subpassDescription.preserveAttachmentCount = 0u;
+	subpassDescription.preserveAttachments = nullptr;
+
+	video::IGPURenderpass::SCreationParams renderPassParams;
+	renderPassParams.attachmentCount = 1u;
+	renderPassParams.attachments = &attachmentDescription;
+	renderPassParams.dependencies = nullptr; // Todo(achal): Probably need this very soon
+	renderPassParams.dependencyCount = 0u;
+	renderPassParams.subpasses = &subpassDescription;
+	renderPassParams.subpassCount = 1u;
+
+	core::smart_refctd_ptr<video::IGPURenderpass> renderPass = device->createGPURenderpass(renderPassParams);
 
 	while (true)
 	{

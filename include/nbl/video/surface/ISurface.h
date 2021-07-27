@@ -26,12 +26,12 @@ public:
         asset::E_FORMAT format;
         SColorSpace colorSpace;
     };
-    enum E_PRESENT_MODE
+    enum E_PRESENT_MODE : uint8_t
     {
-        EPM_IMMEDIATE = 0,
-        EPM_MAILBOX = 1,
-        EPM_FIFO = 2,
-        EPM_FIFO_RELAXED = 3
+        EPM_IMMEDIATE       = 1 << 0,
+        EPM_MAILBOX         = 1 << 1,
+        EPM_FIFO            = 1 << 2,
+        EPM_FIFO_RELAXED    = 1 << 3
     };
 
     enum E_SURFACE_TRANSFORM_FLAGS : uint32_t

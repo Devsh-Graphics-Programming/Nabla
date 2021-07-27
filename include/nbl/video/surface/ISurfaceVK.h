@@ -155,14 +155,21 @@ public:
 
     static inline ISurface::E_PRESENT_MODE getPresentMode(VkPresentModeKHR in)
     {
-        if (in <= VK_PRESENT_MODE_FIFO_RELAXED_KHR)
+        switch (in)
         {
-            return static_cast<ISurface::E_PRESENT_MODE>(in);
-        }
-        else
+        case VK_PRESENT_MODE_IMMEDIATE_KHR:
+            return EPM_IMMEDIATE;
+        case VK_PRESENT_MODE_MAILBOX_KHR:
+            return EPM_MAILBOX;
+        case VK_PRESENT_MODE_FIFO_KHR:
+            return EPM_FIFO;
+        case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+            return EPM_FIFO_RELAXED;
+        default:
         {
             // Todo(achal): Log warning unknown present modes
             return static_cast<ISurface::E_PRESENT_MODE>(0);
+        }
         }
     }
 

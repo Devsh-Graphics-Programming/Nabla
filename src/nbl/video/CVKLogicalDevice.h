@@ -7,6 +7,7 @@
 #include "nbl/video/CVulkanDeviceFunctionTable.h"
 #include "nbl/video/CVKSwapchain.h"
 #include "nbl/video/CVulkanQueue.h"
+#include "nbl/video/CVulkanRenderpass.h"
 
 namespace nbl::video
 {
@@ -112,7 +113,7 @@ public:
             
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
     {
-        return nullptr;
+        return core::make_smart_refctd_ptr<CVulkanRenderpass>(this, params);
     }
             
     void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override

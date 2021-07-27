@@ -117,16 +117,15 @@ public:
 
     // Note(achal): Not making them pure virtual only because the OpenGL backends doesn't have any implementation
     // for them
-    virtual std::vector<ISurface::SFormat> getAvailableFormatsForSurface(const ISurface* surface) const
+    virtual void getAvailableFormatsForSurface(const ISurface* surface, uint32_t& formatCount, ISurface::SFormat* formats) const
     {
         assert(false); // Invalid code path
-        return {};
     }
 
-    virtual std::vector<ISurface::E_PRESENT_MODE> getAvailablePresentModesForSurface(const ISurface* surface) const
+    virtual ISurface::E_PRESENT_MODE getAvailablePresentModesForSurface(const ISurface* surface) const
     {
         assert(false); // Invalid code path
-        return {};
+        return static_cast<ISurface::E_PRESENT_MODE>(16);
     }
 
     virtual uint32_t getMinImageCountForSurface(const ISurface* surface) const
