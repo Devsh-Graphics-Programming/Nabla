@@ -581,14 +581,7 @@ public:
         const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
         auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
 
-        for (uint16_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-        {
-            if (bindingFlags & core::createBitmask({ i }))
-            {
-                auto vertexBufferBinding = vertexBufferBindings[i];
-                bindVertexBuffers(i, 1, &vertexBufferBinding.buffer.get(), &vertexBufferBinding.offset);
-            }
-        }
+        bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, &vertexBufferBindings[0].buffer.get(), &vertexBufferBindings[0].offset); // TODO: I'm not sure about pOffset* in this approach
 
         const bool isIndexed = meshBuffer->getIndexType() != nbl::asset::EIT_UNKNOWN;
 
@@ -601,17 +594,15 @@ public:
             const size_t firstIndex = 0;
             const size_t vertexOffset = 0; // TODO, check it out (forgot what it is)
 
-            drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+            return drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
         else
         {
             const size_t& vertexCount = meshBuffer->getIndexCount();
             const size_t firstVertex = 0;
 
-            draw(vertexCount, instanceCount, firstVertex, firstInstance);
+            return draw(vertexCount, instanceCount, firstVertex, firstInstance);
         }
-
-        return true;
     }
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override

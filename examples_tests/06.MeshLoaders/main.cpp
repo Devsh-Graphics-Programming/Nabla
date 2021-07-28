@@ -180,7 +180,7 @@ int main()
         gpumesh = (*gpu_array)[0];
     }
 
-    std::vector<core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuGraphicsPipelines;
+    std::map<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuPipelines;
     {
         for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
         {
@@ -188,7 +188,7 @@ int main()
             graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpumesh->getMeshBuffers().begin()[i]->getPipeline()));
             graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-            gpuGraphicsPipelines.emplace_back() = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+            gpuPipelines[graphicsPipelineParams.renderpassIndependent] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
         }
     }
 
@@ -256,7 +256,7 @@ int main()
         for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
         {
             auto gpuMeshBuffer = gpumesh->getMeshBuffers().begin()[i];
-            auto gpuGraphicsPipeline = core::smart_refctd_ptr(gpuGraphicsPipelines[i]);
+            auto gpuGraphicsPipeline = gpuPipelines[core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuMeshBuffer->getPipeline()))];
 
             const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
             const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
