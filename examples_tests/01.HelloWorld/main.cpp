@@ -237,7 +237,7 @@ int main()
 
 			// Todo(achal): Probably a more sophisticated way to choose these
 			surfaceFormat = surfaceFormats[0];
-			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(presentModes && (1 << 0));
+			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(presentModes & (1 << 0));
 			preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
 		}
 
@@ -326,6 +326,41 @@ int main()
 	renderPassParams.subpassCount = 1u;
 
 	core::smart_refctd_ptr<video::IGPURenderpass> renderPass = device->createGPURenderpass(renderPassParams);
+
+	std::array<core::smart_refctd_ptr<video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
+	const auto swapchainImages = swapchain->getImages();
+	const uint32_t swapchainImageCount = swapchain->getImageCount();
+	assert(swapchainImageCount == SC_IMG_COUNT); // Todo(achal): I don't know if we should `assert` this, I think Vulkan is under no obligation to return exactly SC_IMG_COUNT images, but I guess its fine for now
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	{
+		auto img = swapchainImages.begin()[i];
+		core::smart_refctd_ptr<video::IGPUImageView> imageView;
+		{
+			video::IGPUImageView::SCreationParams viewParams;
+			viewParams.format = img->getCreationParameters().format;
+			viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+			viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			viewParams.subresourceRange.baseMipLevel = 0u;
+			viewParams.subresourceRange.levelCount = 1u;
+			viewParams.subresourceRange.baseArrayLayer = 0u;
+			viewParams.subresourceRange.layerCount = 1u;
+			viewParams.image = std::move(img); // this might create problems
+
+			imageView = device->createGPUImageView(std::move(viewParams));
+			assert(imageView);
+		}
+
+		video::IGPUFramebuffer::SCreationParams fbParams;
+		fbParams.width = WIN_W;
+		fbParams.height = WIN_H;
+		fbParams.layers = 1u;
+		fbParams.renderpass = renderPass;
+		fbParams.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
+		fbParams.attachmentCount = 1u; // Todo(achal): must be equal to the corresponding value in render pass
+		fbParams.attachments = &imageView;
+
+		fbos[i] = device->createGPUFramebuffer(std::move(fbParams));
+	}
 
 	while (true)
 	{

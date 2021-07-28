@@ -8,6 +8,8 @@
 #include "nbl/video/CVKSwapchain.h"
 #include "nbl/video/CVulkanQueue.h"
 #include "nbl/video/CVulkanRenderpass.h"
+#include "nbl/video/CVulkanImageView.h"
+#include "nbl/video/CVulkanFramebuffer.h"
 
 namespace nbl::video
 {
@@ -179,7 +181,7 @@ protected:
 
     core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
     {
-        return nullptr;
+        return core::make_smart_refctd_ptr<CVulkanFramebuffer>(this, std::move(params));
     }
 
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) override
@@ -194,7 +196,7 @@ protected:
 
     core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override
     {
-        return nullptr;
+        return core::make_smart_refctd_ptr<CVulkanImageView>(this, std::move(params));
     }
 
     core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override

@@ -5,8 +5,7 @@
 
 #include <volk.h>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class CVKLogicalDevice;
@@ -22,6 +21,6 @@ private:
     VkFramebuffer m_vkfbo;
 };
 
-}}
+}
 
 #endif

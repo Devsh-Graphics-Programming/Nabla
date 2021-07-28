@@ -5,8 +5,7 @@
 
 #include "nbl/video/IGPUImageView.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class CVKLogicalDevice;
@@ -24,7 +23,6 @@ private:
     VkImageView m_vkimgview;
 };
 
-}
 }
 
 #endif
