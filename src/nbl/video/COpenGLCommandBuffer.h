@@ -577,6 +577,9 @@ public:
 
     inline bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
     {
+        if (meshBuffer && !meshBuffer->getInstanceCount())
+            return false;
+
         const auto* pipeline = meshBuffer->getPipeline();
         const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
         auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
@@ -599,23 +602,23 @@ public:
         bindIndexBuffer(indexBufferBinding.buffer.get(), indexBufferBinding.offset, indexType);
 
         const bool isIndexed = indexType != nbl::asset::EIT_UNKNOWN;
-
-        const size_t instanceCount = 1;
-        const size_t firstInstance = 0;
+        
+        const size_t instanceCount = meshBuffer->getInstanceCount();
+        const size_t firstInstance = meshBuffer->getBaseInstance();
+        const size_t firstVertex = meshBuffer->getBaseVertex();
 
         if (isIndexed)
         {
             const size_t& indexCount = meshBuffer->getIndexCount();
-            const size_t firstIndex = 0;
-            const size_t vertexOffset = 0; // TODO, check it out (forgot what it is)
+            const size_t firstIndex = 0; // I don't think we have utility telling us this one
+            const size_t& vertexOffset = firstVertex;
 
             return drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
         else
         {
             const size_t& vertexCount = meshBuffer->getIndexCount();
-            const size_t firstVertex = 0;
-
+       
             return draw(vertexCount, instanceCount, firstVertex, firstInstance);
         }
     }
@@ -787,8 +790,9 @@ public:
     bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t*const *const pBuffers, const size_t* pOffsets) override
     {
         for (uint32_t i = 0u; i < bindingCount; ++i)
-            if (!this->isCompatibleDevicewise(pBuffers[i]))
-                return false;
+            if(pBuffers[i])
+                if (!this->isCompatibleDevicewise(pBuffers[i]))
+                    return false;
         SCmd<impl::ECT_BIND_VERTEX_BUFFERS> cmd;
         cmd.first = firstBinding;
         cmd.count = bindingCount;
