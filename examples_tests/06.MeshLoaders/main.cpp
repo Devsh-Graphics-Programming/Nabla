@@ -188,18 +188,15 @@ int main()
             graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpumesh->getMeshBuffers().begin()[i]->getPipeline()));
             graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
+            // TODO: check this
             gpuPipelines[graphicsPipelineParams.renderpassIndependent] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
         }
     }
 
-	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0,100.0f,0.5f);
-
-	camera->setPosition(core::vector3df(-4,0,0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(1.f);
-	camera->setFarValue(5000.0f);
-
-    sceneManager->setActiveCamera(camera);
+    core::vectorSIMDf cameraPosition(-1, 2, -10);
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+    matrix3x4SIMD viewMatrix = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
+    auto viewProjectionMatrix = matrix4SIMD::concatenateBFollowedByA(projectionMatrix, matrix4SIMD(viewMatrix));
 
 	while(true)
 	{
@@ -223,6 +220,11 @@ int main()
 
         commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
+        core::matrix3x4SIMD modelMatrix;
+        modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
+
+        core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
+
         core::vector<uint8_t> uboData(gpuubo->getSize());
         for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {
@@ -232,20 +234,17 @@ int main()
                 {
                     case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
                     {
-                        core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
                         memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                     } break;
                     
                     case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
                     {
-                        core::matrix3x4SIMD MV = camera->getViewMatrix();
-                        memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                        memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                     } break;
                     
                     case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
                     {
-                        core::matrix3x4SIMD MV = camera->getViewMatrix();
-                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                     } break;
                 }
             }

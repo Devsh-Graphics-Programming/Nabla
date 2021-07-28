@@ -580,10 +580,25 @@ public:
         const auto* pipeline = meshBuffer->getPipeline();
         const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
         auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
+        auto indexBufferBinding = meshBuffer->getIndexBufferBinding();
+        const auto indexType = meshBuffer->getIndexType();
 
-        bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, &vertexBufferBindings[0].buffer.get(), &vertexBufferBindings[0].offset); // TODO: I'm not sure about pOffset* in this approach
+        const nbl::video::IGPUBuffer* gpuBufferBindings[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                gpuBufferBindings[i] = vertexBufferBindings[i].buffer.get();
+        }
 
-        const bool isIndexed = meshBuffer->getIndexType() != nbl::asset::EIT_UNKNOWN;
+        size_t bufferBindingsOffsets[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                bufferBindingsOffsets[i] = vertexBufferBindings[i].offset;
+        }
+
+        bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
+        bindIndexBuffer(indexBufferBinding.buffer.get(), indexBufferBinding.offset, indexType);
+
+        const bool isIndexed = indexType != nbl::asset::EIT_UNKNOWN;
 
         const size_t instanceCount = 1;
         const size_t firstInstance = 0;

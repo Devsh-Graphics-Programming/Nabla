@@ -138,7 +138,7 @@ void IAssetManager::addLoadersAndWriters()
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-	//addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
 	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
