@@ -30,35 +30,6 @@ int main()
     auto renderpass = std::move(initOutput.renderpass);
     auto fbo = std::move(initOutput.fbo[0]);
     auto commandPool = std::move(initOutput.commandPool);
-    {
-        video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
-        core::smart_refctd_ptr<video::IGPUCommandBuffer> gpuCommandBuffer;
-        logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
-        assert(gpuCommandBuffer);
-
-        gpuCommandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-        asset::SViewport viewport;
-        viewport.minDepth = 1.f;
-        viewport.maxDepth = 0.f;
-        viewport.x = 0u;
-        viewport.y = 0u;
-        viewport.width = WIN_W;
-        viewport.height = WIN_H;
-        gpuCommandBuffer->setViewport(0u, 1u, &viewport);
-
-        gpuCommandBuffer->end();
-
-        video::IGPUQueue::SSubmitInfo info;
-        info.commandBufferCount = 1u;
-        info.commandBuffers = &gpuCommandBuffer.get();
-        info.pSignalSemaphores = nullptr;
-        info.signalSemaphoreCount = 0u;
-        info.pWaitSemaphores = nullptr;
-        info.waitSemaphoreCount = 0u;
-        info.pWaitDstStageMask = nullptr;
-        queue->submit(1u, &info, nullptr);
-    }
 
     core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffers[1];
     logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, commandBuffers);
@@ -152,7 +123,9 @@ int main()
 
     auto descriptorPool = createDescriptorPool(1u);
 
-    auto gpuubo = logicalDevice->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
+    auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
+    ubomemreq.vulkanReqs.size = neededDS1UBOsz;
+    auto gpuubo = logicalDevice->createGPUBufferOnDedMem(ubomemreq,true);
     auto gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
     {
         video::IGPUDescriptorSet::SWriteDescriptorSet write;
@@ -197,8 +170,8 @@ int main()
     }
 
     core::vectorSIMDf cameraPosition(-1, 2, -10);
-    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
-    matrix3x4SIMD viewMatrix = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+    matrix3x4SIMD viewMatrix = matrix3x4SIMD::buildCameraLookAtMatrixLH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
     auto viewProjectionMatrix = matrix4SIMD::concatenateBFollowedByA(projectionMatrix, matrix4SIMD(viewMatrix));
 
 	while(true)
@@ -206,14 +179,23 @@ int main()
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
         commandBuffer->begin(0);
 
+        asset::SViewport viewport;
+        viewport.minDepth = 1.f;
+        viewport.maxDepth = 0.f;
+        viewport.x = 0u;
+        viewport.y = 0u;
+        viewport.width = WIN_W;
+        viewport.height = WIN_H;
+        commandBuffer->setViewport(0u, 1u, &viewport);
+
         nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
         nbl::asset::VkRect2D area;
         area.offset = { 0,0 };
         area.extent = { WIN_W, WIN_H };
         nbl::asset::SClearValue clear;
-        clear.color.float32[0] = 0.f;
-        clear.color.float32[1] = 0.f;
-        clear.color.float32[2] = 0.f;
+        clear.color.float32[0] = 1.f;
+        clear.color.float32[1] = 1.f;
+        clear.color.float32[2] = 1.f;
         clear.color.float32[3] = 1.f;
         beginInfo.clearValueCount = 1u;
         beginInfo.framebuffer = fbo;
