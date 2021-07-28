@@ -7,6 +7,7 @@
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ECommonEnums.h"
+#include "nbl/video/IGPUMeshBuffer.h"
 
 #include <type_traits>
 
