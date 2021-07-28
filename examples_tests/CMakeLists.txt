@@ -21,7 +21,7 @@ endif()
 #add_subdirectory(15.LayeredCubeMapShadows EXCLUDE_FROM_ALL) # TODO: Ressurect with Sponza or something?
 #add_subdirectory(16.OrderIndependentTransparencyZoo EXCLUDE_FROM_ALL)
 if (NBL_BUILD_BULLET)
-	#add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
+	add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
 endif()
 if (NBL_BUILD_MITSUBA_LOADER)
 	add_subdirectory(18.MitsubaLoader EXCLUDE_FROM_ALL)
