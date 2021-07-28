@@ -922,7 +922,7 @@ static GLenum formatEnumToGLenum(IOpenGL_FunctionTable* gl, asset::E_FORMAT fmt)
 
 
 //! Get opengl values for the GPU texture storage
-inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type, system::ILogger* logger)
+inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type, const system::logger_opt_ptr& logger = nullptr)
 {
 	using namespace asset;
 	// default
@@ -1693,7 +1693,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 	}
 
 	if (colorformat == GL_INVALID_ENUM || type == GL_INVALID_ENUM)
-		logger->log("Unsupported upload format", system::ILogger::ELL_ERROR);
+		logger.log("Unsupported upload format", system::ILogger::ELL_ERROR);
 }
 
 }

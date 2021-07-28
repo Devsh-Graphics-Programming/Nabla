@@ -88,7 +88,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
-bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file) const
+bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
 {
     if (!_file)
         return false;
@@ -121,7 +121,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
 		return dir+"/";
 	}();
 
-    auto materials = readMaterials(_file);
+    auto materials = readMaterials(_file, _params.logger);
 
     // because one for UV and one without UV
     constexpr uint32_t PIPELINE_PERMUTATION_COUNT = 2u;
@@ -369,7 +369,7 @@ namespace
 
 const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const
 {
-    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
+    static const std::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
     {
         {"Ka", CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT},
         {"Kd", CMTLMetadata::CRenderpassIndependentPipeline::EMP_DIFFUSE},
@@ -385,7 +385,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
         {"Pm", CMTLMetadata::CRenderpassIndependentPipeline::EMP_METALLIC},
         {"Ps", CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHEEN}
     };
-    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> refl_str2type =
+    static const std::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> refl_str2type =
     {
         {"top", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSY},
         {"bottom", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_NEGY},
@@ -690,7 +690,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     return ds;
 }
 
-auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> core::vector<SMtl>
+auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const system::logger_opt_ptr& logger) const -> core::vector<SMtl>
 {
     std::string mtl;
     size_t fileSize = _file->getSize();
@@ -838,7 +838,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> co
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
                     sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
-                    os::Printer::log(tmpbuf, ELL_WARNING);
+                    logger.log(tmpbuf, system::ILogger::ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d
                     currMaterial->params.opacity = (1.f - readFloat());

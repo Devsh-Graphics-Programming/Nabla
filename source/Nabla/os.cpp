@@ -18,18 +18,18 @@
 
 namespace nbl
 {
-namespace os
-{
-	//! prints a debuginfo string
-	void Printer::print(const std::string& message)
-	{
-		std::string tmp(message);
-		tmp += "\n";
-		OutputDebugStringA(tmp.c_str());
-		printf("%s", tmp.c_str());
-	}
-} // end namespace os
-
+//namespace os
+//{
+//	//! prints a debuginfo string
+//	void Printer::print(const std::string& message)
+//	{
+//		std::string tmp(message);
+//		tmp += "\n";
+//		OutputDebugStringA(tmp.c_str());
+//		printf("%s", tmp.c_str());
+//	}
+//} // end namespace os
+//
 
 #else
 

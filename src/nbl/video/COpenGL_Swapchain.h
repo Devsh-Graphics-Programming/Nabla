@@ -21,7 +21,7 @@ template <typename FunctionTableType_>
 class COpenGL_Swapchain final : public ISwapchain
 {
     static inline constexpr uint32_t MaxImages = 4u;
-    core::smart_refctd_ptr<system::ILogger> m_logger;
+    system::logger_opt_smart_ptr logger;
 public:
     using ImagesArrayType = ISwapchain::images_array_t;
     using FunctionTableType = FunctionTableType_;
@@ -49,7 +49,7 @@ public:
         EGLContext _ctx, 
         EGLConfig _config, 
         SDebugCallback* _dbgCb,
-        core::smart_refctd_ptr<system::ILogger>&& logger)
+        system::logger_opt_smart_ptr&& logger)
     {
         if (!images || !images->size())
             return nullptr;

@@ -23,7 +23,7 @@ public:
         SDebugCallback* _dbgCb, 
         core::smart_refctd_ptr<system::ISystem>&& s,
         core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
-        core::smart_refctd_ptr<system::ILogger> && logger) :
+        system::logger_opt_smart_ptr&& logger) :
         base_t(_egl, EAT_OPENGL, _features, config, major, minor, params, _dbgCb, std::move(s), std::move(glslc), std::move(logger))
     {
 

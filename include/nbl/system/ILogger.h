@@ -94,23 +94,6 @@ namespace nbl::system
 	};
 
 
-// Didn't make it a template cause it sucks to pass an smart_refctd_ptr<ILogger>::get() with a cast
-class logger_opt_smart_ptr final
-{
-public:
-	logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
-	~logger_opt_smart_ptr() = default;
-
-	template<typename... Args>
-	void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
-	{
-		if (logger != nullptr)
-			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
-	}
-
-private:
-	mutable core::smart_refctd_ptr<ILogger> logger;
-};
 
 class logger_opt_ptr final
 {
@@ -125,9 +108,31 @@ public:
 			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
 	}
 
+	ILogger* get() const { return logger; }
 private:
 	mutable ILogger* logger;
 };
+
+class logger_opt_smart_ptr final
+{
+public:
+	logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
+	~logger_opt_smart_ptr() = default;
+
+	template<typename... Args>
+	void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
+	{
+		if (logger.get() != nullptr)
+			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
+	}
+	ILogger* getRaw() const { return logger.get(); }
+	logger_opt_ptr getOptRawPtr() const { return logger_opt_ptr(logger.get()); }
+	const core::smart_refctd_ptr<ILogger>& get() const { return logger; }
+
+private:
+	mutable core::smart_refctd_ptr<ILogger> logger;
+};
+
 
 
 }

@@ -32,11 +32,11 @@ public:
 protected:
 	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
 	{
-		return core::make_smart_refctd_ptr<COpenGLESLogicalDevice>(m_egl, &m_glfeatures, m_config, m_gl_major, m_gl_minor, params, m_dbgCb, core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler), core::smart_refctd_ptr(m_logger));
+		return core::make_smart_refctd_ptr<COpenGLESLogicalDevice>(m_egl, &m_glfeatures, m_config, m_gl_major, m_gl_minor, params, m_dbgCb, core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler), system::logger_opt_smart_ptr(m_logger));
 	}
 
 private:
-	COpenGLESPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, const egl::CEGL* _egl, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor, SDebugCallback* dbgCb, core::smart_refctd_ptr<system::ILogger>&& logger) :
+	COpenGLESPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, const egl::CEGL* _egl, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&& logger) :
         base_t(std::move(s), std::move(glslc), _egl, config, ctx, major, minor, dbgCb, std::move(logger))
     {
 

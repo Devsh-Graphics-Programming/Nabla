@@ -12,6 +12,7 @@
 #include "nbl/asset/EImageLayout.h"
 #include "nbl/core/math/glslFunctions.tcc"
 #include "nbl/asset/ECommonEnums.h"
+#include "nbl/system/ILogger.h"
 
 namespace nbl
 {
@@ -235,7 +236,7 @@ class IImage : public IDescriptor
 			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
 			core::smart_refctd_dynamic_array<uint32_t>	queueFamilyIndices = nullptr;
 			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;
-
+			system::logger_opt_ptr						logger = nullptr;
 			bool operator==(const SCreationParams& rhs) const
 			{
 				return flags == rhs.flags && type == rhs.type && format == rhs.format &&

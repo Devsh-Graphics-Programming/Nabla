@@ -162,7 +162,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t
 	m_uniformsList = uniformList;
 }
 
-auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr& logger) const -> std::pair<GLuint, SProgramBinary>
 {
 	spirv_cross::ParsedIR parsed;
 	if (_parsedSpirv)
@@ -196,7 +196,7 @@ auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipC
 	GLchar logbuf[1u<<12]; //4k
 	gl->glShader.pglGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
 	if (logbuf[0])
-		os::Printer::log(logbuf, ELL_ERROR);
+		logger.log(logbuf, system::ILogger::ELL_ERROR);
 
 	if (m_locations.empty())
 		gatherUniformLocations(gl, GLname);

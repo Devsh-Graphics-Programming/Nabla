@@ -27,9 +27,10 @@ class IGLSLCompiler final : public core::IReferenceCounted
 {
 		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
 		system::ISystem* m_system;
+		system::logger_opt_smart_ptr m_logger;
 
 	public:
-		IGLSLCompiler(system::ISystem* _s);
+		IGLSLCompiler(system::ISystem* _s, system::logger_opt_smart_ptr&& logger);
 
 		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
 		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }

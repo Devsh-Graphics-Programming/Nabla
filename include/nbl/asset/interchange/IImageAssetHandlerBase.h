@@ -177,7 +177,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			and texel buffer attached as well.
 		*/
 
-		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, system::ILogger* logger)
+		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, const system::logger_opt_ptr& logger)
 		{
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
@@ -233,7 +233,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
 					if (!convertFilter.execute(&state))
-						logger->log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
+						logger.log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
 				}
 			}
 			return newConvertedImage;

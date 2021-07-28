@@ -114,15 +114,15 @@ static void jpeg_file_dest(j_compress_ptr cinfo, system::IFile* file, system::IS
 
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset::ICPUImageView* imageView, uint32_t quality)
+static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset::ICPUImageView* imageView, uint32_t quality, const system::logger_opt_ptr& logger)
 {
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{
 		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
+			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView, logger);
 		else
-			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
+			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView, logger);
 	}
 
 	const auto& convertedImageParams = convertedImage->getCreationParameters();
@@ -206,7 +206,7 @@ bool CImageWriterJPG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, imageView, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, imageView, 0u);
 
-	return writeJPEGFile(file, m_system.get(), imageView, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
+	return writeJPEGFile(file, m_system.get(), imageView, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f), _params.logger); // if quality==0, then it defaults to 75
 
 #endif//!defined(_NBL_COMPILE_WITH_LIBJPEG_ )
 }

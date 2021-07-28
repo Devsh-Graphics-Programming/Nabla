@@ -21,7 +21,7 @@ namespace asset
 
 static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_5;
 
-IGLSLCompiler::IGLSLCompiler(system::ISystem* _s) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s)
+IGLSLCompiler::IGLSLCompiler(system::ISystem* _s, system::logger_opt_smart_ptr&& logger) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s),  m_logger(std::move(logger))
 {
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_s));
 }
@@ -53,7 +53,7 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
     }
 
     if (bin_res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        os::Printer::log(bin_res.GetErrorMessage(), ELL_ERROR);
+        m_logger.log(bin_res.GetErrorMessage(), system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
@@ -68,7 +68,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char
 	if (!spirvBuffer)
 		return nullptr;
     if (_opt)
-        spirvBuffer = _opt->optimize(spirvBuffer.get());
+        spirvBuffer = _opt->optimize(spirvBuffer.get(), system::logger_opt_ptr(m_logger.getRaw()));
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer));
 }
@@ -240,7 +240,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        os::Printer::log(res.GetErrorMessage(), ELL_ERROR);
+        m_logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
         return nullptr;
     }
 

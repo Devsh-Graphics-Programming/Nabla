@@ -94,7 +94,7 @@ void CImageLoaderTGA::loadCompressedImage(system::IFile *file, const STGAHeader&
 }
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
+bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
 {
 	if (!_file)
 		return false;
@@ -108,7 +108,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
 	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
 	{
-		os::Printer::log("Invalid (non-TGA) file!", ELL_ERROR);
+		logger.log("Invalid (non-TGA) file!", system::ILogger::ELL_ERROR);
 		return false;
 	}
 
@@ -116,7 +116,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 
 	if (footer.ExtensionOffset == 0)
 	{
-		os::Printer::log("Gamma information is not present! Assuming 2.333333", ELL_WARNING);
+		logger.log("Gamma information is not present! Assuming 2.333333", system::ILogger::ELL_WARNING);
 		gamma = 2.333333f;
 	}
 	else
@@ -130,7 +130,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 		
 		if (gamma == 0.0f)
 		{
-			os::Printer::log("Gamma information is not present! Assuming 2.333333", ELL_WARNING);
+			logger.log("Gamma information is not present! Assuming 2.333333", system::ILogger::ELL_WARNING);
 			gamma = 2.333333f;
 		}
 		
@@ -219,7 +219,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
 
 		if (!convertFilter.execute(&state))
-			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
+			imgInfo.logger.log("Something went wrong while converting!", system::ILogger::ELL_WARNING);
 	}
 
 	return newConvertedImage;
@@ -297,7 +297,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	{
 		case STIT_NONE:
 		{
-			os::Printer::log("The given TGA doesn't have image data", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("The given TGA doesn't have image data", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 		}
 		case STIT_UNCOMPRESSED_RGB_IMAGE: [[fallthrough]];
@@ -321,7 +321,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 		}
 		default:
 		{
-			os::Printer::log("Unsupported TGA file type", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("Unsupported TGA file type", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
             return {};
 		}
 	}
@@ -336,7 +336,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 			{
 				if (header.ImageType != 3)
 				{
-					os::Printer::log("Loading 8-bit non-grayscale is NOT supported.", ELL_ERROR);		
+					_params.logger.log("Loading 8-bit non-grayscale is NOT supported.", system::ILogger::ELL_ERROR);
                     return {};
 				}
 
@@ -359,13 +359,13 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 			}
 			break;
 		default:
-			os::Printer::log("Unsupported TGA format", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("Unsupported TGA format %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			break;
 	}
 
 	core::smart_refctd_ptr<ICPUImage> image = newConvertedImage;
 	if (newConvertedImage->getCreationParameters().format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(newConvertedImage);
+		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(newConvertedImage, _params.logger);
 
 	if (!image)
 		return {};

@@ -36,9 +36,9 @@ namespace nbl
 {
 	namespace asset
 	{
-		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
+		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr& logger);
 		static inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
-		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys);
+		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger);
 
 		asset::SAssetBundle CGLILoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -48,12 +48,12 @@ namespace nbl
 			gli::texture texture;
 			
 
-			if (!performLoadingAsIFile(texture, _file, m_system.get()))
+			if (!performLoadingAsIFile(texture, _file, m_system.get(), _params.logger))
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
 			const auto target = glVersion.translate(texture.target());
-			const auto format = getTranslatedGLIFormat(texture, glVersion);
+			const auto format = getTranslatedGLIFormat(texture, glVersion, _params.logger);
 			IImage::E_TYPE imageType;
 			IImageView<ICPUImage>::E_TYPE imageViewType;
 
@@ -205,7 +205,7 @@ namespace nbl
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 			if (imageInfo.format == asset::EF_R8_SRGB)
-				image = IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+				image = IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
 
 			ICPUImageView::SCreationParams imageViewInfo;
 			imageViewInfo.image = std::move(image);
@@ -223,7 +223,7 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
-		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, system::logger_opt_ptr& logger = nullptr)
+		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger)
 		{
 			const auto fileName = file->getFileName().string();
 			core::vector<char> memory(file->getSize());
@@ -269,7 +269,7 @@ namespace nbl
 				}
 				else
 				{
-					logger.log("LOAD GLI: Invalid (non-DDS) file!", ILogger::ELL_ERROR);
+					logger.log("LOAD GLI: Invalid (non-DDS) file!", system::ILogger::ELL_ERROR);
 				}
 			}
 			else if (fileName.rfind(".kmg") != std::string::npos)
@@ -282,7 +282,7 @@ namespace nbl
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-KMG) file!", ELL_ERROR);
+					logger.log("LOAD GLI: Invalid (non-KMG) file!", system::ILogger::ELL_ERROR);
 			}
 			else if (fileName.rfind(".ktx") != std::string::npos)
 			{
@@ -294,19 +294,19 @@ namespace nbl
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-KTX) file!", ELL_ERROR);
+					logger.log("LOAD GLI: Invalid (non-KTX) file!", system::ILogger::ELL_ERROR);
 			}
 			
 			return false;
 		}
 
-		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)
+		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr& logger)
 		{
 			using namespace gli;
 			gli::gl::format formatToTranslate = glVersion.translate(texture.format(), texture.swizzles());
 			ICPUImageView::SComponentMapping compomentMapping;
 
-			static const core::unordered_map<gli::gl::swizzle, ICPUImageView::SComponentMapping::E_SWIZZLE> swizzlesMappingAPI =
+			static const std::unordered_map<gli::gl::swizzle, ICPUImageView::SComponentMapping::E_SWIZZLE> swizzlesMappingAPI =
 			{
 				std::make_pair(gl::SWIZZLE_RED, ICPUImageView::SComponentMapping::ES_R),
 				std::make_pair(gl::SWIZZLE_GREEN, ICPUImageView::SComponentMapping::ES_G),
@@ -332,7 +332,7 @@ namespace nbl
 			auto getTranslatedFinalFormat = [&](const E_FORMAT& format = EF_UNKNOWN, const std::string_view &specialErrorOnUnknown = "Unsupported format!")
 			{
 				if(format == EF_UNKNOWN)
-					os::Printer::log(("LOAD GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
+					logger.log(("LOAD GLI: " + std::string(specialErrorOnUnknown)).c_str(), system::ILogger::ELL_ERROR);
 
 				return std::make_pair(format, compomentMapping);
 			};

@@ -135,7 +135,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
 	if (!png_ptr)
 	{
-		_params.logger.log("LOAD PNG: Internal PNG create read struct failure\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ELL_ERROR);
+		_params.logger.log("LOAD PNG: Internal PNG create read struct failure\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
         return {};
 	}
 
@@ -343,7 +343,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 	if (imgInfo.format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
 
     return SAssetBundle(nullptr,{image});
 }

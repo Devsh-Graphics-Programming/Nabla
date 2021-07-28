@@ -21,6 +21,13 @@ namespace asset
 //! Surface Loader for JPG images
 class CImageLoaderJPG : public asset::IAssetLoader
 {
+public:
+    struct SContext
+    {
+        char* filename = nullptr;
+        system::logger_opt_ptr logger = nullptr;
+    };
+private:
     core::smart_refctd_ptr<system::ISystem> m_system;
     protected:
 	    //! destructor

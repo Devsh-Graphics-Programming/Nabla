@@ -304,7 +304,7 @@ namespace impl
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
 protected:
-    core::smart_refctd_ptr<system::ILogger> m_logger;
+    system::logger_opt_smart_ptr m_logger;
     struct SGLContext
     {
         EGLContext ctx = EGL_NO_CONTEXT;

@@ -84,10 +84,10 @@ public:
 	*/
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr) :
+        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const system::logger_opt_ptr& _logger = nullptr) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
-            userData(_userData)
+            userData(_userData), logger(_logger)
         {
         }
 
@@ -97,6 +97,7 @@ public:
         size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
         const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
         const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
+        system::logger_opt_ptr logger;
     };
 
     //! Struct for keeping the state of the current write operation for safe threading

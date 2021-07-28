@@ -28,17 +28,22 @@ namespace asset
 {
 
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
+
+const system::logger_opt_ptr& getLogger(png_structp png_ptr)
+{
+	return ((CImageWriterPNG::SContext*)png_get_user_chunk_ptr(png_ptr))->logger;
+}
 // PNG function for error handling
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG fatal error", msg, ELL_ERROR);
+	getLogger(png_ptr).log("PNG fatal error %s", system::ILogger::ELL_ERROR, msg);
 	longjmp(png_jmpbuf(png_ptr), 1);
 }
 
 // PNG function for warning handling
 static void png_cpexcept_warning(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG warning", msg, ELL_WARNING);
+	getLogger(png_ptr).log("PNG warning %s", system::ILogger::ELL_WARNING, msg);
 }
 
 // PNG function for file writing
@@ -89,7 +94,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warning);
 	if (!png_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", file->getFileName().string(), ELL_ERROR);
+		_params.logger.log("PNGWriter: Internal PNG create write struct failure\n%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
 		return false;
 	}
 
@@ -97,7 +102,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if (!info_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", file->getFileName().string(), ELL_ERROR);
+		_params.logger.log("PNGWriter: Internal PNG create info struct failure\n%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
 		png_destroy_write_struct(&png_ptr, nullptr);
 		return false;
 	}
@@ -113,11 +118,11 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	{
 		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
+			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView, _params.logger);
 		else if(channelCount == 2 || channelCount == 3)
-			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
+			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView, _params.logger);
 		else
-			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8A8_SRGB>(imageView);
+			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8A8_SRGB>(imageView, _params.logger);
 	}
 	
 	const auto& convertedImageParams = convertedImage->getCreationParameters();
@@ -152,7 +157,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		break;
 		default:
 			{
-				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+			_params.logger.log("Unsupported color format, operation aborted.", system::ILogger::ELL_ERROR);
 				return false;
 			}
 	}
@@ -171,7 +176,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 			break;
 		default:
 			{
-				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+				_params.logger.log("Unsupported color format, operation aborted.", system::ILogger::ELL_ERROR);
 				return false;
 			}
 	}
@@ -181,7 +186,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	constexpr uint32_t maxPNGFileHeight = 16u * 1024u; // arbitrary limit
 	if (trueExtent.Y>maxPNGFileHeight)
 	{
-		os::Printer::log("PNGWriter: Image dimensions too big!\n", file->getFileName().string(), ELL_ERROR);
+		_params.logger.log("PNGWriter: Image dimensions too big!\n %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		return false;
 	}
@@ -203,7 +208,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		return false;
 	}
 
-	SContext usrData(m_system.get());
+	SContext usrData(m_system.get(), _params.logger);
 	png_set_read_user_chunk_fn(png_ptr, &usrData, nullptr);
 	png_set_rows(png_ptr, info_ptr, RowPointers);
 	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, nullptr);
