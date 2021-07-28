@@ -53,6 +53,8 @@ namespace asset
 		~SizedBlob() {}
 
 	public:
+	
+#ifdef OLD_SHADERS
 		static size_t calcBlobSizeForObj(const T*);// { return sizeof(B); }
 
 		//! Utility function for making blobs
@@ -78,6 +80,7 @@ namespace asset
 			new (mem) B(_obj);
 			return (B*)mem;
 		}
+#endif
 	};
 
 	template<typename B, typename T>
