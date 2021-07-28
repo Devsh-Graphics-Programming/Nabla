@@ -157,15 +157,18 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	endif()
 endmacro()
 
-macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS)
+macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
 	add_dependencies(${LIB_NAME} Nabla)
+	
+	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
 
 	target_include_directories(${LIB_NAME}
+		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/release
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/relwithdebinfo
@@ -177,6 +180,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
+	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
 	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
