@@ -22,7 +22,7 @@ template <typename PhysicalDeviceType, E_API_TYPE API_TYPE>
 class COpenGL_Connection final : public IAPIConnection
 {
 public:
-    COpenGL_Connection(core::smart_refctd_ptr<system::ISystem>&& sys, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&& logger): IAPIConnection(std::move(sys)), m_logger(std::move(logger))
+    COpenGL_Connection(core::smart_refctd_ptr<system::ISystem>&& sys, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&& logger): IAPIConnection(std::move(sys), std::move(logger))
     {
         // would be nice to initialize this in create() and return nullptr on failure
         // but DynamicFunctionCallerBase is unmovable!! why?? So i cannot move into m_egl
@@ -92,7 +92,6 @@ protected:
 private:
     egl::CEGL m_egl;
     core::smart_refctd_ptr<IPhysicalDevice> m_pdevice;
-    system::logger_opt_smart_ptr m_logger;
 };
 
 }

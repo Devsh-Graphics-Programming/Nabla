@@ -13,7 +13,7 @@ class COpenGLESPhysicalDevice final : public IOpenGL_PhysicalDeviceBase<COpenGLE
     using base_t = IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>;
 
 public:
-	static core::smart_refctd_ptr<COpenGLESPhysicalDevice> create(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, const egl::CEGL* _egl, SDebugCallback* dbgCb, core::smart_refctd_ptr<system::ILogger>&& logger)
+	static core::smart_refctd_ptr<COpenGLESPhysicalDevice> create(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, const egl::CEGL* _egl, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&& logger)
 	{
 		constexpr EGLint OPENGL_ES_MAJOR = 3;
 		constexpr EGLint OPENGL_ES_MINOR_BEST  = 2;

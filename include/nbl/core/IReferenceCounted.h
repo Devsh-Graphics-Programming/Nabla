@@ -329,7 +329,7 @@ namespace core
 
     template< class T, class... Args >
     inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
-    {
+		{
         T* obj = new T(std::forward<Args>(args)...);
         smart_refctd_ptr<T> smart(obj, dont_grab);
         return smart;

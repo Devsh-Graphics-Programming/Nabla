@@ -21,7 +21,7 @@ template <typename FunctionTableType_>
 class COpenGL_Swapchain final : public ISwapchain
 {
     static inline constexpr uint32_t MaxImages = 4u;
-    system::logger_opt_smart_ptr logger;
+    system::logger_opt_smart_ptr m_logger;
 public:
     using ImagesArrayType = ISwapchain::images_array_t;
     using FunctionTableType = FunctionTableType_;
@@ -118,9 +118,9 @@ public:
 
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
-    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ILogger>&& logger) :
+    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb, system::logger_opt_smart_ptr&& logger) :
         ISwapchain(dev, std::move(params)), m_logger(std::move(logger)),
-        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config, _dbgCb, core::smart_refctd_ptr(m_logger))
+        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config, _dbgCb, system::logger_opt_smart_ptr(m_logger))
     {
         m_images = std::move(images);
     }
@@ -141,7 +141,7 @@ private:
             EGLContext _ctx,
             EGLConfig _config,
             SDebugCallback* _dbgCb,
-            core::smart_refctd_ptr<system::ILogger>&& logger) :
+            system::logger_opt_smart_ptr&& logger) :
             m_device(dev),
             egl(_egl),
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
@@ -208,7 +208,7 @@ private:
             m_ctxCreatedCvar.notify_one();
 
             const uint32_t fboCount = images.size();
-            new (state_ptr) SThreadHandlerInternalState(egl, features, core::smart_refctd_ptr(m_logger));
+            new (state_ptr) SThreadHandlerInternalState(egl, features, system::logger_opt_smart_ptr(m_logger));
             auto& gl = state_ptr[0];
 
             if (m_dbgCb)
@@ -280,7 +280,7 @@ private:
         core::SRange<core::smart_refctd_ptr<IGPUImage>> images;
         GLuint fbos[MaxImages]{};
         core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
-        core::smart_refctd_ptr<system::ILogger> m_logger;
+        system::logger_opt_smart_ptr m_logger;
         struct SRequest {
             SRequest() { sems.reserve(50); }
 

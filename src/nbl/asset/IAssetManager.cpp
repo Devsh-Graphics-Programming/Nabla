@@ -112,7 +112,7 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
+	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get(), system::logger_opt_smart_ptr(m_logger));
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const

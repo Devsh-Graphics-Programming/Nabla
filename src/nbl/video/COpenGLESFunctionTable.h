@@ -98,9 +98,7 @@ public:
 	GLESdrawing glesDrawing;
 	GLESfragment glesFragment;
 
-	core::smart_refctd_ptr<system::ILogger> m_logger;
-
-	COpenGLESFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features, core::smart_refctd_ptr<system::ILogger>&& logger) :
+	COpenGLESFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features, system::logger_opt_smart_ptr&& logger) :
 		IOpenGL_FunctionTable(_egl, _features, std::move(logger)),
 		glesGeneral(_egl),
 		glesBuffer(_egl),
@@ -164,7 +162,7 @@ public:
 			glesTexture.pglTextureViewEXT(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers);
 		else
 		{
-			m_logger->log("None of texture view extensions for GLES are supported, cannot create texture view!\n", system::ILogger::ELL_ERROR);
+			m_logger.log("None of texture view extensions for GLES are supported, cannot create texture view!\n", system::ILogger::ELL_ERROR);
 		}
 	}
 
@@ -201,7 +199,7 @@ public:
 			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
 			break;
 		default:
-			m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
+			m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 			return;
 		}
 		glTexture.pglBindTexture(target, texture);
@@ -235,7 +233,7 @@ public:
 			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
 			break;
 		default:
-			m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
+			m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 			return;
 		}
 		glTexture.pglBindTexture(target, texture);
@@ -260,7 +258,7 @@ public:
 			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
 			break;
 		default:
-			m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
+			m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 			return;
 		}
 		glTexture.pglBindTexture(target, texture);
@@ -298,7 +296,7 @@ public:
 			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
 			break;
 		default:
-			m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
+			m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 			return;
 		}
 		glTexture.pglBindTexture(target, texture);
@@ -350,7 +348,7 @@ public:
 				glFramebuffer.pglFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textarget, texture, level);
 				break;
 			default:
-				m_logger->log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				break;
 			}
 
@@ -536,7 +534,7 @@ public:
 #ifdef _NBL_DEBUG
 		else
 		{
-			m_logger->log("MDI not supported!", system::ILogger::ELL_ERROR);
+			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
 		}
 #endif
 	}
@@ -550,7 +548,7 @@ public:
 #ifdef _NBL_DEBUG
 		else
 		{
-			m_logger->log("MDI not supported!", system::ILogger::ELL_ERROR);
+			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
 		}
 #endif
 	}
@@ -562,14 +560,14 @@ public:
 		else if (first == 0u)
 		{
 #ifdef _NBL_DEBUG
-			m_logger->log("Multiple viewports not supported, setting only first viewport!");
+			m_logger.log("Multiple viewports not supported, setting only first viewport!");
 #endif
 			glGeneral.pglViewport(v[0], v[1], v[2], v[3]);
 		}
 #ifdef _NBL_DEBUG
 		else
 		{
-			m_logger->log("Multiple viewports not supported!");
+			m_logger.log("Multiple viewports not supported!");
 		}
 #endif
 	}
@@ -588,14 +586,14 @@ public:
 		else if (first == 0)
 		{
 #ifdef _NBL_DEBUG
-			m_logger->log("Multiple viewports not supported, setting only first viewport!");
+			m_logger.log("Multiple viewports not supported, setting only first viewport!");
 #endif
 			glesGeneral.pglDepthRangef(fv[0], fv[1]);
 		}
 #ifdef _NBL_DEBUG
 		else
 		{
-			m_logger->log("Multiple viewports not supported!");
+			m_logger.log("Multiple viewports not supported!");
 		}
 #endif
 	}
@@ -606,7 +604,7 @@ public:
 			glesGeneral.pglClipControlEXT(origin, depth);
 #ifdef _NBL_DEBUG
 		else
-			m_logger->log("GL_EXT_clip_control not supported on GLES backend!", system::ILogger::ELL_ERROR);
+			m_logger.log("GL_EXT_clip_control not supported on GLES backend!", system::ILogger::ELL_ERROR);
 #endif
 	}
 

@@ -22,73 +22,75 @@ using namespace os;
 class DemoEventCallback : public IWindow::IEventCallback
 {
 public:
-	DemoEventCallback(smart_refctd_ptr<system::ILogger>&& logger) : m_logger(std::move(logger)) {}
+	DemoEventCallback(system::logger_opt_smart_ptr&& logger) : m_logger(std::move(logger)) {}
 private:
 	void onWindowShown_impl() override 
 	{
-		m_logger->log("Window Shown", system::ILogger::ELL_INFO);
+		m_logger.log("Window Shown", system::ILogger::ELL_INFO);
 	}
 	void onWindowHidden_impl() override 
 	{
-		m_logger->log("Window hidden", system::ILogger::ELL_INFO);
+		m_logger.log("Window hidden", system::ILogger::ELL_INFO);
 	}
 	void onWindowMoved_impl(int32_t x, int32_t y) override
 	{
-		m_logger->log("Window window moved to { %d, %d }", system::ILogger::ELL_WARNING, x, y);
+		m_logger.log("Window window moved to { %d, %d }", system::ILogger::ELL_WARNING, x, y);
 	}
 	void onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
-		m_logger->log("Window resized to { %u, %u }", system::ILogger::ELL_DEBUG, w, h);
+		m_logger.log("Window resized to { %u, %u }", system::ILogger::ELL_DEBUG, w, h);
 	}
 	void onWindowMinimized_impl() override
 	{
-		m_logger->log("Window minimized", system::ILogger::ELL_ERROR);
+		m_logger.log("Window minimized", system::ILogger::ELL_ERROR);
 	}
 	void onWindowMaximized_impl() override
 	{
-		m_logger->log("Window maximized", system::ILogger::ELL_PERFORMANCE);
+		m_logger.log("Window maximized", system::ILogger::ELL_PERFORMANCE);
 	}
 	void onGainedMouseFocus_impl() override
 	{
-		m_logger->log("Window gained mouse focus", system::ILogger::ELL_INFO);
+		m_logger.log("Window gained mouse focus", system::ILogger::ELL_INFO);
 	}
 	void onLostMouseFocus_impl() override
 	{
-		m_logger->log("Window lost mouse focus", system::ILogger::ELL_INFO);
+		m_logger.log("Window lost mouse focus", system::ILogger::ELL_INFO);
 	}
 	void onGainedKeyboardFocus_impl() override
 	{
-		m_logger->log("Window gained keyboard focus", system::ILogger::ELL_INFO);
+		m_logger.log("Window gained keyboard focus", system::ILogger::ELL_INFO);
 	}
 	void onLostKeyboardFocus_impl() override
 	{
-		m_logger->log("Window lost keyboard focus", system::ILogger::ELL_INFO);
+		m_logger.log("Window lost keyboard focus", system::ILogger::ELL_INFO);
 	}
 
 	void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) override
 	{
-		m_logger->log("A mouse has been connected", system::ILogger::ELL_INFO);
+		m_logger.log("A mouse has been connected", system::ILogger::ELL_INFO);
 	}
 	void onMouseDisconnected_impl(IMouseEventChannel* mch) override
 	{
-		m_logger->log("A mouse has been disconnected", system::ILogger::ELL_INFO);
+		m_logger.log("A mouse has been disconnected", system::ILogger::ELL_INFO);
 	}
 	void onKeyboardConnected_impl(core::smart_refctd_ptr<IKeyboardEventChannel>&& kbch) override
 	{
-		m_logger->log("A keyboard has been connected", system::ILogger::ELL_INFO);
+		m_logger.log("A keyboard has been connected", system::ILogger::ELL_INFO);
 	}
 	void onKeyboardDisconnected_impl(IKeyboardEventChannel* mch) override
 	{
-		m_logger->log("A keyboard has been disconnected", system::ILogger::ELL_INFO);
+		m_logger.log("A keyboard has been disconnected", system::ILogger::ELL_INFO);
 	}
 private:
-	smart_refctd_ptr<system::ILogger> m_logger;
+	system::logger_opt_smart_ptr m_logger;
 };
 
 int main()
 {
+	auto logger = make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+	logger = nullptr;
 	auto system = ISystem::create();
-	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system));
+	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system), system::logger_opt_smart_ptr(logger));
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
 	
 	std::string logFileName = "log.txt";
@@ -105,7 +107,7 @@ int main()
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
-	params.callback = make_smart_refctd_ptr<DemoEventCallback>(make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>());
+	params.callback = make_smart_refctd_ptr<DemoEventCallback>(system::logger_opt_smart_ptr(logger));
 	//params.callback = make_smart_refctd_ptr<DemoEventCallback>(system::CFileLogger::create(logFileName));
 	auto window = winManager->createWindow(std::move(params));
 

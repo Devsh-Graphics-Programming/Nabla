@@ -117,6 +117,7 @@ class logger_opt_smart_ptr final
 {
 public:
 	logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
+	logger_opt_smart_ptr(std::nullptr_t t) : logger(nullptr) {}
 	~logger_opt_smart_ptr() = default;
 
 	template<typename... Args>

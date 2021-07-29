@@ -86,6 +86,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         static void refCtdDispose(T* _asset) { _asset->drop(); }
 
         core::smart_refctd_ptr<system::ISystem> m_system;
+        system::logger_opt_smart_ptr m_logger;
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
 
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
@@ -126,8 +127,8 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
     public:
         //! Constructor
-        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s) :
-            m_system(std::move(_s)),
+        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s, system::logger_opt_smart_ptr&& logger) :
+            m_system(std::move(_s)), m_logger(std::move(logger)),
             m_defaultLoaderOverride(this)
         {
             initializeMeshTools();
