@@ -16,19 +16,23 @@ layout(location = 0) in vec4 vPos;
 layout(location = 3) in vec3 vNormal;
 layout(location = 4) in vec4 vCol;
 
+layout(location = 5) in vec4 vWorldMatRow0;
+layout(location = 6) in vec4 vWorldMatRow1;
+layout(location = 7) in vec4 vWorldMatRow2;
+
 #include <nbl/builtin/glsl/utils/common.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
 layout( push_constant, row_major ) uniform Block {
-	mat4 modelViewProj;
+	mat4 viewProj;
 } PushConstants;
 
 layout(location = 0) out vec3 Color; //per vertex output color, will be interpolated across the triangle
 
 void main()
 {
-    vec4 pos = PushConstants.modelViewProj*vPos;
-	pos += vec4(5.0f * gl_InstanceIndex, 0.0f, 0.0f, 0.0f);
+	vec4 worldPos = vec4(dot(vWorldMatRow0, vPos), dot(vWorldMatRow1, vPos), dot(vWorldMatRow2, vPos), 1);
+    vec4 pos = PushConstants.viewProj*worldPos;
 	gl_Position = pos;
     // Color = vNormal*0.5+vec3(0.5);
 	Color = vCol.xyz;
@@ -100,10 +104,11 @@ int main()
 	auto cmdpool = std::move(initOutp.commandPool);
 
 	// Instance Data
-	constexpr uint32_t NumInstances = 2;
+	constexpr uint32_t NumInstances = 20;
 
 	struct InstanceData {
-		core::vector3df_SIMD col;
+		core::vector3df_SIMD color;
+		core::matrix3x4SIMD modelMatrix; // = 3 x vector3df_SIMD
 	};
 
 
@@ -178,10 +183,25 @@ int main()
 		auto & vtxinputParams = pipeline->getVertexInputParams();
 		vtxinputParams.bindings[1].inputRate = asset::EVIR_PER_INSTANCE;
 		vtxinputParams.bindings[1].stride = sizeof(InstanceData);
+		// Color
 		vtxinputParams.attributes[4].binding = 1;
 		vtxinputParams.attributes[4].relativeOffset = 0;
 		vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-		vtxinputParams.enabledAttribFlags |= 0x1u << 4;
+		// World Row 0
+		vtxinputParams.attributes[5].binding = 1;
+		vtxinputParams.attributes[5].relativeOffset = sizeof(core::vector3df_SIMD);
+		vtxinputParams.attributes[5].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+		// World Row 1
+		vtxinputParams.attributes[6].binding = 1;
+		vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD) * 2;
+		vtxinputParams.attributes[6].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+		// World Row 2
+		vtxinputParams.attributes[7].binding = 1;
+		vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD) * 3;
+		vtxinputParams.attributes[7].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+
+
+		vtxinputParams.enabledAttribFlags |= 0x1u << 4 | 0x1u << 5 | 0x1u << 6 | 0x1u << 7;
 		vtxinputParams.enabledBindingFlags |= 0x1u << 1;
 // for wireframe rendering
 #if 0
@@ -199,18 +219,25 @@ int main()
 	
 	// Instances Buffer
 
-	core::vector<InstanceData> instanceData;
-	instanceData.push_back(InstanceData{core::vector3df_SIMD(1.0f, 0.3f, 1.0f)});
-	instanceData.push_back(InstanceData{core::vector3df_SIMD(0.1f, 0.0f, 0.4f)});
+	core::vector<InstanceData> instancesData;
+	instancesData.resize(NumInstances);
+
+	for(uint32_t i = 0; i < NumInstances; ++i) {
+		InstanceData instanceData;
+		//instanceData.modelMatrix.setTranslation(core::vector3df_SIMD(2.5f * i, 0.0f, 0.0f));
+		instanceData.color = core::vector3df_SIMD(1.0f, 0.5f, 1.0f);
+		instancesData[i] = instanceData;
+	}
 	
 	constexpr size_t BUF_SZ = sizeof(InstanceData) * NumInstances;
 	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
+	// auto gpuInstancesBuffer2 = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
 	{
 		asset::SBufferRange<video::IGPUBuffer> range;
 		range.buffer = gpuInstancesBuffer;
 		range.offset = 0;
 		range.size = BUF_SZ;
-		device->updateBufferRangeViaStagingBuffer(queue, range, instanceData.data());
+		device->updateBufferRangeViaStagingBuffer(queue, range, instancesData.data());
 	}
 	
     asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
@@ -291,22 +318,33 @@ int main()
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
 		}
-		// draw
+		// Update instances buffer 
 		{
-			// Animate Stuff
-			
 			core::matrix3x4SIMD modelMatrix;
 			static double rot = 0;
 			rot += dt * 0.0005f;
-			
-			modelMatrix.setRotation(core::quaternion(0, rot, 0));
-			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProj, modelMatrix);
 
+			for(uint32_t i = 0; i < NumInstances; ++i) {
+				InstanceData instanceData;
+				instanceData.modelMatrix.setScaleRotationAndTranslation(nbl::core::vectorSIMDf(0.3f), nbl::core::quaternion(0, rot, 0), nbl::core::vector3df_SIMD(-10.0f + 2.5f * i, 0.0f, 0.0f));
+				// instanceData.modelMatrix.setTranslation(nbl::core::vector3df_SIMD(0.0f, 0.0f, 0.0f));
+				instanceData.color = core::vector3df_SIMD(float(i) / float(NumInstances), 0.5f, 1.0f);
+				instancesData[i] = instanceData;
+			}
+
+			asset::SBufferRange<video::IGPUBuffer> range;
+			range.buffer = gpuInstancesBuffer;
+			range.offset = 0;
+			range.size = BUF_SZ;
+			device->updateBufferRangeViaStagingBuffer(queue, range, instancesData.data());
+		}
+		// draw
+		{
 			// Draw Stuff 
 
 			cb->bindGraphicsPipeline(graphicsPipeline.get());
 			
-			cb->pushConstants(rpIndependentPipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+			cb->pushConstants(rpIndependentPipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
 			cb->drawMeshBuffer(gpuMesh.get());
 		}
 		cb->endRenderPass();
