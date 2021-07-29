@@ -7,6 +7,13 @@
 
 #include "../common/CommonAPI.h"
 #include "CFileSystem.h"
+
+#include <btBulletDynamicsCommon.h>
+#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+
+#include "nbl/ext/Bullet/BulletUtility.h"
+#include "nbl/ext/Bullet/CPhysicsWorld.h"
+
 using namespace nbl;
 using namespace core;
 
@@ -27,15 +34,21 @@ layout( push_constant, row_major ) uniform Block {
 	mat4 viewProj;
 } PushConstants;
 
-layout(location = 0) out vec3 Color; //per vertex output color, will be interpolated across the triangle
+layout(location = 0) out vec3 Color;
+layout(location = 1) out vec3 Normal;
 
 void main()
 {
+	mat3x4 transposeWorldMat = mat3x4(vWorldMatRow0, vWorldMatRow1, vWorldMatRow2);
+	mat4x3 worldMat = transpose(transposeWorldMat);
+
 	vec4 worldPos = vec4(dot(vWorldMatRow0, vPos), dot(vWorldMatRow1, vPos), dot(vWorldMatRow2, vPos), 1);
     vec4 pos = PushConstants.viewProj*worldPos;
 	gl_Position = pos;
-    // Color = vNormal*0.5+vec3(0.5);
 	Color = vCol.xyz;
+
+	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
+	Normal = inverseTransposeWorld * normalize(vNormal);
 }
 )===";
 
@@ -43,15 +56,66 @@ const char* fragmentSource = R"===(
 #version 430 core
 
 layout(location = 0) in vec3 Color;
+layout(location = 1) in vec3 Normal;
 
 layout(location = 0) out vec4 pixelColor;
 
 void main()
 {
-    pixelColor = vec4(Color,1.0);
+    vec3 normal = normalize(Normal);
+
+    float ambient = 0.2;
+    float diffuse = 0.8;
+    float cos_theta_term = max(dot(normal,vec3(1.0,1.0,1.0)),0.0);
+
+    float fresnel = 0.0; //not going to implement yet, not important
+    float specular = 0.0;///pow(max(dot(halfVector,normal),0.0),shininess);
+
+    const float sunPower = 3.14156*0.5;
+
+    pixelColor = vec4(Color, 1)*sunPower*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
 }
 )===";
 
+struct InstanceData {
+	core::vector3df_SIMD color;
+	core::matrix3x4SIMD modelMatrix; // = 3 x vector3df_SIMD
+};
+
+class CInstancedMotionState : public ext::Bullet3::IMotionStateBase{
+public:
+    inline CInstancedMotionState() {}
+    inline CInstancedMotionState(core::vector<InstanceData> * instancesData, uint32_t index, core::matrix3x4SIMD const & start_mat)
+        : m_instances_data(instancesData), 
+          m_index(index),
+          ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat))
+    {
+		m_index = index;
+    }
+
+    inline ~CInstancedMotionState() {
+    }
+
+	inline virtual void getWorldTransform(btTransform &worldTrans) const override {
+		if(m_instances_data != nullptr) {
+			auto mat = (*m_instances_data)[m_index].modelMatrix;
+			worldTrans = ext::Bullet3::convertMatrixSIMD(mat);
+		}
+	};
+
+	inline virtual void setWorldTransform(const btTransform &worldTrans) override {
+		if(m_instances_data != nullptr) {
+			if(m_instances_data->size() > m_index) {
+				(*m_instances_data)[m_index].modelMatrix = ext::Bullet3::convertbtTransform(worldTrans);
+			}
+		}
+	};
+
+protected:
+
+    core::vector<InstanceData> * m_instances_data;
+    uint32_t m_index;
+};
 
 static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createMeshBufferFromGeomCreatorReturnType(
 	asset::IGeometryCreator::return_type& _data,
@@ -91,7 +155,7 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>SC_IMG_COUNT);
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Specialization constants");
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Physics Simulation");
 	auto win = std::move(initOutp.window);
 	auto gl = std::move(initOutp.apiConnection);
 	auto surface = std::move(initOutp.surface);
@@ -102,24 +166,61 @@ int main()
 	auto renderpass = std::move(initOutp.renderpass);
 	auto fbo = std::move(initOutp.fbo);
 	auto cmdpool = std::move(initOutp.commandPool);
-
+	
 	// Instance Data
 	constexpr uint32_t NumInstances = 20;
+	
+	core::vector<InstanceData> instancesData;
+	instancesData.resize(NumInstances);
 
-	struct InstanceData {
-		core::vector3df_SIMD color;
-		core::matrix3x4SIMD modelMatrix; // = 3 x vector3df_SIMD
-	};
+	// Physics Setup
+    ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(nbl::ext::Bullet3::CPhysicsWorld);
+    world->getWorld()->setGravity(btVector3(0, -5, 0));
+
+	// BasePlate
+    core::matrix3x4SIMD baseplateMat;
+    baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
+
+    ext::Bullet3::CPhysicsWorld::RigidBodyData basePlateRigidBodyData;
+    basePlateRigidBodyData.mass = 0.0f;
+    basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
+    basePlateRigidBodyData.trans = baseplateMat;
+
+    btRigidBody *body2 = world->createRigidBody(basePlateRigidBodyData);
+    world->bindRigidBody(body2);
+
+	core::vector<btRigidBody*> bodies;
+	bodies.resize(NumInstances);
+		
+	// Cube RigidBody Data
+    ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData;
+    cubeRigidBodyData.mass = 2.0f;
+    cubeRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
+    btVector3 inertia;
+    cubeRigidBodyData.shape->calculateLocalInertia(cubeRigidBodyData.mass, inertia);
+    cubeRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+
+	for(uint32_t i = 0; i < NumInstances; ++i) {
+        core::matrix3x4SIMD mat;
+        mat.setTranslation(core::vectorSIMDf(i * 0.2f, i * 1.0f, 1.0f));
+		cubeRigidBodyData.trans = mat;
+		instancesData[i].modelMatrix = mat;
+		
+		auto & body = bodies[i];
+
+		bodies[i] = world->createRigidBody(cubeRigidBodyData);
+		world->bindRigidBody<CInstancedMotionState>(body, &instancesData, i, mat);
+	}
+
+	// TODO? Setup Debug Draw
 
 
 	// Asset Manager
-
 	auto filesystem = core::make_smart_refctd_ptr<io::CFileSystem>("");
 	auto am = core::make_smart_refctd_ptr<asset::IAssetManager>(std::move(filesystem));
 
 
 	// CPU2GPU
-
 	video::IGPUObjectFromAssetConverter CPU2GPU;
 
 	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
@@ -141,14 +242,13 @@ int main()
 	}
 
 	// Geom Create
-
 	auto geometryCreator = am->getGeometryCreator();
-	auto cubeMesh = geometryCreator->createCubeMesh(core::vector3df(2.0f,2.0f,2.0f));
+	auto cubeMesh = geometryCreator->createCubeMesh(core::vector3df(1.0f,1.0f,1.0f));
 
 	// Camera Stuff
-	core::vectorSIMDf cameraPosition(0, 0, -10);
+	core::vectorSIMDf cameraPosition(0, 5, -10);
 	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01, 100);
-	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
+	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 2, 0), core::vectorSIMDf(0, 1, 0));
 	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 
 	// Creating CPU Shaders 
@@ -171,7 +271,7 @@ int main()
 
 	auto vs = createCPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert");
 	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
-	asset::ICPUSpecializedShader* shaders[2]{ vs.get(),fs.get() };
+	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 
 	auto cpuMesh = createMeshBufferFromGeomCreatorReturnType(cubeMesh, am.get(), shaders, shaders+2);
 	
@@ -218,29 +318,11 @@ int main()
 	auto gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1,cpu2gpuParams)->front();
 	
 	// Instances Buffer
-
-	core::vector<InstanceData> instancesData;
-	instancesData.resize(NumInstances);
-
-	for(uint32_t i = 0; i < NumInstances; ++i) {
-		InstanceData instanceData;
-		//instanceData.modelMatrix.setTranslation(core::vector3df_SIMD(2.5f * i, 0.0f, 0.0f));
-		instanceData.color = core::vector3df_SIMD(1.0f, 0.5f, 1.0f);
-		instancesData[i] = instanceData;
-	}
 	
 	constexpr size_t BUF_SZ = sizeof(InstanceData) * NumInstances;
 	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
-	// auto gpuInstancesBuffer2 = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
-	{
-		asset::SBufferRange<video::IGPUBuffer> range;
-		range.buffer = gpuInstancesBuffer;
-		range.offset = 0;
-		range.size = BUF_SZ;
-		device->updateBufferRangeViaStagingBuffer(queue, range, instancesData.data());
-	}
-	
-    asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
+    
+	asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
     vtxInstanceBufBnd.offset = 0ull;
     vtxInstanceBufBnd.buffer = gpuInstancesBuffer;
     gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd), 1);
@@ -270,6 +352,8 @@ int main()
 	}
 
 	// render loop
+	double dt = 0;
+
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
 		const auto resourceIx = i%FRAMES_IN_FLIGHT;
@@ -282,10 +366,10 @@ int main()
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		auto time = std::chrono::high_resolution_clock::now();
-		auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(time-lastTime).count();
-		lastTime = time;
-
+		auto now = std::chrono::high_resolution_clock::now();
+		dt = std::chrono::duration_cast<std::chrono::milliseconds>(now-lastTime).count();
+		lastTime = now;
+		
 		// safe to proceed
 		cb->begin(0);
 
@@ -325,11 +409,7 @@ int main()
 			rot += dt * 0.0005f;
 
 			for(uint32_t i = 0; i < NumInstances; ++i) {
-				InstanceData instanceData;
-				instanceData.modelMatrix.setScaleRotationAndTranslation(nbl::core::vectorSIMDf(0.3f), nbl::core::quaternion(0, rot, 0), nbl::core::vector3df_SIMD(-10.0f + 2.5f * i, 0.0f, 0.0f));
-				// instanceData.modelMatrix.setTranslation(nbl::core::vector3df_SIMD(0.0f, 0.0f, 0.0f));
-				instanceData.color = core::vector3df_SIMD(float(i) / float(NumInstances), 0.5f, 1.0f);
-				instancesData[i] = instanceData;
+				instancesData[i].color = core::vector3df_SIMD(float(i) / float(NumInstances), 0.5f, 1.0f);
 			}
 
 			asset::SBufferRange<video::IGPUBuffer> range;
@@ -352,7 +432,21 @@ int main()
 
 		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
 		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
+		
+        world->getWorld()->stepSimulation(dt);
 	}
+	
+    world->unbindRigidBody(body2, false);
+    world->deleteRigidBody(body2);
+	
+    for (uint32_t i = 0; i < NumInstances; ++i) {
+        world->unbindRigidBody(bodies[i]);
+        world->deleteRigidBody(bodies[i]);
+    }
+
+	world->deletebtObject(cubeRigidBodyData.shape);
+
+	world->drop();
 
 	return 0;
 }
