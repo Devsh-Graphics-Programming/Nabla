@@ -126,6 +126,11 @@ protected:
     };
 
 public:
+
+    /*
+        The queue must have TRANSFER capability
+    */
+
     IGPUVirtualTexture(
         nbl::video::ILogicalDevice* _logicalDevice,
         nbl::video::IGPUQueue* _queue,
@@ -150,6 +155,11 @@ public:
         m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
+
+    /*
+        The queue must have TRANSFER capability
+    */
+
     IGPUVirtualTexture(
         nbl::video::ILogicalDevice* _logicalDevice,
         nbl::video::IGPUQueue* _queue,
@@ -169,6 +179,11 @@ public:
     {
 
     }
+
+    /*
+        The queue must have TRANSFER capability
+    */
+
     IGPUVirtualTexture(nbl::video::ILogicalDevice* _logicalDevice, nbl::video::IGPUQueue* _queue, asset::ICPUVirtualTexture* _cpuvt) :
         base_t(
             _cpuvt->getPhysicalStorageExtentCallback(),
