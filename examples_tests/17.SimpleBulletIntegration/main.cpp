@@ -13,6 +13,8 @@ using namespace core;
 const char* vertexSource = R"===(
 #version 430 core
 layout(location = 0) in vec4 vPos;
+layout(location = 3) in vec3 vNormal;
+layout(location = 4) in vec4 vCol;
 
 #include <nbl/builtin/glsl/utils/common.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
@@ -25,8 +27,11 @@ layout(location = 0) out vec3 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = PushConstants.modelViewProj*vPos;
-    Color = vec3(0.5);
+    vec4 pos = PushConstants.modelViewProj*vPos;
+	pos += vec4(5.0f * gl_InstanceIndex, 0.0f, 0.0f, 0.0f);
+	gl_Position = pos;
+    // Color = vNormal*0.5+vec3(0.5);
+	Color = vCol.xyz;
 }
 )===";
 
@@ -94,6 +99,14 @@ int main()
 	auto fbo = std::move(initOutp.fbo);
 	auto cmdpool = std::move(initOutp.commandPool);
 
+	// Instance Data
+	constexpr uint32_t NumInstances = 2;
+
+	struct InstanceData {
+		core::vector3df_SIMD col;
+	};
+
+
 	// Asset Manager
 
 	auto filesystem = core::make_smart_refctd_ptr<io::CFileSystem>("");
@@ -128,8 +141,8 @@ int main()
 	auto cubeMesh = geometryCreator->createCubeMesh(core::vector3df(2.0f,2.0f,2.0f));
 
 	// Camera Stuff
-	core::vectorSIMDf cameraPosition(-1, 2, -10);
-	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+	core::vectorSIMDf cameraPosition(0, 0, -10);
+	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01, 100);
 	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 
@@ -156,13 +169,41 @@ int main()
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(),fs.get() };
 
 	auto cpuMesh = createMeshBufferFromGeomCreatorReturnType(cubeMesh, am.get(), shaders, shaders+2);
+	
+	// Instances Buffer
+
+	core::vector<InstanceData> instanceData;
+	// for(uint32_t i = 0; i < NumInstances; ++i) {
+	// }
+	instanceData.push_back(InstanceData{core::vector3df_SIMD(1.0f, 0.3f, 1.0f)});
+	instanceData.push_back(InstanceData{core::vector3df_SIMD(0.1f, 0.0f, 0.4f)});
+	
+	constexpr size_t BUF_SZ = sizeof(InstanceData) * NumInstances;
+	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
+	{
+		asset::SBufferRange<video::IGPUBuffer> range;
+		range.buffer = gpuInstancesBuffer;
+		range.offset = 0;
+		range.size = BUF_SZ;
+		device->updateBufferRangeViaStagingBuffer(queue, range, instanceData.data());
+	}
 
 	auto pipeline = cpuMesh->getPipeline();
 	{
+		// we're working with RH coordinate system(view proj) and in that case the cubeMesh frontFace is NOT CCW.
+		pipeline->getRasterizationParams().frontFaceIsCCW = 0;
+
+		auto & vtxinputParams = pipeline->getVertexInputParams();
+		vtxinputParams.bindings[1].inputRate = asset::EVIR_PER_INSTANCE;
+		vtxinputParams.bindings[1].stride = sizeof(InstanceData);
+		vtxinputParams.attributes[4].binding = 1;
+		vtxinputParams.attributes[4].relativeOffset = 0;
+		vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+		vtxinputParams.enabledAttribFlags |= 0x1u << 4;
+		vtxinputParams.enabledBindingFlags |= 0x1u << 1;
 // for wireframe rendering
-#if 1
+#if 0
 		pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
-		pipeline->getRasterizationParams().faceCullingMode = asset::EFCM_NONE; 
 #endif
 	}
 	
@@ -210,6 +251,10 @@ int main()
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
+		auto time = std::chrono::high_resolution_clock::now();
+		auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(time-lastTime).count();
+		lastTime = time;
+
 		// safe to proceed
 		cb->begin(0);
 
@@ -230,9 +275,9 @@ int main()
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clear;
 			asset::VkRect2D area;
-			clear.color.float32[0] = 0.f;
-			clear.color.float32[1] = 0.f;
-			clear.color.float32[2] = 0.f;
+			clear.color.float32[0] = 0.1f;
+			clear.color.float32[1] = 0.1f;
+			clear.color.float32[2] = 0.1f;
 			clear.color.float32[3] = 1.f;
 			info.renderpass = renderpass;
 			info.framebuffer = fbo[imgnum];
@@ -244,26 +289,39 @@ int main()
 		}
 		// draw
 		{
+			// Animate Stuff
+			
 			core::matrix3x4SIMD modelMatrix;
-			modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
-
+			static double rot = 0;
+			rot += dt * 0.0005f;
+			
+			modelMatrix.setRotation(nbl::core::quaternion(0, rot, 0));
 			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProj, modelMatrix);
+
+			// Draw Stuff 
 
 			cb->bindGraphicsPipeline(graphicsPipeline.get());
 			
 			// TODO:  for the fututre: cb->drawMeshBuffer(gpuMesh); instead of binding vertex/index buffer explicitly
 			
-			auto vbuf = gpuMesh->getVertexBufferBindings()[0].buffer.get();
-			auto vbuf_offset = gpuMesh->getVertexBufferBindings()[0].offset;
-			
+			video::IGPUBuffer const * vbuffers[2] = {
+				gpuMesh->getVertexBufferBindings()[0].buffer.get(), // vertex buffer
+				gpuInstancesBuffer.get(), // instance buffer
+			};
+
+			uint64_t vbuf_offsets[2] = {
+				gpuMesh->getVertexBufferBindings()[0].offset,
+				0
+			};
+
 			auto ibuf = gpuMesh->getIndexBufferBinding().buffer.get();
 			auto ibuf_offset = gpuMesh->getIndexBufferBinding().offset;
 
-			cb->bindVertexBuffers(0, 1, &vbuf, &vbuf_offset);
+			cb->bindVertexBuffers(0, 2, vbuffers, vbuf_offsets);
 			cb->bindIndexBuffer(ibuf, ibuf_offset, gpuMesh->getIndexType());
 
 			cb->pushConstants(rpIndependentPipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
-			cb->drawIndexed(gpuMesh->getIndexCount(), 1, 0, 0, 0);
+			cb->drawIndexed(gpuMesh->getIndexCount(), NumInstances, 0, 0, 0);
 		}
 		cb->endRenderPass();
 		cb->end();
