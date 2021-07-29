@@ -11,18 +11,15 @@ class IThreadsafeLogger : public ILogger
 {
 	mutable std::mutex m_mutex;
 public:
+	IThreadsafeLogger(std::underlying_type_t<E_LOG_LEVEL> logLevelMask) : ILogger(logLevelMask) {}
 	// Inherited via ILogger
-	void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel, ...) override final
+	void log_impl(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list args) override final
 	{
-		va_list args;
-		va_start(args, logLevel);
 		auto l = lock();
-		log_impl(fmtString, logLevel, args);
-		va_end(args);
+		threadsafeLog_impl(fmtString, logLevel, args);
 	}
 private:
-	virtual void log_impl(const std::string_view&, E_LOG_LEVEL logLevel, va_list args) = 0;
-	virtual void log_impl(const std::wstring_view&, E_LOG_LEVEL logLevel, va_list args) = 0;
+	virtual void threadsafeLog_impl(const std::string_view&, E_LOG_LEVEL logLevel, va_list args) = 0;
 	
 	std::unique_lock<std::mutex> lock() const
 	{

@@ -9,23 +9,15 @@ namespace nbl::system
 	{
 		HANDLE m_native_console;
 	public:
-		CColoredStdoutLoggerWin32()
+		CColoredStdoutLoggerWin32(std::underlying_type_t<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask)
 		{
 			m_native_console = GetStdHandle(STD_OUTPUT_HANDLE);
 		}
 	private:
-		virtual void log_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
+		virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
 		{
 			SetConsoleTextAttribute(m_native_console, getConsoleColor(logLevel));
 			printf(constructLogString(fmt, logLevel, args).data());
-			fflush(stdout);
-			SetConsoleTextAttribute(m_native_console, 15); // restore to white
-		}
-
-		virtual void log_impl(const std::wstring_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
-		{
-			SetConsoleTextAttribute(m_native_console, getConsoleColor(logLevel));
-			wprintf(constructLogWstring(fmt, logLevel, args).data());
 			fflush(stdout);
 			SetConsoleTextAttribute(m_native_console, 15); // restore to white
 		}

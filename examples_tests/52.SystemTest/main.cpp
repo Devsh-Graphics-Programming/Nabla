@@ -25,15 +25,15 @@ public:
 private:
 	void onWindowShown_impl() override 
 	{
-		m_logger.log("Window Shown", system::ILogger::ELL_INFO);
+		m_logger.logI("Window Shown");
 	}
 	void onWindowHidden_impl() override 
 	{
-		m_logger.log("Window hidden", system::ILogger::ELL_INFO);
+		m_logger.logI("Window hidden");
 	}
 	void onWindowMoved_impl(int32_t x, int32_t y) override
 	{
-		m_logger.log("Window window moved to { %d, %d }", system::ILogger::ELL_WARNING, x, y);
+		m_logger.logW("Window window moved to { %d, %d }", x, y);
 	}
 	void onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
@@ -41,7 +41,7 @@ private:
 	}
 	void onWindowMinimized_impl() override
 	{
-		m_logger.log("Window minimized", system::ILogger::ELL_ERROR);
+		m_logger.logE("Window minimized");
 	}
 	void onWindowMaximized_impl() override
 	{
@@ -88,17 +88,18 @@ int main()
 {
 	auto logger = make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
 
-	// *** If you want logging, comment out this one line, added just to test null-logger ***
-	logger = nullptr;
+	// *** If you don't want logging, uncomment this one line***
+	// logger = nullptr;
 	// **************************************************************************************
 	auto system = ISystem::create();
 	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system), system::logger_opt_smart_ptr(logger));
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
 	
-	std::string logFileName = "log.txt";
-	std::ofstream logFile(logFileName, std::ios_base::app | std::ios_base::out);
-	assert(logFile.is_open());
-	logFile.close();
+	{
+		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
+		system->createFile(future, "log.txt", nbl::system::IFile::ECF_READ_WRITE);
+		auto file = future.get();
+	}
 
 	IWindow::SCreationParams params;
 	params.callback = nullptr;

@@ -22,16 +22,11 @@ public:
 	}
 private:
 	std::ofstream m_ofs;
-	CFileLogger(const std::filesystem::path& outputFileName) : m_ofs(outputFileName, std::ios_base::app) {}
+	CFileLogger(const std::filesystem::path& outputFileName, std::underlying_type_t<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask), m_ofs(outputFileName, std::ios_base::app){}
 
-	virtual void log_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
+	virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
 	{
 		m_ofs << constructLogString(fmt, logLevel, args).data() << std::flush;
-	}
-
-	virtual void log_impl(const std::wstring_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
-	{
-		m_ofs << constructLogWstring(fmt, logLevel, args).data() << std::flush;
 	}
 	
 };

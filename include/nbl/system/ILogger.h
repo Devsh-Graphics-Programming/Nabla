@@ -27,10 +27,81 @@ namespace nbl::system
 			ELL_PERFORMANCE = 8,
 			ELL_ERROR = 16
 		};
+	protected:
+		static std::underlying_type_t<E_LOG_LEVEL> defaultLogMask();
+	public:
+		ILogger(std::underlying_type_t<E_LOG_LEVEL> logLevelMask) : m_logLevelMask(logLevelMask) {}
 
-		virtual void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...) = 0;
+		void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
+		{
+			if (logLevel & m_logLevelMask)
+			{
+				va_list args;
+				va_start(args, logLevel);
+				log_impl(fmtString, logLevel, args);
+				va_end(args);
+			}
+		}
+
+		void logD(const std::string_view& fmtString, ...)
+		{
+			if (ELL_DEBUG & m_logLevelMask)
+			{
+				va_list args;
+				va_start(args, ELL_DEBUG);
+				log_impl(fmtString, ELL_DEBUG, args);
+				va_end(args);
+			}
+		}
+
+		void logI(const std::string_view& fmtString, ...)
+		{
+			if (ELL_INFO & m_logLevelMask)
+			{
+				va_list args;
+				va_start(args, ELL_INFO);
+				log_impl(fmtString, ELL_INFO, args);
+				va_end(args);
+			}
+		}
+
+		void logW(const std::string_view& fmtString, ...)
+		{
+			if (ELL_WARNING & m_logLevelMask)
+			{
+				va_list args;
+				va_start(args, ELL_WARNING);
+				log_impl(fmtString, ELL_WARNING, args);
+				va_end(args);
+			}
+		}
+
+		void logE(const std::string_view& fmtString, ...)
+		{
+			if (ELL_ERROR & m_logLevelMask)
+			{
+				va_list args;
+				va_start(args, ELL_ERROR);
+				log_impl(fmtString, ELL_ERROR, args);
+				va_end(args);
+			}
+		}
+
+		void logP(const std::string_view& fmtString, ...)
+		{
+			if (ELL_PERFORMANCE & m_logLevelMask)
+			{
+				va_list args;
+				va_start(args, ELL_PERFORMANCE);
+				log_impl(fmtString, ELL_PERFORMANCE, args);
+				va_end(args);
+			}
+		}
+
+
 
 	protected:
+		virtual void log_impl(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list args) = 0;
 		virtual std::string constructLogString(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
 		{
 			using namespace std::literals;
@@ -90,6 +161,8 @@ namespace nbl::system
 			std::wstring wide = converter.from_bytes(narrowStr);
 			return wide;
 		}
+	private:
+		std::underlying_type_t<E_LOG_LEVEL> m_logLevelMask;
 	};
 
 
@@ -105,6 +178,41 @@ public:
 	{
 		if (logger != nullptr)
 			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logD(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger != nullptr)
+			return logger->logD(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logI(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger != nullptr)
+			return logger->logI(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logW(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger != nullptr)
+			return logger->logW(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logE(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger != nullptr)
+			return logger->logE(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logP(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger != nullptr)
+			return logger->logP(fmtString, std::forward<Args>(args)...);
 	}
 
 	ILogger* get() const { return logger; }
@@ -125,6 +233,42 @@ public:
 		if (logger.get() != nullptr)
 			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
 	}
+
+	template<typename... Args>
+	void logD(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger.get() != nullptr)
+			return logger->logD(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logI(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger.get() != nullptr)
+			return logger->logI(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logW(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger.get() != nullptr)
+			return logger->logW(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logE(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger.get() != nullptr)
+			return logger->logE(fmtString, std::forward<Args>(args)...);
+	}
+
+	template<typename... Args>
+	void logP(const std::string_view& fmtString, Args&&... args) const
+	{
+		if (logger.get() != nullptr)
+			return logger->logP(fmtString, std::forward<Args>(args)...);
+	}
+
 	ILogger* getRaw() const { return logger.get(); }
 	logger_opt_ptr getOptRawPtr() const { return logger_opt_ptr(logger.get()); }
 	const core::smart_refctd_ptr<ILogger>& get() const { return logger; }

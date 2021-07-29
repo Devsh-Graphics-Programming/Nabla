@@ -180,6 +180,8 @@ set(NBL_SYSTEM_SOURCES
 # Junk to refactor
 	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
+
 	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
