@@ -178,73 +178,18 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         inline E_TYPE getAssetType() const override { return AssetType; }
 
         inline size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(uint32_t); }
-
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId) const
-        {
-            return base_t::getAttribBoundBuffer(attrId);
-        }
-        inline SBufferBinding<ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId)
-        {
-            const uint32_t bnd = getBindingNumForAttribute(attrId);
-            return m_vertexBufferBindings[bnd];
-        }
-        //!
-        inline const SBufferBinding<const ICPUBuffer>* getVertexBufferBindings() const
-        {
-            return base_t::getVertexBufferBindings();
-        }
-        inline const SBufferBinding<ICPUBuffer>* getVertexBufferBindings()
-        {
-            return m_vertexBufferBindings;
-        }
-	    inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
+        
+        inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	    {
             assert(!isImmutable_debug());
-		    if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
-			    return false;
-
-            m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
-
-		    return true;
+            return base_t::setVertexBufferBinding(std::move(bufferBinding), bindingIndex);
 	    }
 
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getIndexBufferBinding() const
-        {
-            return base_t::getIndexBufferBinding();
-        }
-        inline const SBufferBinding<ICPUBuffer>& getIndexBufferBinding()
-        {
-            return m_indexBufferBinding;
-        }
 	    inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
 	    {
             assert(!isImmutable_debug());
-
-		    m_indexBufferBinding = std::move(bufferBinding);
+            return base_t::setIndexBufferBinding(std::move(bufferBinding));
 	    }
-
-
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getInverseBindPoseBufferBinding() const
-        {
-            return base_t::getInverseBindPoseBufferBinding();
-        }
-        inline const SBufferBinding<ICPUBuffer>& getInverseBindPoseBufferBinding()
-        {
-            return m_inverseBindPoseBufferBinding;
-        }
-
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getJointAABBBufferBinding() const
-        {
-            return base_t::getJointAABBBufferBinding();
-        }
-        inline const SBufferBinding<ICPUBuffer>& getJointAABBBufferBinding()
-        {
-            return m_jointAABBBufferBinding;
-        }
 
         //!
         inline const ICPUSkeleton* getSkeleton() const
