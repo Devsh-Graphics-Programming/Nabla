@@ -1,4 +1,5 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -159,10 +160,6 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-set(NABLA_HEADERS_PUBLIC
-	"${NBL_ROOT_PATH}/source/Nabla/os.h"
-	"${NBL_ROOT_PATH}/source/Nabla/CLogger.h" 
-)
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
@@ -190,9 +187,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CLogger.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
-	${NBL_ROOT_PATH}/source/Nabla/os.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp

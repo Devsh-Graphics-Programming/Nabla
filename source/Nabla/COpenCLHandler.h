@@ -16,7 +16,6 @@
 
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-#include "os.h"
 
 namespace nbl
 {

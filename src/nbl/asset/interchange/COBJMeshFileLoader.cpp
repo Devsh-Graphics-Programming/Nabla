@@ -10,7 +10,6 @@
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
-#include "os.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 

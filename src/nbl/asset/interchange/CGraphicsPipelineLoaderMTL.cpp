@@ -7,8 +7,6 @@
 #include <filesystem>
 
 
-#include "os.h"
-
 #include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"

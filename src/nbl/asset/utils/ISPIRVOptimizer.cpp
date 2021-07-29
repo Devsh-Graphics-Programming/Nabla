@@ -7,7 +7,6 @@
 #include "nbl/core/IReferenceCounted.h"
 
 #include "nbl/system/ILogger.h"
-#include "os.h"
 
 using namespace nbl::asset;
 

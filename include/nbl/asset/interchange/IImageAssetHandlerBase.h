@@ -8,7 +8,6 @@
 #include "nbl/core/core.h"
 
 #include "nbl/system/ILogger.h"
-#include "os.h"
 
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"

@@ -4,8 +4,6 @@
 // See the original file in irrlicht source for authors
 
 
-#include "os.h"
-
 #include "nbl/system/IFile.h"
 #include "nbl/system/ISystem.h"
 

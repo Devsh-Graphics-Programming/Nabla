@@ -11,7 +11,6 @@
 
 #include "nbl/system/IFile.h"
 
-#include "os.h" // for logging
 
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"

@@ -41,7 +41,6 @@ private:
     {
 
     }
-	_NBL_DEBUG
 };
 
 }

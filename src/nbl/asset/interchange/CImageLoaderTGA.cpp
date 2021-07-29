@@ -8,7 +8,6 @@
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
 #include "nbl/system/IFile.h"
-#include "os.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImage.h"
 

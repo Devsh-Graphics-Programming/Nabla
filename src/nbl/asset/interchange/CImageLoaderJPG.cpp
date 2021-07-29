@@ -10,7 +10,6 @@
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
 #include "nbl/system/IFile.h"
-#include "os.h"
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
 

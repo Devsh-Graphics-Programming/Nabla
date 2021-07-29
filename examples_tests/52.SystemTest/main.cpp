@@ -17,7 +17,6 @@ using namespace core;
 using namespace ui;
 using namespace system;
 using namespace asset;
-using namespace os;
 
 class DemoEventCallback : public IWindow::IEventCallback
 {
@@ -88,7 +87,10 @@ private:
 int main()
 {
 	auto logger = make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+
+	// *** If you want logging, comment out this one line, added just to test null-logger ***
 	logger = nullptr;
+	// **************************************************************************************
 	auto system = ISystem::create();
 	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system), system::logger_opt_smart_ptr(logger));
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
@@ -107,8 +109,11 @@ int main()
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
+
+	// *** Select stdout/file logger ***
 	params.callback = make_smart_refctd_ptr<DemoEventCallback>(system::logger_opt_smart_ptr(logger));
 	//params.callback = make_smart_refctd_ptr<DemoEventCallback>(system::CFileLogger::create(logFileName));
+	// *********************************
 	auto window = winManager->createWindow(std::move(params));
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
