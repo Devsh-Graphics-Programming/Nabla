@@ -309,7 +309,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                         FBOCache.insert(nextState.framebuffer.hash, GLname);
                 }
 
-                assert(GLname != 0u);
+                assert(GLname != 0u); // TODO uncomment this
             }
 
             currentState.framebuffer.GLname = GLname;
@@ -580,8 +580,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
         {
             auto hashVal = nextState.vertexInputParams.vaokey;
             auto it = VAOMap.get(hashVal);
+
+            currentState.vertexInputParams.vaokey = hashVal;
             if (it) {
-                currentState.vertexInputParams.vaokey = hashVal;
                 currentState.vertexInputParams.vaoval.GLname = *it;
             }
             else
@@ -597,6 +598,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                 VAOMap.insert(hashVal, GLvao);
                 brandNewVAO = true;
             }
+
             GLuint vao = currentState.vertexInputParams.vaoval.GLname;
             gl->glVertex.pglBindVertexArray(vao);
 
@@ -605,7 +607,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             {
                 if (hashVal.attribFormatAndComponentCount[attr] != asset::EF_UNKNOWN) {
                     if (brandNewVAO)
+                    {
                         gl->extGlEnableVertexArrayAttrib(vao, attr);
+                    }
                 }
                 else
                     continue;
@@ -621,7 +625,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                     if (!gl->isGLES() && isFloatingPointFormat(format) && getTexelOrBlockBytesize(format) == getFormatChannelCount(format) * sizeof(double))//DOUBLE
                         gl->extGlVertexArrayAttribLFormat(vao, attr, getFormatChannelCount(format), GL_DOUBLE, hashVal.getRelativeOffsetForAttrib(attr));
                     else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
+                    {
                         gl->extGlVertexArrayAttribFormat(vao, attr, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(gl, format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, hashVal.getRelativeOffsetForAttrib(attr));
+                    }
                     else if (isIntegerFormat(format))//INTEGERS
                         gl->extGlVertexArrayAttribIFormat(vao, attr, getFormatChannelCount(format), formatEnumToGLenum(gl, format), hashVal.getRelativeOffsetForAttrib(attr));
 
@@ -633,6 +639,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             }
             //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
         }
+
+        UPDATE_STATE(vertexInputParams.vaoval.idxType);
+
         GLuint GLvao = currentState.vertexInputParams.vaoval.GLname;
         assert(GLvao);
         {
@@ -646,7 +655,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                 const uint32_t bnd = hash.getBindingForAttrib(i);
 
                 assert(nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer);//something went wrong
-                gl->extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, hash.getStrideForBinding(bnd));
+                uint32_t stride = hash.getStrideForBinding(bnd);
+                assert(stride != 0u);
+                gl->extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, stride);
                 UPDATE_STATE(vertexInputParams.vaoval.vtxBindings[bnd]);
             }
             gl->extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.vaoval.idxBinding.buffer ? nextState.vertexInputParams.vaoval.idxBinding.buffer->getOpenGLName() : 0u);

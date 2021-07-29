@@ -6,7 +6,7 @@
 #ifndef __NBL_ASSET_C_IMAGE_LOADER_JPG_H_INCLUDED__
 #define __NBL_ASSET_C_IMAGE_LOADER_JPG_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 

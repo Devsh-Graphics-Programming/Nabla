@@ -13,12 +13,10 @@
 #include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "vectorSIMD.h"
 
-#include "nbl/system/system.h"
-#include "nbl/system/IFile.h"
-#include "IFileSystem.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/ICPUBuffer.h"
@@ -291,6 +289,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			return loadingSuccess;
 		}
 
+#if 0 // TODO: Danlyo
 		//!
 		template<E_FORMAT CacheFormat>
 		inline bool loadCacheFromFile(io::IReadFile* file, bool replaceCurrentContents = false)
@@ -315,6 +314,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			auto file = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile(path.c_str()),core::dont_grab);
 			return loadCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
 		}
+#endif
 
 		//!
 		template<E_FORMAT CacheFormat>
@@ -329,7 +329,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			CBufferPhmapOutputArchive buffWrap(buffer);
 			return std::get<cache_type_t<CacheFormat>>(cache).dump(buffWrap);
 		}
-
+#if 0 // TODO: Danlyo
 		//!
 		template<E_FORMAT CacheFormat>
 		inline bool saveCacheToFile(io::IWriteFile* file)
@@ -360,7 +360,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		{
 			return getSerializedCacheSizeInBytes_impl<CacheFormat>(std::get<cache_type_t<CacheFormat>>(cache).capacity());
 		}
-
+#endif
 	protected:
 		std::tuple<cache_type_t<Formats>...> cache;
 		

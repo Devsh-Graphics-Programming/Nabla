@@ -85,7 +85,8 @@ constexpr inline bool is_aligned_to(size_t value, size_t alignment)
 {
     return core::isPoT(alignment)&&((value&(alignment-1ull))==0ull);
 }
-constexpr inline bool is_aligned_to(const void* value, size_t alignment)
+// clang complains about constexpr so make normal for now (also complains abour reinterpret_cast)
+inline bool is_aligned_to(const void* value, size_t alignment)
 {
     return core::is_aligned_to(reinterpret_cast<size_t>(value),alignment);
 }

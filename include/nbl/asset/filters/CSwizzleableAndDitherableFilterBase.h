@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
 #define __NBL_ASSET_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/filters/dithering/CDither.h"

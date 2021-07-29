@@ -6,7 +6,7 @@
 #define __NBL_I_DRIVER_FENCE_H_INCLUDED__
 
 #include <chrono>
-#include "nbl/core/BaseClasses.h"
+#include "nbl/core/decl/BaseClasses.h"
 
 namespace nbl
 {

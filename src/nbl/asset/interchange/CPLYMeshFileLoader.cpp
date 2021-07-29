@@ -9,7 +9,7 @@
 #include "BuildConfigOptions.h"
 
 #include "IReadFile.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #include "nbl/asset/utils/IMeshManipulator.h"
 

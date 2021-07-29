@@ -41,7 +41,7 @@ IAPIConnection::IAPIConnection(core::smart_refctd_ptr<system::ISystem>&& sys) : 
 #else
         "";
 #endif
-    core::smart_refctd_ptr<system::ISystem::ISystemCaller> caller;
+    core::smart_refctd_ptr<system::ISystemCaller> caller;
 #ifdef _NBL_PLATFORM_WINDOWS_
     caller = core::make_smart_refctd_ptr<system::CSystemCallerWin32>();
 #else

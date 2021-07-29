@@ -20,7 +20,7 @@ public:
         display = call.peglGetDisplay(EGL_DEFAULT_DISPLAY);
         if (display == EGL_NO_DISPLAY)
             return false;
-        if (!call.peglInitialize(display, nullptr, nullptr))
+        if (!call.peglInitialize(display, &version.major, &version.minor))
             return false;
         return true;
     }
@@ -33,6 +33,10 @@ public:
 
     CEGLCaller call;
     EGLDisplay display = EGL_NO_DISPLAY;
+    struct {
+        EGLint major;
+        EGLint minor;
+    } version;
     /*
 #ifdef _NBL_BUILD_WITH_WAYLAND
     CWaylandCaller wlcall;

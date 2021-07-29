@@ -2,18 +2,20 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_SYSTEM_H_INCLUDED__
-#define __NBL_SYSTEM_H_INCLUDED__
+#ifndef __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
+#define __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/system/compile_config.h"
 
-// dependencies
-
+// basic stuff
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
 #include "nbl/system/FuncPtrLoader.h"
 #include "nbl/system/DefaultFuncPtrLoader.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/SReadWriteSpinLock.h"
+
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 
 #endif

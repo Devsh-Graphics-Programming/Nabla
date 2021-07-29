@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!-- BEGIN_INCLUDE(manifest) -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="@PACKAGE_NAME@">
+
+  <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="@TARGET_ANDROID_API_LEVEL@"/>
+
+  <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <!-- <uses-permission android:name="android.permission.INTERNET" /> -->
+
+  <!-- <uses-feature android:glEsVersion="@GLES_VER@" android:required="true" /> -->
+
+  <!-- Not sure if this attrib is required -->
+  <!-- android:icon="@drawable/icon" --> 
+  <application 
+    android:debuggable="true" 
+    android:label="@APP_NAME@" 
+    android:hasCode="false"
+    android:isGame="true"
+  >
+    <activity 
+      android:name="android.app.NativeActivity" 
+      android:label="@APP_NAME@"
+      android:screenOrientation="landscape" 
+      android:configChanges="orientation|keyboardHidden"
+    >
+      <meta-data android:name="android.app.lib_name" android:value="@NATIVE_LIB_NAME@" />
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+
+  </application>
+</manifest>
+<!-- END_INCLUDE(manifest) -->

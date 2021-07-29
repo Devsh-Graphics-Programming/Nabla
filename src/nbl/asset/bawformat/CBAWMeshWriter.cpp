@@ -6,7 +6,7 @@
 
 #include "nbl/core/core.h"
 #include "nbl/asset/asset.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #include "IFileSystem.h"
 #include "IWriteFile.h"

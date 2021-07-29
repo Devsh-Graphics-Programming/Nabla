@@ -1,13 +1,11 @@
 #ifndef __NBL_I_GPU_FENCE_H_INCLUDED__
 #define __NBL_I_GPU_FENCE_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
-#include "nbl/video/IBackendObject.h"
-#include "nbl/core/EventDeferredHandler.h"
-#include "nbl/core/BaseClasses.h"
+#include "nbl/core/declarations.h"
 
-namespace nbl {
-namespace video
+#include "nbl/video/IBackendObject.h"
+
+namespace nbl::video
 {
 
 class IGPUFence : public core::IReferenceCounted, public IBackendObject
@@ -55,6 +53,7 @@ public:
     inline GPUEventWrapper& operator=(GPUEventWrapper&& other) noexcept
     {
         mFence.operator=(std::move(other.mFence));
+        mDevice = other.mDevice;
         return *this;
     }
 
@@ -121,7 +120,6 @@ public:
 template<class Functor>
 using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
-}
 }
 
 #endif

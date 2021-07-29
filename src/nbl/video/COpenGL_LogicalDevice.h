@@ -82,7 +82,7 @@ public:
 
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority, _dbgCb);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority, _dbgCb), this);
             }
         }
 
@@ -286,6 +286,14 @@ public:
 
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override final
     {
+#ifdef _NBL_DEBUG
+        for (uint32_t i = 0u; i < _count; ++i)
+        {
+            assert(_fences[i]);
+            auto* glfence = static_cast<COpenGLFence*>(_fences[i]);
+            assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
+        }
+#endif
         SRequestWaitForFences params{ core::SRange<IGPUFence*>(_fences, _fences + _count) , _waitAll, _timeout };
         IGPUFence::E_STATUS retval;
         auto& req = m_threadHandler.request(std::move(params), &retval);
@@ -375,14 +383,14 @@ public:
     {
         for (auto& q : (*m_queues))
         {
-            static_cast<QueueType*>(q.get())->destroyFramebuffer(fbohash);
+            static_cast<QueueType*>(q->getUnderlyingQueue())->destroyFramebuffer(fbohash);
         }
     }
     void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) override final
     {
         for (auto& q : (*m_queues))
         {
-            static_cast<QueueType*>(q.get())->destroyPipeline(pipeline);
+            static_cast<QueueType*>(q->getUnderlyingQueue())->destroyPipeline(pipeline);
         }
     }
     void destroyTexture(GLuint img) override final
@@ -462,11 +470,11 @@ protected:
             std::string glsl(begin, end);
             COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
             auto glslShader_woIncludes = m_GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
-            {
-                auto fl = fopen("shader.glsl", "w");
-                fwrite(glsl.c_str(), 1, glsl.size(), fl);
-                fclose(fl);
-            }
+            //{
+                //auto fl = fopen("shader.glsl", "w");
+                //fwrite(glsl.c_str(), 1, glsl.size(), fl);
+                //fclose(fl);
+            //}
             spirv = m_GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,

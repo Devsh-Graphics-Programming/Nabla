@@ -7,9 +7,7 @@
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class CSPVLoader final : public asset::IAssetLoader
@@ -23,9 +21,9 @@ class CSPVLoader final : public asset::IAssetLoader
 			uint32_t magicNumber = 0u;
 
 			
-			system::ISystem::future_t<uint32_t> future;
-			m_system->readFile(future, _file, &magicNumber, 0, sizeof magicNumber);
-
+			system::future<size_t> future;
+			_file->read(future, &magicNumber, 0, sizeof magicNumber);
+			future.get();
 			return magicNumber==SPV_MAGIC_NUMBER;
 		}
 
@@ -40,8 +38,7 @@ class CSPVLoader final : public asset::IAssetLoader
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // namespace asset
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif
 

@@ -2,12 +2,10 @@
 #define __NBL_I_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
 
 #include <atomic>
+#include "nbl/core/declarations.h"
 #include "nbl/system/IThreadHandler.h"
-#include "nbl/core/Types.h"
-#include "nbl/core/math/intutil.h"
 
-namespace nbl {
-namespace system
+namespace nbl::system
 {
 
 namespace impl
@@ -196,7 +194,6 @@ private:
     bool continuePredicate() const { return (cb_begin != cb_end); }
 };
 
-}
 }
 
 #endif

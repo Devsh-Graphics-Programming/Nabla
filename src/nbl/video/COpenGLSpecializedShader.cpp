@@ -5,20 +5,15 @@
 
 #include <algorithm>
 
+#include "nbl/core/xxHash256.h"
 #include "nbl/asset/utils/spvUtils.h"
 
-#include "COpenGLSpecializedShader.h"
-#include "nbl/asset/utils/spvUtils.h"
-#include "spirv_cross/spirv_parser.hpp"
 #include "nbl/video/IOpenGL_FunctionTable.h"
-#include <algorithm>
+#include "COpenGLSpecializedShader.h"
+#include "spirv_cross/spirv_parser.hpp"
 
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -138,8 +133,6 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 }
 
 }//namesapce impl
-
-}
 }//nbl::video
 
 using namespace nbl;
@@ -227,5 +220,3 @@ void COpenGLSpecializedShader::gatherUniformLocations(IOpenGL_FunctionTable* gl,
 	for (size_t i = 0ull; i < m_uniformsList.size(); ++i)
 		m_locations[i] = gl->glShader.pglGetUniformLocation(_GLname, m_uniformsList[i].m.name.c_str());
 }
-
-#endif

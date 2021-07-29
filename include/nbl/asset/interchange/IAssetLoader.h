@@ -5,15 +5,11 @@
 #ifndef __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 
-#include "nbl/core/core.h"
-#include "nbl/system/ISystem.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
-#include "nbl/system/IFile.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IMeshManipulator;
@@ -330,7 +326,6 @@ protected:
 	}
 };
 
-}
 }
 
 #endif

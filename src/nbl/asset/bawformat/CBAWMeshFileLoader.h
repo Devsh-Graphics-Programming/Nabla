@@ -14,8 +14,8 @@
 #include "nbl/asset/bawformat/CBAWFile.h"
 //#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 #include "nbl/asset/bawformat/CBlobsLoadingManager.h"
+
 #include "nbl/system/ISystem.h"
-//#include "os.h"
 
 
 namespace nbl

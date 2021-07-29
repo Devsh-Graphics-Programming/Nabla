@@ -6,7 +6,7 @@
 #ifndef __NBL_COLOR_H_INCLUDED__
 #define __NBL_COLOR_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "vectorSIMD.h"
 
 #include "nbl/asset/format/decodePixels.h"

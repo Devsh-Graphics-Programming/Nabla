@@ -100,7 +100,9 @@ class IOpenGLPipeline
             GLuint GLname = getShaderGLnameForCtx(_stageIx, _ctxID);
             uint8_t* state = getPushConstantsStateForStage(_stageIx, _ctxID);
 
-            NBL_ASSUME_ALIGNED(_pcData, 128);
+            // wtf??? alignas doesnt work??? (see COpenGLRenderpassIndependentPipeline and COpenGLComputePipeline)
+            // TODO
+            //NBL_ASSUME_ALIGNED(_pcData, 128);
 
 	        uint32_t loc_i = 0u;
             for (auto u_it=_uniforms.begin(); u_it!=_uniforms.end(); ++u_it, ++loc_i)

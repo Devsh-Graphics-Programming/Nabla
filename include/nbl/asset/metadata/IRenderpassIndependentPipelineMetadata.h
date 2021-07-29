@@ -8,8 +8,8 @@
 /*
 #include "nbl/asset/ICPUDescriptorSetLayout.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
-#include "nbl/asset/ICPUImageView.h"
 */
+#include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 
 //#include "nbl/asset/utils/IBuiltinIncludeLoader.h"

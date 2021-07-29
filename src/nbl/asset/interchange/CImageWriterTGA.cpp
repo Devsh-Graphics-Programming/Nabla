@@ -6,20 +6,15 @@
 
 #include "nbl/system/IFile.h"
 
-#include "os.h"
-
 #include "nbl/asset/format/convertColor.h"
-#include "nbl/asset/ICPUImageView.h"
-#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 
+#include "CImageLoaderTGA.h" // for TGA structs
 #include "CImageWriterTGA.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 CImageWriterTGA::CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
@@ -31,8 +26,8 @@ CImageWriterTGA::CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys) 
 
 bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-    if (!_override)
-        getDefaultOverride(_override);
+	if (!_override)
+		getDefaultOverride(_override);
 
 	SAssetWriteContext ctx{ _params, _file };
 
@@ -112,13 +107,14 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		break;
 		default:
 		{
-			os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+			assert(false); // TODO: implement proper engine-wide logger
+		//os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
 			return false;
 		}
 	}
 
-	system::ISystem::future_t<uint32_t> future;
-	m_system->writeFile(future, file, &imageHeader, 0, sizeof(imageHeader));
+	system::future<size_t> future;
+	file->write(future, &imageHeader, 0, sizeof(imageHeader));
 
 	if (future.get() != sizeof(imageHeader))
 		return false;
@@ -146,8 +142,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	{
 		memcpy(row_pointer, &scan_lines[y * row_stride], row_size);
 		
-		system::ISystem::future_t<uint32_t> future;
-		m_system->writeFile(future, file, row_pointer, offset, row_size);
+		system::future<size_t> future;
+		file->write(future, row_pointer, offset, row_size);
 		if (future.get() != row_size)
 			break;
 		offset += row_size;
@@ -157,8 +153,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	extension.ExtensionSize = sizeof(extension);
 	extension.Gamma = isSRGBFormat(convertedFormat) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
 	
-	system::ISystem::future_t<uint32_t> extFuture;
-	m_system->writeFile(extFuture, file, &extension, offset, sizeof(extension));
+	system::future<size_t> extFuture;
+	file->write(future, &extension, offset, sizeof(extension));
 	
 	if (extFuture.get() < (int32_t)sizeof(extension))
 		return false;
@@ -170,8 +166,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	imageFooter.DeveloperOffset = 0;
 	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
 
-	system::ISystem::future_t<uint32_t> footerFuture;
-	m_system->writeFile(footerFuture, file, &extension, offset, sizeof(extension));
+	system::future<size_t> footerFuture;
+	file->write(footerFuture, &extension, offset, sizeof(extension));
 
 	if (footerFuture.get() < (int32_t)sizeof(imageFooter))
 		return false;
@@ -179,7 +175,6 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	return imageHeader.ImageHeight <= y;
 }
 
-} // namespace video
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif

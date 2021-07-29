@@ -1,7 +1,7 @@
 #ifndef __NBL_DEBUG_H_INCLUDED__
 #define __NBL_DEBUG_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 #include <cstdint>
 
 namespace nbl {

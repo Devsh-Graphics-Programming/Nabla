@@ -5,14 +5,11 @@
 #ifndef __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
 
-#include "nbl/system/system.h"
-#include "IFileSystem.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
@@ -59,8 +56,8 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 
 			size_t fileSize = file->getSize();
 			std::string content(fileSize, '/0');
-			system::ISystem::future_t<uint32_t> read_future;
-			validInput = s->readFile(read_future, file.get(), content.data(), 0, fileSize);
+			system::future<size_t> read_future;
+			file->read(read_future, content.data(), 0, fileSize);
 			assert(validInput);
 			read_future.get();
 
@@ -68,7 +65,6 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		}
 };
 
-}
 }
 
 #endif

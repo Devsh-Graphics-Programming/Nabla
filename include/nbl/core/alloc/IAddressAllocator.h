@@ -6,7 +6,7 @@
 #define __NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 
-#include "nbl/core/BaseClasses.h"
+#include "nbl/core/decl/BaseClasses.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
 namespace nbl

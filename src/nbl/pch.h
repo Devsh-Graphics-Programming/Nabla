@@ -5,8 +5,6 @@
 #ifndef __NBL_PCH_H_INCLUDED__
 #define __NBL_PCH_H_INCLUDED__
 
-#include "nabla.h"
-
 #include "nbl/core/pch_core.h"
 #include "nbl/asset/pch_asset.h"
 #include "nbl/video/pch_video.h"
@@ -85,7 +83,7 @@
 #include "CIrrDeviceStub.h"
 #include "CIrrDeviceWin32.h"
 #include "CLimitReadFile.h"
-#include "CLogger.h"
+#include "nbl_CLogger.h"
 #include "CMemoryFile.h"
 #include "CMountPointReader.h"
 #include "CNullDriver.h"

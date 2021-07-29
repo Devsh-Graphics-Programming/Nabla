@@ -43,6 +43,13 @@ class COpenGLSync final : public core::IReferenceCounted
                 _gl->glGeneral.pglFlush();
             haveNotWaitedOnQueueMask ^= (1ull << _gl->getGUID());
         }
+        // for fences
+        void initSignaled(IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl)
+        {
+            device = _dev;
+            haveNotWaitedOnQueueMask ^= (1ull << _gl->getGUID());
+            cachedRetval = ES_ALREADY_SIGNALED;
+        }
 
         uint64_t prewait() const
         {
@@ -113,7 +120,8 @@ class COpenGLSync final : public core::IReferenceCounted
 
         bool isInitialized() const
         {
-            return static_cast<bool>(sync);
+            // (!sync && (cachedRetval == ES_ALREADY_SIGNALED)) means initialized as signaled
+            return static_cast<bool>(sync) || cachedRetval == ES_ALREADY_SIGNALED;
         }
 
     private:

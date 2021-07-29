@@ -5,7 +5,7 @@
 
 #include "vectorSIMD.h"
 
-#include "os.h"
+#include "nbl_os.h"
 
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/asset/utils/CShaderIntrospector.h"

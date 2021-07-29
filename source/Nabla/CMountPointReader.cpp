@@ -8,7 +8,7 @@
 #ifdef __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
 
 #include "CReadFile.h"
-#include "os.h"
+#include "nbl_os.h"
 
 namespace nbl
 {

@@ -7,11 +7,9 @@
 
 #include <utility>
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/decl/smart_refctd_ptr.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 struct DrawArraysIndirectCommand_t
@@ -80,7 +78,6 @@ class IPipeline : public virtual core::IReferenceCounted
 		bool m_disableOptimizations = false;
 };
 
-}
 }
 
 #endif

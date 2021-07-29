@@ -114,7 +114,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 		template<class PreFilter, class PostFilter>
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			return sample_functor_t(this,preFilter,postFilter);
+			return sample_functor_t<PreFilter, PostFilter>(this,preFilter,postFilter);
 		}
 };
 

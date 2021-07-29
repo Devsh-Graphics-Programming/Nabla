@@ -99,7 +99,7 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) # It affects with BAW source leading to linker errors, TODO
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
 option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
 option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
@@ -145,8 +145,10 @@ set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
 if (WAYLAND_CLIENT_FOUND AND OpenGL_EGL_FOUND)
 	set(_NBL_BUILD_WITH_WAYLAND 1)
+	#message(FATAL_ERROR "found wayland! ${WAYLAND_CLIENT_LIBRARY}")
 else()
 	set(_NBL_BUILD_WITH_WAYLAND 0)
+	#message(FATAL_ERROR "NOT found wayland!")
 endif()
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 set(_NBL_DEBUG 0)
@@ -159,10 +161,6 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-set(NABLA_HEADERS_PUBLIC
-	"${NBL_ROOT_PATH}/source/Nabla/os.h"
-	"${NBL_ROOT_PATH}/source/Nabla/CLogger.h" 
-)
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
@@ -171,28 +169,20 @@ set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
-
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
-# Core Memory
-	${NBL_ROOT_PATH}/src/nbl/core/memory/CLeakDebugger.cpp
 )
 set(NBL_SYSTEM_SOURCES
-# Junk to refactor
-	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
+# Junk to refactor
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CLogger.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
-	${NBL_ROOT_PATH}/source/Nabla/os.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -240,7 +230,7 @@ set(NBL_ASSET_SOURCES
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
+#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWLegacy.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp
@@ -365,7 +355,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 
 	# OpenCL
-	${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
+	# ${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
 )
 
 set(COMMON_INCLUDE_DIRS
@@ -379,19 +369,16 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-nbl_adjust_flags() # macro defined in root CMakeLists
-nbl_adjust_definitions() # macro defined in root CMakeLists
-
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
-	target_link_libraries(zlibstatic)
+	target_link_libraries(${_trgt} INTERFACE zlibstatic)
 
-	#target_link_libraries(${_trgt} INTERFACE
-	#	$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-	#	$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-	#	$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-	#)
+	target_link_libraries(${_trgt} INTERFACE
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
 
@@ -401,19 +388,13 @@ macro(nbl_target_include_parallel_hashmap _trgt)
 endmacro()
 
 macro(nbl_target_link_openssl _trgt)
-	if(WIN32)
+	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
 		target_link_libraries(${_trgt} INTERFACE
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
+			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		)
-	else()
-		target_link_libraries(${_trgt} INTERFACE
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
-		)
-	endif()
 
-	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
+		target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:OpenSSL,BINARY_DIR>/build/include")
+	endif()
 endmacro()
 macro(nbl_target_link_shaderc _trgt)
 	add_dependencies(${_trgt} shaderc)
@@ -492,12 +473,29 @@ add_library(Nabla STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
+nbl_adjust_flags() # macro defined in root CMakeLists
+nbl_adjust_definitions() # macro defined in root CMakeLists
+
+if (ANDROID)
+	add_library(android_native_app_glue STATIC
+    	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
+	)
+	target_link_libraries(Nabla PUBLIC 
+		android_native_app_glue
+		android
+		log
+	)
+	target_include_directories(Nabla PUBLIC
+    	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue
+	)
+endif()
+
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Nabla openssl_build)
-nbl_target_link_zlib(Nabla)
 nbl_target_link_openssl(Nabla)
+#nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg(Nabla)
 nbl_target_link_libpng(Nabla)
@@ -520,11 +518,14 @@ if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
-		$<$<CONFIG:DEBUG>:-lunwind>
 	)
+	if (NOT ANDROID)
+		target_link_libraries(Nabla INTERFACE $<$<CONFIG:DEBUG>:-lunwind>)
+	endif()
 endif()
 
 target_include_directories(Nabla PUBLIC 
+	${CMAKE_CURRENT_BINARY_DIR}/include
 	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
@@ -544,15 +545,24 @@ if (UNIX AND NOT ANDROID AND NOT APPLE)
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
-
 if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
 target_compile_definitions(Nabla 
-	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-	PUBLIC	UNW_LOCAL_ONLY # $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>
+	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PUBLIC UNW_LOCAL_ONLY
 )
+
+if(WIN32)
+	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
+endif()
+
+if (ANDROID)
+	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
+endif()
+
+glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)
@@ -562,7 +572,6 @@ endif()
 if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
-	
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
@@ -584,9 +593,27 @@ propagate_changed_variables_to_parent_scope()
 set(NABLA_HEADERS_TO_INSTALL 
 	${NABLA_HEADERS_PUBLIC}
 )
-nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
-nbl_install_config_header(BuildConfigOptions.h)
 
+set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
+	# Junk to refactor
+	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
+	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
+	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
+	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
+	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
+#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
+	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
+)
+
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
+nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
+nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
+nbl_install_config_header(BuildConfigOptions.h)
 
 macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
@@ -595,15 +622,18 @@ macro(nbl_install_lib _TRGT)
 endmacro()
 # Install main lib
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
-set_target_properties(Nabla PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
+set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 nbl_install_lib(Nabla)
 
 #install dependencies
+nbl_install_lib(egl)
 nbl_install_lib(glslang)
+nbl_install_lib(GenericCodeGen)
+nbl_install_lib(MachineIndependent)
+nbl_install_lib(HLSL)
 nbl_install_lib(jpeg)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_install_lib(Half)
-	nbl_install_lib(HLSL)
 	nbl_install_lib(Iex)
 	nbl_install_lib(IexMath)
 	nbl_install_lib(IlmImf)
@@ -611,16 +641,10 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_install_lib(Imath)
 endif()
 nbl_install_lib(png_static)
-if(WIN32)
+
+if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
 	install(FILES
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
-		DESTINATION lib
-	)
-else()
-	install(FILES
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
-			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
+			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		DESTINATION lib
 	)
 endif()

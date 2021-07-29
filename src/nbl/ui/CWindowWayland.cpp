@@ -14,6 +14,7 @@ namespace ui
     void CWindowWayland::registry_callback(void* data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version)
     {
         using data_t = std::pair<struct wl_compositor*, struct wl_shell*>;
+        
         data_t* d = reinterpret_cast<data_t*>(data);
         if (strcmp(interface, "wl_compositor") == 0) {
             d->first = reinterpret_cast<struct wl_compositor*>( wlcall.pwl_registry_bind(registry, id, ui::CWaylandInterfaces::wliface_wl_compositor_interface, 1) );

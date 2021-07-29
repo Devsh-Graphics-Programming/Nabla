@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/utils/IMeshManipulator.h"
@@ -103,8 +103,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     std::string fileContents;
     fileContents.resize(filesize);
 	char* const buf = fileContents.data();
-	system::ISystem::future_t<uint32_t> future;
-	System->readFile(future, _file, buf, 0, filesize);
+	system::future<size_t> future;
+	_file->read(future, buf, 0, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information

@@ -1,6 +1,10 @@
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLCommon.h"
 
+//#include "renderdoc_app.h"
+
+//extern RENDERDOC_API_1_1_2* g_rdoc_api;
+
 namespace nbl {
 namespace video
 {
@@ -88,6 +92,13 @@ namespace video
             {
                 auto& c = cmd.get<impl::ECT_UPDATE_BUFFER>();
                 pool->free_n<uint8_t>(reinterpret_cast<const uint8_t*>(c.data), c.dataSize);
+            }
+            break;
+            case impl::ECT_BEGIN_RENDERPASS:
+            {
+                auto& c = cmd.get<impl::ECT_BEGIN_RENDERPASS>();
+                if (c.renderpassBegin.clearValueCount > 0u)
+                    pool->free_n<asset::SClearValue>(c.renderpassBegin.clearValues, c.renderpassBegin.clearValueCount);
             }
             break;
             default: break; // other commands dont use cmd pool
@@ -465,6 +476,9 @@ namespace video
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDEXED>();
 
+                //if (g_rdoc_api)
+                //	g_rdoc_api->StartFrameCapture(NULL, NULL);
+
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
@@ -483,10 +497,15 @@ namespace video
 
                 if (idxType != GL_INVALID_ENUM)
                 {
-                    GLuint64 idxBufOffset = ctxlocal->currentState.vertexInputParams.vaoval.idxBinding.offset;
+                    const GLuint64 ixsz = idxType == GL_UNSIGNED_INT ? 4u : 2u;
+
+                    GLuint64 idxBufOffset = ctxlocal->currentState.vertexInputParams.vaoval.idxBinding.offset + ixsz*c.firstIndex;
                     static_assert(sizeof(idxBufOffset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, c.indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), c.instanceCount, c.firstIndex, c.firstInstance);
+                    gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, c.indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), c.instanceCount, c.vertexOffset, c.firstInstance);
                 }
+
+                //if (g_rdoc_api)
+                //	g_rdoc_api->EndFrameCapture(NULL, NULL);
             }
             break;
             case impl::ECT_DRAW_INDIRECT:

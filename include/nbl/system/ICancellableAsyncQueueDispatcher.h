@@ -62,12 +62,13 @@ namespace impl
                 cancel();
             }
 
-            bool ready() const 
+            // Misused these a couple times so i'll better put [[nodiscard]] here 
+            [[nodiscard]] bool ready() const 
             { 
                 request_base_t* req = request.load();
                 return !req || req->ready; 
             }
-            bool valid() const { return valid_flag.load(); }
+            [[nodiscard]] bool valid() const { return valid_flag.load(); }
 
             void wait()
             {

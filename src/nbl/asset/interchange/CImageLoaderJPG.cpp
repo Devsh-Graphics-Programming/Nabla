@@ -11,6 +11,7 @@
 
 #include "nbl/system/IFile.h"
 #include "os.h"
+
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
 
@@ -157,8 +158,8 @@ bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file) const
 
 	int32_t jfif = 0;
 	
-	system::ISystem::future_t<uint32_t> future;
-	m_system->readFile(future, _file, &jfif, 6, sizeof(uint32_t));
+	system::future<size_t> future;
+	_file->read(future, &jfif, 6, sizeof(uint32_t));
 	future.get();
 	return (jfif == 0x4a464946 || jfif == 0x4649464a || jfif == 0x66697845u || jfif == 0x70747468u); // maybe 0x4a464946 can go
 #endif
@@ -178,8 +179,8 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 
 	uint8_t* input = new uint8_t[_file->getSize()];
 
-	system::ISystem::future_t<uint32_t> future;
-	m_system->readFile(future, _file, input, 0, _file->getSize());
+	system::future<size_t> future;
+	_file->read(future, input, 0, _file->getSize());
 	future.get();
 
 	// allocate and initialize JPEG decompression object

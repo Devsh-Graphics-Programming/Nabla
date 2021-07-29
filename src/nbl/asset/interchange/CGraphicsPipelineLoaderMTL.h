@@ -39,7 +39,7 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
         };
 
 	public:
-        CGraphicsPipelineLoaderMTL(IAssetManager* _am);
+        CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys);
 
         void initialize() override;
 
@@ -64,6 +64,8 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
         using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
         image_views_set_t loadImages(const std::string& relDir, const SMtl& _mtl, SContext& _ctx);
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout, SContext& _ctx);
+    private:
+        core::smart_refctd_ptr<system::ISystem> m_system;
 
 };
 

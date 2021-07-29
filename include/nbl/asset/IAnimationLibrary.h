@@ -7,7 +7,7 @@
 
 #include "nbl/macros.h"
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/asset/utils/CQuantQuaternionCache.h"
 
 namespace nbl
@@ -47,7 +47,8 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 					const void* _pix[4] = {&quat,nullptr,nullptr,nullptr};
 					double out[4];
 					decodePixels<EF_R8G8B8A8_SNORM,double>(_pix,out,0u,0u);
-					return reinterpret_cast<const core::quaternion&>(core::normalize(core::vectorSIMDf(out[0],out[1],out[2],out[3])));
+					auto q = core::normalize(core::vectorSIMDf(out[0],out[1],out[2],out[3]));
+					return reinterpret_cast<const core::quaternion*>(&q)[0];
 				}
 
 				inline core::vectorSIMDf getScale() const

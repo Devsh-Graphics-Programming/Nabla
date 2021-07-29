@@ -8,7 +8,8 @@ namespace video
 
 COpenGLSync::~COpenGLSync()
 {
-    device->destroySync(sync);
+    if (sync)
+        device->destroySync(sync);
 }
 
 }

@@ -5,11 +5,16 @@
 #ifndef __NBL_ASSET_E_FORMAT_H_INCLUDED__
 #define __NBL_ASSET_E_FORMAT_H_INCLUDED__
 
+
+#include "BuildConfigOptions.h"
+
 #include <cstdint>
 #include <type_traits>
-#include "BuildConfigOptions.h"
+
 #include "vectorSIMD.h"
+
 #include "nbl/core/math/rational.h"
+#include "nbl/core/math/colorutil.h"
 
 namespace nbl
 {
@@ -272,7 +277,7 @@ namespace asset
     }
 
     template<E_FORMAT_CLASS _fclass>
-    constexpr const uint32_t getFormatClassBlockBytesize()
+    constexpr uint32_t getFormatClassBlockBytesize()
     {
         switch (_fclass)
         {
@@ -486,7 +491,7 @@ namespace asset
     }
 
     template<E_FORMAT _fmt>
-    constexpr const E_FORMAT_CLASS getFormatClass()
+    constexpr E_FORMAT_CLASS getFormatClass()
     {
         switch (_fmt)
         {
@@ -853,7 +858,7 @@ namespace asset
     }
 
     template<asset::E_FORMAT _fmt>
-    constexpr const uint32_t getTexelOrBlockBytesize()
+    constexpr uint32_t getTexelOrBlockBytesize()
     {
         switch (_fmt)
         {
@@ -1271,7 +1276,7 @@ namespace asset
     }
 
     template<E_FORMAT _fmt>
-    constexpr const uint32_t getFormatChannelCount()
+    constexpr uint32_t getFormatChannelCount()
     {
         switch (_fmt)
         {
@@ -1514,7 +1519,7 @@ namespace asset
     }
 
     template<asset::E_FORMAT _fmt>
-    constexpr const bool isDepthOrStencilFormat()
+    constexpr bool isDepthOrStencilFormat()
     {
         switch (_fmt)
         {
@@ -1563,7 +1568,7 @@ namespace asset
     }
 
     template<asset::E_FORMAT _fmt>
-    constexpr const bool isBGRALayoutFormat()
+    constexpr bool isBGRALayoutFormat()
     {
         switch (_fmt)
         {

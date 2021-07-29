@@ -4,31 +4,34 @@
 
 include(../cmake/common.cmake)
 
-
 # mandatory
-update_git_submodule(./SDL2)
-update_git_submodule(./volk)
-update_git_submodule(./SPIRV-Headers)
-update_git_submodule(./SPIRV-Tools)
-update_git_submodule(./glslang)
-update_git_submodule(./shaderc)
-update_git_submodule(./bzip2)
-update_git_submodule(./lz4)
-update_git_submodule(./spirv_cross)
-update_git_submodule(./zlib)
-update_git_submodule(./openexr)
-update_git_submodule(./utfcpp)
-update_git_submodule(./convertutf)
-update_git_submodule(./libpng)
-update_git_submodule(./openssl)
-update_git_submodule(./libjpeg-turbo)
-update_git_submodule(./libjpeg) # soon to be killed
-update_git_submodule(./parallel-hashmap)
-update_git_submodule(./gli)
-# exceptions that get automatically cloned
-update_git_submodule(./glm)
-update_git_submodule(./freetype2)
-update_git_submodule(./portable-file-dialogs)
+option(NBL_UPDATE_GIT_SUBMODULE "" ON)
+
+if(NBL_UPDATE_GIT_SUBMODULE)
+	update_git_submodule(./SDL2)
+	update_git_submodule(./volk)
+	update_git_submodule(./SPIRV-Headers)
+	update_git_submodule(./SPIRV-Tools)
+	update_git_submodule(./glslang)
+	update_git_submodule(./shaderc)
+	update_git_submodule(./bzip2)
+	update_git_submodule(./lz4)
+	update_git_submodule(./spirv_cross)
+	update_git_submodule(./zlib)
+	update_git_submodule(./openexr)
+	update_git_submodule(./utfcpp)
+	update_git_submodule(./convertutf)
+	update_git_submodule(./libpng)
+	update_git_submodule(./openssl)
+	update_git_submodule(./libjpeg-turbo)
+	update_git_submodule(./libjpeg) # soon to be killed
+	update_git_submodule(./parallel-hashmap)
+	update_git_submodule(./gli)
+	# exceptions that get automatically cloned
+	update_git_submodule(./glm)
+	update_git_submodule(./freetype2)
+	update_git_submodule(./portable-file-dialogs)
+endif()
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
@@ -98,12 +101,19 @@ else()
 	message(FATAL_ERROR "COULDNT FIND EGL!!")
 endif()]]
 # EGL
-set(EGL_NO_GLEW ON FORCE)
-#if (OpenGL_EGL_FOUND AND WAYLAND_CLIENT_FOUND AND UNIX AND NOT APPLE)
-#	set(EGL_PASSTHROUGH ON FORCE)
-#	set(EGL_USE_WAYLAND ON FORCE)
+set(EGL_NO_GLEW ON CACHE INTERNAL "" FORCE)
+#if (EGL_NO_GLEW)
+#	message(FATAL_ERROR "EGL_NO_GLEW")
+#else()
+#	message(FATAL_ERROR "NO EGL_NO_GLEW")
 #endif()
-set(EGL_USE_WAYLAND OFF FORCE)
+if (OpenGL_EGL_FOUND AND UNIX AND NOT APPLE)
+	set(EGL_PASSTHROUGH ON FORCE)
+	if (WAYLAND_CLIENT_FOUND)
+		set(EGL_USE_WAYLAND ON FORCE)
+		message(FATAL_ERROR "Using Wayland backend!!!")
+	endif()
+endif()
 add_subdirectory(EGL/EGL)
 
 # zlib (target is zlibstatic)
@@ -114,44 +124,51 @@ set(SKIP_INSTALL_ALL ON)
 add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
 #https://stackoverflow.com/questions/47175912/using-cmake-how-to-stop-the-debug-and-release-subdirectories
 set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>)
+set_target_properties(zlibstatic PROPERTIES DEBUG_POSTFIX "d")
 if (MSVC)
 	set(ZLIB_BINARY_DIR_DEBUG "${ZLIB_BINARY_DIR}")
 	set(ZLIB_BINARY_DIR_RELEASE "${ZLIB_BINARY_DIR}")
 	set(ZLIB_BINARY_DIR_RELWITHDEBINFO "${ZLIB_BINARY_DIR}")
 	get_target_property(ZLIB_NAME zlibstatic "NAME")
-	set(ZLIB_DEBUG_POSTFIX "d") # zlib's cmake is a zjeb
 else()
 	set(ZLIB_BINARY_DIR_DEBUG ${ZLIB_BINARY_DIR})
 	set(ZLIB_BINARY_DIR_RELEASE ${ZLIB_BINARY_DIR})
 	set(ZLIB_BINARY_DIR_RELWITHDEBINFO ${ZLIB_BINARY_DIR})
 	get_target_property(ZLIB_NAME zlibstatic "OUTPUT_NAME")
-	set(ZLIB_DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
 endif()
+
 get_target_property(ZLIB_DEBUG_POSTFIX zlibstatic "DEBUG_POSTFIX")
 set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE INTERNAL "" FORCE)
 set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR_DEBUG}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
 set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR_RELEASE}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
 set(ZLIB_LIBRARY_RELWITHDEBINFO "${ZLIB_BINARY_DIR_RELWITHDEBINFO}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
+set(ZLIB_LIBRARY # for PNGLIB purposes
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>	
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+CACHE INTERNAL "" FORCE)
 
-set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples")
+set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
+set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
 add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
-set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "Skip SPIRV-Tools install")
-set(SPIRV_SKIP_TESTS ON CACHE BOOL "Skip SPIRV-Tools tests")
-set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip SPIRV-Tools executable build")
+set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
+set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
+set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
 add_subdirectory(SPIRV-Tools SPIRV-Tools EXCLUDE_FROM_ALL)
-set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "Skip glslang install")
-set(ENABLE_SPVREMAPPER OFF CACHE BOOL "SPVRemapper is a spirv compression experimental library")
-set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Build glslangValidator and spirv-remap?")
-set(BUILD_TESTING OFF CACHE BOOL "Enable glslang build testing?")
+set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
+set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
+set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
+set(BUILD_TESTING OFF CACHE INTERNAL "Enable glslang build testing?")
 add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
 # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
 target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 
-set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?")
-set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?")
+set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Skip shaderc tests?")
+set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "Install shaderc?")
 
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 # https://github.com/google/shaderc/issues/568
@@ -169,12 +186,11 @@ option(BUILD_TESTS "jpeg" OFF)
 add_subdirectory(libjpeg libjpeg EXCLUDE_FROM_ALL)
 
 #manipulating libpng cmake options from within cmake script
-option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
-set(PNG_BUILD_ZLIB OFF)
+set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
-add_dependencies(png_static zlibstatic) #CMake doesn't get it itself
+add_dependencies(png_static zlibstatic)
 
 #openexr
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
@@ -285,7 +301,9 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
 if (NBL_BUILD_MITSUBA_LOADER)
-   update_git_submodule(./libexpat)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./libexpat)
+	endif()
 
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
@@ -308,10 +326,12 @@ if (NBL_BUILD_MITSUBA_LOADER)
 endif()
 
 if (NBL_BUILD_CEGUI)
-	update_git_submodule(./libexpat)
-	update_git_submodule(./CEGUI/pcre)
-	update_git_submodule(./CEGUI/glew)
-	update_git_submodule(./CEGUI/cegui)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./libexpat)
+		update_git_submodule(./CEGUI/pcre)
+		update_git_submodule(./CEGUI/glew)
+		update_git_submodule(./CEGUI/cegui)
+	endif()
 	add_subdirectory(CEGUI)
 	set(CEGUI_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include
@@ -435,7 +455,9 @@ if (NBL_BUILD_CEGUI)
 endif()
 
 if (NBL_BUILD_RADEON_RAYS)
-	update_git_submodule(./radeonrays)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./radeonrays)
+	endif()
 
 	option(RR_NO_TESTS "RADEON_RAYS: don't do tests" ON)
 	option(RR_ENABLE_STATIC "RADEON_RAYS: compile into a static library" ON)
@@ -457,7 +479,9 @@ if (NBL_BUILD_RADEON_RAYS)
 endif()
 
 if (NBL_BUILD_BULLET)
-	update_git_submodule(./bullet3)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./bullet3)
+	endif()
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
 	)
@@ -467,13 +491,16 @@ endif()
 
 
 if (NBL_COMPILE_WITH_CUDA)
-	update_git_submodule(./jitify)
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		update_git_submodule(./jitify)
+	endif()
 endif()
 
 set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
+				OpenSSL
 				spirv_cross
 				png_static
 				zlibstatic
@@ -490,15 +517,23 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools
 				SPIRV-Tools-opt
-				egl )
+				egl 
+)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
+	    IlmBaseConfig
+		IlmImfConfig
 		Imath
 		IlmThread
 		IlmImf
 		Half
 		Iex
 		IexMath
+	)
+endif()
+if (NBL_COMPILE_WITH_SDL2 )
+	list(APPEND NBL_3RDPARTY_TARGETS
+	    SDL2-static
 	)
 endif()
 #TODO insert more targets that are conditionally built
@@ -511,11 +546,13 @@ endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
+
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endforeach()
 
+set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
 # parallel hashmap headers
 install(

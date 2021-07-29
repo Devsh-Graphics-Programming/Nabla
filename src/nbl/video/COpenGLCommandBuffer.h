@@ -1,16 +1,16 @@
 #ifndef __NBL_C_OPENGL_COMMAND_BUFFER_H_INCLUDED__
 #define __NBL_C_OPENGL_COMMAND_BUFFER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+
 #include <variant>
 #include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/core/Types.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -207,7 +207,7 @@ namespace impl
     {
         uint32_t first;
         uint32_t count;
-        core::smart_refctd_ptr<IGPUBuffer> buffers[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        core::smart_refctd_ptr<const IGPUBuffer> buffers[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
         size_t offsets[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_SCISSORS)
@@ -735,7 +735,7 @@ public:
         return true;
     }
 
-    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, buffer_t** pBuffers, const size_t* pOffsets) override
+    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t** pBuffers, const size_t* pOffsets) override
     {
         for (uint32_t i = 0u; i < bindingCount; ++i)
             if (!this->isCompatibleDevicewise(pBuffers[i]))
@@ -745,8 +745,8 @@ public:
         cmd.count = bindingCount;
         for (uint32_t i = 0u; i < cmd.count; ++i)
         {
-            buffer_t* b = pBuffers[i];
-            cmd.buffers[i] = core::smart_refctd_ptr<buffer_t>(b);
+            const buffer_t* b = pBuffers[i];
+            cmd.buffers[i] = core::smart_refctd_ptr<const buffer_t>(b);
             cmd.offsets[i] = pOffsets[i];
         }
         pushCommand(std::move(cmd));
@@ -891,6 +891,12 @@ public:
             return false;
         SCmd<impl::ECT_BEGIN_RENDERPASS> cmd;
         cmd.renderpassBegin = pRenderPassBegin[0];
+        if (cmd.renderpassBegin.clearValueCount > 0u)
+        {
+            auto* clearVals = getGLCommandPool()->emplace_n<asset::SClearValue>(cmd.renderpassBegin.clearValueCount, cmd.renderpassBegin.clearValues[0]);
+            memcpy(clearVals, pRenderPassBegin->clearValues, cmd.renderpassBegin.clearValueCount*sizeof(asset::SClearValue));
+            cmd.renderpassBegin.clearValues = clearVals;
+        }
         cmd.content = content;
         pushCommand(std::move(cmd));
         return true;
@@ -1087,7 +1093,6 @@ public:
     }
 };
 
-}
 }
 
 #endif

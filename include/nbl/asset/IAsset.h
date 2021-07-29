@@ -5,12 +5,11 @@
 #ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/decl/smart_refctd_ptr.h"
+
 #include <string>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IAssetManager;
@@ -290,7 +289,6 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
 };
 
-}
 }
 
 #endif

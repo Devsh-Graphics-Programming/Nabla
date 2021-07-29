@@ -8,7 +8,7 @@
 #include <nabla.h>
 #include <nbl/ui/CWindowManagerWin32.h>
 #include <nbl/system/ISystem.h>
-#include <CLogger.h>
+#include "../common/CommonAPI.h"
 using namespace nbl;
 using namespace core;
 using namespace ui;
@@ -82,7 +82,7 @@ class DemoEventCallback : public IWindow::IEventCallback
 
 int main()
 {
-	auto system = ISystem::create();
+	auto system = CommonAPI::createSystem();
 	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system));
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
 	
@@ -103,13 +103,13 @@ int main()
 	auto file = future.get();
 	std::string fileData = "Test file data!";
 
-	system::ISystem::future_t<uint32_t> writeFuture;
-	system->writeFile(writeFuture, file.get(), fileData.data(), 0, fileData.length());
+	system::future<size_t> writeFuture;
+	file->write(writeFuture, fileData.data(), 0, fileData.length());
 	assert(writeFuture.get() == fileData.length());
 
 	std::string readStr(fileData.length(), '\0');
-	system::ISystem::future_t<uint32_t> readFuture;
-	system->readFile(readFuture, file.get(), readStr.data(), 0, readStr.length());
+	system::future<size_t> readFuture;
+	file->read(readFuture, readStr.data(), 0, readStr.length());
 	assert(readFuture.get() == fileData.length());
 
 	while (true)

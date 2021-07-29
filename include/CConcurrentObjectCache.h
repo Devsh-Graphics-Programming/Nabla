@@ -131,7 +131,7 @@ namespace impl
         {
             auto lk = lock_read();
             const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
-            return true;
+            return r;
         }
 
         inline bool changeObjectKey(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key, const typename BaseCache::KeyType_impl& _newKey)

@@ -32,8 +32,9 @@ class CGLSLLoader final : public asset::IAssetLoader
 			size_t readPos = 0;
 			while (readPos+sizeof(tmp)<filesize)
 			{
-				system::ISystem::future_t<uint32_t> future;
-				m_system->readFile(future, _file, tmp, 0, sizeof(tmp));
+				system::future<size_t> future;
+				_file->read(future, tmp, 0, sizeof tmp);
+				future.get();
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
 

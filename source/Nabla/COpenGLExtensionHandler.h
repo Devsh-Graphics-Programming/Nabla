@@ -21,7 +21,7 @@
     #include "../src/3rdparty/GL/glxext.h"
 #endif
 
-#include "os.h"
+#include "nbl_os.h"
 #include "nbl/video/IGPUImageView.h"
 
 

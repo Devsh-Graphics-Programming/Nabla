@@ -5,8 +5,7 @@
 #include <thread>
 #include <mutex> // for std::adopt_lock_t
 
-namespace nbl {
-namespace system
+namespace nbl::system
 {
 
 namespace impl
@@ -36,7 +35,7 @@ class SReadWriteSpinLock : protected impl::SReadWriteSpinLockBase
     {
         uint32_t expected = _expected;
         uint32_t i = 0u;
-        while (!m_lock.compare_exchange_strong(expected, LockWriteVal, rmw_order))
+        while (!m_lock.compare_exchange_strong(expected, impl::SReadWriteSpinLockBase::LockWriteVal, rmw_order))
         {
             expected = _expected;
             if (i++ >= SpinsBeforeYield)
@@ -142,7 +141,7 @@ public:
 
 template <std::memory_order LoadOrder, std::memory_order ReadModWriteOrder>
 inline read_lock_guard<LoadOrder, ReadModWriteOrder>::read_lock_guard(write_lock_guard<LoadOrder, ReadModWriteOrder>&& wl) : impl::rw_lock_guard_base(std::move(wl))
-{
+{=
     m_lock->m_lock.fetch_sub(LockWriteVal - 1u, ReadModWriteOrder);
 }
 
@@ -152,7 +151,6 @@ inline write_lock_guard<LoadOrder, ReadModWriteOrder>::write_lock_guard(read_loc
     m_lock->lock_write_impl(1u, ReadModWriteOrder);
 }
 
-}
 }
 
 #endif

@@ -14,9 +14,7 @@
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/bawformat/blobs/RawBufferBlob.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! One of CPU class-object representing an Asset
@@ -78,7 +76,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
 
         //! Returns size in bytes.
-        virtual const uint64_t& getSize() const {return size;}
+        virtual const uint64_t& getSize() const override {return size;}
 
 		//! Returns pointer to data.
         /** WARNING: RESIZE will invalidate pointer.
@@ -180,7 +178,6 @@ class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBu
 		}
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

@@ -9,7 +9,7 @@
 
 #include "CNullDriver.h"
 
-#include "os.h"
+#include "nbl_os.h"
 
 // to close the device on terminate signal
 nbl::CIrrDeviceConsole *DeviceToClose;

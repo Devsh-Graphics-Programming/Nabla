@@ -8,7 +8,7 @@
 #include <array>
 #include <functional>
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "vector3d.h"
 #include "aabbox3d.h"
 

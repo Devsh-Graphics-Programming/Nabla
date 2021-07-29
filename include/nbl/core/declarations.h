@@ -2,14 +2,21 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_CORE_H_INCLUDED__
-#define __NBL_CORE_H_INCLUDED__
+#ifndef __NBL_CORE_DECLARATIONS_H_INCLUDED__
+#define __NBL_CORE_DECLARATIONS_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 
 //overarching includes (compiler tricks mostly)
 #include "nbl/macros.h"
 #include "nbl/type_traits.h"
+
+#include "nbl/core/decl/smart_refctd_ptr.h"
+#include "nbl/core/decl/BaseClasses.h"
+#include "nbl/core/decl/Types.h"
+
+// TODO: split the rest into declarations and definitions
+#include "CConcurrentObjectCache.h"
 // allocator
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
@@ -39,15 +46,12 @@
 #include "nbl/core/containers/LRUCache.h"
 // math
 #include "nbl/core/math/intutil.h"
-#include "nbl/core/math/floatutil.tcc"
 #include "nbl/core/math/colorutil.h"
-#include "nbl/core/math/glslFunctions.tcc"
 #include "nbl/core/math/rational.h"
 #include "nbl/core/math/plane3dSIMD.h"
 // memory
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/memory/new_delete.h"
-#include "nbl/core/memory/CLeakDebugger.h"
 // samplers
 #include "nbl/core/sampling/RandomSampler.h"
 #include "nbl/core/sampling/SobolSampler.h"
@@ -59,17 +63,11 @@
 #include "nbl/core/string/stringutil.h"
 #include "nbl/core/string/UniqueStringLiteralType.h"
 // other useful things
-#include "nbl/core/BaseClasses.h"
 #include "nbl/core/SingleEventHandler.h"
 #include "nbl/core/EventDeferredHandler.h"
 #include "nbl/core/IBuffer.h"
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/SRAIIBasedExiter.h"
 #include "nbl/core/SRange.h"
-#include "nbl/core/Types.h"
-
-// implementations
-#include "matrix3x4SIMD_impl.h"
-#include "matrix4SIMD_impl.h"
 
 #endif

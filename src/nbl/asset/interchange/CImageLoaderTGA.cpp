@@ -9,6 +9,7 @@
 
 #include "nbl/system/IFile.h"
 #include "os.h"
+
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImage.h"
 
@@ -58,15 +59,17 @@ void CImageLoaderTGA::loadCompressedImage(system::IFile *file, const STGAHeader&
 	{
 		uint8_t chunkheader = 0;
 		{
-			system::ISystem::future_t<uint32_t> future;
-			m_system->readFile(future, file, &chunkheader, 0, sizeof(uint8_t)); // Read The Chunk's Header
+			system::future<size_t> future;
+			file->read(future, &chunkheader, 0, sizeof(uint8_t)); // Read The Chunk's Header
+			future.get();
 		}
 		if(chunkheader < 128) // If The Chunk Is A 'RAW' Chunk
 		{
 			chunkheader++; // Add 1 To The Value To Get Total Number Of Raw Pixels
 
-			system::ISystem::future_t<uint32_t> future;
-			m_system->readFile(future, file, &data[currentByte], 0, bytesPerPixel * chunkheader);
+			system::future<size_t> future;
+			file->read(future, &data[currentByte], 0, bytesPerPixel * chunkheader);
+			future.get();
 			currentByte += bytesPerPixel * chunkheader;
 		}
 		else
@@ -77,9 +80,9 @@ void CImageLoaderTGA::loadCompressedImage(system::IFile *file, const STGAHeader&
 			chunkheader -= 127; // Subtract 127 To Get Rid Of The ID Bit
 
 			int32_t dataOffset = currentByte;
-			system::ISystem::future_t<uint32_t> future;
-			m_system->readFile(future, file, &data[currentByte], 0, bytesPerPixel);
-
+			system::future<size_t> future;
+			file->read(future, &data[currentByte], 0, bytesPerPixel);
+			future.get();
 			currentByte += bytesPerPixel;
 
 			for(int32_t counter = 1; counter < chunkheader; counter++)
@@ -102,8 +105,8 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 	STGAFooter footer;
 	memset(&footer, 0, sizeof(STGAFooter));
 	{
-		system::ISystem::future_t<uint32_t> future;
-		m_system->readFile(future, _file, &footer, _file->getSize() - sizeof(STGAFooter), sizeof(STGAFooter));
+		system::future<size_t> future;
+		_file->read(future, &footer, _file->getSize() - sizeof(STGAFooter), sizeof(STGAFooter));
 	}
 	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
 	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
@@ -123,8 +126,9 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file) const
 	{
 		STGAExtensionArea extension;
 		{
-			system::ISystem::future_t<uint32_t> future;
-			m_system->readFile(future, _file, &extension, footer.ExtensionOffset, sizeof(STGAExtensionArea));
+			system::future<size_t> future;
+			_file->read(future, &extension, footer.ExtensionOffset, sizeof(STGAExtensionArea));
+			future.get();
 		}
 		gamma = extension.Gamma;
 		
@@ -229,9 +233,9 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
-	system::ISystem::future_t<uint32_t> headerFuture;
-	m_system->readFile(headerFuture, _file, &header, 0, sizeof header);
-	headerFuture.get();
+	system::future<size_t> future;
+	_file->read(future, &header, 0, sizeof header);
+	future.get();
 
 
 	core::smart_refctd_ptr<ICPUBuffer> colorMap; // not used, but it's texel buffer may be useful in future
@@ -245,9 +249,9 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	{
 		auto colorMapEntryByteSize = header.ColorMapEntrySize / 8 * header.ColorMapLength;
 		auto colorMapEntryBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(colorMapEntryByteSize);
-		system::ISystem::future_t<uint32_t> colfut;
-		m_system->readFile(colfut, _file, colorMapEntryBuffer->getPointer(), offset, header.ColorMapEntrySize / 8 * header.ColorMapLength);
-		colfut.get();
+		system::future<size_t> future;
+		_file->read(future, colorMapEntryBuffer->getPointer(), offset, header.ColorMapEntrySize / 8 * header.ColorMapLength);
+		future.get();
 		offset += header.ColorMapEntrySize / 8 * header.ColorMapLength;
 		
 		switch ( header.ColorMapEntrySize ) // convert to 32-bit color map since input is dependend to header.ColorMapEntrySize, so it may be 8, 16, 24 or 32 bits per entity
@@ -306,8 +310,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
 			const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * bytesPerTexel;
 			texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(imageSize);
-			system::ISystem::future_t<uint32_t> texelfut;
-			m_system->readFile(texelfut, _file, texelBuffer->getPointer(), offset, imageSize);
+			system::future<size_t> texelfut;
+			_file->read(texelfut, texelBuffer->getPointer(), offset, imageSize);
 			texelfut.get();
 			offset += imageSize;
 		}

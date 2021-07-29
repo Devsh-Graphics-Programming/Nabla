@@ -1,8 +1,8 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
-# For conditions of distribution and use, see copyright notice in nabla.h
+# For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 #policies
 cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
 set(OpenGL_GL_PREFERENCE LEGACY)
@@ -10,13 +10,103 @@ set(OpenGL_GL_PREFERENCE LEGACY)
 
 option(NBL_BUILD_ANDROID "Build for Android?" OFF)
 
-if(NBL_BUILD_ANDROID)
-    if(NOT DEFINED ENV{JAVA_HOME})
-        message(FATAL_ERROR "JAVA_HOME environment variable must be defined for Android build")
-    endif()
-    message(STATUS "Using JAVA_HOME = $ENV{JAVA_HOME}")
+if(DEFINED CMAKE_TOOLCHAIN_FILE) # TODO - validate paths due to CMake path-policy (errors when no path passed in)
+	cmake_path(GET CMAKE_TOOLCHAIN_FILE FILENAME _NBL_CMAKE_TOOLCHAIN_FILENAME_)
 
-    execute_process(COMMAND $ENV{JAVA_HOME}/bin/java -version
+	if(${_NBL_CMAKE_TOOLCHAIN_FILENAME_} STREQUAL "android.toolchain.cmake")
+		message(STATUS "Found Android toolchain! Validating...")
+		
+		set(_NBL_SUPPORTED_NDK_ "android-ndk-r22b") # supported NDK version
+		set(_NBL_SUPPORTED_ABI_ "x86_64")			# supported ABI
+		
+		# quering ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/${_NBL_SUPPORTED_NDK_}/build/cmake/android.toolchain.cmake
+		cmake_path(GET CMAKE_TOOLCHAIN_FILE PARENT_PATH _NBL_TOOLCHAIN_NDK_CMAKE_DIRECTORY_)
+		cmake_path(GET _NBL_TOOLCHAIN_NDK_CMAKE_DIRECTORY_ PARENT_PATH _NBL_TOOLCHAIN_NDK_BUILD_DIRECTORY_)
+		cmake_path(GET _NBL_TOOLCHAIN_NDK_BUILD_DIRECTORY_ PARENT_PATH _NBL_TOOLCHAIN_NDK_ROOT_DIRECTORY_)
+		cmake_path(GET _NBL_TOOLCHAIN_NDK_ROOT_DIRECTORY_ PARENT_PATH _NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_)
+		
+		string(LENGTH ${CMAKE_TOOLCHAIN_FILE} _NBL_CMAKE_TOOLCHAIN_FILE_LENGTH_)
+		string(LENGTH ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_} _NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_LENGTH_)
+		math(EXPR _NBL_PARENT_NDK_TO_TOOLCHAIN_FILE_LENGTH_ "${_NBL_CMAKE_TOOLCHAIN_FILE_LENGTH_} - ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_LENGTH_}" OUTPUT_FORMAT DECIMAL)
+		string(SUBSTRING ${CMAKE_TOOLCHAIN_FILE} ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_LENGTH_} ${_NBL_PARENT_NDK_TO_TOOLCHAIN_FILE_LENGTH_} _NBL_PARENT_NDK_TO_TOOLCHAIN_FILEPATH_)
+		
+		if(${_NBL_PARENT_NDK_TO_TOOLCHAIN_FILEPATH_} STREQUAL "/${_NBL_SUPPORTED_NDK_}/build/cmake/android.toolchain.cmake")
+			message(STATUS "Found Android NDK '${_NBL_SUPPORTED_NDK_}' is appropriate!")
+		else()
+			message(FATAL_ERROR "Found Android NDK version isn't appropriate. Use '${_NBL_SUPPORTED_NDK_}'!")
+		endif()
+		
+		if(EXISTS "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/build-tools")
+			if(DEFINED ANDROID_ABI)
+				if(${ANDROID_ABI} STREQUAL ${_NBL_SUPPORTED_ABI_})
+					message(STATUS "Supported '${_NBL_SUPPORTED_ABI_}' ABI!")
+				
+				else()
+					message(FATAL_ERROR "Found '${ANDROID_ABI}' isn't appropriate. Use '${_NBL_SUPPORTED_ABI_}'!")
+				endif()
+			else()
+				message(STATUS "Could not find 'ANDROID_ABI', using supported ABI: '${_NBL_SUPPORTED_ABI_}'")
+				set(ANDROID_ABI ${_NBL_SUPPORTED_ABI_} CACHE INTERNAL "" FORCE)
+			endif()
+		
+			message(STATUS "'${_NBL_SUPPORTED_NDK_}' located in Android SDK path. Building Nabla with Android toolchain!")
+		
+			set(ANDROID_SDK_ROOT_PATH "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}")
+			set(ANDROID_NDK_ROOT_PATH ${ANDROID_SDK_ROOT_PATH}/${_NBL_SUPPORTED_NDK_})
+				
+			set(NBL_BUILD_ANDROID ON)
+			set(_NBL_ANDROID_VALIDATED_ ON)
+		else()
+			message(FATAL_ERROR "${_NBL_SUPPORTED_NDK_} must be placed in Android SDK path!")
+		endif()
+	endif()
+	
+	# TODO - another toolchains in future
+
+endif()
+
+if(NBL_BUILD_ANDROID)
+	if(NOT DEFINED _NBL_ANDROID_VALIDATED_)
+		message(FATAL_ERROR "Android toolchain hasn't been validated properly. Pass an appropriate path to CMAKE_TOOLCHAIN_FILE!")
+	endif()
+
+	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Ninja")
+		message(FATAL_ERROR "Only Ninja Generator is supported for Android Build!")
+	endif()
+	
+	if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux")
+		message(STATUS "Using Linux as a host OS for Android cross-compiling!")
+	elseif("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
+		message(STATUS "Using Windows as a host OS for Android cross-compiling!")
+	else()
+		message(FATAL_ERROR "Current host OS for Android cross-compiling isn't allowed!")
+	endif()
+	
+	# TODO - remove those bellow in future
+	set(NBL_COMPILE_WITH_SDL2 OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 			# TODO - compile/linker errors
+	set(_NBL_COMPILE_WITH_OPEN_EXR_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - check it out
+	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
+	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
+	set(_NBL_COMPILE_WITH_OBJ_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 	# TODO - references BAW files, linker errors
+	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
+	set(NBL_BUILD_EXAMPLES OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)				# TODO - check it out
+	
+	find_package(Java 1.8)
+	
+	if(DEFINED Java_JAVA_EXECUTABLE)
+		message(STATUS "Found Java executable!")
+	else()
+		message(FATAL_ERROR "Could not find java executable for Android build!")
+	endif()
+	
+	string(LENGTH ${Java_JAVA_EXECUTABLE} Java_JAVA_EXECUTABLE_LENGTH)
+	set(Java_JAVA_EXE_BIN_LENGTH 13)
+	math(EXPR JAVA_HOME_LENGTH "${Java_JAVA_EXECUTABLE_LENGTH} - ${Java_JAVA_EXE_BIN_LENGTH}" OUTPUT_FORMAT DECIMAL)
+	string(SUBSTRING ${Java_JAVA_EXECUTABLE} 0 ${JAVA_HOME_LENGTH} JAVA_HOME)
+
+    message(STATUS "Using JAVA_HOME = ${JAVA_HOME}")
+
+    execute_process(COMMAND ${JAVA_HOME}/bin/java -version
         RESULT_VARIABLE _result
         OUTPUT_VARIABLE _output
         ERROR_VARIABLE _output
@@ -29,43 +119,17 @@ if(NBL_BUILD_ANDROID)
         message(STATUS "Java in JAVA_HOME is unknown version ${_output} ${_result}")
     endif()
 
-    if(DEFINED ENV{ANDROID_HOME} AND EXISTS "$ENV{ANDROID_HOME}/build-tools")
-        set(ANDROID_SDK_ROOT_PATH "$ENV{ANDROID_HOME}")
-    elseif(DEFINED ENV{ANDROID_SDK_ROOT} AND EXISTS "$ENV{ANDROID_SDK_ROOT}/build-tools")
-        set(ANDROID_SDK_ROOT_PATH "$ENV{ANDROID_SDK_ROOT}")
-    elseif(DEFINED ENV{ANDROID_SDK} AND EXISTS "$ENV{ANDROID_SDK}/build-tools")
-        set(ANDROID_SDK_ROOT_PATH "$ENV{ANDROID_SDK}")
-    else()
-        message(FATAL_ERROR "Can't locate Android SDK, set ANDROID_HOME, ANDROID_SDK_ROOT or ANDROID_SDK")
-    endif()
-
-    message(STATUS "Using Android SDK found in ${ANDROID_SDK_ROOT_PATH}")
-
-    if(DEFINED ENV{ANDROID_NDK_HOME} AND EXISTS "$ENV{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake")
-        set(ANDROID_NDK_ROOT_PATH "$ENV{ANDROID_NDK_HOME}")
-    elseif(DEFINED ENV{ANDROID_NDK_ROOT} AND EXISTS "$ENV{ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake")
-        set(ANDROID_NDK_ROOT_PATH "$ENV{ANDROID_NDK_ROOT}")
-    elseif(DEFINED ENV{NDK_HOME} AND EXISTS "$ENV{NDK_HOME}/build/cmake/android.toolchain.cmake")
-        set(ANDROID_NDK_ROOT_PATH "$ENV{NDK_HOME}")
-    elseif(DEFINED ENV{ANDROID_NDK} AND EXISTS "$ENV{ANDROID_NDK}/build/cmake/android.toolchain.cmake")
-        set(ANDROID_NDK_ROOT_PATH "$ENV{ANDROID_NDK}")
-    else()
-        message(FATAL_ERROR "Can't locate Android NDK, set ANDROID_NDK_HOME, ANDROID_NDK_ROOT, NDK_HOME or ANDROID_NDK")
-    endif()
-
-    message(STATUS "Using Android NDK found in ${ANDROID_NDK_ROOT_PATH}")
-
-    set(CMAKE_TOOLCHAIN_FILE
-        "${ANDROID_NDK_ROOT_PATH}/build/cmake/android.toolchain.cmake"
-        CACHE STRING
-        "The Android toolchain file")
-
     #option(STRIP_ANDROID_LIBRARY "Strip the resulting android library" OFF)
 
-    # Set default API level to 21 if not configured explicitly
     if(NOT ANDROID_PLATFORM)
         set(ANDROID_PLATFORM "android-25")
     endif()
+	string(SUBSTRING
+		"${ANDROID_PLATFORM}"
+		8  # length of "android-"
+		-1 # take remainder
+		ANDROID_API_LEVEL
+	)
     
     # default to libc++_static as the other options can cause crashes
     if(NOT ANDROID_STL)
@@ -73,11 +137,60 @@ if(NBL_BUILD_ANDROID)
     endif()
 
     # Choose clang if the NDK has both gcc and clang, since gcc sometimes fails
+	# iirc api levels > 21 have only clang available
     set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION "clang")
 
-    # Default to arm32 if nothing is specified on the command line.
-    # Options are {armeabi-v7a,arm64-v8a}
-    set(ANDROID_ABI "x86_64" CACHE STRING "The Android ABI to build for")
+	#
+	# android-specific utils and build tools
+	#
+    set(ANDROID_BUILD_TOOLS_VERSION "" CACHE STRING "Version of Android build-tools to use instead of the default")
+	# take most recent version of build tools, if not set explicitely
+    if(ANDROID_BUILD_TOOLS_VERSION STREQUAL "")
+        file(GLOB __buildTools RELATIVE "${ANDROID_SDK_ROOT_PATH}/build-tools" "${ANDROID_SDK_ROOT_PATH}/build-tools/*")
+        list(SORT __buildTools)
+
+        list(GET __buildTools -1 ANDROID_BUILD_TOOLS_VERSION)
+
+        unset(__buildTools)
+    endif()
+	set(ANDROID_BUILD_TOOLS "${ANDROID_SDK_ROOT_PATH}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+	set(ANDROID_JAVA_BIN "${JAVA_HOME}/bin")
+	set(ANDROID_JAVA_RT_JAR "${JAVA_HOME}/jre/lib/rt.jar")
+
+	set(ANDROID_APK_TARGET_ID "" CACHE STRING "The Target ID to build the APK for like 'android-99', use <android list targets> to choose another one.")
+    if(ANDROID_APK_TARGET_ID STREQUAL "")
+        # This seems different from the platform we're targetting,
+        # default to the latest available that's greater or equal to our target platform
+        file(GLOB __platforms RELATIVE "${ANDROID_SDK_ROOT_PATH}/platforms" "${ANDROID_SDK_ROOT_PATH}/platforms/*")
+        list(SORT __platforms)
+
+        # In case we don't find one, target the latest platform
+        list(GET __platforms -1 ANDROID_APK_TARGET_ID)
+
+        string(REPLACE "android-" "" __targetPlat "${ANDROID_PLATFORM}")
+
+		# TODO we might want to adjust min version in the future
+        # We require at least android 23 for Activity.requestPermissions
+        if(__targetPlat LESS 23)
+            set(__targetPlat 23)
+        endif()
+
+        foreach( __plat ${__platforms})
+            string(REPLACE "android-" "" __curPlat "${__plat}")
+
+            if(NOT (__curPlat LESS __targetPlat) )
+                set(ANDROID_APK_TARGET_ID "android-${__curPlat}")
+                break()
+            endif()
+        endforeach()
+
+        unset(__platforms)
+        unset(__targetPlat)
+        unset(__curPlat)
+    endif()
+
+    message(STATUS "Using android.jar from platform ${ANDROID_APK_TARGET_ID}")
+	set(ANDROID_JAR "${ANDROID_SDK_ROOT_PATH}/platforms/${ANDROID_APK_TARGET_ID}/android.jar")
 endif()
 
 project(Nabla LANGUAGES CXX C)
@@ -109,18 +222,20 @@ else()
 	endif()
 endif()
 
-#
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
   option(USE_CCACHE "Some dependency is using it, but I just don't know which!" ON)
 else(CCACHE_FOUND)
   option(USE_CCACHE "Some dependency is using it, but I just don't know which!" OFF)
 endif(CCACHE_FOUND)
+if(USE_CCACHE)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(USE_CCACHE)
 
 # global IDE stuff for examples
 set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
@@ -155,17 +270,12 @@ macro(nbl_adjust_flags)
 	option(NBL_GCC_SANITIZE_THREAD OFF) # @Anastazluk did MSVC finally include the thread sanitizer?
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		
-		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-			add_compile_options("$<$<CONFIG:DEBUG>:-g>")
-		endif()
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
 			-fno-strict-aliasing
 			-msse4.2
 			-mfpmath=sse
-			-fuse-ld=gold
 			
 			-Wextra
 			-Wno-sequence-point
@@ -173,25 +283,48 @@ macro(nbl_adjust_flags)
 			-Wno-error=unused-function
 			-Wno-error=unused-variable
 			-Wno-error=unused-parameter
+
+			$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 			
-			#"$<$<CONFIG:DEBUG>:-g>" # same as with -O3 below
-			"$<$<CONFIG:DEBUG>:-Wall>"
-			"$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>"
-			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
+			$<$<CONFIG:DEBUG>:-Wall>
+			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
+			$<$<CONFIG:DEBUG>:-fstack-protector-strong>
 		)
+		
+		if(ANDROID)
+			add_compile_options(
+				$<$<CONFIG:DEBUG>:-glldb>
+			)
+			
+			function(NBL_INSERT_ANDROID_FLAGS _NBL_CMAKE_FLAGS_VARIABLE_NAME_)
+				string(FIND "${${_NBL_CMAKE_FLAGS_VARIABLE_NAME_}}" "-g -glldb" CHECK)
+				if(${CHECK} EQUAL -1)
+					set(${_NBL_CMAKE_FLAGS_VARIABLE_NAME_} "${${_NBL_CMAKE_FLAGS_VARIABLE_NAME_}} -g -glldb" CACHE STRING "" FORCE)
+				endif()
+			endfunction()
+			
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_ASM_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_CXX_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_C_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_EXE_LINKER_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_MODULE_LINKER_FLAGS_DEBUG)
+			NBL_INSERT_ANDROID_FLAGS(CMAKE_SHARED_LINKER_FLAGS_DEBUG)
+		else()
+			add_compile_options(
+				$<$<CONFIG:DEBUG>:-ggdb3>
+			)
+		endif()
+
+		if (NOT NBL_BUILD_CEGUI)
+			add_compile_options(-fno-exceptions)
+		endif()
+
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-			if (NOT NBL_BUILD_CEGUI)
-				add_compile_options(-fno-exceptions)
-			endif()
 
 			add_compile_options(
 			-Wno-unused-but-set-parameter	
-			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
+			$<$<CONFIG:RELEASE>:-fexpensive-optimizations>
 			)
-		else()
-			add_compile_options( 
-				"$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>"
-			)	
 		endif()
 		if (NBL_SANITIZE_ADDRESS)
 			add_compile_options(-fsanitize=address) 
@@ -203,12 +336,16 @@ macro(nbl_adjust_flags)
 			add_compile_options(-Wno-error=ignored-attributes)
 		endif()
 		
-		link_libraries(
-			-fuse-ld=gold
-		)
+		# https://github.com/android/ndk/issues/1426
+		if (NOT ANDROID)
+			link_libraries(
+				-fuse-ld=gold
+			)
+		endif()
+
 		if(FAST_MATH)
 			add_compile_options(
-				"$<$<CONFIG:RELEASE>:-ffast-math>"
+				$<$<CONFIG:RELEASE>:-ffast-math>
 			)
 		endif()
 
@@ -246,20 +383,26 @@ macro(nbl_adjust_flags)
 endmacro()
 
 macro(nbl_adjust_definitions)
-	add_definitions(
-		-DPNG_THREAD_UNSAFE_OK
-		-DPNG_NO_MMX_CODE
-		-DPNG_NO_MNG_FEATURES
-		-D_7ZIP_ST
-		-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	add_compile_definitions(
+		PNG_THREAD_UNSAFE_OK
+		PNG_NO_MMX_CODE
+		PNG_NO_MNG_FEATURES
+		_7ZIP_ST
+		SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	)
+	
+	if(ANDROID)
+		add_compile_definitions(
+			NBL_ANDROID_TOOLCHAIN
+		)
+	endif()
 
 	if(WIN32)
-		add_definitions(
-			-DWIN32
-			-D__GNUWIN32__
-			-D_CRT_SECURE_NO_DEPRECATE
-			-DNOMINMAX
+		add_compile_definitions(
+			WIN32
+			__GNUWIN32__
+			_CRT_SECURE_NO_DEPRECATE
+			NOMINMAX
 		)
 	endif()
 endmacro()
@@ -320,13 +463,14 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
-
 add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
-
-
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
+endif()
+
+if(ANDROID)
+add_subdirectory(android-sample EXCLUDE_FROM_ALL)
 endif()
 
 if(NBL_BUILD_EXAMPLES)
@@ -336,3 +480,5 @@ endif()
 if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
+
+export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)

@@ -35,7 +35,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 			#if defined(_NBL_WINDOWS_API_)
 				std::string libname(name);
 				libname += ".dll";
-				lib = LoadLibrary(libname.c_str());
+				lib = LoadLibraryA(libname.c_str());
 			#elif defined(_NBL_POSIX_API_)
 				std::string libname("lib");
 				libname += name;

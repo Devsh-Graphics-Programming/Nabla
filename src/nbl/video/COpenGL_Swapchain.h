@@ -138,8 +138,9 @@ private:
             _egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
             const EGLint surface_attributes[] = {
-                EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SRGB,
                 EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
+                // EGL_GL_COLORSPACE is supported only for EGL 1.5 and later
+                _egl->version.minor>=5 ? EGL_GL_COLORSPACE : EGL_NONE, EGL_GL_COLORSPACE_SRGB,
 
                 EGL_NONE
             };
@@ -206,9 +207,13 @@ private:
                 auto& img = images.begin()[i];
 
                 GLuint glimg = static_cast<COpenGLImage*>(img.get())->getOpenGLName();
-                gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg, 0, GL_TEXTURE_2D);
+                GLenum target = static_cast<COpenGLImage*>(img.get())->getOpenGLTarget();
+                gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg, 0, target);
                 GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
                 gl.extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
+
+                GLenum status = gl.extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
+                assert(status == GL_FRAMEBUFFER_COMPLETE);
             }
             for (uint32_t i = 0u; i < fboCount; ++i)
             {

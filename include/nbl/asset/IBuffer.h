@@ -5,12 +5,12 @@
 #ifndef __NBL_ASSET_I_BUFFER_H_INCLUDED__
 #define __NBL_ASSET_I_BUFFER_H_INCLUDED__
 
+#include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/IBuffer.h"
+
 #include "nbl/asset/IDescriptor.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IBuffer : public core::IBuffer, public IDescriptor
@@ -46,7 +46,6 @@ struct SBufferRange
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
 };
 
-}
 }
 
 #endif

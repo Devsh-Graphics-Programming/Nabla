@@ -7,16 +7,8 @@
 #include "CMemoryFile.h"
 #include "CLimitReadFile.h"
 
-#include "os.h"
+#include "nbl_os.h"
 #include <sstream>
-
-// This method is used for error output from bzip2.
-extern "C" void bz_internal_error(int errorCode)
-{
-    std::ostringstream tmp;
-    tmp << errorCode;
-	nbl::os::Printer::log("Error in bzip2 handling", tmp.str().c_str(), nbl::ELL_ERROR);
-}
 
 #ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 

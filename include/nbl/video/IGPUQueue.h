@@ -67,8 +67,15 @@ inline bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPU
     {
         auto& submit = _submits[i];
         for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
+        {
+            assert(submit.commandBuffers[j]->getLevel() == IGPUCommandBuffer::EL_PRIMARY);
+            assert(submit.commandBuffers[j]->getState() == IGPUCommandBuffer::ES_EXECUTABLE);
+
             if (submit.commandBuffers[j]->getLevel() != IGPUCommandBuffer::EL_PRIMARY)
                 return false;
+            if (submit.commandBuffers[j]->getState() != IGPUCommandBuffer::ES_EXECUTABLE)
+                return false;
+        }
     }
     return true;
 }

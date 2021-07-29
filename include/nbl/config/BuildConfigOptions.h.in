@@ -9,6 +9,7 @@
 
 // libraries
 #cmakedefine _NBL_COMPILE_WITH_GLI_
+#cmakedefine _NBL_COMPILE_WITH_OPEN_EXR_
 
 // OS
 #cmakedefine _NBL_PLATFORM_WINDOWS_
@@ -32,8 +33,12 @@
 #cmakedefine _NBL_COMPILE_WITH_JPG_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_PNG_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_TGA_LOADER_
+#ifdef _NBL_COMPILE_WITH_OPEN_EXR_
 #cmakedefine _NBL_COMPILE_WITH_OPENEXR_LOADER_
+#endif
+#ifdef _NBL_COMPILE_WITH_GLI_
 #cmakedefine _NBL_COMPILE_WITH_GLI_LOADER_
+#endif
 
 // writers
 #cmakedefine _NBL_COMPILE_WITH_STL_WRITER_
@@ -42,8 +47,12 @@
 #cmakedefine _NBL_COMPILE_WITH_TGA_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_JPG_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_PNG_WRITER_
+#ifdef _NBL_COMPILE_WITH_OPEN_EXR_
 #cmakedefine _NBL_COMPILE_WITH_OPENEXR_WRITER_
+#endif
+#ifdef _NBL_COMPILE_WITH_GLI_
 #cmakedefine _NBL_COMPILE_WITH_GLI_WRITER_
+#endif
 
 // compute interop
 #cmakedefine _NBL_COMPILE_WITH_OPENCL_

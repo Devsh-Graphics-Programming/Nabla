@@ -17,7 +17,7 @@
 #include <sstream>
 #include "IEventReceiver.h"
 #include "ISceneManager.h"
-#include "os.h"
+#include "nbl_os.h"
 #include "Keycodes.h"
 #include "COSOperator.h"
 #include "SIrrCreationParameters.h"

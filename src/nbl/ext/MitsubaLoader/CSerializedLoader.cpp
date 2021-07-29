@@ -6,7 +6,7 @@
 
 #include "nbl/core/core.h"
 #include "IReadFile.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
