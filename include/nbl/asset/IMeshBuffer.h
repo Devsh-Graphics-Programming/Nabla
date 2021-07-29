@@ -121,37 +121,76 @@ class IMeshBuffer : public virtual core::IReferenceCounted
             const auto& vtxInputParams = ppln->getVertexInputParams();
             return vtxInputParams.attributes[attrId].relativeOffset;
         }
-        inline const SBufferBinding<const BufferType>& getAttribBoundBuffer(uint32_t attrId) const
+
+        inline SBufferBinding<BufferType>& getAttribBoundBuffer(uint32_t attrId)
         {
             const uint32_t bnd = getBindingNumForAttribute(attrId);
-            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_vertexBufferBindings[bnd]);
+            return m_vertexBufferBindings[bnd];
         }
+        inline const SBufferBinding<const BufferType>& getAttribBoundBuffer(uint32_t attrId) const
+        {
+            return reinterpret_cast<const SBufferBinding<const BufferType>&>(getAttribBoundBuffer(attrId));
+        }
+
+        inline const SBufferBinding<BufferType>* getVertexBufferBindings()
+        {
+            return m_vertexBufferBindings;
+        }
+        inline const SBufferBinding<const BufferType>* getVertexBufferBindings() const
+        {
+            return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_vertexBufferBindings);
+        }
+
+        inline const SBufferBinding<BufferType>& getIndexBufferBinding()
+        {
+            return m_indexBufferBinding;
+        }
+        inline const SBufferBinding<const BufferType>& getIndexBufferBinding() const
+        {
+            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_indexBufferBinding);
+        }
+        
+        inline const SBufferBinding<BufferType>& getInverseBindPoseBufferBinding()
+        {
+            return m_inverseBindPoseBufferBinding;
+        }
+        inline const SBufferBinding<const BufferType>& getInverseBindPoseBufferBinding() const
+        {
+            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_inverseBindPoseBufferBinding);
+        }
+        
+        inline const SBufferBinding<BufferType>& getJointAABBBufferBinding()
+        {
+            return m_jointAABBBufferBinding;
+        }
+        inline const SBufferBinding<const BufferType>& getJointAABBBufferBinding() const
+        {
+            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_jointAABBBufferBinding);
+        }
+
+        virtual inline bool setVertexBufferBinding(SBufferBinding<BufferType>&& bufferBinding, uint32_t bindingIndex)
+	    {
+		    if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
+			    return false;
+
+            m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
+
+		    return true;
+	    }
+
+        virtual inline void setIndexBufferBinding(SBufferBinding<BufferType>&& bufferBinding)
+	    {
+            // assert(!isImmutable_debug());
+
+		    m_indexBufferBinding = std::move(bufferBinding);
+	    }
+
         inline uint64_t getAttribCombinedOffset(uint32_t attrId) const
         {
             const auto& buf = getAttribBoundBuffer(attrId);
             return buf.offset+static_cast<uint64_t>(getAttribOffset(attrId));
         }
 
-        //
-        inline const SBufferBinding<const BufferType>* getVertexBufferBindings() const
-        {
-            return reinterpret_cast<const SBufferBinding<const BufferType>*>(m_vertexBufferBindings);
-        }
-        inline const SBufferBinding<const BufferType>& getIndexBufferBinding() const
-        {
-            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_indexBufferBinding);
-        }
-
-        //!
-        inline const SBufferBinding<const BufferType>& getInverseBindPoseBufferBinding() const
-        {
-            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_inverseBindPoseBufferBinding);
-        }
-        //!
-        inline const SBufferBinding<const BufferType>& getJointAABBBufferBinding() const
-        {
-            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_jointAABBBufferBinding);
-        }
         //!
         inline const SkeletonType* getSkeleton() const
         {
