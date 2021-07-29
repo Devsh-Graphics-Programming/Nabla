@@ -29,7 +29,6 @@ namespace nbl::system
 		};
 
 		virtual void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...) = 0;
-		virtual void log(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...) = 0;
 
 	protected:
 		virtual std::string constructLogString(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list l)

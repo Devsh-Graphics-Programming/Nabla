@@ -20,14 +20,6 @@ public:
 		log_impl(fmtString, logLevel, args);
 		va_end(args);
 	}
-	void log(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel, ...) override final
-	{
-		va_list args;
-		va_start(args, logLevel);
-		auto l = lock();
-		log_impl(fmtString, logLevel, args);
-		va_end(args);
-	}
 private:
 	virtual void log_impl(const std::string_view&, E_LOG_LEVEL logLevel, va_list args) = 0;
 	virtual void log_impl(const std::wstring_view&, E_LOG_LEVEL logLevel, va_list args) = 0;
