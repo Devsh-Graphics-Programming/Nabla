@@ -52,11 +52,11 @@ void main()
 static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createMeshBufferFromGeomCreatorReturnType(
 	asset::IGeometryCreator::return_type& _data,
 	asset::IAssetManager* _manager,
-	asset::ICPUSpecializedShader** shadersBegin, asset::ICPUSpecializedShader** shadersEnd)
+	asset::ICPUSpecializedShader** _shadersBegin, asset::ICPUSpecializedShader** _shadersEnd)
 {
 	//creating pipeline just to forward vtx and primitive params
 	auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
-		nullptr, shadersBegin, shadersEnd, 
+		nullptr, _shadersBegin, _shadersEnd, 
 		_data.inputParams, 
 		asset::SBlendParams(),
 		_data.assemblyParams,
@@ -170,24 +170,6 @@ int main()
 
 	auto cpuMesh = createMeshBufferFromGeomCreatorReturnType(cubeMesh, am.get(), shaders, shaders+2);
 	
-	// Instances Buffer
-
-	core::vector<InstanceData> instanceData;
-	// for(uint32_t i = 0; i < NumInstances; ++i) {
-	// }
-	instanceData.push_back(InstanceData{core::vector3df_SIMD(1.0f, 0.3f, 1.0f)});
-	instanceData.push_back(InstanceData{core::vector3df_SIMD(0.1f, 0.0f, 0.4f)});
-	
-	constexpr size_t BUF_SZ = sizeof(InstanceData) * NumInstances;
-	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
-	{
-		asset::SBufferRange<video::IGPUBuffer> range;
-		range.buffer = gpuInstancesBuffer;
-		range.offset = 0;
-		range.size = BUF_SZ;
-		device->updateBufferRangeViaStagingBuffer(queue, range, instanceData.data());
-	}
-
 	auto pipeline = cpuMesh->getPipeline();
 	{
 		// we're working with RH coordinate system(view proj) and in that case the cubeMesh frontFace is NOT CCW.
@@ -206,7 +188,7 @@ int main()
 		pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
 #endif
 	}
-	
+
 	asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
 	auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u);
 	pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
@@ -215,6 +197,28 @@ int main()
 	
 	auto gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1,cpu2gpuParams)->front();
 	
+	// Instances Buffer
+
+	core::vector<InstanceData> instanceData;
+	instanceData.push_back(InstanceData{core::vector3df_SIMD(1.0f, 0.3f, 1.0f)});
+	instanceData.push_back(InstanceData{core::vector3df_SIMD(0.1f, 0.0f, 0.4f)});
+	
+	constexpr size_t BUF_SZ = sizeof(InstanceData) * NumInstances;
+	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
+	{
+		asset::SBufferRange<video::IGPUBuffer> range;
+		range.buffer = gpuInstancesBuffer;
+		range.offset = 0;
+		range.size = BUF_SZ;
+		device->updateBufferRangeViaStagingBuffer(queue, range, instanceData.data());
+	}
+	
+    asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
+    vtxInstanceBufBnd.offset = 0ull;
+    vtxInstanceBufBnd.buffer = gpuInstancesBuffer;
+    gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd), 1);
+	gpuMesh->setInstanceCount(NumInstances);
+
 	video::IGPUGraphicsPipeline::SCreationParams gp_params;
 	gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
 	gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
@@ -295,33 +299,15 @@ int main()
 			static double rot = 0;
 			rot += dt * 0.0005f;
 			
-			modelMatrix.setRotation(nbl::core::quaternion(0, rot, 0));
+			modelMatrix.setRotation(core::quaternion(0, rot, 0));
 			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProj, modelMatrix);
 
 			// Draw Stuff 
 
 			cb->bindGraphicsPipeline(graphicsPipeline.get());
 			
-			// TODO:  for the fututre: cb->drawMeshBuffer(gpuMesh); instead of binding vertex/index buffer explicitly
-			
-			video::IGPUBuffer const * vbuffers[2] = {
-				gpuMesh->getVertexBufferBindings()[0].buffer.get(), // vertex buffer
-				gpuInstancesBuffer.get(), // instance buffer
-			};
-
-			uint64_t vbuf_offsets[2] = {
-				gpuMesh->getVertexBufferBindings()[0].offset,
-				0
-			};
-
-			auto ibuf = gpuMesh->getIndexBufferBinding().buffer.get();
-			auto ibuf_offset = gpuMesh->getIndexBufferBinding().offset;
-
-			cb->bindVertexBuffers(0, 2, vbuffers, vbuf_offsets);
-			cb->bindIndexBuffer(ibuf, ibuf_offset, gpuMesh->getIndexType());
-
 			cb->pushConstants(rpIndependentPipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
-			cb->drawIndexed(gpuMesh->getIndexCount(), NumInstances, 0, 0, 0);
+			cb->drawMeshBuffer(gpuMesh.get());
 		}
 		cb->endRenderPass();
 		cb->end();
