@@ -30,7 +30,7 @@ public:
 
 	};
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count>
-	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name)
+	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
@@ -67,9 +67,9 @@ public:
 		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
 		assert(result.swapchain);
 
-		result.renderpass = createRenderpass(result.logicalDevice);
+		result.renderpass = createRenderpass(result.logicalDevice, depthFormat);
 
-		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass);
+		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
 
 		result.commandPool = result.logicalDevice->createCommandPool(familyIndex,IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
@@ -100,25 +100,43 @@ public:
 
 		return device->createSwapchain(std::move(sc_params));
 	}
-	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device)
+	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
 	{
 		using namespace nbl;
 
-		video::IGPURenderpass::SCreationParams::SAttachmentDescription a;
-		a.initialLayout = asset::EIL_UNDEFINED;
-		a.finalLayout = asset::EIL_UNDEFINED;
-		a.format = asset::EF_R8G8B8A8_SRGB;
-		a.samples = asset::IImage::ESCF_1_BIT;
-		a.loadOp = video::IGPURenderpass::ELO_CLEAR;
-		a.storeOp = video::IGPURenderpass::ESO_STORE;
+		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
+
+		video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
+		attachments[0].initialLayout = asset::EIL_UNDEFINED;
+		attachments[0].finalLayout = asset::EIL_UNDEFINED;
+		attachments[0].format = asset::EF_R8G8B8A8_SRGB;
+		attachments[0].samples = asset::IImage::ESCF_1_BIT;
+		attachments[0].loadOp = video::IGPURenderpass::ELO_CLEAR;
+		attachments[0].storeOp = video::IGPURenderpass::ESO_STORE;
+
+		attachments[1].initialLayout = asset::EIL_UNDEFINED;
+		attachments[1].finalLayout = asset::EIL_UNDEFINED;
+		attachments[1].format = depthFormat;
+		attachments[1].samples = asset::IImage::ESCF_1_BIT;
+		attachments[1].loadOp = video::IGPURenderpass::ELO_CLEAR;
+		attachments[1].storeOp = video::IGPURenderpass::ESO_STORE;
 
 		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
 		colorAttRef.attachment = 0u;
 		colorAttRef.layout = asset::EIL_UNDEFINED;
+
+		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef depthStencilAttRef;
+		depthStencilAttRef.attachment = 1u;
+		depthStencilAttRef.layout = asset::EIL_UNDEFINED;
+
 		video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
 		sp.colorAttachmentCount = 1u;
 		sp.colorAttachments = &colorAttRef;
-		sp.depthStencilAttachment = nullptr;
+		if(useDepth) {
+			sp.depthStencilAttachment = &depthStencilAttRef;
+		} else {
+			sp.depthStencilAttachment = nullptr;
+		}
 		sp.flags = video::IGPURenderpass::ESDF_NONE;
 		sp.inputAttachmentCount = 0u;
 		sp.inputAttachments = nullptr;
@@ -127,8 +145,8 @@ public:
 		sp.resolveAttachments = nullptr;
 
 		video::IGPURenderpass::SCreationParams rp_params;
-		rp_params.attachmentCount = 1u;
-		rp_params.attachments = &a;
+		rp_params.attachmentCount = (useDepth) ? 2u : 1u;
+		rp_params.attachments = attachments;
 		rp_params.dependencies = nullptr;
 		rp_params.dependencyCount = 0u;
 		rp_params.subpasses = &sp;
@@ -140,16 +158,19 @@ public:
 	template<size_t imageCount, size_t width, size_t height>
 	static auto createFBOWithSwapchainImages(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain,
-		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass)->std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, imageCount>
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass, 
+		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)->std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, imageCount>
 	{
 		using namespace nbl;
+		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
 		std::array<nbl::core::smart_refctd_ptr<video::IGPUFramebuffer>, imageCount> fbo;
 		auto sc_images = swapchain->getImages();
 		assert(sc_images.size() == imageCount);
 		for (uint32_t i = 0u; i < imageCount; ++i)
 		{
+			core::smart_refctd_ptr<video::IGPUImageView> view[2] = {};
+			
 			auto img = sc_images.begin()[i];
-			core::smart_refctd_ptr<video::IGPUImageView> view;
 			{
 				video::IGPUImageView::SCreationParams view_params;
 				view_params.format = img->getCreationParameters().format;
@@ -160,8 +181,32 @@ public:
 				view_params.subresourceRange.layerCount = 1u;
 				view_params.image = std::move(img);
 
-				view = device->createGPUImageView(std::move(view_params));
-				assert(view);
+				view[0] = device->createGPUImageView(std::move(view_params));
+				assert(view[0]);
+			}
+			
+			if(useDepth) {
+				video::IGPUImage::SCreationParams imgParams;
+				imgParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+				imgParams.type = asset::IImage::ET_2D;
+				imgParams.format = depthFormat;
+				imgParams.extent = {width, height, 1};
+				imgParams.mipLevels = 1u;
+				imgParams.arrayLayers = 1u;
+				imgParams.samples = asset::IImage::ESCF_1_BIT;
+				core::smart_refctd_ptr<video::IGPUImage> depthImg = device->createDeviceLocalGPUImageOnDedMem(std::move(imgParams));
+
+				video::IGPUImageView::SCreationParams view_params;
+				view_params.format = depthFormat;
+				view_params.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				view_params.subresourceRange.baseMipLevel = 0u;
+				view_params.subresourceRange.levelCount = 1u;
+				view_params.subresourceRange.baseArrayLayer = 0u;
+				view_params.subresourceRange.layerCount = 1u;
+				view_params.image = std::move(depthImg);
+
+				view[1] = device->createGPUImageView(std::move(view_params));
+				assert(view[1]);
 			}
 
 			video::IGPUFramebuffer::SCreationParams fb_params;
@@ -170,8 +215,8 @@ public:
 			fb_params.layers = 1u;
 			fb_params.renderpass = renderpass;
 			fb_params.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
-			fb_params.attachmentCount = 1u;
-			fb_params.attachments = &view;
+			fb_params.attachmentCount = (useDepth) ? 2u : 1u;
+			fb_params.attachments = view;
 
 			fbo[i] = device->createGPUFramebuffer(std::move(fb_params));
 			assert(fbo[i]);
