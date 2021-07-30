@@ -165,7 +165,7 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>SC_IMG_COUNT);
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Physics Simulation");
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
 	auto win = std::move(initOutp.window);
 	auto gl = std::move(initOutp.apiConnection);
 	auto surface = std::move(initOutp.surface);
@@ -180,10 +180,10 @@ int main()
 	core::vector<GPUObject> gpuObjects; 
 
 	// Instance Data
-	constexpr uint32_t NumCubes = 5;
-	constexpr uint32_t NumCylinders = 5;
-	constexpr uint32_t NumSpheres = 5;
-	constexpr uint32_t NumCones = 5;
+	constexpr uint32_t NumCubes = 50;
+	constexpr uint32_t NumCylinders = 50;
+	constexpr uint32_t NumSpheres = 50;
+	constexpr uint32_t NumCones = 0;
 
 	constexpr uint32_t startIndexCubes = 0;
 	constexpr uint32_t startIndexCylinders = startIndexCubes + NumCubes;
@@ -257,18 +257,23 @@ int main()
 		core::matrix3x4SIMD correction_mat; 
 
 		auto & rigidBodyData = cubeRigidBodyData;
-		if(i >= startIndexCones) {
+		if(i >= startIndexCones) 
+		{
 			rigidBodyData = coneRigidBodyData;
 			correction_mat.setTranslation(core::vector3df_SIMD(0.0f, -0.5f, 0.0f));
-		} else if(i >= startIndexSpheres) {
+		}
+		else if(i >= startIndexSpheres) 
+		{
 			rigidBodyData = sphereRigidBodyData;
-		} else if(i >= startIndexCylinders) {
+		}
+		else if(i >= startIndexCylinders) 
+		{
 			rigidBodyData = cylinderRigidBodyData;
 			correction_mat.setRotation(core::quaternion(core::PI<float>() / 2.0f, 0.0f, 0.0f));
 		}
 
         core::matrix3x4SIMD mat;
-        mat.setTranslation(core::vectorSIMDf(i * 0.25f, i * 3.0f, 0.0f));
+        mat.setTranslation(core::vectorSIMDf(0.0f, i * 3.0f, 0.0f));
 		
 		instancesData[i].modelMatrix = mat;
 		rigidBodyData.trans = mat;
@@ -315,7 +320,7 @@ int main()
 	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
 	// Camera Stuff
-	core::vectorSIMDf cameraPosition(0, 0, -10);
+	core::vectorSIMDf cameraPosition(0, 5, -10);
 	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01, 100);
 	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
@@ -366,8 +371,6 @@ int main()
 			auto & rasterParams = pipeline->getRasterizationParams();
 			rasterParams.frontFaceIsCCW = 0;
 			rasterParams.faceCullingMode = faceCullingMode;
-			rasterParams.depthTestEnable = true;
-			rasterParams.depthCompareOp = asset::ECO_GREATER;
 
 			auto & vtxinputParams = pipeline->getVertexInputParams();
 			vtxinputParams.bindings[1].inputRate = asset::EVIR_PER_INSTANCE;
@@ -471,8 +474,8 @@ int main()
 
 		{
 			asset::SViewport vp;
-			vp.minDepth = 1.f;
-			vp.maxDepth = 0.f;
+			vp.minDepth = 0.f;
+			vp.maxDepth = 1.f;
 			vp.x = 0u;
 			vp.y = 0u;
 			vp.width = WIN_W;
@@ -484,16 +487,20 @@ int main()
 		sc->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
-			asset::SClearValue clear;
+			asset::SClearValue clearValues[2] ={};
 			asset::VkRect2D area;
-			clear.color.float32[0] = 0.1f;
-			clear.color.float32[1] = 0.1f;
-			clear.color.float32[2] = 0.1f;
-			clear.color.float32[3] = 1.f;
+			clearValues[0].color.float32[0] = 0.1f;
+			clearValues[0].color.float32[1] = 0.1f;
+			clearValues[0].color.float32[2] = 0.1f;
+			clearValues[0].color.float32[3] = 1.f;
+
+			clearValues[1].depthStencil.depth = 0.0f;
+			clearValues[1].depthStencil.stencil = 0.0f;
+
 			info.renderpass = renderpass;
 			info.framebuffer = fbo[imgnum];
-			info.clearValueCount = 1u;
-			info.clearValues = &clear;
+			info.clearValueCount = 2u;
+			info.clearValues = clearValues;
 			info.renderArea.offset = { 0, 0 };
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
