@@ -6,8 +6,8 @@
 #ifndef __NBL_S_VIEW_FRUSTUM_H_INCLUDED__
 #define __NBL_S_VIEW_FRUSTUM_H_INCLUDED__
 
-#include "nbl/core/declarations.h"
-#include "IVideoDriver.h"
+#include "nbl/core/core.h"
+#include "matrixutil.h"
 
 namespace nbl
 {

@@ -12,7 +12,6 @@
 #include "aabbox3d.h"
 #include "matrix4x3.h"
 #include "IDummyTransformationSceneNode.h"
-#include "IDriverFence.h"
 
 namespace nbl
 {

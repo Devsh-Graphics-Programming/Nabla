@@ -14,8 +14,8 @@ set(NBL_EXT_BULLET_H
   ${BULLETDYNAMICS_H}
   ${LINEARMATH_H}
   ${NBL_EXT_INTERNAL_INCLUDE_DIR}/BulletUtility.h 
-  ${NBL_EXT_INTERNAL_INCLUDE_DIR}/CDebugRender.h 
-  ${NBL_EXT_INTERNAL_INCLUDE_DIR}/CInstancedMotionState.h
+  #${NBL_EXT_INTERNAL_INCLUDE_DIR}/CDebugRender.h 
+  #${NBL_EXT_INTERNAL_INCLUDE_DIR}/CInstancedMotionState.h
   ${NBL_EXT_INTERNAL_INCLUDE_DIR}/CPhysicsWorld.h
   ${NBL_EXT_INTERNAL_INCLUDE_DIR}/IMotionStateBase.h
 )
@@ -25,8 +25,8 @@ set(NBL_EXT_BULLET_SRC
   ${BULLETDYNAMICS_CPP}
   ${LINEARMATH_CPP}
   BulletUtility.cpp
-  CDebugRender.cpp
-  CInstancedMotionState.cpp
+  #CDebugRender.cpp
+  #CInstancedMotionState.cpp
   CPhysicsWorld.cpp
 )
 
@@ -39,6 +39,7 @@ nbl_create_ext_library_project(
   "${NBL_EXT_BULLET_H}"
   "${NBL_EXT_BULLET_SRC}"
   "${NBL_EXT_BULLET_EXTERNAL_INCLUDE}"
+  ""
   ""
 )
 

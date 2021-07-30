@@ -5,11 +5,8 @@
 #ifndef _NBL_EXT_SCREEN_SHOT_INCLUDED_
 #define _NBL_EXT_SCREEN_SHOT_INCLUDED_
 
-#include "nabla.h"
-
-#include "../../../../source/Nabla/COpenGLBuffer.h"
-#include "../../../../source/Nabla/COpenGLExtensionHandler.h"
-#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+#include <nabla.h>
+#include "../source/Nabla/CFileSystem.h"
 
 namespace nbl
 {
@@ -18,41 +15,65 @@ namespace nbl
 		namespace ScreenShot
 		{
 			/*
-				Creates useful FBO that may be used for instance 
-				to fetch default render target color data attachment 
-				after rendering scene.
-				The usage is following:
-				- create frame buffer using the function
-				- blit framebuffers, driver->blitRenderTargets(nullptr, frameBuffer, false, false);
-				Note that in the call above we don't want to copy depth and stencil buffer, but event though default
-				FBO contains depth buffer.
-				- pass frame buffer to performScreenShot(video::IFrameBuffer*)
-				Notes:
-				- color buffer is placed under video::EFAP_COLOR_ATTACHMENT0 attachment
-				- depth buffer is placed under video::EFAP_DEPTH_ATTACHMENT attachment
+				Create a ScreenShot with gpu image usage and save it to a file.
+				The queue being passed must have TRANSFER capability.
 			*/
 
-			nbl::video::IFrameBuffer* createDefaultFBOForScreenshoting(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat=asset::EF_R8G8B8A8_SRGB)
+			inline bool createScreenShot(nbl::video::ILogicalDevice* logicalDevice, nbl::video::IGPUQueue* queue, nbl::video::IGPUSemaphore* semaphore, const nbl::video::IGPUImageView* gpuImageView, const std::string& outFileName)
 			{
-				auto driver = device->getVideoDriver();
+				auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
+				auto gpuImage = fetchedImageViewParmas.image;
+				auto fetchedGpuImageParams = gpuImage->getCreationParameters();
 
-				auto createAttachement = [&](bool colorBuffer)
+				if (nbl::asset::isBlockCompressionFormat(fetchedGpuImageParams.format))
+					return false;
+
+				auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+
+				video::IDriverMemoryBacked::SDriverMemoryRequirements driverMemoryRequirements;
+				core::smart_refctd_ptr<video::IGPUCommandBuffer> gpuCommandBuffer;
+				logicalDevice->createCommandBuffers(gpuCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
+				assert(gpuCommandBuffer);
+
+				nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> gpuTexelBuffer;
+
+				gpuCommandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 				{
-					asset::ICPUImage::SCreationParams imgInfo;
-					imgInfo.format = colorBuffer ? colorFormat:asset::EF_D24_UNORM_S8_UINT;
-					imgInfo.type = asset::ICPUImage::ET_2D;
-					imgInfo.extent.width = driver->getScreenSize().Width;
-					imgInfo.extent.height = driver->getScreenSize().Height;
-					imgInfo.extent.depth = 1u;
-					imgInfo.mipLevels = 1u;
-					imgInfo.arrayLayers = 1u;
-					imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
-					imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+					auto extent = gpuImage->getMipSize();
+					video::IGPUImage::SBufferCopy pRegions[1u] = { {0u,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),0,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
 
-					auto image = asset::ICPUImage::create(std::move(imgInfo));
-					const auto texelFormatBytesize = getTexelOrBlockBytesize(image->getCreationParameters().format);
+					auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
+					deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x * extent.y * extent.z * nbl::asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
+					gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(deviceLocalGPUMemoryReqs, true);
 
-					auto texelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(image->getImageDataSizeInBytes());
+					gpuCommandBuffer->copyImageToBuffer(gpuImage.get(), nbl::asset::EIL_GENERAL, gpuTexelBuffer.get(), 1, pRegions);
+				}
+				gpuCommandBuffer->end();
+
+				auto fence = logicalDevice->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+
+				video::IGPUQueue::SSubmitInfo info;
+				info.commandBufferCount = 1u;
+				info.commandBuffers = &gpuCommandBuffer.get();
+				info.pSignalSemaphores = nullptr;
+				info.signalSemaphoreCount = 0u;
+				info.pWaitSemaphores = &semaphore;
+				info.waitSemaphoreCount = 1u;
+				nbl::asset::E_PIPELINE_STAGE_FLAGS stageflags = nbl::asset::EPSF_TRANSFER_BIT;
+				info.pWaitDstStageMask = &stageflags;
+				queue->submit(1u, &info, fence.get());
+
+				logicalDevice->waitForFences(1u, &fence.get(), false, 999999999ull);
+
+				nbl::core::smart_refctd_ptr<nbl::asset::ICPUImageView> cpuImageView;
+				{
+					const auto gpuTexelBufferSize = gpuTexelBuffer->getSize();
+					nbl::video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuTexelBuffer->getBoundMemory(), 0u, gpuTexelBufferSize);
+					logicalDevice->mapMemory(mappedMemoryRange, nbl::video::IDriverMemoryAllocation::EMCAF_READ);
+
+					auto cpuNewImage = asset::ICPUImage::create(std::move(fetchedGpuImageParams));
+					auto texelBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedGpuImageParams.extent.width * asset::getBlockDimensions(fetchedGpuImageParams.format).X, asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format));
+
 					auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
 					asset::ICPUImage::SBufferCopy& region = regions->front();
 
@@ -60,186 +81,42 @@ namespace nbl
 					region.imageSubresource.baseArrayLayer = 0u;
 					region.imageSubresource.layerCount = 1u;
 					region.bufferOffset = 0u;
-					region.bufferRowLength = image->getCreationParameters().extent.width;
+					region.bufferRowLength = texelBufferRowLength;
 					region.bufferImageHeight = 0u;
 					region.imageOffset = { 0u, 0u, 0u };
-					region.imageExtent = image->getCreationParameters().extent;
+					region.imageExtent = cpuNewImage->getCreationParameters().extent;
 
-					image->setBufferAndRegions(std::move(texelBuffer), regions);
-
-					asset::ICPUImageView::SCreationParams imgViewInfo;
-					imgViewInfo.image = std::move(image);
-					imgViewInfo.format = colorBuffer ? colorFormat:asset::EF_D24_UNORM_S8_UINT;
-					imgViewInfo.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
-					imgViewInfo.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
-					imgViewInfo.subresourceRange.baseArrayLayer = 0u;
-					imgViewInfo.subresourceRange.baseMipLevel = 0u;
-					imgViewInfo.subresourceRange.layerCount = imgInfo.arrayLayers;
-					imgViewInfo.subresourceRange.levelCount = imgInfo.mipLevels;
-
-					auto imageView = asset::ICPUImageView::create(std::move(imgViewInfo));
-					auto gpuImageView = driver->getGPUObjectsFromAssets(&imageView.get(), &imageView.get() + 1)->front();
-
-					return std::move(gpuImageView);
-				};
-
-				auto gpuImageViewDepthBuffer = createAttachement(false);
-				auto gpuImageViewColorBuffer = createAttachement(true);
-
-				auto frameBuffer = driver->addFrameBuffer();
-				frameBuffer->attach(video::EFAP_DEPTH_ATTACHMENT, std::move(gpuImageViewDepthBuffer));
-				frameBuffer->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(gpuImageViewColorBuffer));
-
-				return frameBuffer;
-			};
-
-			/*
-				Download mip level image with gpu image usage and save it to IGPUBuffer.
-				Because of the fence placed by driver the function stalls the CPU 
-				to wait on the GPU to finish, beware of that.
-				@see video::IDriverFence
-			*/
-
-			//! TODO: HANDLE UNPACK ALIGNMENT
-			[[nodiscard]] core::smart_refctd_ptr<video::IDriverFence> downloadImageMipLevel(video::IDriver* driver, video::IGPUImage* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel = 0u, size_t destOffset = 0ull, bool implicitflush = true)
-			{
-				// will change this, https://github.com/buildaworldnet/IrrlichtBAW/issues/148
-				if (isBlockCompressionFormat(source->getCreationParameters().format))
-					return nullptr;
-
-				auto extent = source->getMipSize(sourceMipLevel);
-				video::IGPUImage::SBufferCopy pRegions[1u] = { {destOffset,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),sourceMipLevel,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
-				driver->copyImageToBuffer(source, destination, 1u, pRegions);
-
-				return driver->placeFence(implicitflush);
-			}
-
-			/*
-				Create a ScreenShot with gpu image usage and save it to a file.
-			*/
-			bool createScreenShot(video::IVideoDriver* driver, asset::IAssetManager* assetManager, const video::IGPUImageView* gpuImageView, const std::string& outFileName, asset::E_FORMAT convertToFormat=asset::EF_UNKNOWN)
-			{
-				auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
-				auto gpuImage = fetchedImageViewParmas.image;
-				auto fetchedImageParams = gpuImage->getCreationParameters();
-				auto image = asset::ICPUImage::create(std::move(fetchedImageParams));
-
-				auto texelBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedImageParams.extent.width * asset::getBlockDimensions(fetchedImageParams.format).X, asset::getTexelOrBlockBytesize(fetchedImageParams.format));
-
-				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
-				asset::ICPUImage::SBufferCopy& region = regions->front();
-
-				region.imageSubresource.mipLevel = 0u;
-				region.imageSubresource.baseArrayLayer = 0u;
-				region.imageSubresource.layerCount = 1u;
-				region.bufferOffset = 0u;
-				region.bufferRowLength = texelBufferRowLength;
-				region.bufferImageHeight = 0u;
-				region.imageOffset = { 0u, 0u, 0u };
-				region.imageExtent = image->getCreationParameters().extent;
-
-				video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements;
-				memoryRequirements.vulkanReqs.alignment = 64u;
-				memoryRequirements.vulkanReqs.memoryTypeBits = 0xffffffffu;
-				memoryRequirements.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-				memoryRequirements.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDriverMemoryAllocation::EMCF_COHERENT | video::IDriverMemoryAllocation::EMCF_CACHED;
-				memoryRequirements.vulkanReqs.size = image->getImageDataSizeInBytes();
-				auto destinationBuffer = driver->createGPUBufferOnDedMem(memoryRequirements);
-
-				auto mapPointerGetterFence = downloadImageMipLevel(driver, gpuImage.get(), destinationBuffer.get());
-
-				auto destinationBoundMemory = destinationBuffer->getBoundMemory();
-				destinationBoundMemory->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ, { 0u, memoryRequirements.vulkanReqs.size });
-				auto texelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(memoryRequirements.vulkanReqs.size, destinationBoundMemory->getMappedPointer(), core::adopt_memory);
-
-				image->setBufferAndRegions(std::move(texelBuffer), regions);
-				
-				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
-
-				core::smart_refctd_ptr<asset::ICPUImage> convertedImage;
-				if (convertToFormat != asset::EF_UNKNOWN)
-				{
-					auto referenceImageParams = image->getCreationParameters();
-					auto referenceBuffer = image->getBuffer();
-					auto referenceRegions = image->getRegions();
-					auto referenceRegion = referenceRegions.begin();
-					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(convertToFormat);
-
-					auto newImageParams = referenceImageParams;
-					auto newCpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(referenceBuffer->getSize() * newTexelOrBlockByteSize);
-					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(referenceRegions.size());
-
-					for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
+					auto cpuNewTexelBuffer = nbl::core::make_smart_refctd_ptr<nbl::asset::ICPUBuffer>(gpuTexelBufferSize);
 					{
-						*newRegion = *(referenceRegion++);
-						newRegion->bufferOffset = newRegion->bufferOffset * newTexelOrBlockByteSize;
+						memcpy(cpuNewTexelBuffer->getPointer(), gpuTexelBuffer->getBoundMemory()->getMappedPointer(), gpuTexelBuffer->getSize());
 					}
-
-					newImageParams.format = convertToFormat;
-					convertedImage = asset::ICPUImage::create(std::move(newImageParams));
-					convertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-					//asset::CConvertFormatImageFilter TODO: use this one instead with a nice dither @Anastazluk, we could also get rid of a lot of code here, since there's a bunch of constraints
-					asset::CSwizzleAndConvertImageFilter<> convertFilter;
-					asset::CSwizzleAndConvertImageFilter<>::state_type state;
-
-					state.swizzle = {};
-					state.inImage = image.get();
-					state.outImage = convertedImage.get();
-					state.inOffset = { 0, 0, 0 };
-					state.inBaseLayer = 0;
-					state.outOffset = { 0, 0, 0 };
-					state.outBaseLayer = 0;
-					//state.dither = ;
-
-					for (auto itr = 0; itr < convertedImage->getCreationParameters().mipLevels; ++itr)
+					cpuNewImage->setBufferAndRegions(core::smart_refctd_ptr(cpuNewTexelBuffer), regions);
+					logicalDevice->unmapMemory(gpuTexelBuffer->getBoundMemory());
 					{
-						auto regionWithMipMap = convertedImage->getRegions(itr).begin();
+						auto newCreationParams = cpuNewImage->getCreationParameters();
 
-						state.extent = regionWithMipMap->getExtent();
-						state.layerCount = regionWithMipMap->imageSubresource.layerCount;
-						state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
-						state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
+						asset::ICPUImageView::SCreationParams viewParams;
+						viewParams.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+						viewParams.image = cpuNewImage;
+						viewParams.format = newCreationParams.format;
+						viewParams.viewType = asset::ICPUImageView::ET_2D;
+						viewParams.subresourceRange.baseArrayLayer = 0u;
+						viewParams.subresourceRange.layerCount = newCreationParams.arrayLayers;
+						viewParams.subresourceRange.baseMipLevel = 0u;
+						viewParams.subresourceRange.levelCount = newCreationParams.mipLevels;
 
-						const bool ok = convertFilter.execute(&state);
-						assert(ok);
+						cpuImageView = asset::ICPUImageView::create(std::move(viewParams));
 					}
 				}
-				else
-					convertedImage = image;
-				auto newCreationParams = convertedImage->getCreationParameters();
-				
-				asset::ICPUImageView::SCreationParams viewParams;
-				viewParams.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
-				viewParams.image = convertedImage;
-				viewParams.format = newCreationParams.format;
-				viewParams.viewType = asset::ICPUImageView::ET_2D;
-				viewParams.subresourceRange.baseArrayLayer = 0u;
-				viewParams.subresourceRange.layerCount = newCreationParams.arrayLayers;
-				viewParams.subresourceRange.baseMipLevel = 0u;
-				viewParams.subresourceRange.levelCount = newCreationParams.mipLevels;
 
-				auto imageView = asset::ICPUImageView::create(std::move(viewParams));
-
-				auto tryToWrite = [&](asset::IAsset* asset)
+				nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 				{
-					asset::IAssetWriter::SAssetWriteParams wparams(asset);
-					return assetManager->writeAsset(outFileName, wparams);
-				};
+					nbl::core::smart_refctd_ptr<nbl::io::IFileSystem> fileSystem = nbl::core::make_smart_refctd_ptr<nbl::io::CFileSystem>("");
+					assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(std::move(fileSystem));
+				}
 
-				bool status = tryToWrite(convertedImage.get());
-				if (!status)
-					status = tryToWrite(imageView.get());
-
-				destinationBoundMemory->unmapMemory();
-				return status;
-
-			}
-			inline bool createScreenShot(core::smart_refctd_ptr<IrrlichtDevice> device, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
-			{
-				auto driver = device->getVideoDriver();
-				auto assetManager = device->getAssetManager();
-				return createScreenShot(driver, assetManager, gpuImageView, outFileName);
+				nbl::asset::IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
+				return assetManager->writeAsset(outFileName, writeParams);
 			}
 		} // namespace ScreenShot
 	} // namespace ext

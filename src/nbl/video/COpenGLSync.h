@@ -73,7 +73,7 @@ class COpenGLSync final : public core::IReferenceCounted
                 return cachedRetval;
             
             const uint64_t spintime = prewait();
-            if (spintime >= timeout)
+            if (spintime > timeout)
                 return (cachedRetval = ES_TIMEOUT_EXPIRED);
             timeout -= spintime;
 

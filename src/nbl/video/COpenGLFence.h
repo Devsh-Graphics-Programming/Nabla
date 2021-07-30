@@ -48,12 +48,12 @@ public:
         auto status = m_sync->waitCPU(_gl, 0ull);
         switch (status)
         {
-        case COpenGLSync::ES_TIMEOUT_EXPIRED:
-            return ES_NOT_READY;
-        case COpenGLSync::ES_FAIL:
-            return ES_ERROR;
-        default:
-            return ES_SUCCESS;
+	        case COpenGLSync::ES_TIMEOUT_EXPIRED:
+	            return ES_NOT_READY;
+	        case COpenGLSync::ES_FAIL:
+	            return ES_ERROR;
+	        default:
+	            return ES_SUCCESS;
         }
     }
 
@@ -61,9 +61,6 @@ public:
     {
         IOpenGLSyncPrimitiveBase::reset();
     }
-
-private:
-    IOpenGL_LogicalDevice* m_device;
 };
 
 }}

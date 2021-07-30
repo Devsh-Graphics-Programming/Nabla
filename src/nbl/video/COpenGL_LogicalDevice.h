@@ -279,13 +279,13 @@ public:
         return retval;
     }
 
-    void resetFences(uint32_t _count, IGPUFence** _fences) override final
+    void resetFences(uint32_t _count, IGPUFence*const * _fences) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
             static_cast<COpenGLFence*>(_fences[i])->reset();
     }
 
-    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override final
+    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) override final
     {
 #ifdef _NBL_DEBUG
         for (uint32_t i = 0u; i < _count; ++i)
@@ -295,7 +295,7 @@ public:
             assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
         }
 #endif
-        SRequestWaitForFences params{ core::SRange<IGPUFence*>(_fences, _fences + _count) , _waitAll, _timeout };
+        SRequestWaitForFences params{ {_fences,_fences + _count},_waitAll,_timeout };
         IGPUFence::E_STATUS retval;
         auto& req = m_threadHandler.request(std::move(params), &retval);
         m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);

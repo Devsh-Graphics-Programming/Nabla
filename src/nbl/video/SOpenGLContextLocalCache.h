@@ -190,7 +190,7 @@ struct SOpenGLContextLocalCache
         }
     }
 
-    GLuint getSingleColorAttachmentFBO(IOpenGL_FunctionTable* gl, IGPUImage* img)
+    GLuint getSingleColorAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img)
     {
         auto hash = COpenGLFramebuffer::getHashColorImage(img);
         auto found = FBOCache.get(hash);
@@ -202,7 +202,7 @@ struct SOpenGLContextLocalCache
         FBOCache.insert(hash, fbo);
         return fbo;
     }
-    GLuint getDepthStencilAttachmentFBO(IOpenGL_FunctionTable* gl, IGPUImage* img)
+    GLuint getDepthStencilAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img)
     {
         auto hash = COpenGLFramebuffer::getHashDepthStencilImage(img);
         auto found = FBOCache.get(hash);

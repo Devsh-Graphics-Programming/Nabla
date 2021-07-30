@@ -106,15 +106,6 @@ public:
     template <typename... Args>
     request_t& request(Args&&... args)
     {
-        // should acquire mutex only in case of queue thread being asleep
-        // + allows for concurrent requests submission
-        // this is needed so that queue thread wakeup signal is not missed
-        // https://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex
-        // but still not 100% safe:
-        // * try_lock() w/o a reason
-        // * queue thread might start waiting on cvar between try_lock() and notify()
-        auto queue_thread_lk = base_t::tryCreateLock();
-
         auto virtualIx = cb_end++;
         auto safe_begin = virtualIx<MaxRequestCount ? static_cast<counter_t>(0) : (virtualIx-MaxRequestCount+1u);
 
@@ -130,18 +121,21 @@ public:
         const auto r_id = wrapAround(virtualIx);
 
         request_t& req = request_pool[r_id];
-        //auto lk = req.lock();
-        req.ready = false;
+        auto lk = req.lock();
+        req.ready.store(false);
         static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
         // unlock request after we've written everything into it
-        //lk.unlock();
-        req.ready_for_work = true;
+        lk.unlock();
+        req.ready_for_work.store(true);
 #if __cplusplus >= 202002L
         req.ready_for_work.notify_one();
 #endif
-        // wake up queue thread
-        base_t::m_cvar.notify_one();
 
+        {
+            auto global_lk = base_t::createLock();
+            // wake up queue thread
+            base_t::m_cvar.notify_one();
+        }
         return req;
     }
 
@@ -156,6 +150,7 @@ private:
     template <typename... Args>
     void work(lock_t& lock, Args&&... optional_internal_state)
     {
+        lock.unlock();
         static_assert(sizeof...(optional_internal_state) <= 1u, "How did this happen");
 
         static_cast<CRTP*>(this)->background_work();
@@ -182,11 +177,12 @@ private:
                 static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
             }
 
-            req.ready_for_work = false;
-            req.ready = true;
+            req.ready_for_work.store(false);
+            req.ready.store(true);
             req.cvar.notify_all();
-            cb_begin++;
+            cb_begin++; // TODO: @Crisspl / @Danylo can anyone explain to me why you've made the queue non atomic!?
         }
+        lock.lock();
     }
 
 

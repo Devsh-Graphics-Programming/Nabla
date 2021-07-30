@@ -2,6 +2,7 @@
 #define __NBL_I_GPU_LOGICAL_DEVICE_H_INCLUDED__
 
 #include "nbl/asset/asset.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IGPUSemaphore.h"
@@ -20,6 +21,7 @@ namespace nbl::video
 {
 
 // fwd decl
+class CPropertyPoolHandler;
 class IGPUObjectFromAssetConverter;
 
 class ILogicalDevice : public core::IReferenceCounted
@@ -118,8 +120,8 @@ public:
 
     virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) = 0;
     virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
-    virtual void resetFences(uint32_t _count, IGPUFence** _fences) = 0;
-    virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
+    virtual void resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
+    virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) = 0;
 
     virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
 
@@ -298,6 +300,14 @@ public:
     //! Low level function used to implement the above, use with caution
     virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
+    //! WARNING: This function blocks the CPU and stalls the GPU!
+    inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
+	{
+		auto retval = createDeviceLocalGPUBufferOnDedMem(size);
+        updateBufferRangeViaStagingBuffer(queue,asset::SBufferRange<IGPUBuffer>{0u,size,retval},data);
+		return retval;
+	}
+
     virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
@@ -333,18 +343,84 @@ public:
     virtual core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) = 0;
 
     //!
-    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params, IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
+    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
     {
+        const auto finalLayout = params.initialLayout;
+        params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL; // TODO: @achal verify my layouts
         auto retval = createDeviceLocalGPUImageOnDedMem(std::move(params));
-        // TODO, copyBufferToImage() is a command, so this whole function sholdnt be in ILogicalDevice probably
-        //this->copyBufferToImage(srcBuffer, retval.get(), regionCount, pRegions);
+        assert(cmdbuf->getState()==IGPUCommandBuffer::ES_RECORDING);
+        cmdbuf->copyBufferToImage(srcBuffer,retval.get(),finalLayout,regionCount,pRegions);
         return retval;
     }
-    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params, IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
+    //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
+    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUFence* fence, IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
     {
+        auto cmdpool = createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::ECF_TRANSIENT_BIT);
+        core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+        createCommandBuffers(cmdpool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+        assert(cmdbuf);
+        cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+        auto retval = createFilledDeviceLocalGPUImageOnDedMem(cmdbuf.get(),std::move(params),srcBuffer,regionCount,pRegions);
+        cmdbuf->end();
+        IGPUQueue::SSubmitInfo submit;
+        submit.commandBufferCount = 1u;
+        submit.commandBuffers = &cmdbuf.get();
+        submit.signalSemaphoreCount = 0u;
+        submit.pSignalSemaphores = nullptr;
+        submit.waitSemaphoreCount = 0u;
+        submit.pWaitSemaphores = nullptr;
+        submit.pWaitDstStageMask = nullptr;
+        queue->submit(1u,&submit,fence);
+        return retval;
+    }
+    //! WARNING: This function blocks the CPU and stalls the GPU!
+    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
+    {
+        auto fence = this->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+        auto* fenceptr = fence.get();
+        auto retval = createFilledDeviceLocalGPUImageOnDedMem(fenceptr,queue,std::move(params),srcBuffer,regionCount,pRegions);
+        waitForFences(1u,&fenceptr,false,9999999999ull);
+        return retval;
+    }
+
+    //!
+    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
+    {
+        const auto finalLayout = params.initialLayout;
+        params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL; // TODO: @achal verify my layouts
         auto retval = createDeviceLocalGPUImageOnDedMem(std::move(params));
-        // TODO, copyImage() is a command, so this whole function sholdnt be in ILogicalDevice probably
-        //this->copyImage(srcImage, retval.get(), regionCount, pRegions);
+        assert(cmdbuf->getState()==IGPUCommandBuffer::ES_RECORDING);
+        cmdbuf->copyImage(srcImage,asset::EIL_TRANSFER_SRC_OPTIMAL,retval.get(),finalLayout,regionCount,pRegions);
+        return retval;
+    }
+    //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
+    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUFence* fence, IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
+    {
+        auto cmdpool = createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::ECF_TRANSIENT_BIT);
+        core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+        createCommandBuffers(cmdpool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+        assert(cmdbuf);
+        cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+        auto retval = createFilledDeviceLocalGPUImageOnDedMem(cmdbuf.get(),std::move(params),srcImage,regionCount,pRegions);
+        cmdbuf->end();
+        IGPUQueue::SSubmitInfo submit;
+        submit.commandBufferCount = 1u;
+        submit.commandBuffers = &cmdbuf.get();
+        submit.signalSemaphoreCount = 0u;
+        submit.pSignalSemaphores = nullptr;
+        submit.waitSemaphoreCount = 0u;
+        submit.pWaitSemaphores = nullptr;
+        submit.pWaitDstStageMask = nullptr;
+        queue->submit(1u,&submit,fence);
+        return retval;
+    }
+    //! WARNING: This function blocks the CPU and stalls the GPU!
+    inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
+    {
+        auto fence = this->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+        auto* fenceptr = fence.get();
+        auto retval = createFilledDeviceLocalGPUImageOnDedMem(fenceptr,queue,std::move(params),srcImage,regionCount,pRegions);
+        waitForFences(1u,&fenceptr,false,9999999999ull);
         return retval;
     }
 
@@ -581,20 +657,19 @@ public:
 
     virtual void unmapMemory(IDriverMemoryAllocation* memory) = 0;
 
+    // `fence` needs to be in unsignalled state
     inline void updateBufferRangeViaStagingBuffer(IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
     {
         auto* cmdpool = cmdbuf->getPool();
-        assert(cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-        assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
+        assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+        assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
 
-        //EventHandle event = null;
-        resetFences(1u, &fence);
         for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
         {
-            const void* dataPtr = reinterpret_cast<const uint8_t*>(data) + uploadedSize;
+            const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
             uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
             uint32_t alignment = 64u; // smallest mapping alignment capability
-            uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), bufferRange.size - uploadedSize));
+            uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), bufferRange.size-uploadedSize));
             m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &subSize, &alignment);
 
             // keep trying again
@@ -610,10 +685,10 @@ public:
                 submit.waitSemaphoreCount = 0u;
                 submit.pWaitSemaphores = nullptr;
                 submit.pWaitDstStageMask = nullptr;
-                queue->submit(1u, &submit, fence); // <threadsafeSubmit==true> means submit while locking an internal mutex
-                waitForFences(1u, &fence, false, 9999999999ull);
-                //event.manuallySignal(); // ???????? just to be exact, probably would still work without, simply because we're resetting a fence that was previously queued up
-                resetFences(1u, &fence);
+                queue->submit(1u,&submit,fence);
+                waitForFences(1u,&fence,false,9999999999ull);
+                // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
+                resetFences(1u,&fence);
                 cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
                 cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
                 continue;
@@ -621,61 +696,62 @@ public:
             // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
             if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
             {
-                IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, subSize);
-                flushMappedMemoryRanges(1u, &flushRange);
+                IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize);
+                flushMappedMemoryRanges(1u,&flushRange);
             }
             // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
             asset::SBufferCopy copy;
             copy.srcOffset = localOffset;
-            copy.dstOffset = bufferRange.offset + uploadedSize;
+            copy.dstOffset = bufferRange.offset+uploadedSize;
             copy.size = subSize;
-            cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
+            cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(),bufferRange.buffer.get(),1u,&copy);
             // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-            /*event = */m_defaultUploadBuffer.get()->multi_free(1u, &localOffset, &subSize, core::smart_refctd_ptr<IGPUFence>(fence)); // can queue with a reset but not yet pending fence, just fine
+            m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
             uploadedSize += subSize;
         }
-        //return event.deferred_function; // ????? wtf is deferred_function? why would i have an event here??
     }
-
+    //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
+    // `fence` needs to be in unsignalled state
     inline void updateBufferRangeViaStagingBuffer(IGPUFence* fence, IGPUQueue* _queue, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
     {
-        core::smart_refctd_ptr<IGPUCommandPool> pool = createCommandPool(_queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+        core::smart_refctd_ptr<IGPUCommandPool> pool = createCommandPool(_queue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
         core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-        createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+        createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
         assert(cmdbuf);
         cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-        /*auto func = */updateBufferRangeViaStagingBuffer(cmdbuf.get(), fence, _queue, bufferRange, data);
+        updateBufferRangeViaStagingBuffer(cmdbuf.get(),fence,_queue,bufferRange,data);
         cmdbuf->end();
         IGPUQueue::SSubmitInfo submit;
         submit.commandBufferCount = 1u;
-        auto* cmdbuf_raw = cmdbuf.get();
-        submit.commandBuffers = &cmdbuf_raw;
+        submit.commandBuffers = &cmdbuf.get();
         submit.signalSemaphoreCount = 0u;
         submit.pSignalSemaphores = nullptr;
         submit.waitSemaphoreCount = 0u;
         submit.pWaitSemaphores = nullptr;
         submit.pWaitDstStageMask = nullptr;
-        _queue->submit(1u, &submit, fence); // <threadsafeSubmit==true> means submit while locking an internal mutex
-        //func.optionalCmdBuffToDrop = std::move(cmdbuf); // ?????? wtf is optionalCmdBuffToDrop?
+        _queue->submit(1u,&submit,fence);
     }
-
+    //! WARNING: This function blocks and stalls the GPU!
     inline void updateBufferRangeViaStagingBuffer(IGPUQueue* _queue, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
     {
         auto fence = this->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-        updateBufferRangeViaStagingBuffer(fence.get(), _queue, bufferRange, data);
+        updateBufferRangeViaStagingBuffer(fence.get(),_queue,bufferRange,data);
         auto* fenceptr = fence.get();
-        waitForFences(1u, &fenceptr, false, 9999999999ull);
+        waitForFences(1u,&fenceptr,false,9999999999ull);
     }
 
     // Not implemented stuff:
-    //vkCreateGraphicsPipelines //no graphics pipelines yet (just renderpass independent)
-    //vkGetBufferMemoryRequirements
+    //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)
+    //vkGetBufferMemoryRequirements // wonder how it works with dedicated memory XD
     //vkGetDescriptorSetLayoutSupport
-    //vkTrimCommandPool
-    //vkGetPipelineCacheData //as pipeline cache method??
-    //vkMergePipelineCaches //as pipeline cache method
+    //vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
+    //vkGetPipelineCacheData //as pipeline cache method?? (why not)
+    //vkMergePipelineCaches //as pipeline cache method (why not)
     //vkCreateQueryPool //????
     //vkCreateShaderModule //????
+
+    //!
+    //virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 protected:
     // must be called by implementations of mapMemory()

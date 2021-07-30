@@ -69,10 +69,6 @@ if(NBL_BUILD_ANDROID)
 	if(NOT DEFINED _NBL_ANDROID_VALIDATED_)
 		message(FATAL_ERROR "Android toolchain hasn't been validated properly. Pass an appropriate path to CMAKE_TOOLCHAIN_FILE!")
 	endif()
-
-	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Ninja")
-		message(FATAL_ERROR "Only Ninja Generator is supported for Android Build!")
-	endif()
 	
 	if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Linux")
 		message(STATUS "Using Linux as a host OS for Android cross-compiling!")
@@ -203,7 +199,7 @@ else()
 endif()
 
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
-option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" ON)
+option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" OFF)
 
 # CUDA test
 include(CheckLanguage)

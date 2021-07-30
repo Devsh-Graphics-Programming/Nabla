@@ -5,16 +5,14 @@
 #ifndef __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 #define __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 
-#if 0
 #include "nbl/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
+#if 0 // TODO: until we figure out the API for HeterogenousMemoryAllocator (how it resizes a buffer)
 // if only we could use c++17 if-constexpr
 namespace impl
 {
@@ -182,11 +180,9 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
         inline const decltype(shrinkPolicy)&    getShrinkPolicy() const {return shrinkPolicy;}
         inline void                             setShrinkPolicy(const decltype(shrinkPolicy)& newShrinkPolicy) {shrinkPolicy=newShrinkPolicy;}
 };
+#endif
 
 }
-}
-
-#endif //if 0
 
 #endif
 

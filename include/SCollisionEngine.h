@@ -63,7 +63,7 @@ class SCollisionEngine : public AllocationOverrideDefault
             direction /= rayLen;
             return true;
         }
-#endif // 0
+
 		//! Calculates 2d screen position from a 3d position.
 		/**
 		@param pos 3d position which is to be projected on screen
@@ -101,6 +101,7 @@ class SCollisionEngine : public AllocationOverrideDefault
                         dim.Width + round<float,int32_t>(dim.Width * (transformedPos.x * zDiv)),
                         dim.Height - round<float,int32_t>(dim.Height * (transformedPos.y * zDiv)));
 		}
+#endif // 0
 
 		//! Adds a collider
 		/** @param collider A pointer to collider. */

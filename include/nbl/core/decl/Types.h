@@ -91,21 +91,6 @@ typedef std::mutex  fast_mutex;
 }
 
 
-#ifdef _NBL_WINDOWS_API_
-//! Defines for s{w,n}printf because these methods do not match the ISO C
-//! standard on Windows platforms, but it does on all others.
-//! These should be int snprintf(char *str, size_t size, const char *format, ...);
-//! and int swprintf(wchar_t *wcs, size_t maxlen, const wchar_t *format, ...);
-#if defined(_MSC_VER) && _MSC_VER > 1310 && !defined (_WIN32_WCE)
-#define swprintf swprintf_s
-#define snprintf sprintf_s
-#elif !defined(__CYGWIN__)
-#define swprintf _snwprintf
-#define snprintf _snprintf
-#endif
-
-#endif // _NBL_WINDOWS_API_
-
 // memory debugging
 #if defined(_NBL_DEBUG) && defined(NABLA_EXPORTS) && defined(_MSC_VER) && \
 	(_MSC_VER > 1299) && !defined(_NBL_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
@@ -119,4 +104,3 @@ typedef std::mutex  fast_mutex;
 #endif
 
 #endif
-

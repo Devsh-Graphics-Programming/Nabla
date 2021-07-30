@@ -17,17 +17,39 @@ namespace video
 
 namespace impl
 {
-inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(IVideoDriver* _driver, asset::ICPUImage* _cpuimg)
+inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(nbl::video::ILogicalDevice* logicalDevice, nbl::video::IGPUQueue* queue, asset::ICPUImage* _cpuimg)
 {
-    auto params = _cpuimg->getCreationParameters();
-    auto img = _driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
+    auto cpuImageParams = _cpuimg->getCreationParameters();
+    auto gpuImage = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(cpuImageParams));
 
     auto regions = _cpuimg->getRegions();
     assert(regions.size());
-    auto texelBuf = _driver->createFilledDeviceLocalGPUBufferOnDedMem(_cpuimg->getBuffer()->getSize(), _cpuimg->getBuffer()->getPointer());
-    _driver->copyBufferToImage(texelBuf.get(), img.get(), regions.size(), regions.begin());
 
-    return img;
+    auto gpuTexelBuffer = logicalDevice->createFilledDeviceLocalGPUBufferOnDedMem(queue, _cpuimg->getBuffer()->getSize(), _cpuimg->getBuffer()->getPointer());
+    auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements driverMemoryRequirements;
+    core::smart_refctd_ptr<video::IGPUCommandBuffer> gpuCommandBuffer;
+    logicalDevice->createCommandBuffers(gpuCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
+    assert(gpuCommandBuffer);
+
+    gpuCommandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+    {
+        gpuCommandBuffer->copyBufferToImage(gpuTexelBuffer.get(), gpuImage.get(), nbl::asset::EIL_GENERAL, regions.size(), regions.begin());
+    }
+    gpuCommandBuffer->end();
+
+    video::IGPUQueue::SSubmitInfo info;
+    info.commandBufferCount = 1u;
+    info.commandBuffers = &gpuCommandBuffer.get();
+    info.pSignalSemaphores = nullptr;
+    info.signalSemaphoreCount = 0u;
+    info.pWaitSemaphores = nullptr;
+    info.waitSemaphoreCount = 0u;
+    info.pWaitDstStageMask = nullptr;
+    queue->submit(1u, &info, nullptr);
+
+    return gpuImage;
 }
 }
 
@@ -35,7 +57,8 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<video::IGPUImageV
 {
     using base_t = asset::IVirtualTexture<video::IGPUImageView, video::IGPUSampler>;
 
-    IVideoDriver* m_driver;
+    nbl::video::ILogicalDevice* m_logicalDevice;
+    nbl::video::IGPUQueue* m_queue;
 
 protected:
     class IGPUVTResidentStorage final : public base_t::IVTResidentStorage
@@ -44,29 +67,29 @@ protected:
         using cpu_counterpart_t = asset::ICPUVirtualTexture::ICPUVTResidentStorage;
 
     public:
-        IGPUVTResidentStorage(IVideoDriver* _driver, const cpu_counterpart_t* _cpuStorage) :
+        IGPUVTResidentStorage(nbl::video::ILogicalDevice* _logicalDevice, nbl::video::IGPUQueue* _queue, const cpu_counterpart_t* _cpuStorage) :
             storage_base_t(
-                impl::createGPUImageFromCPU(_driver, _cpuStorage->image.get()),
+                impl::createGPUImageFromCPU(_logicalDevice, _queue, _cpuStorage->image.get()),
                 _cpuStorage->tileAlctr,
                 _cpuStorage->m_alctrReservedSpace,
                 _cpuStorage->m_decodeAddr_layerShift,
                 _cpuStorage->m_decodeAddr_xMask
             ),
-            m_driver(_driver)
+            m_logicalDevice(_logicalDevice)
         {
 
         }
 
-        IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tilesPerDim) :
+        IGPUVTResidentStorage(nbl::video::ILogicalDevice* _logicalDevice, asset::E_FORMAT _format, uint32_t _tilesPerDim) :
             storage_base_t(_format, _tilesPerDim),
-            m_driver(_driver)
+            m_logicalDevice(_logicalDevice)
         {
 
         }
 
-        IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) :
+        IGPUVTResidentStorage(nbl::video::ILogicalDevice* _logicalDevice, asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) :
             storage_base_t(_format, _layers, _tilesPerDim),
-            m_driver(_driver)
+            m_logicalDevice(_logicalDevice)
         {
             deferredInitialization(_tileExtent, _layers);
         }
@@ -90,21 +113,27 @@ protected:
             params.samples = asset::IImage::ESCF_1_BIT;
             params.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
 
-            image = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
+            image = m_logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(params));
         }
 
     private:
         core::smart_refctd_ptr<IGPUImageView> createView_internal(IGPUImageView::SCreationParams&& _params) const override
         {
-            return m_driver->createGPUImageView(std::move(_params));
+            return m_logicalDevice->createGPUImageView(std::move(_params));
         }
 
-        IVideoDriver* m_driver = nullptr;
+        nbl::video::ILogicalDevice* m_logicalDevice;
     };
 
 public:
+
+    /*
+        The queue must have TRANSFER capability
+    */
+
     IGPUVirtualTexture(
-        IVideoDriver* _driver,
+        nbl::video::ILogicalDevice* _logicalDevice,
+        nbl::video::IGPUQueue* _queue,
         physical_tiles_per_dim_log2_callback_t&& _callback,
         const base_t::IVTResidentStorage::SCreationParams* _residentStorageParams,
         uint32_t _residentStorageCount,
@@ -120,13 +149,20 @@ public:
             _pgSzxy_log2,
             _tilePadding
         ),
-        m_driver(_driver)
+        m_logicalDevice(_logicalDevice),
+        m_queue(_queue)
     {
         m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
+
+    /*
+        The queue must have TRANSFER capability
+    */
+
     IGPUVirtualTexture(
-        IVideoDriver* _driver,
+        nbl::video::ILogicalDevice* _logicalDevice,
+        nbl::video::IGPUQueue* _queue,
         physical_tiles_per_dim_log2_callback_t&& _callback,
         uint32_t _pgSzxy_log2 = 7u,
         uint32_t _tilePadding = 9u,
@@ -138,11 +174,17 @@ public:
             _pgSzxy_log2,
             _tilePadding
         ),
-        m_driver(_driver)
+        m_logicalDevice(_logicalDevice),
+        m_queue(_queue)
     {
 
     }
-    IGPUVirtualTexture(IVideoDriver* _driver, asset::ICPUVirtualTexture* _cpuvt) :
+
+    /*
+        The queue must have TRANSFER capability
+    */
+
+    IGPUVirtualTexture(nbl::video::ILogicalDevice* _logicalDevice, nbl::video::IGPUQueue* _queue, asset::ICPUVirtualTexture* _cpuvt) :
         base_t(
             _cpuvt->getPhysicalStorageExtentCallback(),
             _cpuvt->getPageTableExtent_log2(),
@@ -151,13 +193,14 @@ public:
             _cpuvt->getTilePadding(),
             false
             ),
-        m_driver(_driver)
+        m_logicalDevice(_logicalDevice),
+        m_queue(_queue)
     {
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
 
         auto* cpuPgt = _cpuvt->getPageTable();
-        m_pageTable = impl::createGPUImageFromCPU(m_driver, cpuPgt);
+        m_pageTable = impl::createGPUImageFromCPU(m_logicalDevice, m_queue, cpuPgt);
 
         m_precomputed = _cpuvt->getPrecomputedData();
 
@@ -171,7 +214,7 @@ public:
             auto* cpuStorage = static_cast<asset::ICPUVirtualTexture::ICPUVTResidentStorage*>(pair.second.get());
             const asset::E_FORMAT_CLASS fmtClass = pair.first;
 
-            m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(_driver, cpuStorage)});
+            m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice, m_queue, cpuStorage)});
         }
 
         auto createViewsFromCPU = [this](core::vector<SamplerArray::Sampler>& _dst, decltype(_cpuvt->getFloatViews()) _src) -> void
@@ -225,23 +268,23 @@ public:
 protected:
     core::smart_refctd_ptr<IGPUImageView> createPageTableView() const override
     {
-        return m_driver->createGPUImageView(createPageTableViewCreationParams());
+        return m_logicalDevice->createGPUImageView(createPageTableViewCreationParams());
     }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
-        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_driver, _format, _tileExtent, _layers, _tilesPerDim);
+        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice, _format, _tileExtent, _layers, _tilesPerDim);
     }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _tilesPerDim) override
     {
-        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_driver, _format, _tilesPerDim);
+        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice, _format, _tilesPerDim);
     }
     core::smart_refctd_ptr<IGPUImage> createPageTableImage(IGPUImage::SCreationParams&& _params) const override
     {
-        return m_driver->createDeviceLocalGPUImageOnDedMem(std::move(_params));
+        return m_logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(_params));
     }
     core::smart_refctd_ptr<IGPUSampler> createSampler(const asset::ISampler::SParams& _params) const override
     {
-        return m_driver->createGPUSampler(_params);
+        return m_logicalDevice->createGPUSampler(_params);
     }
 };
 

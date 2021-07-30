@@ -660,7 +660,8 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                 gl->extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, stride);
                 UPDATE_STATE(vertexInputParams.vaoval.vtxBindings[bnd]);
             }
-            gl->extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.vaoval.idxBinding.buffer ? nextState.vertexInputParams.vaoval.idxBinding.buffer->getOpenGLName() : 0u);
+            GLuint GLidxbuf = nextState.vertexInputParams.vaoval.idxBinding.buffer ? nextState.vertexInputParams.vaoval.idxBinding.buffer->getOpenGLName() : 0u;
+            gl->extGlVertexArrayElementBuffer(GLvao, GLidxbuf);
             UPDATE_STATE(vertexInputParams.vaoval.idxBinding);
         }
         if (STATE_NEQ(vertexInputParams.indirectDrawBuf))
