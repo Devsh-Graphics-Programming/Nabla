@@ -111,11 +111,11 @@ int main()
 			return 3;
 	}
 
-
 	auto smgr = device->getSceneManager();
 
 	// TODO: Move into renderer?
 	bool rightHandedCamera = true;
+	float moveSpeed = core::nan<float>();
 	auto camera = smgr->addCameraSceneNode(nullptr);
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
@@ -205,6 +205,7 @@ int main()
 			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
 		else
 			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
+		moveSpeed = persp->moveSpeed;
 	}
 	else
 	{
@@ -235,11 +236,12 @@ int main()
 
 		if (generateNewSamples)
 		{
-			/** TODO: redo the sampling
-			Locality Level 0: the 6 or 4 dimensions consumed for BSDF + NEE sampling
-			Locality Level 1: the N samples per dispatch which will be consumed in parallel
-			Locality Level 2: the k dimensions batches (where D=4k or 6k) consumed as we recurse deeper
-			Locality Level 3: the z sample batches (where T=zN) consumed as we progressively add samples
+			/** TODO: move into the renderer and redo the sampling (compress into R21G21B21_UINT)
+			Locality Level 0: the 3 dimensions consumed for a BxDF or NEE sample
+			Locality Level 1: the k = 3 (1 + NEE) samples which will be consumed in the same invocation
+			Locality Level 2-COMP: the N = k dispatchSPP Resolution samples consumed by a raygen dispatch (another TODO: would be order CS and everything in a morton curve)
+			Locality Level 2-RTX: the N = k Depth samples consumed as we recurse deeper
+			Locality Level 3: the D = k dispatchSPP Resolution Depth samples consumed as we accumuate more samples
 			**/
 			constexpr uint32_t Channels = 3u;
 			static_assert(Renderer::MaxDimensions%Channels==0u,"We cannot have this!");
@@ -271,7 +273,9 @@ int main()
 		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
 		auto proj = camera->getProjectionMatrix();
 
-		camera = smgr->addCameraSceneNodeFPS(nullptr, 80.f, core::min(extent.X, extent.Y, extent.Z) * 0.0001f);
+		if (core::isnan(moveSpeed))
+			moveSpeed = core::min(extent.X,extent.Y,extent.Z)*0.0001f;
+		camera = smgr->addCameraSceneNodeFPS(nullptr,80.f,moveSpeed);
 		camera->setPosition(ptu[0].getAsVector3df());
 		camera->setTarget(ptu[1].getAsVector3df());
 		camera->setUpVector(ptu[2]);
@@ -306,8 +310,9 @@ int main()
 		{
 			std::wostringstream str;
 			auto samples = renderer->getTotalSamplesComputed();
+			auto rays = renderer->getTotalRaysCast();
 			str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
-				<< double(samples)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
+				<< double(rays)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
 
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;

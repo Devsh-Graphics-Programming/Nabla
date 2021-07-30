@@ -49,6 +49,8 @@ namespace MitsubaLoader
 		core::map<const CElementShape*, shape_ass_type> shapeCache;
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>>;
+		//image, scale
+		core::map<core::smart_refctd_ptr<asset::ICPUImage>, float> derivMapCache;
 
 		static std::string blendWeightImageCacheKey(const CElementTexture* bitmap)
 		{
@@ -61,7 +63,7 @@ namespace MitsubaLoader
 			return imageCacheKey + "?view";
 		}
 
-		static std::string derivMapCacheKey(const CElementTexture* bitmap)
+		static std::string derivMapCacheKey(const CElementTexture* bitmap, bool wasNormal)
 		{
 			using namespace std::string_literals;
 			static const char* wrap[5]
@@ -74,15 +76,16 @@ namespace MitsubaLoader
 			};
 
 			std::string key = bitmap->bitmap.filename.svalue + "?deriv"s;
+			key += wasNormal ? "?n"s:"?h"s;
 			key += wrap[bitmap->bitmap.wrapModeU];
 			key += wrap[bitmap->bitmap.wrapModeV];
 
 			return key;
 		}
 
-		static std::string derivMapViewCacheKey(const CElementTexture* bitmap)
+		static std::string derivMapViewCacheKey(const CElementTexture* bitmap, bool wasNormal)
 		{
-			return imageViewCacheKey(derivMapCacheKey(bitmap));
+			return imageViewCacheKey(derivMapCacheKey(bitmap,wasNormal));
 		}
 
 		static std::string blendWeightViewCacheKey(const CElementTexture* bitmap)

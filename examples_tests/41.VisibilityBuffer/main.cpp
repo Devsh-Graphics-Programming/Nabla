@@ -10,7 +10,9 @@
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 
+#ifdef DEBUG_AABBS
 #include "nbl/ext/DebugDraw/CDraw3DLine.h"
+#endif
 
 using namespace nbl;
 using namespace nbl::core;
@@ -283,7 +285,9 @@ int main()
     auto* am = device->getAssetManager();
     auto* fs = am->getFileSystem();
 
+#ifdef DEBUG_AABBS
     auto draw3DLine = ext::DebugDraw::CDraw3DLine::create(driver);
+#endif
 
     //
     auto createScreenSizedImage = [driver,&params](const E_FORMAT format) -> auto
@@ -327,7 +331,9 @@ int main()
     //
     SceneData sceneData;
     CullShaderData cullShaderData;
+#ifdef DEBUG_AABBS
     core::vector<std::pair<ext::DebugDraw::S3DLineVertex, ext::DebugDraw::S3DLineVertex>> dbgLines;
+#endif
     {
         //
         auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
@@ -541,7 +547,9 @@ int main()
 
                         batchCullDataEnd->drawCommandGUID = packedMeshBufferData.mdiParameterOffset + i;
 
+#ifdef DEBUG_AABBS
                         draw3DLine->enqueueBox(dbgLines, aabbs[aabbIdx], 0.0f, 0.0f, 0.0f, 1.0f, core::matrix3x4SIMD());
+#endif
 
                         batchCullDataEnd++;
                         aabbIdx++;
@@ -1254,8 +1262,10 @@ int main()
         fillVBuffer(sceneData.occlusionCulledMdiBuffer);
         COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 
+#ifdef DEBUG_AABBS
         //draw aabbs
-        //draw3DLine->draw(camera->getConcatenatedMatrix(), dbgLines);
+        draw3DLine->draw(camera->getConcatenatedMatrix(), dbgLines);
+#endif
 
         // shade visibility buffer
         driver->bindDescriptorSets(video::EPBP_COMPUTE,sceneData.shadeVBufferPpln->getLayout(),0u,4u,vBuffDs,nullptr);

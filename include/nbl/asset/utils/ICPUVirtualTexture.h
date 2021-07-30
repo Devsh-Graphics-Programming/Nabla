@@ -86,8 +86,79 @@ public:
         }
     };
 
-    static auto createPoTPaddedSquareImageWithMipLevels(const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+    //! If there's a need, creates an image upscaled to half page size
+    //! Otherwise returns `_img`
+    //! Always call this before alloc()
+    core::smart_refctd_ptr<asset::ICPUImage> createUpscaledImage(const ICPUImage* _img)
     {
+        if (!_img)
+            return nullptr;
+
+        const auto& params = _img->getCreationParameters();
+        const uint32_t halfPage = m_pgSzxy / 2u;
+
+        if (params.extent.width >= halfPage || params.extent.height >= halfPage)
+        {
+            asset::ICPUImage* img = const_cast<asset::ICPUImage*>(_img);
+            return core::smart_refctd_ptr<asset::ICPUImage>(img);
+        }
+
+        const uint32_t min_extent = std::min(params.extent.width, params.extent.height);
+        const float upscale_factor = static_cast<float>(halfPage) / static_cast<float>(min_extent);
+
+        asset::VkExtent3D extent_upscaled;
+        extent_upscaled.depth = 1u;
+        extent_upscaled.width = static_cast<uint32_t>(params.extent.width * upscale_factor + 0.5f);
+        extent_upscaled.height = static_cast<uint32_t>(params.extent.height * upscale_factor + 0.5f);
+
+        asset::ICPUImage::SCreationParams new_params = params;
+        new_params.extent = extent_upscaled;
+        new_params.mipLevels = 1u;
+
+        auto upscaled_img = asset::ICPUImage::create(std::move(new_params));
+        const size_t bufsz = upscaled_img->getImageDataSizeInBytes();
+        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufsz);
+        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1u);
+        auto& region = regions->operator[](0u);
+        region.bufferOffset = 0u;
+        region.bufferRowLength = extent_upscaled.width;
+        region.bufferImageHeight = 0u;
+        region.imageOffset = { 0,0,0 };
+        region.imageExtent = extent_upscaled;
+        region.imageSubresource.baseArrayLayer = 0u;
+        region.imageSubresource.layerCount = 1u;
+        region.imageSubresource.mipLevel = 0u;
+        region.imageSubresource.aspectMask = _img->getRegion(0u, core::vectorSIMDu32(0u, 0u, 0u, 0u))->imageSubresource.aspectMask;
+
+        upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
+
+        using blit_filter_t = asset::CBlitImageFilter<false, false, asset::VoidSwizzle, asset::IdentityDither, asset::CMitchellImageFilterKernel<>>;
+        blit_filter_t::state_type blit;
+        blit.inOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
+        blit.inExtent = params.extent;
+        blit.inLayerCount = 1u;
+        blit.outOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
+        blit.outExtent = extent_upscaled;
+        blit.outLayerCount = 1u;
+        blit.inImage = const_cast<asset::ICPUImage*>(_img);
+        blit.outImage = upscaled_img.get();
+        blit.scratchMemoryByteSize = blit_filter_t::getRequiredScratchByteSize(&blit);
+        blit.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blit.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
+
+        const bool blit_succeeded = blit_filter_t::execute(&blit);
+        _NBL_ALIGNED_FREE(blit.scratchMemory);
+        if (!blit_succeeded)
+            return nullptr;
+
+        return upscaled_img;
+    }
+
+    //! Always call this before commit()
+    static std::pair<core::smart_refctd_ptr<asset::ICPUImage>, asset::VkExtent3D> createPoTPaddedSquareImageWithMipLevels(const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+    {
+        if (!_img)
+            return { nullptr, asset::VkExtent3D{0u,0u,0u} };
+
         const auto& params = _img->getCreationParameters();
         const auto originalExtent = params.extent;
         const uint32_t paddedExtent = core::roundUpToPoT(std::max<uint32_t>(params.extent.width,params.extent.height));
@@ -222,6 +293,19 @@ public:
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
         using phys_pg_addr_alctr_t = ICPUVTResidentStorage::phys_pg_addr_alctr_t;
+
+        if (levelsTakingAtLeastOnePageCount < _subres.levelCount)
+        {
+            uint32_t miptailPgAddr_tmp = phys_pg_addr_alctr_t::invalid_address;
+            const uint32_t szAndAlignment = 1u;
+            core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_alloc_addr(storage->tileAlctr, 1u, &miptailPgAddr_tmp, &szAndAlignment, &szAndAlignment, nullptr);
+            miptailPgAddr_tmp = (miptailPgAddr_tmp == phys_pg_addr_alctr_t::invalid_address) ? SPhysPgOffset::invalid_addr : storage->encodePageAddress(miptailPgAddr_tmp);
+
+            miptailPgAddr = miptailPgAddr_tmp;
+        }
+
+        const bool wholeTexGoesToMiptailPage = (levelsTakingAtLeastOnePageCount == 0u);
+
         //TODO up to this line, it's kinda common code for CPU and GPU, refactor later
 
         // TODO: parallelize over all 3 for loops
@@ -234,7 +318,7 @@ public:
                 for (uint32_t x = 0u; x < w; ++x)
                 {
                     uint32_t physPgAddr = phys_pg_addr_alctr_t::invalid_address;
-                    if (i>=levelsTakingAtLeastOnePageCount)
+                    if (i>=levelsTakingAtLeastOnePageCount) // this `if` always executes in case of whole texture going into miptail page
                         physPgAddr = miptailPgAddr;
                     else
                     {
@@ -249,24 +333,22 @@ public:
                     if (i==(levelsTakingAtLeastOnePageCount-1u) && levelsTakingAtLeastOnePageCount<_subres.levelCount)
                     {
                         assert(w==1u && h==1u);
-                        uint32_t miptailPgAddr_tmp = phys_pg_addr_alctr_t::invalid_address;
-                        const uint32_t szAndAlignment = 1u;
-                        core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_alloc_addr(storage->tileAlctr, 1u, &miptailPgAddr_tmp, &szAndAlignment, &szAndAlignment, nullptr);
-                        miptailPgAddr_tmp = (miptailPgAddr_tmp==phys_pg_addr_alctr_t::invalid_address) ? SPhysPgOffset::invalid_addr : storage->encodePageAddress(miptailPgAddr_tmp);
-                        
-                        physPgAddr |= (miptailPgAddr_tmp<<SPhysPgOffset::PAGE_ADDR_BITLENGTH);
-
-                        miptailPgAddr = miptailPgAddr_tmp;
+     
+                        physPgAddr |= (miptailPgAddr<<SPhysPgOffset::PAGE_ADDR_BITLENGTH);
                     }
-                    else 
+                    else  // this `else` always executes in case of whole texture going into miptail page
                         physPgAddr |= (SPhysPgOffset::invalid_addr<<SPhysPgOffset::PAGE_ADDR_BITLENGTH);
+
                     if (i < levelsTakingAtLeastOnePageCount)
                     {
+                        // physical double-address to write into page table
+                        const uint32_t physAddrToWrite = physPgAddr;
+
                         const auto texelPos = core::vectorSIMDu32(pgtOffset.x>>i, pgtOffset.y>>i, 0u, pgtOffset.z) + core::vectorSIMDu32(x, y, 0u, 0u);
                         const auto* region = m_pageTable->getRegion(i, texelPos);
                         const uint64_t byteoffset = region->getByteOffset(texelPos, region->getByteStrides(m_pageTable->getTexelBlockInfo()));
                         uint8_t* bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + byteoffset;
-                        reinterpret_cast<uint32_t*>(bufptr)[0] = physPgAddr;
+                        reinterpret_cast<uint32_t*>(bufptr)[0] = physAddrToWrite;
                     }
 
                     if (!SPhysPgOffset(physPgAddr).valid())
@@ -319,6 +401,18 @@ public:
                 }
         }
 
+        if (wholeTexGoesToMiptailPage)
+        {
+            // physical double-address to write into page table
+            uint32_t physAddrToWrite = SPhysPgOffset::invalid_addr | (miptailPgAddr << SPhysPgOffset::PAGE_ADDR_BITLENGTH);
+
+            const auto texelPos = core::vectorSIMDu32(pgtOffset.x, pgtOffset.y, 0u, pgtOffset.z);
+            const auto* region = m_pageTable->getRegion(0u, texelPos);
+            const uint64_t byteoffset = region->getByteOffset(texelPos, region->getByteStrides(m_pageTable->getTexelBlockInfo()));
+            uint8_t* bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + byteoffset;
+            reinterpret_cast<uint32_t*>(bufptr)[0] = physAddrToWrite;
+        }
+
         return true;
     }
 
@@ -363,11 +457,10 @@ public:
         const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
         ICPUVTResidentStorage* storage = static_cast<ICPUVTResidentStorage*>(getStorageForFormatClass(getFormatClass(format)));
         if (!storage)
-            return nullptr;
+            return false;
 
         //free physical pages
         VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
-        const uint32_t levelCount = _addr.maxMip+1u;
 
 #ifdef _NBL_DEBUG
         CFillImageFilter::state_type fill;
@@ -384,7 +477,7 @@ public:
         std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
 
         auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
-        for (uint32_t i = 0u; i < levelCount; ++i)
+        for (uint32_t i=0u; i<core::max(_addr.maxMip,1u); ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, i);
             const uint32_t h = neededPageCountForSide(extent.height, i);

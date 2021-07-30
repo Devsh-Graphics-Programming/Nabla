@@ -471,7 +471,7 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				Iex
 				IexMath
-				SPIRV-Tools
+				SPIRV-Tools-static
 				SPIRV-Tools-opt )
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)

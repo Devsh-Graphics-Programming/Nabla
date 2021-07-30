@@ -54,8 +54,8 @@ vec4 nbl_glsl_VG_attribFetch_RGBA16_SFLOAT(in nbl_glsl_VG_VirtualAttributePacked
 {
 #ifdef _NBL_VG_USE_SSBO
   uvec2 packed = nbl_glsl_VG_attribFetch2u(attr, vertexID);
-  vec2 xy = unpackHalf2x16(packed.x).xy;
-  vec2 zw = unpackHalf2x16(packed.y).xy;
+  vec2 xy = unpackHalf2x16(packed[0]).xy;
+  vec2 zw = unpackHalf2x16(packed[1]).xy;
   return vec4(xy, zw);
 #else
   return nbl_glsl_VG_attribFetch4f(attr, vertexID);
@@ -87,7 +87,7 @@ vec4 nbl_glsl_VG_attribFetch_RGBA16_SSCALED(in nbl_glsl_VG_VirtualAttributePacke
 vec2 nbl_glsl_VG_attribFetch_RG16_SFLOAT(in nbl_glsl_VG_VirtualAttributePacked_t attr, in uint vertexID)
 {
 #ifdef _NBL_VG_USE_SSBO
-  return unpackHalf2x16(nbl_glsl_VG_attribFetch1u(attr, vertexID)).xy;
+  return unpackHalf2x16(nbl_glsl_VG_attribFetch1u(attr,vertexID));
 #else
   return nbl_glsl_VG_attribFetch2f(attr, vertexID);
 #endif

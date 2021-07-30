@@ -7,7 +7,7 @@
 [submodule "3rdparty/glslang"]
 	path = 3rdparty/glslang
 	url = https://github.com/devshgraphicsprogramming/glslang.git
-	branch = nabla
+	branch = master
 [submodule "3rdparty/shaderc"]
 	path = 3rdparty/shaderc
 	url = https://github.com/google/shaderc.git
@@ -20,7 +20,7 @@
 [submodule "3rdparty/spirv_cross"]
 	path = 3rdparty/spirv_cross
 	url = https://github.com/devshgraphicsprogramming/SPIRV-Cross.git
-	branch = nabla
+	branch = master
 [submodule "3rdparty/zlib"]
 	path = 3rdparty/zlib
 	url = https://github.com/madler/zlib.git
@@ -99,3 +99,9 @@
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git
+[submodule "3rdparty/simdjson"]
+	path = 3rdparty/simdjson
+	url = https://github.com/simdjson/simdjson
+[submodule "3rdparty/glTFSampleModels"]
+	path = 3rdparty/glTFSampleModels
+	url = https://github.com/KhronosGroup/glTF-Sample-Models

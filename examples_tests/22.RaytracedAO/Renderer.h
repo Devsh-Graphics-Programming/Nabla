@@ -42,20 +42,32 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		uint64_t getTotalSamplesComputed() const
 		{
-			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerRowPerDispatch*m_staticViewData.imageDimensions.y);
+			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerPixelPerDispatch*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
+		uint64_t getTotalRaysCast() const
+		{
+			return m_totalRaysCast;
+		}
 
-
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
+		//! Brief guideline to good path depth limits
+		// Want to see stuff with indirect lighting on the other side of a pane of glass
+		// 5 = glass frontface->glass backface->diffuse surface->diffuse surface->light
+		// Want to see through a glass box, vase, or office 
+		// 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
+		// pick higher numbers for better GI and less bias
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxPathDepth = 8u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t RandomDimsPerPathVertex = 3u;
+		// one less because the first path vertex is rasterized
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*(MaxPathDepth-1u);
 		static const float AntiAliasingSequence[4096][2];
     protected:
         ~Renderer();
 
 		struct InitializationData
 		{
-			InitializationData() : mdiFirstIndices(), lights(),lightRadiances(),lightCDF(),globalMeta(nullptr) {}
+			InitializationData() : lights(),lightCDF(),globalMeta(nullptr) {}
 			InitializationData(InitializationData&& other) : InitializationData()
 			{
 				operator=(std::move(other));
@@ -64,17 +76,13 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 			inline InitializationData& operator=(InitializationData&& other)
 			{
-				mdiFirstIndices = std::move(other.mdiFirstIndices);
 				lights = std::move(other.lights);
-				lightRadiances = std::move(other.lightRadiances);
 				lightCDF = std::move(other.lightCDF);
 				globalMeta = other.globalMeta;
 				return *this;
 			}
 
-			nbl::core::vector<uint32_t> mdiFirstIndices;
 			nbl::core::vector<SLight> lights;
-			nbl::core::vector<nbl::core::vectorSIMDf> lightRadiances;
 			union
 			{
 				nbl::core::vector<float> lightPDF;
@@ -86,9 +94,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		void initSceneNonAreaLights(InitializationData& initData);
 		void finalizeScene(InitializationData& initData);
 
+		//
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
 
-		void traceBounce();
+		//
+		uint32_t traceBounce(uint32_t raycount);
 
 
 		// "constants"
@@ -109,9 +119,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 
 		// persistent (intialized in constructor
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_rayCountBuffer,m_littleDownloadBuffer;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_cullDSLayout;
 		nbl::core::smart_refctd_ptr<const nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_rasterInstanceDataDSLayout,m_additionalGlobalDSLayout,m_commonRaytracingDSLayout,m_raygenDSLayout,m_resolveDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_rasterInstanceDataDSLayout,m_additionalGlobalDSLayout,m_commonRaytracingDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_raygenDSLayout,m_closestHitDSLayout,m_resolveDSLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> m_visibilityBufferFillPipeline;
 
 
@@ -120,9 +132,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::vector<::RadeonRays::Shape*> rrInstances;
 
 		nbl::core::matrix3x4SIMD m_prevView;
+		nbl::core::matrix4x3 m_prevCamTform;
 		nbl::core::aabbox3df m_sceneBound;
-		uint32_t m_maxRaysPerDispatch;
 		uint32_t m_framesDispatched;
+		vec2 m_rcpPixelSize;
+		uint64_t m_totalRaysCast;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
 
@@ -139,9 +153,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_perCameraRasterDS;
 		
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout, m_raygenPipelineLayout, m_resolvePipelineLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline, m_raygenPipeline, m_resolvePipeline;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_rasterInstanceDataDS,m_additionalGlobalDS,m_commonRaytracingDS,m_raygenDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline,m_raygenPipeline,m_closestHitPipeline,m_resolvePipeline;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_additionalGlobalDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_commonRaytracingDS[2];
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_rasterInstanceDataDS,m_raygenDS,m_resolveDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_closestHitDS[2];
 		uint32_t m_raygenWorkGroups[2];
 
 		struct InteropBuffer
@@ -149,10 +165,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> buffer;
 			std::pair<::RadeonRays::Buffer*, cl_mem> asRRBuffer = { nullptr,0u };
 		};
-		InteropBuffer m_rayCountBuffer[2];
-		InteropBuffer m_rayBuffer,m_intersectionBuffer;
-
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_resolveDS;
+		InteropBuffer m_rayBuffer[2];
+		InteropBuffer m_intersectionBuffer[2];
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_accumulation,m_tonemapOutput;
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;

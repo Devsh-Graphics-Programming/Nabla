@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#version 430 core
+#version 460 core
 #extension GL_EXT_shader_16bit_storage : require
+#include <nbl/builtin/glsl/barycentric/extensions.glsl>
 
 #include "rasterizationCommon.h"
 
@@ -27,7 +28,7 @@ void main()
 
     const uint batchInstanceGUID = self.backfacingBit_batchInstanceGUID&0x7fffffffu;
     
-    const vec3 modelPos = nbl_glsl_fetchVtxPos(gl_VertexIndex,batchInstanceGUID);
+    const vec3 modelPos = nbl_glsl_fetchVtxPos(gl_VertexIndex,InstData.data[batchInstanceGUID]);
     nbl_glsl_barycentric_vert_set(modelPos);
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(self.MVP,modelPos);
 }

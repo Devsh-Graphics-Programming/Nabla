@@ -17,7 +17,7 @@
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-#	define DEBUG_MITSUBA_LOADER
+//#	define DEBUG_MITSUBA_LOADER
 #endif
 
 namespace nbl
@@ -101,11 +101,13 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
+#ifdef TEX_PREFETCH_STREAM
 mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(dFdx(WorldPos),dFdy(WorldPos));}
 mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
     return mat2(dFdx(UV),dFdy(UV));
 }
+#endif
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
@@ -268,16 +270,32 @@ static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_
 
 	return asset::ICPUImageView::create(std::move(params));
 }
-static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr)
+static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr, bool fromNormalMap)
 {
 	const auto& sp = _smplr->getParams();
 
-	return asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(
+	core::smart_refctd_ptr<asset::ICPUImage> derivmap_img;
+	float scale[2]{ 1.f, 1.f };
+	if (fromNormalMap)
+	{
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(_heightMap, scale, true);
+		assert(scale[0] == scale[1]);
+	}
+	else
+	{
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(
 			_heightMap,
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapV),
-			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor)
-	);
+			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor));
+	}
+
+	if (!derivmap_img)
+		return nullptr;
+
+	ctx.derivMapCache.insert({ derivmap_img, scale[0] });
+
+	return derivmap_img;
 }
 static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const asset::ICPUImage* _img)
 {
@@ -533,6 +551,12 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		ctx.meta->m_global.m_materialCompilerGLSL_source = compResult.fragmentShaderSource;
 		ctx.meta->m_global.m_ds0 = ds0;
 
+		ctx.meta->reserveDerivMapStorage(ctx.derivMapCache.size());
+		for (auto& derivMap : ctx.derivMapCache)
+		{
+			ctx.meta->addDerivMapMeta(derivMap.first.get(), derivMap.second);
+		}
+
 		auto meshSmartPtrArray = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(meshes.size());
 		auto meshSmartPtrArrayIt = meshSmartPtrArray->begin();
 		for (const auto& mesh_ : meshes)
@@ -655,7 +679,7 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 
 SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform)
 {
-	constexpr uint32_t UV_ATTRIB_ID = 2U;
+	constexpr uint32_t UV_ATTRIB_ID = 2u;
 
 	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh)
 	{
@@ -707,18 +731,13 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			auto asset = contentRange.begin()[actualIndex];
 			if (!asset)
 				return nullptr;
-			// make a (shallow) copy because the mesh will get mutilated and abused for metadata NOT ANYMORE?
-			auto mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
-			auto copy = core::make_smart_refctd_ptr<asset::ICPUMesh>();
-			copy->getMeshBufferVector() = mesh->getMeshBufferVector();
-			IMeshManipulator::recalculateBoundingBox(copy.get());
-			return copy;
+			return core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
 		}
 		else
 			return nullptr;
 	};
 
-	core::smart_refctd_ptr<asset::ICPUMesh> mesh;
+	core::smart_refctd_ptr<asset::ICPUMesh> mesh,newMesh;
 	bool flipNormals = false;
 	bool faceNormals = false;
 	float maxSmoothAngle = NAN;
@@ -780,13 +799,20 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
 			if (mesh && shape->obj.flipTexCoords)
 			{
-				for (auto meshbuffer : mesh->getMeshBuffers())
+				newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh> (mesh->clone(1u));
+				for (auto& meshbuffer : mesh->getMeshBufferVector())
 				{
-					core::vectorSIMDf uv;
-					for (uint32_t i=0u; meshbuffer->getAttribute(uv, UV_ATTRIB_ID, i); i++)
+					auto binding = meshbuffer->getVertexBufferBindings()[UV_ATTRIB_ID];
+					if (binding.buffer)
 					{
-						uv.y = -uv.y;
-						meshbuffer->setAttribute(uv, UV_ATTRIB_ID, i);
+						binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
+						meshbuffer->setVertexBufferBinding(std::move(binding),UV_ATTRIB_ID);
+						core::vectorSIMDf uv;
+						for (uint32_t i=0u; meshbuffer->getAttribute(uv,UV_ATTRIB_ID,i); i++)
+						{
+							uv.y = -uv.y;
+							meshbuffer->setAttribute(uv,UV_ATTRIB_ID,i);
+						}
 					}
 				}
 			}
@@ -795,7 +821,6 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		case CElementShape::Type::PLY:
 			_NBL_DEBUG_BREAK_IF(true); // this code has never been tested
 			mesh = loadModel(shape->ply.filename);
-			mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything
 			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
@@ -807,27 +832,31 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 				if (totalVertexCount)
 				{
 					constexpr uint32_t hidefRGBSize = 4u;
-					auto newRGB = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
-					uint32_t* it = reinterpret_cast<uint32_t*>(newRGB->getPointer());
-					for (auto meshbuffer : mesh->getMeshBuffers())
+					auto newRGBbuff = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
+					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
+					constexpr uint32_t COLOR_ATTR = 1u;
+					constexpr uint32_t COLOR_BUF_BINDING = 15u;
+					uint32_t* newRGB = reinterpret_cast<uint32_t*>(newRGBbuff->getPointer());
+					uint32_t offset = 0u;
+					for (auto& meshbuffer : mesh->getMeshBufferVector())
 					{
-						uint32_t offset = reinterpret_cast<uint8_t*>(it)-reinterpret_cast<uint8_t*>(newRGB->getPointer());
 						core::vectorSIMDf rgb;
-						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, 1u, i); i++,it++)
+						for (uint32_t i=0u; meshbuffer->getAttribute(rgb,COLOR_ATTR,i); i++,offset++)
 						{
 							for (auto i=0; i<3u; i++)
 								rgb[i] = core::srgb2lin(rgb[i]);
-							meshbuffer->setAttribute(rgb,it,asset::EF_A2B10G10R10_UNORM_PACK32);
+							ICPUMeshBuffer::setAttribute(rgb,newRGB+offset,asset::EF_A2B10G10R10_UNORM_PACK32);
 						}
-						constexpr uint32_t COLOR_BUF_BINDING = 15u;
-						auto& vtxParams = meshbuffer->getPipeline()->getVertexInputParams();
-						vtxParams.attributes[1].format = EF_A2B10G10R10_UNORM_PACK32;
-						vtxParams.attributes[1].relativeOffset = 0u;
-						vtxParams.attributes[1].binding = COLOR_BUF_BINDING;
+						auto newPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(meshbuffer->getPipeline()->clone(0u));
+						auto& vtxParams = newPipeline->getVertexInputParams();
+						vtxParams.attributes[COLOR_ATTR].format = EF_A2B10G10R10_UNORM_PACK32;
+						vtxParams.attributes[COLOR_ATTR].relativeOffset = 0u;
+						vtxParams.attributes[COLOR_ATTR].binding = COLOR_BUF_BINDING;
 						vtxParams.bindings[COLOR_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
 						vtxParams.bindings[COLOR_BUF_BINDING].stride = hidefRGBSize;
 						vtxParams.enabledBindingFlags |= (1u<<COLOR_BUF_BINDING);
-						meshbuffer->setVertexBufferBinding({0ull,core::smart_refctd_ptr(newRGB)}, COLOR_BUF_BINDING);
+						meshbuffer->setPipeline(std::move(newPipeline));
+						meshbuffer->setVertexBufferBinding({offset*hidefRGBSize,core::smart_refctd_ptr(newRGBbuff)},COLOR_BUF_BINDING);
 					}
 				}
 			}
@@ -851,40 +880,38 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	if (!mesh)
 		return nullptr;
 
+	// mesh including meshbuffers needs to be cloned because instance counts and base instances will be changed
+	if (!newMesh)
+		newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
 	// flip normals if necessary
 	if (flipNormals)
-	for (auto meshbuffer : mesh->getMeshBuffers())
-		ctx.manipulator->flipSurfaces(meshbuffer);
-
-	//turned off by default, it's too slow (works though)
-//#define OPTIMIZE_MESHES
-
-	auto newMesh = core::make_smart_refctd_ptr<asset::ICPUMesh>();
-	for (auto meshbuffer : mesh->getMeshBuffers())
 	{
-#ifdef OPTIMIZE_MESHES // TODO
-		asset::IMeshManipulator::SErrorMetric metrics[asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-		metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
-		auto newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(meshbuffer, metrics);
-#else
-		auto newMeshBuffer = core::smart_refctd_ptr<asset::ICPUMeshBuffer>(meshbuffer);
-#endif
-		if (faceNormals || !std::isnan(maxSmoothAngle))
+		for (auto& meshbuffer : mesh->getMeshBufferVector())
 		{
-			const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
-
-			ctx.manipulator->filterInvalidTriangles(meshbuffer);
-			newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer);
-			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
-				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
-				{
-					if (faceNormals)
-						return a.indexOffset == b.indexOffset;
-					else
-						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
-				});
+			auto binding = meshbuffer->getIndexBufferBinding();
+			binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
+			meshbuffer->setIndexBufferBinding(std::move(binding));
+			ctx.manipulator->flipSurfaces(meshbuffer.get());
 		}
-		newMesh->getMeshBufferVector().push_back(std::move(newMeshBuffer));
+	}
+	// recompute normalis if necessary
+	if (faceNormals || !std::isnan(maxSmoothAngle))
+	for (auto& meshbuffer : mesh->getMeshBufferVector())
+	{
+		const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
+
+		// TODO: make these mesh manipulator functions const-correct
+		auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer.get());
+		ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
+		ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
+			[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
+			{
+				if (faceNormals)
+					return a.indexOffset == b.indexOffset;
+				else
+					return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
+			});
+		meshbuffer = std::move(newMeshBuffer);
 	}
 	IMeshManipulator::recalculateBoundingBox(newMesh.get());
 	mesh = std::move(newMesh);
@@ -1214,6 +1241,9 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			switch (bsdf->type)
 			{
 			case CElementBSDF::COATING:
+				for (uint32_t i = 0u; i < bsdf->coating.childCount; ++i)
+					stack.push(bsdf->coating.bsdf[i]);
+				break;
 			case CElementBSDF::ROUGHCOATING:
 			case CElementBSDF::BUMPMAP:
 			case CElementBSDF::BLEND_BSDF:
@@ -1264,11 +1294,12 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 				// TODO check and restore if dummy (image and sampler)
 				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
 				auto sampler = std::get<1>(bm);
-				const std::string key = ctx.derivMapCacheKey(bumpmap_element);
+				const bool wasNormal = bsdf->bumpmap.wasNormal;
+				const std::string key = ctx.derivMapCacheKey(bumpmap_element,wasNormal);
 
 				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_assetMgr))
 				{
-					auto derivmap = createDerivMap(bumpmap.get(), sampler.get());
+					auto derivmap = createDerivMap(ctx, bumpmap.get(),sampler.get(),wasNormal);
 					asset::SAssetBundle imgBundle(nullptr,{ derivmap });
 					ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
 					auto derivmap_view = createImageView(std::move(derivmap));
@@ -1401,11 +1432,6 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto baseInstanceDataIt = meshMeta->m_instances.begin();
 		for (const auto& inst : meshMeta->m_instanceAuxData)
 		{
-			// @Crisspl IIRC lights in mitsuba have "sides"
-			// TODO: address the comment!
-			// i think it's just that backside of an area emitter does not emit, docs doesnt say anything about this
-			emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance : core::vectorSIMDf(0.f);
-
 			nbl_glsl_ext_Mitsuba_Loader_instance_data_t instData;
 
 			instData.tform = baseInstanceDataIt->worldTform;
@@ -1423,10 +1449,11 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				//os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				//ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
-				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
+				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.front = impl_backendToGLSLStream(emissive,streams);
 			}
 			streams_it = _compResult.streams.find(bsdf_back);
@@ -1436,10 +1463,11 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				//os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				//ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
-				//_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
+				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.back = impl_backendToGLSLStream(emissive,streams);
 			}
 

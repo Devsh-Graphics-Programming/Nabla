@@ -16,7 +16,19 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
 {
     public:
         constexpr static uint32_t MAX_TRIANGLES_IN_BATCH_CNT = 21845u;
+        
+        struct ReservedAllocationMeshBuffersBase
+        {
+            uint32_t mdiAllocationOffset;
+            uint32_t mdiAllocationReservedCnt;
+            uint32_t indexAllocationOffset;
+            uint32_t indexAllocationReservedCnt;
 
+            inline bool isValid()
+            {
+                return this->mdiAllocationOffset!=core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+            }
+        };
         struct PackedMeshBufferData
         {
             uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
@@ -120,7 +132,18 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
             m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(alctrBuffSz, vtxAlctr, resSpcTmp);
         }
 
-    protected:
+        void free(const ReservedAllocationMeshBuffersBase& rambb)
+        {
+            if (rambb.indexAllocationOffset != INVALID_ADDRESS)
+                m_idxBuffAlctr.free_addr(rambb.indexAllocationOffset,rambb.indexAllocationReservedCnt);
+
+            if (rambb.mdiAllocationOffset != INVALID_ADDRESS)
+                m_MDIDataAlctr.free_addr(rambb.mdiAllocationOffset,rambb.mdiAllocationReservedCnt);
+        }
+        
+        //
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+
         core::GeneralpurposeAddressAllocator<uint32_t> m_vtxBuffAlctr;
         core::GeneralpurposeAddressAllocator<uint32_t> m_idxBuffAlctr;
         core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
@@ -601,8 +624,6 @@ protected:
             return this->MDIDataBuffer->getPointer() != nullptr;
         }
     };
-
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
 
 };
 

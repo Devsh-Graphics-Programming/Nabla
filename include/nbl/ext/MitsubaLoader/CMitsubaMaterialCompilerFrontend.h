@@ -23,13 +23,15 @@ class CMitsubaMaterialCompilerFrontend
 
     const SContext* m_loaderContext;
 
-    tex_ass_type getDerivMap(const CElementTexture* _element) const;
+    tex_ass_type getDerivMap(const CElementBSDF::BumpMap& _bump) const;
     tex_ass_type getBlendWeightTex(const CElementTexture* _element) const;
 
     std::pair<const CElementTexture*, float> getTexture_common(const CElementTexture* _element) const;
 
     tex_ass_type getTexture(const CElementTexture* _element) const;
     tex_ass_type getTexture(const std::string& _key, const CElementTexture* _element, float _scale) const;
+
+    tex_ass_type getErrorTexture() const;
 
     IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 
@@ -40,7 +42,7 @@ public:
         IRNode* back;
     };
 
-    CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
+    explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
     front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 };

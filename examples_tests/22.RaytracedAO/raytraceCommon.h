@@ -73,6 +73,12 @@ struct SLight
 #endif
 
 	mat4x3 obb; // needs row_major qualifier
+	/** TODO new and improved
+	mat2x3 obb_base;
+	uvec2 radianceRemainder;
+	vec3 offset;
+	float obb_height;
+	**/
 };
 
 
@@ -82,26 +88,19 @@ struct StaticViewData_t
 {
 	vec3	envmapBaseColor;
 	uint	lightCount;
-	vec2    rcpPixelSize;
-	vec2    rcpHalfPixelSize;
 	uvec2   imageDimensions;
 	uint    samplesPerPixelPerDispatch;
-	uint    samplesPerRowPerDispatch; // TODO: remove
+	uint    padding;
 };
 
 struct RaytraceShaderCommonData_t
 {
-	mat4	inverseMVP;
-	mat4x3  ndcToV;
+	vec3	camPos;
 	float   rcpFramesDispatched;
-#ifdef __cplusplus
-	uint16_t samplesComputed;
-	uint16_t depth;
-#else
-	uint	samplesComputed_depth;
-#endif
+	uint samplesComputed;
+	uint depth;
+	uint rayCountWriteIx;
 	uint padding0;
-	uint padding1;
 };
 
 #endif

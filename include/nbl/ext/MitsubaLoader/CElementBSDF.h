@@ -58,6 +58,7 @@ class CElementBSDF : public IElement
 		struct AllDiffuse
 		{
 			AllDiffuse() : reflectance(0.5f), alpha(0.2f), useFastApprox(false) {}
+			~AllDiffuse() {}
 
 			inline AllDiffuse& operator=(const AllDiffuse& other)
 			{
@@ -67,7 +68,11 @@ class CElementBSDF : public IElement
 				return *this;
 			}
 
-			CElementTexture::SpectrumOrTexture	reflectance;
+			union // to support the unholy undocumented feature of Mitsuba
+			{
+				CElementTexture::SpectrumOrTexture	reflectance;
+				CElementTexture::SpectrumOrTexture	diffuseReflectance;
+			};
 			CElementTexture::FloatOrTexture		alpha; // not the parameter from Oren-Nayar
 			bool								useFastApprox;
 		};
@@ -215,11 +220,11 @@ class CElementBSDF : public IElement
 		size_t childCount = 0u;
 		CElementBSDF* bsdf[MaxChildCount] = { nullptr };
 	};
-		struct AllCoating : RoughSpecularBase, TransmissiveBase, MetaBSDF
+		struct AllCoating : MetaBSDF, RoughSpecularBase, TransmissiveBase
 		{
 			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
 
-			AllCoating() : RoughSpecularBase(0.1f), TransmissiveBase("bk7","air"), MetaBSDF(), thickness(1.f), sigmaA(0.f) {}
+			AllCoating() : MetaBSDF(), RoughSpecularBase(0.1f), TransmissiveBase("bk7","air"), thickness(1.f), sigmaA(0.f) {}
 
 			inline AllCoating& operator=(const AllCoating& other)
 			{
@@ -237,6 +242,7 @@ class CElementBSDF : public IElement
 		struct BumpMap : MetaBSDF
 		{
 			CElementTexture* texture;
+			bool wasNormal;
 		};
 		struct MixtureBSDF : MetaBSDF
 		{
