@@ -42,7 +42,7 @@ IAPIConnection::IAPIConnection(core::smart_refctd_ptr<system::ISystem>&& sys, sy
         "";
 #endif
 
-    m_GLSLCompiler = core::make_smart_refctd_ptr<asset::IGLSLCompiler>(m_system.get(), system::logger_opt_smart_ptr(m_logger));
+    m_GLSLCompiler = core::make_smart_refctd_ptr<asset::IGLSLCompiler>(m_system.get());
 }
 
 }

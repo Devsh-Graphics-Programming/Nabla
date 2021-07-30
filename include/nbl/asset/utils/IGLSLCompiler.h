@@ -27,15 +27,14 @@ class IGLSLCompiler final : public core::IReferenceCounted
 {
 		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
 		system::ISystem* m_system;
-		system::logger_opt_smart_ptr m_logger;
 
 	public:
-		IGLSLCompiler(system::ISystem* _s, system::logger_opt_smart_ptr&& logger);
+		IGLSLCompiler(system::ISystem* _s);
 
 		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
 		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
 
-		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr, system::logger_opt_ptr logger = nullptr) const;
 
 		/**
 		If _stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
@@ -58,9 +57,9 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 		@returns Shader containing SPIR-V bytecode.
 		*/
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr, system::logger_opt_ptr logger = nullptr) const;
 
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr, system::logger_opt_ptr logger = nullptr) const;
 
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
@@ -76,9 +75,9 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 		@returns Shader containing logically same GLSL code as input but with #include directives resolved.
 		*/
-		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u, system::logger_opt_ptr logger = nullptr) const;
 
-		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u, system::logger_opt_ptr logger = nullptr) const;
 };
 
 }
