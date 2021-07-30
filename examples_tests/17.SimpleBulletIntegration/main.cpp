@@ -66,12 +66,12 @@ void main()
 
     float ambient = 0.2;
     float diffuse = 0.8;
-    float cos_theta_term = max(dot(normal,vec3(1.0,1.0,1.0)),0.0);
+    float cos_theta_term = max(dot(normal,vec3(3.0,5.0,-4.0)),0.0);
 
     float fresnel = 0.0; //not going to implement yet, not important
     float specular = 0.0;///pow(max(dot(halfVector,normal),0.0),shininess);
 
-    const float sunPower = 3.14156*0.5;
+    const float sunPower = 3.14156*0.3;
 
     pixelColor = vec4(Color, 1)*sunPower*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
 }
@@ -84,9 +84,12 @@ struct InstanceData {
 
 class CInstancedMotionState : public ext::Bullet3::IMotionStateBase{
 public:
+	btTransform m_correctionMatrix;
+
     inline CInstancedMotionState() {}
-    inline CInstancedMotionState(core::vector<InstanceData> * instancesData, uint32_t index, core::matrix3x4SIMD const & start_mat)
+    inline CInstancedMotionState(core::vector<InstanceData> * instancesData, uint32_t index, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
         : m_instances_data(instancesData), 
+		  m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)),
           m_index(index),
           ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat))
     {
@@ -99,14 +102,16 @@ public:
 	inline virtual void getWorldTransform(btTransform &worldTrans) const override {
 		if(m_instances_data != nullptr) {
 			auto mat = (*m_instances_data)[m_index].modelMatrix;
-			worldTrans = ext::Bullet3::convertMatrixSIMD(mat);
+			auto graphicsWorldTrans = ext::Bullet3::convertMatrixSIMD(mat);
+			worldTrans = graphicsWorldTrans * m_correctionMatrix.inverse();
 		}
 	};
 
 	inline virtual void setWorldTransform(const btTransform &worldTrans) override {
 		if(m_instances_data != nullptr) {
 			if(m_instances_data->size() > m_index) {
-				(*m_instances_data)[m_index].modelMatrix = ext::Bullet3::convertbtTransform(worldTrans);
+				auto & graphicsWorldTrans = (*m_instances_data)[m_index].modelMatrix;
+				graphicsWorldTrans = ext::Bullet3::convertbtTransform(worldTrans * m_correctionMatrix);
 			}
 		}
 	};
@@ -175,15 +180,17 @@ int main()
 	core::vector<GPUObject> gpuObjects; 
 
 	// Instance Data
-	constexpr uint32_t NumCubes = 20;
-	constexpr uint32_t NumCylinders = 0;
-	constexpr uint32_t NumSpheres = 20;
+	constexpr uint32_t NumCubes = 5;
+	constexpr uint32_t NumCylinders = 5;
+	constexpr uint32_t NumSpheres = 5;
+	constexpr uint32_t NumCones = 5;
 
 	constexpr uint32_t startIndexCubes = 0;
 	constexpr uint32_t startIndexCylinders = startIndexCubes + NumCubes;
 	constexpr uint32_t startIndexSpheres = startIndexCylinders + NumCylinders;
+	constexpr uint32_t startIndexCones = startIndexSpheres + NumSpheres;
 	
-	constexpr uint32_t NumInstances = NumCubes + NumCylinders + NumSpheres;
+	constexpr uint32_t NumInstances = NumCubes + NumCylinders + NumSpheres + NumCones;
 	
 	core::vector<InstanceData> instancesData;
 	instancesData.resize(NumInstances);
@@ -215,6 +222,7 @@ int main()
     ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData;
     ext::Bullet3::CPhysicsWorld::RigidBodyData cylinderRigidBodyData;
     ext::Bullet3::CPhysicsWorld::RigidBodyData sphereRigidBodyData;
+    ext::Bullet3::CPhysicsWorld::RigidBodyData coneRigidBodyData;
 	{
 		cubeRigidBodyData.mass = 2.0f;
 		cubeRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
@@ -231,30 +239,44 @@ int main()
 	}
 	{
 		sphereRigidBodyData.mass = 1.0f;
-		sphereRigidBodyData.shape = world->createbtObject<btSphereShape>(0.5f);
+		sphereRigidBodyData.shape = world->createbtObject<btSphereShape>(0.5);
 		btVector3 inertia;
 		sphereRigidBodyData.shape->calculateLocalInertia(sphereRigidBodyData.mass, inertia);
 		sphereRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
 	}
+	{
+		coneRigidBodyData.mass = 1.0f;
+		coneRigidBodyData.shape = world->createbtObject<btConeShape>(0.5, 1.0);
+		btVector3 inertia;
+		coneRigidBodyData.shape->calculateLocalInertia(coneRigidBodyData.mass, inertia);
+		coneRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
 
 	for(uint32_t i = 0; i < NumInstances; ++i) {
+		
+		core::matrix3x4SIMD correction_mat; 
+
 		auto & rigidBodyData = cubeRigidBodyData;
-		if(i >= startIndexSpheres) {
+		if(i >= startIndexCones) {
+			rigidBodyData = coneRigidBodyData;
+			correction_mat.setTranslation(core::vector3df_SIMD(0.0f, -0.5f, 0.0f));
+		} else if(i >= startIndexSpheres) {
 			rigidBodyData = sphereRigidBodyData;
 		} else if(i >= startIndexCylinders) {
 			rigidBodyData = cylinderRigidBodyData;
+			correction_mat.setRotation(core::quaternion(core::PI<float>() / 2.0f, 0.0f, 0.0f));
 		}
 
         core::matrix3x4SIMD mat;
-        mat.setTranslation(core::vectorSIMDf(0.0f, i * 5.0f, i * 2.0f));
-
+        mat.setTranslation(core::vectorSIMDf(i * 0.25f, i * 3.0f, 0.0f));
+		
 		instancesData[i].modelMatrix = mat;
 		rigidBodyData.trans = mat;
 		
 		auto & body = bodies[i];
 
 		bodies[i] = world->createRigidBody(rigidBodyData);
-		world->bindRigidBody<CInstancedMotionState>(body, &instancesData, i, mat);
+		world->bindRigidBody<CInstancedMotionState>(body, &instancesData, i, mat, correction_mat);
 	}
 
 	// TODO? Setup Debug Draw
@@ -290,6 +312,7 @@ int main()
 	auto cubeGeom = geometryCreator->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
 	auto cylinderGeom = geometryCreator->createCylinderMesh(0.5f, 0.5f, 20);
 	auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
+	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
 	// Camera Stuff
 	core::vectorSIMDf cameraPosition(0, 0, -10);
@@ -322,6 +345,7 @@ int main()
 	auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, am.get(), shaders, shaders+2);
 	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, am.get(), shaders, shaders+2);
 	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, am.get(), shaders, shaders+2);
+	auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, am.get(), shaders, shaders+2);
 	
 	// Instances Buffer
 	
@@ -399,15 +423,14 @@ int main()
 		return ret;
 	};
 
-	if(NumCubes > 0) {
+	if(NumCubes > 0)
 		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), gpuInstancesBuffer, NumCubes, sizeof(InstanceData) * startIndexCubes));
-	}
-	if(NumCylinders > 0) {
+	if(NumCylinders > 0)
 		gpuObjects.push_back(createGPUObject(cpuMeshCylinder.get(), gpuInstancesBuffer, NumCylinders, sizeof(InstanceData) * startIndexCylinders, asset::EFCM_NONE));
-	}
-	if(NumSpheres > 0) {
+	if(NumSpheres > 0)
 		gpuObjects.push_back(createGPUObject(cpuMeshSphere.get(), gpuInstancesBuffer, NumSpheres, sizeof(InstanceData) * startIndexSpheres));
-	}
+	if(NumCones > 0)
+		gpuObjects.push_back(createGPUObject(cpuMeshCone.get(), gpuInstancesBuffer, NumCones, sizeof(InstanceData) * startIndexCones, asset::EFCM_NONE));
 
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	constexpr uint32_t FRAME_COUNT = 500000u;
@@ -514,7 +537,10 @@ int main()
     }
 
 	world->deletebtObject(cubeRigidBodyData.shape);
-
+	world->deletebtObject(cylinderRigidBodyData.shape);
+	world->deletebtObject(sphereRigidBodyData.shape);
+	world->deletebtObject(coneRigidBodyData.shape);
+	
 	world->drop();
 
 
