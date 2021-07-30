@@ -327,7 +327,7 @@ struct SJoystickInfo
 	uint8_t				Joystick;
 
 	//! The name that the joystick uses to identify itself.
-	core::stringc	Name;
+	std::string	Name;
 
 	//! The number of buttons that the joystick has.
 	uint32_t				Buttons;

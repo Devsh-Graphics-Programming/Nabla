@@ -31,6 +31,7 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	//! TODO: Actually invoke the GLSL compiler to decode our type from any `#pragma`s
 	std::filesystem::path extension = filename.extension();
 
+
 	core::unordered_map<std::string,ISpecializedShader::E_SHADER_STAGE> typeFromExt =	{	
 																							{".vert",ISpecializedShader::ESS_VERTEX},
 																							{".tesc",ISpecializedShader::ESS_TESSELATION_CONTROL},

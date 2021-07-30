@@ -183,9 +183,11 @@ namespace impl
                 //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
                 //  or path relative to executable's working directory (""-type).
                 relDir = std::filesystem::path(_requesting_source).parent_path();
+                relDir = std::filesystem::path(_requesting_source).parent_path();
             }
 
             std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir.append(_requested_source)) : (_requested_source);
+
             if (!reqBuiltin)
                 name = std::filesystem::absolute(name);
 

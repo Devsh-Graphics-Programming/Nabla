@@ -18,13 +18,13 @@ public:
     {
     }
 
-    void addSearchDirectory(const std::string& _searchDir) override
+    void addSearchDirectory(const system::path& _searchDir) override
     {
         std::filesystem::path absPath = std::filesystem::absolute(_searchDir);
         IIncluder::addSearchDirectory(absPath.string());
     }
 
-    std::string getInclude_internal(const std::string& _path) const override
+    std::string getInclude_internal(const system::path& _path) const override
     {
         core::smart_refctd_ptr<system::IFile> f;
         {

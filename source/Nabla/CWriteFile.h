@@ -25,7 +25,7 @@ namespace io
             virtual ~CWriteFile();
 
         public:
-            CWriteFile(const io::path& fileName, bool append);
+            CWriteFile(const std::filesystem::path& fileName, bool append);
 
             //! Reads an amount of bytes from the file.
             virtual int32_t write(const void* buffer, uint32_t sizeToWrite);
@@ -37,7 +37,7 @@ namespace io
             virtual size_t getPos() const;
 
             //! Returns name of file.
-            virtual const io::path& getFileName() const;
+            virtual std::string getFileName() const;
 
             //! returns if file is open
             bool isOpen() const;
@@ -47,7 +47,7 @@ namespace io
             //! opens the file
             void openFile(bool append);
 
-            io::path Filename;
+            std::filesystem::path Filename;
             FILE* File;
             size_t FileSize;
 	};

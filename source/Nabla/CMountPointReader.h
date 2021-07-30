@@ -28,7 +28,7 @@ namespace io
 
 		//! returns true if the file maybe is able to be loaded by this class
 		//! based on the file extension (e.g. ".zip")
-		virtual bool isALoadableFileFormat(const io::path& filename) const;
+		virtual bool isALoadableFileFormat(const std::filesystem::path& filename) const;
 
 		//! Check if the file might be loaded by this class
 		/** Check might look into the file.
@@ -45,8 +45,6 @@ namespace io
 		//! Creates an archive from the filename
 		/** \param file File handle to check.
 		\return Pointer to newly created archive, or 0 upon error. */
-		//virtual IFileArchive* createArchive(const io::path& filename) const;
-
 		//! creates/loads an archive from the file.
 		//! \return Pointer to the created archive. Returns 0 if loading failed.
 		//virtual IFileArchive* createArchive(io::IReadFile* file) const;
@@ -61,10 +59,10 @@ namespace io
 	public:
 
 		//! Constructor
-		CMountPointReader(IFileSystem *parent, const io::path& basename);
+		CMountPointReader(IFileSystem *parent, const std::filesystem::path& basename);
 
 		//! opens a file by file name
-		virtual IReadFile* createAndOpenFile(const io::path& filename);
+		virtual IReadFile* createAndOpenFile(const std::filesystem::path& filename);
 
 		//! returns the list of files
 		virtual const IFileList* getFileList() const;
@@ -74,7 +72,7 @@ namespace io
 
 	private:
 
-		core::vector<io::path> RealFileNames;
+		core::vector<std::filesystem::path> RealFileNames;
 
 		IFileSystem *Parent;
 		void buildDirectory();

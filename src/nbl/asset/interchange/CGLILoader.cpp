@@ -225,6 +225,7 @@ namespace nbl
 		{
 			const auto fileName = file->getFileName().string();
 			core::vector<char> memory(file->getSize());
+
 			const auto sizeOfData = memory.size();
 
 			system::future<size_t> future;
@@ -243,6 +244,7 @@ namespace nbl
 			else
 			{
 				logger.log("LOADING GLI: failed to load the file %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
+
 				return false;
 			}
 		}

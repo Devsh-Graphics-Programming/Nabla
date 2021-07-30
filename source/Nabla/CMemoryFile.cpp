@@ -11,7 +11,7 @@ namespace nbl
 namespace io
 {
 
-CMemoryFile::CMemoryFile(const size_t& len, const io::path& fileName)
+CMemoryFile::CMemoryFile(const size_t& len, const std::filesystem::path& fileName)
                     : Buffer(len), Pos(0), Filename(fileName)
 {
 }
@@ -21,7 +21,7 @@ CMemoryFile::~CMemoryFile()
 }
 
 //! Constructor
-CMemoryWriteFile::CMemoryWriteFile(const size_t& len, const io::path& fileName)
+CMemoryWriteFile::CMemoryWriteFile(const size_t& len, const std::filesystem::path& fileName)
                 : CMemoryFile(len,fileName)
 {
 	#ifdef _NBL_DEBUG

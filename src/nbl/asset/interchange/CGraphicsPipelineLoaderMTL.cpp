@@ -117,13 +117,12 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
         _hierarchyLevel,
         _override
     );
-    const std::string fullName = _file->getFileName().string();
+
+    const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = std::filesystem::path(fullName).parent_path().string();
-		if (dir.empty())
-			return "";
-		return dir+"/";
+		auto dir = fullName.parent_path().string();
+        return dir;
 	}();
 
     auto materials = readMaterials(_file, _params.logger);
@@ -144,7 +143,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
             core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
             if (hasUV)
             {
-                const std::string dsCacheKey = fullName + "?" + material.name + "?_ds";
+                const std::string dsCacheKey = fullName.string() + "?" + material.name + "?_ds";
                 const uint32_t ds3HLevel = _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW;
                 ds3 = _override->findDefaultAsset<ICPUDescriptorSet>(dsCacheKey,ctx.inner,ds3HLevel).first;
                 if (!ds3)

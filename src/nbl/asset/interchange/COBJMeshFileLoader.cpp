@@ -268,7 +268,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			SObjVertex v;
 
 			// get all vertices data in this face (current line of obj _file)
-			const core::stringc wordBuffer = copyLine(bufPtr, bufEnd);
+			const std::string wordBuffer = copyLine(bufPtr, bufEnd);
 			const char* linePtr = wordBuffer.c_str();
 			const char* const endPtr = linePtr+wordBuffer.size();
 
@@ -615,10 +615,10 @@ uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uin
 }
 
 
-core::stringc COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd)
+std::string COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd)
 {
 	if (!inBuf)
-		return core::stringc();
+		return std::string();
 
 	const char* ptr = inBuf;
 	while (ptr<bufEnd)
@@ -628,7 +628,7 @@ core::stringc COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd
 		++ptr;
 	}
 	// we must avoid the +1 in case the array is used up
-	return core::stringc(inBuf, (uint32_t)(ptr-inBuf+((ptr < bufEnd) ? 1 : 0)));
+	return std::string(inBuf, (uint32_t)(ptr-inBuf+((ptr < bufEnd) ? 1 : 0)));
 }
 
 

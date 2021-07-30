@@ -9,6 +9,7 @@
 #include <ostream>
 
 #include "nbl/core/declarations.h"
+#include "nbl/system/path.h"
 #include "CConcurrentObjectCache.h"
 
 #include "nbl/system/ISystem.h"
@@ -222,6 +223,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
             std::string filename = _file ? _file->getFileName().string() : _supposedFilename;
             system::IFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel); // WARNING: mem-leak possibility: _override should return smart_ptr<IReadFile> (TODO, inspect this)
+
             filename = file ? file->getFileName().string() : _supposedFilename;
 
             const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
@@ -240,7 +242,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             if (!file)
                 return {};//return empty bundle
 
-            auto capableLoadersRng = m_loaders.perFileExt.findRange(std::filesystem::path(filename).relative_path().string());
+            auto capableLoadersRng = m_loaders.perFileExt.findRange(system::extension_wo_dot(filename.c_str()));
             // loaders associated with the file's extension tryout
             for (auto& loader : capableLoadersRng)
             {
@@ -664,7 +666,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             if (!_override)
                 _override = &defOverride;
 
-            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), _file->getFileName().extension().string()});
+            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), system::extension_wo_dot(_file->getFileName())});
 
             for (auto& writer : capableWritersRng)
             if (writer.second->writeAsset(_file, _params, _override))
