@@ -177,7 +177,7 @@ int main()
 
     constexpr size_t NBL_FRAMES = 1000;
 
-    nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> fence;
+    nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
 	for(auto frame = 0; frame < NBL_FRAMES; ++frame)
 	{
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
@@ -198,8 +198,8 @@ int main()
         area.extent = { WIN_W, WIN_H };
         nbl::asset::SClearValue clear;
         clear.color.float32[0] = 1.f;
-        clear.color.float32[1] = 0.f;
-        clear.color.float32[2] = 0.f;
+        clear.color.float32[1] = 1.f;
+        clear.color.float32[2] = 1.f;
         clear.color.float32[3] = 1.f;
         beginInfo.clearValueCount = 1u;
         beginInfo.framebuffer = fbo;
@@ -265,7 +265,7 @@ int main()
         commandBuffer->end();
 
         auto img_acq_sem = logicalDevice->createSemaphore();
-        auto render_finished_sem = logicalDevice->createSemaphore();
+        render_finished_sem = logicalDevice->createSemaphore();
 
         uint32_t imgnum = 0u;
         constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; // ns
@@ -277,7 +277,7 @@ int main()
 
     const auto& fboCreationParams = fbo->getCreationParameters();
     auto gpuSourceImageView = fboCreationParams.attachments[0];
-    ext::ScreenShot::createScreenShot(logicalDevice.get(), queue, gpuSourceImageView.get(), "ScreenShot.png");
+    ext::ScreenShot::createScreenShot(logicalDevice.get(), queue, render_finished_sem.get(), gpuSourceImageView.get(), "ScreenShot.png");
 
 	return 0;
 }

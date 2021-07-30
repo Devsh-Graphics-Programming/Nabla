@@ -409,6 +409,7 @@ namespace nbl {
 			virtual void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) = 0;
 			virtual void extGlDepthRangeArrayv(GLuint first, GLsizei count, const double* v) = 0;
 			virtual void extGlClipControl(GLenum origin, GLenum depth) = 0;
+			virtual void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels) {}
 			virtual inline void extGlEnablei(GLenum target, GLuint index)
 			{
 				if (glGeneral.pglEnablei)

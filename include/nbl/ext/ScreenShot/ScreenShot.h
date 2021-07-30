@@ -6,6 +6,7 @@
 #define _NBL_EXT_SCREEN_SHOT_INCLUDED_
 
 #include <nabla.h>
+#include "../source/Nabla/CFileSystem.h"
 
 namespace nbl
 {
@@ -18,7 +19,7 @@ namespace nbl
 				The queue being passed must have TRANSFER capability.
 			*/
 
-			inline bool createScreenShot(nbl::video::ILogicalDevice* logicalDevice, nbl::video::IGPUQueue* queue, const nbl::video::IGPUImageView* gpuImageView, const std::string& outFileName)
+			inline bool createScreenShot(nbl::video::ILogicalDevice* logicalDevice, nbl::video::IGPUQueue* queue, nbl::video::IGPUSemaphore* semaphore, const nbl::video::IGPUImageView* gpuImageView, const std::string& outFileName)
 			{
 				auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 				auto gpuImage = fetchedImageViewParmas.image;
@@ -56,9 +57,10 @@ namespace nbl
 				info.commandBuffers = &gpuCommandBuffer.get();
 				info.pSignalSemaphores = nullptr;
 				info.signalSemaphoreCount = 0u;
-				info.pWaitSemaphores = nullptr;
-				info.waitSemaphoreCount = 0u;
-				info.pWaitDstStageMask = nullptr;
+				info.pWaitSemaphores = &semaphore;
+				info.waitSemaphoreCount = 1u;
+				nbl::asset::E_PIPELINE_STAGE_FLAGS stageflags = nbl::asset::EPSF_TRANSFER_BIT;
+				info.pWaitDstStageMask = &stageflags;
 				queue->submit(1u, &info, fence.get());
 
 				logicalDevice->waitForFences(1u, &fence.get(), false, 999999999ull);

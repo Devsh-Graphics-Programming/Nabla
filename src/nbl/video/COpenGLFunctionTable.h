@@ -1332,7 +1332,7 @@ public:
 			glTexture.pglBindTexture(target, bound);
 		}
 	}
-	void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
+	void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels) override
 	{
 		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image])
 			gl4Texture.pglGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
