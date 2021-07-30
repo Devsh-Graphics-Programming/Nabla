@@ -23,9 +23,10 @@ class CImageWriterPNG : public asset::IAssetWriter
 public:
     struct SContext
     {
-        SContext(system::ISystem* sys) : system(sys) {}
+        SContext(system::ISystem* sys, const system::logger_opt_ptr& log) : system(sys), logger(log) {}
         system::ISystem* system;
         size_t file_pos = 0;
+        system::logger_opt_ptr logger;
     };
     //! constructor
     explicit CImageWriterPNG(core::smart_refctd_ptr<system::ISystem>&& sys);

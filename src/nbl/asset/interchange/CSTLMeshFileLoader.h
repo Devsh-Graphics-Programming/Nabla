@@ -23,7 +23,7 @@ class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 
 		asset::SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-		bool isALoadableFileFormat(system::IFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{

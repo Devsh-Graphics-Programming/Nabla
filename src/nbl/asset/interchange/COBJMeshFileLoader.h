@@ -83,7 +83,7 @@ public:
 	//! Constructor
 	COBJMeshFileLoader(IAssetManager* _manager);
 
-    virtual bool isALoadableFileFormat(system::IFile* _file) const override
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override
     {
         // OBJ doesn't really have any header but usually starts with a comment
         system::future<size_t> future;

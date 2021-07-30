@@ -99,7 +99,7 @@ private:
 		CBAWMeshFileLoader(IAssetManager* _manager);
 
 
-		virtual bool isALoadableFileFormat(system::IFile* _file) const override
+		virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override
 		{
 			SContext ctx{
 				asset::IAssetLoader::SAssetLoadContext{

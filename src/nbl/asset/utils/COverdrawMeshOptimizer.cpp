@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold)
+void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold, const system::logger_opt_ptr& logger)
 {
 	if (!_outbuffer || !_inbuffer)
 		return;
@@ -26,18 +26,14 @@ void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, 
 	const void* const inIndices = _inbuffer->getIndices();
 	if (idxCount==0u || indexType==asset::EIT_UNKNOWN || !inIndices)
 	{
-#ifdef _NBL_DEBUG
-		os::Printer::log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
-#endif
+		logger.log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
 		return;
 	}
 
 	void* const outIndices = _outbuffer->getIndices();
 	if (_outbuffer->getIndexCount()!=idxCount || _outbuffer->getIndexType()!=indexType || !outIndices)
 	{
-#ifdef _NBL_DEBUG
-		os::Printer::log("Overdraw optimization: output meshbuffer's index buffer does not match input -- mesh buffer left unchanged.");
-#endif
+		logger.log("Overdraw optimization: output meshbuffer's index buffer does not match input -- mesh buffer left unchanged.");
 		return;
 	}
 

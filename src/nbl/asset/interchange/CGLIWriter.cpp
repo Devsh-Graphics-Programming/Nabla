@@ -35,9 +35,9 @@ namespace nbl
 {
 namespace asset
 {
-static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
+static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr& logger);
 
-static inline bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys);
+static inline bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger);
 
 bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
@@ -56,13 +56,12 @@ bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _para
 	if (!file)
 		return false;
 
-	return writeGLIFile(file, imageView);
+	return writeGLIFile(file, imageView, _params.logger);
 }
 
-bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView)
+bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr& logger)
 {
-	assert(false); // TODO: implement proper engine-wide logger
-		//os::Printer::log("WRITING GLI: writing the file", file->getFileName().string(), ELL_INFORMATION);
+	logger.log("WRITING GLI: writing the file %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 
 	const auto& imageViewInfo = imageView->getCreationParameters();
 	const auto& imageInfo = imageViewInfo.image->getCreationParameters();
@@ -70,8 +69,7 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 
 	if (image->getRegions().size() == 0)
 	{
-		assert(false); // TODO: implement proper engine-wide logger
-		//os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().string(), ELL_INFORMATION);
+		logger.log("WRITING GLI: there is a lack of regions! %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 		return false;
 	}
 
@@ -148,7 +146,7 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 		return std::make_pair(gliLayer, gliFace);
 	};
 
-	auto gliFormatAndSwizzles = getTranslatedIRRFormat(imageViewInfo);
+	auto gliFormatAndSwizzles = getTranslatedIRRFormat(imageViewInfo, logger);
 	gli::target gliTarget = getTarget();
 	gli::extent3d gliExtent3d = {imageInfo.extent.width, imageInfo.extent.height, imageInfo.extent.depth};
 	size_t gliLevels = imageInfo.mipLevels;
@@ -207,9 +205,9 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 	const auto& regions = image->getRegions();
 	CBasicImageFilterCommon::executePerRegion<decltype(writeTexel),decltype(updateState)>(image.get(),writeTexel,regions.begin(),regions.end(),updateState);
 
-	return performSavingAsIFile(texture, file, m_system.get());
+	return performSavingAsIFile(texture, file, m_system.get(), logger);
 }
-bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys)
+bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger)
 {
 	if (texture.empty())
 		return false;
@@ -234,13 +232,12 @@ bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::IS
 	}
 	else
 	{
-		assert(false); // TODO: implement proper engine-wide logger
-		//os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().string(), ELL_ERROR);
+		logger.log("WRITING GLI: failed to save the file %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
 		return false;
 	}
 }
 
-inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params)
+inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr& logger)
 {
 	using namespace gli;
 	std::array<gli::gl::swizzle, 4> compomentMapping;
@@ -273,9 +270,9 @@ inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> get
 	{
 		if (format == FORMAT_UNDEFINED)
 		{
-			assert(false); // TODO: implement proper engine-wide logger
-			//os::Printer::log(("WRITING GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
+			logger.log(("WRITING GLI: " + std::string(specialErrorOnUnknown)).c_str(), system::ILogger::ELL_ERROR);
 		}
+
 		return std::make_pair(format, compomentMapping);
 	};
 

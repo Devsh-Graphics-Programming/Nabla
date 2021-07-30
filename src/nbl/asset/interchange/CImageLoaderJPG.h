@@ -21,6 +21,13 @@ namespace asset
 //! Surface Loader for JPG images
 class CImageLoaderJPG : public asset::IAssetLoader
 {
+public:
+    struct SContext
+    {
+        char* filename = nullptr;
+        system::logger_opt_ptr logger = nullptr;
+    };
+private:
     core::smart_refctd_ptr<system::ISystem> m_system;
     protected:
 	    //! destructor
@@ -30,7 +37,7 @@ class CImageLoaderJPG : public asset::IAssetLoader
 	    //! constructor
 	    CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys);
 
-        virtual bool isALoadableFileFormat(system::IFile* _file) const override;
+        virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
 
         virtual const char** getAssociatedFileExtensions() const override
         {

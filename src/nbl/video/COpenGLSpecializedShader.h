@@ -43,7 +43,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			SMember m;
 		};
 
-		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CIntrospectionData* _introspection)
+		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CIntrospectionData* _introspection, system::ILogger* logger)
 		{
 			assert(_introspection);
 			const auto& pc = _introspection->pushConstant;
@@ -51,7 +51,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 				return true;
 			if (!pc.info.name.size()) // cannot handle anonymous push constant blocks (we loose the names)
 			{
-				os::Printer::log("Push Constant blocks need to be named (limitation of SPIR-V Cross). Creation of COpenGLSpecializedShader failed.", ELL_ERROR);
+				logger->log("Push Constant blocks need to be named (limitation of SPIR-V Cross). Creation of COpenGLSpecializedShader failed.", system::ILogger::ELL_ERROR);
 				return false;
 			}
 		
@@ -105,7 +105,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
-		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const;
+		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr& logger = nullptr) const;
 
 		const SInfo& getSpecializationInfo() const { return m_specInfo; }
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }

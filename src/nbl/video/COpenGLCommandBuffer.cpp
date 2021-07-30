@@ -270,7 +270,7 @@ namespace video
         }
     }
 
-    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo)
+    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr& logger)
     {
         auto& rp = info.framebuffer->getCreationParameters().renderpass;
         auto& sub = rp->getSubpasses().begin()[0];
@@ -308,12 +308,10 @@ namespace video
                         }
                     }
                 }
-#ifdef _NBL_DEBUG
                 else
                 {
-                    os::Printer::log("Begin renderpass command: not enough clear values provided, an attachment not cleared!");
+                    logger.log("Begin renderpass command: not enough clear values provided, an attachment not cleared!", system::ILogger::ELL_ERROR);
                 }
-#endif
             }
         }
         if (depthstencil)
@@ -343,12 +341,10 @@ namespace video
                         gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, depth, stencil);
                     }
                 }
-#ifdef _NBL_DEBUG
                 else
                 {
-                    os::Printer::log("Begin renderpass command: not enough clear values provided, an attachment not cleared!");
+                    logger.log("Begin renderpass command: not enough clear values provided, an attachment not cleared!", system::ILogger::ELL_ERROR);
                 }
-#endif
             }
         }
     }
@@ -801,7 +797,7 @@ namespace video
 
                 GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
                 if (fbo)
-                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo);
+                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_NEXT_SUBPASS:

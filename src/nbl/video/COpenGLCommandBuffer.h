@@ -407,6 +407,7 @@ protected:
 
     template <impl::E_COMMAND_TYPE ECT>
     using SCmd = impl::SCmd<ECT>;
+    system::logger_opt_smart_ptr m_logger;
 
     //NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
 #define _NBL_SCMD_TYPE_FOR_ECT(ECT) SCmd<impl::ECT>,
@@ -433,7 +434,7 @@ protected:
 
     static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid);
 
-    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo);
+    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr& logger);
 
     static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
 
@@ -512,7 +513,7 @@ public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
 
 
-    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
+    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger) : IGPUCommandBuffer(dev, lvl, _cmdpool), m_logger(std::move(logger)) {}
 
     bool reset(uint32_t _flags) override final;
 

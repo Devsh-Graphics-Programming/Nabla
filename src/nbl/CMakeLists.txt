@@ -1,4 +1,5 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -177,6 +178,7 @@ set(NBL_CORE_SOURCES
 set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 # Junk to refactor
 	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp

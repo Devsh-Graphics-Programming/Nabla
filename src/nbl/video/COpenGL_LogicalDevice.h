@@ -10,6 +10,7 @@
 #include "nbl/video/COpenGLEvent.h"
 #include "nbl/video/COpenGLSemaphore.h"
 #include "nbl/video/debug/debug.h"
+#include "nbl/system/ILogger.h"
 
 #include <chrono>
 
@@ -55,9 +56,9 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-        IOpenGL_LogicalDevice(_egl, api_type, params, std::move(s), std::move(glslc)),
-        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config), _dbgCb),
+    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, system::logger_opt_smart_ptr&& logger) :
+        IOpenGL_LogicalDevice(_egl, api_type, params, std::move(s), std::move(glslc), std::move(logger)),
+        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config), _dbgCb, system::logger_opt_smart_ptr(m_logger)),
         m_glfeatures(_features),
         m_config(config),
         m_gl_ver(major, minor)
@@ -82,7 +83,7 @@ public:
 
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority, _dbgCb), this);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority, _dbgCb, system::logger_opt_smart_ptr(m_logger)), this);
             }
         }
 
@@ -189,7 +190,7 @@ public:
         // master context must not be current while creating a context with whom it will be sharing
         unbindMasterContext();
         EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, master_ctx);
-        auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig, m_dbgCb);
+        auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig, m_dbgCb, system::logger_opt_smart_ptr(m_logger));
         if (!sc)
             return nullptr;
         // wait until swapchain's internal thread finish context creation
@@ -439,7 +440,7 @@ protected:
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
-            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(this, _level, _cmdPool);
+            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(this, _level, _cmdPool, system::logger_opt_smart_ptr(system::logger_opt_smart_ptr(m_logger)));
         return true;
     }
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override final
@@ -490,8 +491,8 @@ protected:
             spirv = glUnspec->getSPVorGLSL_refctd();
         }
 
-        if (_spvopt)
-            spirv = _spvopt->optimize(spirv.get());
+        if (_spvopt)                                                      
+            spirv = _spvopt->optimize(spirv.get(), m_logger.getOptRawPtr());
 
         if (!spirv)
             return nullptr;
@@ -504,15 +505,15 @@ protected:
         if (!introspection)
         {
             _NBL_DEBUG_BREAK_IF(true);
-            os::Printer::log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", ELL_ERROR);
+            m_logger.log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", system::ILogger::ELL_ERROR);
             return nullptr;
         }
 
         core::vector<COpenGLSpecializedShader::SUniform> uniformList;
-        if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList, introspection))
+        if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList, introspection, m_logger.getRaw()))
         {
             _NBL_DEBUG_BREAK_IF(true);
-            os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
+            m_logger.log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", system::ILogger::ELL_ERROR);
             return nullptr;
         }
 
