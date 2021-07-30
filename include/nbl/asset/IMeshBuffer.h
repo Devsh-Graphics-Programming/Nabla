@@ -129,7 +129,8 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         }
         inline const SBufferBinding<const BufferType>& getAttribBoundBuffer(uint32_t attrId) const
         {
-            return reinterpret_cast<const SBufferBinding<const BufferType>&>(getAttribBoundBuffer(attrId));
+            const uint32_t bnd = getBindingNumForAttribute(attrId);
+            return reinterpret_cast<const SBufferBinding<const BufferType>&>(m_vertexBufferBindings[bnd]);
         }
 
         inline const SBufferBinding<BufferType>* getVertexBufferBindings()
