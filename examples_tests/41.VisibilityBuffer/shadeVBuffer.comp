@@ -1,4 +1,5 @@
 #version 430 core
+#extension GL_EXT_shader_16bit_storage : require
 
 #line 4 // so we get good line numbers for errors
 #include "common.glsl"
@@ -113,6 +114,16 @@ vec3 uintIDToColor(uint id)
     return vec3(bitfieldExtract(id,0,4),bitfieldExtract(id,4,4),bitfieldExtract(id,8,4))/15.0;
 }
 
+#define VISIBLE_BUFF_SET 3
+#define VISIBLE_BUFF_BINDING 2
+#define CUBE_COMMAND_BUFF_SET 3
+#define CUBE_COMMAND_BUFF_BINDING 3
+#define OCCLUSION_DISPATCH_INDIRECT_BUFF_SET 3
+#define OCCLUSION_DISPATCH_INDIRECT_BUFF_BINDING 4
+
+
+#include "occlusionCullingShaderCommon.glsl"
+
 void main()
 {
     const ivec2 fragCoord = ivec2(gl_GlobalInvocationID);
@@ -174,6 +185,14 @@ void main()
         ViewPos = pos-pc.camPos; // weird global for MTL shader
         nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(pc.camPos,pos,normal);
         color.rgb = nbl_computeLighting(interaction);
+
+        visibleBuff.visible[drawGUID] = uint16_t(1u);
+
+        if(gl_GlobalInvocationID.x == 0)
+        {
+            cubeIndirectDraw.draw.instanceCount = 0;
+            occlusionDispatchIndirect.di.num_groups_x = 0;
+        }
     }
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));
