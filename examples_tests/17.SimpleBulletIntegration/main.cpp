@@ -117,6 +117,11 @@ protected:
     uint32_t m_index;
 };
 
+struct GPUObject {
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
+};
+
 static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createMeshBufferFromGeomCreatorReturnType(
 	asset::IGeometryCreator::return_type& _data,
 	asset::IAssetManager* _manager,
@@ -167,11 +172,25 @@ int main()
 	auto fbo = std::move(initOutp.fbo);
 	auto cmdpool = std::move(initOutp.commandPool);
 	
+	core::vector<GPUObject> gpuObjects; 
+
 	// Instance Data
-	constexpr uint32_t NumInstances = 20;
+	constexpr uint32_t NumCubes = 20;
+	constexpr uint32_t NumCylinders = 0;
+	constexpr uint32_t NumSpheres = 20;
+
+	constexpr uint32_t startIndexCubes = 0;
+	constexpr uint32_t startIndexCylinders = startIndexCubes + NumCubes;
+	constexpr uint32_t startIndexSpheres = startIndexCylinders + NumCylinders;
+	
+	constexpr uint32_t NumInstances = NumCubes + NumCylinders + NumSpheres;
 	
 	core::vector<InstanceData> instancesData;
 	instancesData.resize(NumInstances);
+	
+	for(uint32_t i = 0; i < NumInstances; ++i) {
+		instancesData[i].color = core::vector3df_SIMD(float(i) / float(NumInstances), 0.5f, 1.0f);
+	}
 
 	// Physics Setup
     ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(nbl::ext::Bullet3::CPhysicsWorld);
@@ -192,28 +211,53 @@ int main()
 	core::vector<btRigidBody*> bodies;
 	bodies.resize(NumInstances);
 		
-	// Cube RigidBody Data
+	// Shapes RigidBody Data
     ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData;
-    cubeRigidBodyData.mass = 2.0f;
-    cubeRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
-    btVector3 inertia;
-    cubeRigidBodyData.shape->calculateLocalInertia(cubeRigidBodyData.mass, inertia);
-    cubeRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+    ext::Bullet3::CPhysicsWorld::RigidBodyData cylinderRigidBodyData;
+    ext::Bullet3::CPhysicsWorld::RigidBodyData sphereRigidBodyData;
+	{
+		cubeRigidBodyData.mass = 2.0f;
+		cubeRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
+		btVector3 inertia;
+		cubeRigidBodyData.shape->calculateLocalInertia(cubeRigidBodyData.mass, inertia);
+		cubeRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
+	{
+		cylinderRigidBodyData.mass = 1.0f;
+		cylinderRigidBodyData.shape = world->createbtObject<btCylinderShape>(btVector3(0.5, 0.5, 0.5));
+		btVector3 inertia;
+		cylinderRigidBodyData.shape->calculateLocalInertia(cylinderRigidBodyData.mass, inertia);
+		cylinderRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
+	{
+		sphereRigidBodyData.mass = 1.0f;
+		sphereRigidBodyData.shape = world->createbtObject<btSphereShape>(0.5f);
+		btVector3 inertia;
+		sphereRigidBodyData.shape->calculateLocalInertia(sphereRigidBodyData.mass, inertia);
+		sphereRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
 
 	for(uint32_t i = 0; i < NumInstances; ++i) {
+		auto & rigidBodyData = cubeRigidBodyData;
+		if(i >= startIndexSpheres) {
+			rigidBodyData = sphereRigidBodyData;
+		} else if(i >= startIndexCylinders) {
+			rigidBodyData = cylinderRigidBodyData;
+		}
+
         core::matrix3x4SIMD mat;
-        mat.setTranslation(core::vectorSIMDf(i * 0.2f, i * 1.0f, 1.0f));
-		cubeRigidBodyData.trans = mat;
+        mat.setTranslation(core::vectorSIMDf(0.0f, i * 5.0f, i * 2.0f));
+
 		instancesData[i].modelMatrix = mat;
+		rigidBodyData.trans = mat;
 		
 		auto & body = bodies[i];
 
-		bodies[i] = world->createRigidBody(cubeRigidBodyData);
+		bodies[i] = world->createRigidBody(rigidBodyData);
 		world->bindRigidBody<CInstancedMotionState>(body, &instancesData, i, mat);
 	}
 
 	// TODO? Setup Debug Draw
-
 
 	// Asset Manager
 	auto filesystem = core::make_smart_refctd_ptr<io::CFileSystem>("");
@@ -243,12 +287,14 @@ int main()
 
 	// Geom Create
 	auto geometryCreator = am->getGeometryCreator();
-	auto cubeMesh = geometryCreator->createCubeMesh(core::vector3df(1.0f,1.0f,1.0f));
+	auto cubeGeom = geometryCreator->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
+	auto cylinderGeom = geometryCreator->createCylinderMesh(0.5f, 0.5f, 20);
+	auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
 
 	// Camera Stuff
-	core::vectorSIMDf cameraPosition(0, 5, -10);
+	core::vectorSIMDf cameraPosition(0, 0, -10);
 	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01, 100);
-	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 2, 0), core::vectorSIMDf(0, 1, 0));
+	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 
 	// Creating CPU Shaders 
@@ -272,69 +318,96 @@ int main()
 	auto vs = createCPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert");
 	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
-
-	auto cpuMesh = createMeshBufferFromGeomCreatorReturnType(cubeMesh, am.get(), shaders, shaders+2);
 	
-	auto pipeline = cpuMesh->getPipeline();
-	{
-		// we're working with RH coordinate system(view proj) and in that case the cubeMesh frontFace is NOT CCW.
-		pipeline->getRasterizationParams().frontFaceIsCCW = 0;
-
-		auto & vtxinputParams = pipeline->getVertexInputParams();
-		vtxinputParams.bindings[1].inputRate = asset::EVIR_PER_INSTANCE;
-		vtxinputParams.bindings[1].stride = sizeof(InstanceData);
-		// Color
-		vtxinputParams.attributes[4].binding = 1;
-		vtxinputParams.attributes[4].relativeOffset = 0;
-		vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-		// World Row 0
-		vtxinputParams.attributes[5].binding = 1;
-		vtxinputParams.attributes[5].relativeOffset = sizeof(core::vector3df_SIMD);
-		vtxinputParams.attributes[5].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-		// World Row 1
-		vtxinputParams.attributes[6].binding = 1;
-		vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD) * 2;
-		vtxinputParams.attributes[6].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-		// World Row 2
-		vtxinputParams.attributes[7].binding = 1;
-		vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD) * 3;
-		vtxinputParams.attributes[7].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-
-
-		vtxinputParams.enabledAttribFlags |= 0x1u << 4 | 0x1u << 5 | 0x1u << 6 | 0x1u << 7;
-		vtxinputParams.enabledBindingFlags |= 0x1u << 1;
-// for wireframe rendering
-#if 0
-		pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
-#endif
-	}
-
-	asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-	auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u);
-	pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
-
-	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
-	
-	auto gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1,cpu2gpuParams)->front();
+	auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, am.get(), shaders, shaders+2);
+	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, am.get(), shaders, shaders+2);
+	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, am.get(), shaders, shaders+2);
 	
 	// Instances Buffer
 	
 	constexpr size_t BUF_SZ = sizeof(InstanceData) * NumInstances;
 	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
     
-	asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
-    vtxInstanceBufBnd.offset = 0ull;
-    vtxInstanceBufBnd.buffer = gpuInstancesBuffer;
-    gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd), 1);
-	gpuMesh->setInstanceCount(NumInstances);
+	// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
+	auto createGPUObject = [&](
+		asset::ICPUMeshBuffer * cpuMesh,
+		core::smart_refctd_ptr<video::IGPUBuffer> instancesBuffer,
+		uint64_t numInstances, uint64_t instanceBufferOffset,
+		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject {
+		GPUObject ret = {};
+		
+		auto pipeline = cpuMesh->getPipeline();
+		{
+			// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
+			auto & rasterParams = pipeline->getRasterizationParams();
+			rasterParams.frontFaceIsCCW = 0;
+			rasterParams.faceCullingMode = faceCullingMode;
+			rasterParams.depthTestEnable = true;
+			rasterParams.depthCompareOp = asset::ECO_GREATER;
 
-	video::IGPUGraphicsPipeline::SCreationParams gp_params;
-	gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
-	gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
-	gp_params.renderpassIndependent = rpIndependentPipeline; // TODO: fix use gpuMesh->getPipeline instead
-	gp_params.subpassIx = 0u;
+			auto & vtxinputParams = pipeline->getVertexInputParams();
+			vtxinputParams.bindings[1].inputRate = asset::EVIR_PER_INSTANCE;
+			vtxinputParams.bindings[1].stride = sizeof(InstanceData);
+			// Color
+			vtxinputParams.attributes[4].binding = 1;
+			vtxinputParams.attributes[4].relativeOffset = 0;
+			vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+			// World Row 0
+			vtxinputParams.attributes[5].binding = 1;
+			vtxinputParams.attributes[5].relativeOffset = sizeof(core::vector3df_SIMD);
+			vtxinputParams.attributes[5].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+			// World Row 1
+			vtxinputParams.attributes[6].binding = 1;
+			vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD) * 2;
+			vtxinputParams.attributes[6].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+			// World Row 2
+			vtxinputParams.attributes[7].binding = 1;
+			vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD) * 3;
+			vtxinputParams.attributes[7].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 
-	auto graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+
+			vtxinputParams.enabledAttribFlags |= 0x1u << 4 | 0x1u << 5 | 0x1u << 6 | 0x1u << 7;
+			vtxinputParams.enabledBindingFlags |= 0x1u << 1;
+	// for wireframe rendering
+	#if 0
+			pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
+	#endif
+		}
+
+		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+		auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u);
+		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
+
+		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
+	
+		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh, &cpuMesh + 1,cpu2gpuParams)->front();
+	
+		asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
+		vtxInstanceBufBnd.offset = instanceBufferOffset;
+		vtxInstanceBufBnd.buffer = instancesBuffer;
+		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd), 1);
+		ret.gpuMesh->setInstanceCount(numInstances);
+
+		video::IGPUGraphicsPipeline::SCreationParams gp_params;
+		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
+		gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
+		gp_params.renderpassIndependent = rpIndependentPipeline; // TODO: fix use gpuMesh->getPipeline instead
+		gp_params.subpassIx = 0u;
+
+		ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+
+		return ret;
+	};
+
+	if(NumCubes > 0) {
+		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), gpuInstancesBuffer, NumCubes, sizeof(InstanceData) * startIndexCubes));
+	}
+	if(NumCylinders > 0) {
+		gpuObjects.push_back(createGPUObject(cpuMeshCylinder.get(), gpuInstancesBuffer, NumCylinders, sizeof(InstanceData) * startIndexCylinders, asset::EFCM_NONE));
+	}
+	if(NumSpheres > 0) {
+		gpuObjects.push_back(createGPUObject(cpuMeshSphere.get(), gpuInstancesBuffer, NumSpheres, sizeof(InstanceData) * startIndexSpheres));
+	}
 
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	constexpr uint32_t FRAME_COUNT = 500000u;
@@ -404,14 +477,9 @@ int main()
 		}
 		// Update instances buffer 
 		{
-			core::matrix3x4SIMD modelMatrix;
-			static double rot = 0;
-			rot += dt * 0.0005f;
-
-			for(uint32_t i = 0; i < NumInstances; ++i) {
-				instancesData[i].color = core::vector3df_SIMD(float(i) / float(NumInstances), 0.5f, 1.0f);
-			}
-
+			// Update Physics
+			world->getWorld()->stepSimulation(dt);
+			
 			asset::SBufferRange<video::IGPUBuffer> range;
 			range.buffer = gpuInstancesBuffer;
 			range.offset = 0;
@@ -421,11 +489,13 @@ int main()
 		// draw
 		{
 			// Draw Stuff 
+			for(uint32_t i = 0; i < gpuObjects.size(); ++i) {
+				auto & gpuObject = gpuObjects[i];
 
-			cb->bindGraphicsPipeline(graphicsPipeline.get());
-			
-			cb->pushConstants(rpIndependentPipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
-			cb->drawMeshBuffer(gpuMesh.get());
+				cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
+				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
+				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
+			}
 		}
 		cb->endRenderPass();
 		cb->end();
@@ -433,7 +503,6 @@ int main()
 		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
 		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
 		
-        world->getWorld()->stepSimulation(dt);
 	}
 	
     world->unbindRigidBody(body2, false);
@@ -447,6 +516,7 @@ int main()
 	world->deletebtObject(cubeRigidBodyData.shape);
 
 	world->drop();
+
 
 	return 0;
 }
