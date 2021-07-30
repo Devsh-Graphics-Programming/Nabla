@@ -155,7 +155,7 @@ private:
 
         static_cast<CRTP*>(this)->background_work();
 
-        if (cb_begin != cb_end)
+        if (cb_begin != cb_end) // why is this check needed!?!?!?!?!?!?
         {
             uint64_t r_id = cb_begin;
 #if __cplusplus >= 202002L
@@ -180,6 +180,7 @@ private:
             req.ready_for_work.store(false);
             req.ready.store(true);
             req.cvar.notify_all();
+            // shouldn't `lk` get unlocked here!? (doesn't look like a unique lock!
             cb_begin++; // TODO: @Crisspl / @Danylo can anyone explain to me why you've made the queue non atomic!?
         }
         lock.lock();
