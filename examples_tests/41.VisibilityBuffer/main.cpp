@@ -261,7 +261,7 @@ int main()
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
     params.WindowSize = dimension2d<uint32_t>(1280, 720);
     params.Fullscreen = false;
-    params.Vsync = false; //! If supported by target platform
+    params.Vsync = true; //! If supported by target platform
     params.Doublebuffer = true;
     params.Stencilbuffer = false; //! This will not even be a choice soon
     auto device = createDeviceEx(params);
@@ -339,8 +339,6 @@ int main()
         asset::IAssetLoader::SAssetLoadParams lp;
         auto meshes_bundle = am->getAsset("sponza.obj", lp);
         assert(!meshes_bundle.getContents().empty());
-        if (meshes_bundle.getContents().empty())
-            std::cout << "shit\n";
         auto mesh_raw = static_cast<asset::ICPUMesh*>(meshes_bundle.getContents().begin()->get());
 
         // ensure memory will be freed as soon as CPU assets are dropped
@@ -466,14 +464,11 @@ int main()
 
             constexpr uint32_t kVerticesPerTriangle = 3u;
             MeshPacker::AllocationParams allocParams;
-            //allocParams.indexBuffSupportedCnt = 32u * 1024u * 1024u;
-            allocParams.indexBuffSupportedCnt = 30000000u * 2u;
+            allocParams.indexBuffSupportedCnt = 32u * 1024u * 1024u;
             allocParams.indexBufferMinAllocCnt = minTrisBatch*kVerticesPerTriangle;
-            //allocParams.vertexBuffSupportedByteSize = 128u * 1024u * 1024u;
-            allocParams.vertexBuffSupportedByteSize = std::numeric_limits<size_t>::max() / 1024u;
+            allocParams.vertexBuffSupportedByteSize = 128u * 1024u * 1024u;
             allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
-            //allocParams.MDIDataBuffSupportedCnt = 8192u;
-            allocParams.MDIDataBuffSupportedCnt = 40000 * 2u;
+            allocParams.MDIDataBuffSupportedCnt = 8192u;
             allocParams.MDIDataBuffMinAllocCnt = 16u;
             
             auto wholeMbRangeBegin = pipelineMeshBufferRanges.front();
