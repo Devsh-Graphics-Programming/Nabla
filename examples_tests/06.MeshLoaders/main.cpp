@@ -9,6 +9,7 @@
 
 #include "../common/CommonAPI.h"
 #include "../source/Nabla/CFileSystem.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
 using namespace core;
@@ -174,7 +175,10 @@ int main()
     matrix3x4SIMD viewMatrix = matrix3x4SIMD::buildCameraLookAtMatrixLH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
     auto viewProjectionMatrix = matrix4SIMD::concatenateBFollowedByA(projectionMatrix, matrix4SIMD(viewMatrix));
 
-	while(true)
+    constexpr size_t NBL_FRAMES = 1000;
+
+    nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> fence;
+	for(auto frame = 0; frame < NBL_FRAMES; ++frame)
 	{
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
         commandBuffer->begin(0);
@@ -194,8 +198,8 @@ int main()
         area.extent = { WIN_W, WIN_H };
         nbl::asset::SClearValue clear;
         clear.color.float32[0] = 1.f;
-        clear.color.float32[1] = 1.f;
-        clear.color.float32[2] = 1.f;
+        clear.color.float32[1] = 0.f;
+        clear.color.float32[2] = 0.f;
         clear.color.float32[3] = 1.f;
         beginInfo.clearValueCount = 1u;
         beginInfo.framebuffer = fbo;
@@ -270,6 +274,10 @@ int main()
         CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queue, img_acq_sem.get(), render_finished_sem.get());
         CommonAPI::Present(logicalDevice.get(), swapchain.get(), queue, render_finished_sem.get(), imgnum);
 	}
+
+    const auto& fboCreationParams = fbo->getCreationParameters();
+    auto gpuSourceImageView = fboCreationParams.attachments[0];
+    ext::ScreenShot::createScreenShot(logicalDevice.get(), queue, gpuSourceImageView.get(), "ScreenShot.png");
 
 	return 0;
 }
