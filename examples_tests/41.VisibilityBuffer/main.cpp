@@ -661,7 +661,7 @@ int main()
                 params.CompareEnable = 0;
                 auto sampler = driver->createGPUSampler(params);
 
-                IGPUDescriptorSetLayout::SBinding bindings[6];
+                IGPUDescriptorSetLayout::SBinding bindings[5];
                 bindings[0].binding = 0u;
                 bindings[0].count = 1u;
                 bindings[0].samplers = &sampler;
@@ -676,7 +676,7 @@ int main()
                 bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
                 bindings[1].type = EDT_STORAGE_IMAGE;
 
-                for (uint32_t i = 2u; i < 6u; i++)
+                for (uint32_t i = 2u; i < 5u; i++)
                 {
                     bindings[i].binding = i;
                     bindings[i].count = 1u;
@@ -688,7 +688,7 @@ int main()
                 shadingDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
             }
             {
-                IGPUDescriptorSet::SDescriptorInfo infos[6];
+                IGPUDescriptorSet::SDescriptorInfo infos[5];
                 infos[0].desc = core::smart_refctd_ptr(visBufferView);
                 //infos[0].image.imageLayout = ?;
                 infos[0].image.sampler = nullptr; // used immutable in the layout
@@ -697,24 +697,20 @@ int main()
                 infos[1].image.sampler = nullptr; // storage image
 
                 infos[2].buffer.offset = 0u;
-                infos[2].buffer.size = sceneData.frustumCulledMdiBuffer->getSize();
-                infos[2].desc = sceneData.frustumCulledMdiBuffer;
+                infos[2].buffer.size = cullShaderData.visible->getSize();
+                infos[2].desc = cullShaderData.visible;
 
                 infos[3].buffer.offset = 0u;
-                infos[3].buffer.size = cullShaderData.visible->getSize();
-                infos[3].desc = cullShaderData.visible;
+                infos[3].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
+                infos[3].desc = cullShaderData.cubeCommandBuffer;
 
                 infos[4].buffer.offset = 0u;
-                infos[4].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
-                infos[4].desc = cullShaderData.cubeCommandBuffer;
-
-                infos[5].buffer.offset = 0u;
-                infos[5].buffer.size = cullShaderData.dispatchIndirect->getSize();
-                infos[5].desc = cullShaderData.dispatchIndirect;
+                infos[4].buffer.size = cullShaderData.dispatchIndirect->getSize();
+                infos[4].desc = cullShaderData.dispatchIndirect;
 
                 sceneData.shadingDS = driver->createGPUDescriptorSet(smart_refctd_ptr(shadingDSLayout));
-                IGPUDescriptorSet::SWriteDescriptorSet writes[6];
-                for (auto i = 0u; i < 6u; i++)
+                IGPUDescriptorSet::SWriteDescriptorSet writes[5];
+                for (auto i = 0u; i < 5u; i++)
                 {
                     writes[i].dstSet = sceneData.shadingDS.get();
                     writes[i].binding = i;
@@ -727,7 +723,6 @@ int main()
                 writes[2].descriptorType = EDT_STORAGE_BUFFER;
                 writes[3].descriptorType = EDT_STORAGE_BUFFER;
                 writes[4].descriptorType = EDT_STORAGE_BUFFER;
-                writes[5].descriptorType = EDT_STORAGE_BUFFER;
 
                 driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
             }
@@ -1167,12 +1162,11 @@ int main()
         cullPushConstants.worldCamPos.x = camPos.X;
         cullPushConstants.worldCamPos.y = camPos.Y;
         cullPushConstants.worldCamPos.z = camPos.Z;
-        cullPushConstants.maxBatchCount = cullShaderData.maxBatchCount;
-        cullPushConstants.freezeCulling = static_cast<uint32_t>(freezeCulling);
+        cullPushConstants.freezeCullingAndMaxBatchCountPacked = cullShaderData.maxBatchCount | (static_cast<uint32_t>(freezeCulling) << 16u);
 
         driver->pushConstants(cullShaderData.cullPipeline->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &cullPushConstants);
 
-        const uint32_t cullWorkGroups = (cullPushConstants.maxBatchCount - 1u) / WORKGROUP_SIZE + 1u;
+        const uint32_t cullWorkGroups = (cullShaderData.maxBatchCount - 1u) / WORKGROUP_SIZE + 1u;
 
         driver->dispatch(cullWorkGroups, 1u, 1u);
     };

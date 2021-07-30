@@ -1,5 +1,4 @@
 #version 460 core
-#extension GL_EXT_shader_16bit_storage : require
 
 layout(location = 0) in vec4 vMatRow0;
 layout(location = 1) in vec4 vMatRow1;

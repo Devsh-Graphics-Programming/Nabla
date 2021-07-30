@@ -3,7 +3,7 @@
 
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
 
-#ifdef ENABLE_CUBE_COMMAND_BUFFER
+#ifdef CUBE_COMMAND_BUFF_SET
 
 layout(set=CUBE_COMMAND_BUFF_SET, binding=CUBE_COMMAND_BUFF_BINDING, std430) restrict coherent buffer CubeIndirectDraw
 {
@@ -12,7 +12,7 @@ layout(set=CUBE_COMMAND_BUFF_SET, binding=CUBE_COMMAND_BUFF_BINDING, std430) res
 
 #endif
 
-#ifdef ENABLE_FRUSTUM_CULLED_COMMAND_BUFFER
+#ifdef FRUSTUM_CULLED_COMMAND_BUFF_SET
 
 layout(set=FRUSTUM_CULLED_COMMAND_BUFF_SET, binding=FRUSTUM_CULLED_COMMAND_BUFF_BINDING, std430) restrict buffer FrustumIndirectDraws
 {
@@ -21,7 +21,7 @@ layout(set=FRUSTUM_CULLED_COMMAND_BUFF_SET, binding=FRUSTUM_CULLED_COMMAND_BUFF_
 
 #endif
 
-#ifdef ENABLE_OCCLUSION_CULLED_COMMAND_BUFFER
+#ifdef OCCLUSION_CULLED_COMMAND_BUFF_SET
 
 layout(set=OCCLUSION_CULLED_COMMAND_BUFF_SET, binding=OCCLUSION_CULLED_COMMAND_BUFF_BINDING, std430) restrict buffer OcclusionIndirectDraws
 {
@@ -30,7 +30,7 @@ layout(set=OCCLUSION_CULLED_COMMAND_BUFF_SET, binding=OCCLUSION_CULLED_COMMAND_B
 
 #endif
 
-#ifdef ENABLE_VISIBLE_BUFFER
+#ifdef VISIBLE_BUFF_SET
 
 layout(set = VISIBLE_BUFF_SET, binding = VISIBLE_BUFF_BINDING, std430) restrict buffer VisibleBuff
 {
@@ -39,7 +39,7 @@ layout(set = VISIBLE_BUFF_SET, binding = VISIBLE_BUFF_BINDING, std430) restrict 
 
 #endif
 
-#ifdef ENABLE_CUBE_DRAW_GUID_BUFFER
+#ifdef CUBE_DRAW_GUID_BUFF_SET
 
 layout(set=CUBE_DRAW_GUID_BUFF_SET, binding=CUBE_DRAW_GUID_BUFF_BINDING, std430) restrict buffer CubeDrawGUID
 {
@@ -48,7 +48,7 @@ layout(set=CUBE_DRAW_GUID_BUFF_SET, binding=CUBE_DRAW_GUID_BUFF_BINDING, std430)
 
 #endif
 
-#ifdef ENABLE_OCCLUSION_DISPATCH_INDIRECT_BUFFER
+#ifdef OCCLUSION_DISPATCH_INDIRECT_BUFF_SET
 
 layout(set=OCCLUSION_DISPATCH_INDIRECT_BUFF_SET, binding=OCCLUSION_DISPATCH_INDIRECT_BUFF_BINDING, std430) restrict coherent buffer OcclusionDispatchIndirectBuffer
 {

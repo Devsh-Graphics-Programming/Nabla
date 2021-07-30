@@ -7,9 +7,7 @@ struct CullShaderData_t
 {
     mat4    viewProjMatrix;
     vec3    worldCamPos;
-    uint    maxBatchCount;
-    uint    freezeCulling;
-    
+    uint    freezeCullingAndMaxBatchCountPacked;
 };
 
 struct CullData_t

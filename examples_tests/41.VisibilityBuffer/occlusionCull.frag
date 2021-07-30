@@ -5,7 +5,6 @@ layout(early_fragment_tests) in;
 
 layout(location = 0) in flat uint instanceID;
 
-#define ENABLE_VISIBLE_BUFFER
 #define VISIBLE_BUFF_SET 0
 #define VISIBLE_BUFF_BINDING 0
 #include "occlusionCullingShaderCommon.glsl"

@@ -18,13 +18,6 @@ layout(set=0, binding=2, std430, column_major) restrict buffer CubeMVPs
     mat4 cubeMVPs[];
 } cubeMvpBuff;
 
-#define ENABLE_CUBE_COMMAND_BUFFER
-#define ENABLE_FRUSTUM_CULLED_COMMAND_BUFFER
-#define ENABLE_OCCLUSION_CULLED_COMMAND_BUFFER
-#define ENABLE_CUBE_DRAW_GUID_BUFFER
-#define ENABLE_OCCLUSION_DISPATCH_INDIRECT_BUFFER
-#define ENABLE_VISIBLE_BUFFER
-
 #define CUBE_COMMAND_BUFF_SET 0
 #define CUBE_COMMAND_BUFF_BINDING 3
 #define FRUSTUM_CULLED_COMMAND_BUFF_SET 0
@@ -47,10 +40,19 @@ layout(push_constant, row_major) uniform PushConstants
 #include <nbl/builtin/glsl/utils/culling.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
+bool unpackFreezeCullFlag(in uint packedVal)
+{
+    return bool(packedVal >> 16u);
+}
+
+uint unpackMaxBatchCount(in uint packedVal)
+{
+    return packedVal & 0x0000FFFFu;
+}
 
 void main()
 {
-    if (gl_GlobalInvocationID.x >= pc.data.maxBatchCount)
+    if (gl_GlobalInvocationID.x >= unpackMaxBatchCount(pc.data.freezeCullingAndMaxBatchCountPacked))
         return;
     
     mvpBuff.mvps[gl_GlobalInvocationID.x] = pc.data.viewProjMatrix; // no model matrices
@@ -59,7 +61,7 @@ void main()
     const uint drawCommandGUID = batchCullData.drawCommandGUID;
     occlusionCommandBuff.draws[drawCommandGUID].instanceCount = 0;
 
-    if (bool(pc.data.freezeCulling))
+    if (unpackFreezeCullFlag(pc.data.freezeCullingAndMaxBatchCountPacked))
         return;
 
 
