@@ -6,8 +6,7 @@
 #include <thread>
 #include <string>
 
-namespace nbl {
-namespace system
+namespace nbl::system
 {
 
 // Usage:
@@ -27,6 +26,7 @@ template <typename CRTP, typename InternalStateType = void>
 class IThreadHandler
 {
 private:
+    // TODO: @Crisspl factor this out somewhere? `nbl/core/reflection` ?
 #define _NBL_IMPL_MEMBER_FUNC_PRESENCE_CHECKER(member_func_name)\
     class has_##member_func_name\
     {\
@@ -61,7 +61,7 @@ protected:
         ~raii_dispatch_handler_t()
         {
             cv.notify_one();
-            // raii-style unlock happens after notification
+            // raii-style unlock happens in destructor of `lk` after notification
         }
 
     private:
@@ -83,6 +83,7 @@ protected:
     // lock is locked at the beginning of this function and must be locked at the exit
     //void work(lock_t& lock, internal_state_t& state);
 
+    // lock is locked at the beginning of this function and must be locked at the exit
     //void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
 
 private:
@@ -94,7 +95,6 @@ private:
         //static_assert(has_internal_state == has_init::value, "Custom internal state require implementation of init() method!");
 
         internal_state_t* state_ptr = getInternalStatePtr();
-        size_t aaaa = alignof(internal_state_t);
 
         if constexpr (has_internal_state)
         {

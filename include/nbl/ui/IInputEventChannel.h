@@ -8,9 +8,9 @@
 #include "nbl/core/SRange.h"
 #include "nbl/ui/KeyCodes.h"
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
+
 class IWindow;
 class IInputEventChannel : public core::IReferenceCounted
 {
@@ -196,7 +196,6 @@ public:
     }
 };
 
-}
 }
 
 #endif
