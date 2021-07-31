@@ -5,8 +5,7 @@
 #include "nbl/video/COpenGLQueue.h"
 #include "nbl/video/COpenGLSwapchain.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class COpenGLLogicalDevice final : public COpenGL_LogicalDevice<COpenGLQueue, COpenGLSwapchain>
@@ -15,6 +14,7 @@ class COpenGLLogicalDevice final : public COpenGL_LogicalDevice<COpenGLQueue, CO
 
 public:
     COpenGLLogicalDevice(const egl::CEGL* _egl,
+        IPhysicalDevice* physicalDevice,
         base_t::FeaturesType* _features, 
         EGLConfig config, 
         EGLint major,
@@ -24,13 +24,11 @@ public:
         core::smart_refctd_ptr<system::ISystem>&& s,
         core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
         system::logger_opt_smart_ptr&& logger) :
-        base_t(_egl, EAT_OPENGL, _features, config, major, minor, params, _dbgCb, std::move(s), std::move(glslc), std::move(logger))
+        base_t(_egl, physicalDevice, _features, config, major, minor, params, _dbgCb, std::move(s), std::move(glslc), std::move(logger))
     {
-
     }
 };
 
-}
 }
 
 #endif

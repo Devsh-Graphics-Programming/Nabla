@@ -31,7 +31,7 @@ macro(FindLibraryAndSONAME _LIB)
       #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
     #endif()
 
-    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}")
+    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}") 
     set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
   endif()
 endmacro()
@@ -269,6 +269,7 @@ set(NBL_VIDEO_SOURCES
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
 # Junk to refactor

@@ -64,24 +64,24 @@ public:
         size_t offset;
     };
 
-    IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice.get(); }
+    inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice.get(); }
 
-    E_API_TYPE getAPIType() const { return m_apiType; }
+    E_API_TYPE getAPIType() const;
 
-    IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
+    inline IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
         return (*m_queues)[offset+_ix]->getUnderlyingQueue();
     }
 
     // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
-    CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
+    inline CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
         return (*m_queues)[offset + _ix].get();
     }
 
-    StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer()
+    inline StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer()
     {
         return m_defaultUploadBuffer.get();
     }
@@ -729,7 +729,7 @@ public:
     //virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 protected:
-    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_apiType(api_type), m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
+    ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_physicalDevice(physicalDevice), m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
     {
         uint32_t qcnt = 0u;
         uint32_t greatestFamNum = 0u;
@@ -833,9 +833,6 @@ protected:
 
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
-
-private:
-    const E_API_TYPE m_apiType;
 };
 
 }

@@ -871,11 +871,11 @@ protected:
 
 public:
     IOpenGL_LogicalDevice(const egl::CEGL* _egl,
-        E_API_TYPE api_type, 
+        IPhysicalDevice* physicalDevice, 
         const SCreationParams& params, 
         core::smart_refctd_ptr<system::ISystem>&& s,
         core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
-        system::logger_opt_smart_ptr&& logger) : ILogicalDevice(api_type, params, std::move(s), std::move(glslc)), m_egl(_egl), m_logger(std::move(logger))
+        system::logger_opt_smart_ptr&& logger) : ILogicalDevice(physicalDevice, params, std::move(s), std::move(glslc)), m_egl(_egl), m_logger(std::move(logger))
     {
 
     }

@@ -59,7 +59,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 	info.signalSemaphoreCount = 0u;
 	info.pWaitSemaphores = &semaphore;
 	info.waitSemaphoreCount = 1u;
-	auto stageflags = asset::EPSF_ALL_COMMANDS_BIT; // assume the image we're trying to download could be touched by anything before
+	auto stageflags = asset::EPSF_ALL_COMMANDS_BIT; // assume the image we're trying to download could be touched by anything before (host manipulation is implicitly visibile because of submit's guarantees)
 	info.pWaitDstStageMask = &stageflags;
 	queue->submit(1u, &info, fence.get());
 
