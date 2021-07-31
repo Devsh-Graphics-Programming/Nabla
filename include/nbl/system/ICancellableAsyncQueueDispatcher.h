@@ -4,8 +4,7 @@
 #include "nbl/system/IAsyncQueueDispatcher.h"
 #include "nbl/system/SReadWriteSpinLock.h"
 
-namespace nbl {
-namespace system
+namespace nbl::system
 {
 
 namespace impl
@@ -194,6 +193,6 @@ inline bool impl::ICancellableAsyncQueueDispatcherBase::request_base_t::set_canc
     return true;
 }
 
-}}
+}
 
 #endif

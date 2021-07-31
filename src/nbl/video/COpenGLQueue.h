@@ -4,13 +4,11 @@
 #include "nbl/video/COpenGL_Queue.h"
 #include "nbl/video/COpenGLFunctionTable.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 using COpenGLQueue = COpenGL_Queue<COpenGLFunctionTable>;
 
-}
 }
 
 #endif

@@ -48,67 +48,6 @@ const core::stringc& COSOperator::getOperatingSystemVersion() const
 }
 
 
-//! copies text to the clipboard
-void COSOperator::copyToClipboard(const char* text) const
-{
-	if (strlen(text)==0)
-		return;
-
-// Windows version
-#if defined(_NBL_WINDOWS_API_)
-	if (!OpenClipboard(NULL) || text == 0)
-		return;
-
-	EmptyClipboard();
-
-	HGLOBAL clipbuffer;
-	char * buffer;
-
-	clipbuffer = GlobalAlloc(GMEM_DDESHARE, strlen(text)+1);
-	buffer = (char*)GlobalLock(clipbuffer);
-
-	strcpy(buffer, text);
-
-	GlobalUnlock(clipbuffer);
-	SetClipboardData(CF_TEXT, clipbuffer);
-	CloseClipboard();
-
-#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
-    if ( IrrDeviceLinux )
-        IrrDeviceLinux->copyToClipboard(text);
-#else
-
-#endif
-}
-
-
-//! gets text from the clipboard
-//! \return Returns 0 if no string is in there.
-const char* COSOperator::getTextFromClipboard() const
-{
-#if defined(_NBL_WINDOWS_API_)
-	if (!OpenClipboard(NULL))
-		return 0;
-
-	char * buffer = 0;
-
-	HANDLE hData = GetClipboardData( CF_TEXT );
-	buffer = (char*)GlobalLock( hData );
-	GlobalUnlock( hData );
-	CloseClipboard();
-	return buffer;
-
-#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
-    if ( IrrDeviceLinux )
-        return IrrDeviceLinux->getTextFromClipboard();
-    return 0;
-
-#else
-
-	return 0;
-#endif
-}
-
 
 bool COSOperator::getProcessorSpeedMHz(uint32_t* MHz) const
 {

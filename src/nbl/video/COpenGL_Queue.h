@@ -374,6 +374,6 @@ class COpenGL_Queue final : public IGPUQueue
         uint32_t m_ctxid;
 };
 
-}}
+}
 
 #endif

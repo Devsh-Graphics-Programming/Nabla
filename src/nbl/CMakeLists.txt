@@ -179,12 +179,6 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
-# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -301,14 +295,6 @@ set(NABLA_SRCS_COMMON
 	${NBL_SCENE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
 	${NBL_UI_SOURCES}
-
-# Junk to refactor
-#	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceLinux.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceConsole.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceStub.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceWin32.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/Irrlicht.cpp
 )
 
 if (NBL_EMBED_BUILTIN_RESOURCES)
@@ -331,9 +317,6 @@ set(NABLA_SRCS_NORMAL
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLDriver.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
