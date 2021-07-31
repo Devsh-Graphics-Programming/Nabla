@@ -263,7 +263,10 @@ endif()
 
 macro(nbl_adjust_flags)
 	option(NBL_SANITIZE_ADDRESS OFF)
-	option(NBL_GCC_SANITIZE_THREAD OFF) # @Anastazluk did MSVC finally include the thread sanitizer?
+	
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		option(NBL_SANITIZE_THREAD OFF)
+	endif()
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		add_compile_options(
@@ -325,7 +328,7 @@ macro(nbl_adjust_flags)
 		if (NBL_SANITIZE_ADDRESS)
 			add_compile_options(-fsanitize=address) 
 		endif()
-		if (NBL_GCC_SANITIZE_THREAD)
+		if (NBL_SANITIZE_THREAD)
 			add_compile_options(-fsanitize=thread)
 		endif()
 		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)

@@ -2,9 +2,11 @@
 #include <nabla.h>
 #include "nbl/system/CSystemWin32.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
+#include "nbl/system/CColoredStdoutLoggerWin32.h"
 #include <nbl/ui/CWindowWin32.h>
 using CWindowT = nbl::ui::CWindowWin32;
 #elif defined(_NBL_PLATFORM_LINUX_)
+// TODO Logger for Linux platforms
 #include <nbl/ui/CWindowLinux.h>
 using CWindowT = nbl::ui::CWindowLinux;
 #endif
@@ -25,23 +27,36 @@ public:
 #endif
 		return make_smart_refctd_ptr<ISystem>(std::move(caller));
 	}
+
 	template<uint32_t sc_image_count>
 	struct InitOutput
 	{
+		enum E_QUEUE_TYPE
+		{
+			EQT_GRAPHICS,
+			EQT_COMPUTE,
+			EQT_TRANSFER_UP,
+			EQT_TRANSFER_DOWN,
+			EQT_COUNT
+		};
+
 		nbl::core::smart_refctd_ptr<CWindowT> window;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
-		nbl::video::IGPUQueue* queue;
+		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
 		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, sc_image_count> fbo;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
+		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
+		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
+		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 
 	};
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count>
-	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
+	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
@@ -57,9 +72,18 @@ public:
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 		auto gpu = gpus.begin()[0];
-		int familyIndex = getQueueFamilyIndex(gpu, video::IPhysicalDevice::EQF_GRAPHICS_BIT |
-			video::IPhysicalDevice::EQF_COMPUTE_BIT |
-			video::IPhysicalDevice::EQF_TRANSFER_BIT);
+
+		auto getFamilyIndex = [&]() -> int
+		{
+			uint32_t requiredQueueFlags = nbl::video::IPhysicalDevice::EQF_COMPUTE_BIT | nbl::video::IPhysicalDevice::EQF_TRANSFER_BIT;
+
+			if (graphicsQueueEnable)
+				requiredQueueFlags = | nbl::video::IPhysicalDevice::EQF_GRAPHICS_BIT;
+
+			return getQueueFamilyIndex(gpu, requiredQueueFlags);
+		};
+
+		const auto familyIndex = getFamilyIndex();
 		assert(result.surface->isSupported(gpu.get(), familyIndex));
 
 		video::ILogicalDevice::SCreationParams dev_params;
@@ -73,7 +97,12 @@ public:
 		dev_params.queueCreateInfos = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
-		result.queue = result.logicalDevice->getQueue(familyIndex, 0);
+		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
+		if(graphicsQueueEnable)
+			result.queues[EQT_GRAPHICS] = queue;
+		result.queues[EQT_COMPUTE] = queue;
+		result.queues[EQT_TRANSFER_UP] = queue;
+		result.queues[EQT_TRANSFER_DOWN] = queue;
 
 		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
 		assert(result.swapchain);
@@ -86,9 +115,20 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = std::move(gpu);
 
+		result.system = createSystem();
+		auto logger = nbl::core::make_smart_refctd_ptr<nbl::system::CColoredStdoutLoggerWin32>(); // TODO: Windows/Linux logger define switch
+		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), system::logger_opt_smart_ptr(logger));
+
+		result.cpu2gpuParams.assetManager = result.assetManager.get();
+		result.cpu2gpuParams.device = result.logicalDevice.get();
+		result.cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
+		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
+		result.cpu2gpuParams.pipelineCache = nullptr;
+		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue; // the queue is capable of transfering
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;  // the queue is capable of computing
 
 		return result;
-
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,
 		uint32_t height,

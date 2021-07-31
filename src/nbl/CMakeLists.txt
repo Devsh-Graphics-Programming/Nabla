@@ -100,14 +100,14 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) # It affects with BAW source leading to linker errors, TODO
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" ON)
-option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF)
+option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
+option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)

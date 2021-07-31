@@ -8,7 +8,6 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
-#include "../source/Nabla/CFileSystem.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
@@ -26,38 +25,18 @@ int main()
     auto surface = std::move(initOutput.surface);
     auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
     auto logicalDevice = std::move(initOutput.logicalDevice);
-    auto queue = std::move(initOutput.queue);
+    auto queues = std::move(initOutput.queues);
     auto swapchain = std::move(initOutput.swapchain);
     auto renderpass = std::move(initOutput.renderpass);
     auto fbo = std::move(initOutput.fbo[0]);
     auto commandPool = std::move(initOutput.commandPool);
+    auto assetManager = std::move(initOutput.assetManager);
+    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
     core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffers[1];
     logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, commandBuffers);
     auto commandBuffer = commandBuffers[0];
-
-    core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
-    {
-        nbl::core::smart_refctd_ptr<nbl::io::IFileSystem> fileSystem = nbl::core::make_smart_refctd_ptr<nbl::io::CFileSystem>("");
-        assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(std::move(fileSystem));
-    }
-
-    core::smart_refctd_ptr<nbl::scene::ISceneManager> sceneManager;
-    {
-        // how to create properly Scene Manager in new API?
-        // only interface class provided
-    }
-
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-    nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-    cpu2gpuParams.assetManager = assetManager.get();
-    cpu2gpuParams.device = logicalDevice.get();
-    cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
-    cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
-    cpu2gpuParams.pipelineCache = nullptr;
-    cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue;
-    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;
 
     auto createDescriptorPool = [&](const uint32_t textureCount)
     {
@@ -73,12 +52,19 @@ int main()
     asset::ICPUMesh* meshRaw = nullptr;
     const asset::COBJMetadata* metaOBJ = nullptr;
     {
-        auto* fileSystem = assetManager->getFileSystem();
+        //auto* fileSystem = assetManager->getFileSystem();
 
-        auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
-        quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fileSystem, "../../tmp/normalCache101010.sse");
+        //auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
+        //quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fileSystem, "../../tmp/normalCache101010.sse"); // Matt what about this?
 
-        fileSystem->addFileArchive("../../media/sponza.zip");
+        //fileSystem->addFileArchive("../../media/sponza.zip"); 
+
+        /*
+            To make it work we need to read sponza but not from a zip,
+            so remember to unpack sponza.zip to /bin directory upon executable
+
+            TODO: come back to addFileArchive
+        */
 
         asset::IAssetLoader::SAssetLoadParams loadParams;
         auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
@@ -89,7 +75,7 @@ int main()
         auto cpuMesh = meshes_bundle.getContents().begin()[0];
         meshRaw = static_cast<asset::ICPUMesh*>(cpuMesh.get());
 
-        quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fileSystem, "../../tmp/normalCache101010.sse");
+        //quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fileSystem, "../../tmp/normalCache101010.sse"); // Matt what about this?
     }
 
     // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
@@ -271,13 +257,13 @@ int main()
         constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; // ns
         swapchain->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
 
-        CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queue, img_acq_sem.get(), render_finished_sem.get());
-        CommonAPI::Present(logicalDevice.get(), swapchain.get(), queue, render_finished_sem.get(), imgnum);
+        CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], img_acq_sem.get(), render_finished_sem.get());
+        CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], render_finished_sem.get(), imgnum);
 	}
 
     const auto& fboCreationParams = fbo->getCreationParameters();
     auto gpuSourceImageView = fboCreationParams.attachments[0];
-    ext::ScreenShot::createScreenShot(logicalDevice.get(), queue, render_finished_sem.get(), gpuSourceImageView.get(), "ScreenShot.png");
 
-	return 0;
+    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], render_finished_sem.get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+    return status;
 }
