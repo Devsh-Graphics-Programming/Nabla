@@ -5,14 +5,10 @@
 #ifndef __NBL_VIDEO_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include <nbl/asset/utils/ICPUVirtualTexture.h>
-#include <nbl/video/IGPUImageView.h>
-#include "IVideoDriver.h"
-#include <nbl/asset/IAssetManager.h>
-#include <nbl/video/IGPUDescriptorSet.h>
+#include "nbl/asset/asset.h"
+#include "nbl/video/IPhysicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -57,8 +53,8 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<video::IGPUImageV
 {
     using base_t = asset::IVirtualTexture<video::IGPUImageView, video::IGPUSampler>;
 
-    nbl::video::ILogicalDevice* m_logicalDevice;
-    nbl::video::IGPUQueue* m_queue;
+    core::smart_refctd_ptr<ILogicalDevice> m_logicalDevice;
+    core::smart_refctd_ptr<IGPUQueue> m_queue;
 
 protected:
     class IGPUVTResidentStorage final : public base_t::IVTResidentStorage
@@ -130,7 +126,6 @@ public:
     /*
         The queue must have TRANSFER capability
     */
-
     IGPUVirtualTexture(
         nbl::video::ILogicalDevice* _logicalDevice,
         nbl::video::IGPUQueue* _queue,
@@ -152,6 +147,7 @@ public:
         m_logicalDevice(_logicalDevice),
         m_queue(_queue)
     {
+        assert(m_logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[m_queue->getFamilyIndex()].queueFlags&IPhysicalDevice::EQF_TRANSFER_BIT);
         m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
@@ -288,6 +284,6 @@ protected:
     }
 };
 
-}}
+}
 
 #endif
