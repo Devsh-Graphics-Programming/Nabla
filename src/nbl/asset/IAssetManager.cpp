@@ -12,7 +12,7 @@
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-//#include "nbl/asset/interchange/COBJMeshFileLoader.h"
+#include "nbl/asset/interchange/COBJMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_

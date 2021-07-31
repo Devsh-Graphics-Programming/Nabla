@@ -64,32 +64,7 @@ public:
         size_t offset;
     };
 
-    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_apiType(api_type), m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
-    {
-        uint32_t qcnt = 0u;
-        uint32_t greatestFamNum = 0u;
-        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
-        {
-            greatestFamNum = (std::max)(greatestFamNum, params.queueCreateInfos[i].familyIndex);
-            qcnt += params.queueCreateInfos[i].count;
-        }
-
-        m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
-        m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
-
-        for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueCreateInfos, params.queueCreateInfos + params.queueParamsCount))
-        {
-            if (qci.familyIndex == greatestFamNum)
-                continue;
-
-            (*m_offsets)[qci.familyIndex + 1u] = qci.count;
-        }
-        // compute prefix sum
-        for (uint32_t i = 1u; i < m_offsets->size(); ++i)
-        {
-            (*m_offsets)[i] += (*m_offsets)[i - 1u];
-        }
-    }
+    IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice.get(); }
 
     E_API_TYPE getAPIType() const { return m_apiType; }
 
@@ -139,7 +114,7 @@ public:
         return freeCommandBuffers_impl(_cmdbufs, _count);
     }
 
-    virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) = 0;
+    virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
     virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
     core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params)
@@ -754,6 +729,33 @@ public:
     //virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 protected:
+    ILogicalDevice(E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_apiType(api_type), m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
+    {
+        uint32_t qcnt = 0u;
+        uint32_t greatestFamNum = 0u;
+        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+        {
+            greatestFamNum = (std::max)(greatestFamNum, params.queueCreateInfos[i].familyIndex);
+            qcnt += params.queueCreateInfos[i].count;
+        }
+
+        m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
+        m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
+
+        for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueCreateInfos, params.queueCreateInfos + params.queueParamsCount))
+        {
+            if (qci.familyIndex == greatestFamNum)
+                continue;
+
+            (*m_offsets)[qci.familyIndex + 1u] = qci.count;
+        }
+        // compute prefix sum
+        for (uint32_t i = 1u; i < m_offsets->size(); ++i)
+        {
+            (*m_offsets)[i] += (*m_offsets)[i - 1u];
+        }
+    }
+
     // must be called by implementations of mapMemory()
     static void post_mapMemory(IDriverMemoryAllocation* memory, void* ptr, IDriverMemoryAllocation::MemoryRange rng, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access) 
     {
@@ -822,6 +824,7 @@ protected:
 
     core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
+    core::smart_refctd_ptr<IPhysicalDevice> m_physicalDevice;
 
     using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
     queues_array_t m_queues;

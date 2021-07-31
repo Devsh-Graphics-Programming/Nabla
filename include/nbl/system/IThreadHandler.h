@@ -196,7 +196,6 @@ protected:
 };
 
 }
-}
 
 
 #endif
