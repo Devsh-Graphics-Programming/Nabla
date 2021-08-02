@@ -9,12 +9,10 @@
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/CVKLogicalDevice.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
-class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
+class CVulkanImage final : public IGPUImage
 {
 	protected:
 		virtual ~CVulkanImage();
@@ -22,6 +20,7 @@ class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
 	private:
 		CVKLogicalDevice* m_vkdevice;
 		VkImage m_vkimg;
+		core::smart_refctd_ptr<CVKSwapchain> m_swapchain;
 
 	public:
 		//! constructor
@@ -34,19 +33,18 @@ class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
 
 		inline VkImage getInternalObject() const { return m_vkimg; }
 
-		// TODO below
-		inline size_t getAllocationSize() const override { return this->getImageDataSizeInBytes(); }
-		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }
-		inline const IDriverMemoryAllocation* getBoundMemory() const override { return this; }
+		// Todo(achal): Gotta move move this into a new file CVulkanMemoryAllocation
+		// inline size_t getAllocationSize() const override { return this->getImageDataSizeInBytes(); }
+		inline IDriverMemoryAllocation* getBoundMemory() override { return nullptr; }
+		inline const IDriverMemoryAllocation* getBoundMemory() const override { return nullptr; }
 		inline size_t getBoundMemoryOffset() const override { return 0ull; }
 
-		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
+		// inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
 		// This exists as a pure virtual function in ILogicalDevice which takes in a IDriverMemoryAllocation* --which is not a base class of this class
 		// inline void unmapMemory() override {}
-		inline bool isDedicated() const override { return true; }
+		// inline bool isDedicated() const override { return true; }
 };
 
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::video
 
 #endif

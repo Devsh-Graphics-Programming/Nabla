@@ -10,6 +10,7 @@
 #include "nbl/video/CVulkanRenderpass.h"
 #include "nbl/video/CVulkanImageView.h"
 #include "nbl/video/CVulkanFramebuffer.h"
+// #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
 {
@@ -105,7 +106,7 @@ public:
             
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) override
     {
-        return nullptr;
+        return nullptr; // return core::smart_refctd_ptr<CVulkanCommandPool>();
     }
             
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
@@ -132,9 +133,56 @@ public:
     {
         return nullptr;
     }
+
+    core::smart_refctd_ptr<IGPUImage> createGPUImage(IGPUImage::SCreationParams&& params)
+    {
+#if 0
+        VkImageCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
+        createInfo.imageType = createInfo.imageType = static_cast<VkImageType>(params.type);
+        createInfo.format = ISurfaceVK::getVkFormat(params.format);
+        createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
+        createInfo.mipLevels = params.mipLevels;
+        createInfo.arrayLayers = params.arrayLayers;
+        createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
+        createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
+        createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // Todo(achal): enumize this
+        createInfo.queueFamilyIndexCount = params.queueFamilyIndices->size();
+        createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
+
+        VkImage vk_image;
+        assert(vkCreateImage(m_vkdev, &createInfo, nullptr, &vk_image) == VK_SUCCESS); // Todo(achal): error handling
+
+        return core::make_smart_refctd_ptr<CVulkanImage>(this, std::move(params));
+#endif
+        return nullptr;
+    }
             
     core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
+#if 0
+        VkImageCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
+        createInfo.imageType = createInfo.imageType = static_cast<VkImageType>(params.type);
+        createInfo.format = ISurfaceVK::getVkFormat(params.format);
+        createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
+        createInfo.mipLevels = params.mipLevels;
+        createInfo.arrayLayers = params.arrayLayers;
+        createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
+        createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
+        createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // Todo(achal): enumize this
+        createInfo.queueFamilyIndexCount = params.queueFamilyIndices->size();
+        createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
+
+        VkImage vk_image;
+        assert(vkCreateImage(m_vkdev, &createInfo, nullptr, &vk_image) == VK_SUCCESS); // Todo(achal): error handling
+
+        return core::make_smart_refctd_ptr<CVulkanImage>(this, std::move(params));
+#endif
         return nullptr;
     }
 

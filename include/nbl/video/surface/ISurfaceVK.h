@@ -44,7 +44,7 @@ public:
     // Todo(achal): Check it, a lot of stuff could be incorrect!
     static inline ISurface::SColorSpace getColorSpace(VkColorSpaceKHR in)
     {
-        ISurface::SColorSpace result = {};
+        ISurface::SColorSpace result = { asset::ECP_COUNT, asset::EOTF_UNKNOWN };
 
         switch (in)
         {

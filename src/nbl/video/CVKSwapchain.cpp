@@ -61,6 +61,7 @@ CVKSwapchain::CVKSwapchain(SCreationParams&& params, CVKLogicalDevice* dev)
         
         // TODO might want to change this to dev->createImage()
         img = core::make_smart_refctd_ptr<CVulkanImage>(m_device, std::move(params), vk_Images[i++]);
+        // img = core::make_smart_refctd_ptr<CVulkanImage>(nullptr, std::move(params), vk_Images[i++]);
     }
 }
 

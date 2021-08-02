@@ -9,15 +9,19 @@ namespace video
 
 CVulkanImage::~CVulkanImage()
 {
-    auto* vk = m_vkdevice->getFunctionTable();
+    // auto* vk = m_vkdevice->getFunctionTable();
     auto vkdev = m_vkdevice->getInternalObject();
 
-    vk->vk.vkDestroyImage(vkdev, m_vkimg, nullptr);
+    // if (this->wasCreatedBy(&vkdev))
+    {
+        // vk->vk.vkDestroyImage(vkdev, m_vkimg, nullptr);
+        // vkDestroyImage(vkdev, m_vkimg, nullptr);
+    }
 }
 
 CVulkanImage::CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params) : IGPUImage(_vkdev, std::move(_params)), m_vkdevice(_vkdev)
 {
-    auto* vk = m_vkdevice->getFunctionTable();
+    // auto* vk = m_vkdevice->getFunctionTable();
     auto vkdev = m_vkdevice->getInternalObject();
 
     VkImageCreateInfo ci;
@@ -37,7 +41,8 @@ CVulkanImage::CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&
     ci.tiling = static_cast<VkImageTiling>(params.tiling);
     ci.usage = static_cast<VkImageUsageFlags>(params.usage);
 
-    vk->vk.vkCreateImage(vkdev, &ci, nullptr, &m_vkimg);
+    // vk->vk.vkCreateImage(vkdev, &ci, nullptr, &m_vkimg);
+    // vkCreateImage(vkdev, &ci, nullptr, &m_vkimg);
 }
 
 }

@@ -15,11 +15,16 @@ nothing fancy, just to show that Irrlicht links fine
 #include <volk/volk.h>
 #include "../../src/nbl/video/CVulkanPhysicalDevice.h"
 #include "../../include/nbl/video/surface/ISurfaceVK.h"
+#include "../../src/nbl/video/CVulkanImage.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
 #include "../common/CommonAPI.h"
 
 using namespace nbl;
+
+// This probably a TODO for @sadiuk
+static bool windowShouldClose_Global = false;
+
 
 inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
 {
@@ -82,6 +87,7 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 	void onLostKeyboardFocus_impl() override
 	{
 		LOG("Window lost keyboard focus");
+		windowShouldClose_Global = true;
 	}
 
 	void onMouseConnected_impl(core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
@@ -102,11 +108,29 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 	}
 };
 
+static bool readEntireFile(const char* filepath, std::vector<uint8_t>& fileContents)
+{
+	FILE* file = fopen(filepath, "rb");
+	if (!file)
+		return false;
+
+	fseek(file, 0, SEEK_END);
+	const size_t fileSize = ftell(file);
+	fileContents.resize(fileSize);
+	fseek(file, 0, SEEK_SET);
+
+	fread(fileContents.data(), sizeof(uint8_t), fileContents.size(), file);
+
+	fclose(file);
+
+	return true;
+}
+
 int main()
 {
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
-	constexpr uint32_t SC_IMG_COUNT = 3u;
+	constexpr uint32_t SC_IMG_COUNT = 2u;
 	
 	// Note(achal): This is unused, for now
 	video::SDebugCallback dbgcb;
@@ -154,6 +178,7 @@ int main()
 	nbl::video::ISurface::E_PRESENT_MODE presentMode;
 	nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
 	nbl::asset::E_SHARING_MODE imageSharingMode;
+	VkExtent2D swapchainExtent;
 	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
 	QueueFamilyIndicesArrayType queueFamilyIndices;
 
@@ -239,6 +264,7 @@ int main()
 			surfaceFormat = surfaceFormats[0];
 			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(presentModes & (1 << 0));
 			preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
+			swapchainExtent = surfaceCapabilities.currentExtent;
 		}
 
 		if (isGPUSuitable) // find the first suitable GPU
@@ -265,13 +291,13 @@ int main()
 			(*queueFamilyIndices)[i] = temp[i];
 	}
 
+	const float priority = 1.f;
 	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
 	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
 	{
 		queueCreationParams[i].familyIndex = (*queueFamilyIndices)[i];
 		queueCreationParams[i].count = 1u;
 		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-		const float priority = 1.f;
 		queueCreationParams[i].priorities = &priority;
 	}
 	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
@@ -330,7 +356,9 @@ int main()
 	std::array<core::smart_refctd_ptr<video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
-	assert(swapchainImageCount == SC_IMG_COUNT); // Todo(achal): I don't know if we should `assert` this, I think Vulkan is under no obligation to return exactly SC_IMG_COUNT images, but I guess its fine for now
+	// Todo(achal): I don't know if we should `assert` this, I think Vulkan is under no
+	// obligation to return exactly SC_IMG_COUNT images, but I guess its fine for now.
+	assert(swapchainImageCount == SC_IMG_COUNT);
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		auto img = swapchainImages.begin()[i];
@@ -362,10 +390,111 @@ int main()
 		fbos[i] = device->createGPUFramebuffer(std::move(fbParams));
 	}
 
-	while (true)
+	// Get handles to existing Vulkan stuff
+	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
+	VkSwapchainKHR vk_swapchain = reinterpret_cast<video::CVKSwapchain*>(swapchain.get())->m_swapchain;
+	VkRenderPass vk_renderPass = reinterpret_cast<video::CVulkanRenderpass*>(renderPass.get())->getInternalObject();
+
+	VkFramebuffer vk_framebuffers[SC_IMG_COUNT];
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+		vk_framebuffers[i] = reinterpret_cast<video::CVulkanFramebuffer*>(fbos[i].get())->m_vkfbo;
+
+	VkImage vk_swapchainImages[SC_IMG_COUNT];
+	uint32_t i = 0u;
+	for (auto image : swapchainImages)
+		vk_swapchainImages[i++] = reinterpret_cast<video::CVulkanImage*>(image.get())->getInternalObject();
+
+	VkCommandPool commandPool = VK_NULL_HANDLE;
 	{
+		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+		createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+		createInfo.queueFamilyIndex = graphicsFamilyIndex;
+
+		vkCreateCommandPool(vk_device, &createInfo, nullptr, &commandPool);
+		assert(commandPool);
 	}
 
+	VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+	allocateInfo.commandPool = commandPool;
+	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocateInfo.commandBufferCount = 1u;
+
+	VkCommandBuffer commandBuffer;
+	assert(vkAllocateCommandBuffers(vk_device, &allocateInfo, &commandBuffer) == VK_SUCCESS);
+
+	// acquireSemaphore will be signalled once you acquire the image to render
+	// releaseSeamphore will be signalled once you rendered to the image and you're ready to release it to present it
+	VkSemaphore acquireSemaphore, releaseSemaphore;
+	{
+		VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+
+		assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &acquireSemaphore) == VK_SUCCESS);
+		assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &releaseSemaphore) == VK_SUCCESS);
+	}
+
+	VkQueue graphicsQueue, presentQueue;
+	vkGetDeviceQueue(vk_device, graphicsFamilyIndex, 0, &graphicsQueue);
+	vkGetDeviceQueue(vk_device, presentFamilyIndex, 0, &presentQueue);
+
+	while (!windowShouldClose_Global)
+	{
+		uint32_t imageIndex = 0u;
+		vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+		// I wonder what would happen if I comment this out
+		assert(vkResetCommandPool(vk_device, commandPool, 0) == VK_SUCCESS);
+
+		VkClearValue color = { 0.2f, 0.2f, 0.3f, 1.f };
+
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		assert(vkBeginCommandBuffer(commandBuffer, &beginInfo) == VK_SUCCESS);
+
+		VkRenderPassBeginInfo renderPassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+		renderPassBeginInfo.renderPass = vk_renderPass;
+		renderPassBeginInfo.framebuffer = vk_framebuffers[imageIndex];
+		renderPassBeginInfo.renderArea.offset = { 0, 0 };
+		renderPassBeginInfo.renderArea.extent = { WIN_W, WIN_H };
+		renderPassBeginInfo.clearValueCount = 1u;
+		renderPassBeginInfo.pClearValues = &color;
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		// Do nothing
+
+		vkCmdEndRenderPass(commandBuffer);
+
+		assert(vkEndCommandBuffer(commandBuffer) == VK_SUCCESS);
+
+		// At this stage the final color values are output from the pipeline
+		// Todo(achal): Not really sure why are waiting at this pipeline stage for acquiring the image to render
+		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+		submitInfo.waitSemaphoreCount = 1u;
+		submitInfo.pWaitSemaphores = &acquireSemaphore;
+		submitInfo.pWaitDstStageMask = &pipelineStageFlags;
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.pCommandBuffers = &commandBuffer;
+		submitInfo.signalSemaphoreCount = 1u;
+		submitInfo.pSignalSemaphores = &releaseSemaphore;
+
+		assert(vkQueueSubmit(graphicsQueue, 1u, &submitInfo, VK_NULL_HANDLE) == VK_SUCCESS);
+
+		VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+		presentInfo.waitSemaphoreCount = 1u;
+		presentInfo.pWaitSemaphores = &releaseSemaphore;
+		presentInfo.swapchainCount = 1u;
+		presentInfo.pSwapchains = &vk_swapchain;
+		presentInfo.pImageIndices = &imageIndex; // if you have multiple swapchains, here you'll pass the indices of each images which will get presented in each swapchain
+		vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		assert(vkDeviceWaitIdle(vk_device) == VK_SUCCESS);
+	}
+
+	vkDestroySemaphore(vk_device, acquireSemaphore, nullptr);
+	vkDestroySemaphore(vk_device, releaseSemaphore, nullptr);
+	vkDestroyCommandPool(vk_device, commandPool, nullptr);
 
 #if 0
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);

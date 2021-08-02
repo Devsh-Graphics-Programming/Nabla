@@ -3,7 +3,7 @@
 #include "nbl/video/CVKLogicalDevice.h"
 #include "nbl/video/CVulkanFence.h"
 #include "nbl/video/CVulkanSemaphore.h"
-#include "nbl/video/CVulkanPrimaryCommandBuffer.h"
+#include "nbl/video/CVulkanCommandBuffer.h"
 
 namespace nbl::video
 {
@@ -91,7 +91,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         }
         for (uint32_t j = 0u; j < sb.commandBufferCount; ++j)
         {
-            commandBuffers[j] = reinterpret_cast<CVulkanPrimaryCommandBuffer*>(_sb.commandBuffers[j])->getInternalObject();
+            commandBuffers[j] = reinterpret_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[j])->getInternalObject();
         }
 
         waitSemOffset += sb.waitSemaphoreCount;

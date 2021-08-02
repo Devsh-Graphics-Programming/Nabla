@@ -16,7 +16,8 @@ public:
     CVulkanFramebuffer(CVKLogicalDevice* vkdev, SCreationParams&& params);
     ~CVulkanFramebuffer();
 
-private:
+// Todo(achal): Remove
+// private:
     CVKLogicalDevice* m_vkdevice;
     VkFramebuffer m_vkfbo;
 };

@@ -5,9 +5,7 @@
 
 #include <volk.h>
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class CVulkanCommandBuffer : public virtual IGPUCommandBuffer
@@ -24,7 +22,6 @@ protected:
     VkCommandBuffer m_cmdbuf;
 };
 
-}
 }
 
 #endif

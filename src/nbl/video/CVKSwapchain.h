@@ -17,7 +17,8 @@ public:
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
 
-private:
+// Todo(achal): Remove
+// private:
     CVKLogicalDevice* m_device;
     VkSwapchainKHR m_swapchain;
 };
