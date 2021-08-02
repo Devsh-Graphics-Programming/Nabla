@@ -6,11 +6,8 @@
 #include <nbl/system/CStdoutLogger.h>
 #include <nbl/system/CFileLogger.h>
 #include <nbl/system/CColoredStdoutLoggerWin32.h>
-using CWindowT = nbl::ui::CWindowWin32;
-#elif defined(_NBL_PLATFORM_LINUX_)
-// TODO Logger for Linux platforms
-#include <nbl/ui/CWindowLinux.h>
-using CWindowT = nbl::ui::CWindowLinux;
+#include <nbl/system/CSystemWin32.h>
+
 #endif
 
 class CommonAPI
@@ -91,7 +88,7 @@ public:
 		using namespace system;
 		smart_refctd_ptr<ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-		//caller = make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>(); WUT? NOT DEFINED XD
+		caller = make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
 #endif
 		return make_smart_refctd_ptr<ISystem>(std::move(caller));
 	}
@@ -108,7 +105,7 @@ public:
 			EQT_COUNT
 		};
 
-		nbl::core::smart_refctd_ptr<CWindowT> window;
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
@@ -146,7 +143,7 @@ public:
 		windowsCreationParams.windowCaption = app_name.data();
 		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(system::logger_opt_smart_ptr(logger));
 		
-		result.window = windowManager->createWindow(std::move(windowsCreationParams)); /// ERROR: It can't assign smart pointer of IWindow type to smart pointer of CWindowWin32 type
+		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 
 		video::SDebugCallback dbgcb;
 		dbgcb.callback = &defaultDebugCallback;
