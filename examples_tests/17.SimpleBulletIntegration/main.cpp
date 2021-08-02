@@ -26,9 +26,6 @@ layout(location = 5) in vec4 vWorldMatRow0;
 layout(location = 6) in vec4 vWorldMatRow1;
 layout(location = 7) in vec4 vWorldMatRow2;
 
-#include <nbl/builtin/glsl/utils/common.glsl>
-#include <nbl/builtin/glsl/utils/transform.glsl>
-
 layout( push_constant, row_major ) uniform Block {
 	mat4 viewProj;
 } PushConstants;
@@ -173,6 +170,7 @@ int main()
     auto device = std::move(initOutput.logicalDevice);
     auto queues = std::move(initOutput.queues);
     auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
+    auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
     auto swapchain = std::move(initOutput.swapchain);
     auto renderpass = std::move(initOutput.renderpass);
     auto fbo = std::move(initOutput.fbo[0]);
@@ -332,13 +330,7 @@ int main()
 		return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspec), std::move(info));
 	};
 
-	auto createCPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
-	{
-		auto resolved_includes = assetManager->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
-		return createCPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
-	};
-
-	auto vs = createCPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert");
+	auto vs = createCPUSpecializedShaderFromSource(vertexSource,asset::ISpecializedShader::ESS_VERTEX);
 	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 	
