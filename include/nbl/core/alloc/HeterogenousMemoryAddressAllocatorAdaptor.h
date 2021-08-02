@@ -108,8 +108,7 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         static constexpr size_type invalid_address              = AddressAllocator::invalid_address;
 
         template<typename... Args>
-        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator,
-                                                                                    size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, Args&&... args) :
+        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, Args&&... args) :
                                             ImplBase(reservedMemAllocator,dataMemAllocator,maxAllocatableAlignment,bufSz,args...),
                                             AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_NBL_SIMD_ALIGNMENT),
                                                                         addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)

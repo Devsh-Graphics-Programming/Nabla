@@ -14,8 +14,7 @@
 
 #include <chrono>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 template <typename QueueType_, typename SwapchainType_>
@@ -56,8 +55,8 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, system::logger_opt_smart_ptr&& logger) :
-        IOpenGL_LogicalDevice(_egl, api_type, params, std::move(s), std::move(glslc), std::move(logger)),
+    COpenGL_LogicalDevice(const egl::CEGL* _egl, IPhysicalDevice* physicalDevice, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, system::logger_opt_smart_ptr&& logger) :
+        IOpenGL_LogicalDevice(_egl, physicalDevice, params, std::move(s), std::move(glslc), std::move(logger)),
         m_threadHandler(this, _egl, _features, getTotalQueueCount(params), createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config), _dbgCb, system::logger_opt_smart_ptr(m_logger)),
         m_glfeatures(_features),
         m_config(config),
@@ -201,7 +200,7 @@ public:
         return sc;
     }
 
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         return core::make_smart_refctd_ptr<COpenGLCommandPool>(this, flags, _familyIx);
     }
@@ -279,13 +278,13 @@ public:
         return retval;
     }
 
-    void resetFences(uint32_t _count, IGPUFence** _fences) override final
+    void resetFences(uint32_t _count, IGPUFence*const * _fences) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
             static_cast<COpenGLFence*>(_fences[i])->reset();
     }
 
-    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override final
+    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) override final
     {
 #ifdef _NBL_DEBUG
         for (uint32_t i = 0u; i < _count; ++i)
@@ -295,7 +294,7 @@ public:
             assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
         }
 #endif
-        SRequestWaitForFences params{ core::SRange<IGPUFence*>(_fences, _fences + _count) , _waitAll, _timeout };
+        SRequestWaitForFences params{ {_fences,_fences + _count},_waitAll,_timeout };
         IGPUFence::E_STATUS retval;
         auto& req = m_threadHandler.request(std::move(params), &retval);
         m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
@@ -681,7 +680,6 @@ private:
     SDebugCallback* m_dbgCb;
 };
 
-}
 }
 
 #endif

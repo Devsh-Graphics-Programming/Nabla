@@ -4,8 +4,7 @@
 #include "nbl/video/IOpenGL_PhysicalDeviceBase.h"
 #include "nbl/video/COpenGLESLogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class COpenGLESPhysicalDevice final : public IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>
@@ -32,7 +31,7 @@ public:
 protected:
 	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
 	{
-		return core::make_smart_refctd_ptr<COpenGLESLogicalDevice>(m_egl, &m_glfeatures, m_config, m_gl_major, m_gl_minor, params, m_dbgCb, core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler), system::logger_opt_smart_ptr(m_logger));
+		return core::make_smart_refctd_ptr<COpenGLESLogicalDevice>(m_egl, this, &m_glfeatures, m_config, m_gl_major, m_gl_minor, params, m_dbgCb, core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler), system::logger_opt_smart_ptr(m_logger));
 	}
 
 private:
@@ -43,7 +42,6 @@ private:
     }
 };
 
-}
 }
 
 #endif

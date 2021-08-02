@@ -22,8 +22,7 @@
 
 //extern RENDERDOC_API_1_1_2* g_rdoc_api;
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 template <typename FunctionTableType_>
@@ -114,8 +113,12 @@ class COpenGL_Queue final : public IGPUQueue
             {
                 egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-                EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
-                assert(mcres == EGL_TRUE);
+                EGLBoolean mcres = EGL_FALSE;
+                while (mcres!=EGL_TRUE)
+                {
+                    mcres = egl->call.peglMakeCurrent(egl->display,pbuffer,pbuffer,thisCtx);
+                    _NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
+                }
 
                 new (state_ptr) ThreadInternalStateType(egl, features, system::logger_opt_smart_ptr(m_logger));
                 auto& gl = state_ptr->gl;
@@ -159,6 +162,7 @@ class COpenGL_Queue final : public IGPUQueue
             void process_request(SRequest& req, ThreadInternalStateType& _state)
             {
                 auto& gl = _state.gl;
+                auto& ctxlocal = _state.ctxlocal;
 
                 switch (req.type)
                 {
@@ -187,6 +191,8 @@ class COpenGL_Queue final : public IGPUQueue
 
                     for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
                     {
+                        // reset initial state to default before cmdbuf execution (in Vulkan command buffers are independent of each other)
+                        ctxlocal.nextState = SOpenGLState();
                         auto* cmdbuf = static_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get());
                         cmdbuf->executeAll(&gl, &_state.ctxlocal, m_ctxid);
                     }
@@ -242,7 +248,7 @@ class COpenGL_Queue final : public IGPUQueue
         COpenGL_Queue(IOpenGL_LogicalDevice* gldev, ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _ctx, EGLSurface _surface, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority, SDebugCallback* _dbgCb, system::logger_opt_smart_ptr&& logger) :
             IGPUQueue(dev, _famIx, _flags, _priority),
             threadHandler(_egl, gldev, _features, _ctx, _surface, _ctxid, _dbgCb, system::logger_opt_smart_ptr(m_logger)),
-            m_mempool(1u<<20,1u),
+            m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid),
             m_logger(std::move(logger))
         {
@@ -363,11 +369,11 @@ class COpenGL_Queue final : public IGPUQueue
 
     private:
         CThreadHandler threadHandler;
-        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator>;
+        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,uint32_t>;
         memory_pool_t m_mempool;
         uint32_t m_ctxid;
 };
 
-}}
+}
 
 #endif

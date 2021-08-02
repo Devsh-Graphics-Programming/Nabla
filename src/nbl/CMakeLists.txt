@@ -31,7 +31,7 @@ macro(FindLibraryAndSONAME _LIB)
       #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
     #endif()
 
-    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}")
+    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}") 
     set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
   endif()
 endmacro()
@@ -100,14 +100,14 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) # It affects with BAW source leading to linker errors, TODO
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" ON)
-option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF)
+option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
+option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -179,12 +179,6 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
-# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -264,7 +258,6 @@ set(NBL_ASSET_SOURCES
 )
 set(NBL_VIDEO_SOURCES
 # Allocators
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/GPUMemoryAllocatorBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/SimpleGPUBufferAllocator.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
 	
@@ -276,6 +269,7 @@ set(NBL_VIDEO_SOURCES
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
 # Junk to refactor
@@ -302,14 +296,6 @@ set(NABLA_SRCS_COMMON
 	${NBL_SCENE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
 	${NBL_UI_SOURCES}
-
-# Junk to refactor
-#	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceLinux.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceConsole.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceStub.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceWin32.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/Irrlicht.cpp
 )
 
 if (NBL_EMBED_BUILTIN_RESOURCES)
@@ -332,9 +318,6 @@ set(NABLA_SRCS_NORMAL
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLDriver.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
@@ -368,7 +351,7 @@ set(COMMON_INCLUDE_DIRS
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
-	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
+	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
@@ -405,12 +388,12 @@ macro(nbl_target_link_shaderc _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
 endmacro()
-macro(nbl_target_link_libjpeg _trgt)
-	add_dependencies(${_trgt} jpeg)
+macro(nbl_target_link_libjpeg_turbo _trgt)
+	add_dependencies(${_trgt} jpeg-static)
 	target_link_libraries(${_trgt} INTERFACE
-		jpeg
+		jpeg-static
 	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
 endmacro()
 macro(nbl_target_link_libpng _trgt)
 	add_dependencies(${_trgt} png_static)
@@ -499,7 +482,7 @@ add_dependencies(Nabla openssl_build)
 nbl_target_link_openssl(Nabla)
 #nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
-nbl_target_link_libjpeg(Nabla)
+nbl_target_link_libjpeg_turbo(Nabla)
 nbl_target_link_libpng(Nabla)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_target_link_openexr(Nabla)
@@ -554,6 +537,7 @@ endif()
 target_compile_definitions(Nabla 
 	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	PUBLIC UNW_LOCAL_ONLY
+	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
 if(WIN32)
@@ -633,7 +617,7 @@ nbl_install_lib(glslang)
 nbl_install_lib(GenericCodeGen)
 nbl_install_lib(MachineIndependent)
 nbl_install_lib(HLSL)
-nbl_install_lib(jpeg)
+nbl_install_lib(jpeg-static)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	nbl_install_lib(Half)
 	nbl_install_lib(Iex)

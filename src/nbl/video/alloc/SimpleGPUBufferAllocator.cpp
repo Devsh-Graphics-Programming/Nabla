@@ -15,11 +15,5 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     auto reqs = mBufferMemReqs;
     reqs.vulkanReqs.size = bytes;
     reqs.vulkanReqs.alignment = alignment;
-    IGPUBuffer* bufptr = nullptr;
-    {
-        auto buff = mDriver->createGPUBufferOnDedMem(reqs, false);
-        bufptr = buff.get();
-        bufptr->grab(); // don't want to be passing smart pointers around, this allocator it the only owner!
-    }
-    return bufptr;
+    return mDriver->createGPUBufferOnDedMem(reqs,canUpdateViaCmdBuff);
 }

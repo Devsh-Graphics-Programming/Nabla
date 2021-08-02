@@ -1,64 +1,171 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#include "nbl/system/CSystemWin32.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/ui/CWindowWin32.h>
-using CWindowT = nbl::ui::CWindowWin32;
-#elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/ui/CWindowLinux.h>
-using CWindowT = nbl::ui::CWindowLinux;
-#endif
+#include <nbl/ui/CWindowManagerWin32.h>
+#include <nbl/system/ISystem.h>
+#include <nbl/system/CStdoutLogger.h>
+#include <nbl/system/CFileLogger.h>
+#include <nbl/system/CColoredStdoutLoggerWin32.h>
+#include <nbl/system/CSystemWin32.h>
 
+#endif
 
 class CommonAPI
 {
 	CommonAPI() = delete;
 public:
-	static nbl::core::smart_refctd_ptr < nbl::system::ISystem > createSystem()
+
+	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	{
+		public:
+			CommonAPIEventCallback(nbl::system::logger_opt_smart_ptr&& logger) : m_logger(std::move(logger)) {}
+		private:
+			void onWindowShown_impl() override
+			{
+				m_logger.logI("Window Shown");
+			}
+			void onWindowHidden_impl() override
+			{
+				m_logger.logI("Window hidden");
+			}
+			void onWindowMoved_impl(int32_t x, int32_t y) override
+			{
+				m_logger.logW("Window window moved to { %d, %d }", x, y);
+			}
+			void onWindowResized_impl(uint32_t w, uint32_t h) override
+			{
+				m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
+			}
+			void onWindowMinimized_impl() override
+			{
+				m_logger.logE("Window minimized");
+			}
+			void onWindowMaximized_impl() override
+			{
+				m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
+			}
+			void onGainedMouseFocus_impl() override
+			{
+				m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
+			}
+			void onLostMouseFocus_impl() override
+			{
+				m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
+			}
+			void onGainedKeyboardFocus_impl() override
+			{
+				m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
+			}
+			void onLostKeyboardFocus_impl() override
+			{
+				m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
+			}
+
+			void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+			{
+				m_logger.log("A mouse has been connected", nbl::system::ILogger::ELL_INFO);
+			}
+			void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+			{
+				m_logger.log("A mouse has been disconnected", nbl::system::ILogger::ELL_INFO);
+			}
+			void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+			{
+				m_logger.log("A keyboard has been connected", nbl::system::ILogger::ELL_INFO);
+			}
+			void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* mch) override
+			{
+				m_logger.log("A keyboard has been disconnected", nbl::system::ILogger::ELL_INFO);
+			}
+		private:
+			nbl::system::logger_opt_smart_ptr m_logger;
+	};
+
+	static nbl::core::smart_refctd_ptr<nbl::system::ISystem> createSystem()
 	{
 		using namespace nbl;
 		using namespace core;
 		using namespace system;
 		smart_refctd_ptr<ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-		caller = make_smart_refctd_ptr<CSystemCallerWin32>();
+		caller = make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
 #endif
 		return make_smart_refctd_ptr<ISystem>(std::move(caller));
 	}
+
 	template<uint32_t sc_image_count>
 	struct InitOutput
 	{
-		nbl::core::smart_refctd_ptr<CWindowT> window;
+		enum E_QUEUE_TYPE
+		{
+			EQT_GRAPHICS,
+			EQT_COMPUTE,
+			EQT_TRANSFER_UP,
+			EQT_TRANSFER_DOWN,
+			EQT_COUNT
+		};
+
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
-		nbl::video::IGPUQueue* queue;
+		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
 		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, sc_image_count> fbo;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
+		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
+		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
+		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 
 	};
-	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count>
-	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name)
+	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
+	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
 	{
 		using namespace nbl;
+		using namespace nbl::video;
 		InitOutput<sc_image_count> result = {};
-		result.window = CWindowT::create(window_width, window_height, ui::IWindow::ECF_NONE);
+
+		// TODO: Windows/Linux logger define switch
+		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
+		result.system = createSystem();
+		auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+
+		nbl::ui::IWindow::SCreationParams windowsCreationParams;
+		windowsCreationParams.callback = nullptr;
+		windowsCreationParams.width = window_width;
+		windowsCreationParams.height = window_height;
+		windowsCreationParams.x = 0;
+		windowsCreationParams.y = 0;
+		windowsCreationParams.system = core::smart_refctd_ptr(result.system);
+		windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
+		windowsCreationParams.windowCaption = app_name.data();
+		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(system::logger_opt_smart_ptr(logger));
+		
+		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 
 		video::SDebugCallback dbgcb;
 		dbgcb.callback = &defaultDebugCallback;
 		dbgcb.userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(api_type, 0, app_name.data(), dbgcb);
+		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), &dbgcb);
 		result.surface = result.apiConnection->createSurface(result.window.get());
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 		auto gpu = gpus.begin()[0];
-		int familyIndex = getQueueFamilyIndex(gpu, video::IPhysicalDevice::EQF_GRAPHICS_BIT |
-			video::IPhysicalDevice::EQF_COMPUTE_BIT |
-			video::IPhysicalDevice::EQF_TRANSFER_BIT);
+
+		auto getFamilyIndex = [&]() -> int
+		{
+			uint32_t requiredQueueFlags = nbl::video::IPhysicalDevice::EQF_COMPUTE_BIT | nbl::video::IPhysicalDevice::EQF_TRANSFER_BIT;
+
+			if (graphicsQueueEnable)
+				requiredQueueFlags |= nbl::video::IPhysicalDevice::EQF_GRAPHICS_BIT;
+
+			return getQueueFamilyIndex(gpu, requiredQueueFlags);
+		};
+
+		const auto familyIndex = getFamilyIndex();
 		assert(result.surface->isSupported(gpu.get(), familyIndex));
 
 		video::ILogicalDevice::SCreationParams dev_params;
@@ -72,22 +179,36 @@ public:
 		dev_params.queueCreateInfos = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
-		result.queue = result.logicalDevice->getQueue(familyIndex, 0);
+		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
+		if(graphicsQueueEnable)
+			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = queue;
+		result.queues[InitOutput<sc_image_count>::EQT_COMPUTE] = queue;
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = queue;
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = queue;
 
 		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
 		assert(result.swapchain);
 
-		result.renderpass = createRenderpass(result.logicalDevice);
+		result.renderpass = createRenderpass(result.logicalDevice, depthFormat);
 
-		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass);
+		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
 
-		result.commandPool = result.logicalDevice->createCommandPool(familyIndex, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0));
+		result.commandPool = result.logicalDevice->createCommandPool(familyIndex,IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
 		result.physicalDevice = std::move(gpu);
 
+		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>())); // we should let user choose it?
+
+		result.cpu2gpuParams.assetManager = result.assetManager.get();
+		result.cpu2gpuParams.device = result.logicalDevice.get();
+		result.cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
+		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
+		result.cpu2gpuParams.pipelineCache = nullptr;
+		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue; // the queue is capable of transfering
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;  // the queue is capable of computing
 
 		return result;
-
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,
 		uint32_t height,
@@ -110,25 +231,43 @@ public:
 
 		return device->createSwapchain(std::move(sc_params));
 	}
-	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device)
+	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
 	{
 		using namespace nbl;
 
-		video::IGPURenderpass::SCreationParams::SAttachmentDescription a;
-		a.initialLayout = asset::EIL_UNDEFINED;
-		a.finalLayout = asset::EIL_UNDEFINED;
-		a.format = asset::EF_R8G8B8A8_SRGB;
-		a.samples = asset::IImage::ESCF_1_BIT;
-		a.loadOp = video::IGPURenderpass::ELO_CLEAR;
-		a.storeOp = video::IGPURenderpass::ESO_STORE;
+		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
+
+		video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
+		attachments[0].initialLayout = asset::EIL_UNDEFINED;
+		attachments[0].finalLayout = asset::EIL_UNDEFINED;
+		attachments[0].format = asset::EF_R8G8B8A8_SRGB;
+		attachments[0].samples = asset::IImage::ESCF_1_BIT;
+		attachments[0].loadOp = video::IGPURenderpass::ELO_CLEAR;
+		attachments[0].storeOp = video::IGPURenderpass::ESO_STORE;
+
+		attachments[1].initialLayout = asset::EIL_UNDEFINED;
+		attachments[1].finalLayout = asset::EIL_UNDEFINED;
+		attachments[1].format = depthFormat;
+		attachments[1].samples = asset::IImage::ESCF_1_BIT;
+		attachments[1].loadOp = video::IGPURenderpass::ELO_CLEAR;
+		attachments[1].storeOp = video::IGPURenderpass::ESO_STORE;
 
 		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
 		colorAttRef.attachment = 0u;
 		colorAttRef.layout = asset::EIL_UNDEFINED;
+
+		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef depthStencilAttRef;
+		depthStencilAttRef.attachment = 1u;
+		depthStencilAttRef.layout = asset::EIL_UNDEFINED;
+
 		video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
 		sp.colorAttachmentCount = 1u;
 		sp.colorAttachments = &colorAttRef;
-		sp.depthStencilAttachment = nullptr;
+		if(useDepth) {
+			sp.depthStencilAttachment = &depthStencilAttRef;
+		} else {
+			sp.depthStencilAttachment = nullptr;
+		}
 		sp.flags = video::IGPURenderpass::ESDF_NONE;
 		sp.inputAttachmentCount = 0u;
 		sp.inputAttachments = nullptr;
@@ -137,8 +276,8 @@ public:
 		sp.resolveAttachments = nullptr;
 
 		video::IGPURenderpass::SCreationParams rp_params;
-		rp_params.attachmentCount = 1u;
-		rp_params.attachments = &a;
+		rp_params.attachmentCount = (useDepth) ? 2u : 1u;
+		rp_params.attachments = attachments;
 		rp_params.dependencies = nullptr;
 		rp_params.dependencyCount = 0u;
 		rp_params.subpasses = &sp;
@@ -150,16 +289,19 @@ public:
 	template<size_t imageCount, size_t width, size_t height>
 	static auto createFBOWithSwapchainImages(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain,
-		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass)->std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, imageCount>
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass, 
+		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)->std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, imageCount>
 	{
 		using namespace nbl;
+		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
 		std::array<nbl::core::smart_refctd_ptr<video::IGPUFramebuffer>, imageCount> fbo;
 		auto sc_images = swapchain->getImages();
 		assert(sc_images.size() == imageCount);
 		for (uint32_t i = 0u; i < imageCount; ++i)
 		{
+			core::smart_refctd_ptr<video::IGPUImageView> view[2] = {};
+			
 			auto img = sc_images.begin()[i];
-			core::smart_refctd_ptr<video::IGPUImageView> view;
 			{
 				video::IGPUImageView::SCreationParams view_params;
 				view_params.format = img->getCreationParameters().format;
@@ -170,8 +312,32 @@ public:
 				view_params.subresourceRange.layerCount = 1u;
 				view_params.image = std::move(img);
 
-				view = device->createGPUImageView(std::move(view_params));
-				assert(view);
+				view[0] = device->createGPUImageView(std::move(view_params));
+				assert(view[0]);
+			}
+			
+			if(useDepth) {
+				video::IGPUImage::SCreationParams imgParams;
+				imgParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+				imgParams.type = asset::IImage::ET_2D;
+				imgParams.format = depthFormat;
+				imgParams.extent = {width, height, 1};
+				imgParams.mipLevels = 1u;
+				imgParams.arrayLayers = 1u;
+				imgParams.samples = asset::IImage::ESCF_1_BIT;
+				core::smart_refctd_ptr<video::IGPUImage> depthImg = device->createDeviceLocalGPUImageOnDedMem(std::move(imgParams));
+
+				video::IGPUImageView::SCreationParams view_params;
+				view_params.format = depthFormat;
+				view_params.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				view_params.subresourceRange.baseMipLevel = 0u;
+				view_params.subresourceRange.levelCount = 1u;
+				view_params.subresourceRange.baseArrayLayer = 0u;
+				view_params.subresourceRange.layerCount = 1u;
+				view_params.image = std::move(depthImg);
+
+				view[1] = device->createGPUImageView(std::move(view_params));
+				assert(view[1]);
 			}
 
 			video::IGPUFramebuffer::SCreationParams fb_params;
@@ -180,8 +346,8 @@ public:
 			fb_params.layers = 1u;
 			fb_params.renderpass = renderpass;
 			fb_params.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
-			fb_params.attachmentCount = 1u;
-			fb_params.attachments = &view;
+			fb_params.attachmentCount = (useDepth) ? 2u : 1u;
+			fb_params.attachments = view;
 
 			fbo[i] = device->createGPUFramebuffer(std::move(fb_params));
 			assert(fbo[i]);
@@ -191,19 +357,17 @@ public:
 
 	static void Submit(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer>* cmdbuf,
+		nbl::video::IGPUCommandBuffer* cmdbuf,
 		nbl::video::IGPUQueue* queue,
 		nbl::video::IGPUSemaphore* imgAcqSemaphore,
 		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
-		size_t imageCount,
-		uint32_t imgNum)
+		nbl::video::IGPUFence* fence=nullptr)
 	{
 		using namespace nbl;
 		video::IGPUQueue::SSubmitInfo submit;
 		{
-			auto* cb = cmdbuf[imgNum].get();
 			submit.commandBufferCount = 1u;
-			submit.commandBuffers = &cb;
+			submit.commandBuffers = &cmdbuf;
 			video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
 			submit.signalSemaphoreCount = 1u;
 			submit.pSignalSemaphores = &signalsem;
@@ -213,7 +377,7 @@ public:
 			submit.pWaitSemaphores = &waitsem;
 			submit.pWaitDstStageMask = &dstWait;
 
-			queue->submit(1u, &submit, nullptr);
+			queue->submit(1u,&submit,fence);
 		}
 	}
 

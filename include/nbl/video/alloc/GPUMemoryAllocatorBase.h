@@ -5,11 +5,7 @@
 #ifndef __NBL_VIDEO_GPU_MEMORY_ALLOCATOR_BASE_H__
 #define __NBL_VIDEO_GPU_MEMORY_ALLOCATOR_BASE_H__
 
-#include "IGPUBuffer.h"
-
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class ILogicalDevice;
@@ -17,16 +13,14 @@ class ILogicalDevice;
 class GPUMemoryAllocatorBase
 {
     protected:
-        ILogicalDevice*   mDriver;
-        void            copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen);
+        ILogicalDevice* mDriver; // TODO: change to smartpointer backlink (after declarations_and_definitions branch merge)
 
         GPUMemoryAllocatorBase(ILogicalDevice* inDriver) : mDriver(inDriver) {}
-        virtual ~GPUMemoryAllocatorBase() {}
+        virtual ~GPUMemoryAllocatorBase() = default;
     public:
         ILogicalDevice*    getDriver() noexcept {return mDriver;}
 };
 
-}
 }
 
 

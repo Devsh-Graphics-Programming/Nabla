@@ -15,8 +15,7 @@
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IBackendObject.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IGPUCommandBuffer :
@@ -51,6 +50,27 @@ class IGPUCommandBuffer :
     >;
 
 public:
+    virtual void begin(uint32_t _flags) override
+    {
+        asset::ICommandBuffer<
+            IGPUBuffer,
+            IGPUImage,
+            IGPUImageView,
+            IGPURenderpass,
+            IGPUFramebuffer,
+            IGPUGraphicsPipeline,
+            IGPUComputePipeline,
+            IGPUDescriptorSet,
+            IGPUPipelineLayout,
+            IGPUEvent,
+            IGPUCommandBuffer
+        >::begin(_flags);
+        if (m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT==0u)
+        {
+            assert(m_state != ES_INITIAL);
+        }
+    }
+
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
     IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
@@ -58,14 +78,13 @@ public:
 protected:
     IGPUCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(dev), m_cmdpool(_cmdpool)
     {
-
     }
     virtual ~IGPUCommandBuffer() = default;
 
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
 
 
-    static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)
+    static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)
     {
         int32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
         for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
@@ -92,7 +111,6 @@ protected:
     }
 };
 
-}
 }
 
 #endif

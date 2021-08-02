@@ -4,8 +4,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/video/IBackendObject.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
@@ -30,7 +29,7 @@ protected:
     uint32_t m_familyIx;
 };
 
-}}
+}
 
 
 #endif

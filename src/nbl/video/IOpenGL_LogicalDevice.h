@@ -30,8 +30,7 @@
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
 #endif
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -213,7 +212,7 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_FOR_FENCES;
             using retval_t = IGPUFence::E_STATUS;
-            core::SRange<IGPUFence*> fences = { nullptr, nullptr };
+            core::SRange<IGPUFence*const,IGPUFence*const*,IGPUFence*const*> fences = { nullptr, nullptr };
             bool waitForAll;
             uint64_t timeout;
         };
@@ -620,7 +619,7 @@ protected:
             {
                 auto& p = std::get<SRequestWaitForFences>(req.params_variant);
                 uint32_t _count = p.fences.size();
-                IGPUFence** _fences = p.fences.begin();
+                IGPUFence*const *const _fences = p.fences.begin();
                 bool _waitAll = p.waitForAll;
                 uint64_t _timeout = p.timeout;
 
@@ -785,43 +784,66 @@ protected:
 
             return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
-        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout)
+        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, uint64_t _timeout)
         {
-            if (_waitAll)
-            {
-                using clock_t = std::chrono::high_resolution_clock;
+            using clock_t = std::chrono::high_resolution_clock;
+            const auto start = clock_t::now();
+            const auto end = start+std::chrono::nanoseconds(_timeout);
+            
+            assert(_count!=0u);
 
-                auto start = clock_t::time_point();
-                for (uint32_t i = 0u; i < _count; ++i)
+            // want ~1/4 us on second try when not waiting for all
+            constexpr uint64_t pollingFirstTimeout = 256ull>>1u;
+            // poll once with zero timeout if have multiple fences to wait on
+            uint64_t timeout = 0ull;
+            if (_count==1u) // if we're only waiting for one fence, we can skip all the shenanigans
+            {
+                _waitAll = true;
+                timeout = 0xdeadbeefBADC0FFEull;
+            }
+            while (true)
+            {
+                for (uint32_t i=0u; i<_count; )
                 {
-                    COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
-                    IGPUFence::E_STATUS status;
-                    
-                    uint64_t timeout = _timeout;
-                    if (start == clock_t::time_point())
-                        start = clock_t::now();
-                    else
+                    const auto now = clock_t::now();
+                    if (timeout)
                     {
-                        const uint64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - start).count();
-                        if (dt >= timeout)
+                        if(now>=end)
                             return IGPUFence::ES_TIMEOUT;
-                        timeout -= dt;
+                        else if (_waitAll) // all fences have to get signalled anyway so no use round robining
+                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(end-now).count();
+                        else if (i==0u) // if we're only looking for one to succeed then poll with increasing timeouts until deadline
+                            timeout <<= 1u;
                     }
-
-                    status = fence->wait(&gl, timeout);
-                    if (status != IGPUFence::ES_SUCCESS)
-                        return status;
+                    const auto result = static_cast<COpenGLFence*>(_fences[i])->wait(&gl,timeout);
+                    switch (result)
+                    {
+                        case IGPUFence::ES_SUCCESS:
+                            if (!_waitAll)
+                                return result;
+                            break;
+                        case IGPUFence::ES_TIMEOUT:
+                        case IGPUFence::ES_NOT_READY:
+                            if (_waitAll) // keep polling this fence until success or overall timeout
+                            {
+                                timeout = 0x45u; // to make it start computing and using timeouts
+                                continue;
+                            }
+                            break;
+                        case IGPUFence::ES_ERROR:
+                            return result;
+                            break;
+                    }
+                    i++;
                 }
-                return IGPUFence::ES_SUCCESS;
+                if (_waitAll)
+                    return IGPUFence::ES_SUCCESS;
+                else if (!timeout)
+                    timeout = pollingFirstTimeout;
             }
-            else
-            {
-                for (uint32_t i = 0u; i < _count; ++i)
-                {
-                    COpenGLFence* fence = static_cast<COpenGLFence*>(_fences[i]);
-                    return fence->wait(&gl, _timeout);
-                }
-            }
+            // everything below this line is just to make the compiler shut up
+            assert(false);
+            return IGPUFence::ES_ERROR;
         }
 
         // currently used by shader programs only
@@ -849,11 +871,11 @@ protected:
 
 public:
     IOpenGL_LogicalDevice(const egl::CEGL* _egl,
-        E_API_TYPE api_type, 
+        IPhysicalDevice* physicalDevice, 
         const SCreationParams& params, 
         core::smart_refctd_ptr<system::ISystem>&& s,
         core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
-        system::logger_opt_smart_ptr&& logger) : ILogicalDevice(api_type, params, std::move(s), std::move(glslc)), m_egl(_egl), m_logger(std::move(logger))
+        system::logger_opt_smart_ptr&& logger) : ILogicalDevice(physicalDevice, params, std::move(s), std::move(glslc)), m_egl(_egl), m_logger(std::move(logger))
     {
 
     }
@@ -872,7 +894,6 @@ public:
     virtual void destroySync(GLsync sync) = 0;
 };
 
-}
 }
 
 #endif

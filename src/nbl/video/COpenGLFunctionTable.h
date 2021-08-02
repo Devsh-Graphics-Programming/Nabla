@@ -645,9 +645,10 @@ public:
 
 	void extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats) override
 	{
-		if (gl4Texture.pglBindImageTextures)
-			gl4Texture.pglBindImageTextures(first, count, textures);
-		else
+		// TODO: File a bug report with NVidia about this breaking on a mobile GTX 1050 4GB with driver 471
+		//if (gl4Texture.pglBindImageTextures)
+		//	gl4Texture.pglBindImageTextures(first, count, textures);
+		//else
 			base_t::extGlBindImageTextures(first, count, textures, formats);
 	}
 
@@ -1332,7 +1333,7 @@ public:
 			glTexture.pglBindTexture(target, bound);
 		}
 	}
-	void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
+	void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels) override
 	{
 		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image])
 			gl4Texture.pglGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);

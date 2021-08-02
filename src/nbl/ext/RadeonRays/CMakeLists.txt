@@ -21,6 +21,7 @@ nbl_create_ext_library_project(
 	"${NBL_EXT_RADEON_RAYS_SRC}"
 	"${NBL_EXT_RADEON_RAYS_EXTERNAL_INCLUDE}"
 	""
+    ""
 )
 
 add_dependencies(NblExtRADEON_RAYS ${RADEON_RAYS_DEPENDENTS})

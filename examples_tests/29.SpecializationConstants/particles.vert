@@ -9,12 +9,12 @@ layout (location = 0) in vec3 vPos;
 #include <nbl/builtin/glsl/utils/common.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
-layout (push_constant) uniform UBO
+layout (set = 0, binding = 0, row_major, std140) uniform UBO
 {
-    mat4 MVP;
+    nbl_glsl_SBasicViewParameters params;
 } CamData;
 
 void main()
 {
-	gl_Position = nbl_glsl_pseudoMul4x4with3x1(CamData.MVP, vPos);
+	gl_Position = nbl_glsl_pseudoMul4x4with3x1(CamData.params.MVP, vPos);
 }
