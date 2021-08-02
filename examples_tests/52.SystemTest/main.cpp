@@ -153,14 +153,14 @@ int main()
 	}
 	//TODO OBJ loader test 
 	{
-		//IAssetLoader::SAssetLoadParams lp;
-		//auto bundle = assetManager->getAsset("../../media/yellowflower.obj", lp);
-		//assert(!bundle.getContents().empty());
-		//auto cpumesh = bundle.getContents().begin()[0];
-		//auto cpumesh_raw = static_cast<ICPUMesh*>(cpumesh.get());
-		//
-		//IAssetWriter::SAssetWriteParams wp(cpumesh.get());
-		//assetManager->writeAsset("objWriteSuccessful.obj", wp);
+		IAssetLoader::SAssetLoadParams lp;
+		auto bundle = assetManager->getAsset("../../media/yellowflower.obj", lp);
+		assert(!bundle.getContents().empty());
+		auto cpumesh = bundle.getContents().begin()[0];
+		auto cpumesh_raw = static_cast<ICPUMesh*>(cpumesh.get());
+		
+		IAssetWriter::SAssetWriteParams wp(cpumesh.get());
+		assetManager->writeAsset("objWriteSuccessful.obj", wp);
 	}
 	//JPEG loader test
 	{

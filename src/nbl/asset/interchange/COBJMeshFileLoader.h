@@ -89,6 +89,7 @@ public:
         system::future<size_t> future;
         char firstChar = 0;
         _file->read(future, &firstChar, 0, 1);
+        future.get();
         return firstChar =='#' || firstChar =='v';
     }
 

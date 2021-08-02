@@ -104,6 +104,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 	char* const buf = fileContents.data();
 	system::future<size_t> future;
 	_file->read(future, buf, 0, filesize);
+	future.get();
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information
@@ -270,7 +271,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			// get all vertices data in this face (current line of obj _file)
 			const std::string wordBuffer = copyLine(bufPtr, bufEnd);
 			const char* linePtr = wordBuffer.c_str();
-			const char* const endPtr = linePtr+wordBuffer.size();
+			const char* const endPtr = linePtr + wordBuffer.size();
 
 			core::vector<uint32_t> faceCorners;
 			faceCorners.reserve(32ull);
