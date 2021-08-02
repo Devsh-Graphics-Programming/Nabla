@@ -6,7 +6,6 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
-#include "CFileSystem.h"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
@@ -161,22 +160,32 @@ int main()
 {
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
-	constexpr uint32_t SC_IMG_COUNT = 3u;
+    constexpr uint32_t FBO_COUNT = 1u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
-	static_assert(FRAMES_IN_FLIGHT>SC_IMG_COUNT);
+	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
-	auto win = std::move(initOutp.window);
-	auto gl = std::move(initOutp.apiConnection);
-	auto surface = std::move(initOutp.surface);
-	auto device = std::move(initOutp.logicalDevice);
-	auto gpu = std::move(initOutp.physicalDevice);
-	auto queue = std::move(initOutp.queue);
-	auto sc = std::move(initOutp.swapchain);
-	auto renderpass = std::move(initOutp.renderpass);
-	auto fbo = std::move(initOutp.fbo);
-	auto cmdpool = std::move(initOutp.commandPool);
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
+	auto system = std::move(initOutput.system);
+    auto window = std::move(initOutput.window);
+    auto gl = std::move(initOutput.apiConnection);
+    auto surface = std::move(initOutput.surface);
+    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+    auto device = std::move(initOutput.logicalDevice);
+    auto queues = std::move(initOutput.queues);
+    auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
+    auto swapchain = std::move(initOutput.swapchain);
+    auto renderpass = std::move(initOutput.renderpass);
+    auto fbo = std::move(initOutput.fbo[0]);
+    auto commandPool = std::move(initOutput.commandPool);
+    auto assetManager = std::move(initOutput.assetManager);
+    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+
+    nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
+    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[1];
+    device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, cmdbuf);
+    auto commandBuffer = cmdbuf[0];
+
 	core::vector<GPUObject> gpuObjects; 
 
 	// Instance Data
@@ -286,34 +295,20 @@ int main()
 
 	// TODO? Setup Debug Draw
 
-	// Asset Manager
-	auto filesystem = core::make_smart_refctd_ptr<io::CFileSystem>("");
-	auto am = core::make_smart_refctd_ptr<asset::IAssetManager>(std::move(filesystem));
-
-
-	// CPU2GPU
-	video::IGPUObjectFromAssetConverter CPU2GPU;
-
-	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-	cpu2gpuParams.assetManager = am.get();
-	cpu2gpuParams.device = device.get();
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue;
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;
-	cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
-	cpu2gpuParams.sharingMode = asset::ESM_CONCURRENT;
-	cpu2gpuParams.limits = gpu->getLimits();
-	cpu2gpuParams.assetManager = am.get();
 
 	// weird fix -> do not read the next 6 lines (It doesn't affect the program logically) -> waiting for access_violation_repro branch to fix and merge
 	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
 	{
-		 auto file = am->getFileSystem()->createAndOpenFile("../../29.SpecializationConstants/particles.comp");
-		 computeUnspec = am->getGLSLCompiler()->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, file->getFileName().c_str());
-		 file->drop();
+		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
+		system->createFile(future, "../../29.SpecializationConstants/particles.comp", nbl::system::IFile::ECF_READ_WRITE);
+		auto file = future.get();
+		char const* shaderName = file->getFileName().string().c_str();
+		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(file.get(), asset::ISpecializedShader::ESS_COMPUTE, shaderName);
+		file->drop();
 	}
 
 	// Geom Create
-	auto geometryCreator = am->getGeometryCreator();
+	auto geometryCreator = assetManager->getGeometryCreator();
 	auto cubeGeom = geometryCreator->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
 	auto cylinderGeom = geometryCreator->createCylinderMesh(0.5f, 0.5f, 20);
 	auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
@@ -329,7 +324,7 @@ int main()
 
 	auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
-		auto unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
+		auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
 		if (!unspec)
 			return nullptr;
 
@@ -339,7 +334,7 @@ int main()
 
 	auto createCPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
 	{
-		auto resolved_includes = am->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
+		auto resolved_includes = assetManager->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
 		return createCPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
 	};
 
@@ -347,10 +342,10 @@ int main()
 	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 	
-	auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, am.get(), shaders, shaders+2);
-	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, am.get(), shaders, shaders+2);
-	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, am.get(), shaders, shaders+2);
-	auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, am.get(), shaders, shaders+2);
+	auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, assetManager.get(), shaders, shaders+2);
+	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, assetManager.get(), shaders, shaders+2);
+	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders+2);
+	auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, assetManager.get(), shaders, shaders+2);
 	
 	// Instances Buffer
 	
@@ -439,8 +434,6 @@ int main()
 	constexpr uint32_t FRAME_COUNT = 500000u;
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
-	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,cmdbuf);
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
@@ -484,7 +477,7 @@ int main()
 		}
 		// renderpass 
 		uint32_t imgnum = 0u;
-		sc->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
+		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
@@ -498,7 +491,7 @@ int main()
 			clearValues[1].depthStencil.stencil = 0.0f;
 
 			info.renderpass = renderpass;
-			info.framebuffer = fbo[imgnum];
+			info.framebuffer = fbo;
 			info.clearValueCount = 2u;
 			info.clearValues = clearValues;
 			info.renderArea.offset = { 0, 0 };
@@ -514,7 +507,7 @@ int main()
 			range.buffer = gpuInstancesBuffer;
 			range.offset = 0;
 			range.size = BUF_SZ;
-			device->updateBufferRangeViaStagingBuffer(queue, range, instancesData.data());
+			device->updateBufferRangeViaStagingBuffer(graphicsQueue, range, instancesData.data());
 		}
 		// draw
 		{
@@ -529,9 +522,9 @@ int main()
 		}
 		cb->endRenderPass();
 		cb->end();
-
-		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
-		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
+		
+		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 		
 	}
 	
