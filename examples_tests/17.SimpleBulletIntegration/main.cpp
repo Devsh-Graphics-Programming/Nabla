@@ -180,9 +180,8 @@ int main()
 
     nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
-    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[1];
-    device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, cmdbuf);
-    auto commandBuffer = cmdbuf[0];
+    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
+    device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
 
 	core::vector<GPUObject> gpuObjects; 
 
@@ -300,9 +299,9 @@ int main()
 		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
 		system->createFile(future, "../../29.SpecializationConstants/particles.comp", nbl::system::IFile::ECF_READ_WRITE);
 		auto file = future.get();
-		char const* shaderName = file->getFileName().string().c_str();
+		auto sname = file->getFileName().string();
+		char const* shaderName = sname.c_str();//yep, makes sense
 		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(file.get(), asset::ISpecializedShader::ESS_COMPUTE, shaderName);
-		file->drop();
 	}
 
 	// Geom Create
