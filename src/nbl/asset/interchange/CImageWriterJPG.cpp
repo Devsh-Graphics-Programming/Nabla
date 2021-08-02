@@ -62,13 +62,15 @@ static boolean jpeg_empty_output_buffer(j_compress_ptr cinfo)
 
 	// for now just exit upon file error
 	system::future<size_t> future;
-	dest->file->write(future, dest->buffer, 0, OUTPUT_BUF_SIZE);
+	dest->file->write(future, dest->buffer, dest->filePos, OUTPUT_BUF_SIZE);
 	if (future.get() != OUTPUT_BUF_SIZE)
+	{
 		ERREXIT (cinfo, JERR_FILE_WRITE);
+	}
 
 	dest->pub.next_output_byte = dest->buffer;
 	dest->pub.free_in_buffer = OUTPUT_BUF_SIZE;
-
+	dest->filePos += OUTPUT_BUF_SIZE;
 	return TRUE;
 }
 
@@ -81,7 +83,9 @@ static void jpeg_term_destination(j_compress_ptr cinfo)
 	system::future<size_t> future;
 	dest->file->write(future, dest->buffer, dest->filePos, datacount);
 	if (future.get() != datacount)
+	{
 		ERREXIT (cinfo, JERR_FILE_WRITE);
+	}
 
 	dest->filePos += datacount;
 }

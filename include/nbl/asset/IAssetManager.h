@@ -242,7 +242,8 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             if (!file)
                 return {};//return empty bundle
 
-            auto capableLoadersRng = m_loaders.perFileExt.findRange(system::extension_wo_dot(filename.c_str()));
+            auto ext = system::extension_wo_dot(filename);
+            auto capableLoadersRng = m_loaders.perFileExt.findRange(ext);
             // loaders associated with the file's extension tryout
             for (auto& loader : capableLoadersRng)
             {
@@ -665,8 +666,8 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             IAssetWriter::IAssetWriterOverride defOverride;
             if (!_override)
                 _override = &defOverride;
-
-            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), system::extension_wo_dot(_file->getFileName())});
+            auto ext = system::extension_wo_dot(_file->getFileName());
+            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), ext});
 
             for (auto& writer : capableWritersRng)
             if (writer.second->writeAsset(_file, _params, _override))

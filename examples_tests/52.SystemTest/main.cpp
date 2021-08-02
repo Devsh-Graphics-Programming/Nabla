@@ -133,6 +133,53 @@ int main()
 	file->read(readFuture, readStr.data(), 0, readStr.length());
 	assert(readFuture.get() == fileData.length());
 
+	//PNG loader test
+	{
+		IAssetLoader::SAssetLoadParams lp;
+		auto asset = assetManager->getAsset("../../media/cegui_alfisko/screenshot.png", lp);
+		assert(!asset.getContents().empty());
+		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
+		core::smart_refctd_ptr<ICPUImageView> imageView;
+		ICPUImageView::SCreationParams imgViewParams;
+		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewParams.format = E_FORMAT::EF_R8G8B8_UINT;
+		imgViewParams.image = core::smart_refctd_ptr<ICPUImage>(cpuImage);
+		imgViewParams.viewType = ICPUImageView::ET_2D;
+		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+		imageView = ICPUImageView::create(std::move(imgViewParams));
+
+		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		assetManager->writeAsset("pngWriteSuccessful.png", wp);
+	}
+	//TODO OBJ loader test 
+	{
+		//IAssetLoader::SAssetLoadParams lp;
+		//auto bundle = assetManager->getAsset("../../media/yellowflower.obj", lp);
+		//assert(!bundle.getContents().empty());
+		//auto cpumesh = bundle.getContents().begin()[0];
+		//auto cpumesh_raw = static_cast<ICPUMesh*>(cpumesh.get());
+		//
+		//IAssetWriter::SAssetWriteParams wp(cpumesh.get());
+		//assetManager->writeAsset("objWriteSuccessful.obj", wp);
+	}
+	//JPEG loader test
+	{
+		IAssetLoader::SAssetLoadParams lp;
+		auto asset = assetManager->getAsset("../../media/dwarf.jpg", lp);
+		assert(!asset.getContents().empty());
+		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
+		core::smart_refctd_ptr<ICPUImageView> imageView;
+		ICPUImageView::SCreationParams imgViewParams;
+		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewParams.format = E_FORMAT::EF_R8G8B8_SRGB;
+		imgViewParams.image = core::smart_refctd_ptr<ICPUImage>(cpuImage);
+		imgViewParams.viewType = ICPUImageView::ET_2D;
+		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+		imageView = ICPUImageView::create(std::move(imgViewParams));
+
+		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
+	}
 	while (true)
 	{
 
