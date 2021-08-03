@@ -319,6 +319,7 @@ namespace ui
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
+					break;
 				}
 				case WM_KEYUP: [[fallthrough]];
 				case WM_SYSKEYUP:
@@ -329,6 +330,7 @@ namespace ui
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
+					break;
 				}
 				}
 
