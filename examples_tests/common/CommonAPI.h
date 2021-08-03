@@ -1,65 +1,171 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#include "nbl/system/CSystemWin32.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/ui/CWindowWin32.h>
-using CWindowT = nbl::ui::CWindowWin32;
-#elif defined(_NBL_PLATFORM_LINUX_)
-#include <nbl/ui/CWindowLinux.h>
-using CWindowT = nbl::ui::CWindowLinux;
-#endif
+#include <nbl/ui/CWindowManagerWin32.h>
+#include <nbl/system/ISystem.h>
+#include <nbl/system/CStdoutLogger.h>
+#include <nbl/system/CFileLogger.h>
+#include <nbl/system/CColoredStdoutLoggerWin32.h>
+#include <nbl/system/CSystemWin32.h>
 
+#endif
 
 class CommonAPI
 {
 	CommonAPI() = delete;
 public:
-	static nbl::core::smart_refctd_ptr < nbl::system::ISystem > createSystem()
+
+	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	{
+		public:
+			CommonAPIEventCallback(nbl::system::logger_opt_smart_ptr&& logger) : m_logger(std::move(logger)) {}
+		private:
+			void onWindowShown_impl() override
+			{
+				m_logger.logI("Window Shown");
+			}
+			void onWindowHidden_impl() override
+			{
+				m_logger.logI("Window hidden");
+			}
+			void onWindowMoved_impl(int32_t x, int32_t y) override
+			{
+				m_logger.logW("Window window moved to { %d, %d }", x, y);
+			}
+			void onWindowResized_impl(uint32_t w, uint32_t h) override
+			{
+				m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
+			}
+			void onWindowMinimized_impl() override
+			{
+				m_logger.logE("Window minimized");
+			}
+			void onWindowMaximized_impl() override
+			{
+				m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
+			}
+			void onGainedMouseFocus_impl() override
+			{
+				m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
+			}
+			void onLostMouseFocus_impl() override
+			{
+				m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
+			}
+			void onGainedKeyboardFocus_impl() override
+			{
+				m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
+			}
+			void onLostKeyboardFocus_impl() override
+			{
+				m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
+			}
+
+			void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+			{
+				m_logger.log("A mouse has been connected", nbl::system::ILogger::ELL_INFO);
+			}
+			void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+			{
+				m_logger.log("A mouse has been disconnected", nbl::system::ILogger::ELL_INFO);
+			}
+			void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+			{
+				m_logger.log("A keyboard has been connected", nbl::system::ILogger::ELL_INFO);
+			}
+			void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* mch) override
+			{
+				m_logger.log("A keyboard has been disconnected", nbl::system::ILogger::ELL_INFO);
+			}
+		private:
+			nbl::system::logger_opt_smart_ptr m_logger;
+	};
+
+	static nbl::core::smart_refctd_ptr<nbl::system::ISystem> createSystem()
 	{
 		using namespace nbl;
 		using namespace core;
 		using namespace system;
 		smart_refctd_ptr<ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-		caller = make_smart_refctd_ptr<CSystemCallerWin32>();
+		caller = make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
 #endif
 		return make_smart_refctd_ptr<ISystem>(std::move(caller));
 	}
+
 	template<uint32_t sc_image_count>
 	struct InitOutput
 	{
-		nbl::core::smart_refctd_ptr<CWindowT> window;
+		enum E_QUEUE_TYPE
+		{
+			EQT_GRAPHICS,
+			EQT_COMPUTE,
+			EQT_TRANSFER_UP,
+			EQT_TRANSFER_DOWN,
+			EQT_COUNT
+		};
+
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
-		nbl::video::IGPUQueue* queue;
+		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
 		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, sc_image_count> fbo;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
+		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
+		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
+		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 
 	};
-	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count>
-	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
+	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
+	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
 		InitOutput<sc_image_count> result = {};
-		result.window = CWindowT::create(window_width, window_height, ui::IWindow::ECF_NONE);
+
+		// TODO: Windows/Linux logger define switch
+		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
+		result.system = createSystem();
+		auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+
+		nbl::ui::IWindow::SCreationParams windowsCreationParams;
+		windowsCreationParams.callback = nullptr;
+		windowsCreationParams.width = window_width;
+		windowsCreationParams.height = window_height;
+		windowsCreationParams.x = 0;
+		windowsCreationParams.y = 0;
+		windowsCreationParams.system = core::smart_refctd_ptr(result.system);
+		windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
+		windowsCreationParams.windowCaption = app_name.data();
+		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(system::logger_opt_smart_ptr(logger));
+		
+		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 
 		video::SDebugCallback dbgcb;
 		dbgcb.callback = &defaultDebugCallback;
 		dbgcb.userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(api_type, 0, app_name.data(), dbgcb);
+		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), &dbgcb);
 		result.surface = result.apiConnection->createSurface(result.window.get());
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 		auto gpu = gpus.begin()[0];
-		int familyIndex = getQueueFamilyIndex(gpu, video::IPhysicalDevice::EQF_GRAPHICS_BIT |
-			video::IPhysicalDevice::EQF_COMPUTE_BIT |
-			video::IPhysicalDevice::EQF_TRANSFER_BIT);
+
+		auto getFamilyIndex = [&]() -> int
+		{
+			uint32_t requiredQueueFlags = nbl::video::IPhysicalDevice::EQF_COMPUTE_BIT | nbl::video::IPhysicalDevice::EQF_TRANSFER_BIT;
+
+			if (graphicsQueueEnable)
+				requiredQueueFlags |= nbl::video::IPhysicalDevice::EQF_GRAPHICS_BIT;
+
+			return getQueueFamilyIndex(gpu, requiredQueueFlags);
+		};
+
+		const auto familyIndex = getFamilyIndex();
 		assert(result.surface->isSupported(gpu.get(), familyIndex));
 
 		video::ILogicalDevice::SCreationParams dev_params;
@@ -73,7 +179,12 @@ public:
 		dev_params.queueCreateInfos = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
-		result.queue = result.logicalDevice->getQueue(familyIndex, 0);
+		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
+		if(graphicsQueueEnable)
+			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = queue;
+		result.queues[InitOutput<sc_image_count>::EQT_COMPUTE] = queue;
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = queue;
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = queue;
 
 		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
 		assert(result.swapchain);
@@ -86,9 +197,18 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = std::move(gpu);
 
+		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>())); // we should let user choose it?
+
+		result.cpu2gpuParams.assetManager = result.assetManager.get();
+		result.cpu2gpuParams.device = result.logicalDevice.get();
+		result.cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
+		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
+		result.cpu2gpuParams.pipelineCache = nullptr;
+		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue; // the queue is capable of transfering
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;  // the queue is capable of computing
 
 		return result;
-
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,
 		uint32_t height,
