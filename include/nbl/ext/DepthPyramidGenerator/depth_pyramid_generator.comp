@@ -1,0 +1,34 @@
+#version 460 core
+
+#define WORKGROUP_ONE_DIM_SIZE 16u;
+
+#ifdef STRETCH_MIN
+#define REDUCTION_OPERATOR min
+#else // PAD_MAX
+#define REDUCTION_OPERATOR max
+#endif
+
+layout(local_size_x = WORKGROUP_ONE_DIM_SIZE, local_size_y = WORKGROUP_ONE_DIM_SIZE) in;
+
+layout(binding = 0, set = 0, SOURCE_TEXTURE_FORMAT) uniform sampler2D sourceTexture;
+layout(binding = 1, set = 0, MIP_IMAGE_FORMAT) uniform image2D outMips;
+
+void main()
+{
+    const uvec2 base = gl_WorkGroupID.xy * gl_WorkGroupSize.xy;
+    //const uvec2 morton = nbl_glsl_morton2d_4bit_interleave(gl_LocalInvocationIndex);
+    const uvec2 morton = gl_LocalInvocationIndex.xy;
+
+    {
+        const uvec2 naturalOrder = base + morton;
+        #ifdef STRETCH_MIN
+        const vec2 uv = vec2(naturalOrder) / vec2(gl_NumWorkGroups.xy*gl_WorkGroupSize.xy); 
+        #else // PAD MAX
+        const vec2 uv = vec2(naturalOrder) / vec2(textureSize(sourceTexture, 0));
+        #endif
+        const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
+        const float reducedVal = REDUCTION_OPERATOR(REDUCTION_OPERATOR(samples[0], samples[1]),REDUCTION_OPERATOR(samples[2], samples[3]));
+        imageStore(outMips, naturalOrder, vec4(reducedVal, 0.f, 0.f, 0.f));
+        //sharedMem[WORKGROUP_SIZE+gl_LocalInvocationIndex] = reducedVal;
+    }
+}
