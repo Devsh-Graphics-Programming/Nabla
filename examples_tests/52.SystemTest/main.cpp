@@ -26,15 +26,15 @@ public:
 private:
 	void onWindowShown_impl() override 
 	{
-		m_logger.logI("Window Shown");
+		m_logger.log("Window Shown");
 	}
 	void onWindowHidden_impl() override 
 	{
-		m_logger.logI("Window hidden");
+		m_logger.log("Window hidden");
 	}
 	void onWindowMoved_impl(int32_t x, int32_t y) override
 	{
-		m_logger.logW("Window window moved to { %d, %d }", x, y);
+		m_logger.log("Window window moved to { %d, %d }", system::ILogger::ELL_WARNING, x, y);
 	}
 	void onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
@@ -42,7 +42,7 @@ private:
 	}
 	void onWindowMinimized_impl() override
 	{
-		m_logger.logE("Window minimized");
+		m_logger.log("Window minimized", system::ILogger::ELL_ERROR);
 	}
 	void onWindowMaximized_impl() override
 	{
@@ -153,14 +153,14 @@ int main()
 	}
 	//TODO OBJ loader test 
 	{
-		IAssetLoader::SAssetLoadParams lp;
-		auto bundle = assetManager->getAsset("../../media/yellowflower.obj", lp);
-		assert(!bundle.getContents().empty());
-		auto cpumesh = bundle.getContents().begin()[0];
-		auto cpumesh_raw = static_cast<ICPUMesh*>(cpumesh.get());
-		
-		IAssetWriter::SAssetWriteParams wp(cpumesh.get());
-		assetManager->writeAsset("objWriteSuccessful.obj", wp);
+		//IAssetLoader::SAssetLoadParams lp;
+		//auto bundle = assetManager->getAsset("../../media/sponza.obj", lp);
+		//assert(!bundle.getContents().empty());
+		//auto cpumesh = bundle.getContents().begin()[0];
+		//auto cpumesh_raw = static_cast<ICPUMesh*>(cpumesh.get());
+		//
+		//IAssetWriter::SAssetWriteParams wp(cpumesh.get());
+		//assetManager->writeAsset("objWriteSuccessful.obj", wp);
 	}
 	//JPEG loader test
 	{
