@@ -49,21 +49,22 @@ class CBuiltinIncluder : public IIncluder
             if (!IIncludeHandler::isBuiltinPath(_path))
                 return {};
 
-            const std::string relativePath = std::filesystem::relative(_path, system::path(IIncludeHandler::BUILTIN_PREFIX)).string();
-            std::string path = _path.parent_path().string();
+            const std::string relativePath = std::filesystem::relative(_path, system::path(IIncludeHandler::BUILTIN_PREFIX)).generic_string();
+            system::path path = _path.parent_path().string();
+            //auto p = path.make_preferred();
+            //path.se
             std::string res;
-            while (path != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
+            while (path.generic_string() + '/' != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
             {
-                auto capableLoadersRng = m_loaders.findRange(path);
+                auto capableLoadersRng = m_loaders.findRange(path.generic_string() + '/');
                 for (auto& loader : capableLoadersRng)
                 {
                     if (!(res = loader.second->getBuiltinInclude(relativePath)).empty())
                         return res;
                 }
-                if (path.size()==0ull)
+                if (path.string().size()==0ull)
                     break;
-                path.back() = 'x'; // get rid of trailing slash...
-                path.erase(path.find_last_of('/')+1, std::string::npos); // ...and find the one before
+                path = path.parent_path();
             }
             return m_default->getBuiltinInclude(relativePath);
         }
