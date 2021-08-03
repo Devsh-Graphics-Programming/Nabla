@@ -41,13 +41,15 @@ namespace ui
 			case RIM_TYPEKEYBOARD:
 			{
 				auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addKeyboardEventChannel(deviceList[i].hDevice, std::move(channel));
+				addKeyboardEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IKeyboardEventChannel>(channel));
+				m_cb->onKeyboardConnected(this,std::move(channel));
 				break;
 			}
 			case RIM_TYPEMOUSE:
 			{
 				auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addMouseEventChannel(deviceList[i].hDevice, std::move(channel));
+				addMouseEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IMouseEventChannel>(channel));
+				m_cb->onMouseConnected(this,std::move(channel));
 				break;
 			}
 			default:
@@ -146,14 +148,14 @@ namespace ui
 				if (deviceInfo.dwType == RIM_TYPEMOUSE)
 				{
 					auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-					eventCallback->onMouseConnected(window, core::smart_refctd_ptr<IMouseEventChannel>(channel));
-					window->addMouseEventChannel(deviceHandle, std::move(channel));
+					if (window->addMouseEventChannel(deviceHandle,core::smart_refctd_ptr<IMouseEventChannel>(channel)))
+						eventCallback->onMouseConnected(window,std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
 				{
 					auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-					eventCallback->onKeyboardConnected(window, core::smart_refctd_ptr<IKeyboardEventChannel>(channel));
-					window->addKeyboardEventChannel(deviceHandle, std::move(channel));
+					if (window->addKeyboardEventChannel(deviceHandle,core::smart_refctd_ptr<IKeyboardEventChannel>(channel)))
+						eventCallback->onKeyboardConnected(window,std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEHID)
 				{

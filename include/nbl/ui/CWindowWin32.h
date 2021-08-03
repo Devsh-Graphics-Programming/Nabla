@@ -34,24 +34,28 @@ private:
 	/* 
 	*  Storing this data is required for the device removal to work properly
 	*  When you get a message about the device removal, its type isn't accessible anymore.
+	*  When adding new devices, we return if we didnt have the device in the list before.
 	*/
 	core::map<HANDLE, uint32_t> m_deviceTypes;
-	void addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
+	bool addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
 	{
 		if (m_mouseEventChannels.find(deviceHandle) == m_mouseEventChannels.end())
 		{
 			m_mouseEventChannels.emplace(deviceHandle, channel);
 			m_deviceTypes.emplace(deviceHandle, RIM_TYPEMOUSE);
+			return true;
 		}
+		return false;
 	}
-
-	void addKeyboardEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
+	bool addKeyboardEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
 	{
 		if (m_keyboardEventChannels.find(deviceHandle) == m_keyboardEventChannels.end())
 		{
 			m_keyboardEventChannels.emplace(deviceHandle, channel);
 			m_deviceTypes.emplace(deviceHandle, RIM_TYPEKEYBOARD);
+			return true;
 		}
+		return false;
 	}
 
 	core::smart_refctd_ptr<IMouseEventChannel> removeMouseEventChannel(HANDLE deviceHandle)

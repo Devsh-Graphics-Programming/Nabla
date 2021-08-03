@@ -32,6 +32,7 @@ class InputSystem : public IReferenceCounted
 			std::condition_variable added;
 			core::vector<core::smart_refctd_ptr<ChannelType>> channels;
 		};
+		// TODO: move to "nbl/ui/InputEventChannel.h" once the interface of this utility struct matures, also maybe rename to `Consumer` ?
 		template <class ChannelType>
 		struct ChannelReader
 		{
@@ -39,7 +40,6 @@ class InputSystem : public IReferenceCounted
 			inline void consumeEvents(F&& processFunc, system::logger_opt_ptr logger=nullptr)
 			{
 				auto events = channel->getEvents();
-				auto begin = events.begin();
 				const auto frontBufferCapacity = channel->getFrontBufferCapacity();
 				if (events.size()>consumedCounter+frontBufferCapacity)
 				{
@@ -49,7 +49,7 @@ class InputSystem : public IReferenceCounted
 					);
 					consumedCounter = events.size()-frontBufferCapacity;
 				}
-				processFunc(ChannelType::range_t(begin,events.end()));
+				processFunc(ChannelType::range_t(events.begin()+consumedCounter,events.end()));
 				consumedCounter = events.size();
 			}
 
@@ -90,6 +90,15 @@ class InputSystem : public IReferenceCounted
 		template<class ChannelType>
 		void getDefault(Channels<ChannelType>& channels, ChannelReader<ChannelType>* reader)
 		{
+			/*
+			* TODO: Improve default device switching.
+			* For nice results, we should actually make a multi-channel reader,
+			* and then keep a consumed counter together with a last consumed event from each channel.
+			* If there is considerable pause in events received by our current chosen channel or
+			* we can detect some other channel of the same "compatible class" is producing more events,
+			* Switch the channel choice, but prune away all events younger than the old default's consumption timestamp.
+			* (Basically switch keyboards but dont try to process events older than the events you've processed from the old keyboard)
+			*/
 			std::unique_lock lock(channels.lock);
 			while (channels.channels.empty())
 			{
@@ -97,7 +106,7 @@ class InputSystem : public IReferenceCounted
 				channels.added.wait(lock);
 			}
 
-			auto current_default = channels.channels.back();
+			auto current_default = channels.channels.front();
 			if (reader->channel==current_default)
 				return;
 
@@ -240,14 +249,14 @@ int main()
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			logger->log("Mouse event at %p us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
 		}
 	};
 	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events) -> void
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			logger->log("Keyboard event at %p us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			logger->log("Keyboard event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
 		}
 	};
 	while (true)
