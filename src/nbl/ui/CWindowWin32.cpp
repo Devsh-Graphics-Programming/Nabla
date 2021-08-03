@@ -13,8 +13,9 @@ namespace ui
 
 	CWindowWin32::CWindowWin32(CWindowManagerWin32* winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
 	{
-		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 		addAlreadyConnectedInputDevices();
+		// do this last, we dont want the "WndProc" to be called concurrently to anything in the constructor
+		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 	}
 
 	CWindowWin32::~CWindowWin32()
@@ -41,15 +42,15 @@ namespace ui
 			case RIM_TYPEKEYBOARD:
 			{
 				auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addKeyboardEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IKeyboardEventChannel>(channel));
-				m_cb->onKeyboardConnected(this,std::move(channel));
+				if (addKeyboardEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IKeyboardEventChannel>(channel)))
+					m_cb->onKeyboardConnected(this,std::move(channel));
 				break;
 			}
 			case RIM_TYPEMOUSE:
 			{
 				auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addMouseEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IMouseEventChannel>(channel));
-				m_cb->onMouseConnected(this,std::move(channel));
+				if (addMouseEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IMouseEventChannel>(channel)))
+					m_cb->onMouseConnected(this,std::move(channel));
 				break;
 			}
 			default:
