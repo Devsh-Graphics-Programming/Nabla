@@ -1,14 +1,13 @@
-
-#ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/CWindowWin32.h"
 #include "nbl/ui/CWindowManagerWin32.h"
+
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include <hidusage.h>
 #include <hidpi.h>
 #include <codecvt>
 #include <windowsx.h>
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 	CWindowWin32::CWindowWin32(CWindowManagerWin32* winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
@@ -478,6 +477,6 @@ namespace ui
 	}
 
 }
-}
+
 
 #endif
