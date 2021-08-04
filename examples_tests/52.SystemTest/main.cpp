@@ -8,6 +8,7 @@
 #include <nabla.h>
 // TODO: get all these headers into "nabla.h"
 #include <nbl/ui/CWindowManagerWin32.h>
+#include <nbl/ui/CCursorControlWin32.h>
 #include <nbl/system/ISystem.h>
 #include "../common/CommonAPI.h"
 #include "nbl/system/CStdoutLogger.h"
@@ -202,7 +203,7 @@ int main()
 	// logger = nullptr;
 	// **************************************************************************************
 
-	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system), system::logger_opt_smart_ptr(logger));
+	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system));
 
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
 	
@@ -227,6 +228,7 @@ int main()
 	params.callback = windowCb;
 	// *********************************
 	auto window = winManager->createWindow(std::move(params));
+	auto* cursorControl = window->getCursorControl();
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
 	system->createFile(future, "testFile.txt", nbl::system::IFile::ECF_READ_WRITE);
@@ -307,6 +309,7 @@ int main()
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
+	cursorControl->setVisible(false);
 	while (true)
 	{
 		input->getDefaultMouse(&mouse);
@@ -314,5 +317,6 @@ int main()
 
 		mouse.consumeEvents(mouseProcess,logger.get());
 		keyboard.consumeEvents(keyboardProcess,logger.get());
+		logger->log("CursorVisible: %u", ILogger::ELL_DEBUG, cursorControl->isVisible());
 	}
 }

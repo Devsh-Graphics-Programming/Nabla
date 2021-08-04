@@ -6,6 +6,7 @@
 #include "nbl/ui/IClipboardManager.h"
 #include "nbl/ui/IInputEventChannel.h"
 #include <type_traits>
+#include <nbl/ui/ICursorControl.h>
 
 namespace nbl {
 namespace ui
@@ -156,6 +157,8 @@ public:
     inline uint32_t getHeight() const { return m_height; }
 
     virtual IClipboardManager* getClipboardManager() = 0;
+    virtual ICursorControl* getCursorControl() = 0;
+
     IEventCallback* getEventCallback() const { return m_cb.get(); }
 
 protected:

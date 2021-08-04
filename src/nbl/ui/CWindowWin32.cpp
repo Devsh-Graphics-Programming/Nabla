@@ -2,6 +2,7 @@
 #ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/CWindowWin32.h"
 #include "nbl/ui/CWindowManagerWin32.h"
+#include <nbl/ui/CCursorControlWin32.h>
 #include <hidusage.h>
 #include <hidpi.h>
 #include <codecvt>
@@ -11,7 +12,9 @@ namespace nbl {
 namespace ui
 {
 
-	CWindowWin32::CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
+	CWindowWin32::CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd) : 
+		IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager), 
+		m_cursorControl(core::make_smart_refctd_ptr<CCursorControlWin32>(core::smart_refctd_ptr(m_windowManager)))
 	{
 		addAlreadyConnectedInputDevices();
 		// do this last, we dont want the "WndProc" to be called concurrently to anything in the constructor
@@ -25,7 +28,13 @@ namespace ui
 
 	IClipboardManager* CWindowWin32::getClipboardManager()
 	{
+		assert(false);
 		return nullptr;
+	}
+
+	ICursorControl* CWindowWin32::getCursorControl()
+	{
+		return m_cursorControl.get();
 	}
 
 	void CWindowWin32::addAlreadyConnectedInputDevices()

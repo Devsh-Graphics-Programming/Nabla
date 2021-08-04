@@ -37,6 +37,10 @@ namespace nbl::ui
 		{
 			destroyNativeWindow(static_cast<IWindowWin32*>(wnd)->getNativeHandle());
 		}
+		void setCursorVisibility(bool visible)
+		{
+			m_windowThreadManager.setCursorVisibility(visible);
+		}
 	private:
 		IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)
 		{
@@ -52,7 +56,8 @@ namespace nbl::ui
 		enum E_REQUEST_TYPE
 		{
 			ERT_CREATE_WINDOW,
-			ERT_DESTROY_WINDOW
+			ERT_DESTROY_WINDOW,
+			ERT_CHANGE_CURSOR_VISIBILITY
 		};
 		template <E_REQUEST_TYPE ERT>
 		struct SRequestParamsBase
@@ -75,6 +80,10 @@ namespace nbl::ui
 		{
 			CWindowWin32::native_handle_t nativeWindow;
 		};
+		struct SRequestParams_ChangeCursorVisibility : SRequestParamsBase<ERT_CHANGE_CURSOR_VISIBILITY>
+		{
+			bool visible;
+		};
 		struct SRequest : system::impl::IAsyncQueueDispatcherBase::request_base_t
 		{
 			E_REQUEST_TYPE type;
@@ -82,6 +91,7 @@ namespace nbl::ui
 			{
 				SRequestParams_CreateWindow createWindowParam;
 				SRequestParams_DestroyWindow destroyWindowParam;
+				SRequestParams_ChangeCursorVisibility changeCursorVisibilityParam;
 			};
 			SRequest() {}
 			~SRequest() {}
@@ -103,6 +113,13 @@ namespace nbl::ui
 			{
 				SRequestParams_DestroyWindow params;
 				params.nativeWindow = window;
+				auto& rq = request(params);
+				waitForCompletion(rq);
+			}
+			void setCursorVisibility(bool visible)
+			{
+				SRequestParams_ChangeCursorVisibility params;
+				params.visible = visible;
 				auto& rq = request(params);
 				waitForCompletion(rq);
 			}
@@ -155,14 +172,13 @@ namespace nbl::ui
 					wcex.cbWndExtra = 0;
 					wcex.hInstance = hinstance;
 					wcex.hIcon = NULL;
-					wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+					wcex.hCursor = nullptr;
 					wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 					wcex.lpszMenuName = 0;
 					wcex.lpszClassName = classname;
 					wcex.hIconSm = 0;
 
 					RegisterClassEx(&wcex);
-
 					// calculate client size
 
 					RECT clientSize;
@@ -271,6 +287,12 @@ namespace nbl::ui
 				{
 					auto& params = req.destroyWindowParam;
 					DestroyWindow(params.nativeWindow);
+					break;
+				}
+				case ERT_CHANGE_CURSOR_VISIBILITY:
+				{
+					auto& params = req.changeCursorVisibilityParam;
+					ShowCursor(params.visible);
 					break;
 				}
 				}

@@ -7,7 +7,7 @@
 
 namespace nbl::ui
 {
-
+class CCursorControlWin32;
 class CWindowManagerWin32;
 
 class CWindowWin32 final : public IWindowWin32
@@ -31,6 +31,8 @@ private:
 	core::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;
 	core::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;
 	
+	core::smart_refctd_ptr<CCursorControlWin32> m_cursorControl;
+
 	/* 
 	*  Storing this data is required for the device removal to work properly
 	*  When you get a message about the device removal, its type isn't accessible anymore.
@@ -108,7 +110,7 @@ private:
 	
 	// Inherited via IWindowWin32
 	virtual IClipboardManager* getClipboardManager() override;
-
+	virtual ICursorControl* getCursorControl() override;
 
 private:
 	static constexpr uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
