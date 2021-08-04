@@ -1,12 +1,13 @@
 #ifndef __NBL_C_CIRCULAR_BUFFER_H_INCLUDED__
 #define __NBL_C_CIRCULAR_BUFFER_H_INCLUDED__
 
-#include <atomic>
-#include <thread>
-
 #include "nbl/core/decl/Types.h"
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/math/intutil.h"
+
+#include <atomic>
+#include <thread>
+#include <iterator>
 
 namespace nbl::core
 {
@@ -220,8 +221,6 @@ public:
     friend class iterator;
     class iterator
     {
-        using difference_type = ptrdiff_t;
-
         friend this_type;
         this_type* m_owner;
         counter_t m_ix;
@@ -230,13 +229,19 @@ public:
 
         counter_t getIx() const
         {
-            return this_type::wrapAround(m_ix);
+            return m_owner->wrapAround(m_ix);
         }
 
     public:
+        using value_type = type;
+        using pointer = type*;
+        using reference = type&;
+        using difference_type = ptrdiff_t;
+        using iterator_category = std::random_access_iterator_tag;
+
         iterator operator+(difference_type n) const
         {
-            return iterator(m_ix + static_cast<counter_t>(n));
+            return iterator(m_owner,m_ix+static_cast<counter_t>(n));
         }
         iterator& operator+=(difference_type n)
         {
@@ -253,8 +258,7 @@ public:
         }
         difference_type operator-(const iterator& rhs) const
         {
-            auto d = getIx() - rhs.getIx();
-            return static_cast<difference_type>(d);
+            return static_cast<difference_type>(m_ix-rhs.m_ix);
         }
         iterator& operator++()
         {
@@ -270,7 +274,7 @@ public:
         {
             return operator-=(1);
         }
-        iterator operator--()
+        iterator operator--(int)
         {
             auto cp = *this;
             --(*this);
@@ -358,12 +362,12 @@ public:
     iterator begin()
     {
         counter_t b = m_cb_begin.load();
-        return iterator(b);
+        return iterator(this,b);
     }
     iterator end()
     {
         counter_t e = m_cb_end.load();
-        return iterator(e);
+        return iterator(this,e);
     }
 
     size_t size() const

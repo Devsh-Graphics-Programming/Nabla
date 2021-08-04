@@ -13,8 +13,9 @@ namespace ui
 
 	CWindowWin32::CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
 	{
-		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 		addAlreadyConnectedInputDevices();
+		// do this last, we dont want the "WndProc" to be called concurrently to anything in the constructor
+		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 	}
 
 	CWindowWin32::~CWindowWin32()
@@ -41,13 +42,15 @@ namespace ui
 			case RIM_TYPEKEYBOARD:
 			{
 				auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addKeyboardEventChannel(deviceList[i].hDevice, std::move(channel));
+				if (addKeyboardEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IKeyboardEventChannel>(channel)))
+					m_cb->onKeyboardConnected(this,std::move(channel));
 				break;
 			}
 			case RIM_TYPEMOUSE:
 			{
 				auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addMouseEventChannel(deviceList[i].hDevice, std::move(channel));
+				if (addMouseEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IMouseEventChannel>(channel)))
+					m_cb->onMouseConnected(this,std::move(channel));
 				break;
 			}
 			default:
@@ -146,14 +149,14 @@ namespace ui
 				if (deviceInfo.dwType == RIM_TYPEMOUSE)
 				{
 					auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-					eventCallback->onMouseConnected(window, core::smart_refctd_ptr<IMouseEventChannel>(channel));
-					window->addMouseEventChannel(deviceHandle, std::move(channel));
+					if (window->addMouseEventChannel(deviceHandle,core::smart_refctd_ptr<IMouseEventChannel>(channel)))
+						eventCallback->onMouseConnected(window,std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
 				{
 					auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-					eventCallback->onKeyboardConnected(window, core::smart_refctd_ptr<IKeyboardEventChannel>(channel));
-					window->addKeyboardEventChannel(deviceHandle, std::move(channel));
+					if (window->addKeyboardEventChannel(deviceHandle,core::smart_refctd_ptr<IKeyboardEventChannel>(channel)))
+						eventCallback->onKeyboardConnected(window,std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEHID)
 				{
@@ -319,6 +322,7 @@ namespace ui
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
+					break;
 				}
 				case WM_KEYUP: [[fallthrough]];
 				case WM_SYSKEYUP:
@@ -329,6 +333,7 @@ namespace ui
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
+					break;
 				}
 				}
 
