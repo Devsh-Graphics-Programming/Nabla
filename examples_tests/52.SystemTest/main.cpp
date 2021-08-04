@@ -260,6 +260,7 @@ int main()
 		}
 	};
 	
+#if 0 // none of this is going to work as long as you dont have a CWD parameter in `IAssetLoader::SAssetLoadParams` or `IAssetWriter::SAssetWriteParams`
 	//PNG loader test
 	{
 		IAssetLoader::SAssetLoadParams lp;
@@ -307,6 +308,7 @@ int main()
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
+#endif
 	while (true)
 	{
 		input->getDefaultMouse(&mouse);
