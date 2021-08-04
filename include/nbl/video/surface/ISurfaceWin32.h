@@ -8,26 +8,24 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class ISurfaceWin32
 {
-public:
-    struct SCreationParams
-    {
-        HINSTANCE hinstance;
-        HWND hwnd;
-    };
+    public:
+        struct SCreationParams
+        {
+            HINSTANCE hinstance;
+            HWND hwnd;
+        };
 
-protected:
-    explicit ISurfaceWin32(SCreationParams&& params) : m_params(std::move(params)) {}
+    protected:
+        explicit ISurfaceWin32(SCreationParams&& params) : m_params(std::move(params)) {}
 
-    SCreationParams m_params;
+        SCreationParams m_params;
 };
 
-}
 }
 
 #endif

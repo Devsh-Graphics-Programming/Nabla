@@ -180,7 +180,6 @@ private:
             req.ready_for_work.store(false);
             req.ready.store(true);
             req.cvar.notify_all();
-            // shouldn't `lk` get unlocked here!? (doesn't look like a unique lock!
             cb_begin++; // TODO: @Crisspl / @Danylo can anyone explain to me why you've made the queue non atomic!?
         }
         lock.lock();

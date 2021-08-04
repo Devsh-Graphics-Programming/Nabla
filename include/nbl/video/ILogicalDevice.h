@@ -798,11 +798,7 @@ protected:
 
             (*m_offsets)[qci.familyIndex + 1u] = qci.count;
         }
-        // compute prefix sum
-        for (uint32_t i = 1u; i < m_offsets->size(); ++i)
-        {
-            (*m_offsets)[i] += (*m_offsets)[i - 1u];
-        }
+        std::inclusive_scan(m_offsets->begin(),m_offsets->end(),m_offsets->begin());
     }
 
     // must be called by implementations of mapMemory()

@@ -202,7 +202,7 @@ int main()
 	// logger = nullptr;
 	// **************************************************************************************
 
-	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system), system::logger_opt_smart_ptr(logger));
+	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system));
 
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
 	
