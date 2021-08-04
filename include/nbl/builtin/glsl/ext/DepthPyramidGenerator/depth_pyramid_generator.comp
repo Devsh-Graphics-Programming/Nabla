@@ -1,6 +1,6 @@
 #version 430 core
 
-layout(local_size_x = 16, local_size_y = 16) in;
+layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_SIZE) in;
 
 #ifdef STRETCH_MIN
 #define REDUCTION_OPERATOR min
@@ -12,17 +12,21 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0, set = 0) uniform sampler2D sourceTexture;
 layout(binding = 1, set = 0, MIP_IMAGE_FORMAT) uniform image2D outMips;
 
-uint decodeMorton2d4bComponent(in uint x) 
+
+uint decodeMorton2dComponent(in uint x) 
 {
     x &= 0x55555555u;
     x = (x ^ (x >>  1u)) & 0x33333333u;
     x = (x ^ (x >>  2u)) & 0x0f0f0f0fu;
+#if (WORKGROUP_X_AND_Y_SIZE == 32)
+    x = (x ^ (x >>  4u)) & 0x00ff00ffu;
+#endif
     return x;
 }
 
 uvec2 decodeMorton2d4b(in uint x)
 {
-    return uvec2(decodeMorton2d4bComponent(x), decodeMorton2d4bComponent(x >> 1u));
+    return uvec2(decodeMorton2dComponent(x), decodeMorton2dComponent(x >> 1u));
 }
 
 void main()
@@ -34,9 +38,9 @@ void main()
     {
         const uvec2 naturalOrder = base + morton;
         #ifdef STRETCH_MIN
-        const vec2 uv = vec2(naturalOrder) / vec2(gl_NumWorkGroups.xy*gl_WorkGroupSize.xy); 
+        const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(gl_NumWorkGroups.xy*gl_WorkGroupSize.xy); 
         #else // PAD MAX
-        const vec2 uv = vec2(naturalOrder) / vec2(textureSize(sourceTexture, 0));
+        const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
         #endif
         const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
         const float reducedVal = REDUCTION_OPERATOR(REDUCTION_OPERATOR(samples[0], samples[1]),REDUCTION_OPERATOR(samples[2], samples[3]));

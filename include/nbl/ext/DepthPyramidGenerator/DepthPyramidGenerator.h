@@ -22,6 +22,8 @@ namespace ext
 namespace DepthPyramidGenerator
 {
 
+// TODO: test: `E_MIPMAP_GENERATION_OPERATOR::BOTH`, `reundUpToPoTWithPadding = true`
+
 class DepthPyramidGenerator final
 {
 public:
@@ -33,8 +35,15 @@ public:
 		BOTH // min goes to r, min to g
 	};
 	
+	enum class E_WORK_GROUP_SIZE
+	{
+		E16x16x1 = 16u,
+		E32x32x1 = 32u
+	};
+
 	struct Config
 	{
+		E_WORK_GROUP_SIZE workGroupSize = E_WORK_GROUP_SIZE::E32x32x1;
 		asset::E_FORMAT outputFormat = asset::E_FORMAT::EF_R32_SFLOAT;
 		E_MIPMAP_GENERATION_OPERATOR op = E_MIPMAP_GENERATION_OPERATOR::MAX;
 		uint32_t lvlLimit = 0u; //no limit when set to 0 (full mip chain)

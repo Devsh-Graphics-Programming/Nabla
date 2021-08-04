@@ -102,27 +102,17 @@ DepthPyramidGenerator::DepthPyramidGenerator(IVideoDriver* driver, IAssetManager
 	std::string defines;
 	defines.reserve(maxExtraCodeSize);
 	{
-
-
-		// TODO: complete supported formats
-		switch (inputDepthImageView->getCreationParameters().format)
+		switch (config.workGroupSize)
 		{
-		case EF_R16_SFLOAT:
-			defines += std::string("#define SOURCE_TEXTURE_FORMAT r16f\n");
+		case E_WORK_GROUP_SIZE::E32x32x1:
+			defines += std::string("#define WORKGROUP_X_AND_Y_SIZE 32\n");
 			break;
-		case EF_R32_SFLOAT:
-			defines += std::string("#define SOURCE_TEXTURE_FORMAT r32f\n");
+		case E_WORK_GROUP_SIZE::E16x16x1:
+			defines += std::string("#define WORKGROUP_X_AND_Y_SIZE 16\n");
 			break;
-		case EF_R16G16_SFLOAT:
-			defines += std::string("#define SOURCE_TEXTURE_FORMAT r16g16f\n");
-			break;
-		case EF_R32G32_SFLOAT:
-			defines += std::string("#define SOURCE_TEXTURE_FORMAT r32g32f\n");
-			break;
-		default:
-			assert(false);
 		}
 
+		// TODO: complete supported formats
 		switch (config.outputFormat)
 		{
 		case EF_R16_SFLOAT:
@@ -202,7 +192,7 @@ void DepthPyramidGenerator::configureMipImages(core::smart_refctd_ptr<IGPUImageV
 	VkExtent3D currMipExtent = calcLvl0MipExtent(
 		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
 
-	m_globalWorkGroupSize = vector2df(currMipExtent.width / 16u, currMipExtent.height / 16u);
+	m_globalWorkGroupSize = vector2df(currMipExtent.width / static_cast<float>(config.workGroupSize), currMipExtent.height / static_cast<float>(config.workGroupSize));
 
 	IGPUImage::SCreationParams imgParams;
 	imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
