@@ -89,7 +89,7 @@ int main()
 {
 	auto logger = make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
 	auto system = CommonAPI::createSystem();
-	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system), system::logger_opt_smart_ptr(logger));
+	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system));
 
 	// *** If you don't want logging, uncomment this one line***
 	// logger = nullptr;
