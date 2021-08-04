@@ -13,9 +13,8 @@ namespace nbl::asset
 class CSPVLoader final : public asset::IAssetLoader
 {
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
-		core::smart_refctd_ptr<system::ISystem> m_system;
 	public:
-		CSPVLoader(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
+		CSPVLoader() = default;
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr&) const override
 		{
 			uint32_t magicNumber = 0u;

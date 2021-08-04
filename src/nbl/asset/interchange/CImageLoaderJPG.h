@@ -28,14 +28,13 @@ public:
         system::logger_opt_ptr logger = nullptr;
     };
 private:
-    core::smart_refctd_ptr<system::ISystem> m_system;
     protected:
 	    //! destructor
 	    virtual ~CImageLoaderJPG();
 
     public:
 	    //! constructor
-	    CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys);
+	    CImageLoaderJPG();
 
         virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
 
