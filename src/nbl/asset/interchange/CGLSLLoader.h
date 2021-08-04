@@ -18,12 +18,8 @@ namespace asset
 //!  Surface Loader for PNG files
 class CGLSLLoader final : public asset::IAssetLoader
 {
-	core::smart_refctd_ptr<system::ISystem> m_system;
 	public:
-		CGLSLLoader(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
-		{
-			
-		}
+		CGLSLLoader() = default;
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger = nullptr) const override
 		{
 			char tmp[10] = { 0 };

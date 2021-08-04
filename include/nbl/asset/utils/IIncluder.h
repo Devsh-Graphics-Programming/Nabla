@@ -33,7 +33,8 @@ class IIncluder : public core::IReferenceCounted
 			{
 				system::path path = searchDir;
 				path += _path;
-				path = std::filesystem::weakly_canonical(path);
+				if(std::filesystem::exists(path))
+					path = std::filesystem::canonical(path).string();
 				std::string res = getInclude_internal(path);
 				if (!res.empty())
 					return res;

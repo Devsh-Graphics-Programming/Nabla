@@ -197,7 +197,7 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = std::move(gpu);
 
-		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>())); // we should let user choose it?
+		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
 
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();

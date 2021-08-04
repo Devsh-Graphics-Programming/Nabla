@@ -32,7 +32,7 @@ namespace asset
 {
 
 //! constructor
-CImageLoaderJPG::CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
+CImageLoaderJPG::CImageLoaderJPG()
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CImageLoaderJPG");

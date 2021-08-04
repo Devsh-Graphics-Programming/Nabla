@@ -41,12 +41,15 @@ namespace impl
     protected:
         using cb_t = core::CConstantRuntimeSizedCircularBuffer<EventType>;
         using iterator_t = typename cb_t::iterator;
-        using range_t = core::SRange<EventType, iterator_t, iterator_t>;
 
         std::mutex m_bgEventBufMtx;
         cb_t m_bgEventBuf;
         cb_t m_frontEventBuf;
     public:
+        //
+        inline size_t getBackgroundBufferCapacity() const {return m_frontEventBuf.capacity();}
+        inline size_t getFrontBufferCapacity() const {return m_frontEventBuf.capacity();}
+
         // Lock while working with background event buffer
         std::unique_lock<std::mutex> lockBackgroundBuffer()
         {
@@ -61,6 +64,7 @@ namespace impl
 
         // WARNING: Access to getEvents() must be externally synchronized to be safe!
         // (the function returns range of iterators)
+        using range_t = core::SRange<EventType, iterator_t, iterator_t>;
         range_t getEvents()
         {
             downloadFromBackgroundIntoFront();
