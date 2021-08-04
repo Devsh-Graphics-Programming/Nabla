@@ -95,7 +95,7 @@ private:
 
 	core::smart_refctd_ptr<IGPUDescriptorSet> m_ds = nullptr;
 	core::smart_refctd_ptr<IGPUComputePipeline> m_ppln = nullptr;
-	vector2df m_globalWorkGroupSize;
+	vector2du32_SIMD m_globalWorkGroupSize;
 };
 
 }

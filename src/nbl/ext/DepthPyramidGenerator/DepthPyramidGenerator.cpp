@@ -180,8 +180,10 @@ inline VkExtent3D calcLvl0MipExtent(const VkExtent3D& sourceImageExtent, bool ro
 
 	if (!roundUpToPoTWithPadding)
 	{
-		lvl0MipExtent.width >>= 1u;
-		lvl0MipExtent.height >>= 1u;
+		if (!core::isPoT(sourceImageExtent.width))
+			lvl0MipExtent.width >>= 1u;
+		if (!core::isPoT(sourceImageExtent.height))
+			lvl0MipExtent.height >>= 1u;
 	}
 
 	return lvl0MipExtent;
@@ -192,7 +194,8 @@ void DepthPyramidGenerator::configureMipImages(core::smart_refctd_ptr<IGPUImageV
 	VkExtent3D currMipExtent = calcLvl0MipExtent(
 		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
 
-	m_globalWorkGroupSize = vector2df(currMipExtent.width / static_cast<float>(config.workGroupSize), currMipExtent.height / static_cast<float>(config.workGroupSize));
+	m_globalWorkGroupSize = vector2du32_SIMD(currMipExtent.width / static_cast<uint32_t>(config.workGroupSize), currMipExtent.height / static_cast<uint32_t>(config.workGroupSize));
+	assert(m_globalWorkGroupSize.x > 0u && m_globalWorkGroupSize.y > 0u);
 
 	IGPUImage::SCreationParams imgParams;
 	imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
