@@ -11,7 +11,7 @@ namespace nbl {
 namespace ui
 {
 
-	CWindowWin32::CWindowWin32(CWindowManagerWin32* winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
+	CWindowWin32::CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
 	{
 		addAlreadyConnectedInputDevices();
 		// do this last, we dont want the "WndProc" to be called concurrently to anything in the constructor

@@ -35,12 +35,12 @@ public:
         m_includers.emplace_back(core::make_smart_refctd_ptr<CBuiltinIncluder>(_system));
     }
 
-    std::string getIncludeStandard(const std::string& _path) const override
+    std::string getIncludeStandard(const system::path& _path) const override
     {
         return getIncluderDependentOnPath(_path)->getIncludeStandard(_path);
     }
 
-    std::string getIncludeRelative(const std::string& _path, const std::string& _workingDirectory) const override
+    std::string getIncludeRelative(const system::path& _path, const system::path& _workingDirectory) const override
     {
         return getIncluderDependentOnPath(_path)->getIncludeRelative(_path, _workingDirectory);
     }
@@ -51,7 +51,7 @@ public:
     }
 
 private:
-    const IIncluder* getIncluderDependentOnPath(const std::string& _path) const
+    const IIncluder* getIncluderDependentOnPath(const system::path& _path) const
     {
         return (isBuiltinPath(_path) ? m_includers[EII_BUILTIN].get() : m_includers[EII_FILESYSTEM].get());
     }

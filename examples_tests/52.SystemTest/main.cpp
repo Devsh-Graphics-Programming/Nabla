@@ -127,15 +127,15 @@ public:
 private:
 	void onWindowShown_impl() override 
 	{
-		m_logger.logI("Window Shown");
+		m_logger.log("Window Shown");
 	}
 	void onWindowHidden_impl() override 
 	{
-		m_logger.logI("Window hidden");
+		m_logger.log("Window hidden");
 	}
 	void onWindowMoved_impl(int32_t x, int32_t y) override
 	{
-		m_logger.logW("Window window moved to { %d, %d }", x, y);
+		m_logger.log("Window window moved to { %d, %d }", system::ILogger::ELL_WARNING, x, y);
 	}
 	void onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
@@ -143,7 +143,7 @@ private:
 	}
 	void onWindowMinimized_impl() override
 	{
-		m_logger.logE("Window minimized");
+		m_logger.log("Window minimized", system::ILogger::ELL_ERROR);
 	}
 	void onWindowMaximized_impl() override
 	{
@@ -259,6 +259,54 @@ int main()
 			logger->log("Keyboard event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
 		}
 	};
+	
+	//PNG loader test
+	{
+		IAssetLoader::SAssetLoadParams lp;
+		auto asset = assetManager->getAsset("../../media/cegui_alfisko/screenshot.png", lp);
+		assert(!asset.getContents().empty());
+		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
+		core::smart_refctd_ptr<ICPUImageView> imageView;
+		ICPUImageView::SCreationParams imgViewParams;
+		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewParams.format = E_FORMAT::EF_R8G8B8_UINT;
+		imgViewParams.image = core::smart_refctd_ptr<ICPUImage>(cpuImage);
+		imgViewParams.viewType = ICPUImageView::ET_2D;
+		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+		imageView = ICPUImageView::create(std::move(imgViewParams));
+
+		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		assetManager->writeAsset("pngWriteSuccessful.png", wp);
+	}
+	//TODO OBJ loader test 
+	{
+		//IAssetLoader::SAssetLoadParams lp;
+		//auto bundle = assetManager->getAsset("../../media/sponza.obj", lp);
+		//assert(!bundle.getContents().empty());
+		//auto cpumesh = bundle.getContents().begin()[0];
+		//auto cpumesh_raw = static_cast<ICPUMesh*>(cpumesh.get());
+		//
+		//IAssetWriter::SAssetWriteParams wp(cpumesh.get());
+		//assetManager->writeAsset("objWriteSuccessful.obj", wp);
+	}
+	//JPEG loader test
+	{
+		IAssetLoader::SAssetLoadParams lp;
+		auto asset = assetManager->getAsset("../../media/dwarf.jpg", lp);
+		assert(!asset.getContents().empty());
+		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
+		core::smart_refctd_ptr<ICPUImageView> imageView;
+		ICPUImageView::SCreationParams imgViewParams;
+		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewParams.format = E_FORMAT::EF_R8G8B8_SRGB;
+		imgViewParams.image = core::smart_refctd_ptr<ICPUImage>(cpuImage);
+		imgViewParams.viewType = ICPUImageView::ET_2D;
+		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+		imageView = ICPUImageView::create(std::move(imgViewParams));
+
+		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
+	}
 	while (true)
 	{
 		input->getDefaultMouse(&mouse);

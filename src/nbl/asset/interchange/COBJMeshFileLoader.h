@@ -89,6 +89,7 @@ public:
         system::future<size_t> future;
         char firstChar = 0;
         _file->read(future, &firstChar, 0, 1);
+        future.get();
         return firstChar =='#' || firstChar =='v';
     }
 
@@ -112,7 +113,7 @@ private:
 	// copies the current word from the inBuf to the outBuf
 	uint32_t copyWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
 	// copies the current line from the inBuf to the outBuf
-	core::stringc copyLine(const char* inBuf, const char* const bufEnd);
+	std::string copyLine(const char* inBuf, const char* const bufEnd);
 
 	// combination of goNextWord followed by copyWord
 	const char* goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);

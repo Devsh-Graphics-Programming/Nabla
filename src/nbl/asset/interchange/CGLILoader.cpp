@@ -36,7 +36,7 @@ namespace nbl
 	{
 		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr& logger);
 		static inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
-		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger);
+		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr& logger);
 
 		asset::SAssetBundle CGLILoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -46,7 +46,7 @@ namespace nbl
 			gli::texture texture;
 			
 
-			if (!performLoadingAsIFile(texture, _file, m_system.get(), _params.logger))
+			if (!performLoadingAsIFile(texture, _file, _params.logger))
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
@@ -221,10 +221,11 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
-		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger)
+		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr& logger)
 		{
 			const auto fileName = file->getFileName().string();
 			core::vector<char> memory(file->getSize());
+
 			const auto sizeOfData = memory.size();
 
 			system::future<size_t> future;
@@ -243,6 +244,7 @@ namespace nbl
 			else
 			{
 				logger.log("LOADING GLI: failed to load the file %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
+
 				return false;
 			}
 		}

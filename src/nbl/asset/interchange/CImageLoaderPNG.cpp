@@ -63,7 +63,7 @@ void PNGAPI user_read_data_fcn(png_structp png_pt, png_bytep data, png_size_t le
 
 	system::future<size_t> future;
 	file->read(future, data, file_pos, length);
-	future.get();
+	check = future.get();
 	file_pos += length;
 	updateFilePos(png_pt, file_pos);
 
@@ -155,7 +155,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 			_NBL_DELETE_ARRAY(RowPointers, Height);
         return {};
 	}
-	SContext usrData(m_system.get(), _params.logger);
+	SContext usrData(_params.logger);
 	png_set_read_user_chunk_fn(png_ptr, &usrData, nullptr);
 
 	png_set_read_fn(png_ptr, _file, user_read_data_fcn);

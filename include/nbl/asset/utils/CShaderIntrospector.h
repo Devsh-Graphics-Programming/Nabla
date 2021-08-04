@@ -86,7 +86,7 @@ class CShaderIntrospector : public core::Uncopyable
 			ISpecializedShader::E_SHADER_STAGE stage;
 			std::string entryPoint;
 			core::smart_refctd_dynamic_array<std::string> GLSLextensions;
-			std::string filePathHint;
+			std::filesystem::path filePathHint;
 
             inline bool operator<(const SIntrospectionParams& rhs) const
             {
