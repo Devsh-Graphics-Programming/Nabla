@@ -102,7 +102,7 @@ private:
         void request_impl(SRequestType& req, FutureType& future, RequestParams&& params)
         {
             req.type = params.type;
-            req.params = params;
+            req.params = std::move(params);
             base_t::associate_request_with_future(req, future);
         }
 
