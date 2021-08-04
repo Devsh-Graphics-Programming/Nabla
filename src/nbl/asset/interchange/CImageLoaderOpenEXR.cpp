@@ -63,6 +63,7 @@ namespace nbl
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
 		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr& logger);
 
+
 		//! A helpful struct for handling OpenEXR layout
 		/*
 			The latest OpenEXR file consists of the following components:

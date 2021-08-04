@@ -32,7 +32,7 @@ namespace asset
 {
 
 //! constructor
-CImageLoaderJPG::CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
+CImageLoaderJPG::CImageLoaderJPG()
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CImageLoaderJPG");
@@ -175,7 +175,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	if (!_file || _file->getSize()>0xffffffffull)
         return {};
 
-	const auto& Filename = _file->getFileName();
+	const std::filesystem::path& Filename = _file->getFileName();
 
 	uint8_t* input = new uint8_t[_file->getSize()];
 
@@ -198,6 +198,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	cinfo.err->error_exit = jpeg::error_exit;
 	cinfo.err->output_message = jpeg::output_message;
 	cinfo.client_data = &ctx;
+
 
 	auto exitRoutine = [&] {
 		jpeg_destroy_decompress(&cinfo);

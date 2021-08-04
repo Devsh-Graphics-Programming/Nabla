@@ -33,7 +33,10 @@ class IBuiltinIncludeLoader : public core::IReferenceCounted
 
 			for (const auto& pattern : builtinNames)
 				if (std::regex_match(_name, pattern.first))
-					return pattern.second(_name);
+				{
+					auto a = pattern.second(_name);
+					return a;
+				}
 
 			return {};
 		}

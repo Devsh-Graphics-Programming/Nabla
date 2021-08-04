@@ -34,7 +34,7 @@ namespace nbl::ui
 			{
 				return nullptr;
 			}
-			return core::make_smart_refctd_ptr<CWindowWin32>(this, std::move(creationParams), handle);
+			return core::make_smart_refctd_ptr<CWindowWin32>(core::smart_refctd_ptr<CWindowManagerWin32>(this), std::move(creationParams), handle);
 		}
 		void destroyWindow(IWindow* wnd) override final
 		{

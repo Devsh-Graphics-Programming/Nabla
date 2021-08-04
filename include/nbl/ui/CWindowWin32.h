@@ -17,7 +17,7 @@ public:
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	static E_KEY_CODE getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode);
 
-	CWindowWin32(CWindowManagerWin32* winManager, SCreationParams&& params, native_handle_t hwnd);
+	CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd);
 
 	native_handle_t getNativeHandle() const override { return m_native; }
 
@@ -27,7 +27,7 @@ private:
 
     native_handle_t m_native;
 
-	CWindowManagerWin32* m_windowManager;
+	core::smart_refctd_ptr<CWindowManagerWin32> m_windowManager;
 
 	core::map<HANDLE, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;
 	core::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;

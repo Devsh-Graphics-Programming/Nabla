@@ -22,15 +22,15 @@ public:
 		private:
 			void onWindowShown_impl() override
 			{
-				m_logger.logI("Window Shown");
+				m_logger.log("Window Shown");
 			}
 			void onWindowHidden_impl() override
 			{
-				m_logger.logI("Window hidden");
+				m_logger.log("Window hidden");
 			}
 			void onWindowMoved_impl(int32_t x, int32_t y) override
 			{
-				m_logger.logW("Window window moved to { %d, %d }", x, y);
+				m_logger.log("Window window moved to { %d, %d }", nbl::system::ILogger::ELL_DEBUG, x, y);
 			}
 			void onWindowResized_impl(uint32_t w, uint32_t h) override
 			{
@@ -38,7 +38,7 @@ public:
 			}
 			void onWindowMinimized_impl() override
 			{
-				m_logger.logE("Window minimized");
+				m_logger.log("Window minimized");
 			}
 			void onWindowMaximized_impl() override
 			{
@@ -197,7 +197,7 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = std::move(gpu);
 
-		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>())); // we should let user choose it?
+		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
 
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();

@@ -87,9 +87,8 @@ enum STANDARD_TGA_IMAGE_TYPE
 */
 class CImageLoaderTGA final : public IImageLoader
 {
-		core::smart_refctd_ptr<system::ISystem> m_system; // TODO: remove
 	public:
-		CImageLoaderTGA(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
+		CImageLoaderTGA() = default;
 		virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
 
 		virtual const char** getAssociatedFileExtensions() const override
