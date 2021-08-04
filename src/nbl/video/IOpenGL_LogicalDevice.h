@@ -444,7 +444,7 @@ protected:
         template <typename RequestParams>
         void waitForRequestCompletion(SRequest& req)
         {
-            auto lk = req.wait();
+            auto lk = req.wait_for_result();
 
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
             std::get<RequestParams>(req.params_variant) = RequestParams{};
@@ -646,6 +646,7 @@ protected:
             default: 
                 break;
             }
+            // TODO: @Crisspl, only fence create should flush, nothing else needs to do flush or wait idle
             gl.glGeneral.pglFlush();
             // created GL object must be in fact ready when request gets reported as ready
             // @matt - needed?

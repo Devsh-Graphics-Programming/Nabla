@@ -103,7 +103,7 @@ class COpenGL_Queue final : public IGPUQueue
             template <typename RequestParams>
             void waitForRequestCompletion(SRequest& req)
             {
-                auto lk = req.wait();
+                auto lk = req.wait_for_result();
 
                 // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
                 std::get<RequestParams>(req.params) = RequestParams{};

@@ -7,73 +7,81 @@
 namespace nbl::system
 {
 
+
 namespace impl
 {
-    class ICancellableAsyncQueueDispatcherBase
-    {
+
+class ICancellableAsyncQueueDispatcherBase
+{
     public:
         class future_base_t;
 
         struct request_base_t : impl::IAsyncQueueDispatcherBase::request_base_t
         {
-            //! Atomically cancels this request
-            bool set_cancel();
-            bool query_cancel() const
-            {
-                return future == nullptr;
-            }
+                //! Atomically cancels this request
+                bool set_cancel();
+                bool query_cancel() const
+                {
+                    return future == nullptr;
+                }
 
-            future_base_t* future = nullptr;
-        private:
-            friend future_base_t;
-            friend ICancellableAsyncQueueDispatcherBase;
+                future_base_t* future = nullptr;
+            private:
+                friend future_base_t;
+                friend ICancellableAsyncQueueDispatcherBase;
 
-            //! See ICancellableAsyncQueueDispatcher::associate_request_with_future() docs
-            void associate_future_object(future_base_t* _future)
-            {
-                future = _future;
-            }
-
+                //! See ICancellableAsyncQueueDispatcher::associate_request_with_future() docs
+                void associate_future_object(future_base_t* _future)
+                {
+                    future = _future;
+                }
         };
 
         class future_base_t
         {
-            friend request_base_t;
+                friend request_base_t;
 
-        protected:
-            std::atomic_bool valid_flag = false;
-            std::atomic<request_base_t*> request = nullptr;
+            protected:
+                // this tells us whether and object with a lifetime has been constructed over the memory backing the future
+                std::atomic_bool valid_flag = false;
+                std::atomic<request_base_t*> request = nullptr;
 
-            // future_t is non-copyable and non-movable
-            future_base_t(const future_base_t&) = delete;
+                // future_t is non-copyable and non-movable
+                future_base_t(const future_base_t&) = delete;
 
-            void cancel()
-            {
-                request_base_t* req = request.exchange(nullptr);
-                if (req)
-                    req->set_cancel();
-            }
+                void cancel()
+                {
+                    request_base_t* req = request.exchange(nullptr);
+                    if (req)
+                        req->set_cancel();
+                }
 
-        public:
-            future_base_t() = default;
-            ~future_base_t()
-            {
-                cancel();
-            }
+            public:
+                future_base_t() = default;
+                ~future_base_t()
+                {
+                    cancel();
+                }
 
-            // Misused these a couple times so i'll better put [[nodiscard]] here 
-            [[nodiscard]] bool ready() const 
-            { 
-                request_base_t* req = request.load();
-                return !req || req->ready; 
-            }
-            [[nodiscard]] bool valid() const { return valid_flag.load(); }
+                // Misused these a couple times so i'll better put [[nodiscard]] here 
+                [[nodiscard]] bool ready() const 
+                { 
+                    request_base_t* req = request.load();
+                    return !req || req->ready; 
+                }
+                [[nodiscard]] bool valid() const { return valid_flag.load(); }
 
-            void wait()
-            {
-                if (!ready())
-                    request.load()->wait();
-            }
+                void wait()
+                {
+                    // the request is backed by a circular buffer, so if there was a pointer, it will stay valid (but request might have been overwritten)
+                    request_base_t* req = request.load();
+                    if (req)
+                    {
+                        // TODO: lock to prevent request ready flag overwrite after checking but before beginning waiting, and missing a wakeup
+                        if (!req->ready)
+                            request.load()->wait_for_result();
+                    }
+                }
         };
 
     protected:
@@ -81,8 +89,10 @@ namespace impl
         {
             req.associate_future_object(future);
         }
-    };
+};
+
 }
+
 
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
 class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>, public impl::ICancellableAsyncQueueDispatcherBase
@@ -110,11 +120,12 @@ public:
     {
         friend this_async_queue_t;
 
+        // construct the retval element 
         template <typename... Args>
         void notify(Args&&... args)
         {
             new (future_storage_t<T>::getStorage()) T(std::forward<Args>(args)...);
-            valid_flag = true;
+            valid_flag.store(true);
         }
 
         //! See ICancellableAsyncQueueDispatcher::associate_request_with_future() docs
@@ -146,7 +157,7 @@ public:
             future_base_t::wait();
             assert(valid_flag);
             T* ptr = future_storage_t<T>::getStorage();
-            return (ptr[0]);
+            return ptr[0];
         }
     };
 
@@ -182,9 +193,10 @@ protected:
     }
 };
 
+// TODO: docs and explanation for working
 inline bool impl::ICancellableAsyncQueueDispatcherBase::request_base_t::set_cancel()
 {
-    auto lk = lock();
+    std::unique_lock<std::mutex> lk(mtx);
     if (ready.load())
         return false;
     if (future)

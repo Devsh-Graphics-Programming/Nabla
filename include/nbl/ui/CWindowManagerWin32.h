@@ -120,7 +120,7 @@ namespace nbl::ui
 		private:
 			void waitForCompletion(SRequest& req)
 			{
-				auto lk = req.wait();
+				req.wait_for_result();
 			}
 
 		private:
