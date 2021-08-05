@@ -12,10 +12,10 @@ namespace nbl::ui
 		CCursorControlWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& wmgr) : m_windowManager(std::move(wmgr)) {}
 		void setVisible(bool visible) override;
 		bool isVisible() const override;
-		void setPosition(int32_t x, int32_t y) override;
-		void setPosition(const core::vector2d<int32_t>& pos) override;
-		core::vector2di32_SIMD getPosition() override;
-		core::vector2df_SIMD getRelativePosition() override;
+		void setPosition(SPosition pos) override;
+		void setRelativePosition(SRelativePosition pos) override;
+		SPosition getPosition() override;
+		SRelativePosition getRelativePosition() override;
 	};
 }
 #endif

@@ -8,16 +8,26 @@ namespace nbl::ui
 	class ICursorControl : public core::IReferenceCounted
 	{
 	public:
+		struct SPosition
+		{
+			int32_t x, y;
+		};
+		struct SRelativePosition
+		{
+			float x, y;
+		};
 		virtual void setVisible(bool visible) = 0;
 		virtual bool isVisible() const = 0;
-		virtual void setPosition(int32_t x, int32_t y) = 0;
-		virtual void setPosition(const core::vector2d<int32_t>& pos) = 0;
-		//TODO something instead of core::vector2d ??
-		// Native OS screen position
-		virtual core::vector2di32_SIMD getPosition() = 0;
 
+		// Native OS screen position
+		virtual void setPosition(SPosition pos) = 0;
 		// NDC vulkan-like coordinates
-		virtual core::vector2df_SIMD getRelativePosition() = 0;
+		virtual void setRelativePosition(SRelativePosition pos) = 0;
+		
+		// Native OS screen position
+		virtual SPosition getPosition() = 0;
+		// NDC vulkan-like coordinates
+		virtual SRelativePosition getRelativePosition() = 0;
 
 		virtual ~ICursorControl() = default;
 	};

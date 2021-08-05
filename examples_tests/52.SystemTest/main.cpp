@@ -317,6 +317,5 @@ int main()
 
 		mouse.consumeEvents(mouseProcess,logger.get());
 		keyboard.consumeEvents(keyboardProcess,logger.get());
-		logger->log("CursorVisible: %u", ILogger::ELL_DEBUG, cursorControl->isVisible());
 	}
 }

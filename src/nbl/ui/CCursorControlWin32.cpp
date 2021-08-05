@@ -15,27 +15,32 @@ namespace nbl::ui
 		GetCursorInfo(&ci);
 		return ci.flags; // returning flags cause they're equal to 0 when the cursor is hidden
 	}
-	void CCursorControlWin32::setPosition(int32_t x, int32_t y)
+	void CCursorControlWin32::setPosition(CCursorControlWin32::SPosition position)
 	{
-		SetCursorPos(x, y);
+		SetCursorPos(position.x, position.y);
 	}
-	void CCursorControlWin32::setPosition(const core::vector2d<int32_t>& pos)
+	void CCursorControlWin32::setRelativePosition(CCursorControlWin32::SRelativePosition position)
 	{
-		SetCursorPos(pos.X, pos.Y);
+		SPosition nativePos;
+		int32_t screenWidth = GetSystemMetrics(SM_CXSCREEN);
+		int32_t screenHeight = GetSystemMetrics(SM_CYSCREEN);
+		nativePos.x = (position.x / 2 + 0.5) * screenWidth;
+		nativePos.y = (position.y / 2 + 0.5) * screenHeight;
+		SetCursorPos(nativePos.x, nativePos.y);
 	}
-	core::vector2di32_SIMD CCursorControlWin32::getPosition()
+	CCursorControlWin32::SPosition CCursorControlWin32::getPosition()
 	{
 		POINT cursorPos;
 		GetCursorPos(&cursorPos);
-		return core::vector2di32_SIMD{ cursorPos.x, cursorPos.y };
+		return { cursorPos.x, cursorPos.y };
 	}
-	core::vector2df_SIMD CCursorControlWin32::getRelativePosition()
+	CCursorControlWin32::SRelativePosition CCursorControlWin32::getRelativePosition()
 	{
 		int32_t screenWidth = GetSystemMetrics(SM_CXSCREEN);
 		int32_t screenHeight = GetSystemMetrics(SM_CYSCREEN);
 		POINT cursorPos;
 		GetCursorPos(&cursorPos);
 
-		return core::vector2df_SIMD((cursorPos.x / float(screenWidth) - 0.5) * 2, (cursorPos.y / float(screenHeight) - 0.5) * 2);
+		return { ((cursorPos.x + 0.5f) / float(screenWidth) - 0.5f) * 2, ((cursorPos.y + 0.5f) / float(screenHeight) - 0.5f) * 2 };
 	}
 }
