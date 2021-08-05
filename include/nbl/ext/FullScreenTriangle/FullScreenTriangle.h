@@ -14,18 +14,31 @@ namespace ext
 namespace FullScreenTriangle
 {
 
-
-inline auto createFullScreenTriangle(asset::IAssetManager* am, video::IVideoDriver* driver)
+inline auto createFullScreenTriangle(nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
 {
+	if (!cpu2gpuParams.assetManager)
+		assert(false);
+
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+	auto* assetManager = cpu2gpuParams.assetManager;
+
 	std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>,asset::SVertexInputParams,asset::SPrimitiveAssemblyParams> retval;
 
 	asset::IAsset::E_TYPE types[] = { asset::IAsset::ET_SPECIALIZED_SHADER,static_cast<asset::IAsset::E_TYPE>(0u) };
-	auto found = am->findAssets("nbl/builtin/specialized_shader/fullscreentriangle.vert",types);
+	auto found = assetManager->findAssets("nbl/builtin/specialized_shader/fullscreentriangle.vert", types);
 	assert(found->size());
 	auto contents = found->begin()->getContents();
 	assert(!contents.empty());
 	auto pShader = static_cast<asset::ICPUSpecializedShader*>((contents.begin()->get()));
-	std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader> >(retval) = driver->getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(&pShader,&pShader+1u)->front();
+
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuSpecializedShader;
+	{
+		auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&pShader, &pShader + 1, cpu2gpuParams);
+		if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+			assert(false);
+
+		gpuSpecializedShader = (*gpu_array)[0];
+	}
 
 	auto& inputParams = std::get<asset::SVertexInputParams>(retval);
 	{
@@ -44,12 +57,17 @@ inline auto createFullScreenTriangle(asset::IAssetManager* am, video::IVideoDriv
     return retval;
 }
 
-inline auto createFullScreenTriangle(core::smart_refctd_ptr<video::IGPUSpecializedShader>&& fragShader, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& pipelineLayout, asset::IAssetManager* am, video::IVideoDriver* driver, const asset::SBlendParams& blendParams={}, const asset::SRasterizationParams& rasterParams={})
+inline auto createFullScreenTriangle(nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, core::smart_refctd_ptr<video::IGPUSpecializedShader>&& fragShader, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& pipelineLayout, const asset::SBlendParams& blendParams={}, const asset::SRasterizationParams& rasterParams={})
 {
-	auto protoPipeline = createFullScreenTriangle(am,driver);
+	auto* logicalDevice = cpu2gpuParams.device;
+
+	if (!logicalDevice)
+		assert(false);
+
+	auto protoPipeline = createFullScreenTriangle(cpu2gpuParams);
 
 	video::IGPUSpecializedShader* shaders[] = {std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader> >(protoPipeline).get(),fragShader.get()};
-	auto pipeline = driver->createGPURenderpassIndependentPipeline(nullptr,std::move(pipelineLayout),shaders,shaders+2,std::get<asset::SVertexInputParams>(protoPipeline),blendParams,std::get<asset::SPrimitiveAssemblyParams>(protoPipeline),rasterParams);
+	auto pipeline = logicalDevice->createGPURenderpassIndependentPipeline(nullptr,std::move(pipelineLayout),shaders,shaders+2,std::get<asset::SVertexInputParams>(protoPipeline),blendParams,std::get<asset::SPrimitiveAssemblyParams>(protoPipeline),rasterParams);
 
 	asset::SBufferBinding<video::IGPUBuffer> bindings[16];
 	auto meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(pipeline), nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{});
