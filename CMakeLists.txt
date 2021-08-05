@@ -236,7 +236,7 @@ endif(USE_CCACHE)
 # global IDE stuff for examples
 set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Cause CUDA is a special snowflake
 if (NBL_COMPILE_WITH_CUDA)

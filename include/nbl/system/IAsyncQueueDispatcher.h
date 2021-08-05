@@ -38,12 +38,8 @@ namespace impl
                 // do NOT allow canceling of request while they are processed
                 std::unique_lock<std::mutex> wait_for_work()
                 {
-                    #if __cplusplus >= 202002L
-                        req.ready_for_work.wait(false);
-                    #else
                         while (!ready_for_work.load())
                             std::this_thread::yield();
-                    #endif
                    return std::unique_lock<std::mutex>(mtx);
                 }
                 // to call to await the request to finish processing
