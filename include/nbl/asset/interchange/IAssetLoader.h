@@ -249,9 +249,9 @@ public:
 
 		//! This function can be used to swap out the actually opened (or unknown unopened file if `inFile` is nullptr) file for a different one.
 		/** Especially useful if you've used some sort of a fake path and the file won't load from that path just via `io::IFileSystem` . */
-		inline virtual system::IFile* getLoadFile(system::IFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+		inline virtual core::smart_refctd_ptr<system::IFile> getLoadFile(system::IFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
-			return inFile;
+			return core::smart_refctd_ptr<system::IFile>(inFile);
 		}
 
 		//! When you sometimes have different passwords for different assets

@@ -50,20 +50,6 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		//
 		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
 		{
-			/*auto path = "nbl/builtin/" + _name;
-			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-			bool validInput = s->createFile(future, path, system::IFile::ECF_READ);
-			core::smart_refctd_ptr<system::IFile> file = future.get();
-			auto p = std::filesystem::current_path();
-
-			size_t fileSize = file->getSize();
-			std::string content(fileSize, '/0');
-			system::future<size_t> read_future;
-			file->read(read_future, content.data(), 0, fileSize);
-			assert(validInput);
-			read_future.get();
-
-			return content;*/
 			auto path = "nbl/builtin/" + _name;
 			auto data = s->loadBuiltinData(path);
 			if (!data)
