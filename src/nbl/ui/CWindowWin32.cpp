@@ -72,6 +72,9 @@ namespace ui
 
 	LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
+		bool shouldCallDefProc = true;
+		using namespace std::chrono;
+		auto timestamp = duration_cast<microseconds > (system_clock::now().time_since_epoch());
 		CWindowWin32* window = reinterpret_cast<CWindowWin32*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		if (window == nullptr)
 		{
@@ -84,11 +87,11 @@ namespace ui
 		{
 			if (wParam = TRUE)
 			{
-				eventCallback->onWindowShown(window);
+				if(!eventCallback->onWindowShown(window)) shouldCallDefProc = false;
 			}
 			else
 			{
-				eventCallback->onWindowHidden(window);
+				if(!eventCallback->onWindowHidden(window)) shouldCallDefProc = false;
 			}
 			break;
 		}
@@ -97,7 +100,7 @@ namespace ui
 			int32_t newX = GET_X_LPARAM(lParam);
 			int32_t newY = GET_Y_LPARAM(lParam);
 
-			eventCallback->onWindowMoved(window, newX, newY);
+			if(!eventCallback->onWindowMoved(window, newX, newY)) shouldCallDefProc = false;
 			break;
 		}
 		case WM_SIZE:
@@ -105,26 +108,30 @@ namespace ui
 			uint32_t newWidth = LOWORD(lParam);
 			uint32_t newHeight = HIWORD(lParam);
 		
-			eventCallback->onWindowResized(window, newWidth, newHeight);
+			if (!eventCallback->onWindowResized(window, newWidth, newHeight))
+			{
+				shouldCallDefProc = false;
+				break;
+			}
 			switch (wParam)
 			{
 			case SIZE_MAXIMIZED:
-				eventCallback->onWindowMaximized(window);
+				if(!eventCallback->onWindowMaximized(window)) shouldCallDefProc = false;
 				break;
 			case SIZE_MINIMIZED:
-				eventCallback->onWindowMinimized(window);
+				if(!eventCallback->onWindowMinimized(window)) shouldCallDefProc = false;
 				break;
 			}
 			break;
 		}
 		case WM_SETFOCUS:
 		{
-			eventCallback->onGainedKeyboardFocus(window);
+			if(!eventCallback->onGainedKeyboardFocus(window)) shouldCallDefProc = false;
 			break;
 		}
 		case WM_KILLFOCUS:
 		{
-			eventCallback->onLostKeyboardFocus(window);
+			if(!eventCallback->onLostKeyboardFocus(window)) shouldCallDefProc = false;
 			break;
 		}
 		case WM_ACTIVATE:
@@ -133,10 +140,10 @@ namespace ui
 			{
 			case WA_CLICKACTIVE: [[fallthrough]];
 			case WA_ACTIVE:
-				eventCallback->onGainedMouseFocus(window);
+				if(!eventCallback->onGainedMouseFocus(window)) shouldCallDefProc = false;
 				break;
 			case WA_INACTIVE:
-				eventCallback->onLostMouseFocus(window);
+				if(!eventCallback->onLostMouseFocus(window)) shouldCallDefProc = false;
 				break;
 			}
 			break;
@@ -221,7 +228,7 @@ namespace ui
 					// XD apparently a flag can be set, but there will be no actual movement
 					if (rawMouse.lLastX != 0 || rawMouse.lLastY != 0)
 					{
-						SMouseEvent event;
+						SMouseEvent event(timestamp);
 						event.type = SMouseEvent::EET_MOVEMENT;
 						event.movementEvent.movementX = rawMouse.lLastX;
 						event.movementEvent.movementY = rawMouse.lLastY;
@@ -232,7 +239,7 @@ namespace ui
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)
 				{
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
@@ -242,7 +249,7 @@ namespace ui
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP)
 				{
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
@@ -252,7 +259,7 @@ namespace ui
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN)
 				{
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
@@ -262,7 +269,7 @@ namespace ui
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP)
 				{
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
@@ -272,7 +279,7 @@ namespace ui
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN)
 				{
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
@@ -282,7 +289,7 @@ namespace ui
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP)
 				{
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
@@ -295,7 +302,7 @@ namespace ui
 				if (rawMouse.usButtonFlags & RI_MOUSE_WHEEL)
 				{
 					SHORT wheelDelta = static_cast<SHORT>(rawMouse.usButtonData);
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_SCROLL;
 					event.scrollEvent.verticalScroll = wheelDelta;
 					event.scrollEvent.horizontalScroll = 0;
@@ -306,7 +313,7 @@ namespace ui
 				else if (rawMouse.usButtonFlags & RI_MOUSE_HWHEEL)
 				{
 					SHORT wheelDelta = static_cast<SHORT>(rawMouse.usButtonData);
-					SMouseEvent event;
+					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_SCROLL;
 					event.scrollEvent.verticalScroll = 0;
 					event.scrollEvent.horizontalScroll = wheelDelta;
@@ -325,7 +332,7 @@ namespace ui
 				case WM_KEYDOWN: [[fallthrough]];
 				case WM_SYSKEYDOWN:
 				{
-					SKeyboardEvent event;
+					SKeyboardEvent event(timestamp);
 					event.action = SKeyboardEvent::ECA_PRESSED;
 					event.window = window;
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
@@ -336,7 +343,7 @@ namespace ui
 				case WM_KEYUP: [[fallthrough]];
 				case WM_SYSKEYUP:
 				{
-					SKeyboardEvent event;
+					SKeyboardEvent event(timestamp);
 					event.action = SKeyboardEvent::ECA_RELEASED;
 					event.window = window;
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
@@ -357,7 +364,8 @@ namespace ui
 			break;
 		}
 		}
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		if(shouldCallDefProc)
+			return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 
 	E_KEY_CODE CWindowWin32::getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode)

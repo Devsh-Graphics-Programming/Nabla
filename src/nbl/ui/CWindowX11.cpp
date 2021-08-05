@@ -65,27 +65,33 @@ void CWindowX11::processEvent(XEvent event)
             // Resized
             if(e.width != m_width || e.height != m_height)
             {
-                eventCallback->onWindowResized(this, e.width, e.height);
-                x11.pXResizeWindow(m_dpy, m_native, e.width, e.height);
+                if(eventCallback->onWindowResized(this, e.width, e.height))
+                    x11.pXResizeWindow(m_dpy, m_native, e.width, e.height);
 
             }
             // Moved
             if(e.x != m_x || e.y != m_y)
             {
-                eventCallback->onWindowMoved(this, e.x, e.y);
-                x11.pXMoveWindow(m_dpy, m_native, e.x, e.y);
+                if(eventCallback->onWindowMoved(this, e.x, e.y))
+                    x11.pXMoveWindow(m_dpy, m_native, e.x, e.y);
             }
 
             break;
         }
         case MapNotify:
         {
-            eventCallback->onWindowShown(this);
+            if (eventCallback->onWindowShown(this))
+            {
+                assert(false);
+                // ShowWindow call or sth like that
+            }
+
             break;
         }
         // Don't think these 2 are the same, will return to them later, but onWindowHidden is definitely right here
-        case UnmapNotify:
+        case UnmapNotify: //TODO
         {
+            assert(false);
             eventCallback->onWindowHidden(this);
             eventCallback->onWindowMinimized(this); 
             break;
@@ -109,7 +115,11 @@ void CWindowX11::processEvent(XEvent event)
                 if(maximizedVertically && maximizedHorizontally && !isMaximized)
                 {
                     isMaximized = true;
-                    eventCallback->onWindowMaximized(this);
+                    if (eventCallback->onWindowMaximized(this)
+                    {
+                        assert(false);
+                        // MaximizeWindow or sth like that
+                    }
                 }
             }
 
@@ -119,12 +129,12 @@ void CWindowX11::processEvent(XEvent event)
         // call mouse/keyboard/both focus change 
         case FocusIn:
         {
-            
+            assert(false);
             break;
         }
         case FocusOut:
         {
-            
+            assert(false);
             break;
         }
     }
@@ -161,24 +171,19 @@ void CWindowManagerX11::CThreadHandler::process_request(SRequest& req)
 
         if (isFullscreen()) // contents of this if are most likely broken
         {
-    #ifdef _NBL_LINUX_X11_VIDMODE_
             xxf86m.pXF86VidModeModeInfo oldVidMode;
             xxf86m.pXF86VidModeSwitchToMode(dpy, screennr, &oldVidMode);
             xxf86m.pXF86VidModeSetViewPort(dpy, screennr, 0, 0);
-    #endif
 
-    #ifdef _NBL_LINUX_X11_RANDR_
             SizeID oldRandrMode;
             Rotation oldRandrRotation;
             XRRScreenConfiguration *config = xrandr.pXRRGetScreenInfo(dpy,DefaultRootWindow(dpy));
             xrandr.pXRRSetScreenConfig(dpy,config,DefaultRootWindow(dpy),oldRandrMode,oldRandrRotation,CurrentTime);
             xrandr.pXRRFreeScreenConfigInfo(config);
-    #endif
 
             int32_t eventbase, errorbase;
             int32_t bestMode = -1;
 
-    #ifdef _NBL_LINUX_X11_VIDMODE_
             if (xxf86m.pXF86VidModeQueryExtension(dpy, &eventbase, &errorbase))
             {
                 int32_t modeCount;
@@ -212,8 +217,6 @@ void CWindowManagerX11::CThreadHandler::process_request(SRequest& req)
                 x11.pXFree(modes);
             }
             else
-    #endif
-    #ifdef _NBL_LINUX_X11_RANDR_
             if (xrandr.pXRRQueryExtension(dpy, &eventbase, &errorbase))
             {
                 int32_t modeCount;
@@ -237,7 +240,6 @@ void CWindowManagerX11::CThreadHandler::process_request(SRequest& req)
                 xrandr.pXRRFreeScreenConfigInfo(config);
             }
             else
-    #endif
             {
                 flags = static_cast<E_CREATE_FLAGS>(flags & (~ECF_FULLSCREEN));
             }

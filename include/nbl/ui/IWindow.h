@@ -39,59 +39,83 @@ public:
     class IEventCallback : public core::IReferenceCounted
     {
     public:
-        void onWindowShown(IWindow* w) 
+        [[nodiscard]] bool onWindowShown(IWindow* w) 
         {
-            w->m_flags &= (~ECF_HIDDEN);
-            onWindowShown_impl();
+            auto canShow = onWindowShown_impl();
+            if(canShow)
+            {
+                w->m_flags &= (~ECF_HIDDEN);
+            }
+            return canShow;
         }
-        void onWindowHidden(IWindow* w)
+        [[nodiscard]] bool onWindowHidden(IWindow* w)
         {
-            w->m_flags |= ECF_HIDDEN;
-            onWindowHidden_impl();
+            auto canHide = onWindowHidden_impl();
+            if (canHide)
+            {
+                w->m_flags |= ECF_HIDDEN;
+            }
+            return canHide;
         }
-        void onWindowMoved(IWindow* w, int32_t x, int32_t y)
+        [[nodiscard]] bool onWindowMoved(IWindow* w, int32_t x, int32_t y)
         {
-            w->m_x = x;
-            w->m_y = y;
-            onWindowMoved_impl(x, y);
+            auto canMove = onWindowMoved_impl(x, y);
+            if (canMove)
+            {
+                w->m_x = x;
+                w->m_y = y;
+            }
+            return canMove;
         }
-        void onWindowResized(IWindow* w, uint32_t width, uint32_t height)
+        [[nodiscard]] bool onWindowResized(IWindow* w, uint32_t width, uint32_t height)
         {
-            w->m_width = width;
-            w->m_height = height;
-            onWindowResized_impl(width, height);
+            auto canResize = onWindowResized_impl(width, height);
+            if (canResize)
+            {
+                w->m_width = width;
+                w->m_height = height;
+            }
+            return canResize;
         }
-        void onWindowRotated(IWindow* w)
+        [[nodiscard]] bool onWindowRotated(IWindow* w)
         {
-            onWindowRotated_impl();
+            return onWindowRotated_impl();
         }
-        void onWindowMinimized(IWindow* w)
+        [[nodiscard]] bool onWindowMinimized(IWindow* w)
         {
-            w->m_flags |= ECF_MINIMIZED;
-            w->m_flags &= (~ECF_MAXIMIZED);
-            onWindowMinimized_impl();
+            auto canMinimize = onWindowMinimized_impl();
+            if (canMinimize)
+            {
+                w->m_flags |= ECF_MINIMIZED;
+                w->m_flags &= (~ECF_MAXIMIZED);
+            }
+            return canMinimize;
         }
-        void onWindowMaximized(IWindow* w)
+        [[nodiscard]] bool onWindowMaximized(IWindow* w)
         {
-            w->m_flags |= ECF_MAXIMIZED;
-            w->m_flags &= (~ECF_MINIMIZED);
-            onWindowMaximized_impl();
+            auto canMaximize = onWindowMaximized_impl();
+            if (canMaximize)
+            {
+                w->m_flags |= ECF_MAXIMIZED;
+                w->m_flags &= (~ECF_MINIMIZED);
+            }
+            return canMaximize;
         }
-        void onGainedMouseFocus(IWindow* w)
+        [[nodiscard]] bool onGainedMouseFocus(IWindow* w)
         {
-            onGainedMouseFocus_impl();
+            return onGainedMouseFocus_impl();
         }
-        void onLostMouseFocus(IWindow* w)
+        [[nodiscard]] bool onLostMouseFocus(IWindow* w)
         {
-            onLostMouseFocus_impl();
+            return onLostMouseFocus_impl();
         }
-        void onGainedKeyboardFocus(IWindow* w)
+        [[nodiscard]] bool onGainedKeyboardFocus(IWindow* w)
         {
-            onGainedKeyboardFocus_impl();
+            return onGainedKeyboardFocus_impl();
         }
-        void onLostKeyboardFocus(IWindow* w)
+        [[nodiscard]] bool onLostKeyboardFocus(IWindow* w)
         {
-            onLostKeyboardFocus_impl();
+            return onLostKeyboardFocus_impl();
         }
 
         void onMouseConnected(IWindow* w, core::smart_refctd_ptr<IMouseEventChannel>&& mch)
@@ -112,17 +136,17 @@ public:
         }
 
     protected:
-        virtual void onWindowShown_impl() {}
-        virtual void onWindowHidden_impl() {}
-        virtual void onWindowMoved_impl(int32_t x, int32_t y) {}
-        virtual void onWindowResized_impl(uint32_t w, uint32_t h) {}
-        virtual void onWindowRotated_impl() {}
-        virtual void onWindowMinimized_impl() {}
-        virtual void onWindowMaximized_impl() {}
-        virtual void onGainedMouseFocus_impl() {}
-        virtual void onLostMouseFocus_impl() {}
-        virtual void onGainedKeyboardFocus_impl() {}
-        virtual void onLostKeyboardFocus_impl() {}
+        virtual bool onWindowShown_impl() { return true; }
+        virtual bool onWindowHidden_impl() { return true; }
+        virtual bool onWindowMoved_impl(int32_t x, int32_t y) { return true; }
+        virtual bool onWindowResized_impl(uint32_t w, uint32_t h) { return true; }
+        virtual bool onWindowRotated_impl() { return true; }
+        virtual bool onWindowMinimized_impl() { return true; }
+        virtual bool onWindowMaximized_impl() { return true; }
+        virtual bool onGainedMouseFocus_impl() { return true; }
+        virtual bool onLostMouseFocus_impl() { return true; }
+        virtual bool onGainedKeyboardFocus_impl() { return true; }
+        virtual bool onLostKeyboardFocus_impl() { return true; }
 
         virtual void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) {}
         virtual void onMouseDisconnected_impl(IMouseEventChannel* mch) {}
