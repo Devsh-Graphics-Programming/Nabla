@@ -89,7 +89,7 @@ class CImageLoaderTGA final : public IImageLoader
 {
 	public:
 		CImageLoaderTGA() = default;
-		virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
+		virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		virtual const char** getAssociatedFileExtensions() const override
 		{

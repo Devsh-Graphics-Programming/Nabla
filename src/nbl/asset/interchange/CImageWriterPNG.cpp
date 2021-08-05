@@ -28,7 +28,7 @@ namespace asset
 
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 
-const system::logger_opt_ptr& getLogger(png_structp png_ptr)
+const system::logger_opt_ptr getLogger(png_structp png_ptr)
 {
 	return ((CImageWriterPNG::SContext*)png_get_user_chunk_ptr(png_ptr))->logger;
 }

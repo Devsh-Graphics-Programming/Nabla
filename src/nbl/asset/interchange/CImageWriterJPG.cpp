@@ -117,7 +117,7 @@ static void jpeg_file_dest(j_compress_ptr cinfo, system::IFile* file, system::IS
 
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset::ICPUImageView* imageView, uint32_t quality, const system::logger_opt_ptr& logger)
+static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset::ICPUImageView* imageView, uint32_t quality, const system::logger_opt_ptr logger)
 {
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{

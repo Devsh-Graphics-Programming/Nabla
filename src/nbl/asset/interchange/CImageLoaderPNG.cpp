@@ -74,7 +74,7 @@ void PNGAPI user_read_data_fcn(png_structp png_pt, png_bytep data, png_size_t le
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
+bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)

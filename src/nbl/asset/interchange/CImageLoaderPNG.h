@@ -26,14 +26,14 @@ class CImageLoaderPng : public asset::IAssetLoader
 public:
     struct SContext
     {
-        SContext(const system::logger_opt_ptr& _logger) :  logger(_logger) {}
+        SContext(const system::logger_opt_ptr _logger) :  logger(_logger) {}
         // Made file_pos initial value 8 cause it's first set to 8 in CImageLoaderPng::loadAsset
         // and set to 8 but you cannot access this struct from there
         size_t file_pos = 8;
         system::logger_opt_ptr logger;
     };
     explicit CImageLoaderPng() {}
-    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
     virtual const char** getAssociatedFileExtensions() const override
     {

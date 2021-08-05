@@ -271,7 +271,7 @@ namespace nbl::video
         }
     }
 
-    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr& logger)
+    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
     {
         auto& rp = info.framebuffer->getCreationParameters().renderpass;
         auto& sub = rp->getSubpasses().begin()[0];
