@@ -83,6 +83,11 @@ namespace ui
 		IEventCallback* eventCallback =  window->getEventCallback();
 		switch (message)
 		{
+		case WM_CLOSE:
+		{
+			if (!eventCallback->onWindowClosed(window)) shouldCallDefProc = false;
+			break;
+		}
 		case WM_SHOWWINDOW:
 		{
 			if (wParam = TRUE)

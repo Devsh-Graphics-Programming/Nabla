@@ -176,6 +176,11 @@ private:
 		m_logger.log("Window lost keyboard focus", system::ILogger::ELL_INFO);
 		return true;
 	}
+	bool onWindowClosed_impl() override
+	{
+		m_logger.log("Window closed");
+		return true;
+	}
 
 	void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) override
 	{

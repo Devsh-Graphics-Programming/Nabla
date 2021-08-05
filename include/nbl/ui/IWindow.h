@@ -101,6 +101,10 @@ public:
             }
             return canMaximize;
         }
+        [[nodiscard]] bool onWindowClosed(IWindow* w)
+        {
+            return onWindowClosed_impl();
+        }
         [[nodiscard]] bool onGainedMouseFocus(IWindow* w)
         {
             return onGainedMouseFocus_impl();
@@ -143,6 +147,7 @@ public:
         virtual bool onWindowRotated_impl() { return true; }
         virtual bool onWindowMinimized_impl() { return true; }
         virtual bool onWindowMaximized_impl() { return true; }
+        virtual bool onWindowClosed_impl() { return true; }
         virtual bool onGainedMouseFocus_impl() { return true; }
         virtual bool onLostMouseFocus_impl() { return true; }
         virtual bool onGainedKeyboardFocus_impl() { return true; }
