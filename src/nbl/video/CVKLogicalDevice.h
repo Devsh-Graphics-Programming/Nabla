@@ -11,6 +11,7 @@
 #include "nbl/video/CVulkanImageView.h"
 #include "nbl/video/CVulkanFramebuffer.h"
 #include "nbl/video/CVulkanSemaphore.h"
+#include "nbl/video/CVulkanFence.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -92,6 +93,15 @@ public:
             
     core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) override
     {
+        VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+        // createInfo.pNext = API doesnt support extensions yet;
+        createInfo.flags = static_cast<VkFenceCreateFlags>(_flags);
+
+        VkFence fence;
+        if (vkCreateFence(m_vkdev, &createInfo, nullptr, &fence) == VK_SUCCESS)
+            return core::make_smart_refctd_ptr<CVulkanFence>(this, _flags, fence);
+
+        // Probably log error/warning?
         return nullptr;
     }
             

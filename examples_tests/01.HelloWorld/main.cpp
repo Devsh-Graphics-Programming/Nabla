@@ -17,6 +17,7 @@ nothing fancy, just to show that Irrlicht links fine
 #include "../../include/nbl/video/surface/ISurfaceVK.h"
 #include "../../src/nbl/video/CVulkanImage.h"
 #include "../../src/nbl/video/CVulkanSemaphore.h"
+#include "../../src/nbl/video/CVulkanFence.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
 #include "../common/CommonAPI.h"
@@ -377,12 +378,16 @@ int main()
 
 	const uint32_t FRAMES_IN_FLIGHT = 2u;
 
+	// acquireSemaphore will be signalled once you acquire the image to render
+	// releaseSeamphore will be signalled once you rendered to the image and you're ready to release it to present it
 	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
 	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
+	core::smart_refctd_ptr<video::IGPUFence> frameFences[FRAMES_IN_FLIGHT];
 	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
 	{
 		acquireSemaphores[i] = device->createSemaphore();
 		releaseSemaphores[i] = device->createSemaphore();
+		frameFences[i] = device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
 	}
 
 	// Get handles to existing Vulkan stuff
@@ -399,15 +404,14 @@ int main()
 	for (auto image : swapchainImages)
 		vk_swapchainImages[i++] = reinterpret_cast<video::CVulkanImage*>(image.get())->getInternalObject();
 
-	// acquireSemaphore will be signalled once you acquire the image to render
-	// releaseSeamphore will be signalled once you rendered to the image and you're ready to release it to present it
 	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
+	VkFence vk_frameFences[FRAMES_IN_FLIGHT];
 	{
-
 		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
 		{
 			vk_acquireSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(acquireSemaphores[i].get())->getInternalObject();
 			vk_releaseSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(releaseSemaphores[i].get())->getInternalObject();
+			vk_frameFences[i] = reinterpret_cast<video::CVulkanFence*>(frameFences[i].get())->getInternalObject();
 		}
 	}
 
@@ -455,15 +459,6 @@ int main()
 		assert(vkEndCommandBuffer(commandBuffers[i]) == VK_SUCCESS);
 	}
 
-	VkFence frameFences[FRAMES_IN_FLIGHT];
-	{
-		VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-		createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
-			assert(vkCreateFence(vk_device, &createInfo, nullptr, &frameFences[i]) == VK_SUCCESS);
-	}
-
 	VkQueue graphicsQueue, presentQueue;
 	vkGetDeviceQueue(vk_device, graphicsFamilyIndex, 0, &graphicsQueue);
 	vkGetDeviceQueue(vk_device, presentFamilyIndex, 0, &presentQueue);
@@ -473,7 +468,7 @@ int main()
 	{
 		// The purpose of this call is to ensure that there is free space in the "batch"
 		// to incorporate this new frame
-		assert(vkWaitForFences(vk_device, 1, &frameFences[currentFrameIndex], VK_TRUE, ~0ull) == VK_SUCCESS);
+		assert(vkWaitForFences(vk_device, 1, &vk_frameFences[currentFrameIndex], VK_TRUE, ~0ull) == VK_SUCCESS);
 
 		uint32_t imageIndex;
 		assert(vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX,
@@ -495,9 +490,9 @@ int main()
 
 		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
 		// once it finishes its execution
-		assert(vkResetFences(vk_device, 1, &frameFences[currentFrameIndex]) == VK_SUCCESS);
+		assert(vkResetFences(vk_device, 1, &vk_frameFences[currentFrameIndex]) == VK_SUCCESS);
 
-		VkResult result = vkQueueSubmit(graphicsQueue, 1u, &submitInfo, frameFences[currentFrameIndex]);
+		VkResult result = vkQueueSubmit(graphicsQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
 		assert(result == VK_SUCCESS);
 
 		VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -506,17 +501,13 @@ int main()
 		presentInfo.swapchainCount = 1u;
 		presentInfo.pSwapchains = &vk_swapchain;
 		presentInfo.pImageIndices = &imageIndex;
-		vkQueuePresentKHR(presentQueue, &presentInfo);
+		assert(vkQueuePresentKHR(presentQueue, &presentInfo) == VK_SUCCESS);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
 	}
 
 	vkDeviceWaitIdle(vk_device);
 
-	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
-	{
-		vkDestroyFence(vk_device, frameFences[i], nullptr);
-	}
 	vkDestroyCommandPool(vk_device, commandPool, nullptr);
 
 #if 0

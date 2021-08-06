@@ -18,8 +18,7 @@ public:
 
     VkSemaphore getInternalObject() const { return m_semaphore; }
 
-// Todo(achal): Remove
-// private:
+private:
     CVKLogicalDevice* m_vkdev;
     VkSemaphore m_semaphore;
 };

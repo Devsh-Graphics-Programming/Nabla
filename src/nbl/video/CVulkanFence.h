@@ -5,8 +5,7 @@
 
 #include <volk.h>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class CVKLogicalDevice;
@@ -14,7 +13,7 @@ class CVKLogicalDevice;
 class CVulkanFence final : public IGPUFence
 {
 public:
-    CVulkanFence(CVKLogicalDevice* _vkdev, E_CREATE_FLAGS _flags);
+    CVulkanFence(CVKLogicalDevice* _vkdev, E_CREATE_FLAGS _flags, VkFence fence);
     ~CVulkanFence();
 
     VkFence getInternalObject() const { return m_fence; }
@@ -24,7 +23,6 @@ private:
     VkFence m_fence;
 };
 
-}
 }
 
 #endif
