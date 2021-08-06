@@ -108,36 +108,18 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 	}
 };
 
-static bool readEntireFile(const char* filepath, std::vector<uint8_t>& fileContents)
-{
-	FILE* file = fopen(filepath, "rb");
-	if (!file)
-		return false;
-
-	fseek(file, 0, SEEK_END);
-	const size_t fileSize = ftell(file);
-	fileContents.resize(fileSize);
-	fseek(file, 0, SEEK_SET);
-
-	fread(fileContents.data(), sizeof(uint8_t), fileContents.size(), file);
-
-	fclose(file);
-
-	return true;
-}
-
 int main()
 {
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
-	constexpr uint32_t SC_IMG_COUNT = 2u;
+	constexpr uint32_t SC_IMG_COUNT = 3u; // problematic, shouldn't fix the number of swapchain images at compile time, since Vulkan is under no obligation to return you the exact number of images you requested
 	
 	// Note(achal): This is unused, for now
 	video::SDebugCallback dbgcb;
 	dbgcb.callback = &debugCallback;
 	dbgcb.userData = nullptr;
 	
-	auto system = CommonAPI::createSystem();
+	auto system = CommonAPI::createSystem(); // Todo(achal): Need to get rid of this
 
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 
@@ -251,8 +233,11 @@ int main()
 			// struct for this as a wrapper for VkSurfaceCapabilitiesKHR
 			// nbl::video::ISurface::SCapabilities surfaceCapabilities = ;
 			VkSurfaceCapabilitiesKHR surfaceCapabilities;
-			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->getInternalObject(),
-			vk_surface->m_surface, &surfaceCapabilities);
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->getInternalObject(), 
+				vk_surface->m_surface, &surfaceCapabilities);
+
+			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
+			printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
 
 			if ((surfaceCapabilities.maxImageCount != 0) && (SC_IMG_COUNT > surfaceCapabilities.maxImageCount)
 				|| (surfaceFormats.empty()) || (presentModes == static_cast<video::ISurface::E_PRESENT_MODE>(0)))
@@ -356,9 +341,8 @@ int main()
 	std::array<core::smart_refctd_ptr<video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
-	// Todo(achal): I don't know if we should `assert` this, I think Vulkan is under no
-	// obligation to return exactly SC_IMG_COUNT images, but I guess its fine for now.
 	assert(swapchainImageCount == SC_IMG_COUNT);
+
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		auto img = swapchainImages.begin()[i];
@@ -407,93 +391,127 @@ int main()
 	VkCommandPool commandPool = VK_NULL_HANDLE;
 	{
 		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-		createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		createInfo.queueFamilyIndex = graphicsFamilyIndex;
 
-		vkCreateCommandPool(vk_device, &createInfo, nullptr, &commandPool);
+		assert(vkCreateCommandPool(vk_device, &createInfo, nullptr, &commandPool) == VK_SUCCESS);
 		assert(commandPool);
 	}
+
+	VkCommandBuffer commandBuffers[SC_IMG_COUNT];
 
 	VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
 	allocateInfo.commandPool = commandPool;
 	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocateInfo.commandBufferCount = 1u;
+	allocateInfo.commandBufferCount = SC_IMG_COUNT;
 
-	VkCommandBuffer commandBuffer;
-	assert(vkAllocateCommandBuffers(vk_device, &allocateInfo, &commandBuffer) == VK_SUCCESS);
+	assert(vkAllocateCommandBuffers(vk_device, &allocateInfo, commandBuffers) == VK_SUCCESS);
+
+	VkClearValue clearColor = { 0.2f, 0.2f, 0.3f, 1.f };
+
+	// Record commands in commandBuffers here
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+
+		assert(vkBeginCommandBuffer(commandBuffers[i], &beginInfo) == VK_SUCCESS);
+
+		VkRenderPassBeginInfo renderPassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+		renderPassBeginInfo.renderPass = vk_renderPass;
+		renderPassBeginInfo.framebuffer = vk_framebuffers[i];
+		renderPassBeginInfo.renderArea.offset = { 0, 0 };
+		renderPassBeginInfo.renderArea.extent = swapchainExtent;
+		renderPassBeginInfo.clearValueCount = 1u;
+		renderPassBeginInfo.pClearValues = &clearColor;
+
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		// Do nothing
+
+		vkCmdEndRenderPass(commandBuffers[i]);
+
+		assert(vkEndCommandBuffer(commandBuffers[i]) == VK_SUCCESS);
+	}
+
+	const uint32_t MAX_FRAMES_IN_FLIGHT = 2u;
 
 	// acquireSemaphore will be signalled once you acquire the image to render
 	// releaseSeamphore will be signalled once you rendered to the image and you're ready to release it to present it
-	VkSemaphore acquireSemaphore, releaseSemaphore;
+	VkSemaphore acquireSemaphore[MAX_FRAMES_IN_FLIGHT], releaseSemaphore[MAX_FRAMES_IN_FLIGHT];
 	{
 		VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 
-		assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &acquireSemaphore) == VK_SUCCESS);
-		assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &releaseSemaphore) == VK_SUCCESS);
+		for (uint32_t i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
+		{
+			assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &acquireSemaphore[i]) == VK_SUCCESS);
+			assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &releaseSemaphore[i]) == VK_SUCCESS);
+		}
+	}
+	// device->createSemaphore();
+
+	VkFence frameFences[MAX_FRAMES_IN_FLIGHT];
+	{
+		VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+		createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+		for (uint32_t i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
+			assert(vkCreateFence(vk_device, &createInfo, nullptr, &frameFences[i]) == VK_SUCCESS);
 	}
 
 	VkQueue graphicsQueue, presentQueue;
 	vkGetDeviceQueue(vk_device, graphicsFamilyIndex, 0, &graphicsQueue);
 	vkGetDeviceQueue(vk_device, presentFamilyIndex, 0, &presentQueue);
 
+	uint32_t currentFrameIndex = 0u;
 	while (!windowShouldClose_Global)
 	{
-		uint32_t imageIndex = 0u;
-		vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &imageIndex);
+		// The purpose of this call is to ensure that there is free space in the "batch"
+		// to incorporate this new frame
+		assert(vkWaitForFences(vk_device, 1, &frameFences[currentFrameIndex], VK_TRUE, ~0ull) == VK_SUCCESS);
 
-		// I wonder what would happen if I comment this out
-		assert(vkResetCommandPool(vk_device, commandPool, 0) == VK_SUCCESS);
-
-		VkClearValue color = { 0.2f, 0.2f, 0.3f, 1.f };
-
-		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-		assert(vkBeginCommandBuffer(commandBuffer, &beginInfo) == VK_SUCCESS);
-
-		VkRenderPassBeginInfo renderPassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-		renderPassBeginInfo.renderPass = vk_renderPass;
-		renderPassBeginInfo.framebuffer = vk_framebuffers[imageIndex];
-		renderPassBeginInfo.renderArea.offset = { 0, 0 };
-		renderPassBeginInfo.renderArea.extent = { WIN_W, WIN_H };
-		renderPassBeginInfo.clearValueCount = 1u;
-		renderPassBeginInfo.pClearValues = &color;
-
-		vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		// Do nothing
-
-		vkCmdEndRenderPass(commandBuffer);
-
-		assert(vkEndCommandBuffer(commandBuffer) == VK_SUCCESS);
+		uint32_t imageIndex;
+		assert(vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX,
+			acquireSemaphore[currentFrameIndex], VK_NULL_HANDLE, &imageIndex) == VK_SUCCESS);
 
 		// At this stage the final color values are output from the pipeline
-		// Todo(achal): Not really sure why are waiting at this pipeline stage for acquiring the image to render
+		// Todo(achal): Not really sure why are waiting at this pipeline stage for
+		// acquiring the image to render
 		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 		submitInfo.waitSemaphoreCount = 1u;
-		submitInfo.pWaitSemaphores = &acquireSemaphore;
+		submitInfo.pWaitSemaphores = &acquireSemaphore[currentFrameIndex];
 		submitInfo.pWaitDstStageMask = &pipelineStageFlags;
 		submitInfo.commandBufferCount = 1u;
-		submitInfo.pCommandBuffers = &commandBuffer;
+		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
 		submitInfo.signalSemaphoreCount = 1u;
-		submitInfo.pSignalSemaphores = &releaseSemaphore;
+		submitInfo.pSignalSemaphores = &releaseSemaphore[currentFrameIndex];
 
-		assert(vkQueueSubmit(graphicsQueue, 1u, &submitInfo, VK_NULL_HANDLE) == VK_SUCCESS);
+		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
+		// once it finishes its execution
+		assert(vkResetFences(vk_device, 1, &frameFences[currentFrameIndex]) == VK_SUCCESS);
+
+		VkResult result = vkQueueSubmit(graphicsQueue, 1u, &submitInfo, frameFences[currentFrameIndex]);
+		assert(result == VK_SUCCESS);
 
 		VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
 		presentInfo.waitSemaphoreCount = 1u;
-		presentInfo.pWaitSemaphores = &releaseSemaphore;
+		presentInfo.pWaitSemaphores = &releaseSemaphore[currentFrameIndex];
 		presentInfo.swapchainCount = 1u;
 		presentInfo.pSwapchains = &vk_swapchain;
-		presentInfo.pImageIndices = &imageIndex; // if you have multiple swapchains, here you'll pass the indices of each images which will get presented in each swapchain
+		presentInfo.pImageIndices = &imageIndex;
 		vkQueuePresentKHR(presentQueue, &presentInfo);
 
-		assert(vkDeviceWaitIdle(vk_device) == VK_SUCCESS);
+		currentFrameIndex = (currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
-	vkDestroySemaphore(vk_device, acquireSemaphore, nullptr);
-	vkDestroySemaphore(vk_device, releaseSemaphore, nullptr);
+	vkDeviceWaitIdle(vk_device);
+
+	for (uint32_t i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
+	{
+		vkDestroySemaphore(vk_device, acquireSemaphore[i], nullptr);
+		vkDestroySemaphore(vk_device, releaseSemaphore[i], nullptr);
+		vkDestroyFence(vk_device, frameFences[i], nullptr);
+	}
 	vkDestroyCommandPool(vk_device, commandPool, nullptr);
 
 #if 0
@@ -611,5 +629,6 @@ int main()
 	device->waitIdle();
 #endif
     
-	return 0;
+	// return 0;
+	exit(0);
 }

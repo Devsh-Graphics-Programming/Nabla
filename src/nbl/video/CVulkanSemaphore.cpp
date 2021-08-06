@@ -2,8 +2,7 @@
 
 #include "nbl/video/CVKLogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 CVulkanSemaphore::CVulkanSemaphore(CVKLogicalDevice* _vkdev) : IGPUSemaphore(_vkdev), m_vkdev(_vkdev)
@@ -26,5 +25,4 @@ CVulkanSemaphore::~CVulkanSemaphore()
     vk->vk.vkDestroySemaphore(vkdev, m_semaphore, nullptr);
 }
 
-}
 }

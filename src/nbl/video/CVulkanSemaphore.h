@@ -5,8 +5,7 @@
 
 #include <volk.h>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class CVKLogicalDevice;
@@ -24,7 +23,6 @@ private:
     VkSemaphore m_semaphore;
 };
 
-}
 }
 
 #endif
