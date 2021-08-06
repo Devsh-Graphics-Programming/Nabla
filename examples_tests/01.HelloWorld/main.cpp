@@ -466,9 +466,8 @@ int main()
 	uint32_t currentFrameIndex = 0u;
 	while (!windowShouldClose_Global)
 	{
-		// The purpose of this call is to ensure that there is free space in the "batch"
-		// to incorporate this new frame
-		assert(vkWaitForFences(vk_device, 1, &vk_frameFences[currentFrameIndex], VK_TRUE, ~0ull) == VK_SUCCESS);
+		video::IGPUFence* frameFence = frameFences[currentFrameIndex].get();
+		device->waitForFences(1u, &frameFence, true, ~0ull);
 
 		uint32_t imageIndex;
 		assert(vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX,
@@ -490,7 +489,7 @@ int main()
 
 		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
 		// once it finishes its execution
-		assert(vkResetFences(vk_device, 1, &vk_frameFences[currentFrameIndex]) == VK_SUCCESS);
+		device->resetFences(1u, &frameFence);
 
 		VkResult result = vkQueueSubmit(graphicsQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
 		assert(result == VK_SUCCESS);

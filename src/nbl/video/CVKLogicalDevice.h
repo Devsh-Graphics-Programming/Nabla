@@ -110,14 +110,52 @@ public:
         return IGPUFence::E_STATUS::ES_ERROR;
     }
             
+    // API needs to change. vkResetFences can fail.
     void resetFences(uint32_t _count, IGPUFence** _fences) override
     {
-        return;
+        assert(_count < 100);
+
+        VkFence vk_fences[100];
+        for (uint32_t i = 0u; i < _count; ++i)
+        {
+            if (_fences[i]->getAPIType() != EAT_VULKAN)
+            {
+                // Probably log warning?
+                assert(false);
+            }
+
+            vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+        }
+
+        vkResetFences(m_vkdev, _count, vk_fences);
     }
             
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override
     {
-        return IGPUFence::E_STATUS::ES_ERROR;
+        assert(_count < 100);
+
+        VkFence vk_fences[100];
+        for (uint32_t i = 0u; i < _count; ++i)
+        {
+            if (_fences[i]->getAPIType() != EAT_VULKAN)
+            {
+                // Probably log warning?
+                return IGPUFence::E_STATUS::ES_ERROR;
+            }
+
+            vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+        }
+
+        VkResult result = vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
+        switch (result)
+        {
+        case VK_SUCCESS:
+            return IGPUFence::ES_SUCCESS;
+        case VK_TIMEOUT:
+            return IGPUFence::ES_TIMEOUT;
+        default:
+            return IGPUFence::ES_ERROR;
+        }
     }
             
     const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
