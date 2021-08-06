@@ -351,6 +351,8 @@ int main()
 		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject {
 		GPUObject ret = {};
 		
+		uint32_t instanceBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT - 1u;
+
 		auto pipeline = cpuMesh->getPipeline();
 		{
 			// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
@@ -359,32 +361,33 @@ int main()
 			rasterParams.faceCullingMode = faceCullingMode;
 
 			auto & vtxinputParams = pipeline->getVertexInputParams();
-			vtxinputParams.bindings[1].inputRate = asset::EVIR_PER_INSTANCE;
-			vtxinputParams.bindings[1].stride = sizeof(InstanceData);
+			vtxinputParams.bindings[instanceBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
+			vtxinputParams.bindings[instanceBufferBinding].stride = sizeof(InstanceData);
 			// Color
-			vtxinputParams.attributes[4].binding = 1;
+			vtxinputParams.attributes[4].binding = instanceBufferBinding;
 			vtxinputParams.attributes[4].relativeOffset = 0;
 			vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 			// World Row 0
-			vtxinputParams.attributes[5].binding = 1;
+			vtxinputParams.attributes[5].binding = instanceBufferBinding;
 			vtxinputParams.attributes[5].relativeOffset = sizeof(core::vector3df_SIMD);
 			vtxinputParams.attributes[5].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 			// World Row 1
-			vtxinputParams.attributes[6].binding = 1;
+			vtxinputParams.attributes[6].binding = instanceBufferBinding;
 			vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD) * 2;
 			vtxinputParams.attributes[6].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 			// World Row 2
-			vtxinputParams.attributes[7].binding = 1;
+			vtxinputParams.attributes[7].binding = instanceBufferBinding;
 			vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD) * 3;
 			vtxinputParams.attributes[7].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 
 
 			vtxinputParams.enabledAttribFlags |= 0x1u << 4 | 0x1u << 5 | 0x1u << 6 | 0x1u << 7;
-			vtxinputParams.enabledBindingFlags |= 0x1u << 1;
-	// for wireframe rendering
-	#if 0
+			vtxinputParams.enabledBindingFlags |= 0x1u << instanceBufferBinding;
+
+			// for wireframe rendering
+			#if 0
 			pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
-	#endif
+			#endif
 		}
 
 		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
@@ -398,7 +401,7 @@ int main()
 		asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
 		vtxInstanceBufBnd.offset = instanceBufferOffset;
 		vtxInstanceBufBnd.buffer = instancesBuffer;
-		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd), 1);
+		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd), instanceBufferBinding);
 		ret.gpuMesh->setInstanceCount(numInstances);
 
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
