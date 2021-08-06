@@ -12,6 +12,7 @@
 
 #include "nbl/ext/Bullet/BulletUtility.h"
 #include "nbl/ext/Bullet/CPhysicsWorld.h"
+#include "Camera.hpp"
 
 using namespace nbl;
 using namespace core;
@@ -61,7 +62,7 @@ void main()
 {
 	vec3 normal = normalize(Normal);
 
-	float ambient = 0.2;
+	float ambient = 0.35;
 	float diffuse = 0.8;
 	float cos_theta_term = max(dot(normal,vec3(3.0,5.0,-4.0)),0.0);
 
@@ -114,7 +115,6 @@ public:
 	};
 
 protected:
-
 	core::vector<InstanceData> * m_instances_data;
 	uint32_t m_index;
 };
@@ -189,9 +189,9 @@ int main()
 	core::vector<GPUObject> gpuObjects; 
 
 	// Instance Data
-	constexpr uint32_t NumCubes = 50;
-	constexpr uint32_t NumCylinders = 50;
-	constexpr uint32_t NumSpheres = 50;
+	constexpr uint32_t NumCubes = 10;
+	constexpr uint32_t NumCylinders = 10;
+	constexpr uint32_t NumSpheres = 10;
 	constexpr uint32_t NumCones = 0;
 
 	constexpr uint32_t startIndexCubes = 0;
@@ -300,7 +300,7 @@ int main()
 		system->createFile(future, "../../29.SpecializationConstants/particles.comp", nbl::system::IFile::ECF_READ_WRITE);
 		auto file = future.get();
 		auto sname = file->getFileName().string();
-		char const* shaderName = sname.c_str();//yep, makes sense
+		char const* shaderName = sname.c_str();
 		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(file.get(), asset::ISpecializedShader::ESS_COMPUTE, shaderName);
 	}
 
@@ -311,11 +311,9 @@ int main()
 	auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
 	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
-	// Camera Stuff
-	core::vectorSIMDf cameraPosition(0, 5, -10);
-	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01, 100);
-	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
-	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
+	// Camera 
+	core::vector3df cameraPosition(0, 5, -10);
+	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), float(WIN_W) / WIN_H, core::radians(60), 0.01f, 100.0f, false);
 
 	// Creating CPU Shaders 
 
@@ -524,6 +522,11 @@ int main()
 			// Update Physics
 			world->getWorld()->stepSimulation(dt);
 			
+			static double anim = 0.0;
+			anim += dt * 0.001f;
+
+			cam.setTarget(core::vector3df(core::sin(anim) * 5.0f, 0.0f, 0.0f));
+
 			asset::SBufferRange<video::IGPUBuffer> range;
 			range.buffer = gpuInstancesBuffer;
 			range.offset = 0;
@@ -532,6 +535,8 @@ int main()
 		}
 		// draw
 		{
+			auto viewProj = cam.getConcatenatedMatrix();
+
 			// Draw Stuff 
 			for(uint32_t i = 0; i < gpuObjects.size(); ++i) {
 				auto & gpuObject = gpuObjects[i];
