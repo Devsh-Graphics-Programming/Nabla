@@ -38,10 +38,13 @@ public:
                 const float priority = qci.priorities[j];
                         
                 VkQueue q;
-                m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
+                // m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
+                vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                         
                 const uint32_t ix = offset + j;
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(core::make_smart_refctd_ptr<CVulkanQueue>(this, q, famIx, flags, priority), this);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(
+                    core::make_smart_refctd_ptr<CVulkanQueue>(this, q, famIx, flags, priority),
+                    this);
             }
         }
     }
@@ -59,7 +62,7 @@ public:
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
     {
         VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-        // createInfo.pNext = nullptr;
+        // createInfo.pNext = extensions are not supported yet;
 
         VkSemaphore semaphore;
         if (vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
@@ -256,9 +259,10 @@ public:
         return nullptr;
     }
 
+    // API changes needed this could also fail.
     void waitIdle() override
     {
-
+        assert(vkDeviceWaitIdle(m_vkdev) == VK_SUCCESS);
     }
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override

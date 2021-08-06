@@ -333,7 +333,7 @@ int main()
 	video::IGPURenderpass::SCreationParams renderPassParams;
 	renderPassParams.attachmentCount = 1u;
 	renderPassParams.attachments = &attachmentDescription;
-	renderPassParams.dependencies = nullptr; // Todo(achal): Probably need this very soon
+	renderPassParams.dependencies = nullptr;
 	renderPassParams.dependencyCount = 0u;
 	renderPassParams.subpasses = &subpassDescription;
 	renderPassParams.subpassCount = 1u;
@@ -390,6 +390,10 @@ int main()
 		frameFences[i] = device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
 	}
 
+	video::IGPUQueue* graphicsQueue = device->getQueue(graphicsFamilyIndex, 0u);
+	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
+
+	// Todo(achal): Hacky stuff begin, get rid
 	// Get handles to existing Vulkan stuff
 	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
 	VkSwapchainKHR vk_swapchain = reinterpret_cast<video::CVKSwapchain*>(swapchain.get())->m_swapchain;
@@ -415,6 +419,9 @@ int main()
 		}
 	}
 
+	VkQueue vk_graphicsQueue = reinterpret_cast<video::CVulkanQueue*>(graphicsQueue)->getInternalObject();
+
+	// Pure Vulkan begins here, don't even have API code for them yet!
 	VkCommandPool commandPool = VK_NULL_HANDLE;
 	{
 		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -459,19 +466,20 @@ int main()
 		assert(vkEndCommandBuffer(commandBuffers[i]) == VK_SUCCESS);
 	}
 
-	VkQueue graphicsQueue, presentQueue;
-	vkGetDeviceQueue(vk_device, graphicsFamilyIndex, 0, &graphicsQueue);
-	vkGetDeviceQueue(vk_device, presentFamilyIndex, 0, &presentQueue);
+	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
 
 	uint32_t currentFrameIndex = 0u;
 	while (!windowShouldClose_Global)
 	{
-		video::IGPUFence* frameFence = frameFences[currentFrameIndex].get();
-		device->waitForFences(1u, &frameFence, true, ~0ull);
+		video::IGPUSemaphore* acquireSemaphore_frame = acquireSemaphores[currentFrameIndex].get();
+		video::IGPUSemaphore* releaseSemaphore_frame = releaseSemaphores[currentFrameIndex].get();
+		video::IGPUFence* fence_frame = frameFences[currentFrameIndex].get();
+
+		assert(device->waitForFences(1u, &fence_frame, true, ~0ull) == video::IGPUFence::ES_SUCCESS);
 
 		uint32_t imageIndex;
-		assert(vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX,
-			vk_acquireSemaphores[currentFrameIndex], VK_NULL_HANDLE, &imageIndex) == VK_SUCCESS);
+		swapchain->acquireNextImage(~0ull, acquireSemaphores[currentFrameIndex].get(), nullptr,
+			&imageIndex);
 
 		// At this stage the final color values are output from the pipeline
 		// Todo(achal): Not really sure why are waiting at this pipeline stage for
@@ -489,23 +497,23 @@ int main()
 
 		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
 		// once it finishes its execution
-		device->resetFences(1u, &frameFence);
+		device->resetFences(1u, &fence_frame);
 
-		VkResult result = vkQueueSubmit(graphicsQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
+		VkResult result = vkQueueSubmit(vk_graphicsQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
 		assert(result == VK_SUCCESS);
 
-		VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+		video::IGPUQueue::SPresentInfo presentInfo;
 		presentInfo.waitSemaphoreCount = 1u;
-		presentInfo.pWaitSemaphores = &vk_releaseSemaphores[currentFrameIndex];
+		presentInfo.waitSemaphores = &releaseSemaphore_frame;
 		presentInfo.swapchainCount = 1u;
-		presentInfo.pSwapchains = &vk_swapchain;
-		presentInfo.pImageIndices = &imageIndex;
-		assert(vkQueuePresentKHR(presentQueue, &presentInfo) == VK_SUCCESS);
+		presentInfo.swapchains = &rawPointerToSwapchain;
+		presentInfo.imgIndices = &imageIndex;
+		assert(presentQueue->present(presentInfo));
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
 	}
 
-	vkDeviceWaitIdle(vk_device);
+	device->waitIdle();
 
 	vkDestroyCommandPool(vk_device, commandPool, nullptr);
 

@@ -111,7 +111,48 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
 
 bool CVulkanQueue::present(const SPresentInfo& info)
 {
-    return false;
+    assert(info.waitSemaphoreCount <= 100);
+    VkSemaphore vk_waitSemaphores[100];
+    for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
+    {
+        if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
+        {
+            // Probably log warning/error?
+            return false;
+        }
+
+        vk_waitSemaphores[i] = reinterpret_cast<CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
+    }
+
+    assert(info.swapchainCount <= 5);
+    VkSwapchainKHR vk_swapchains[5];
+    for (uint32_t i = 0u; i < info.swapchainCount; ++i)
+    {
+        if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
+        {
+            // Probably log warning/error?
+            return false;
+        }
+        vk_swapchains[i] = reinterpret_cast<CVKSwapchain*>(info.swapchains[i])->m_swapchain;
+    }
+
+    VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    presentInfo.waitSemaphoreCount = info.waitSemaphoreCount;
+    presentInfo.pWaitSemaphores = vk_waitSemaphores;
+    presentInfo.swapchainCount = info.swapchainCount;
+    presentInfo.pSwapchains = vk_swapchains;
+    presentInfo.pImageIndices = info.imgIndices;
+
+    VkResult result = vkQueuePresentKHR(m_vkqueue, &presentInfo);
+
+    switch (result)
+    {
+    case VK_SUCCESS:
+    case VK_SUBOPTIMAL_KHR:
+        return true;
+    default:
+        return false;
+    }
 }
 
 }
