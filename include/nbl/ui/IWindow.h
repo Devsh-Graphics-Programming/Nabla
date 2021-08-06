@@ -184,6 +184,8 @@ public:
 
     inline uint32_t getWidth() const { return m_width; }
     inline uint32_t getHeight() const { return m_height; }
+    int32_t getX() const { return m_x; }
+    int32_t getY() const { return m_y; }
 
     virtual IClipboardManager* getClipboardManager() = 0;
     virtual ICursorControl* getCursorControl() = 0;
@@ -193,7 +195,7 @@ public:
 protected:
     // TODO need to update constructors of all derived CWindow* classes
     IWindow(SCreationParams&& params) :
-        m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_flags(params.flags)
+        m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_x(params.x), m_y(params.y), m_flags(params.flags)
     {
 
     }

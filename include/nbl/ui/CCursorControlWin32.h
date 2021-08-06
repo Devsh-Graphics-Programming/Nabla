@@ -13,9 +13,9 @@ namespace nbl::ui
 		void setVisible(bool visible) override;
 		bool isVisible() const override;
 		void setPosition(SPosition pos) override;
-		void setRelativePosition(SRelativePosition pos) override;
+		void setRelativePosition(IWindow* window, SRelativePosition pos) override;
 		SPosition getPosition() override;
-		SRelativePosition getRelativePosition() override;
+		SRelativePosition getRelativePosition(IWindow* window) override;
 	};
 }
 #endif

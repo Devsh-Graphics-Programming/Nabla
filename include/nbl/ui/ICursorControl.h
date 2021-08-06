@@ -21,13 +21,13 @@ namespace nbl::ui
 
 		// Native OS screen position
 		virtual void setPosition(SPosition pos) = 0;
-		// NDC vulkan-like coordinates
-		virtual void setRelativePosition(SRelativePosition pos) = 0;
+
+		virtual void setRelativePosition(IWindow* window, SRelativePosition pos) = 0;
 		
 		// Native OS screen position
 		virtual SPosition getPosition() = 0;
-		// NDC vulkan-like coordinates
-		virtual SRelativePosition getRelativePosition() = 0;
+
+		virtual SRelativePosition getRelativePosition(IWindow* window) = 0;
 
 		virtual ~ICursorControl() = default;
 	};

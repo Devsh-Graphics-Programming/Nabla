@@ -19,13 +19,13 @@ namespace nbl::ui
 	{
 		SetCursorPos(position.x, position.y);
 	}
-	void CCursorControlWin32::setRelativePosition(CCursorControlWin32::SRelativePosition position)
+	void CCursorControlWin32::setRelativePosition(IWindow* window, CCursorControlWin32::SRelativePosition position)
 	{
 		SPosition nativePos;
-		int32_t screenWidth = GetSystemMetrics(SM_CXSCREEN);
-		int32_t screenHeight = GetSystemMetrics(SM_CYSCREEN);
-		nativePos.x = (position.x / 2 + 0.5) * screenWidth;
-		nativePos.y = (position.y / 2 + 0.5) * screenHeight;
+		int32_t w = window->getWidth();
+		int32_t h = window->getHeight();
+		nativePos.x = (position.x / 2 + 0.5) * w + window->getX();
+		nativePos.y = (position.y / 2 + 0.5) * h + window->getY();
 		SetCursorPos(nativePos.x, nativePos.y);
 	}
 	CCursorControlWin32::SPosition CCursorControlWin32::getPosition()
@@ -34,13 +34,11 @@ namespace nbl::ui
 		GetCursorPos(&cursorPos);
 		return { cursorPos.x, cursorPos.y };
 	}
-	CCursorControlWin32::SRelativePosition CCursorControlWin32::getRelativePosition()
+	CCursorControlWin32::SRelativePosition CCursorControlWin32::getRelativePosition(IWindow* window)
 	{
-		int32_t screenWidth = GetSystemMetrics(SM_CXSCREEN);
-		int32_t screenHeight = GetSystemMetrics(SM_CYSCREEN);
 		POINT cursorPos;
 		GetCursorPos(&cursorPos);
 
-		return { ((cursorPos.x + 0.5f) / float(screenWidth) - 0.5f) * 2, ((cursorPos.y + 0.5f) / float(screenHeight) - 0.5f) * 2 };
+		return { ((cursorPos.x + 0.5f - window->getX()) / float(window->getWidth()) - 0.5f) * 2, ((cursorPos.y + 0.5f - window->getY()) / float(window->getWidth()) - 0.5f) * 2 };
 	}
 }
