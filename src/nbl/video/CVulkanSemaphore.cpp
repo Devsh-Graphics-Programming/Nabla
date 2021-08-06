@@ -5,24 +5,18 @@
 namespace nbl::video
 {
 
-CVulkanSemaphore::CVulkanSemaphore(CVKLogicalDevice* _vkdev) : IGPUSemaphore(_vkdev), m_vkdev(_vkdev)
+CVulkanSemaphore::CVulkanSemaphore(CVKLogicalDevice* _vkdev, VkSemaphore semaphore)
+    : IGPUSemaphore(_vkdev), m_vkdev(_vkdev), m_semaphore(semaphore)
 {
-    auto* vk = m_vkdev->getFunctionTable();
-    auto vkdev = m_vkdev->getInternalObject();
-
-    VkSemaphoreCreateInfo ci;
-    ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    ci.pNext = nullptr;
-    ci.flags = static_cast<VkSemaphoreCreateFlags>(0);
-    vk->vk.vkCreateSemaphore(vkdev, &ci, nullptr, &m_semaphore);
 }
 
 CVulkanSemaphore::~CVulkanSemaphore()
 {
-    auto* vk = m_vkdev->getFunctionTable();
+    // auto* vk = m_vkdev->getFunctionTable();
     auto vkdev = m_vkdev->getInternalObject();
 
-    vk->vk.vkDestroySemaphore(vkdev, m_semaphore, nullptr);
+    // vk->vk.vkDestroySemaphore(vkdev, m_semaphore, nullptr);
+    vkDestroySemaphore(vkdev, m_semaphore, nullptr);
 }
 
 }

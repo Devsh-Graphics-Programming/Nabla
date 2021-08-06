@@ -16,6 +16,7 @@ nothing fancy, just to show that Irrlicht links fine
 #include "../../src/nbl/video/CVulkanPhysicalDevice.h"
 #include "../../include/nbl/video/surface/ISurfaceVK.h"
 #include "../../src/nbl/video/CVulkanImage.h"
+#include "../../src/nbl/video/CVulkanSemaphore.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
 #include "../common/CommonAPI.h"
@@ -374,6 +375,16 @@ int main()
 		fbos[i] = device->createGPUFramebuffer(std::move(fbParams));
 	}
 
+	const uint32_t FRAMES_IN_FLIGHT = 2u;
+
+	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
+	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
+	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+	{
+		acquireSemaphores[i] = device->createSemaphore();
+		releaseSemaphores[i] = device->createSemaphore();
+	}
+
 	// Get handles to existing Vulkan stuff
 	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
 	VkSwapchainKHR vk_swapchain = reinterpret_cast<video::CVKSwapchain*>(swapchain.get())->m_swapchain;
@@ -387,6 +398,18 @@ int main()
 	uint32_t i = 0u;
 	for (auto image : swapchainImages)
 		vk_swapchainImages[i++] = reinterpret_cast<video::CVulkanImage*>(image.get())->getInternalObject();
+
+	// acquireSemaphore will be signalled once you acquire the image to render
+	// releaseSeamphore will be signalled once you rendered to the image and you're ready to release it to present it
+	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
+	{
+
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+		{
+			vk_acquireSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(acquireSemaphores[i].get())->getInternalObject();
+			vk_releaseSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(releaseSemaphores[i].get())->getInternalObject();
+		}
+	}
 
 	VkCommandPool commandPool = VK_NULL_HANDLE;
 	{
@@ -432,28 +455,12 @@ int main()
 		assert(vkEndCommandBuffer(commandBuffers[i]) == VK_SUCCESS);
 	}
 
-	const uint32_t MAX_FRAMES_IN_FLIGHT = 2u;
-
-	// acquireSemaphore will be signalled once you acquire the image to render
-	// releaseSeamphore will be signalled once you rendered to the image and you're ready to release it to present it
-	VkSemaphore acquireSemaphore[MAX_FRAMES_IN_FLIGHT], releaseSemaphore[MAX_FRAMES_IN_FLIGHT];
-	{
-		VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-
-		for (uint32_t i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
-		{
-			assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &acquireSemaphore[i]) == VK_SUCCESS);
-			assert(vkCreateSemaphore(vk_device, &createInfo, nullptr, &releaseSemaphore[i]) == VK_SUCCESS);
-		}
-	}
-	// device->createSemaphore();
-
-	VkFence frameFences[MAX_FRAMES_IN_FLIGHT];
+	VkFence frameFences[FRAMES_IN_FLIGHT];
 	{
 		VkFenceCreateInfo createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 		createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-		for (uint32_t i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
 			assert(vkCreateFence(vk_device, &createInfo, nullptr, &frameFences[i]) == VK_SUCCESS);
 	}
 
@@ -470,7 +477,7 @@ int main()
 
 		uint32_t imageIndex;
 		assert(vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX,
-			acquireSemaphore[currentFrameIndex], VK_NULL_HANDLE, &imageIndex) == VK_SUCCESS);
+			vk_acquireSemaphores[currentFrameIndex], VK_NULL_HANDLE, &imageIndex) == VK_SUCCESS);
 
 		// At this stage the final color values are output from the pipeline
 		// Todo(achal): Not really sure why are waiting at this pipeline stage for
@@ -479,12 +486,12 @@ int main()
 
 		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 		submitInfo.waitSemaphoreCount = 1u;
-		submitInfo.pWaitSemaphores = &acquireSemaphore[currentFrameIndex];
+		submitInfo.pWaitSemaphores = &vk_acquireSemaphores[currentFrameIndex];
 		submitInfo.pWaitDstStageMask = &pipelineStageFlags;
 		submitInfo.commandBufferCount = 1u;
 		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
 		submitInfo.signalSemaphoreCount = 1u;
-		submitInfo.pSignalSemaphores = &releaseSemaphore[currentFrameIndex];
+		submitInfo.pSignalSemaphores = &vk_releaseSemaphores[currentFrameIndex];
 
 		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
 		// once it finishes its execution
@@ -495,21 +502,19 @@ int main()
 
 		VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
 		presentInfo.waitSemaphoreCount = 1u;
-		presentInfo.pWaitSemaphores = &releaseSemaphore[currentFrameIndex];
+		presentInfo.pWaitSemaphores = &vk_releaseSemaphores[currentFrameIndex];
 		presentInfo.swapchainCount = 1u;
 		presentInfo.pSwapchains = &vk_swapchain;
 		presentInfo.pImageIndices = &imageIndex;
 		vkQueuePresentKHR(presentQueue, &presentInfo);
 
-		currentFrameIndex = (currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
 	}
 
 	vkDeviceWaitIdle(vk_device);
 
-	for (uint32_t i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
+	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
 	{
-		vkDestroySemaphore(vk_device, acquireSemaphore[i], nullptr);
-		vkDestroySemaphore(vk_device, releaseSemaphore[i], nullptr);
 		vkDestroyFence(vk_device, frameFences[i], nullptr);
 	}
 	vkDestroyCommandPool(vk_device, commandPool, nullptr);

@@ -13,12 +13,13 @@ class CVKLogicalDevice;
 class CVulkanSemaphore final : public IGPUSemaphore
 {
 public:
-    CVulkanSemaphore(CVKLogicalDevice* _vkdev);
+    CVulkanSemaphore(CVKLogicalDevice* _vkdev, VkSemaphore semaphore);
     ~CVulkanSemaphore();
 
     VkSemaphore getInternalObject() const { return m_semaphore; }
 
-private:
+// Todo(achal): Remove
+// private:
     CVKLogicalDevice* m_vkdev;
     VkSemaphore m_semaphore;
 };

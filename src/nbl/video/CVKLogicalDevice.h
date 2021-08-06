@@ -10,6 +10,7 @@
 #include "nbl/video/CVulkanRenderpass.h"
 #include "nbl/video/CVulkanImageView.h"
 #include "nbl/video/CVulkanFramebuffer.h"
+#include "nbl/video/CVulkanSemaphore.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -53,9 +54,19 @@ public:
     {
         return core::make_smart_refctd_ptr<CVKSwapchain>(std::move(params), this);
     }
-            
+    
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
     {
+        VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        // createInfo.pNext = nullptr;
+
+        VkSemaphore semaphore;
+        if (vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanSemaphore>(this, semaphore);
+        }
+        
+        // Probably log an error/warning here?
         return nullptr;
     }
             
