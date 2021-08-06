@@ -447,7 +447,7 @@ int main()
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			//logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
 		}
 	};
 	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events) -> void
