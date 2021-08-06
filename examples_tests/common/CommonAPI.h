@@ -136,12 +136,17 @@ public:
 				auto defaultChannelEvents = defaultChannel->getEvents();
 				auto timeDiff = (nowTimeStamp - channels.timeStamps[defaultIdx]).count();
 				
+				size_t rewindBackEvents = 100u;
+				if(rewindBackEvents >= defaultChannel->getFrontBufferCapacity()) {
+					rewindBackEvents = defaultChannel->getFrontBufferCapacity();
+				}
+
 				// If the current one hasn't been active for a while
 				if(defaultChannel->empty()) {
 					if(timeDiff > DefaultChannelTimeoutInMicroSeconds) {
 						// Look for the most active channel ( the biggest event size )
 						auto newDefaultIdx = defaultIdx;
-						uint32_t maxEventSize = 0;
+						microseconds minEventTimeStamp = nowTimeStamp;
 
 						for(uint32_t chIdx = 0; chIdx < channels.channels.size(); ++chIdx) {
 							if(defaultIdx != chIdx) {
@@ -149,9 +154,13 @@ public:
 								// Check if was more recently active than the current default
 								if(channelTimeDiff < DefaultChannelTimeoutInMicroSeconds)
 								{
-									auto channelEventSize = channels.channels[chIdx]->getEvents().size(); // getEvebts().size() doesn't get smaller -> what to use for logic instead? (TODO)
-									if(channelEventSize > maxEventSize) {
-										maxEventSize = channelEventSize;
+									auto channelEvents = channels.channels[chIdx]->getEvents();
+									auto channelEventSize = channelEvents.size();
+									auto rewindBack = std::min(rewindBackEvents, channelEventSize);
+									auto oldEvent = *(channelEvents.end() - rewindBack);
+
+									if(oldEvent.timeStamp < minEventTimeStamp) {
+										minEventTimeStamp = oldEvent.timeStamp;
 										newDefaultIdx = chIdx;
 									}
 								}
