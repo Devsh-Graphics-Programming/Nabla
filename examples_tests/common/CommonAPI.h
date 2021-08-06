@@ -143,14 +143,14 @@ public:
 				// If the current one hasn't been active for a while
 				if(defaultChannel->empty()) {
 					if(timeDiff > DefaultChannelTimeoutInMicroSeconds) {
-						// Look for the most active channel ( the biggest event size )
+						// Look for the most active channel (the channel which has got the most events recently)
 						auto newDefaultIdx = defaultIdx;
 						microseconds minEventTimeStamp = nowTimeStamp;
 
 						for(uint32_t chIdx = 0; chIdx < channels.channels.size(); ++chIdx) {
 							if(defaultIdx != chIdx) {
 								auto channelTimeDiff = (nowTimeStamp - channels.timeStamps[chIdx]).count();
-								// Check if was more recently active than the current default
+								// Check if was more recently active than the current most active
 								if(channelTimeDiff < DefaultChannelTimeoutInMicroSeconds)
 								{
 									auto & channel = channels.channels[chIdx];
