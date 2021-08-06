@@ -113,6 +113,8 @@ public:
 					channels.added.wait(lock);
 				}
 				
+				uint64_t consumedCounter = 0ull;
+
 				using namespace std::chrono;
 				constexpr long long DefaultChannelTimeoutInMicroSeconds = 100*1e3; // 100 mili-seconds
 				auto nowTimeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
@@ -136,10 +138,7 @@ public:
 				auto defaultChannelEvents = defaultChannel->getEvents();
 				auto timeDiff = (nowTimeStamp - channels.timeStamps[defaultIdx]).count();
 				
-				size_t rewindBackEvents = 100u;
-				if(rewindBackEvents >= defaultChannel->getFrontBufferCapacity()) {
-					rewindBackEvents = defaultChannel->getFrontBufferCapacity();
-				}
+				constexpr size_t RewindBackEvents = 100u;
 
 				// If the current one hasn't been active for a while
 				if(defaultChannel->empty()) {
@@ -154,9 +153,14 @@ public:
 								// Check if was more recently active than the current default
 								if(channelTimeDiff < DefaultChannelTimeoutInMicroSeconds)
 								{
-									auto channelEvents = channels.channels[chIdx]->getEvents();
+									auto & channel = channels.channels[chIdx];
+									auto channelEvents = channel->getEvents();
 									auto channelEventSize = channelEvents.size();
-									auto rewindBack = std::min(rewindBackEvents, channelEventSize);
+									const auto frontBufferCapacity = channel->getFrontBufferCapacity();
+
+									size_t rewindBack = std::min(RewindBackEvents, frontBufferCapacity);
+									rewindBack = std::min(rewindBack, channelEventSize);
+
 									auto oldEvent = *(channelEvents.end() - rewindBack);
 
 									if(oldEvent.timeStamp < minEventTimeStamp) {
@@ -169,11 +173,13 @@ public:
 
 						if(defaultIdx != newDefaultIdx) {
 							m_logger.log("Default InputChannel for ChannelType changed from %u to %u",system::ILogger::ELL_INFO, defaultIdx, newDefaultIdx);
-						}
 
-						defaultIdx = newDefaultIdx;
-						channels.defaultChannelIndex = newDefaultIdx;
-						defaultChannel = channels.channels[newDefaultIdx];
+							defaultIdx = newDefaultIdx;
+							channels.defaultChannelIndex = newDefaultIdx;
+							defaultChannel = channels.channels[newDefaultIdx];
+							
+							consumedCounter = defaultChannel->getEvents().size() - defaultChannel->getFrontBufferCapacity(); // to not get overflow in reader when consuming.
+						}
 					}
 				}
 
@@ -181,7 +187,7 @@ public:
 					return;
 
 				reader->channel = defaultChannel;
-				reader->consumedCounter = 0u;
+				reader->consumedCounter = consumedCounter;
 			}
 
 			nbl::system::logger_opt_smart_ptr m_logger;
