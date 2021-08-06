@@ -17,19 +17,129 @@ namespace DepthPyramidGenerator
 {
 
 DepthPyramidGenerator::DepthPyramidGenerator(IVideoDriver* driver, IAssetManager* am, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView,
-	core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips,
-	const Config& config)
-	: m_driver(driver)
+		const Config& config)
+	: m_driver(driver), m_config(config)
+{
+	const char* source =
+		R"(#version 430 core
+#define WORKGROUP_X_AND_Y_SIZE %u
+#define MIP_IMAGE_FORMAT %s
+#define STRETCH_MIN
+
+layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_SIZE) in;
+ 
+#include "../../../include/nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
+)";
+
+	constexpr char* imageFormats[] =
+	{
+		"r16f", "r32f", "r16g16f", "r32g32f"
+	};
+
+	const char* format;
+	switch (config.outputFormat)
+	{
+	case E_IMAGE_FORMAT::EIF_R16_FLOAT:
+		format = imageFormats[0];
+		break;
+	case E_IMAGE_FORMAT::EIF_R32_FLOAT:
+		format = imageFormats[1];
+		break;
+	case E_IMAGE_FORMAT::EIF_R16G16_FLOAT:
+		format = imageFormats[2];
+		break;
+	case E_IMAGE_FORMAT::EIF_R32G32_FLOAT:
+		format = imageFormats[3];
+		break;
+	default:
+		assert(false);
+	}
+
+	constexpr size_t extraSize = 16u;
+	auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
+	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), format);
+
+	auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderCode), asset::ICPUShader::buffer_contains_glsl),
+		asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
+
+	auto gpuShader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+	m_shader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+
+}
+
+// returns count of mip levels
+uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config)
+{
+	VkExtent3D currMipExtent = calcLvl0MipExtent(
+		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
+
+	// TODO: `calcLvl0MipExtent` will be called second time here, fix it
+	const uint32_t mipmapsCnt = getMaxMipCntFromImage(inputDepthImageView, config.roundUpToPoTWithPadding);
+
+	if (outputDepthPyramidMips == nullptr)
+	{
+		if (config.lvlLimit == 0u)
+			return mipmapsCnt;
+
+		return std::min(config.lvlLimit, mipmapsCnt);
+	}
+
+	IGPUImage::SCreationParams imgParams;
+	imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+	imgParams.type = IImage::ET_2D;
+	imgParams.format = static_cast<E_FORMAT>(config.outputFormat);
+	imgParams.mipLevels = 1u;
+	imgParams.arrayLayers = 1u;
+	imgParams.samples = IImage::ESCF_1_BIT;
+
+	IGPUImageView::SCreationParams imgViewParams;
+	imgViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+	imgViewParams.image = nullptr;
+	imgViewParams.viewType = IGPUImageView::ET_2D;
+	imgViewParams.format = static_cast<E_FORMAT>(config.outputFormat);
+	imgViewParams.components = {};
+	imgViewParams.subresourceRange = {};
+	imgViewParams.subresourceRange.levelCount = 1u;
+	imgViewParams.subresourceRange.layerCount = 1u;
+
+	while (currMipExtent.width > 0u && currMipExtent.height > 0u)
+	{
+		core::smart_refctd_ptr<IGPUImage> image;
+
+		imgParams.extent = { currMipExtent.width, currMipExtent.height, 1u };
+		image = driver->createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams(imgParams));
+		assert(image);
+
+		imgViewParams.image = std::move(image);
+		*outputDepthPyramidMips = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewParams));
+		assert(*outputDepthPyramidMips);
+
+		currMipExtent.width >>= 1u;
+		currMipExtent.height >>= 1u;
+
+		outputDepthPyramidMips++;
+
+		// tmp
+		break;
+	}
+
+	return mipmapsCnt;
+}
+
+void DepthPyramidGenerator::createPipeline(
+	IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips,
+	core::smart_refctd_ptr<IGPUDescriptorSet>& outputDs, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config)
 {
 	// TODO: complete supported formats
 	switch (config.outputFormat)
 	{
-	case EF_R16_SFLOAT:
-	case EF_R32_SFLOAT:
+	case E_IMAGE_FORMAT::EIF_R16_FLOAT:
+	case E_IMAGE_FORMAT::EIF_R32_FLOAT:
 		break;
-	case EF_R32G32_SFLOAT:
-	case EF_R16G16_SFLOAT:
-		if (config.op != E_MIPMAP_GENERATION_OPERATOR::BOTH)
+	case E_IMAGE_FORMAT::EIF_R16G16_FLOAT:
+	case E_IMAGE_FORMAT::EIF_R32G32_FLOAT:
+		if (config.op != E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH)
 			assert(false);
 		break;
 	default:
@@ -40,18 +150,17 @@ DepthPyramidGenerator::DepthPyramidGenerator(IVideoDriver* driver, IAssetManager
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> dsLayout;
 	{
 		IGPUSampler::SParams params;
-		params.TextureWrapU = ISampler::ETC_MIRROR;
-		params.TextureWrapV = ISampler::ETC_MIRROR;
-		params.TextureWrapW = ISampler::ETC_MIRROR;
+		params.TextureWrapU = ISampler::ETC_CLAMP_TO_BORDER;
+		params.TextureWrapV = ISampler::ETC_CLAMP_TO_BORDER;
+		params.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
 		params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
 		params.MinFilter = ISampler::ETF_NEAREST;
 		params.MaxFilter = ISampler::ETF_NEAREST;
 		params.MipmapMode = ISampler::ESMM_NEAREST;
 		params.AnisotropicFilter = 0;
 		params.CompareEnable = 0;
-		auto sampler = m_driver->createGPUSampler(params);
+		auto sampler = driver->createGPUSampler(params);
 
-		// create pipeline
 		IGPUDescriptorSetLayout::SBinding bindings[2];
 		bindings[0].binding = 0u;
 		bindings[0].count = 1u;
@@ -66,109 +175,52 @@ DepthPyramidGenerator::DepthPyramidGenerator(IVideoDriver* driver, IAssetManager
 		bindings[1].type = EDT_STORAGE_IMAGE;
 
 		dsLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
-		m_ds = driver->createGPUDescriptorSet(core::smart_refctd_ptr(dsLayout));
+		outputDs = driver->createGPUDescriptorSet(core::smart_refctd_ptr(dsLayout));
 	}
-
-	configureMipImages(inputDepthImageView, outputDepthPyramidMips, config);
 
 	{
 		IGPUDescriptorSet::SDescriptorInfo infos[2];
 		infos[0].desc = inputDepthImageView;
 		infos[0].image.sampler = nullptr;
 
-		infos[1].desc = core::smart_refctd_ptr(*outputDepthPyramidMips);
+		infos[1].desc = core::smart_refctd_ptr(*inputDepthPyramidMips);
 		infos[1].image.sampler = nullptr;
 
 		IGPUDescriptorSet::SWriteDescriptorSet writes[2];
-		writes[0].dstSet = m_ds.get();
+		writes[0].dstSet = outputDs.get();
 		writes[0].binding = 0;
 		writes[0].arrayElement = 0u;
 		writes[0].count = 1u;
 		writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 		writes[0].info = &infos[0];
 
-		writes[1].dstSet = m_ds.get();
+		writes[1].dstSet = outputDs.get();
 		writes[1].binding = 1;
 		writes[1].arrayElement = 0u;
 		writes[1].count = 1u;
 		writes[1].descriptorType = EDT_STORAGE_IMAGE;
 		writes[1].info = &infos[1];
 
-		m_driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
+		driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
 	}
 
-	// create extra shader code
-	constexpr uint32_t maxExtraCodeSize = 256u;
-	std::string defines;
-	defines.reserve(maxExtraCodeSize);
-	{
-		switch (config.workGroupSize)
-		{
-		case E_WORK_GROUP_SIZE::E32x32x1:
-			defines += std::string("#define WORKGROUP_X_AND_Y_SIZE 32\n");
-			break;
-		case E_WORK_GROUP_SIZE::E16x16x1:
-			defines += std::string("#define WORKGROUP_X_AND_Y_SIZE 16\n");
-			break;
-		}
-
-		// TODO: complete supported formats
-		switch (config.outputFormat)
-		{
-		case EF_R16_SFLOAT:
-			defines += std::string("#define MIP_IMAGE_FORMAT r16f\n");
-			break;
-		case EF_R32_SFLOAT:
-			defines += std::string("#define MIP_IMAGE_FORMAT r32f\n");
-			break;
-		case EF_R16G16_SFLOAT:
-			defines += std::string("#define MIP_IMAGE_FORMAT r16g16f\n");
-			break;
-		case EF_R32G32_SFLOAT:
-			defines += std::string("#define MIP_IMAGE_FORMAT r32g32f\n");
-			break;
-		default:
-			assert(false);
-		}
-
-		if (!config.roundUpToPoTWithPadding)
-			defines += std::string("#define STRETCH_MIN\n");
-	}
-
-	asset::IAssetLoader::SAssetLoadParams lp;
-	auto shader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset("../../../include/nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator.comp", lp).getContents().begin());
-	assert(shader);
-	const asset::ICPUShader* unspec = shader->getUnspecialized();
-	assert(unspec->containsGLSL());
-
-	//	override shader code
-	auto begin = reinterpret_cast<const char*>(unspec->getSPVorGLSL()->getPointer());
-	const std::string_view origSource(begin, unspec->getSPVorGLSL()->getSize());
-
-	const size_t firstNewlineAfterVersion = origSource.find("\n", origSource.find("#version "));
-	assert(firstNewlineAfterVersion != std::string_view::npos);
-	const std::string_view sourceWithoutVersion(begin + firstNewlineAfterVersion, origSource.size() - firstNewlineAfterVersion);
-
-	std::string newSource("#version 460 core\n");
-	newSource += defines;
-	newSource += sourceWithoutVersion;
-
-	auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(newSource.c_str());
-	auto specinfo = shader->getSpecializationInfo();
-
-	auto newSpecShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
-	auto gpuShader = driver->getGPUObjectsFromAssets(&newSpecShader.get(), &newSpecShader.get() + 1u)->begin()[0];
-
-	m_ppln = m_driver->createGPUComputePipeline(nullptr, m_driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout)), std::move(gpuShader));
+	outputPpln = driver->createGPUComputePipeline(nullptr, driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout)), core::smart_refctd_ptr(m_shader));
 }
 
-
-void DepthPyramidGenerator::generateMipMaps()
+void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, bool issueDefaultBarrier)
 {
-	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_ppln->getLayout(), 0u, 1u, &m_ds.get(), nullptr);
-	m_driver->bindComputePipeline(m_ppln.get());
+	const VkExtent3D lvl0MipExtent = calcLvl0MipExtent(inputImage->getCreationParameters().image->getCreationParameters().extent, m_config.roundUpToPoTWithPadding);
 
-	m_driver->dispatch(m_globalWorkGroupSize.X, m_globalWorkGroupSize.Y, 1u);
+	const vector2du32_SIMD globalWorkGroupSize = vector2du32_SIMD(lvl0MipExtent.width / static_cast<uint32_t>(m_config.workGroupSize), lvl0MipExtent.height / static_cast<uint32_t>(m_config.workGroupSize));
+	assert(m_globalWorkGroupSize.x > 0u && m_globalWorkGroupSize.y > 0u);
+
+	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, ppln->getLayout(), 0u, 1u, &ds.get(), nullptr);
+	m_driver->bindComputePipeline(ppln.get());
+
+	m_driver->dispatch(globalWorkGroupSize.X, globalWorkGroupSize.Y, 1u);
+
+	if (issueDefaultBarrier)
+		defaultBarrier();
 }
 
 inline VkExtent3D calcLvl0MipExtent(const VkExtent3D& sourceImageExtent, bool roundUpToPoTWithPadding)
@@ -187,54 +239,6 @@ inline VkExtent3D calcLvl0MipExtent(const VkExtent3D& sourceImageExtent, bool ro
 	}
 
 	return lvl0MipExtent;
-}
-
-void DepthPyramidGenerator::configureMipImages(core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config)
-{
-	VkExtent3D currMipExtent = calcLvl0MipExtent(
-		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
-
-	m_globalWorkGroupSize = vector2du32_SIMD(currMipExtent.width / static_cast<uint32_t>(config.workGroupSize), currMipExtent.height / static_cast<uint32_t>(config.workGroupSize));
-	assert(m_globalWorkGroupSize.x > 0u && m_globalWorkGroupSize.y > 0u);
-
-	IGPUImage::SCreationParams imgParams;
-	imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
-	imgParams.type = IImage::ET_2D;
-	imgParams.format = config.outputFormat;
-	imgParams.mipLevels = 1u;
-	imgParams.arrayLayers = 1u;
-	imgParams.samples = IImage::ESCF_1_BIT;
-
-	IGPUImageView::SCreationParams imgViewParams;
-	imgViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-	imgViewParams.image = nullptr;
-	imgViewParams.viewType = IGPUImageView::ET_2D;
-	imgViewParams.format = config.outputFormat;
-	imgViewParams.components = {};
-	imgViewParams.subresourceRange = {};
-	imgViewParams.subresourceRange.levelCount = 1u;
-	imgViewParams.subresourceRange.layerCount = 1u;
-
-	while (currMipExtent.width > 0u && currMipExtent.height > 0u)
-	{
-		core::smart_refctd_ptr<IGPUImage> image;
-
-		imgParams.extent = { currMipExtent.width, currMipExtent.height, 1u };
-		image = m_driver->createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams(imgParams));
-		assert(image);
-
-		imgViewParams.image = std::move(image);
-		*outputDepthPyramidMips = m_driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewParams));
-		assert(*outputDepthPyramidMips);
-
-		currMipExtent.width >>= 1u;
-		currMipExtent.height >>= 1u;
-
-		outputDepthPyramidMips++;
-
-		// tmp
-		break;
-	}
 }
 
 }

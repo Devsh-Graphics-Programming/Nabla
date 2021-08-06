@@ -1,6 +1,3 @@
-#version 430 core
-
-layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_SIZE) in;
 
 #ifdef STRETCH_MIN
 #define REDUCTION_OPERATOR min
@@ -8,32 +5,22 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 #define REDUCTION_OPERATOR max
 #endif
 
-
 layout(binding = 0, set = 0) uniform sampler2D sourceTexture;
 layout(binding = 1, set = 0, MIP_IMAGE_FORMAT) uniform image2D outMips;
 
+#include "nbl/builtin/glsl/utils/morton.glsl"
 
-uint decodeMorton2dComponent(in uint x) 
-{
-    x &= 0x55555555u;
-    x = (x ^ (x >>  1u)) & 0x33333333u;
-    x = (x ^ (x >>  2u)) & 0x0f0f0f0fu;
 #if (WORKGROUP_X_AND_Y_SIZE == 32)
-    x = (x ^ (x >>  4u)) & 0x00ff00ffu;
+    #define DECODE_MORTON decodeMorton2d8b 
+#else
+    #define DECODE_MORTON decodeMorton2d4b
 #endif
-    return x;
-}
-
-uvec2 decodeMorton2d4b(in uint x)
-{
-    return uvec2(decodeMorton2dComponent(x), decodeMorton2dComponent(x >> 1u));
-}
 
 void main()
 {
     const uvec2 base = gl_WorkGroupID.xy * gl_WorkGroupSize.xy;
     //const uvec2 morton = nbl_glsl_morton2d_4bit_interleave(gl_LocalInvocationIndex);
-    const uvec2 morton = decodeMorton2d4b(gl_LocalInvocationIndex);
+    const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
 
     {
         const uvec2 naturalOrder = base + morton;

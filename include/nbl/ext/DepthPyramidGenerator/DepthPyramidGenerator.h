@@ -9,6 +9,7 @@
 
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/asset/format/EFormat.h"
+#include "../../../../Nabla/source/Nabla/COpenGLExtensionHandler.h"
 
 using namespace nbl;
 using namespace nbl::core;
@@ -30,22 +31,31 @@ public:
 
 	enum class E_MIPMAP_GENERATION_OPERATOR
 	{
-		MAX, 
-		MIN,
-		BOTH // min goes to r, min to g
+		EMGO_MAX, 
+		EMGO_MIN,
+		EMGO_BOTH // min goes to r, max to g
 	};
 	
 	enum class E_WORK_GROUP_SIZE
 	{
-		E16x16x1 = 16u,
-		E32x32x1 = 32u
+		EWGS_16x16x1 = 16u,
+		EWGS_32x32x1 = 32u
+	};
+
+	// TODO: more formats
+	enum class E_IMAGE_FORMAT
+	{
+		EIF_R16_FLOAT = EF_R16_SFLOAT,
+		EIF_R32_FLOAT = EF_R32_SFLOAT,
+		EIF_R16G16_FLOAT = EF_R16G16_SFLOAT,
+		EIF_R32G32_FLOAT = EF_R32G32_SFLOAT
 	};
 
 	struct Config
 	{
-		E_WORK_GROUP_SIZE workGroupSize = E_WORK_GROUP_SIZE::E32x32x1;
-		asset::E_FORMAT outputFormat = asset::E_FORMAT::EF_R32_SFLOAT;
-		E_MIPMAP_GENERATION_OPERATOR op = E_MIPMAP_GENERATION_OPERATOR::MAX;
+		E_WORK_GROUP_SIZE workGroupSize = E_WORK_GROUP_SIZE::EWGS_32x32x1;
+		E_IMAGE_FORMAT outputFormat = E_IMAGE_FORMAT::EIF_R32_FLOAT;
+		E_MIPMAP_GENERATION_OPERATOR op = E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX;
 		uint32_t lvlLimit = 0u; //no limit when set to 0 (full mip chain)
 		bool roundUpToPoTWithPadding = false;
 	};
@@ -53,26 +63,31 @@ public:
 	// inputDepthImageView - input texture
 	//outputDepthPyramidMips - array of created mipMaps
 	DepthPyramidGenerator(IVideoDriver* driver, IAssetManager* am, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView,
-		core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips,
 		const Config& config = Config());
 
-	inline uint32_t getMaxMipCntFromImage(const core::smart_refctd_ptr<IGPUImageView>& image, bool roundUpToPoTWithPadding = false)
+	static inline uint32_t getMaxMipCntFromImage(const core::smart_refctd_ptr<IGPUImageView>& image, bool roundUpToPoTWithPadding = false)
 	{
 		const VkExtent3D lvl0MipExtent = calcLvl0MipExtent(image->getCreationParameters().image->getCreationParameters().extent, roundUpToPoTWithPadding);
 
-		uint32_t minVal = std::min(lvl0MipExtent.width, lvl0MipExtent.height);
-
-		uint32_t mipLvlCnt = 1u;
-		while (minVal >>= 1u)
-			mipLvlCnt++;
-
-		return mipLvlCnt;
+		// TODO: take `roundUpToPoTWithPadding` into account
+		return core::findMSB(std::min(lvl0MipExtent.width, lvl0MipExtent.height));
 	}
 
-	void generateMipMaps();
+	static uint32_t createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config = Config());
+
+	void createPipeline(
+		IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
+		core::smart_refctd_ptr<IGPUDescriptorSet>& outputDs, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config = Config());
+
+	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, bool issueDefaultBarrier = true);
+
+	static inline void defaultBarrier()
+	{
+		COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT); // GL_FRAMEBUFFER_BARRIER_BIT ?
+	}
 
 private:
-	inline VkExtent3D calcLvl0MipExtent(const VkExtent3D& sourceImageExtent, bool roundUpToPoTWithPadding)
+	static inline VkExtent3D calcLvl0MipExtent(const VkExtent3D& sourceImageExtent, bool roundUpToPoTWithPadding)
 	{
 		VkExtent3D lvl0MipExtent;
 
@@ -88,14 +103,12 @@ private:
 		return lvl0MipExtent;
 	}
 
-	void configureMipImages(core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config);
-
 private:
 	IVideoDriver* m_driver;
 
-	core::smart_refctd_ptr<IGPUDescriptorSet> m_ds = nullptr;
-	core::smart_refctd_ptr<IGPUComputePipeline> m_ppln = nullptr;
-	vector2du32_SIMD m_globalWorkGroupSize;
+	const Config m_config;
+	core::smart_refctd_ptr<IGPUSpecializedShader> m_shader = nullptr;
+
 };
 
 }
