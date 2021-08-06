@@ -15,6 +15,7 @@
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
 
 const char* vertexSource = R"===(
 #version 430 core
@@ -177,6 +178,8 @@ int main()
     auto commandPool = std::move(initOutput.commandPool);
     auto assetManager = std::move(initOutput.assetManager);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+    auto logger = std::move(initOutput.logger);
+    auto inputSystem = std::move(initOutput.inputSystem);
 
     nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
@@ -437,11 +440,38 @@ int main()
 		renderFinished[i] = device->createSemaphore();
 	}
 
+	// polling for events!
+	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+	auto mouseProcess = [logger](const IMouseEventChannel::range_t& events) -> void
+	{
+		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
+		{
+			logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+		}
+	};
+	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events) -> void
+	{
+		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
+		{
+			logger->log("Keyboard event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+		}
+	};
+	
+
 	// render loop
 	double dt = 0;
 
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
+		// Input 
+		inputSystem->getDefaultMouse(&mouse);
+		inputSystem->getDefaultKeyboard(&keyboard);
+
+		mouse.consumeEvents(mouseProcess,logger.get());
+		keyboard.consumeEvents(keyboardProcess,logger.get());
+		
+		// Render
 		const auto resourceIx = i%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
