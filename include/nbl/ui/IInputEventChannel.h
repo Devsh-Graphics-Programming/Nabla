@@ -7,7 +7,7 @@
 #include "nbl/core/containers/CCircularBuffer.h"
 #include "nbl/core/SRange.h"
 #include "nbl/ui/KeyCodes.h"
-#include "nbl/ui/IInputEvent.h"
+#include "nbl/ui/SInputEvent.h"
 
 namespace nbl::ui
 {

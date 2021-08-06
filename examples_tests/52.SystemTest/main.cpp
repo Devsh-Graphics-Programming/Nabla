@@ -50,7 +50,7 @@ class InputSystem : public IReferenceCounted
 					);
 					consumedCounter = events.size()-frontBufferCapacity;
 				}
-				processFunc(ChannelType::range_t(events.begin()+consumedCounter,events.end()));
+				processFunc(ChannelType::range_t(events.begin()+consumedCounter,events.end()), channel);
 				consumedCounter = events.size();
 			}
 
@@ -262,18 +262,52 @@ int main()
 	// polling for events!
 	InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-	auto mouseProcess = [logger](const IMouseEventChannel::range_t& events) -> void
+	auto mouseProcess = [logger](const IMouseEventChannel::range_t& events, const core::smart_refctd_ptr<IMouseEventChannel>& ch) -> void
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			switch ((*eventIt).type)
+			{
+			case SMouseEvent::EET_MOVEMENT:
+			{
+				if ((*eventIt).movementEvent.isRelative)
+				{
+					logger->log("Relative mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).movementEvent.movementX, (*eventIt).movementEvent.movementY, ch, (*eventIt).timeStamp);
+				}
+				else
+				{
+					logger->log("Absolute mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_ERROR, ch, (*eventIt).timeStamp);
+				}
+				break;
+			}
+			case SMouseEvent::EET_CLICK:
+			{
+				if((*eventIt).clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED)
+					logger->log("Mouse click press at (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).clickEvent.clickPosX, (*eventIt).clickEvent.clickPosY, ch, (*eventIt).timeStamp);
+				else if ((*eventIt).clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED)
+					logger->log("Mouse click release at (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).clickEvent.clickPosX, (*eventIt).clickEvent.clickPosY, ch, (*eventIt).timeStamp);
+				break;
+			}
+			case SMouseEvent::EET_SCROLL:
+			{
+				logger->log("Mouse scroll (vertical: %d, horizontal: %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).scrollEvent.verticalScroll, (*eventIt).scrollEvent.horizontalScroll, ch, (*eventIt).timeStamp);
+				break;
+			}
+			}
 		}
 	};
-	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events) -> void
+	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events, const core::smart_refctd_ptr<IKeyboardEventChannel>& ch) -> void
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			logger->log("Keyboard event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			if ((*eventIt).action == SKeyboardEvent::ECA_PRESSED)
+			{
+				logger->log("Keyboard key \"%c\" pressed from device % p", system::ILogger::ELL_INFO, (*eventIt).keyCode, ch);
+			}
+			else if ((*eventIt).action == SKeyboardEvent::ECA_RELEASED)
+			{
+				logger->log("Keyboard key \"%c\" released from device % p", system::ILogger::ELL_INFO, (*eventIt).keyCode, ch);
+			}
 		}
 	};
 	

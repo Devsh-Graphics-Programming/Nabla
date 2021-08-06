@@ -237,10 +237,22 @@ namespace ui
 						event.type = SMouseEvent::EET_MOVEMENT;
 						event.movementEvent.movementX = rawMouse.lLastX;
 						event.movementEvent.movementY = rawMouse.lLastY;
+						event.movementEvent.isRelative = true;
 						event.window = window;
 						auto lk = inputChannel->lockBackgroundBuffer();
 						inputChannel->pushIntoBackground(std::move(event));
 					}
+				}
+				if ((rawMouse.usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE)
+				{
+					SMouseEvent event(timestamp);
+					event.type = SMouseEvent::EET_MOVEMENT;
+					event.movementEvent.movementX = rawMouse.lLastX;
+					event.movementEvent.movementY = rawMouse.lLastY;
+					event.window = window;
+					event.movementEvent.isRelative = false;
+					auto lk = inputChannel->lockBackgroundBuffer();
+					inputChannel->pushIntoBackground(std::move(event));
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)
 				{
@@ -249,6 +261,9 @@ namespace ui
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
@@ -259,6 +274,9 @@ namespace ui
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
@@ -269,6 +287,9 @@ namespace ui
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
@@ -279,6 +300,9 @@ namespace ui
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
@@ -289,6 +313,9 @@ namespace ui
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
@@ -299,6 +326,9 @@ namespace ui
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
