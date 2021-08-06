@@ -187,6 +187,18 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 		    m_indexBufferBinding = std::move(bufferBinding);
 	    }
 
+        virtual inline void setAttachedDescriptorSet(core::smart_refctd_ptr<DescSetType>&& descriptorSet)
+        {
+            //assert(!isImmutable_debug());
+            m_descriptorSet = std::move(descriptorSet);
+        }
+
+        virtual inline void setPipeline(core::smart_refctd_ptr<PipelineType>&& pipeline)
+        {
+            //assert(!isImmutable_debug());
+            m_pipeline = std::move(pipeline);
+        }
+
         inline uint64_t getAttribCombinedOffset(uint32_t attrId) const
         {
             const auto& buf = getAttribBoundBuffer(attrId);
