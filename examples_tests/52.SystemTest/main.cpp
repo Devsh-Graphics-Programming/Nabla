@@ -232,8 +232,8 @@ int main()
 	params.callback = nullptr;
 	params.width = 720;
 	params.height = 480;
-	params.x = 0;
-	params.y = 0;
+	params.x = 500;
+	params.y = 300;
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";

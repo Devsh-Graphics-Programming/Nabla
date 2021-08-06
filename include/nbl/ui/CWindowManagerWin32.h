@@ -228,20 +228,8 @@ namespace nbl::ui
 					const int32_t realWidth = clientSize.right - clientSize.left;
 					const int32_t realHeight = clientSize.bottom - clientSize.top;
 
-					int32_t windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
-					int32_t windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
-
-					if (windowLeft < 0)
-						windowLeft = 0;
-					if (windowTop < 0)
-						windowTop = 0;	// make sure window menus are in screen on creation
-
-					if (params.flags & CWindowWin32::ECF_FULLSCREEN)
-					{
-						windowLeft = 0;
-						windowTop = 0;
-					}
-					*params.nativeWindow = CreateWindow(classname, params.windowCaption.c_str(), style, windowLeft, windowTop,
+					
+					*params.nativeWindow = CreateWindow(classname, params.windowCaption.c_str(), style, clientSize.left, clientSize.top,
 						realWidth, realHeight, NULL, NULL, hinstance, NULL);
 					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
 						ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
@@ -249,7 +237,7 @@ namespace nbl::ui
 
 					// fix ugly ATI driver bugs. Thanks to ariaci
 					// TODO still needed?
-					MoveWindow(*params.nativeWindow, windowLeft, windowTop, realWidth, realHeight, TRUE);
+					MoveWindow(*params.nativeWindow, clientSize.left, clientSize.top, realWidth, realHeight, TRUE);
 					{
 						//TODO: thoroughly test this stuff	
 						constexpr uint32_t INPUT_DEVICES_COUNT = 5;
