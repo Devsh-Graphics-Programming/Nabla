@@ -26,6 +26,8 @@ public:
 				nbl::core::mutex lock;
 				std::condition_variable added;
 				nbl::core::vector<nbl::core::smart_refctd_ptr<ChannelType>> channels;
+				nbl::core::vector<std::chrono::microseconds> timeStamps;
+				uint32_t defaultChannelIndex = 0;
 			};
 			// TODO: move to "nbl/ui/InputEventChannel.h" once the interface of this utility struct matures, also maybe rename to `Consumer` ?
 			template <class ChannelType>
@@ -70,17 +72,26 @@ public:
 			{
 				std::unique_lock lock(channels.lock);
 				channels.channels.push_back(std::move(channel));
+				
+				using namespace std::chrono;
+				auto timeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				channels.timeStamps.push_back(timeStamp);
+
 				channels.added.notify_all();
 			}
 			template<class ChannelType>
 			void remove(Channels<ChannelType>& channels, const ChannelType* channel)
 			{
 				std::unique_lock lock(channels.lock);
-				channels.channels.erase(
-					std::find_if(
+
+				auto to_remove_itr = std::find_if(
 						channels.channels.begin(),channels.channels.end(),[channel](const auto& chan)->bool{return chan.get()==channel;}
-					)
 				);
+
+				auto index = std::distance(channels.channels.begin(), to_remove_itr);
+
+				channels.timeStamps.erase(channels.timeStamps.begin() + index);
+				channels.channels.erase(to_remove_itr);
 			}
 			template<class ChannelType>
 			void getDefault(Channels<ChannelType>& channels, ChannelReader<ChannelType>* reader)
@@ -94,18 +105,73 @@ public:
 				* Switch the channel choice, but prune away all events younger than the old default's consumption timestamp.
 				* (Basically switch keyboards but dont try to process events older than the events you've processed from the old keyboard)
 				*/
+				
 				std::unique_lock lock(channels.lock);
 				while (channels.channels.empty())
 				{
 					m_logger.log("Waiting For Input Device to be connected...",system::ILogger::ELL_INFO);
 					channels.added.wait(lock);
 				}
+				
+				using namespace std::chrono;
+				constexpr long long DefaultChannelTimeoutInMicroSeconds = 100*1e3; // 100 mili-seconds
+				auto nowTimeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
 
-				auto current_default = channels.channels.back();
-				if (reader->channel==current_default)
+				// Update Timestamp of all channels
+				for(uint32_t ch = 0u; ch < channels.channels.size(); ++ch) {
+					auto & channel = channels.channels[ch];
+					auto & timeStamp = channels.timeStamps[ch];
+					auto events = channel->getEvents();
+					if(events.size() > 0) {
+						auto lastEventTimeStamp = (*(events.end() - 1)).timeStamp; // last event timestamp
+						timeStamp = lastEventTimeStamp;
+					}
+				}
+
+				auto defaultIdx = channels.defaultChannelIndex;
+				if(defaultIdx >= channels.channels.size()) {
+					defaultIdx = 0;
+				}
+				auto defaultChannel = channels.channels[defaultIdx];
+				auto defaultChannelEvents = defaultChannel->getEvents();
+				auto timeDiff = (nowTimeStamp - channels.timeStamps[defaultIdx]).count();
+				
+				// If the current one hasn't been active for a while
+				if(defaultChannel->empty()) {
+					if(timeDiff > DefaultChannelTimeoutInMicroSeconds) {
+						// Look for the most active channel ( the biggest event size )
+						auto newDefaultIdx = defaultIdx;
+						uint32_t maxEventSize = 0;
+
+						for(uint32_t chIdx = 0; chIdx < channels.channels.size(); ++chIdx) {
+							if(defaultIdx != chIdx) {
+								auto channelTimeDiff = (nowTimeStamp - channels.timeStamps[chIdx]).count();
+								// Check if was more recently active than the current default
+								if(channelTimeDiff < DefaultChannelTimeoutInMicroSeconds)
+								{
+									auto channelEventSize = channels.channels[chIdx]->getEvents().size(); // getEvebts().size() doesn't get smaller -> what to use for logic instead? (TODO)
+									if(channelEventSize > maxEventSize) {
+										maxEventSize = channelEventSize;
+										newDefaultIdx = chIdx;
+									}
+								}
+							}
+						}
+
+						if(defaultIdx != newDefaultIdx) {
+							m_logger.log("Default InputChannel for ChannelType changed from %u to %u",system::ILogger::ELL_INFO, defaultIdx, newDefaultIdx);
+						}
+
+						defaultIdx = newDefaultIdx;
+						channels.defaultChannelIndex = newDefaultIdx;
+						defaultChannel = channels.channels[newDefaultIdx];
+					}
+				}
+
+				if (reader->channel==defaultChannel)
 					return;
 
-				reader->channel = current_default;
+				reader->channel = defaultChannel;
 				reader->consumedCounter = 0u;
 			}
 
