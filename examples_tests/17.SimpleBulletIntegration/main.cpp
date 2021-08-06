@@ -313,7 +313,7 @@ int main()
 
 	// Camera 
 	core::vector3df cameraPosition(0, 5, -10);
-	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), float(WIN_W) / WIN_H, core::radians(60), 0.01f, 100.0f, false);
+	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), float(WIN_W) / WIN_H, core::radians(60), 0.01f, 500.0f, false);
 
 	// Creating CPU Shaders 
 
@@ -438,19 +438,13 @@ int main()
 	// polling for events!
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-	auto mouseProcess = [logger](const IMouseEventChannel::range_t& events) -> void
+	auto mouseProcess = [&](const IMouseEventChannel::range_t& events) -> void
 	{
-		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
-		{
-			//logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
-		}
+		cam.mouseProcess(events);
 	};
-	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events) -> void
+	auto keyboardProcess = [&](const IKeyboardEventChannel::range_t& events) -> void
 	{
-		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
-		{
-			logger->log("Keyboard event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
-		}
+		cam.keyboardProcess(events);
 	};
 	
 
@@ -463,8 +457,8 @@ int main()
 		inputSystem->getDefaultMouse(&mouse);
 		inputSystem->getDefaultKeyboard(&keyboard);
 
-		mouse.consumeEvents(mouseProcess,logger.get());
-		keyboard.consumeEvents(keyboardProcess,logger.get());
+		mouse.consumeEvents(mouseProcess, logger.get());
+		keyboard.consumeEvents(keyboardProcess, logger.get());
 		
 		// Render
 		const auto resourceIx = i%FRAMES_IN_FLIGHT;
@@ -521,11 +515,13 @@ int main()
 		{
 			// Update Physics
 			world->getWorld()->stepSimulation(dt);
-			
+
 			static double anim = 0.0;
 			anim += dt * 0.001f;
 
-			cam.setTarget(core::vector3df(core::sin(anim) * 5.0f, 0.0f, 0.0f));
+			// cam.setTarget(core::vector3df(core::sin(anim) * 5.0f, 0.0f, 0.0f));
+
+			cam.update(dt);
 
 			asset::SBufferRange<video::IGPUBuffer> range;
 			range.buffer = gpuInstancesBuffer;

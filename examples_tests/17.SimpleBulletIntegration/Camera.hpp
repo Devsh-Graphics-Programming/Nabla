@@ -32,8 +32,10 @@ public:
 		, aspectRatio(16.f/9.f)
 		, zNear(znear)
 		, zFar(zfar)
-		, leftHanded(leftHanded) 
+		, leftHanded(leftHanded)
+		, firstUpdate(true)
 	{
+		allKeysUp();
 		recomputeViewMatrix();
 		recomputeProjectionMatrix();
 	}
@@ -144,13 +146,23 @@ public:
 		fovy = fovy;
 		recomputeProjectionMatrix();
 	}
+
 public:
-	
+
 	void mouseProcess(const IMouseEventChannel::range_t& events)
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			//logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			auto ev = *eventIt;
+
+			if(ev.type == ui::SMouseEvent::EET_CLICK && ev.clickEvent.mouseButton == ui::EMB_LEFT_BUTTON) {
+				if(ev.clickEvent.action == ui::SMouseEvent::SClickEvent::EA_PRESSED) {
+					mouseDown = true;
+				} else if (ev.clickEvent.action == ui::SMouseEvent::SClickEvent::EA_RELEASED) {
+					mouseDown = false;
+				}
+			}
+
 		}
 	}
 
@@ -158,8 +170,118 @@ public:
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			//logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			auto ev = *eventIt;
+
+			if(ev.keyCode == ui::EKC_UP_ARROW || ev.keyCode == ui::EKC_W) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+					keysDown[Keys::EKA_MOVE_FORWARD] = true;
+				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					keysDown[Keys::EKA_MOVE_FORWARD] = false;
+				}
+			}
+
+			if(ev.keyCode == ui::EKC_DOWN_ARROW || ev.keyCode == ui::EKC_S) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+					keysDown[Keys::EKA_MOVE_BACKWARD] = true;
+				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					keysDown[Keys::EKA_MOVE_BACKWARD] = false;
+				}
+			}
+
+			if(ev.keyCode == ui::EKC_LEFT_ARROW || ev.keyCode == ui::EKC_A) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+					keysDown[Keys::EKA_MOVE_LEFT] = true;
+				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					keysDown[Keys::EKA_MOVE_LEFT] = false;
+				}
+			}
+
+			if(ev.keyCode == ui::EKC_RIGHT_ARROW || ev.keyCode == ui::EKC_D) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+					keysDown[Keys::EKA_MOVE_RIGHT] = true;
+				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					keysDown[Keys::EKA_MOVE_RIGHT] = false;
+				}
+			}
 		}
+	}
+
+	void update(double dt) {
+		float moveSpeed = 0.1f;
+		float rotateSpeed = 1.0f;
+
+		if(!mouseDown) {
+			return;
+		}
+
+		if(firstUpdate) {
+			// Set Cursor to middle of the screen
+			firstUpdate = false;
+		}
+
+		// update position
+		core::vectorSIMDf pos; pos.set(getPosition());
+
+		// Update rotation
+		core::vectorSIMDf target = getTarget() - pos;
+		core::vector3df relativeRotation = target.getAsVector3df().getHorizontalAngle();
+	
+		// set target
+		
+		target.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
+		core::vectorSIMDf movedir = target;
+
+		core::matrix3x4SIMD mat;
+		{
+			core::matrix4x3 tmp;
+			tmp.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
+			mat.set(tmp);
+		}
+		mat.transformVect(target);
+		target.makeSafe3D();
+
+		movedir = target;
+
+		movedir.makeSafe3D();
+		movedir = core::normalize(movedir);
+
+		if (keysDown[Keys::EKA_MOVE_FORWARD])
+			pos += movedir * dt * moveSpeed;
+
+		if (keysDown[Keys::EKA_MOVE_BACKWARD])
+			pos -= movedir * dt * moveSpeed;
+
+		// strafing
+
+		core::vectorSIMDf strafevect; strafevect.set(target);
+		if (leftHanded)
+			strafevect = core::cross(strafevect, upVector);
+		else
+			strafevect = core::cross(upVector, strafevect);
+
+		strafevect = core::normalize(strafevect);
+
+		if (keysDown[Keys::EKA_MOVE_LEFT])
+			pos += strafevect * dt * moveSpeed;
+
+		if (keysDown[Keys::EKA_MOVE_RIGHT])
+			pos -= strafevect * dt * moveSpeed;
+
+		// write translation
+		setPosition(pos.getAsVector3df());
+
+		// write right target
+		target += pos;
+		setTarget(target.getAsVector3df());
+	}
+
+private:
+	
+	void allKeysUp() {
+		for (uint32_t i=0; i< Keys::EKA_COUNT; ++i) {
+			keysDown[i] = false;
+		}
+		mouseDown = false;
 	}
 
 private:
@@ -179,6 +301,20 @@ private:
 	core::matrix4SIMD projMatrix;
 
 	bool leftHanded;
+	
+	// Animation
+	
+	enum Keys {
+		EKA_MOVE_FORWARD = 0,
+		EKA_MOVE_BACKWARD,
+		EKA_MOVE_LEFT,
+		EKA_MOVE_RIGHT,
+		EKA_COUNT,
+	};
+
+	bool keysDown[(size_t)Keys::EKA_COUNT] = {};
+	bool firstUpdate = true;
+	bool mouseDown = false;
 };
 
 #endif // _CAMERA_IMPL_
