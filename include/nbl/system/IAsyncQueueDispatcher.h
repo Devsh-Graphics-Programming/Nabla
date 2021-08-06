@@ -15,59 +15,79 @@ namespace impl
     public:
         IAsyncQueueDispatcherBase() = default;
         ~IAsyncQueueDispatcherBase() = default;
+        // dont want to play around with relaxed memory ordering yet
         struct request_base_t
         {
+                enum E_STATE : uint32_t
+                {
+                    ES_INITIAL=0,
+                    ES_RECORDING=1,
+                    ES_PENDING=2,
+                    ES_EXECUTING=3,
+                    ES_READY=4
+                };
+                request_base_t() : state(ES_INITIAL)
+                {
+                    assert(std::atomic_uint32_t::is_lock_free());
+                }
                 ~request_base_t() = default;
 
                 // lock when overwriting the request
-                std::unique_lock<std::mutex> reset()
+                void reset()
                 {
-                    std::unique_lock<std::mutex> lk(mtx);
-                    ready.store(false);
-                    return lk;
+                    transition(ES_INITIAL,ES_RECORDING);
                 }
                 // unlock request after we've written everything into it
-                void finalize(std::unique_lock<std::mutex>&& lk)
+                void finalize()
                 {
-                    lk.unlock();
-                    ready_for_work.store(true);
-                    #if __cplusplus >= 202002L
-                        ready_for_work.notify_one(); // does an atomic need to be notified under a lock?
-                    #endif
+                    const auto prev = state.exchange(ES_PENDING);
+                    assert(prev==ES_RECORDING);
+                    state.notify_one();
                 }
                 // do NOT allow canceling of request while they are processed
-                std::unique_lock<std::mutex> wait_for_work()
+                void wait_for_work()
                 {
-                        while (!ready_for_work.load())
-                            std::this_thread::yield();
-                   return std::unique_lock<std::mutex>(mtx);
-                }
-                // to call to await the request to finish processing
-                std::unique_lock<std::mutex> wait_for_result()
-                {
-                    std::unique_lock<std::mutex> lk(mtx);
-                    cvar.wait(lk, [this]() { return this->ready.load(); });
-                    return lk;
+                    transition(ES_PENDING,ES_EXECUTING);
                 }
                 // to call after request is done being processed
-                void notify_all_ready(std::unique_lock<std::mutex>&& lk)
+                void notify_ready()
                 {
-                    ready_for_work.store(false); // after change to C++20 does this need to be moved up?
-                    ready.store(true);
-                    cvar.notify_all();
+                    const auto prev = state.exchange(ES_READY);
+                    assert(prev==ES_EXECUTING);
+                    state.notify_one();
+                }
+                // to call to await the request to finish processing
+                void wait_ready()
+                {
+                    wait_for(ES_READY);
+                }
+                // to call after done reading the request and its memory can be recycled
+                void discard_storage()
+                {
+                    const auto prev = state.exchange(ES_INITIAL);
+                    assert(prev==ES_READY);
+                    state.notify_one();
                 }
 
             protected:
-                // request is finished processing and any waiters can wake
-                std::atomic_bool ready = false;
-                // request has been written to memory and processing can start
-                std::atomic_bool ready_for_work = false;
+                void transition(const E_STATE from, const E_STATE to)
+                {
+                    uint32_t expected = from;
+                    while (!state.compare_exchange_strong(expected,to))
+                    {
+                        state.wait(expected);
+                        expected = from;
+                    }
+                    assert(expected==from);
+                }
+                void wait_for(const E_STATE waitVal)
+                {
+                    uint32_t current;
+                    while ((current=state.load())!=waitVal)
+                        state.wait(current);
+                }
 
-                // TODO since c++20 we can get rid of both mutex and cvar
-                // and do wait/notify on the atomics themselves
-                std::mutex mtx;
-                // wait on this for result to be ready
-                std::condition_variable cvar;
+                std::atomic_uint32_t state;
         };
     };
 }
@@ -148,20 +168,14 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
             auto safe_begin = virtualIx<MaxRequestCount ? static_cast<counter_t>(0) : (virtualIx-MaxRequestCount+1u);
 
             for (counter_t old_begin; (old_begin = cb_begin.load()) < safe_begin; )
-            {
-    #if __cplusplus >= 202002L
                 cb_begin.wait(old_begin);
-    #else
-                std::this_thread::yield();
-    #endif
-            }
 
             const auto r_id = wrapAround(virtualIx);
 
             request_t& req = request_pool[r_id];
-            auto lk = req.reset();
+            req.reset();
             static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
-            req.finalize(std::move(lk));
+            req.finalize();
 
             {
                 auto global_lk = base_t::createLock();
@@ -194,14 +208,13 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
                 request_t& req = request_pool[r_id];
                 // do NOT allow cancelling or modification of the request while working on it
-                auto lk = req.wait_for_work();
+                req.wait_for_work();
                 if (static_cast<CRTP*>(this)->process_request_predicate(req))
                 {
                     static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
                 }
-                // wake all the waiters up, at which point we can overwrite the request
-                // TODO: handle case when request already processed and overwritten by the time we attempt to wait on it!!!
-                req.notify_all_ready(std::move(lk));
+                // wake the waiter up
+                req.notify_ready();
                 cb_begin++;
                 #if __cplusplus >= 202002L
                     cb_begin.notify_one();
