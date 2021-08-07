@@ -65,4 +65,5 @@ add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
 add_subdirectory(50.NewAPITest EXCLUDE_FROM_ALL)
 add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
+add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL)
 
