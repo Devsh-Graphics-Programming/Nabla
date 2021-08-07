@@ -163,6 +163,46 @@ public:
 				}
 			}
 
+			if(ev.type == ui::SMouseEvent::EET_MOVEMENT && mouseDown) {
+				float rotateSpeed = 0.2f;
+				core::vectorSIMDf pos; pos.set(getPosition());
+				core::vectorSIMDf target = getTarget() - pos;
+				core::vector3df relativeRotation = target.getAsVector3df().getHorizontalAngle();
+				relativeRotation.X -= ev.movementEvent.movementY * rotateSpeed * -1.0f;
+				float tmpYRot = ev.movementEvent.movementX * rotateSpeed * -1.0f;
+				if (leftHanded)
+					relativeRotation.Y -= tmpYRot;
+				else
+					relativeRotation.Y += tmpYRot;
+
+				constexpr float MaxVerticalAngle = 88.0f;
+				if (relativeRotation.X > MaxVerticalAngle*2 &&
+					relativeRotation.X < 360.0f-MaxVerticalAngle)
+				{
+					relativeRotation.X = 360.0f-MaxVerticalAngle;
+				}
+				else
+				if (relativeRotation.X > MaxVerticalAngle &&
+					relativeRotation.X < 360.0f-MaxVerticalAngle)
+				{
+					relativeRotation.X = MaxVerticalAngle;
+				}
+
+				target.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
+				core::vectorSIMDf movedir = target;
+
+				core::matrix3x4SIMD mat;
+				{
+					core::matrix4x3 tmp;
+					tmp.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
+					mat.set(tmp);
+				}
+				mat.transformVect(target);
+				
+				// write right target
+				target += pos;
+				setTarget(target.getAsVector3df());
+			}
 		}
 	}
 
