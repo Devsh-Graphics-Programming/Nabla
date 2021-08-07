@@ -17,6 +17,13 @@ using namespace core;
 #define SWITCH_IMAGES_PER_X_MILISECONDS 500
 constexpr std::string_view testingImagePathsFile = "../imagesTestList.txt";
 
+struct NBL_CAPTION_DATA_TO_DISPLAY
+{
+	std::string viewType;
+	std::string name;
+	std::string extension;
+};
+
 int main()
 {
     constexpr uint32_t NBL_WINDOW_WIDTH = 1280;
@@ -133,7 +140,7 @@ int main()
 	}
 
 	nbl::core::vector<nbl::core::smart_refctd_ptr<nbl::asset::ICPUImageView>> cpuImageViews;
-	nbl::core::vector<std::string> texturesNames;
+	nbl::core::vector<NBL_CAPTION_DATA_TO_DISPLAY> captionTexturesData;
 	{
 		std::ifstream list(testingImagePathsFile.data());
 		if (list.is_open())
@@ -187,7 +194,23 @@ int main()
 					std::filesystem::path filename, extension;
 					core::splitFilename(pathToTexture.c_str(), nullptr, &filename, &extension);
 
-					texturesNames.push_back(filename.string());
+					auto& captionData = captionTexturesData.emplace_back();
+					captionData.name = filename.string();
+					captionData.extension = extension.string();
+					captionData.viewType = [&]()
+					{
+						const auto& viewType = newCpuImageViewTexture->getCreationParameters().viewType;
+
+						if (viewType == nbl::asset::IImageView<nbl::video::IGPUImage>::ET_2D)
+							return std::string("ET_2D");
+						else if (viewType == nbl::asset::IImageView<nbl::video::IGPUImage>::ET_2D_ARRAY)
+							return std::string("ET_2D_ARRAY");
+						else if (viewType == nbl::asset::IImageView<nbl::video::IGPUImage>::ET_CUBE_MAP)
+							return std::string("ET_CUBE_MAP");
+						else
+							assert(false);
+					}();
+					
 
 					finalFileNameWithExtension = filename.string() + ".";
 					finalFileNameWithExtension += extension.string();
@@ -237,7 +260,7 @@ int main()
 		}
 	};
 
-	auto presentImageOnTheScreen = [&](nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView, const std::string& currentHandledImageFileName)
+	auto presentImageOnTheScreen = [&](nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView, const NBL_CAPTION_DATA_TO_DISPLAY& captionData)
 	{
 		auto gpuSamplerDescriptorSet3 = logicalDevice->createGPUDescriptorSet(gpuDescriptorPool.get(), nbl::core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
@@ -268,6 +291,9 @@ int main()
 
 			gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 		}
+		
+		const std::string windowCaption = "[Nabla Engine] Color Space Test Demo - CURRENT IMAGE: " + captionData.name + " - VIEW TYPE: " + captionData.viewType + " - EXTENSION: " + captionData.extension;
+		window->setCaption(windowCaption);
 
 		auto startPoint = std::chrono::high_resolution_clock::now();
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
@@ -326,7 +352,7 @@ int main()
 		const auto& fboCreationParams = fbo->getCreationParameters();
 		auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-		const std::string writePath = "screenShot_" + currentHandledImageFileName + ".png";
+		const std::string writePath = "screenShot_" + captionData.name + ".png";
 		bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], render_finished_sem.get(), gpuSourceImageView.get(), assetManager.get(), writePath);
 		return status;
 	};
@@ -334,9 +360,9 @@ int main()
 	for (size_t i = 0; i < gpuImageViews->size(); ++i)
 	{
 		auto gpuImageView = (*gpuImageViews)[i];
-		auto name = texturesNames[i];
+		auto& captionData = captionTexturesData[i];
 
-		bool status = presentImageOnTheScreen(nbl::core::smart_refctd_ptr(gpuImageView), name);
+		bool status = presentImageOnTheScreen(nbl::core::smart_refctd_ptr(gpuImageView), captionData);
 		assert(status);
 	}
 }
