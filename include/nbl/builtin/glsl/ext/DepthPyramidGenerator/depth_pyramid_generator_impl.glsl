@@ -19,7 +19,6 @@ layout(binding = 1, set = 0, MIP_IMAGE_FORMAT) uniform image2D outMips;
 void main()
 {
     const uvec2 base = gl_WorkGroupID.xy * gl_WorkGroupSize.xy;
-    //const uvec2 morton = nbl_glsl_morton2d_4bit_interleave(gl_LocalInvocationIndex);
     const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
 
     {

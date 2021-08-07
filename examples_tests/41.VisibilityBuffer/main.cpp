@@ -11,6 +11,7 @@
 #include "../common/QToQuitEventReceiver.h"
 
 #include "nbl/ext/DebugDraw/CDraw3DLine.h"
+#include "nbl/ext/DepthPyramidGenerator/DepthPyramidGenerator.h"
 
 using namespace nbl;
 using namespace nbl::core;
@@ -1191,6 +1192,23 @@ int main()
         }
     };
 
+    using DPG = ext::DepthPyramidGenerator::DepthPyramidGenerator;
+
+    DPG dpg(driver, am, depthBufferView);
+
+    const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView);
+    core::vector<core::smart_refctd_ptr<IGPUImageView>> mips(mipCnt);
+    DPG::createMipMapImageViews(driver, depthBufferView, mips.data());
+
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> dpgDsLayout;
+    core::smart_refctd_ptr<IGPUDescriptorSet> dpgDs;
+    auto dsLayoutDsTmp = DPG::createDescriptorSet(driver, depthBufferView, mips.data());
+    dpgDsLayout = dsLayoutDsTmp.first;
+    dpgDs = dsLayoutDsTmp.second;
+
+    core::smart_refctd_ptr<IGPUComputePipeline> dpgPpln;
+    dpg.createPipeline(driver, depthBufferView, mips.data(), dpgDsLayout, dpgPpln);
+
     //! we want to move around the scene and view it from different angles
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.5f);
 
@@ -1228,6 +1246,9 @@ int main()
         const uint32_t invalidObjectCode[4] = { ~0u,0u,0u,0u };
         driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, invalidObjectCode);
         fillVBuffer(sceneData.frustumCulledMdiBuffer);
+
+        // create depth pyramid
+        dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs);
 
         // occlusion cull (against partially filled new Z-buffer)
         driver->setRenderTarget(zBuffOnlyFrameBuffer);

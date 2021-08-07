@@ -127,10 +127,11 @@ uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, cor
 	return mipmapsCnt;
 }
 
-void DepthPyramidGenerator::createPipeline(
-	IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips,
-	core::smart_refctd_ptr<IGPUDescriptorSet>& outputDs, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config)
+std::pair<core::smart_refctd_ptr<IGPUDescriptorSetLayout>, core::smart_refctd_ptr<IGPUDescriptorSet>> 
+	DepthPyramidGenerator::createDescriptorSet(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, const Config& config)
 {
+	assert(inputDepthPyramidMips);
+
 	// TODO: complete supported formats
 	switch (config.outputFormat)
 	{
@@ -146,8 +147,8 @@ void DepthPyramidGenerator::createPipeline(
 		assert(false);
 	}
 
-
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> dsLayout;
+	core::smart_refctd_ptr<IGPUDescriptorSet> ds;
 	{
 		IGPUSampler::SParams params;
 		params.TextureWrapU = ISampler::ETC_CLAMP_TO_BORDER;
@@ -175,7 +176,7 @@ void DepthPyramidGenerator::createPipeline(
 		bindings[1].type = EDT_STORAGE_IMAGE;
 
 		dsLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
-		outputDs = driver->createGPUDescriptorSet(core::smart_refctd_ptr(dsLayout));
+		ds = driver->createGPUDescriptorSet(core::smart_refctd_ptr(dsLayout));
 	}
 
 	{
@@ -187,14 +188,14 @@ void DepthPyramidGenerator::createPipeline(
 		infos[1].image.sampler = nullptr;
 
 		IGPUDescriptorSet::SWriteDescriptorSet writes[2];
-		writes[0].dstSet = outputDs.get();
+		writes[0].dstSet = ds.get();
 		writes[0].binding = 0;
 		writes[0].arrayElement = 0u;
 		writes[0].count = 1u;
 		writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 		writes[0].info = &infos[0];
 
-		writes[1].dstSet = outputDs.get();
+		writes[1].dstSet = ds.get();
 		writes[1].binding = 1;
 		writes[1].arrayElement = 0u;
 		writes[1].count = 1u;
@@ -204,6 +205,13 @@ void DepthPyramidGenerator::createPipeline(
 		driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
 	}
 
+	return std::make_pair(dsLayout, ds);
+}
+
+void DepthPyramidGenerator::createPipeline(
+	IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips,
+	core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config)
+{
 	outputPpln = driver->createGPUComputePipeline(nullptr, driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout)), core::smart_refctd_ptr(m_shader));
 }
 

@@ -75,9 +75,12 @@ public:
 
 	static uint32_t createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config = Config());
 
+	static std::pair<core::smart_refctd_ptr<IGPUDescriptorSetLayout>, core::smart_refctd_ptr<IGPUDescriptorSet>> 
+		createDescriptorSet(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, const Config& config = Config());
+
 	void createPipeline(
 		IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
-		core::smart_refctd_ptr<IGPUDescriptorSet>& outputDs, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config = Config());
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config = Config());
 
 	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, bool issueDefaultBarrier = true);
 
