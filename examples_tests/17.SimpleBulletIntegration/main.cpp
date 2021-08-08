@@ -189,9 +189,9 @@ int main()
 	core::vector<GPUObject> gpuObjects; 
 
 	// Instance Data
-	constexpr uint32_t NumCubes = 10;
-	constexpr uint32_t NumCylinders = 10;
-	constexpr uint32_t NumSpheres = 10;
+	constexpr uint32_t NumCubes = 20;
+	constexpr uint32_t NumCylinders = 20;
+	constexpr uint32_t NumSpheres = 20;
 	constexpr uint32_t NumCones = 0;
 
 	constexpr uint32_t startIndexCubes = 0;
@@ -282,7 +282,7 @@ int main()
 		}
 
 		core::matrix3x4SIMD mat;
-		mat.setTranslation(core::vectorSIMDf(0.0f, i * 3.0f, 0.0f));
+		mat.setTranslation(core::vectorSIMDf(float(i % 3) - 1.0f, i * 1.5f, 0.0f));
 		
 		instancesData[i].modelMatrix = mat;
 		rigidBodyData.trans = mat;
