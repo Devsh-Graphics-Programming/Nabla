@@ -422,7 +422,7 @@ int main()
 	if(NumCones > 0)
 		gpuObjects.push_back(createGPUObject(cpuMeshCone.get(), gpuInstancesBuffer, NumCones, sizeof(InstanceData) * startIndexCones, asset::EFCM_NONE));
 
-	auto lastTime = std::chrono::high_resolution_clock::now();
+	auto lastTime = std::chrono::system_clock::now();
 	constexpr uint32_t FRAME_COUNT = 500000u;
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
@@ -449,10 +449,44 @@ int main()
 	
 
 	// render loop
+	constexpr size_t MaxFramesToAverage = 100ull;
+	size_t frame_count = 0ull;
+	double time_sum = 0;
+	double dtList[MaxFramesToAverage] = {};
+	for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
+		dtList[i] = 0.0;
+	}
+
 	double dt = 0;
 
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
+		// Timing
+
+		auto renderStart = std::chrono::system_clock::now();
+		dt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart-lastTime).count();
+		lastTime = renderStart;
+		
+		// Calculate Simple Moving Average for FrameTime
+		{
+			time_sum -= dtList[frame_count];
+			time_sum += dt;
+			dtList[frame_count] = dt;
+			frame_count++;
+			if(frame_count >= MaxFramesToAverage) {
+				frame_count = 0;
+			}
+		}
+		double averageFrameTime = time_sum / (double)MaxFramesToAverage;
+		// logger->log("dt = %f ------ averageFrameTime = %f",system::ILogger::ELL_INFO, dt, averageFrameTime);
+		
+		// Calculate Next Presentation Time Stamp
+		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
+		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+		
+		cam.update(nextPresentationTimeStamp);
+
 		// Input 
 		inputSystem->getDefaultMouse(&mouse);
 		inputSystem->getDefaultKeyboard(&keyboard);
@@ -470,10 +504,6 @@ int main()
 		}
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-		
-		auto now = std::chrono::high_resolution_clock::now();
-		dt = std::chrono::duration_cast<std::chrono::milliseconds>(now-lastTime).count();
-		lastTime = now;
 		
 		// safe to proceed
 		cb->begin(0);
@@ -515,13 +545,6 @@ int main()
 		{
 			// Update Physics
 			world->getWorld()->stepSimulation(dt);
-
-			static double anim = 0.0;
-			anim += dt * 0.001f;
-
-			// cam.setTarget(core::vector3df(core::sin(anim) * 5.0f, 0.0f, 0.0f));
-
-			cam.update(dt);
 
 			asset::SBufferRange<video::IGPUBuffer> range;
 			range.buffer = gpuInstancesBuffer;

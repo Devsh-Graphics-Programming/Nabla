@@ -208,66 +208,70 @@ public:
 
 	void keyboardProcess(const IKeyboardEventChannel::range_t& events)
 	{
+		double perActionDt[Keys::EKA_COUNT] = {};
+
+		for(uint32_t k = 0; k < Keys::EKA_COUNT; ++k) {
+			if(keysDown[k] == true) {
+				auto timeDiff = (nextPresentationTimeStamp - lastVirtualUpTimeStamp).count();
+				assert(timeDiff >= 0);
+				perActionDt[k] += timeDiff;
+			}
+		}
+
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
 			auto ev = *eventIt;
 
+			auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>((nextPresentationTimeStamp - ev.timeStamp)).count();
+			assert(timeDiff >= 0);
+
 			if(ev.keyCode == ui::EKC_UP_ARROW || ev.keyCode == ui::EKC_W) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_FORWARD] == false) {
+					perActionDt[Keys::EKA_MOVE_FORWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					perActionDt[Keys::EKA_MOVE_FORWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = false;
 				}
 			}
 
 			if(ev.keyCode == ui::EKC_DOWN_ARROW || ev.keyCode == ui::EKC_S) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_BACKWARD] == false) {
+					perActionDt[Keys::EKA_MOVE_BACKWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					perActionDt[Keys::EKA_MOVE_BACKWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = false;
 				}
 			}
 
 			if(ev.keyCode == ui::EKC_LEFT_ARROW || ev.keyCode == ui::EKC_A) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_LEFT] == false) {
+					perActionDt[Keys::EKA_MOVE_LEFT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					perActionDt[Keys::EKA_MOVE_LEFT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = false;
 				}
 			}
 
 			if(ev.keyCode == ui::EKC_RIGHT_ARROW || ev.keyCode == ui::EKC_D) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED) {
+				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_RIGHT] == false) {
+					perActionDt[Keys::EKA_MOVE_RIGHT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
+					perActionDt[Keys::EKA_MOVE_RIGHT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = false;
 				}
 			}
 		}
-	}
-
-	void update(double dt) {
-		float moveSpeed = 0.1f;
-		float rotateSpeed = 1.0f;
-
-		if(!mouseDown) {
-			return;
-		}
-
-		if(firstUpdate) {
-			// Set Cursor to middle of the screen
-			firstUpdate = false;
-		}
-
-		// update position
+		
+		float moveSpeed = 0.0001f;
 		core::vectorSIMDf pos; pos.set(getPosition());
-
-		// Update rotation
 		core::vectorSIMDf target = getTarget() - pos;
 		core::vector3df relativeRotation = target.getAsVector3df().getHorizontalAngle();
 	
 		// set target
-		
 		target.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
 		core::vectorSIMDf movedir = target;
 
@@ -285,11 +289,9 @@ public:
 		movedir.makeSafe3D();
 		movedir = core::normalize(movedir);
 
-		if (keysDown[Keys::EKA_MOVE_FORWARD])
-			pos += movedir * dt * moveSpeed;
+		pos += movedir * perActionDt[Keys::EKA_MOVE_FORWARD] * moveSpeed;
 
-		if (keysDown[Keys::EKA_MOVE_BACKWARD])
-			pos -= movedir * dt * moveSpeed;
+		pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed;
 
 		// strafing
 
@@ -301,11 +303,9 @@ public:
 
 		strafevect = core::normalize(strafevect);
 
-		if (keysDown[Keys::EKA_MOVE_LEFT])
-			pos += strafevect * dt * moveSpeed;
+		pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed;
 
-		if (keysDown[Keys::EKA_MOVE_RIGHT])
-			pos -= strafevect * dt * moveSpeed;
+		pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed;
 
 		// write translation
 		setPosition(pos.getAsVector3df());
@@ -313,6 +313,20 @@ public:
 		// write right target
 		target += pos;
 		setTarget(target.getAsVector3df());
+
+		lastVirtualUpTimeStamp = nextPresentationTimeStamp;
+	}
+
+	void update(std::chrono::microseconds _nextPresentationTimeStamp) {
+		nextPresentationTimeStamp = _nextPresentationTimeStamp;
+
+		if(firstUpdate) {
+			lastVirtualUpTimeStamp = nextPresentationTimeStamp;
+			// Set Cursor to middle of the screen
+			firstUpdate = false;
+		}
+
+		return;
 	}
 
 private:
@@ -352,9 +366,12 @@ private:
 		EKA_COUNT,
 	};
 
-	bool keysDown[(size_t)Keys::EKA_COUNT] = {};
+	bool keysDown[Keys::EKA_COUNT] = {};
 	bool firstUpdate = true;
 	bool mouseDown = false;
+
+	std::chrono::microseconds nextPresentationTimeStamp;
+	std::chrono::microseconds lastVirtualUpTimeStamp;
 };
 
 #endif // _CAMERA_IMPL_
