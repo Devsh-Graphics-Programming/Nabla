@@ -212,7 +212,7 @@ public:
 
 		for(uint32_t k = 0; k < Keys::EKA_COUNT; ++k) {
 			if(keysDown[k] == true) {
-				auto timeDiff = (nextPresentationTimeStamp - lastVirtualUpTimeStamp).count();
+				auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(nextPresentationTimeStamp - lastVirtualUpTimeStamp).count();
 				assert(timeDiff >= 0);
 				perActionDt[k] += timeDiff;
 			}
@@ -222,7 +222,7 @@ public:
 		{
 			auto ev = *eventIt;
 
-			auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>((nextPresentationTimeStamp - ev.timeStamp)).count();
+			auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(nextPresentationTimeStamp - ev.timeStamp).count();
 			assert(timeDiff >= 0);
 
 			if(ev.keyCode == ui::EKC_UP_ARROW || ev.keyCode == ui::EKC_W) {
@@ -266,7 +266,7 @@ public:
 			}
 		}
 		
-		float moveSpeed = 0.0001f;
+		float moveSpeed = 0.02f;
 		core::vectorSIMDf pos; pos.set(getPosition());
 		core::vectorSIMDf target = getTarget() - pos;
 		core::vector3df relativeRotation = target.getAsVector3df().getHorizontalAngle();
