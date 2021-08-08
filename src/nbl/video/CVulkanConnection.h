@@ -70,7 +70,8 @@ public:
             }
         }
         
-        vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
+        if (vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance) != VK_SUCCESS)
+            printf("FAiled to create vulkan instance!\n");
         assert(m_instance);
         
         // Todo(achal): I gotta look into this ie if (and how) we want to use volkLoadInstanceOnly

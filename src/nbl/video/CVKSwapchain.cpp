@@ -18,9 +18,7 @@ CVKSwapchain::CVKSwapchain(SCreationParams&& params, CVKLogicalDevice* dev)
     createInfo.imageColorSpace = ISurfaceVK::getVkColorSpaceKHR(m_params.surfaceFormat.colorSpace);
     createInfo.imageExtent = { m_params.width, m_params.height };
     createInfo.imageArrayLayers = m_params.arrayLayers;
-
-    // Todo(achal): Probably need make an enum for this
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
 
     createInfo.imageSharingMode = static_cast<VkSharingMode>(m_params.imageSharingMode);
     createInfo.queueFamilyIndexCount = static_cast<uint32_t>(m_params.queueFamilyIndices->size());

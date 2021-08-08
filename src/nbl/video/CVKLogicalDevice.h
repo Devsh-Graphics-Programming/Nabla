@@ -12,6 +12,8 @@
 #include "nbl/video/CVulkanFramebuffer.h"
 #include "nbl/video/CVulkanSemaphore.h"
 #include "nbl/video/CVulkanFence.h"
+#include "nbl/video/CVulkanShader.h"
+#include "nbl/video/CVulkanSpecializedShader.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -168,7 +170,8 @@ public:
             
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) override
     {
-        return nullptr; // return core::smart_refctd_ptr<CVulkanCommandPool>();
+        // vkCreateCommandPool()
+        return nullptr;
     }
             
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
@@ -193,9 +196,17 @@ public:
             
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
-        return nullptr;
+        const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
+        core::smart_refctd_ptr<asset::ICPUBuffer> clone =
+            core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
+        if (cpushader->containsGLSL())
+            return core::make_smart_refctd_ptr<CVulkanShader>(this, std::move(clone), IGPUShader::buffer_contains_glsl);
+        else
+            return core::make_smart_refctd_ptr<CVulkanShader>(this, std::move(clone));
+        
     }
 
+    // Todo(achal): There's already a createGPUImage method in ILogicalDevice
     core::smart_refctd_ptr<IGPUImage> createGPUImage(IGPUImage::SCreationParams&& params)
     {
 #if 0
@@ -297,7 +308,61 @@ protected:
 
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) override
     {
-        return nullptr;
+        if (_unspecialized->getAPIType() != EAT_VULKAN)
+        {
+            // Log a warning
+            return nullptr;
+        }
+        const CVulkanShader* unspecializedShader = static_cast<const CVulkanShader*>(_unspecialized);
+
+        const std::string& entryPoint = _specInfo.entryPoint;
+        const asset::ISpecializedShader::E_SHADER_STAGE shaderStage = _specInfo.shaderStage;
+
+        core::smart_refctd_ptr<asset::ICPUBuffer> spirv = nullptr;
+        if (unspecializedShader->containsGLSL())
+        {
+            const char* begin = reinterpret_cast<const char*>(unspecializedShader->getSPVorGLSL()->getPointer());
+            const char* end = begin + unspecializedShader->getSPVorGLSL()->getSize();
+            std::string glsl(begin, end);
+            core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
+                m_GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), shaderStage,
+                    _specInfo.m_filePathHint.c_str());
+
+            spirv = m_GLSLCompiler->compileSPIRVFromGLSL(
+                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+                shaderStage, entryPoint.c_str(), _specInfo.m_filePathHint.c_str());
+        }
+        else
+        {
+            spirv = unspecializedShader->getSPVorGLSL_refctd();
+        }
+
+        // Should just do this check in ISPIRVOptimizer::optimize
+        if (!spirv)
+            return nullptr;
+
+        if (_spvopt)
+            spirv = _spvopt->optimize(spirv.get());
+
+        if (!spirv)
+            return nullptr;
+
+        VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+        createInfo.pNext = nullptr;
+        // createInfo.flags = 0; (reserved for future use by Vulkan)
+        createInfo.codeSize = spirv->getSize();
+        createInfo.pCode = reinterpret_cast<const uint32_t*>(spirv->getPointer());
+        
+        VkShaderModule vk_shaderModule;
+        if (vkCreateShaderModule(m_vkdev, &createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<video::CVulkanSpecializedShader>(this, vk_shaderModule, shaderStage);
+        }
+        else
+        {
+            // Probably log a warning
+            return nullptr;
+        }
     }
 
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override

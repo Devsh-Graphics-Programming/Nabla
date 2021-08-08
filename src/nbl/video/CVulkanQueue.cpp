@@ -17,7 +17,7 @@ CVulkanQueue::CVulkanQueue(CVKLogicalDevice* vkdev, VkQueue vkq, uint32_t _famIx
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
     auto vkdev = m_vkdevice->getInternalObject();
-    auto* vk = m_vkdevice->getFunctionTable();
+    // auto* vk = m_vkdevice->getFunctionTable();
 
     uint32_t waitSemCnt = 0u;
     uint32_t signalSemCnt = 0u;
@@ -44,7 +44,8 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         mem = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(memSize, _NBL_SIMD_ALIGNMENT) );
     }
 
-    auto raii_ = core::makeRAIIExiter([mem,stackmem_]{ _NBL_ALIGNED_FREE(mem); });
+    // auto raii_ = core::makeRAIIExiter([mem,stackmem_]{ _NBL_ALIGNED_FREE(mem); });
+    auto raii_ = core::makeRAIIExiter([mem]{ _NBL_ALIGNED_FREE(mem); });
 
     VkSubmitInfo* submits = reinterpret_cast<VkSubmitInfo*>(mem);
     mem += submitsSz;
@@ -103,9 +104,10 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     }
 
     VkFence fence = _fence ? static_cast<CVulkanFence*>(_fence)->getInternalObject() : VK_NULL_HANDLE;
-    vk->vk.vkQueueSubmit(m_vkqueue, _count, submits, fence);
+    // vk->vk.vkQueueSubmit(m_vkqueue, _count, submits, fence);
+    if (vkQueueSubmit(m_vkqueue, _count, submits, fence) == VK_SUCCESS)
+        return true;
 
-    // Todo(achal): THIS IS FAKE !!!!
     return false;
 }
 

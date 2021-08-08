@@ -27,7 +27,7 @@ public:
         uint32_t arrayLayers = 1u;
         core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
 
-        //VkImageUsageFlags imageUsage;
+        asset::IImage::E_USAGE_FLAGS imageUsage;
         asset::E_SHARING_MODE imageSharingMode;
         ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
         //VkCompositeAlphaFlagBitsKHR compositeAlpha;

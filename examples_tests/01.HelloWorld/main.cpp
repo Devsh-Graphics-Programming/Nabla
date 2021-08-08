@@ -137,7 +137,9 @@ int main()
 	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
 	auto window = winManager->createWindow(std::move(params));
 
+	// Todo(achal): This, for some reason, fails for Release and RelWithDebInfo builds
 	core::smart_refctd_ptr<video::IAPIConnection> vk = video::IAPIConnection::create(std::move(system), video::EAT_VULKAN, 0, "New API Test", &dbgcb);
+#if 1
 	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(window.get());
 
 	auto gpus = vk->getPhysicalDevices();
@@ -300,6 +302,7 @@ int main()
 	sc_params.queueFamilyIndices = queueFamilyIndices;
 	sc_params.imageSharingMode = imageSharingMode;
 	sc_params.preTransform = preTransform;
+	sc_params.imageUsage = asset::IImage::EUF_COLOR_ATTACHMENT_BIT;
 
 	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(std::move(sc_params));
 
@@ -502,6 +505,18 @@ int main()
 		VkResult result = vkQueueSubmit(vk_graphicsQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
 		assert(result == VK_SUCCESS);
 
+		// asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+		// video::IGPUQueue::SSubmitInfo submitInfo = {};
+		// submitInfo.waitSemaphoreCount = 1u;
+		// submitInfo.pWaitSemaphores = &acquireSemaphore_frame;
+		// submitInfo.pWaitDstStageMask = &waitDstStageFlags;
+		// submitInfo.signalSemaphoreCount = 1u;
+		// submitInfo.pSignalSemaphores = &releaseSemaphore_frame;
+		// submitInfo.commandBufferCount = 1u;
+		// submitInfo.commandBuffers = ;
+		// assert(graphicsQueue->submit(1u, &submitInfo, fence_frame));
+
 		video::IGPUQueue::SPresentInfo presentInfo;
 		presentInfo.waitSemaphoreCount = 1u;
 		presentInfo.waitSemaphores = &releaseSemaphore_frame;
@@ -516,6 +531,7 @@ int main()
 	device->waitIdle();
 
 	vkDestroyCommandPool(vk_device, commandPool, nullptr);
+#endif
 
 #if 0
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);

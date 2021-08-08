@@ -3,10 +3,21 @@
 
 #include "../common/CommonAPI.h"
 
+// Temporary
+#include <volk/volk.h>
+#include "../../src/nbl/video/CVulkanPhysicalDevice.h"
+#include "../../src/nbl/video/CVKLogicalDevice.h"
+#include "../../src/nbl/video/CVulkanImage.h"
+
+#include <nbl/ui/CWindowManagerWin32.h>
+
 using namespace nbl;
 using namespace core;
 
+// This probably a TODO for @sadiuk
+static bool windowShouldClose_Global = false;
 
+#if 0
 const char* src = R"(#version 450
 
 layout (local_size_x = 16, local_size_y = 16) in;
@@ -27,11 +38,624 @@ void main()
 		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 1, 0, 1));
 	}
 })";
+#else
+const char* src = R"(#version 450
 
+// layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (binding = 0, rgba8) uniform writeonly image2D outImage;
+
+void main()
+{
+	// if (all(lessThan(gl_GlobalInvocationID.xy, u_pushConstants.imgSize)))
+	{
+		// vec3 rgb = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+		
+		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 0, 1, 1));
+	}
+})";
+#endif
+
+inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
+{
+	using namespace nbl;
+	const char* sev = nullptr;
+	switch (severity)
+	{
+	case video::EDMS_VERBOSE:
+		sev = "verbose"; break;
+	case video::EDMS_INFO:
+		sev = "info"; break;
+	case video::EDMS_WARNING:
+		sev = "warning"; break;
+	case video::EDMS_ERROR:
+		sev = "error"; break;
+	}
+	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
+}
+
+#define LOG(...) printf(__VA_ARGS__); printf("\n");
+class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
+{
+	void onWindowShown_impl() override
+	{
+		LOG("Window Shown");
+	}
+	void onWindowHidden_impl() override
+	{
+		LOG("Window hidden");
+	}
+	void onWindowMoved_impl(int32_t x, int32_t y) override
+	{
+		LOG("Window window moved to { %d, %d }", x, y);
+	}
+	void onWindowResized_impl(uint32_t w, uint32_t h) override
+	{
+		LOG("Window resized to { %u, %u }", w, h);
+	}
+	void onWindowMinimized_impl() override
+	{
+		LOG("Window minimized");
+	}
+	void onWindowMaximized_impl() override
+	{
+		LOG("Window maximized");
+	}
+	void onGainedMouseFocus_impl() override
+	{
+		LOG("Window gained mouse focus");
+	}
+	void onLostMouseFocus_impl() override
+	{
+		LOG("Window lost mouse focus");
+	}
+	void onGainedKeyboardFocus_impl() override
+	{
+		LOG("Window gained keyboard focus");
+	}
+	void onLostKeyboardFocus_impl() override
+	{
+		LOG("Window lost keyboard focus");
+		windowShouldClose_Global = true;
+	}
+
+	void onMouseConnected_impl(core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+	{
+		LOG("A mouse has been connected");
+	}
+	void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+	{
+		LOG("A mouse has been disconnected");
+	}
+	void onKeyboardConnected_impl(core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+	{
+		LOG("A keyboard has been connected");
+	}
+	void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* mch) override
+	{
+		LOG("A keyboard has been disconnected");
+	}
+};
 
 
 int main()
 {
+	constexpr uint32_t WIN_W = 800u;
+	constexpr uint32_t WIN_H = 600u;
+	constexpr uint32_t SC_IMG_COUNT = 3u; // problematic, shouldn't fix the number of swapchain images at compile time, since Vulkan is under no obligation to return you the exact number of images you requested
+
+	// Note(achal): This is unused, for now
+	video::SDebugCallback dbgcb;
+	dbgcb.callback = &debugCallback;
+	dbgcb.userData = nullptr;
+
+	auto system = CommonAPI::createSystem(); // Todo(achal): Need to get rid of this
+
+	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
+
+	nbl::ui::IWindow::SCreationParams params;
+	params.callback = nullptr;
+	params.width = WIN_W;
+	params.height = WIN_H;
+	params.x = 0;
+	params.y = 0;
+	params.system = core::smart_refctd_ptr(system);
+	params.flags = nbl::ui::IWindow::ECF_NONE;
+	params.windowCaption = "02.ComputeShader";
+	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
+	auto window = winManager->createWindow(std::move(params));
+
+	core::smart_refctd_ptr<video::IAPIConnection> vk = video::IAPIConnection::create(
+		std::move(system), video::EAT_VULKAN, 0, "02.ComputeShader", &dbgcb);
+	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(window.get());
+
+	// Todo(achal): Remove
+	VkSurfaceKHR vk_surface = reinterpret_cast<video::ISurfaceVK*>(surface.get())->m_surface;
+
+	auto gpus = vk->getPhysicalDevices();
+	assert(!gpus.empty());
+
+	// I want a GPU which supports both compute queue and present queue
+	uint32_t computeFamilyIndex(~0u);
+	uint32_t presentFamilyIndex(~0u);
+
+	// Todo(achal): Probably want to put these into some struct
+	nbl::video::ISurface::SFormat surfaceFormat;
+	nbl::video::ISurface::E_PRESENT_MODE presentMode;
+	nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
+	nbl::asset::E_SHARING_MODE imageSharingMode;
+	VkExtent2D swapchainExtent;
+	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
+	QueueFamilyIndicesArrayType queueFamilyIndices;
+
+	core::smart_refctd_ptr<video::CVulkanPhysicalDevice> gpu = nullptr;
+	for (size_t i = 0ull; i < gpus.size(); ++i)
+	{
+		// Todo(achal): Hacks, get rid
+		gpu = core::smart_refctd_ptr_static_cast<video::CVulkanPhysicalDevice>(*(gpus.begin() + i));
+
+		bool isGPUSuitable = false;
+
+		// Queue families --need to look for compute and present families
+		{
+			const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
+
+			for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+			{
+				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
+					computeFamilyIndex = familyIndex;
+
+				if (surface->isSupported(gpu.get(), familyIndex))
+					presentFamilyIndex = familyIndex;
+
+				if ((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))
+				{
+					isGPUSuitable = true;
+					break;
+				}
+			}
+		}
+
+		// Check if this physical device supports the swapchain extension
+		// Todo(achal): Eventually move this to CommonAPI.h
+		{
+			// Todo(achal): Get this from the user
+			const uint32_t requiredDeviceExtensionCount = 1u;
+			const char* requiredDeviceExtensionNames[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+			uint32_t availableExtensionCount;
+			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, NULL);
+			std::vector<VkExtensionProperties> availableExtensions(availableExtensionCount);
+			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, availableExtensions.data());
+
+			bool requiredDeviceExtensionsAvailable = false;
+			for (uint32_t i = 0u; i < availableExtensionCount; ++i)
+			{
+				if (strcmp(availableExtensions[i].extensionName, requiredDeviceExtensionNames[0]) == 0)
+				{
+					requiredDeviceExtensionsAvailable = true;
+					break;
+				}
+			}
+
+			if (!requiredDeviceExtensionsAvailable)
+				isGPUSuitable = false;
+		}
+
+		// Check if the surface is adequate
+		{
+			uint32_t surfaceFormatCount;
+			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, nullptr);
+			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
+			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, surfaceFormats.data());
+
+			video::ISurface::E_PRESENT_MODE presentModes =
+				gpu->getAvailablePresentModesForSurface(surface.get());
+
+			// Todo(achal): Probably should make a ISurface::SCapabilities
+			// struct for this as a wrapper for VkSurfaceCapabilitiesKHR
+			// nbl::video::ISurface::SCapabilities surfaceCapabilities = ;
+			VkSurfaceCapabilitiesKHR surfaceCapabilities;
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->getInternalObject(),
+				vk_surface, &surfaceCapabilities);
+
+			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
+			printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
+
+			assert(surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT);
+
+			if ((surfaceCapabilities.maxImageCount != 0) && (SC_IMG_COUNT > surfaceCapabilities.maxImageCount)
+				|| (surfaceFormats.empty()) || (presentModes == static_cast<video::ISurface::E_PRESENT_MODE>(0)))
+			{
+				isGPUSuitable = false;
+			}
+
+			// Todo(achal): Probably a more sophisticated way to choose these
+			surfaceFormat = surfaceFormats[0];
+			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(presentModes & (1 << 0));
+			preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
+			swapchainExtent = surfaceCapabilities.currentExtent;
+		}
+
+		if (isGPUSuitable) // find the first suitable GPU
+			break;
+	}
+	assert((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
+
+	video::ILogicalDevice::SCreationParams deviceCreationParams;
+	if (computeFamilyIndex == presentFamilyIndex)
+	{
+		deviceCreationParams.queueParamsCount = 1u;
+		imageSharingMode = asset::ESM_EXCLUSIVE;
+	}
+	else
+	{
+		deviceCreationParams.queueParamsCount = 2u;
+		imageSharingMode = asset::ESM_CONCURRENT;
+	}
+
+	queueFamilyIndices = core::make_refctd_dynamic_array<QueueFamilyIndicesArrayType>(deviceCreationParams.queueParamsCount);
+	{
+		const uint32_t temp[] = { computeFamilyIndex, presentFamilyIndex };
+		for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
+			(*queueFamilyIndices)[i] = temp[i];
+	}
+
+	// Could make this a static member of IGPUQueue, something like
+	// IGPUQueue::DEFAULT_QUEUE_PRIORITY, as a "don't-care" value for the user
+	const float defaultQueuePriority = 1.f;
+
+	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
+	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
+	{
+		queueCreationParams[i].familyIndex = (*queueFamilyIndices)[i];
+		queueCreationParams[i].count = 1u;
+		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+		queueCreationParams[i].priorities = &defaultQueuePriority;
+	}
+	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
+	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
+
+	video::IGPUQueue* computeQueue = device->getQueue(computeFamilyIndex, 0u);
+	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
+
+	// Todo(achal): We might want to check if: VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT and
+	// VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT are supported for current surface format
+	// and current physical device. In fact, we might want to put this up as a criteria
+	// for making the physical device suitable
+	nbl::video::ISwapchain::SCreationParams sc_params = {};
+	sc_params.surface = surface;
+	sc_params.minImageCount = SC_IMG_COUNT;
+	sc_params.surfaceFormat = surfaceFormat;
+	sc_params.presentMode = presentMode;
+	sc_params.width = WIN_W;
+	sc_params.height = WIN_H;
+	sc_params.queueFamilyIndices = queueFamilyIndices;
+	sc_params.imageSharingMode = imageSharingMode;
+	sc_params.preTransform = preTransform;
+	sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
+		asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
+
+	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(
+		std::move(sc_params));
+
+	const auto swapchainImages = swapchain->getImages();
+	const uint32_t swapchainImageCount = swapchain->getImageCount();
+	assert(swapchainImageCount == SC_IMG_COUNT);
+
+	core::smart_refctd_ptr<video::IGPUImageView> swapchainImageViews[SC_IMG_COUNT];
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	{
+		auto img = swapchainImages.begin()[i];
+		{
+			video::IGPUImageView::SCreationParams viewParams;
+			viewParams.format = img->getCreationParameters().format;
+			viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+			viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			viewParams.subresourceRange.baseMipLevel = 0u;
+			viewParams.subresourceRange.levelCount = 1u;
+			viewParams.subresourceRange.baseArrayLayer = 0u;
+			viewParams.subresourceRange.layerCount = 1u;
+			viewParams.image = std::move(img); // this might create problems
+
+			swapchainImageViews[i] = device->createGPUImageView(std::move(viewParams));
+			assert(swapchainImageViews[i]);
+		}
+	}
+
+	// TODO: Load from "../compute.comp" instead of getting source from src
+	core::smart_refctd_ptr<video::IGPUShader> unspecializedShader = device->createGPUShader(
+		core::make_smart_refctd_ptr<asset::ICPUShader>(src));
+	asset::ISpecializedShader::SInfo specializationInfo(nullptr, nullptr, "main",
+		asset::ISpecializedShader::ESS_COMPUTE);
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader =
+		device->createGPUSpecializedShader(unspecializedShader.get(), specializationInfo);
+
+	// Todo(achal): I think we can make it greater than SC_IMG_COUNT
+	const uint32_t FRAMES_IN_FLIGHT = 2u;
+
+	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
+	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
+	core::smart_refctd_ptr<video::IGPUFence> frameFences[FRAMES_IN_FLIGHT];
+	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+	{
+		acquireSemaphores[i] = device->createSemaphore();
+		releaseSemaphores[i] = device->createSemaphore();
+		frameFences[i] = device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
+	}
+	
+	// Hacky vulkan stuff begins --get handles to existing Vulkan stuff
+	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
+
+	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
+	VkFence vk_frameFences[FRAMES_IN_FLIGHT];
+	{
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+		{
+			vk_acquireSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(acquireSemaphores[i].get())->getInternalObject();
+			vk_releaseSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(releaseSemaphores[i].get())->getInternalObject();
+			vk_frameFences[i] = reinterpret_cast<video::CVulkanFence*>(frameFences[i].get())->getInternalObject();
+		}
+	}
+
+	VkQueue vk_computeQueue = reinterpret_cast<video::CVulkanQueue*>(
+		computeQueue)->getInternalObject();
+
+	VkImage vk_swapchainImages[SC_IMG_COUNT];
+	uint32_t i = 0u;
+	for (auto image : swapchainImages)
+		vk_swapchainImages[i++] = reinterpret_cast<video::CVulkanImage*>(image.get())->getInternalObject();
+
+	VkImageView vk_swapchainImageViews[SC_IMG_COUNT];
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		vk_swapchainImageViews[i] = reinterpret_cast<video::CVulkanImageView*>(
+			swapchainImageViews[i].get())->getInternalObject();
+	}
+
+	VkShaderModule vk_shaderModule = reinterpret_cast<video::CVulkanSpecializedShader*>(specializedShader.get())->m_shaderModule;
+
+	// Pure vulkan stuff
+	
+	VkDescriptorSetLayout vk_dsLayout;
+	{
+		VkDescriptorSetLayoutBinding vk_dsLayoutBinding = {};
+		vk_dsLayoutBinding.binding = 0u;
+		vk_dsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		vk_dsLayoutBinding.descriptorCount = 1u;
+		vk_dsLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		vk_dsLayoutBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+		createInfo.pNext = nullptr;
+		createInfo.flags = 0;
+		createInfo.bindingCount = 1u;
+		createInfo.pBindings = &vk_dsLayoutBinding;
+
+		assert(vkCreateDescriptorSetLayout(vk_device, &createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS);
+	}
+
+	VkDescriptorPool vk_descriptorPool = VK_NULL_HANDLE;
+	{
+		VkDescriptorPoolSize vk_poolSize = {};
+		vk_poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		vk_poolSize.descriptorCount = SC_IMG_COUNT;
+
+		VkDescriptorPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+		createInfo.pNext = nullptr;
+		createInfo.flags = 0;
+		createInfo.maxSets = SC_IMG_COUNT;
+		createInfo.poolSizeCount = 1u;
+		createInfo.pPoolSizes = &vk_poolSize;
+		
+		assert(vkCreateDescriptorPool(vk_device, &createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS);
+	}
+
+	VkDescriptorSet vk_descriptorSets[SC_IMG_COUNT];
+	{
+		VkDescriptorSetLayout vk_dsLayouts[SC_IMG_COUNT];
+		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+			vk_dsLayouts[i] = vk_dsLayout;
+
+		VkDescriptorSetAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		allocateInfo.pNext = nullptr;
+		allocateInfo.descriptorPool = vk_descriptorPool;
+		allocateInfo.descriptorSetCount = SC_IMG_COUNT;
+		allocateInfo.pSetLayouts = vk_dsLayouts;
+
+		assert(vkAllocateDescriptorSets(vk_device, &allocateInfo, vk_descriptorSets) == VK_SUCCESS);
+
+		// Update descriptor sets
+		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+		{
+			VkDescriptorImageInfo vk_imageInfo = {};
+			vk_imageInfo.sampler = VK_NULL_HANDLE;
+			vk_imageInfo.imageView = vk_swapchainImageViews[i];
+			vk_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+			VkWriteDescriptorSet vk_descriptorWrites = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+			vk_descriptorWrites.pNext = nullptr;
+			vk_descriptorWrites.dstSet = vk_descriptorSets[i];
+			vk_descriptorWrites.dstBinding = 0u;
+			vk_descriptorWrites.dstArrayElement = 0u;
+			vk_descriptorWrites.descriptorCount = 1u;
+			vk_descriptorWrites.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			vk_descriptorWrites.pImageInfo = &vk_imageInfo;
+			vk_descriptorWrites.pBufferInfo = nullptr;
+			vk_descriptorWrites.pTexelBufferView = nullptr;
+
+			vkUpdateDescriptorSets(vk_device, 1u, &vk_descriptorWrites, 0u, nullptr);
+		}
+	}
+
+	VkPipelineLayout vk_pipelineLayout;
+	{
+		VkPipelineLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+		createInfo.pNext = nullptr;
+		createInfo.flags = 0;
+		createInfo.setLayoutCount = 1u;
+		createInfo.pSetLayouts = &vk_dsLayout;
+		createInfo.pushConstantRangeCount = 0u;
+		createInfo.pPushConstantRanges = nullptr;
+
+		assert(vkCreatePipelineLayout(vk_device, &createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS);
+	}
+
+	VkPipeline vk_pipeline;
+	{
+		VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+		vk_shaderStageCreateInfo.pNext = nullptr;
+		vk_shaderStageCreateInfo.flags = 0;
+		vk_shaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		vk_shaderStageCreateInfo.module = vk_shaderModule;
+		vk_shaderStageCreateInfo.pName = "main"; // Todo(achal): Get from shader specialization info
+		vk_shaderStageCreateInfo.pSpecializationInfo = nullptr;
+
+		VkComputePipelineCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+		createInfo.pNext = nullptr;
+		createInfo.flags = 0;
+		createInfo.stage = vk_shaderStageCreateInfo;
+		createInfo.layout = vk_pipelineLayout;
+		createInfo.basePipelineHandle = VK_NULL_HANDLE;
+		createInfo.basePipelineIndex = -1;
+
+		assert(vkCreateComputePipelines(vk_device, VK_NULL_HANDLE, 1u, &createInfo,
+			nullptr, &vk_pipeline) == VK_SUCCESS);
+	}
+
+	VkCommandPool vk_commandPool = VK_NULL_HANDLE;
+	{
+		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+		createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		createInfo.queueFamilyIndex = computeFamilyIndex;
+	
+		assert(vkCreateCommandPool(vk_device, &createInfo, nullptr, &vk_commandPool) == VK_SUCCESS);
+	}
+
+	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
+
+	VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+	allocateInfo.commandPool = vk_commandPool;
+	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocateInfo.commandBufferCount = SC_IMG_COUNT;
+
+	assert(vkAllocateCommandBuffers(vk_device, &allocateInfo, vk_commandBuffers) == VK_SUCCESS);
+
+	// Record commands in commandBuffers here
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		VkImageMemoryBarrier undefToComputeBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+		undefToComputeBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		undefToComputeBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		undefToComputeBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		undefToComputeBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+		undefToComputeBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		undefToComputeBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		undefToComputeBarrier.image = vk_swapchainImages[i];
+
+		VkImageSubresourceRange subresourceRange = {};
+		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.levelCount = 1u;
+		subresourceRange.layerCount = 1u;
+		undefToComputeBarrier.subresourceRange = subresourceRange;
+
+		VkImageMemoryBarrier computeToPresentBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+		computeToPresentBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		computeToPresentBarrier.dstAccessMask = 0;
+		computeToPresentBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+		computeToPresentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		computeToPresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		computeToPresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		computeToPresentBarrier.image = vk_swapchainImages[i];
+		computeToPresentBarrier.subresourceRange = subresourceRange;
+
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+
+		assert(vkBeginCommandBuffer(vk_commandBuffers[i], &beginInfo) == VK_SUCCESS);
+
+		// The fact that this pipeline barrier is solely on a compute queue might
+		// affect the srcStageMask. More precisely, I think, for some reason, that
+		// VK_PIPELINE_STAGE_TRANSFER_BIT shouldn't be specified in compute queue
+		// but present queue (or transfer queue if theres one??)
+		vkCmdPipelineBarrier(vk_commandBuffers[i], VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u, &undefToComputeBarrier);
+		vkCmdBindPipeline(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
+
+		vkCmdBindDescriptorSets(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE,
+			vk_pipelineLayout, 0u, 1u, &vk_descriptorSets[i], 0u, nullptr);
+
+		vkCmdDispatch(vk_commandBuffers[i], WIN_W, WIN_H, 1);
+
+		vkCmdPipelineBarrier(vk_commandBuffers[i], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentBarrier);
+
+		assert(vkEndCommandBuffer(vk_commandBuffers[i]) == VK_SUCCESS);
+	}
+
+	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
+	
+	uint32_t currentFrameIndex = 0u;
+	while (!windowShouldClose_Global)
+	{
+		video::IGPUSemaphore* acquireSemaphore_frame = acquireSemaphores[currentFrameIndex].get();
+		video::IGPUSemaphore* releaseSemaphore_frame = releaseSemaphores[currentFrameIndex].get();
+		video::IGPUFence* fence_frame = frameFences[currentFrameIndex].get();
+
+		assert(device->waitForFences(1u, &fence_frame, true, ~0ull) == video::IGPUFence::ES_SUCCESS);
+
+		uint32_t imageIndex;
+		swapchain->acquireNextImage(~0ull, acquireSemaphores[currentFrameIndex].get(), nullptr,
+			&imageIndex);
+
+		// At this stage the final color values are output from the pipeline
+		// Todo(achal): Not really sure why are waiting at this pipeline stage for
+		// acquiring the image to render
+		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+		submitInfo.waitSemaphoreCount = 1u;
+		submitInfo.pWaitSemaphores = &vk_acquireSemaphores[currentFrameIndex];
+		submitInfo.pWaitDstStageMask = &pipelineStageFlags;
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.pCommandBuffers = &vk_commandBuffers[imageIndex];
+		submitInfo.signalSemaphoreCount = 1u;
+		submitInfo.pSignalSemaphores = &vk_releaseSemaphores[currentFrameIndex];
+
+		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
+		// once it finishes its execution
+		device->resetFences(1u, &fence_frame);
+
+		VkResult result = vkQueueSubmit(vk_computeQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
+		assert(result == VK_SUCCESS);
+
+		// asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+		// video::IGPUQueue::SSubmitInfo submitInfo = {};
+		// submitInfo.waitSemaphoreCount = 1u;
+		// submitInfo.pWaitSemaphores = &acquireSemaphore_frame;
+		// submitInfo.pWaitDstStageMask = &waitDstStageFlags;
+		// submitInfo.signalSemaphoreCount = 1u;
+		// submitInfo.pSignalSemaphores = &releaseSemaphore_frame;
+		// submitInfo.commandBufferCount = 1u;
+		// submitInfo.commandBuffers = ;
+		// assert(graphicsQueue->submit(1u, &submitInfo, fence_frame));
+
+		video::IGPUQueue::SPresentInfo presentInfo;
+		presentInfo.waitSemaphoreCount = 1u;
+		presentInfo.waitSemaphores = &releaseSemaphore_frame;
+		presentInfo.swapchainCount = 1u;
+		presentInfo.swapchains = &rawPointerToSwapchain;
+		presentInfo.imgIndices = &imageIndex;
+		assert(presentQueue->present(presentInfo));
+
+		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
+	}
+	device->waitIdle();
+
+	vkDestroyCommandPool(vk_device, vk_commandPool, nullptr);
+
+#if 0
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -226,5 +850,7 @@ int main()
 
 	device->waitIdle();
 
-	return 0;
+#endif
+	// return 0;
+	exit(0);
 }
