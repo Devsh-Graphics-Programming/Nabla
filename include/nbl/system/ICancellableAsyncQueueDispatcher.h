@@ -148,10 +148,10 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
 
                 void cancel()
                 {
+                    impl::ICancellableAsyncQueueDispatcherBase::future_base_t::cancel();
                     bool valid = valid_flag.exchange(false);
                     if (valid)
                         future_storage_t<T>::getStorage()->~T();
-                    impl::ICancellableAsyncQueueDispatcherBase::future_base_t::cancel();
                 }
 
                 future_t() = default;
