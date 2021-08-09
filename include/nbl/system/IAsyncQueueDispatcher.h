@@ -112,12 +112,12 @@ class IAsyncQueueDispatcherBase
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
 class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, public impl::IAsyncQueueDispatcherBase
 {
-        static_assert(std::is_base_of_v<impl::IAsyncQueueDispatcherBase::request_base_t, RequestType>, "Request type must derive from request_base_t!");
+        static_assert(std::is_base_of_v<impl::IAsyncQueueDispatcherBase::request_base_t,RequestType>, "Request type must derive from request_base_t!");
         static_assert(BufferSize>0u, "BufferSize must not be 0!");
         static_assert(core::isPoT(BufferSize), "BufferSize must be power of two!");
 
     protected:
-        using base_t = IThreadHandler<CRTP, InternalStateType>;
+        using base_t = IThreadHandler<CRTP,InternalStateType>;
         friend base_t;
     private:
         constexpr static inline uint32_t MaxRequestCount = BufferSize;
