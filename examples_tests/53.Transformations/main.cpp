@@ -501,8 +501,3 @@ int main()
 
 	return 0;
 }
-
-
-// If you see this line of code, i forgot to remove it
-// It forces the usage of NVIDIA GPU by OpenGL
-extern "C" {  _declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001; }
