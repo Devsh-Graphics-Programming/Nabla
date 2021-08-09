@@ -20,8 +20,8 @@ public:
 	Camera( const core::vectorSIMDf& position,
 			const core::vectorSIMDf& lookat,
 			const core::matrix4SIMD& projection,
-			float moveSpeed = 0.02f,
-			float rotateSpeed = 0.2f
+			float moveSpeed = 1.0f,
+			float rotateSpeed = 1.0f
 	) 
 		: position(position)
 		, target(lookat)
@@ -112,34 +112,41 @@ public:
 			}
 
 			if(ev.type == ui::SMouseEvent::EET_MOVEMENT && mouseDown) {
-				core::vectorSIMDf pos; pos.set(getPosition());
+				core::vectorSIMDf pos = getPosition();
 				core::vectorSIMDf localTarget = getTarget() - pos;
-				core::vector3df relativeRotation = localTarget.getAsVector3df().getHorizontalAngle();
-				relativeRotation.X -= ev.movementEvent.movementY * rotateSpeed * -1.0f;
-				float tmpYRot = ev.movementEvent.movementX * rotateSpeed * -1.0f;
-				if (leftHanded)
-					relativeRotation.Y -= tmpYRot;
-				else
-					relativeRotation.Y += tmpYRot;
 
-				constexpr float MaxVerticalAngle = 88.0f;
-				if (relativeRotation.X > MaxVerticalAngle*2 &&
-					relativeRotation.X < 360.0f-MaxVerticalAngle)
+				// Get Relative Rotation for localTarget in Radians
+				float relativeRotationX, relativeRotationY;
+				relativeRotationY = atan2(localTarget.X, localTarget.Z);
+				const double z1 = core::sqrt(localTarget.X*localTarget.X + localTarget.Z*localTarget.Z);
+				relativeRotationX = atan2(z1, localTarget.Y) - core::PI<float>()/2;
+				
+				constexpr float RotateSpeedScale = 0.003f; 
+				relativeRotationX -= ev.movementEvent.movementY * rotateSpeed * RotateSpeedScale * -1.0f;
+				float tmpYRot = ev.movementEvent.movementX * rotateSpeed * RotateSpeedScale * -1.0f;
+				if (leftHanded)
+					relativeRotationY -= tmpYRot;
+				else
+					relativeRotationY += tmpYRot;
+
+				const double MaxVerticalAngle = core::radians<float>(88.0f);
+				if (relativeRotationX > MaxVerticalAngle*2 &&
+					relativeRotationX < 2*core::PI<float>()-MaxVerticalAngle)
 				{
-					relativeRotation.X = 360.0f-MaxVerticalAngle;
+					relativeRotationX = 2*core::PI<float>()-MaxVerticalAngle;
 				}
 				else
-				if (relativeRotation.X > MaxVerticalAngle &&
-					relativeRotation.X < 360.0f-MaxVerticalAngle)
+				if (relativeRotationX > MaxVerticalAngle &&
+					relativeRotationX < 2*core::PI<float>()-MaxVerticalAngle)
 				{
-					relativeRotation.X = MaxVerticalAngle;
+					relativeRotationX = MaxVerticalAngle;
 				}
 
 				localTarget.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
 
 				core::matrix3x4SIMD mat;
 				{
-					mat.setRotation(core::quaternion(core::radians(relativeRotation.X), core::radians(relativeRotation.Y), 0));
+					mat.setRotation(core::quaternion(relativeRotationX, relativeRotationY, 0));
 				}
 				mat.transformVect(localTarget);
 				
@@ -222,9 +229,11 @@ public:
 		movedir.makeSafe3D();
 		movedir = core::normalize(movedir);
 
-		pos += movedir * perActionDt[Keys::EKA_MOVE_FORWARD] * moveSpeed;
+		constexpr float MoveSpeedScale = 0.02f; 
 
-		pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed;
+		pos += movedir * perActionDt[Keys::EKA_MOVE_FORWARD] * moveSpeed * MoveSpeedScale;
+
+		pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed * MoveSpeedScale;
 
 		// strafing
 		core::vectorSIMDf strafevect; strafevect.set(localTarget);
@@ -235,9 +244,9 @@ public:
 
 		strafevect = core::normalize(strafevect);
 
-		pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed;
+		pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed * MoveSpeedScale;
 
-		pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed;
+		pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed * MoveSpeedScale;
 
 		setPosition(pos);
 
