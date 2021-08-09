@@ -159,7 +159,7 @@ class CCircularBufferBase : public Base
 protected:
     bool isAlive(uint32_t ix) const
     {
-        typename const base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
+        const auto* flags = base_t::getAliveFlagsStorage();
         const auto block_n = ix / base_t::bits_per_flags_block;
         const auto block = flags[block_n].load();
         const auto local_ix = ix & (base_t::bits_per_flags_block - 1u);
@@ -193,13 +193,7 @@ private:
         {
             auto safe_begin = virtualIx < base_t::capacity() ? static_cast<counter_t>(0) : (virtualIx - base_t::capacity() + 1u);
             for (counter_t old_begin; (old_begin = m_cb_begin.load()) < safe_begin; )
-            {
-#if __cplusplus >= 202002L
                 m_cb_begin.wait(old_begin);
-#else
-                std::this_thread::yield();
-#endif
-            }
         }
 
         const auto ix = wrapAround(virtualIx);
@@ -347,12 +341,10 @@ public:
         storage->~type();
 
         ++m_cb_begin;
-#if __cplusplus >= 202002L
         if constexpr (!AllowOverflows)
         {
             m_cb_begin.notify_one();
         }
-#endif
 
         return cp;
     }

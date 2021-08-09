@@ -11,7 +11,7 @@ using namespace nbl::asset;
 
 static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_5;
 
-nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr& logger) const
+nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const
 {
     //https://www.lunarg.com/wp-content/uploads/2020/05/SPIR-V-Shader-Legalization-and-Size-Reduction-Using-spirv-opt_v1.2.pdf
 
@@ -81,7 +81,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     return result;
 }
 
-nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr& logger) const
+nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr logger) const
 {
     const uint32_t* spirv = reinterpret_cast<const uint32_t*>(_spirv->getPointer());
     const uint32_t count = _spirv->getSize() / sizeof(uint32_t);

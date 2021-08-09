@@ -16,7 +16,7 @@ namespace asset
 class IIncludeHandler : public core::IReferenceCounted
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR char* BUILTIN_PREFIX = "nbl/builtin/";
+		static constexpr const char* BUILTIN_PREFIX = "nbl/builtin/";
 		static bool isBuiltinPath(const system::path& _p)
 		{
 			const size_t prefix_len = strlen(BUILTIN_PREFIX);
