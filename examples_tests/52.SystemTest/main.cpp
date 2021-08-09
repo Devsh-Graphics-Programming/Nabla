@@ -270,14 +270,7 @@ int main()
 			{
 			case SMouseEvent::EET_MOVEMENT:
 			{
-				if ((*eventIt).movementEvent.isRelative)
-				{
-					logger->log("Relative mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).movementEvent.movementX, (*eventIt).movementEvent.movementY, ch, (*eventIt).timeStamp);
-				}
-				else
-				{
-					logger->log("Absolute mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_ERROR, ch, (*eventIt).timeStamp);
-				}
+				logger->log("Mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).movementEvent.movementX, (*eventIt).movementEvent.movementY, ch, (*eventIt).timeStamp);
 				break;
 			}
 			case SMouseEvent::EET_CLICK:

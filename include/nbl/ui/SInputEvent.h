@@ -39,8 +39,8 @@ struct SMouseEvent : SEventBase
     };
     struct SMovementEvent
     {
+        // UNORM value
         int16_t movementX, movementY;
-        bool isRelative; // TODO: remove this when the relative/absolute thing is resolved
     };
     union
     {

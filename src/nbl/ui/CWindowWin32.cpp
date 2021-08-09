@@ -237,21 +237,10 @@ namespace ui
 						event.type = SMouseEvent::EET_MOVEMENT;
 						event.movementEvent.movementX = rawMouse.lLastX;
 						event.movementEvent.movementY = rawMouse.lLastY;
-						event.movementEvent.isRelative = true;
 						event.window = window;
 						auto lk = inputChannel->lockBackgroundBuffer();
 						inputChannel->pushIntoBackground(std::move(event));
 					}
-				}
-				if ((rawMouse.usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE)
-				{
-					event.type = SMouseEvent::EET_MOVEMENT;
-					event.movementEvent.movementX = rawMouse.lLastX;
-					event.movementEvent.movementY = rawMouse.lLastY;
-					event.window = window;
-					event.movementEvent.isRelative = false;
-					auto lk = inputChannel->lockBackgroundBuffer();
-					inputChannel->pushIntoBackground(std::move(event));
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)
 				{
