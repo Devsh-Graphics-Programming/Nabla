@@ -476,10 +476,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		template<E_FORMAT CacheFormat>
 		static inline size_t getSerializedCacheSizeInBytes_impl(size_t capacity)
 		{
-			exit(0x45);
-			return 0x45;
-			// @Przemog TODO: I updated phmap and now kWdith went somewhere else
-			//return 1u+sizeof(size_t)*2u+phmap::container_internal::Group::kWidth+(sizeof(typename cache_type_t<CacheFormat>::slot_type)+1u)*capacity;
+			return 1u+sizeof(size_t)*2u+phmap::priv::Group::kWidth+(sizeof(typename cache_type_t<CacheFormat>::slot_type)+1u)*capacity;
 		}
 		template<E_FORMAT CacheFormat>
 		static inline bool validateSerializedCache(const SBufferRange<const ICPUBuffer>& buffer)
