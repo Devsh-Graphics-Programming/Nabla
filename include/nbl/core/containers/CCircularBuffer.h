@@ -142,13 +142,16 @@ private:
     atomic_alive_flags_block_t m_flags[CCircularBufferCommonBase::numberOfFlagBlocksNeeded(S)];
 };
 
-
+// Do not use with AllowOverflows and non PoD data types concurrently, you can get unordered and non-atomic construction and destruction of elements
+// TODO: Reimplement with per-element C++20 atomic waits and a ticket lock (for ordered overwrites)
+// https://cdn.discordapp.com/attachments/593903264987349057/872793258042986496/100543_449723386_Bryce_Adelstein_Lelbach_The_C20_synchronization_library.pdf
 template <typename Base, bool AllowOverflows = true>
 class CCircularBufferBase : public Base
 {
     using this_type = CCircularBufferBase<Base>;
     using base_t = Base;
     using type = typename base_t::type;
+    static_assert(!AllowOverflows || std::is_trivially_destructible_v<type>);
 
     using atomic_counter_t = std::atomic_uint64_t;
     using counter_t = atomic_counter_t::value_type;
@@ -328,12 +331,13 @@ public:
     {
         counter_t ix = m_cb_begin.load();
         ix = wrapAround(ix);
-#ifdef _NBL_DEBUG
-        {
-            bool alive = isAlive(ix);
-            assert(alive);
-        }
-#endif
+        #ifdef _NBL_DEBUG
+            if constexpr (!AllowOverflows)
+            {
+                bool alive = isAlive(ix);
+                assert(alive);
+            }
+        #endif
 
         type* storage = base_t::getStorage() + ix;
         auto cp = std::move(*storage);

@@ -7,7 +7,6 @@
 #include "../../examples_tests/common/CommonAPI.h" // Temporary
 using namespace nbl;
 using namespace video;
-using namespace scene;
 using namespace asset;
 using namespace ext;
 using namespace DebugDraw;

@@ -8,22 +8,17 @@
 
 #include "nbl/asset/asset.h"
 
-#include "IVideoDriver.h"
-#include "nbl/video/IGPUComputePipeline.h"
 
-
-namespace nbl
+namespace nbl::video
 {
-namespace video
-{
-
+#if 0
 class IPropertyPool;
 
 // property pool factory is externally synchronized
 class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
 {
 	public:
-		CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCache* pipelineCache);
+		CPropertyPoolHandler(ILogicalDevice* device, IGPUPipelineCache* pipelineCache);
 
         _NBL_STATIC_INLINE_CONSTEXPR auto MinimumPropertyAlignment = alignof(uint32_t);
 
@@ -197,9 +192,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         core::vector<IndexUploadRange> m_tmpIndexRanges;
         core::vector<uint32_t> m_tmpAddresses,m_tmpSizes,m_alignments;
 };
+#endif
 
-
-}
 }
 
 #endif
