@@ -157,8 +157,9 @@ public:
 
 	void keyboardProcess(const IKeyboardEventChannel::range_t& events)
 	{
-		// perActionDt is the duration which the key was being held down from lastVirtualUpTimeStamp(=last "guessed" presentation time) to nextPresentationTimeStamp
-		double perActionDt[Keys::EKA_COUNT] = {};
+		for(uint32_t k = 0; k < Keys::EKA_COUNT; ++k) {
+			perActionDt[k] = 0.0;
+		}
 
 		/*
 		* If a Key was already being held down from previous frames
@@ -221,7 +222,21 @@ public:
 				}
 			}
 		}
-		
+	}
+
+	void beginInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
+		nextPresentationTimeStamp = _nextPresentationTimeStamp;
+
+		if(firstUpdate) {
+			lastVirtualUpTimeStamp = nextPresentationTimeStamp;
+			// Set Cursor to middle of the screen
+			firstUpdate = false;
+		}
+
+		return;
+	}
+	
+	void endInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
 		core::vectorSIMDf pos = getPosition();;
 		core::vectorSIMDf localTarget = getTarget() - pos;
 
@@ -253,18 +268,6 @@ public:
 		setTarget(localTarget + pos);
 
 		lastVirtualUpTimeStamp = nextPresentationTimeStamp;
-	}
-
-	void update(std::chrono::microseconds _nextPresentationTimeStamp) {
-		nextPresentationTimeStamp = _nextPresentationTimeStamp;
-
-		if(firstUpdate) {
-			lastVirtualUpTimeStamp = nextPresentationTimeStamp;
-			// Set Cursor to middle of the screen
-			firstUpdate = false;
-		}
-
-		return;
 	}
 
 private:
@@ -300,6 +303,8 @@ private:
 	};
 
 	bool keysDown[Keys::EKA_COUNT] = {};
+	// perActionDt is the duration which the key was being held down from lastVirtualUpTimeStamp(=last "guessed" presentation time) to nextPresentationTimeStamp
+	double perActionDt[Keys::EKA_COUNT] = {};
 
 	float moveSpeed;
 	float rotateSpeed;

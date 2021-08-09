@@ -436,19 +436,6 @@ int main()
 		renderFinished[i] = device->createSemaphore();
 	}
 
-	// polling for events!
-	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-	auto mouseProcess = [&](const IMouseEventChannel::range_t& events) -> void
-	{
-		cam.mouseProcess(events);
-	};
-	auto keyboardProcess = [&](const IKeyboardEventChannel::range_t& events) -> void
-	{
-		cam.keyboardProcess(events);
-	};
-	
-
 	// render loop
 	constexpr size_t MaxFramesToAverage = 100ull;
 	size_t frame_count = 0ull;
@@ -459,6 +446,10 @@ int main()
 	}
 
 	double dt = 0;
+	
+	// polling for events!
+	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
@@ -486,15 +477,15 @@ int main()
 		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
 		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
 		
-		cam.update(nextPresentationTimeStamp);
-
 		// Input 
 		inputSystem->getDefaultMouse(&mouse);
 		inputSystem->getDefaultKeyboard(&keyboard);
 
-		mouse.consumeEvents(mouseProcess, logger.get());
-		keyboard.consumeEvents(keyboardProcess, logger.get());
-		
+		cam.beginInputProcessing(nextPresentationTimeStamp);
+		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { cam.mouseProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { cam.keyboardProcess(events); }, logger.get());
+		cam.endInputProcessing(nextPresentationTimeStamp);
+
 		// Render
 		const auto resourceIx = i%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
