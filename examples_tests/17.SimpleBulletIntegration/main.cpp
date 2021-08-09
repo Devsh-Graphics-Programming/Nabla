@@ -312,8 +312,9 @@ int main()
 	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
 	// Camera 
-	core::vector3df cameraPosition(0, 5, -10);
-	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), float(WIN_W) / WIN_H, core::radians(60), 0.01f, 500.0f, false);
+	core::vectorSIMDf cameraPosition(0, 5, -10);
+	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
+	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), proj);
 
 	// Creating CPU Shaders 
 

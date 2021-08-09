@@ -122,8 +122,8 @@ public:
 				relativeRotationX = atan2(z1, localTarget.Y) - core::PI<float>()/2;
 				
 				constexpr float RotateSpeedScale = 0.003f; 
-				relativeRotationX -= ev.movementEvent.movementY * rotateSpeed * RotateSpeedScale * -1.0f;
-				float tmpYRot = ev.movementEvent.movementX * rotateSpeed * RotateSpeedScale * -1.0f;
+				relativeRotationX -= ev.movementEvent.relativeMovementY * rotateSpeed * RotateSpeedScale * -1.0f;
+				float tmpYRot = ev.movementEvent.relativeMovementX * rotateSpeed * RotateSpeedScale * -1.0f;
 				if (leftHanded)
 					relativeRotationY -= tmpYRot;
 				else
