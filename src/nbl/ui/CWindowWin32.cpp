@@ -131,12 +131,12 @@ namespace ui
 		}
 		case WM_SETFOCUS:
 		{
-			if(!eventCallback->onGainedKeyboardFocus(window)) shouldCallDefProc = false;
+			eventCallback->onGainedKeyboardFocus(window);
 			break;
 		}
 		case WM_KILLFOCUS:
 		{
-			if(!eventCallback->onLostKeyboardFocus(window)) shouldCallDefProc = false;
+			eventCallback->onLostKeyboardFocus(window);
 			break;
 		}
 		case WM_ACTIVATE:
@@ -145,10 +145,10 @@ namespace ui
 			{
 			case WA_CLICKACTIVE: [[fallthrough]];
 			case WA_ACTIVE:
-				if(!eventCallback->onGainedMouseFocus(window)) shouldCallDefProc = false;
+				eventCallback->onGainedMouseFocus(window);
 				break;
 			case WA_INACTIVE:
-				if(!eventCallback->onLostMouseFocus(window)) shouldCallDefProc = false;
+				eventCallback->onLostMouseFocus(window);
 				break;
 			}
 			break;
@@ -235,8 +235,8 @@ namespace ui
 					if (rawMouse.lLastX != 0 || rawMouse.lLastY != 0)
 					{
 						event.type = SMouseEvent::EET_MOVEMENT;
-						event.movementEvent.movementX = rawMouse.lLastX;
-						event.movementEvent.movementY = rawMouse.lLastY;
+						event.movementEvent.relativeMovementX = rawMouse.lLastX;
+						event.movementEvent.relativeMovementY = rawMouse.lLastY;
 						event.window = window;
 						auto lk = inputChannel->lockBackgroundBuffer();
 						inputChannel->pushIntoBackground(std::move(event));

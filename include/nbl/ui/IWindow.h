@@ -105,21 +105,21 @@ public:
         {
             return onWindowClosed_impl();
         }
-        [[nodiscard]] bool onGainedMouseFocus(IWindow* w)
+        void onGainedMouseFocus(IWindow* w)
         {
-            return onGainedMouseFocus_impl();
+            onGainedMouseFocus_impl();
         }
-        [[nodiscard]] bool onLostMouseFocus(IWindow* w)
+        void onLostMouseFocus(IWindow* w)
         {
-            return onLostMouseFocus_impl();
+            onLostMouseFocus_impl();
         }
-        [[nodiscard]] bool onGainedKeyboardFocus(IWindow* w)
+        void onGainedKeyboardFocus(IWindow* w)
         {
-            return onGainedKeyboardFocus_impl();
+            onGainedKeyboardFocus_impl();
         }
-        [[nodiscard]] bool onLostKeyboardFocus(IWindow* w)
+        void onLostKeyboardFocus(IWindow* w)
         {
-            return onLostKeyboardFocus_impl();
+            onLostKeyboardFocus_impl();
         }
 
         void onMouseConnected(IWindow* w, core::smart_refctd_ptr<IMouseEventChannel>&& mch)
@@ -148,10 +148,10 @@ public:
         virtual bool onWindowMinimized_impl() { return true; }
         virtual bool onWindowMaximized_impl() { return true; }
         virtual bool onWindowClosed_impl() { return true; }
-        virtual bool onGainedMouseFocus_impl() { return true; }
-        virtual bool onLostMouseFocus_impl() { return true; }
-        virtual bool onGainedKeyboardFocus_impl() { return true; }
-        virtual bool onLostKeyboardFocus_impl() { return true; }
+        virtual void onGainedMouseFocus_impl() {}
+        virtual void onLostMouseFocus_impl() {}
+        virtual void onGainedKeyboardFocus_impl() {}
+        virtual void onLostKeyboardFocus_impl() {}
 
         virtual void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) {}
         virtual void onMouseDisconnected_impl(IMouseEventChannel* mch) {}

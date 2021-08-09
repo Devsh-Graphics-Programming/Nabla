@@ -50,25 +50,21 @@ public:
 				m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
 				return true;
 			}
-			bool onGainedMouseFocus_impl() override
+			void onGainedMouseFocus_impl() override
 			{
 				m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
-				return true;
 			}
-			bool onLostMouseFocus_impl() override
+			void onLostMouseFocus_impl() override
 			{
 				m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
-				return true;
 			}
-			bool onGainedKeyboardFocus_impl() override
+			void onGainedKeyboardFocus_impl() override
 			{
 				m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
-				return true;
 			}
-			bool onLostKeyboardFocus_impl() override
+			void onLostKeyboardFocus_impl() override
 			{
 				m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
-				return true;
 			}
 
 			void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override

@@ -37,16 +37,16 @@ struct SMouseEvent : SEventBase
     {
         int16_t verticalScroll, horizontalScroll;
     };
-    struct SMovementEvent
+    struct SRelativeMovementEvent
     {
         // UNORM value
-        int16_t movementX, movementY;
+        int16_t relativeMovementX, relativeMovementY;
     };
     union
     {
         SClickEvent clickEvent;
         SScrollEvent scrollEvent;
-        SMovementEvent movementEvent;
+        SRelativeMovementEvent movementEvent;
     };
     IWindow* window;
 };

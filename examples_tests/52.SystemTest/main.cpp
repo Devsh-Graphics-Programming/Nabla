@@ -156,25 +156,21 @@ private:
 		m_logger.log("Window maximized", system::ILogger::ELL_PERFORMANCE);
 		return true;
 	}
-	bool onGainedMouseFocus_impl() override
+	void onGainedMouseFocus_impl() override
 	{
 		m_logger.log("Window gained mouse focus", system::ILogger::ELL_INFO);
-		return true;
 	}
-	bool onLostMouseFocus_impl() override
+	void onLostMouseFocus_impl() override
 	{
 		m_logger.log("Window lost mouse focus", system::ILogger::ELL_INFO);
-		return true;
 	}
-	bool onGainedKeyboardFocus_impl() override
+	void onGainedKeyboardFocus_impl() override
 	{
 		m_logger.log("Window gained keyboard focus", system::ILogger::ELL_INFO);
-		return true;
 	}
-	bool onLostKeyboardFocus_impl() override
+	void onLostKeyboardFocus_impl() override
 	{
 		m_logger.log("Window lost keyboard focus", system::ILogger::ELL_INFO);
-		return true;
 	}
 	bool onWindowClosed_impl() override
 	{
@@ -270,7 +266,7 @@ int main()
 			{
 			case SMouseEvent::EET_MOVEMENT:
 			{
-				logger->log("Mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).movementEvent.movementX, (*eventIt).movementEvent.movementY, ch, (*eventIt).timeStamp);
+				logger->log("Mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).movementEvent.relativeMovementX, (*eventIt).movementEvent.relativeMovementY, ch, (*eventIt).timeStamp);
 				break;
 			}
 			case SMouseEvent::EET_CLICK:
@@ -351,7 +347,6 @@ int main()
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
-	cursorControl->setVisible(false);
 	while (true)
 	{
 		input->getDefaultMouse(&mouse);
