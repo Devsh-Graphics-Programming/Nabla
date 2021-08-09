@@ -6,12 +6,8 @@
 
 
 #include <X11/Xutil.h>
-#ifdef _NBL_LINUX_X11_VIDMODE_
 #include <X11/extensions/xf86vmode.h>
-#endif
-#ifdef _NBL_LINUX_X11_RANDR_
 #include <X11/extensions/Xrandr.h>
-#endif
 #include "nbl_os.h"
 
 namespace nbl {
@@ -45,8 +41,6 @@ private:
     Display* m_dpy;
     native_handle_t m_native;
 	CWindowManagerX11* m_manager;
-	// Not sure yet if i need these or i can do without them 
-	bool isMaximized = false, isMinimized = false; 
 private:
 	std::map<XID, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannel;
 	std::map<XID, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannel;

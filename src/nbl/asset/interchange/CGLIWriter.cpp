@@ -35,9 +35,9 @@ namespace nbl
 {
 namespace asset
 {
-static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr& logger);
+static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr logger);
 
-static inline bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger);
+static inline bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr logger);
 
 bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
@@ -59,7 +59,7 @@ bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _para
 	return writeGLIFile(file, imageView, _params.logger);
 }
 
-bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr& logger)
+bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr logger)
 {
 	logger.log("WRITING GLI: writing the file %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 
@@ -207,7 +207,7 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 
 	return performSavingAsIFile(texture, file, m_system.get(), logger);
 }
-bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr& logger)
+bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr logger)
 {
 	if (texture.empty())
 		return false;
@@ -237,7 +237,7 @@ bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::IS
 	}
 }
 
-inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr& logger)
+inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr logger)
 {
 	using namespace gli;
 	std::array<gli::gl::swizzle, 4> compomentMapping;

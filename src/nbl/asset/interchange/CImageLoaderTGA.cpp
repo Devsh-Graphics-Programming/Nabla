@@ -96,7 +96,7 @@ void CImageLoaderTGA::loadCompressedImage(system::IFile *file, const STGAHeader&
 }
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
+bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
 	if (!_file)
 		return false;
@@ -106,6 +106,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file, const system::
 	{
 		system::future<size_t> future;
 		_file->read(future, &footer, _file->getSize() - sizeof(STGAFooter), sizeof(STGAFooter)); // TODO
+		future.get();
 	}
 	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
 	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
@@ -221,8 +222,8 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
 		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
 
-		if (!convertFilter.execute(&state))
-			imgInfo.logger.log("Something went wrong while converting!", system::ILogger::ELL_WARNING);
+		//if (!convertFilter.execute(&state))
+		//	imgInfo.logger.log("Something went wrong while converting!", system::ILogger::ELL_WARNING);
 	}
 
 	return newConvertedImage;

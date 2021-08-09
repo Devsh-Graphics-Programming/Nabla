@@ -26,7 +26,7 @@ class CGLILoader final : public asset::IAssetLoader
 	public:
 		explicit CGLILoader() = default;
 
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{

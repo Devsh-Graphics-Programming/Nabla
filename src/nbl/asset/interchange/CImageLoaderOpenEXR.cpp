@@ -57,11 +57,11 @@ namespace nbl
 		using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
 		class SContext;
-		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr&);
+		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr);
 		bool readHeader(const char fileName[], SContext& ctx);
 		template<typename rgbaFormat>
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
-		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr& logger);
+		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr logger);
 
 
 		//! A helpful struct for handling OpenEXR layout
@@ -307,7 +307,7 @@ namespace nbl
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
-		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
+		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{	
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
 			system::future<size_t> future;
@@ -356,7 +356,7 @@ namespace nbl
 			file.readPixels(dw.min.y, dw.max.y);
 		}
 
-		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr& logger)
+		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr logger)
 		{
 			E_FORMAT retVal;
 
@@ -396,7 +396,7 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr& logger)
+		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr logger)
 		{
 			RgbaInputFile file(_file->getFileName().string().c_str());
 			auto& versionField = ctx.versionField;
