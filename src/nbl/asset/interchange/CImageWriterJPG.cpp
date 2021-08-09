@@ -31,20 +31,15 @@ extern "C"
 using namespace nbl;
 using namespace asset;
 
-namespace 
-{
-typedef struct mem_destination_mgr
+struct mem_destination_mgr
 {
 	struct jpeg_destination_mgr pub;/* public fields */
 	system::ISystem* system;
 	system::IFile* file;		/* target file */
 	size_t filePos = 0;
 	JOCTET buffer[OUTPUT_BUF_SIZE];	/* image buffer */
-} mem_destination_mgr;
-
-
-typedef mem_destination_mgr * mem_dest_ptr;
-}
+};
+using mem_dest_ptr = mem_destination_mgr*;
 
 // init
 static void jpeg_init_destination(j_compress_ptr cinfo)
@@ -117,7 +112,7 @@ static void jpeg_file_dest(j_compress_ptr cinfo, system::IFile* file, system::IS
 
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset::ICPUImageView* imageView, uint32_t quality, const system::logger_opt_ptr logger)
+static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset::ICPUImageView* imageView, uint32_t quality, const system::logger_opt_ptr& logger)
 {
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{

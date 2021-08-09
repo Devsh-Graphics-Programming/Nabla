@@ -15,76 +15,265 @@ class CommonAPI
 	CommonAPI() = delete;
 public:
 
-	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	class CommonAPIEventCallback;
+
+	class InputSystem : public nbl::core::IReferenceCounted
 	{
 		public:
-			CommonAPIEventCallback(nbl::system::logger_opt_smart_ptr&& logger) : m_logger(std::move(logger)) {}
-		private:
-			bool onWindowShown_impl() override
+			template <class ChannelType>
+			struct Channels
 			{
-				m_logger.log("Window Shown");
-				return true;
+				nbl::core::mutex lock;
+				std::condition_variable added;
+				nbl::core::vector<nbl::core::smart_refctd_ptr<ChannelType>> channels;
+				nbl::core::vector<std::chrono::microseconds> timeStamps;
+				uint32_t defaultChannelIndex = 0;
+			};
+			// TODO: move to "nbl/ui/InputEventChannel.h" once the interface of this utility struct matures, also maybe rename to `Consumer` ?
+			template <class ChannelType>
+			struct ChannelReader
+			{
+				template<typename F>
+				inline void consumeEvents(F&& processFunc, nbl::system::logger_opt_ptr logger=nullptr)
+				{
+					auto events = channel->getEvents();
+					const auto frontBufferCapacity = channel->getFrontBufferCapacity();
+					if (events.size()>consumedCounter+frontBufferCapacity)
+					{
+						logger.log(
+							"Detected overflow, %d unconsumed events in channel of size %d!",
+							nbl::system::ILogger::ELL_ERROR,events.size()-consumedCounter,frontBufferCapacity
+						);
+						consumedCounter = events.size()-frontBufferCapacity;
+					}
+					processFunc(ChannelType::range_t(events.begin()+consumedCounter,events.end()));
+					consumedCounter = events.size();
+				}
+
+				nbl::core::smart_refctd_ptr<ChannelType> channel = nullptr;
+				uint64_t consumedCounter = 0ull;
+			};
+		
+			InputSystem(nbl::system::logger_opt_smart_ptr&& logger) : m_logger(std::move(logger)) {}
+
+			void getDefaultMouse(ChannelReader<nbl::ui::IMouseEventChannel>* reader)
+			{
+				getDefault(m_mouse,reader);
 			}
-			bool onWindowHidden_impl() override
+			void getDefaultKeyboard(ChannelReader<nbl::ui::IKeyboardEventChannel>* reader)
 			{
-				m_logger.log("Window hidden");
-				return true;
-			}
-			bool onWindowMoved_impl(int32_t x, int32_t y) override
-			{
-				m_logger.log("Window window moved to { %d, %d }", nbl::system::ILogger::ELL_DEBUG, x, y);
-				return true;
-			}
-			bool onWindowResized_impl(uint32_t w, uint32_t h) override
-			{
-				m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
-				return true;
-			}
-			bool onWindowMinimized_impl() override
-			{
-				m_logger.log("Window minimized");
-				return true;
-			}
-			bool onWindowMaximized_impl() override
-			{
-				m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
-				return true;
-			}
-			void onGainedMouseFocus_impl() override
-			{
-				m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
-			}
-			void onLostMouseFocus_impl() override
-			{
-				m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
-			}
-			void onGainedKeyboardFocus_impl() override
-			{
-				m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
-			}
-			void onLostKeyboardFocus_impl() override
-			{
-				m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
+				getDefault(m_keyboard,reader);
 			}
 
-			void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
-			{
-				m_logger.log("A mouse has been connected", nbl::system::ILogger::ELL_INFO);
-			}
-			void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
-			{
-				m_logger.log("A mouse has been disconnected", nbl::system::ILogger::ELL_INFO);
-			}
-			void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
-			{
-				m_logger.log("A keyboard has been connected", nbl::system::ILogger::ELL_INFO);
-			}
-			void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* mch) override
-			{
-				m_logger.log("A keyboard has been disconnected", nbl::system::ILogger::ELL_INFO);
-			}
 		private:
+			friend class CommonAPIEventCallback;
+			template<class ChannelType>
+			void add(Channels<ChannelType>& channels, nbl::core::smart_refctd_ptr<ChannelType>&& channel)
+			{
+				std::unique_lock lock(channels.lock);
+				channels.channels.push_back(std::move(channel));
+				
+				using namespace std::chrono;
+				auto timeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				channels.timeStamps.push_back(timeStamp);
+
+				channels.added.notify_all();
+			}
+			template<class ChannelType>
+			void remove(Channels<ChannelType>& channels, const ChannelType* channel)
+			{
+				std::unique_lock lock(channels.lock);
+
+				auto to_remove_itr = std::find_if(
+						channels.channels.begin(),channels.channels.end(),[channel](const auto& chan)->bool{return chan.get()==channel;}
+				);
+
+				auto index = std::distance(channels.channels.begin(), to_remove_itr);
+
+				channels.timeStamps.erase(channels.timeStamps.begin() + index);
+				channels.channels.erase(to_remove_itr);
+			}
+			template<class ChannelType>
+			void getDefault(Channels<ChannelType>& channels, ChannelReader<ChannelType>* reader)
+			{
+				/*
+				* TODO: Improve default device switching.
+				* For nice results, we should actually make a multi-channel reader,
+				* and then keep a consumed counter together with a last consumed event from each channel.
+				* If there is considerable pause in events received by our current chosen channel or
+				* we can detect some other channel of the same "compatible class" is producing more events,
+				* Switch the channel choice, but prune away all events younger than the old default's consumption timestamp.
+				* (Basically switch keyboards but dont try to process events older than the events you've processed from the old keyboard)
+				*/
+				
+				std::unique_lock lock(channels.lock);
+				while (channels.channels.empty())
+				{
+					m_logger.log("Waiting For Input Device to be connected...",nbl::system::ILogger::ELL_INFO);
+					channels.added.wait(lock);
+				}
+				
+				uint64_t consumedCounter = 0ull;
+
+				using namespace std::chrono;
+				constexpr long long DefaultChannelTimeoutInMicroSeconds = 100*1e3; // 100 mili-seconds
+				auto nowTimeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+
+				// Update Timestamp of all channels
+				for(uint32_t ch = 0u; ch < channels.channels.size(); ++ch) {
+					auto & channel = channels.channels[ch];
+					auto & timeStamp = channels.timeStamps[ch];
+					auto events = channel->getEvents();
+					if(events.size() > 0) {
+						auto lastEventTimeStamp = (*(events.end() - 1)).timeStamp; // last event timestamp
+						timeStamp = lastEventTimeStamp;
+					}
+				}
+
+				auto defaultIdx = channels.defaultChannelIndex;
+				if(defaultIdx >= channels.channels.size()) {
+					defaultIdx = 0;
+				}
+				auto defaultChannel = channels.channels[defaultIdx];
+				auto defaultChannelEvents = defaultChannel->getEvents();
+				auto timeDiff = (nowTimeStamp - channels.timeStamps[defaultIdx]).count();
+				
+				constexpr size_t RewindBackEvents = 50u;
+
+				// If the current one hasn't been active for a while
+				if(defaultChannel->empty()) {
+					if(timeDiff > DefaultChannelTimeoutInMicroSeconds) {
+						// Look for the most active channel (the channel which has got the most events recently)
+						auto newDefaultIdx = defaultIdx;
+						microseconds maxEventTimeStamp = microseconds(0);
+
+						for(uint32_t chIdx = 0; chIdx < channels.channels.size(); ++chIdx) {
+							if(defaultIdx != chIdx) 
+							{
+								auto channelTimeDiff = (nowTimeStamp - channels.timeStamps[chIdx]).count();
+								// Check if was more recently active than the current most active
+								if(channelTimeDiff < DefaultChannelTimeoutInMicroSeconds)
+								{
+									auto & channel = channels.channels[chIdx];
+									auto channelEvents = channel->getEvents();
+									auto channelEventSize = channelEvents.size();
+									const auto frontBufferCapacity = channel->getFrontBufferCapacity();
+
+									size_t rewindBack = std::min(RewindBackEvents, frontBufferCapacity);
+									rewindBack = std::min(rewindBack, channelEventSize);
+
+									auto oldEvent = *(channelEvents.end() - rewindBack);
+
+									// Which oldEvent of channels are earlier?
+									if(oldEvent.timeStamp > maxEventTimeStamp) {
+										maxEventTimeStamp = oldEvent.timeStamp;
+										newDefaultIdx = chIdx;
+									}
+								}
+							}
+						}
+
+						if(defaultIdx != newDefaultIdx) {
+							m_logger.log("Default InputChannel for ChannelType changed from %u to %u",nbl::system::ILogger::ELL_INFO, defaultIdx, newDefaultIdx);
+
+							defaultIdx = newDefaultIdx;
+							channels.defaultChannelIndex = newDefaultIdx;
+							defaultChannel = channels.channels[newDefaultIdx];
+							
+							consumedCounter = defaultChannel->getEvents().size() - defaultChannel->getFrontBufferCapacity(); // to not get overflow in reader when consuming.
+						}
+					}
+				}
+
+				if (reader->channel==defaultChannel)
+					return;
+
+				reader->channel = defaultChannel;
+				reader->consumedCounter = consumedCounter;
+			}
+
 			nbl::system::logger_opt_smart_ptr m_logger;
+			Channels<nbl::ui::IMouseEventChannel> m_mouse;
+			Channels<nbl::ui::IKeyboardEventChannel> m_keyboard;
+	};
+
+	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	{
+	public:
+		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)) {}
+
+	private:
+		bool onWindowShown_impl() override
+		{
+			m_logger.log("Window Shown");
+			return true;
+		}
+		bool onWindowHidden_impl() override
+		{
+			m_logger.log("Window hidden");
+			return true;
+		}
+		bool onWindowMoved_impl(int32_t x, int32_t y) override
+		{
+			m_logger.log("Window window moved to { %d, %d }", nbl::system::ILogger::ELL_WARNING, x, y);
+			return true;
+		}
+		bool onWindowResized_impl(uint32_t w, uint32_t h) override
+		{
+			m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
+			return true;
+		}
+		bool onWindowMinimized_impl() override
+		{
+			m_logger.log("Window minimized", nbl::system::ILogger::ELL_ERROR);
+			return true;
+		}
+		bool onWindowMaximized_impl() override
+		{
+			m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
+			return true;
+		}
+		void onGainedMouseFocus_impl() override
+		{
+			m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostMouseFocus_impl() override
+		{
+			m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onGainedKeyboardFocus_impl() override
+		{
+			m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostKeyboardFocus_impl() override
+		{
+			m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+
+		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+		{
+			m_logger.log("A mouse %p has been connected", nbl::system::ILogger::ELL_INFO, mch);
+			m_inputSystem.get()->add(m_inputSystem.get()->m_mouse,std::move(mch));
+		}
+		void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+		{
+			m_logger.log("A mouse %p has been disconnected", nbl::system::ILogger::ELL_INFO, mch);
+			m_inputSystem.get()->remove(m_inputSystem.get()->m_mouse,mch);
+		}
+		void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+		{
+			m_logger.log("A keyboard %p has been connected", nbl::system::ILogger::ELL_INFO, kbch);
+			m_inputSystem.get()->add(m_inputSystem.get()->m_keyboard,std::move(kbch));
+		}
+		void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* kbch) override
+		{
+			m_logger.log("A keyboard %p has been disconnected", nbl::system::ILogger::ELL_INFO, kbch);
+			m_inputSystem.get()->remove(m_inputSystem.get()->m_keyboard,kbch);
+		}
+
+	private:
+		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem;
+		nbl::system::logger_opt_smart_ptr m_logger;
 	};
 
 	static nbl::core::smart_refctd_ptr<nbl::system::ISystem> createSystem()
@@ -124,6 +313,8 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
 		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+		nbl::core::smart_refctd_ptr<nbl::system::CColoredStdoutLoggerWin32> logger;
+		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
 
 	};
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
@@ -136,7 +327,8 @@ public:
 		// TODO: Windows/Linux logger define switch
 		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
 		result.system = createSystem();
-		auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
 
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.callback = nullptr;
@@ -147,14 +339,14 @@ public:
 		windowsCreationParams.system = core::smart_refctd_ptr(result.system);
 		windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
 		windowsCreationParams.windowCaption = app_name.data();
-		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(system::logger_opt_smart_ptr(logger));
+		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 
-		video::SDebugCallback dbgcb;
-		dbgcb.callback = &defaultDebugCallback;
-		dbgcb.userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), &dbgcb);
+		auto dbgcb = new video::SDebugCallback();
+		dbgcb->callback = &defaultDebugCallback;
+		dbgcb->userData = nullptr;
+		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), dbgcb);
 		result.surface = result.apiConnection->createSurface(result.window.get());
 
 		auto gpus = result.apiConnection->getPhysicalDevices();

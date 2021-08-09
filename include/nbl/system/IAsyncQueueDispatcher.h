@@ -10,8 +10,8 @@ namespace nbl::system
 
 namespace impl
 {
-    class IAsyncQueueDispatcherBase
-    {
+class IAsyncQueueDispatcherBase
+{
     public:
         IAsyncQueueDispatcherBase() = default;
         ~IAsyncQueueDispatcherBase() = default;
@@ -28,8 +28,7 @@ namespace impl
                 };
                 request_base_t() : state(ES_INITIAL)
                 {
-                    // @devshgraphicsprogramming i assume youre writing in relwithdebuginfo so this doesn't throw an error for you
-                    //assert(std::atomic_uint32_t::is_lock_free());
+                    static_assert(std::atomic_uint32_t::is_always_lock_free);
                 }
                 ~request_base_t() = default;
 
@@ -45,12 +44,14 @@ namespace impl
                     assert(prev==ES_RECORDING);
                     state.notify_one();
                 }
-                // do NOT allow canceling of request while they are processed
-                void wait_for_work()
+                // returns when work is ready and also if we can proceed to do the work
+                // this will deadlock if the state will not eventually transition to pending (a cancellable request needs to overload this)
+                bool wait_for_work()
                 {
                     transition(ES_PENDING,ES_EXECUTING);
+                    return true;
                 }
-                // to call after request is done being processed
+                // to call after request is done being processed, will deadlock if the request was not executed (a cancellable request needs to overload this)
                 void notify_ready()
                 {
                     const auto prev = state.exchange(ES_READY);
@@ -83,14 +84,14 @@ namespace impl
                 }
                 void wait_for(const E_STATE waitVal)
                 {
-                    uint32_t current;
+                    uint32_t current; 
                     while ((current=state.load())!=waitVal)
                         state.wait(current);
                 }
 
                 std::atomic_uint32_t state;
         };
-    };
+};
 }
 
 /**
@@ -155,7 +156,6 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
         //void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
 
         //void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request(), the request's state is locked with a mutex during the call
-        //bool process_request_predicate(const request_t& req); // optional, always true if not provided
         //void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
         //void background_work() // optional, does nothing if not provided
         ///////
@@ -187,12 +187,8 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
         }
 
     protected:
-        bool process_request_predicate(const request_t& req)
-        {
-            return true;
-        }
-
         void background_work() {}
+
     private:
         template <typename... Args>
         void work(lock_t& lock, Args&&... optional_internal_state)
@@ -209,9 +205,9 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
                 request_t& req = request_pool[r_id];
                 // do NOT allow cancelling or modification of the request while working on it
-                req.wait_for_work();
-                if (static_cast<CRTP*>(this)->process_request_predicate(req))
+                if (req.wait_for_work())
                 {
+                    // if the request supports cancelling and got cancelled, the wait_for_work function may return false
                     static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
                 }
                 // wake the waiter up

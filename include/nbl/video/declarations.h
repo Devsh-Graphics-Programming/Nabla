@@ -2,14 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_VIDEO_H_INCLUDED__
-#define __NBL_VIDEO_H_INCLUDED__
+#ifndef __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
+#define __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
 
-#include "nbl/video/compile_config.h"
 
 // dependencies
 #include "nbl/asset/asset.h"
-#include "nbl/ui/ui.h"
+#include "nbl/ui/declarations.h"
 
 // alloc
 #include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
@@ -17,8 +16,8 @@
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // properties
-//#include "nbl/video/CPropertyPool.h"
-//#include "nbl/video/CPropertyPoolHandler.h"
+#include "nbl/video/CPropertyPool.h"
+#include "nbl/video/CPropertyPoolHandler.h"
 
 // think about foler name for those
 #include "nbl/video/IAPIConnection.h"

@@ -15,6 +15,7 @@
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/SReadWriteSpinLock.h"
 
+#include "nbl/system/ILogger.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 

@@ -105,7 +105,8 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file, const system::
 	memset(&footer, 0, sizeof(STGAFooter));
 	{
 		system::future<size_t> future;
-		_file->read(future, &footer, _file->getSize() - sizeof(STGAFooter), sizeof(STGAFooter));
+		_file->read(future, &footer, _file->getSize() - sizeof(STGAFooter), sizeof(STGAFooter)); // TODO
+		future.get();
 	}
 	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
 	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
