@@ -43,7 +43,15 @@ const char* src = R"(#version 450
 
 // layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (binding = 0, rgba8) uniform writeonly image2D outImage;
+layout (set = 0, binding = 0, rgba8) uniform writeonly image2D outImage;
+
+layout (set = 0, binding = 1) uniform UniformBufferObject
+{
+	float r;
+	float g;
+	float b;
+	float a;
+} ubo;
 
 void main()
 {
@@ -51,7 +59,8 @@ void main()
 	{
 		// vec3 rgb = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
 		
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 0, 1, 1));
+		// imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 0, 1, 1));
+		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(ubo.r, ubo.g, ubo.b, ubo.a));
 	}
 })";
 #endif
@@ -137,6 +146,10 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 	}
 };
 
+struct alignas(256) UniformBufferObject
+{
+	float r, g, b, a;
+};
 
 int main()
 {
@@ -188,6 +201,7 @@ int main()
 	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
 	QueueFamilyIndicesArrayType queueFamilyIndices;
 
+	// Todo(achal): Should be an IPhysicalDevice
 	core::smart_refctd_ptr<video::CVulkanPhysicalDevice> gpu = nullptr;
 	for (size_t i = 0ull; i < gpus.size(); ++i)
 	{
@@ -386,6 +400,7 @@ int main()
 	}
 	
 	// Hacky vulkan stuff begins --get handles to existing Vulkan stuff
+	VkPhysicalDevice vk_physicalDevice = gpu->getInternalObject();
 	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
 
 	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
@@ -417,37 +432,130 @@ int main()
 	VkShaderModule vk_shaderModule = reinterpret_cast<video::CVulkanSpecializedShader*>(specializedShader.get())->m_shaderModule;
 
 	// Pure vulkan stuff
-	
+
+	// Create UBO (and their memory) per swapchain image
+	VkBuffer vk_ubos[SC_IMG_COUNT];
+	VkDeviceMemory vk_ubosMemory[SC_IMG_COUNT];
+	{
+		VkDeviceSize vk_uboSize = sizeof(UniformBufferObject);
+
+		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+		{
+			VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+			vk_createInfo.pNext = nullptr;
+			vk_createInfo.flags = 0;
+			vk_createInfo.size = vk_uboSize;
+			vk_createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+			vk_createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			vk_createInfo.queueFamilyIndexCount = 0u;
+			vk_createInfo.pQueueFamilyIndices = nullptr;
+
+			assert(vkCreateBuffer(vk_device, &vk_createInfo, nullptr, &vk_ubos[i]) == VK_SUCCESS);
+
+			VkMemoryRequirements vk_memoryRequirements;
+			vkGetBufferMemoryRequirements(vk_device, vk_ubos[i], &vk_memoryRequirements);
+
+			// Find the type of memory you want to allocate for this buffer, it has to have
+			// the following properties:
+			// 	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			// i.e. should be visible to host application and should be coherent with host
+			// application
+
+			const uint32_t vk_supportedMemoryTypes = vk_memoryRequirements.memoryTypeBits;
+			const VkMemoryPropertyFlags vk_desiredMemoryProperties =
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+			uint32_t vk_memoryTypeIndex = ~0u;
+			{
+				VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
+				vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice,
+					&vk_physicalDeviceMemoryProperties);
+
+				for (uint32_t i = 0u; i < vk_physicalDeviceMemoryProperties.memoryTypeCount; ++i)
+				{
+					const bool isMemoryTypeSupportedForResource =
+						(vk_supportedMemoryTypes & (1 << i));
+
+					const bool doesMemoryHaveDesirableProperites =
+						(vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags
+							& vk_desiredMemoryProperties) == vk_desiredMemoryProperties;
+					if (isMemoryTypeSupportedForResource && doesMemoryHaveDesirableProperites)
+					{
+						vk_memoryTypeIndex = i;
+						break;
+					}
+				}
+			}
+			assert(vk_memoryTypeIndex != ~0u);
+
+			VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+			vk_allocateInfo.pNext = nullptr;
+			vk_allocateInfo.allocationSize = vk_uboSize;
+			vk_allocateInfo.memoryTypeIndex = vk_memoryTypeIndex;
+
+			assert(vkAllocateMemory(vk_device, &vk_allocateInfo, nullptr, &vk_ubosMemory[i]) == VK_SUCCESS);
+
+			assert(vkBindBufferMemory(vk_device, vk_ubos[i], vk_ubosMemory[i], 0) == VK_SUCCESS);
+		}
+	}
+
+	// Todo(achal): Would it make sense to ditch map/unmap now in favor of staging buffer now??
+	// Fill up ubos with dummy data
+	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		void* mappedMemoryAddress;
+		assert(vkMapMemory(vk_device, vk_ubosMemory[i], 0, sizeof(UniformBufferObject), 0,
+			&mappedMemoryAddress) == VK_SUCCESS);
+		memcpy(mappedMemoryAddress, &uboData_cpu[i], sizeof(UniformBufferObject));
+		vkUnmapMemory(vk_device, vk_ubosMemory[i]);
+	}
+
 	VkDescriptorSetLayout vk_dsLayout;
 	{
-		VkDescriptorSetLayoutBinding vk_dsLayoutBinding = {};
-		vk_dsLayoutBinding.binding = 0u;
-		vk_dsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		vk_dsLayoutBinding.descriptorCount = 1u;
-		vk_dsLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		vk_dsLayoutBinding.pImmutableSamplers = nullptr;
+		// image2D
+		VkDescriptorSetLayoutBinding vk_dsLayoutImageBinding = {};
+		vk_dsLayoutImageBinding.binding = 0u;
+		vk_dsLayoutImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		vk_dsLayoutImageBinding.descriptorCount = 1u;
+		vk_dsLayoutImageBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		vk_dsLayoutImageBinding.pImmutableSamplers = nullptr;
+
+		// ubo
+		VkDescriptorSetLayoutBinding vk_dsLayoutUboBinding = {};
+		vk_dsLayoutUboBinding.binding = 1u;
+		vk_dsLayoutUboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vk_dsLayoutUboBinding.descriptorCount = 1u;
+		vk_dsLayoutUboBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		vk_dsLayoutUboBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding vk_dsLayoutBindings[] =
+		{ vk_dsLayoutImageBinding, vk_dsLayoutUboBinding };
 
 		VkDescriptorSetLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 		createInfo.pNext = nullptr;
 		createInfo.flags = 0;
-		createInfo.bindingCount = 1u;
-		createInfo.pBindings = &vk_dsLayoutBinding;
+		createInfo.bindingCount = 2u;
+		createInfo.pBindings = vk_dsLayoutBindings;
 
 		assert(vkCreateDescriptorSetLayout(vk_device, &createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS);
 	}
 
 	VkDescriptorPool vk_descriptorPool = VK_NULL_HANDLE;
 	{
-		VkDescriptorPoolSize vk_poolSize = {};
-		vk_poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		vk_poolSize.descriptorCount = SC_IMG_COUNT;
+		const uint32_t descriptorPoolSizeStructsCount = 2u;
+		VkDescriptorPoolSize vk_poolSizes[descriptorPoolSizeStructsCount] = {};
+		vk_poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		vk_poolSizes[0].descriptorCount = SC_IMG_COUNT;
+		vk_poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vk_poolSizes[1].descriptorCount = SC_IMG_COUNT;
 
 		VkDescriptorPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 		createInfo.pNext = nullptr;
 		createInfo.flags = 0;
 		createInfo.maxSets = SC_IMG_COUNT;
-		createInfo.poolSizeCount = 1u;
-		createInfo.pPoolSizes = &vk_poolSize;
+		createInfo.poolSizeCount = descriptorPoolSizeStructsCount;
+		createInfo.pPoolSizes = vk_poolSizes;
 		
 		assert(vkCreateDescriptorPool(vk_device, &createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS);
 	}
@@ -474,18 +582,39 @@ int main()
 			vk_imageInfo.imageView = vk_swapchainImageViews[i];
 			vk_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-			VkWriteDescriptorSet vk_descriptorWrites = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-			vk_descriptorWrites.pNext = nullptr;
-			vk_descriptorWrites.dstSet = vk_descriptorSets[i];
-			vk_descriptorWrites.dstBinding = 0u;
-			vk_descriptorWrites.dstArrayElement = 0u;
-			vk_descriptorWrites.descriptorCount = 1u;
-			vk_descriptorWrites.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			vk_descriptorWrites.pImageInfo = &vk_imageInfo;
-			vk_descriptorWrites.pBufferInfo = nullptr;
-			vk_descriptorWrites.pTexelBufferView = nullptr;
+			VkDescriptorBufferInfo vk_bufferInfo = {};
+			vk_bufferInfo.buffer = vk_ubos[i];
+			vk_bufferInfo.offset = 0;
+			vk_bufferInfo.range = sizeof(UniformBufferObject);
 
-			vkUpdateDescriptorSets(vk_device, 1u, &vk_descriptorWrites, 0u, nullptr);
+			const uint32_t descriptorCount = 2u;
+			VkWriteDescriptorSet vk_descriptorWrites[descriptorCount] = {};
+
+			// image2D
+			vk_descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			vk_descriptorWrites[0].pNext = nullptr;
+			vk_descriptorWrites[0].dstSet = vk_descriptorSets[i];
+			vk_descriptorWrites[0].dstBinding = 0u;
+			vk_descriptorWrites[0].dstArrayElement = 0u;
+			vk_descriptorWrites[0].descriptorCount = 1u;
+			vk_descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			vk_descriptorWrites[0].pImageInfo = &vk_imageInfo;
+			vk_descriptorWrites[0].pBufferInfo = nullptr;
+			vk_descriptorWrites[0].pTexelBufferView = nullptr;
+
+			// ubo
+			vk_descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			vk_descriptorWrites[1].pNext = nullptr;
+			vk_descriptorWrites[1].dstSet = vk_descriptorSets[i];
+			vk_descriptorWrites[1].dstBinding = 1u;
+			vk_descriptorWrites[1].dstArrayElement = 0u;
+			vk_descriptorWrites[1].descriptorCount = 1u; // this is probably for specifying an array of ubos
+			vk_descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			vk_descriptorWrites[1].pImageInfo = nullptr;
+			vk_descriptorWrites[1].pBufferInfo = &vk_bufferInfo;
+			vk_descriptorWrites[1].pTexelBufferView = nullptr;
+
+			vkUpdateDescriptorSets(vk_device, descriptorCount, vk_descriptorWrites, 0u, nullptr);
 		}
 	}
 

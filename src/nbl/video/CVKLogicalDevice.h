@@ -19,6 +19,8 @@
 namespace nbl::video
 {
 
+// Todo(achal): There are methods in this class which aren't pure virtual in ILogicalDevice,
+// need to implement those as well
 class CVKLogicalDevice final : public ILogicalDevice
 {
 public:
@@ -270,9 +272,10 @@ public:
         return nullptr;
     }
 
-    // API changes needed this could also fail.
+    // API changes needed, this could also fail.
     void waitIdle() override
     {
+        // Todo(achal): Handle errors
         assert(vkDeviceWaitIdle(m_vkdev) == VK_SUCCESS);
     }
 
@@ -306,6 +309,7 @@ protected:
         return core::make_smart_refctd_ptr<CVulkanFramebuffer>(this, std::move(params));
     }
 
+    // Todo(achal): For some reason this is not printing shader compilation errors to console
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) override
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
