@@ -1,9 +1,11 @@
 #ifndef C_WINDOWMANAGER_WIN32
 #define C_WINDOWMANAGER_WIN32
-#ifdef _NBL_PLATFORM_WINDOWS_
+
 #include "nbl/ui/IWindowManager.h"
 #include <cstdint>
 #include <queue>
+
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include <codecvt>
 #include <xlocbuf>
 
@@ -12,6 +14,7 @@
 #include <hidusage.h>
 
 #include "nbl/ui/CWindowWin32.h"
+
 namespace nbl::ui
 {
 	class CWindowManagerWin32 : public IWindowManager
@@ -134,7 +137,8 @@ namespace nbl::ui
 		private:
 			void waitForCompletion(SRequest& req)
 			{
-				auto lk = req.wait();
+				req.wait_ready();
+				req.discard_storage();
 			}
 
 		private:
@@ -239,7 +243,7 @@ namespace nbl::ui
 					// TODO still needed?
 					MoveWindow(*params.nativeWindow, clientSize.left, clientSize.top, realWidth, realHeight, TRUE);
 					{
-						//TODO: thoroughly test this stuff	
+						//TODO: thoroughly test this stuff	(what is this about, you need to register devices yourself!? I thought Windows can give you a list of raw input devices!?)
 						constexpr uint32_t INPUT_DEVICES_COUNT = 5;
 						RAWINPUTDEVICE inputDevices[INPUT_DEVICES_COUNT];
 						inputDevices[0].hwndTarget = *params.nativeWindow;

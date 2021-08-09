@@ -141,8 +141,8 @@ public:
 
 template <std::memory_order LoadOrder, std::memory_order ReadModWriteOrder>
 inline read_lock_guard<LoadOrder, ReadModWriteOrder>::read_lock_guard(write_lock_guard<LoadOrder, ReadModWriteOrder>&& wl) : impl::rw_lock_guard_base(std::move(wl))
-{=
-    m_lock->m_lock.fetch_sub(LockWriteVal - 1u, ReadModWriteOrder);
+{
+    m_lock->m_lock.fetch_sub(impl::SReadWriteSpinLockBase::LockWriteVal - 1u, ReadModWriteOrder);
 }
 
 template <std::memory_order LoadOrder, std::memory_order ReadModWriteOrder>

@@ -23,9 +23,7 @@
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IAssetManager;
@@ -820,7 +818,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 };
 
 
-}
 }
 
 #endif

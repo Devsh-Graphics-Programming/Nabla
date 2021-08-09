@@ -33,7 +33,7 @@ using namespace asset;
 
 namespace 
 {
-typedef struct
+typedef struct mem_destination_mgr
 {
 	struct jpeg_destination_mgr pub;/* public fields */
 	system::ISystem* system;

@@ -87,7 +87,7 @@ namespace impl
 
             while (m_bgEventBuf.size() > 0ull)
             {
-                auto& ev = m_bgEventBuf.pop_front();
+                auto ev = m_bgEventBuf.pop_front();
                 m_frontEventBuf.push_back(std::move(ev));
             }
         }
