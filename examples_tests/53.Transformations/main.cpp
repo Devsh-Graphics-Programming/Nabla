@@ -461,7 +461,7 @@ int main()
 				scaleMat.setScale(core::vectorSIMDf(solarSystemObj.scale));
 				
 				{
-					auto rot = current_rotation + 300; // just offset a bit in time
+					auto rot = current_rotation + 300; // just offset in time for beauty
 					rotationMat.setRotation(core::quaternion(0.0f, rot * solarSystemObj.yRotationSpeed, rot * solarSystemObj.zRotationSpeed));
 				}
 
@@ -470,7 +470,7 @@ int main()
 					parentMat = parentObj.matForChildren;
 				}
 
-				solarSystemObj.matForChildren = matrix3x4SIMD::concatenateBFollowedByA(matrix3x4SIMD::concatenateBFollowedByA(parentMat, rotationMat), translationMat); // parentMat * rotationYMat * translationMat
+				solarSystemObj.matForChildren = matrix3x4SIMD::concatenateBFollowedByA(matrix3x4SIMD::concatenateBFollowedByA(parentMat, rotationMat), translationMat); // parentMat * rotationMat * translationMat
 				instancesData[i].modelMatrix = matrix3x4SIMD::concatenateBFollowedByA(solarSystemObj.matForChildren, scaleMat); // solarSystemObj.matForChildren * scaleMat
 			}
 
