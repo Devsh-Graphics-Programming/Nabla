@@ -109,7 +109,7 @@ public:
 				std::unique_lock lock(channels.lock);
 				while (channels.channels.empty())
 				{
-					m_logger.log("Waiting For Input Device to be connected...",system::ILogger::ELL_INFO);
+					m_logger.log("Waiting For Input Device to be connected...",nbl::system::ILogger::ELL_INFO);
 					channels.added.wait(lock);
 				}
 				
@@ -174,7 +174,7 @@ public:
 						}
 
 						if(defaultIdx != newDefaultIdx) {
-							m_logger.log("Default InputChannel for ChannelType changed from %u to %u",system::ILogger::ELL_INFO, defaultIdx, newDefaultIdx);
+							m_logger.log("Default InputChannel for ChannelType changed from %u to %u",nbl::system::ILogger::ELL_INFO, defaultIdx, newDefaultIdx);
 
 							defaultIdx = newDefaultIdx;
 							channels.defaultChannelIndex = newDefaultIdx;
@@ -337,10 +337,10 @@ public:
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 
-		video::SDebugCallback dbgcb;
-		dbgcb.callback = &defaultDebugCallback;
-		dbgcb.userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), &dbgcb);
+		auto dbgcb = new video::SDebugCallback();
+		dbgcb->callback = &defaultDebugCallback;
+		dbgcb->userData = nullptr;
+		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), dbgcb);
 		result.surface = result.apiConnection->createSurface(result.window.get());
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
