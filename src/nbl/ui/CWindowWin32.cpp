@@ -227,13 +227,13 @@ namespace ui
 			{
 				auto* inputChannel = window->getMouseEventChannel(device);
 				RAWMOUSE rawMouse = rawInput->data.mouse;
- 
+				SMouseEvent event(timestamp);
+
 				if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
 				{
 					// XD apparently a flag can be set, but there will be no actual movement
 					if (rawMouse.lLastX != 0 || rawMouse.lLastY != 0)
 					{
-						SMouseEvent event(timestamp);
 						event.type = SMouseEvent::EET_MOVEMENT;
 						event.movementEvent.movementX = rawMouse.lLastX;
 						event.movementEvent.movementY = rawMouse.lLastY;
@@ -245,7 +245,6 @@ namespace ui
 				}
 				if ((rawMouse.usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE)
 				{
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_MOVEMENT;
 					event.movementEvent.movementX = rawMouse.lLastX;
 					event.movementEvent.movementY = rawMouse.lLastY;
@@ -256,7 +255,6 @@ namespace ui
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)
 				{
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
@@ -269,7 +267,6 @@ namespace ui
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP)
 				{
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
@@ -282,7 +279,6 @@ namespace ui
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN)
 				{
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
@@ -295,7 +291,6 @@ namespace ui
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP)
 				{
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
@@ -308,7 +303,6 @@ namespace ui
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN)
 				{
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
@@ -321,7 +315,6 @@ namespace ui
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP)
 				{
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
@@ -337,7 +330,6 @@ namespace ui
 				if (rawMouse.usButtonFlags & RI_MOUSE_WHEEL)
 				{
 					SHORT wheelDelta = static_cast<SHORT>(rawMouse.usButtonData);
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_SCROLL;
 					event.scrollEvent.verticalScroll = wheelDelta;
 					event.scrollEvent.horizontalScroll = 0;
@@ -348,7 +340,6 @@ namespace ui
 				else if (rawMouse.usButtonFlags & RI_MOUSE_HWHEEL)
 				{
 					SHORT wheelDelta = static_cast<SHORT>(rawMouse.usButtonData);
-					SMouseEvent event(timestamp);
 					event.type = SMouseEvent::EET_SCROLL;
 					event.scrollEvent.verticalScroll = 0;
 					event.scrollEvent.horizontalScroll = wheelDelta;

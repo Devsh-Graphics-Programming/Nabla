@@ -24,8 +24,8 @@ namespace nbl::ui
 		SPosition nativePos;
 		int32_t w = window->getWidth();
 		int32_t h = window->getHeight();
-		nativePos.x = (position.x / 2 + 0.5) * w + window->getX();
-		nativePos.y = (position.y / 2 + 0.5) * h + window->getY();
+		nativePos.x = (position.x / 2.f + 0.5f) * w + window->getX();
+		nativePos.y = (position.y / 2.f + 0.5f) * h + window->getY();
 		SetCursorPos(nativePos.x, nativePos.y);
 	}
 	CCursorControlWin32::SPosition CCursorControlWin32::getPosition()
