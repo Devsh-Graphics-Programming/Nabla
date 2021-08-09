@@ -16,13 +16,10 @@
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/EApiType.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/video/CPropertyPoolHandler.h"
 
 namespace nbl::video
 {
-
-// fwd decl
-class CPropertyPoolHandler;
-class IGPUObjectFromAssetConverter;
 
 class ILogicalDevice : public core::IReferenceCounted
 {
@@ -773,10 +770,13 @@ public:
     //vkMergePipelineCaches //as pipeline cache method (why not)
     //vkCreateQueryPool //????
     //vkCreateShaderModule //????
-
+#if 0
     //!
-    //virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
-
+    virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const
+    {
+        return m_propertyPoolHandler;
+    }
+#endif
 protected:
     ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_physicalDevice(physicalDevice), m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
     {
@@ -878,6 +878,8 @@ protected:
 
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
+
+    //core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
 };
 
 }

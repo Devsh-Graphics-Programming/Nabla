@@ -44,7 +44,7 @@ class CGLIWriter final : public asset::IAssetWriter
 	protected:
 
 	private:
-		bool writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr& logger);
+		bool writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr logger);
 
 		static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
 		{

@@ -185,6 +185,7 @@ set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowX11.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -265,7 +266,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
-	#${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp

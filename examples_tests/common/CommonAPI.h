@@ -109,7 +109,7 @@ public:
 				std::unique_lock lock(channels.lock);
 				while (channels.channels.empty())
 				{
-					m_logger.log("Waiting For Input Device to be connected...",system::ILogger::ELL_INFO);
+					m_logger.log("Waiting For Input Device to be connected...",nbl::system::ILogger::ELL_INFO);
 					channels.added.wait(lock);
 				}
 				
@@ -174,7 +174,7 @@ public:
 						}
 
 						if(defaultIdx != newDefaultIdx) {
-							m_logger.log("Default InputChannel for ChannelType changed from %u to %u",system::ILogger::ELL_INFO, defaultIdx, newDefaultIdx);
+							m_logger.log("Default InputChannel for ChannelType changed from %u to %u",nbl::system::ILogger::ELL_INFO, defaultIdx, newDefaultIdx);
 
 							defaultIdx = newDefaultIdx;
 							channels.defaultChannelIndex = newDefaultIdx;
@@ -203,29 +203,35 @@ public:
 		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)) {}
 
 	private:
-		void onWindowShown_impl() override 
+		bool onWindowShown_impl() override
 		{
 			m_logger.log("Window Shown");
+			return true;
 		}
-		void onWindowHidden_impl() override 
+		bool onWindowHidden_impl() override
 		{
 			m_logger.log("Window hidden");
+			return true;
 		}
-		void onWindowMoved_impl(int32_t x, int32_t y) override
+		bool onWindowMoved_impl(int32_t x, int32_t y) override
 		{
 			m_logger.log("Window window moved to { %d, %d }", nbl::system::ILogger::ELL_WARNING, x, y);
+			return true;
 		}
-		void onWindowResized_impl(uint32_t w, uint32_t h) override
+		bool onWindowResized_impl(uint32_t w, uint32_t h) override
 		{
 			m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
+			return true;
 		}
-		void onWindowMinimized_impl() override
+		bool onWindowMinimized_impl() override
 		{
 			m_logger.log("Window minimized", nbl::system::ILogger::ELL_ERROR);
+			return true;
 		}
-		void onWindowMaximized_impl() override
+		bool onWindowMaximized_impl() override
 		{
 			m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
+			return true;
 		}
 		void onGainedMouseFocus_impl() override
 		{
@@ -337,10 +343,10 @@ public:
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 
-		video::SDebugCallback dbgcb;
-		dbgcb.callback = &defaultDebugCallback;
-		dbgcb.userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), &dbgcb);
+		auto dbgcb = new video::SDebugCallback();
+		dbgcb->callback = &defaultDebugCallback;
+		dbgcb->userData = nullptr;
+		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), dbgcb);
 		result.surface = result.apiConnection->createSurface(result.window.get());
 
 		auto gpus = result.apiConnection->getPhysicalDevices();

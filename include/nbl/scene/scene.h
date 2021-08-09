@@ -5,12 +5,12 @@
 #ifndef __NBL_SCENE_H_INCLUDED__
 #define __NBL_SCENE_H_INCLUDED__
 
+#if 0 // not buildable on criss/vulkan branch
 // dependencies
 #include "nbl/video/video.h"
 #include "nbl/ui/ui.h"
 
 //
-#if 0 // not buildable on criss/vulkan branch
 #include "nbl/scene/IAnimationBlendManager.h"
 #include "nbl/scene/IRenderpassManager.h"
 #endif

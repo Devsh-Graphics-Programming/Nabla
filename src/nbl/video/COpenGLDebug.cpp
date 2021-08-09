@@ -1,7 +1,6 @@
 #include "nbl/video/COpenGLDebug.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 void opengl_debug_callback(GLenum _source, GLenum _type, GLuint _id, GLenum _severity, GLsizei _length, const GLchar* _message, const void* _userParam)
@@ -36,5 +35,4 @@ void opengl_debug_callback(GLenum _source, GLenum _type, GLuint _id, GLenum _sev
     cb->callback(severity, type, _message, cb->userData);
 }
 
-}
 }

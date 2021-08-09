@@ -32,7 +32,6 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 
         auto& req = m_threadHandler.request(std::move(params));
         // dont need to wait on this
-        //m_threadHandler.waitForRequestCompletion<req_params_t>(req);
         return req;
     }
 
@@ -417,7 +416,6 @@ public:
         req_params.glsync = sync;
         auto& req = m_threadHandler.request(std::move(req_params));
         //dont need to wait on this
-        //m_threadHandler.template waitForRequestCompletion<SRequestSyncDestroy>(req);
     }
 
 protected:

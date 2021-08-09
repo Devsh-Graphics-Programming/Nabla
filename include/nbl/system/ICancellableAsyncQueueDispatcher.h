@@ -18,6 +18,29 @@ class ICancellableAsyncQueueDispatcherBase
 
         struct request_base_t : impl::IAsyncQueueDispatcherBase::request_base_t
         {
+                // do NOT allow canceling of request while they are processed
+                bool wait_for_work()
+                {
+                    uint32_t expected = ES_PENDING;
+                    while (!state.compare_exchange_strong(expected,ES_EXECUTING))
+                    {
+                        // this will allow worker to proceed, but the request predicate will take care of not doing the work
+                        if (expected==ES_INITIAL)
+                            return false;
+                        state.wait(expected);
+                        expected = ES_PENDING;
+                    }
+                    assert(expected==ES_PENDING);
+                    return true;
+                }
+                // to call after request is done being processed
+                void notify_ready()
+                {
+                    const auto prev = state.exchange(ES_READY);
+                    assert(prev==ES_INITIAL||prev==ES_EXECUTING);
+                    state.notify_one();
+                }
+
             private:
                 friend future_base_t;
                 friend ICancellableAsyncQueueDispatcherBase;
@@ -26,7 +49,7 @@ class ICancellableAsyncQueueDispatcherBase
                 bool set_cancel();
                 bool query_cancel() const
                 {
-                    return future==nullptr;
+                    return state.load()==ES_INITIAL||future==nullptr;
                 }
 
                 future_base_t* future = nullptr;
@@ -47,22 +70,26 @@ class ICancellableAsyncQueueDispatcherBase
                 std::atomic_bool valid_flag = false;
                 std::atomic<request_base_t*> request = nullptr;
 
+                // the base class is not directly usable
+                future_base_t() = default;
                 // future_t is non-copyable and non-movable
                 future_base_t(const future_base_t&) = delete;
+                // the base class shouldn't be used by itself without casting
+                ~future_base_t()
+                {
+                    // derived should call its own `cancel` in the destructor, I'm just checking its already done
+                    assert(!(request.load()||valid_flag.load()));
+                }
 
-                void cancel()
+                bool cancel()
                 {
                     request_base_t* req = request.exchange(nullptr);
                     if (req)
-                        req->set_cancel();
+                        return req->set_cancel();
+                    return false;
                 }
 
             public:
-                future_base_t() = default;
-                ~future_base_t()
-                {
-                    cancel();
-                }
 
                 // Misused these a couple times so i'll better put [[nodiscard]] here 
                 [[nodiscard]] bool ready() const 
@@ -84,11 +111,6 @@ class ICancellableAsyncQueueDispatcherBase
         };
 
     protected:
-        bool process_request_predicate(const request_base_t& req)
-        {
-            return !req.query_cancel();
-        }
-
         template<class FutureType>
         FutureType* request_get_future_object(request_base_t& req_base)
         {
@@ -146,19 +168,21 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
             public:
                 using value_type = T;
 
-                void cancel()
+                bool cancel()
                 {
-                    impl::ICancellableAsyncQueueDispatcherBase::future_base_t::cancel();
+                    const bool retval = impl::ICancellableAsyncQueueDispatcherBase::future_base_t::cancel();
                     bool valid = valid_flag.exchange(false);
                     if (valid)
                         future_storage_t<T>::getStorage()->~T();
+                    return retval;
                 }
 
                 future_t() = default;
 
                 ~future_t()
                 {
-                    cancel();
+                    const bool didntUseFuture = cancel();
+                    _NBL_DEBUG_BREAK_IF(didntUseFuture);
                 }
 
                 T& get()
@@ -173,12 +197,6 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
         using base_t::base_t;
 
     protected:
-        template<typename RequestType>
-        bool process_request_predicate(const RequestType& req)
-        {
-            return impl::ICancellableAsyncQueueDispatcherBase::process_request_predicate(req);
-        }
-
         //! Must be called from within process_request()
         //! User is responsible for providing a value into the associated future object
         template <typename T, typename... Args>
@@ -213,7 +231,7 @@ inline bool impl::ICancellableAsyncQueueDispatcherBase::request_base_t::set_canc
         if (expected==ES_READY)
         {
             transition(ES_READY,ES_INITIAL);
-            return false;
+            return true;
         }
         else if (expected==ES_INITIAL) // cancel after await
         {

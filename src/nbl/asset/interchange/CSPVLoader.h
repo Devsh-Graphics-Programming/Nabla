@@ -15,7 +15,7 @@ class CSPVLoader final : public asset::IAssetLoader
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
 	public:
 		CSPVLoader() = default;
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr&) const override
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const override
 		{
 			uint32_t magicNumber = 0u;
 

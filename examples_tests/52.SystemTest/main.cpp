@@ -8,6 +8,7 @@
 #include <nabla.h>
 // TODO: get all these headers into "nabla.h"
 #include <nbl/ui/CWindowManagerWin32.h>
+#include <nbl/ui/CCursorControlWin32.h>
 #include <nbl/system/ISystem.h>
 #include "../common/CommonAPI.h"
 #include "nbl/system/CStdoutLogger.h"
@@ -49,7 +50,7 @@ class InputSystem : public IReferenceCounted
 					);
 					consumedCounter = events.size()-frontBufferCapacity;
 				}
-				processFunc(ChannelType::range_t(events.begin()+consumedCounter,events.end()));
+				processFunc(ChannelType::range_t(events.begin()+consumedCounter,events.end()), channel);
 				consumedCounter = events.size();
 			}
 
@@ -125,29 +126,35 @@ public:
 	WindowEventCallback(core::smart_refctd_ptr<InputSystem>&& inputSystem, system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)) {}
 
 private:
-	void onWindowShown_impl() override 
+	bool onWindowShown_impl() override 
 	{
 		m_logger.log("Window Shown");
+		return true;
 	}
-	void onWindowHidden_impl() override 
+	bool onWindowHidden_impl() override
 	{
 		m_logger.log("Window hidden");
+		return true;
 	}
-	void onWindowMoved_impl(int32_t x, int32_t y) override
+	bool onWindowMoved_impl(int32_t x, int32_t y) override
 	{
 		m_logger.log("Window window moved to { %d, %d }", system::ILogger::ELL_WARNING, x, y);
+		return true;
 	}
-	void onWindowResized_impl(uint32_t w, uint32_t h) override
+	bool onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
 		m_logger.log("Window resized to { %u, %u }", system::ILogger::ELL_DEBUG, w, h);
+		return true;
 	}
-	void onWindowMinimized_impl() override
+	bool onWindowMinimized_impl() override
 	{
 		m_logger.log("Window minimized", system::ILogger::ELL_ERROR);
+		return true;
 	}
-	void onWindowMaximized_impl() override
+	bool onWindowMaximized_impl() override
 	{
 		m_logger.log("Window maximized", system::ILogger::ELL_PERFORMANCE);
+		return true;
 	}
 	void onGainedMouseFocus_impl() override
 	{
@@ -164,6 +171,11 @@ private:
 	void onLostKeyboardFocus_impl() override
 	{
 		m_logger.log("Window lost keyboard focus", system::ILogger::ELL_INFO);
+	}
+	bool onWindowClosed_impl() override
+	{
+		m_logger.log("Window closed");
+		return true;
 	}
 
 	void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) override
@@ -216,8 +228,8 @@ int main()
 	params.callback = nullptr;
 	params.width = 720;
 	params.height = 480;
-	params.x = 0;
-	params.y = 0;
+	params.x = 500;
+	params.y = 300;
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
@@ -227,6 +239,7 @@ int main()
 	params.callback = windowCb;
 	// *********************************
 	auto window = winManager->createWindow(std::move(params));
+	auto* cursorControl = window->getCursorControl();
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
 	system->createFile(future, "testFile.txt", nbl::system::IFile::ECF_READ_WRITE);
@@ -245,18 +258,45 @@ int main()
 	// polling for events!
 	InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-	auto mouseProcess = [logger](const IMouseEventChannel::range_t& events) -> void
+	auto mouseProcess = [logger](const IMouseEventChannel::range_t& events, const core::smart_refctd_ptr<IMouseEventChannel>& ch) -> void
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			logger->log("Mouse event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			switch ((*eventIt).type)
+			{
+			case SMouseEvent::EET_MOVEMENT:
+			{
+				logger->log("Mouse movement (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).movementEvent.relativeMovementX, (*eventIt).movementEvent.relativeMovementY, ch, (*eventIt).timeStamp);
+				break;
+			}
+			case SMouseEvent::EET_CLICK:
+			{
+				if((*eventIt).clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED)
+					logger->log("Mouse click press at (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).clickEvent.clickPosX, (*eventIt).clickEvent.clickPosY, ch, (*eventIt).timeStamp);
+				else if ((*eventIt).clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED)
+					logger->log("Mouse click release at (%d, %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).clickEvent.clickPosX, (*eventIt).clickEvent.clickPosY, ch, (*eventIt).timeStamp);
+				break;
+			}
+			case SMouseEvent::EET_SCROLL:
+			{
+				logger->log("Mouse scroll (vertical: %d, horizontal: %d) from device %p at %u us", system::ILogger::ELL_INFO, (*eventIt).scrollEvent.verticalScroll, (*eventIt).scrollEvent.horizontalScroll, ch, (*eventIt).timeStamp);
+				break;
+			}
+			}
 		}
 	};
-	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events) -> void
+	auto keyboardProcess = [logger](const IKeyboardEventChannel::range_t& events, const core::smart_refctd_ptr<IKeyboardEventChannel>& ch) -> void
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
-			logger->log("Keyboard event at %d us",system::ILogger::ELL_INFO,(*eventIt).timeStamp);
+			if ((*eventIt).action == SKeyboardEvent::ECA_PRESSED)
+			{
+				logger->log("Keyboard key \"%c\" pressed from device % p", system::ILogger::ELL_INFO, (*eventIt).keyCode, ch);
+			}
+			else if ((*eventIt).action == SKeyboardEvent::ECA_RELEASED)
+			{
+				logger->log("Keyboard key \"%c\" released from device % p", system::ILogger::ELL_INFO, (*eventIt).keyCode, ch);
+			}
 		}
 	};
 	
