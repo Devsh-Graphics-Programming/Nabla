@@ -336,11 +336,8 @@ public:
 		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
-
-		auto dbgcb = new video::SDebugCallback();
-		dbgcb->callback = &defaultDebugCallback;
-		dbgcb->userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), dbgcb);
+		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
+		result.apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
 		result.surface = result.apiConnection->createSurface(result.window.get());
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
@@ -632,22 +629,5 @@ public:
 			++currentIndex;
 		}
 		return -1;
-	}
-	static void defaultDebugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
-	{
-		using namespace nbl;
-		const char* sev = nullptr;
-		switch (severity)
-		{
-		case video::EDMS_VERBOSE:
-			sev = "verbose"; break;
-		case video::EDMS_INFO:
-			sev = "info"; break;
-		case video::EDMS_WARNING:
-			sev = "warning"; break;
-		case video::EDMS_ERROR:
-			sev = "error"; break;
-		}
-		std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 	}
 };
