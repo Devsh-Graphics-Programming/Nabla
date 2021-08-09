@@ -265,7 +265,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
-	#${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
