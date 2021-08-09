@@ -138,17 +138,18 @@ public:
 				auto defaultChannelEvents = defaultChannel->getEvents();
 				auto timeDiff = (nowTimeStamp - channels.timeStamps[defaultIdx]).count();
 				
-				constexpr size_t RewindBackEvents = 100u;
+				constexpr size_t RewindBackEvents = 50u;
 
 				// If the current one hasn't been active for a while
 				if(defaultChannel->empty()) {
 					if(timeDiff > DefaultChannelTimeoutInMicroSeconds) {
 						// Look for the most active channel (the channel which has got the most events recently)
 						auto newDefaultIdx = defaultIdx;
-						microseconds minEventTimeStamp = nowTimeStamp;
+						microseconds maxEventTimeStamp = microseconds(0);
 
 						for(uint32_t chIdx = 0; chIdx < channels.channels.size(); ++chIdx) {
-							if(defaultIdx != chIdx) {
+							if(defaultIdx != chIdx) 
+							{
 								auto channelTimeDiff = (nowTimeStamp - channels.timeStamps[chIdx]).count();
 								// Check if was more recently active than the current most active
 								if(channelTimeDiff < DefaultChannelTimeoutInMicroSeconds)
@@ -163,8 +164,9 @@ public:
 
 									auto oldEvent = *(channelEvents.end() - rewindBack);
 
-									if(oldEvent.timeStamp < minEventTimeStamp) {
-										minEventTimeStamp = oldEvent.timeStamp;
+									// Which oldEvent of channels are earlier?
+									if(oldEvent.timeStamp > maxEventTimeStamp) {
+										maxEventTimeStamp = oldEvent.timeStamp;
 										newDefaultIdx = chIdx;
 									}
 								}
