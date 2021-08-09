@@ -113,8 +113,8 @@ public:
 
 			if(ev.type == ui::SMouseEvent::EET_MOVEMENT && mouseDown) {
 				core::vectorSIMDf pos; pos.set(getPosition());
-				core::vectorSIMDf target = getTarget() - pos;
-				core::vector3df relativeRotation = target.getAsVector3df().getHorizontalAngle();
+				core::vectorSIMDf localTarget = getTarget() - pos;
+				core::vector3df relativeRotation = localTarget.getAsVector3df().getHorizontalAngle();
 				relativeRotation.X -= ev.movementEvent.movementY * rotateSpeed * -1.0f;
 				float tmpYRot = ev.movementEvent.movementX * rotateSpeed * -1.0f;
 				if (leftHanded)
@@ -135,20 +135,15 @@ public:
 					relativeRotation.X = MaxVerticalAngle;
 				}
 
-				target.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
-				core::vectorSIMDf movedir = target;
+				localTarget.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
 
 				core::matrix3x4SIMD mat;
 				{
-					core::matrix4x3 tmp;
-					tmp.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
-					mat.set(tmp);
+					mat.setRotation(core::quaternion(core::radians(relativeRotation.X), core::radians(relativeRotation.Y), 0));
 				}
-				mat.transformVect(target);
+				mat.transformVect(localTarget);
 				
-				// write right target
-				target += pos;
-				setTarget(target);
+				setTarget(localTarget + pos);
 			}
 		}
 	}
@@ -220,25 +215,10 @@ public:
 			}
 		}
 		
-		core::vectorSIMDf pos; pos.set(getPosition());
-		core::vectorSIMDf target = getTarget() - pos;
-		core::vector3df relativeRotation = target.getAsVector3df().getHorizontalAngle();
-	
-		// set target
-		target.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
-		core::vectorSIMDf movedir = target;
+		core::vectorSIMDf pos = getPosition();;
+		core::vectorSIMDf localTarget = getTarget() - pos;
 
-		core::matrix3x4SIMD mat;
-		{
-			core::matrix4x3 tmp;
-			tmp.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
-			mat.set(tmp);
-		}
-		mat.transformVect(target);
-		target.makeSafe3D();
-
-		movedir = target;
-
+		core::vectorSIMDf movedir = localTarget;
 		movedir.makeSafe3D();
 		movedir = core::normalize(movedir);
 
@@ -247,8 +227,7 @@ public:
 		pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed;
 
 		// strafing
-
-		core::vectorSIMDf strafevect; strafevect.set(target);
+		core::vectorSIMDf strafevect; strafevect.set(localTarget);
 		if (leftHanded)
 			strafevect = core::cross(strafevect, upVector);
 		else
@@ -260,12 +239,9 @@ public:
 
 		pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed;
 
-		// write translation
 		setPosition(pos);
 
-		// write right target
-		target += pos;
-		setTarget(target);
+		setTarget(localTarget + pos);
 
 		lastVirtualUpTimeStamp = nextPresentationTimeStamp;
 	}
