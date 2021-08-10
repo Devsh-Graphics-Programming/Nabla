@@ -28,7 +28,7 @@ class COpenGL_Connection final : public IAPIConnection
         IDebugCallback* getDebugCallback() const override;
 
     private:
-        COpenGL_Connection(core::smart_refctd_ptr<IPhysicalDevice>&& _pdevice) : m_pdevice(std::move(m_pdevice)) {}
+        COpenGL_Connection(core::smart_refctd_ptr<IPhysicalDevice>&& _pdevice) : m_pdevice(std::move(_pdevice)) {}
 
         core::smart_refctd_ptr<IPhysicalDevice> m_pdevice;
 };
