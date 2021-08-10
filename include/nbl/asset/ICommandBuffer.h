@@ -8,6 +8,9 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ECommonEnums.h"
 
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
 #include <type_traits>
 
 namespace nbl {
@@ -42,6 +45,8 @@ struct SViewport
     float width, height;
     float minDepth, maxDepth;
 };
+
+#if 0
 struct VkOffset2D
 {
     int32_t x;
@@ -57,6 +62,7 @@ struct VkRect2D
     VkOffset2D    offset;
     VkExtent2D    extent;
 };
+#endif
 
 struct SMemoryBarrier
 {
@@ -149,7 +155,7 @@ public:
 
     enum E_LEVEL : uint32_t
     {
-        EL_PRIMARY,
+        EL_PRIMARY = 0u,
         EL_SECONDARY
     };
 

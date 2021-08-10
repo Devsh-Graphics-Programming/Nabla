@@ -66,7 +66,7 @@ namespace video
             case impl::ECT_SET_SCISSORS:
             {
                 auto& c = cmd.get<impl::ECT_SET_SCISSORS>();
-                pool->free_n<asset::VkRect2D>(c.scissors, c.scissorCount);
+                pool->free_n<VkRect2D>(c.scissors, c.scissorCount);
             }
             break;
             case impl::ECT_CLEAR_COLOR_IMAGE:

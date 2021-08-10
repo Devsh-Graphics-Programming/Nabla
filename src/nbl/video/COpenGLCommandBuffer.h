@@ -214,7 +214,7 @@ namespace impl
     {
         uint32_t firstScissor;
         uint32_t scissorCount;
-        const asset::VkRect2D* scissors;
+        VkRect2D* scissors;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_DEPTH_BOUNDS)
     {
@@ -753,12 +753,12 @@ public:
         return true;
     }
 
-    bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const asset::VkRect2D* pScissors) override
+    bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override
     {
         SCmd<impl::ECT_SET_SCISSORS> cmd;
         cmd.firstScissor = firstScissor;
         cmd.scissorCount = scissorCount;
-        auto* scissors = getGLCommandPool()->emplace_n<asset::VkRect2D>(scissorCount, pScissors[0]);
+        auto* scissors = getGLCommandPool()->emplace_n<VkRect2D>(scissorCount, pScissors[0]);
         if (!scissors)
             return false;
         for (uint32_t i = 0u; i < scissorCount; ++i)

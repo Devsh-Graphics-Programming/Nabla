@@ -151,8 +151,36 @@ struct alignas(256) UniformBufferObject
 	float r, g, b, a;
 };
 
+struct ArgumentReferenceSegment
+{
+	std::array<core::smart_refctd_ptr<core::IReferenceCounted>, 63> arguments;
+
+	// What is this nextBlock here for?
+	// What emplace would return?
+	uint32_t argCount, nextBlock;
+};
+
+struct DemoPOD
+{
+	int32_t x[256];
+};
+
 int main()
 {
+	const size_t BLOCK_SIZE = 4096u * 1024u;
+	const size_t MAX_BLOCK_COUNT = 256u;
+
+	core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,
+		core::default_aligned_allocator> mempool(BLOCK_SIZE, MAX_BLOCK_COUNT);
+
+	// core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator>::addr_allocator_type::
+//	core::address_allocator_traits<core::PoolAddressAllocator<uint32_t>>::multi_alloc_addr()
+
+	// ArgumentReferenceSegment* newSegment = nullptr;
+	// UniformBufferObject* newSegment = nullptr;
+	// newSegment = mempool.emplace_n<ArgumentReferenceSegment>(1);
+
+
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u; // problematic, shouldn't fix the number of swapchain images at compile time, since Vulkan is under no obligation to return you the exact number of images you requested
@@ -386,6 +414,14 @@ int main()
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader =
 		device->createGPUSpecializedShader(unspecializedShader.get(), specializationInfo);
 
+	core::smart_refctd_ptr<video::IGPUCommandPool> commandPool =
+		device->createCommandPool(computeFamilyIndex,
+			video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[SC_IMG_COUNT];
+	assert(device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT,
+		commandBuffers));
+
 	// Todo(achal): I think we can make it greater than SC_IMG_COUNT
 	const uint32_t FRAMES_IN_FLIGHT = 2u;
 
@@ -430,6 +466,12 @@ int main()
 	}
 
 	VkShaderModule vk_shaderModule = reinterpret_cast<video::CVulkanSpecializedShader*>(specializedShader.get())->m_shaderModule;
+
+	VkCommandPool vk_commandPool = reinterpret_cast<video::CVulkanCommandPool*>(commandPool.get())->getInternalObject();
+
+	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+		vk_commandBuffers[i] = reinterpret_cast<video::CVulkanCommandBuffer*>(commandBuffers[i].get())->getInternalObject();
 
 	// Pure vulkan stuff
 
@@ -653,24 +695,6 @@ int main()
 			nullptr, &vk_pipeline) == VK_SUCCESS);
 	}
 
-	VkCommandPool vk_commandPool = VK_NULL_HANDLE;
-	{
-		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-		createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		createInfo.queueFamilyIndex = computeFamilyIndex;
-	
-		assert(vkCreateCommandPool(vk_device, &createInfo, nullptr, &vk_commandPool) == VK_SUCCESS);
-	}
-
-	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
-
-	VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-	allocateInfo.commandPool = vk_commandPool;
-	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocateInfo.commandBufferCount = SC_IMG_COUNT;
-
-	assert(vkAllocateCommandBuffers(vk_device, &allocateInfo, vk_commandBuffers) == VK_SUCCESS);
-
 	// Record commands in commandBuffers here
 	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
 	{
@@ -699,9 +723,7 @@ int main()
 		computeToPresentBarrier.image = vk_swapchainImages[i];
 		computeToPresentBarrier.subresourceRange = subresourceRange;
 
-		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-
-		assert(vkBeginCommandBuffer(vk_commandBuffers[i], &beginInfo) == VK_SUCCESS);
+		commandBuffers[i]->begin(0);
 
 		// The fact that this pipeline barrier is solely on a compute queue might
 		// affect the srcStageMask. More precisely, I think, for some reason, that
@@ -709,6 +731,20 @@ int main()
 		// but present queue (or transfer queue if theres one??)
 		vkCmdPipelineBarrier(vk_commandBuffers[i], VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u, &undefToComputeBarrier);
+
+		video::IGPUCommandBuffer::SImageMemoryBarrier undefToComputeTransitionBarrier;
+		// asset::SMemoryBarrier barrier;
+		// asset::E_IMAGE_LAYOUT oldLayout;
+		// asset::E_IMAGE_LAYOUT newLayout;
+		// uint32_t srcQueueFamilyIndex;
+		// uint32_t dstQueueFamilyIndex;
+		// core::smart_refctd_ptr<const image_t> image;
+		// asset::IImage::SSubresourceRange subresourceRange;
+		// undefToComputeTransitionBarrier.
+		commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u,
+			&undefToComputeTransitionBarrier);
+
 		vkCmdBindPipeline(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
 
 		vkCmdBindDescriptorSets(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -719,7 +755,7 @@ int main()
 		vkCmdPipelineBarrier(vk_commandBuffers[i], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentBarrier);
 
-		assert(vkEndCommandBuffer(vk_commandBuffers[i]) == VK_SUCCESS);
+		commandBuffers[i]->end();
 	}
 
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();

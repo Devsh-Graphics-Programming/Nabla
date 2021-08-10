@@ -14,6 +14,8 @@
 #include "nbl/video/CVulkanFence.h"
 #include "nbl/video/CVulkanShader.h"
 #include "nbl/video/CVulkanSpecializedShader.h"
+#include "nbl/video/CVulkanCommandPool.h"
+#include "nbl/video/CVulkanCommandBuffer.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -172,8 +174,22 @@ public:
             
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) override
     {
-        // vkCreateCommandPool()
-        return nullptr;
+        VkCommandPool vk_commandPool = VK_NULL_HANDLE;
+        VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+        createInfo.pNext = nullptr; // Todo(achal)
+        createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags);
+        createInfo.queueFamilyIndex = _familyIx;
+
+        if (vkCreateCommandPool(m_vkdev, &createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanCommandPool>(this, flags, _familyIx,
+                vk_commandPool);
+        }
+        else
+        {
+            // Probably log a warning
+            return nullptr;
+        }
     }
             
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
@@ -296,7 +312,32 @@ public:
 protected:
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) override
     {
-        return false;
+        if (_cmdPool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        auto vk_commandPool = reinterpret_cast<CVulkanCommandPool*>(_cmdPool)->getInternalObject();
+
+        assert(_count <= 100);
+        VkCommandBuffer vk_commandBuffers[100];
+
+        VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+        // allocateInfo.pNext = nullptr; (this must be NULL)
+        allocateInfo.commandPool = vk_commandPool;
+        allocateInfo.level = static_cast<VkCommandBufferLevel>(_level);
+        allocateInfo.commandBufferCount = _count;
+
+        if (vkAllocateCommandBuffers(m_vkdev, &allocateInfo, vk_commandBuffers) == VK_SUCCESS)
+        {
+            for (uint32_t i = 0u; i < _count; ++i)
+                _outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(this,
+                    _level, vk_commandBuffers[i], _cmdPool);
+
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override
