@@ -1,9 +1,11 @@
 #ifndef C_WINDOWMANAGER_WIN32
 #define C_WINDOWMANAGER_WIN32
-#ifdef _NBL_PLATFORM_WINDOWS_
+
 #include "nbl/ui/IWindowManager.h"
 #include <cstdint>
 #include <queue>
+
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include <codecvt>
 #include <xlocbuf>
 
@@ -11,8 +13,8 @@
 //#include <hidpi.h>
 #include <hidusage.h>
 
-#include "os.h"
 #include "nbl/ui/CWindowWin32.h"
+
 namespace nbl::ui
 {
 	class CWindowManagerWin32 : public IWindowManager
@@ -32,11 +34,15 @@ namespace nbl::ui
 			{
 				return nullptr;
 			}
-			return core::make_smart_refctd_ptr<CWindowWin32>(this, std::move(creationParams), handle);
+			return core::make_smart_refctd_ptr<CWindowWin32>(core::smart_refctd_ptr<CWindowManagerWin32>(this), std::move(creationParams), handle);
 		}
 		void destroyWindow(IWindow* wnd) override final
 		{
 			destroyNativeWindow(static_cast<IWindowWin32*>(wnd)->getNativeHandle());
+		}
+		void setCursorVisibility(bool visible)
+		{
+			m_windowThreadManager.setCursorVisibility(visible);
 		}
 	private:
 		IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)
@@ -53,7 +59,8 @@ namespace nbl::ui
 		enum E_REQUEST_TYPE
 		{
 			ERT_CREATE_WINDOW,
-			ERT_DESTROY_WINDOW
+			ERT_DESTROY_WINDOW,
+			ERT_CHANGE_CURSOR_VISIBILITY
 		};
 		template <E_REQUEST_TYPE ERT>
 		struct SRequestParamsBase
@@ -76,6 +83,10 @@ namespace nbl::ui
 		{
 			CWindowWin32::native_handle_t nativeWindow;
 		};
+		struct SRequestParams_ChangeCursorVisibility : SRequestParamsBase<ERT_CHANGE_CURSOR_VISIBILITY>
+		{
+			bool visible;
+		};
 		struct SRequest : system::impl::IAsyncQueueDispatcherBase::request_base_t
 		{
 			E_REQUEST_TYPE type;
@@ -83,6 +94,7 @@ namespace nbl::ui
 			{
 				SRequestParams_CreateWindow createWindowParam;
 				SRequestParams_DestroyWindow destroyWindowParam;
+				SRequestParams_ChangeCursorVisibility changeCursorVisibilityParam;
 			};
 			SRequest() {}
 			~SRequest() {}
@@ -107,6 +119,13 @@ namespace nbl::ui
 				auto& rq = request(params);
 				waitForCompletion(rq);
 			}
+			void setCursorVisibility(bool visible)
+			{
+				SRequestParams_ChangeCursorVisibility params;
+				params.visible = visible;
+				auto& rq = request(params);
+				waitForCompletion(rq);
+			}
 			CThreadHandler()
 			{
 				this->start();
@@ -118,7 +137,8 @@ namespace nbl::ui
 		private:
 			void waitForCompletion(SRequest& req)
 			{
-				auto lk = req.wait();
+				req.wait_ready();
+				req.discard_storage();
 			}
 
 		private:
@@ -156,14 +176,13 @@ namespace nbl::ui
 					wcex.cbWndExtra = 0;
 					wcex.hInstance = hinstance;
 					wcex.hIcon = NULL;
-					wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+					wcex.hCursor = nullptr;
 					wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 					wcex.lpszMenuName = 0;
 					wcex.lpszClassName = classname;
 					wcex.hIconSm = 0;
 
 					RegisterClassEx(&wcex);
-
 					// calculate client size
 
 					RECT clientSize;
@@ -213,20 +232,8 @@ namespace nbl::ui
 					const int32_t realWidth = clientSize.right - clientSize.left;
 					const int32_t realHeight = clientSize.bottom - clientSize.top;
 
-					int32_t windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
-					int32_t windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
-
-					if (windowLeft < 0)
-						windowLeft = 0;
-					if (windowTop < 0)
-						windowTop = 0;	// make sure window menus are in screen on creation
-
-					if (params.flags & CWindowWin32::ECF_FULLSCREEN)
-					{
-						windowLeft = 0;
-						windowTop = 0;
-					}
-					*params.nativeWindow = CreateWindow(classname, params.windowCaption.c_str(), style, windowLeft, windowTop,
+					
+					*params.nativeWindow = CreateWindow(classname, params.windowCaption.c_str(), style, clientSize.left, clientSize.top,
 						realWidth, realHeight, NULL, NULL, hinstance, NULL);
 					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
 						ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
@@ -234,9 +241,9 @@ namespace nbl::ui
 
 					// fix ugly ATI driver bugs. Thanks to ariaci
 					// TODO still needed?
-					MoveWindow(*params.nativeWindow, windowLeft, windowTop, realWidth, realHeight, TRUE);
+					MoveWindow(*params.nativeWindow, clientSize.left, clientSize.top, realWidth, realHeight, TRUE);
 					{
-						//TODO: thoroughly test this stuff	
+						//TODO: thoroughly test this stuff	(what is this about, you need to register devices yourself!? I thought Windows can give you a list of raw input devices!?)
 						constexpr uint32_t INPUT_DEVICES_COUNT = 5;
 						RAWINPUTDEVICE inputDevices[INPUT_DEVICES_COUNT];
 						inputDevices[0].hwndTarget = *params.nativeWindow;
@@ -272,6 +279,12 @@ namespace nbl::ui
 				{
 					auto& params = req.destroyWindowParam;
 					DestroyWindow(params.nativeWindow);
+					break;
+				}
+				case ERT_CHANGE_CURSOR_VISIBILITY:
+				{
+					auto& params = req.changeCursorVisibilityParam;
+					ShowCursor(params.visible);
 					break;
 				}
 				}

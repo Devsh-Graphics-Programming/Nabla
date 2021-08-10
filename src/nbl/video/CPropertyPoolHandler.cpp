@@ -4,6 +4,7 @@
 using namespace nbl;
 using namespace video;
 
+#if 0
 //
 constexpr char* copyCsSource = R"(
 layout(local_size_x=_NBL_BUILTIN_PROPERTY_COPY_GROUP_SIZE_) in;
@@ -435,3 +436,4 @@ void CPropertyPoolHandler::DescriptorSetCache::releaseSet(core::smart_refctd_ptr
 {
 	deferredReclaims.addEvent(GPUEventWrapper(std::move(fence)),DeferredDescriptorSetReclaimer(&unusedSets,std::move(set)));
 }
+#endif

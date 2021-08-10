@@ -62,9 +62,14 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			@param _stackSize Size of stack memory pointed by _stackPtr.
 			@returns Pointer to memory on which blob was written.
 		*/
+		
 		inline void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
 		{
+#ifdef OLD_SHADERS
 			return CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+#else
+            return nullptr;
+#endif
 		}
 
 		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override

@@ -20,7 +20,6 @@
 #ifndef __NABLA_H_INCLUDED__
 #define __NABLA_H_INCLUDED__
 
-
 // core lib
 #include "nbl/core/declarations.h"
 
@@ -30,11 +29,12 @@
 
 // asset lib (importing and exporting meshes, textures and shaders) [DEPENDS: system]
 #include "nbl/asset/asset.h"
+
 // ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
-#include "nbl/ui/ui.h"
+#include "nbl/ui/declarations.h"
 
 // video lib (access to Graphics API, remote rendering, etc) [DEPENDS: asset, (optional) ui]
-#include "nbl/video/video.h"
+#include "nbl/video/declarations.h"
 
 // scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
 #include "nbl/scene/scene.h"
@@ -45,6 +45,12 @@
 
 // system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
 #include "nbl/system/definitions.h"
+
+// ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
+#include "nbl/ui/definitions.h"
+
+// video lib (access to Graphics API, remote rendering, etc) [DEPENDS: asset, (optional) ui]
+#include "nbl/video/definitions.h"
 
 
 
@@ -58,26 +64,17 @@
 #include "quaternion.h"
 #include "rect.h"
 #include "dimension2d.h"
-#include "ICameraSceneNode.h"
 #include "ICursorControl.h"
 #include "IDummyTransformationSceneNode.h"
-#include "IEventReceiver.h"
-#include "ILogger.h"
-#include "ISceneManager.h"
 #include "ISceneNode.h"
 #include "ISceneNodeAnimator.h"
 #include "ISceneNodeAnimatorCameraFPS.h"
 #include "ISceneNodeAnimatorCameraMaya.h"
 
-#include "Keycodes.h"
 #include "splines.h"
 
 #include "SColor.h"
 #include "SCollisionEngine.h"
-#include "SExposedVideoData.h"
-#include "SKeyMap.h"
 #include "SViewFrustum.h"
 
-
-
-#endif
+#endif // __NABLA_H_INCLUDED__

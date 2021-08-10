@@ -404,11 +404,23 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     };
     auto addrAllctr = newBlock();
 
+    // TODO: pass the begun commandbuffer and fence into the create function from outside
     core::smart_refctd_ptr<IGPUCommandPool> pool = _params.device->createCommandPool(_params.perQueue[EQU_TRANSFER].queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
     auto fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
     core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
     _params.device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
 
+    IGPUQueue::SSubmitInfo submit;
+    {
+        submit.commandBufferCount = 1u;
+        submit.commandBuffers = &cmdbuf.get();
+        // CPU to GPU upload doesn't need to wait for anything or narrow down the execution barrier
+        // buffer and addresses we're writing into are fresh and brand new, don't need to synchronize the writing with anything
+        submit.waitSemaphoreCount = 0u;
+        submit.pWaitDstStageMask = nullptr;
+        submit.pWaitSemaphores = nullptr;
+        uint32_t waitSemaphoreCount = 0u;
+    }
     cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
     auto finalizeBlock = [&]() -> void
@@ -428,7 +440,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
                 bufrng.size = cpubuffer->getSize();
                 bufrng.buffer = gpubuffer;
                 output->setBuffer(core::smart_refctd_ptr(gpubuffer));
-                _params.device->updateBufferRangeViaStagingBuffer(cmdbuf.get(), fence.get(), _params.perQueue[EQU_TRANSFER].queue, bufrng, cpubuffer->getPointer());
+                _params.device->updateBufferRangeViaStagingBuffer(
+                    cmdbuf.get(),fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpubuffer->getPointer(),
+                    submit.waitSemaphoreCount,submit.pWaitSemaphores,submit.pWaitDstStageMask
+                );
             }
         }
     };
@@ -451,20 +466,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     }
     finalizeBlock();
 
+    // TODO: submit outside of `create` and make the function take an already created semaphore to signal
     cmdbuf->end();
-    IGPUQueue::SSubmitInfo submit;
-    submit.commandBufferCount = 1u;
-    auto* cmdbuf_ptr = cmdbuf.get();
-    submit.commandBuffers = &cmdbuf_ptr;
     core::smart_refctd_ptr<IGPUSemaphore> sem;
     if (_params.perQueue[EQU_TRANSFER].semaphore)
         sem = _params.device->createSemaphore();
     auto* sem_ptr = sem.get();
     submit.signalSemaphoreCount = sem_ptr?1u:0u;
     submit.pSignalSemaphores = sem_ptr?&sem_ptr:nullptr;
-    submit.waitSemaphoreCount = 0u;
-    submit.pWaitDstStageMask = nullptr;
-    submit.pWaitSemaphores = nullptr;
     // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
     auto* signalFence = _params.perQueue[EQU_TRANSFER].fence ? fence.get() : nullptr;
     _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit, signalFence);
@@ -475,6 +484,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 
     return res;
 }
+
 namespace impl
 {
 template<typename MapIterator>
@@ -720,7 +730,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
     return res;
 }
 
-
+// TODO: rewrite after GPU polyphase implementation
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin, const asset::ICPUImage** const _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUImage>
 {
     const auto assetCount = std::distance(_begin, _end);
@@ -787,6 +797,16 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             return false;
         return true;
     };
+    
+    IGPUQueue::SSubmitInfo submit_transfer;
+    {
+        submit_transfer.commandBufferCount = 1u;
+        submit_transfer.commandBuffers = &cmdbuf_transfer.get();
+        // buffer and image written and copied to are fresh (or in the case of streaming buffer, at least fenced before freeing), no need to wait for anything external
+        submit_transfer.waitSemaphoreCount = 0u;
+        submit_transfer.pWaitSemaphores = nullptr;
+        submit_transfer.pWaitDstStageMask = nullptr;
+    }
     auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void {
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
         {
@@ -798,7 +818,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             bufrng.offset = 0u;
             bufrng.size = buf->getSize();
 
-            _params.device->updateBufferRangeViaStagingBuffer(cmdbuf_transfer.get(), fence.get(), _params.perQueue[EQU_TRANSFER].queue, bufrng, cpuimg->getBuffer()->getPointer());
+            _params.device->updateBufferRangeViaStagingBuffer(
+                cmdbuf_transfer.get(),fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
+                submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask
+            );
             IGPUCommandBuffer::SBufferMemoryBarrier barrier;
             barrier.buffer = buf;
             barrier.offset = bufrng.offset;
@@ -954,13 +977,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
         IGPUFence* batch_final_fence = fence.get();
 
-        auto* cb_trans = cmdbuf_transfer.get();
-        IGPUQueue::SSubmitInfo submit_transfer;
-        submit_transfer.commandBufferCount = 1u;
-        submit_transfer.commandBuffers = &cb_trans;
-        submit_transfer.pWaitDstStageMask = nullptr;
-        submit_transfer.pWaitSemaphores = nullptr;
-        submit_transfer.waitSemaphoreCount = 0u;
         submit_transfer.signalSemaphoreCount = 1u;
         submit_transfer.pSignalSemaphores = &transfer_sem_ptr;
         _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, fence.get());

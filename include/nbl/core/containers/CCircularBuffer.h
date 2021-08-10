@@ -1,12 +1,13 @@
 #ifndef __NBL_C_CIRCULAR_BUFFER_H_INCLUDED__
 #define __NBL_C_CIRCULAR_BUFFER_H_INCLUDED__
 
-#include <atomic>
-#include <thread>
-
 #include "nbl/core/decl/Types.h"
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/math/intutil.h"
+
+#include <atomic>
+#include <thread>
+#include <iterator>
 
 namespace nbl::core
 {
@@ -141,13 +142,16 @@ private:
     atomic_alive_flags_block_t m_flags[CCircularBufferCommonBase::numberOfFlagBlocksNeeded(S)];
 };
 
-
+// Do not use with AllowOverflows and non PoD data types concurrently, you can get unordered and non-atomic construction and destruction of elements
+// TODO: Reimplement with per-element C++20 atomic waits and a ticket lock (for ordered overwrites)
+// https://cdn.discordapp.com/attachments/593903264987349057/872793258042986496/100543_449723386_Bryce_Adelstein_Lelbach_The_C20_synchronization_library.pdf
 template <typename Base, bool AllowOverflows = true>
 class CCircularBufferBase : public Base
 {
     using this_type = CCircularBufferBase<Base>;
     using base_t = Base;
     using type = typename base_t::type;
+    static_assert(!AllowOverflows || std::is_trivially_destructible_v<type>);
 
     using atomic_counter_t = std::atomic_uint64_t;
     using counter_t = atomic_counter_t::value_type;
@@ -158,7 +162,7 @@ class CCircularBufferBase : public Base
 protected:
     bool isAlive(uint32_t ix) const
     {
-        typename const base_t::atomic_alive_flags_block_t* flags = base_t::getAliveFlagsStorage();
+        const auto* flags = base_t::getAliveFlagsStorage();
         const auto block_n = ix / base_t::bits_per_flags_block;
         const auto block = flags[block_n].load();
         const auto local_ix = ix & (base_t::bits_per_flags_block - 1u);
@@ -192,13 +196,7 @@ private:
         {
             auto safe_begin = virtualIx < base_t::capacity() ? static_cast<counter_t>(0) : (virtualIx - base_t::capacity() + 1u);
             for (counter_t old_begin; (old_begin = m_cb_begin.load()) < safe_begin; )
-            {
-#if __cplusplus >= 202002L
                 m_cb_begin.wait(old_begin);
-#else
-                std::this_thread::yield();
-#endif
-            }
         }
 
         const auto ix = wrapAround(virtualIx);
@@ -220,8 +218,6 @@ public:
     friend class iterator;
     class iterator
     {
-        using difference_type = ptrdiff_t;
-
         friend this_type;
         this_type* m_owner;
         counter_t m_ix;
@@ -230,13 +226,19 @@ public:
 
         counter_t getIx() const
         {
-            return this_type::wrapAround(m_ix);
+            return m_owner->wrapAround(m_ix);
         }
 
     public:
+        using value_type = type;
+        using pointer = type*;
+        using reference = type&;
+        using difference_type = ptrdiff_t;
+        using iterator_category = std::random_access_iterator_tag;
+
         iterator operator+(difference_type n) const
         {
-            return iterator(m_ix + static_cast<counter_t>(n));
+            return iterator(m_owner,m_ix+static_cast<counter_t>(n));
         }
         iterator& operator+=(difference_type n)
         {
@@ -253,8 +255,7 @@ public:
         }
         difference_type operator-(const iterator& rhs) const
         {
-            auto d = getIx() - rhs.getIx();
-            return static_cast<difference_type>(d);
+            return static_cast<difference_type>(m_ix-rhs.m_ix);
         }
         iterator& operator++()
         {
@@ -270,7 +271,7 @@ public:
         {
             return operator-=(1);
         }
-        iterator operator--()
+        iterator operator--(int)
         {
             auto cp = *this;
             --(*this);
@@ -330,12 +331,13 @@ public:
     {
         counter_t ix = m_cb_begin.load();
         ix = wrapAround(ix);
-#ifdef _NBL_DEBUG
-        {
-            bool alive = isAlive(ix);
-            assert(alive);
-        }
-#endif
+        #ifdef _NBL_DEBUG
+            if constexpr (!AllowOverflows)
+            {
+                bool alive = isAlive(ix);
+                assert(alive);
+            }
+        #endif
 
         type* storage = base_t::getStorage() + ix;
         auto cp = std::move(*storage);
@@ -343,12 +345,10 @@ public:
         storage->~type();
 
         ++m_cb_begin;
-#if __cplusplus >= 202002L
         if constexpr (!AllowOverflows)
         {
             m_cb_begin.notify_one();
         }
-#endif
 
         return cp;
     }
@@ -358,12 +358,12 @@ public:
     iterator begin()
     {
         counter_t b = m_cb_begin.load();
-        return iterator(b);
+        return iterator(this,b);
     }
     iterator end()
     {
         counter_t e = m_cb_end.load();
-        return iterator(e);
+        return iterator(this,e);
     }
 
     size_t size() const

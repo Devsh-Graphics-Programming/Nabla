@@ -10,9 +10,7 @@
 #include "nbl/macros.h"
 #include "nbl/type_traits.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
     template<typename AddressType>
@@ -243,7 +241,6 @@ namespace core
             }
     };
 
-}
 }
 
 #endif

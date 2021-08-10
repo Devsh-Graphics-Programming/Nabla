@@ -5,8 +5,7 @@
 
 //extern RENDERDOC_API_1_1_2* g_rdoc_api;
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
     COpenGLCommandBuffer::~COpenGLCommandBuffer()
@@ -121,7 +120,7 @@ namespace video
     void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
     {
         IGPUImage* dstImage = c.dstImage.get();
-        IGPUBuffer* srcBuffer = c.srcBuffer.get();
+        const IGPUBuffer* srcBuffer = c.srcBuffer.get();
         if (!dstImage->validateCopies(c.regions, c.regions + c.regionCount, srcBuffer))
             return;
 
@@ -137,7 +136,7 @@ namespace video
         const auto bpp = asset::getBytesPerPixel(format);
         const auto blockDims = asset::getBlockDimensions(format);
 
-        ctxlocal->nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<COpenGLBuffer*>(srcBuffer));
+        ctxlocal->nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
         {
             // TODO: check it->bufferOffset is aligned to data type of E_FORMAT
@@ -215,7 +214,7 @@ namespace video
 
     void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
     {
-        auto* srcImage = c.srcImage.get();
+        const auto* srcImage = c.srcImage.get();
         auto* dstBuffer = c.dstBuffer.get();
         if (!srcImage->validateCopies(c.regions, c.regions + c.regionCount, dstBuffer))
             return;
@@ -224,7 +223,7 @@ namespace video
         const auto type = params.type;
         const auto format = params.format;
         const bool compressed = asset::isBlockCompressionFormat(format);
-        GLuint src = static_cast<COpenGLImage*>(srcImage)->getOpenGLName();
+        GLuint src = static_cast<const COpenGLImage*>(srcImage)->getOpenGLName();
         GLenum glfmt, gltype;
         getOpenGLFormatAndParametersFromColorFormat(gl, format, glfmt, gltype);
 
@@ -266,11 +265,13 @@ namespace video
                 // TODO impl in func table
                 //gl->extGlGetTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
                 //    glfmt, gltype, dstBuffer->getSize() - it->bufferOffset, reinterpret_cast<void*>(it->bufferOffset));
+                gl->extGlGetTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
+                    glfmt, gltype, dstBuffer->getSize() - it->bufferOffset, reinterpret_cast<void*>(it->bufferOffset));
             }
         }
     }
 
-    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo)
+    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
     {
         auto& rp = info.framebuffer->getCreationParameters().renderpass;
         auto& sub = rp->getSubpasses().begin()[0];
@@ -308,12 +309,10 @@ namespace video
                         }
                     }
                 }
-#ifdef _NBL_DEBUG
                 else
                 {
-                    os::Printer::log("Begin renderpass command: not enough clear values provided, an attachment not cleared!");
+                    logger.log("Begin renderpass command: not enough clear values provided, an attachment not cleared!", system::ILogger::ELL_ERROR);
                 }
-#endif
             }
         }
         if (depthstencil)
@@ -343,12 +342,10 @@ namespace video
                         gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, depth, stencil);
                     }
                 }
-#ifdef _NBL_DEBUG
                 else
                 {
-                    os::Printer::log("Begin renderpass command: not enough clear values provided, an attachment not cleared!");
+                    logger.log("Begin renderpass command: not enough clear values provided, an attachment not cleared!", system::ILogger::ELL_ERROR);
                 }
-#endif
             }
         }
     }
@@ -455,7 +452,7 @@ namespace video
             case impl::ECT_BIND_INDEX_BUFFER:
             {
                 auto& c = cmd.get<impl::ECT_BIND_INDEX_BUFFER>();
-                auto* buffer = static_cast<COpenGLBuffer*>(c.buffer.get());
+                auto* buffer = static_cast<const COpenGLBuffer*>(c.buffer.get());
                 ctxlocal->nextState.vertexInputParams.vaoval.idxBinding = { c.offset, core::smart_refctd_ptr<const COpenGLBuffer>(buffer) };
                 ctxlocal->nextState.vertexInputParams.vaoval.idxType = c.indexType;
             }
@@ -606,7 +603,7 @@ namespace video
             {
                 auto& c = cmd.get<impl::ECT_COPY_BUFFER>();
                 // TODO flush some state? -- not needed i think
-                GLuint readb = static_cast<COpenGLBuffer*>(c.srcBuffer.get())->getOpenGLName();
+                GLuint readb = static_cast<const COpenGLBuffer*>(c.srcBuffer.get())->getOpenGLName();
                 GLuint writeb = static_cast<COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
                 for (uint32_t i = 0u; i < c.regionCount; ++i)
                 {
@@ -620,11 +617,11 @@ namespace video
                 auto& c = cmd.get<impl::ECT_COPY_IMAGE>();
                 // TODO flush some state? -- not needed i think
                 IGPUImage* dstImage = c.dstImage.get();
-                IGPUImage* srcImage = c.srcImage.get();
+                const IGPUImage* srcImage = c.srcImage.get();
                 if (!dstImage->validateCopies(c.regions, c.regions + c.regionCount, srcImage))
                     return;
 
-                auto src = static_cast<COpenGLImage*>(srcImage);
+                auto src = static_cast<const COpenGLImage*>(srcImage);
                 auto dst = static_cast<COpenGLImage*>(dstImage);
                 IGPUImage::E_TYPE srcType = srcImage->getCreationParameters().type;
                 IGPUImage::E_TYPE dstType = dstImage->getCreationParameters().type;
@@ -801,7 +798,7 @@ namespace video
 
                 GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
                 if (fbo)
-                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo);
+                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_NEXT_SUBPASS:
@@ -1017,5 +1014,4 @@ namespace video
         GLint dy1 = dstOffsets[1].y;
         gl->extGlBlitNamedFramebuffer(src, dst, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GL_COLOR_BUFFER_BIT, filter==asset::ISampler::ETF_NEAREST?GL_NEAREST:GL_LINEAR);
     }
-}
 }

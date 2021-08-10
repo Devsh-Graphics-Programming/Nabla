@@ -8,6 +8,7 @@
 #include <regex>
 #include <filesystem>
 
+#include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
@@ -92,7 +93,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
-bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file) const
+bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
     if (!_file)
         return false;
@@ -116,16 +117,15 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
         _hierarchyLevel,
         _override
     );
-    const std::string fullName = _file->getFileName().string();
+
+    const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = std::filesystem::path(fullName).parent_path().string();
-		if (dir.empty())
-			return "";
-		return dir+"/";
+		auto dir = fullName.parent_path().string();
+        return dir;
 	}();
 
-    auto materials = readMaterials(_file);
+    auto materials = readMaterials(_file, _params.logger);
 
     // because one for UV and one without UV
     constexpr uint32_t PIPELINE_PERMUTATION_COUNT = 2u;
@@ -143,7 +143,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
             core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
             if (hasUV)
             {
-                const std::string dsCacheKey = fullName + "?" + material.name + "?_ds";
+                const std::string dsCacheKey = fullName.string() + "?" + material.name + "?_ds";
                 const uint32_t ds3HLevel = _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW;
                 ds3 = _override->findDefaultAsset<ICPUDescriptorSet>(dsCacheKey,ctx.inner,ds3HLevel).first;
                 if (!ds3)
@@ -694,7 +694,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     return ds;
 }
 
-auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> core::vector<SMtl>
+auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const system::logger_opt_ptr logger) const -> core::vector<SMtl>
 {
     std::string mtl;
     size_t fileSize = _file->getSize();
@@ -842,8 +842,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file) const -> co
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
                     sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
-                    //assert(false); // TODO: implement a proper engine-wide logger
-                    //os::Printer::log(tmpbuf, ELL_WARNING);
+                    logger.log(tmpbuf, system::ILogger::ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d
                     currMaterial->params.opacity = (1.f - readFloat());

@@ -20,7 +20,7 @@ class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 
 	protected:
 
-		IImageLoader() = default;
+		IImageLoader() {}
 		virtual ~IImageLoader() = 0;
 
 	private:

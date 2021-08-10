@@ -21,7 +21,7 @@ endif()
 #add_subdirectory(15.LayeredCubeMapShadows EXCLUDE_FROM_ALL) # TODO: Ressurect with Sponza or something?
 #add_subdirectory(16.OrderIndependentTransparencyZoo EXCLUDE_FROM_ALL)
 if (NBL_BUILD_BULLET)
-	#add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
+	add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
 endif()
 if (NBL_BUILD_MITSUBA_LOADER)
 	add_subdirectory(18.MitsubaLoader EXCLUDE_FROM_ALL)
@@ -61,6 +61,9 @@ add_subdirectory(45.BRDFEvalTest EXCLUDE_FROM_ALL)
 add_subdirectory(46.SamplingValidation EXCLUDE_FROM_ALL)
 add_subdirectory(47.DerivMapTest EXCLUDE_FROM_ALL)
 add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)
-add_subdirectory(49.NewAPITest EXCLUDE_FROM_ALL)
-add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL) # TODO adjust example numbers
-add_subdirectory(50.MeshPacking EXCLUDE_FROM_ALL)
+
+add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
+add_subdirectory(50.NewAPITest EXCLUDE_FROM_ALL)
+add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
+add_subdirectory(53.Transformations EXCLUDE_FROM_ALL)
+

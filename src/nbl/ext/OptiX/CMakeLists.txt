@@ -26,4 +26,5 @@ nbl_create_ext_library_project(
 	"${NBL_EXT_OPTIX_SRC}"
 	"${NBL_EXT_OPTIX_EXTERNAL_INCLUDE}"
 	""
+    ""
 )

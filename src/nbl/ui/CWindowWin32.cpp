@@ -1,20 +1,23 @@
-
-#ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/CWindowWin32.h"
 #include "nbl/ui/CWindowManagerWin32.h"
+#include <nbl/ui/CCursorControlWin32.h>
+
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include <hidusage.h>
 #include <hidpi.h>
 #include <codecvt>
 #include <windowsx.h>
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
-	CWindowWin32::CWindowWin32(CWindowManagerWin32* winManager, SCreationParams&& params, native_handle_t hwnd) : IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager)
+	CWindowWin32::CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd) : 
+		IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager), 
+		m_cursorControl(core::make_smart_refctd_ptr<CCursorControlWin32>(core::smart_refctd_ptr(m_windowManager)))
 	{
-		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 		addAlreadyConnectedInputDevices();
+		// do this last, we dont want the "WndProc" to be called concurrently to anything in the constructor
+		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 	}
 
 	CWindowWin32::~CWindowWin32()
@@ -24,7 +27,13 @@ namespace ui
 
 	IClipboardManager* CWindowWin32::getClipboardManager()
 	{
+		assert(false);
 		return nullptr;
+	}
+
+	ICursorControl* CWindowWin32::getCursorControl()
+	{
+		return m_cursorControl.get();
 	}
 
 	void CWindowWin32::addAlreadyConnectedInputDevices()
@@ -41,13 +50,15 @@ namespace ui
 			case RIM_TYPEKEYBOARD:
 			{
 				auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addKeyboardEventChannel(deviceList[i].hDevice, std::move(channel));
+				if (addKeyboardEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IKeyboardEventChannel>(channel)))
+					m_cb->onKeyboardConnected(this,std::move(channel));
 				break;
 			}
 			case RIM_TYPEMOUSE:
 			{
 				auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-				addMouseEventChannel(deviceList[i].hDevice, std::move(channel));
+				if (addMouseEventChannel(deviceList[i].hDevice,core::smart_refctd_ptr<IMouseEventChannel>(channel)))
+					m_cb->onMouseConnected(this,std::move(channel));
 				break;
 			}
 			default:
@@ -60,6 +71,9 @@ namespace ui
 
 	LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
+		bool shouldCallDefProc = true;
+		using namespace std::chrono;
+		auto timestamp = duration_cast<microseconds > (system_clock::now().time_since_epoch());
 		CWindowWin32* window = reinterpret_cast<CWindowWin32*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		if (window == nullptr)
 		{
@@ -68,15 +82,20 @@ namespace ui
 		IEventCallback* eventCallback =  window->getEventCallback();
 		switch (message)
 		{
+		case WM_CLOSE:
+		{
+			if (!eventCallback->onWindowClosed(window)) shouldCallDefProc = false;
+			break;
+		}
 		case WM_SHOWWINDOW:
 		{
 			if (wParam = TRUE)
 			{
-				eventCallback->onWindowShown(window);
+				if(!eventCallback->onWindowShown(window)) shouldCallDefProc = false;
 			}
 			else
 			{
-				eventCallback->onWindowHidden(window);
+				if(!eventCallback->onWindowHidden(window)) shouldCallDefProc = false;
 			}
 			break;
 		}
@@ -85,7 +104,7 @@ namespace ui
 			int32_t newX = GET_X_LPARAM(lParam);
 			int32_t newY = GET_Y_LPARAM(lParam);
 
-			eventCallback->onWindowMoved(window, newX, newY);
+			if(!eventCallback->onWindowMoved(window, newX, newY)) shouldCallDefProc = false;
 			break;
 		}
 		case WM_SIZE:
@@ -93,14 +112,18 @@ namespace ui
 			uint32_t newWidth = LOWORD(lParam);
 			uint32_t newHeight = HIWORD(lParam);
 		
-			eventCallback->onWindowResized(window, newWidth, newHeight);
+			if (!eventCallback->onWindowResized(window, newWidth, newHeight))
+			{
+				shouldCallDefProc = false;
+				break;
+			}
 			switch (wParam)
 			{
 			case SIZE_MAXIMIZED:
-				eventCallback->onWindowMaximized(window);
+				if(!eventCallback->onWindowMaximized(window)) shouldCallDefProc = false;
 				break;
 			case SIZE_MINIMIZED:
-				eventCallback->onWindowMinimized(window);
+				if(!eventCallback->onWindowMinimized(window)) shouldCallDefProc = false;
 				break;
 			}
 			break;
@@ -146,14 +169,14 @@ namespace ui
 				if (deviceInfo.dwType == RIM_TYPEMOUSE)
 				{
 					auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-					eventCallback->onMouseConnected(window, core::smart_refctd_ptr<IMouseEventChannel>(channel));
-					window->addMouseEventChannel(deviceHandle, std::move(channel));
+					if (window->addMouseEventChannel(deviceHandle,core::smart_refctd_ptr<IMouseEventChannel>(channel)))
+						eventCallback->onMouseConnected(window,std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEKEYBOARD)
 				{
 					auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-					eventCallback->onKeyboardConnected(window, core::smart_refctd_ptr<IKeyboardEventChannel>(channel));
-					window->addKeyboardEventChannel(deviceHandle, std::move(channel));
+					if (window->addKeyboardEventChannel(deviceHandle,core::smart_refctd_ptr<IKeyboardEventChannel>(channel)))
+						eventCallback->onKeyboardConnected(window,std::move(channel));
 				}
 				else if (deviceInfo.dwType == RIM_TYPEHID)
 				{
@@ -203,16 +226,16 @@ namespace ui
 			{
 				auto* inputChannel = window->getMouseEventChannel(device);
 				RAWMOUSE rawMouse = rawInput->data.mouse;
- 
+				SMouseEvent event(timestamp);
+
 				if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
 				{
 					// XD apparently a flag can be set, but there will be no actual movement
 					if (rawMouse.lLastX != 0 || rawMouse.lLastY != 0)
 					{
-						SMouseEvent event;
 						event.type = SMouseEvent::EET_MOVEMENT;
-						event.movementEvent.movementX = rawMouse.lLastX;
-						event.movementEvent.movementY = rawMouse.lLastY;
+						event.movementEvent.relativeMovementX = rawMouse.lLastX;
+						event.movementEvent.relativeMovementY = rawMouse.lLastY;
 						event.window = window;
 						auto lk = inputChannel->lockBackgroundBuffer();
 						inputChannel->pushIntoBackground(std::move(event));
@@ -220,61 +243,73 @@ namespace ui
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)
 				{
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP)
 				{
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN)
 				{
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP)
 				{
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_RIGHT_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
 				if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN)
 				{
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
 				else if (rawMouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP)
 				{
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_CLICK;
 					event.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_MIDDLE_BUTTON;
 					event.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 					event.window = window;
+					auto mousePos = window->getCursorControl()->getPosition();
+					event.clickEvent.clickPosX = mousePos.x;
+					event.clickEvent.clickPosY = mousePos.y;
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
 				}
@@ -283,7 +318,6 @@ namespace ui
 				if (rawMouse.usButtonFlags & RI_MOUSE_WHEEL)
 				{
 					SHORT wheelDelta = static_cast<SHORT>(rawMouse.usButtonData);
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_SCROLL;
 					event.scrollEvent.verticalScroll = wheelDelta;
 					event.scrollEvent.horizontalScroll = 0;
@@ -294,7 +328,6 @@ namespace ui
 				else if (rawMouse.usButtonFlags & RI_MOUSE_HWHEEL)
 				{
 					SHORT wheelDelta = static_cast<SHORT>(rawMouse.usButtonData);
-					SMouseEvent event;
 					event.type = SMouseEvent::EET_SCROLL;
 					event.scrollEvent.verticalScroll = 0;
 					event.scrollEvent.horizontalScroll = wheelDelta;
@@ -313,22 +346,24 @@ namespace ui
 				case WM_KEYDOWN: [[fallthrough]];
 				case WM_SYSKEYDOWN:
 				{
-					SKeyboardEvent event;
+					SKeyboardEvent event(timestamp);
 					event.action = SKeyboardEvent::ECA_PRESSED;
 					event.window = window;
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
+					break;
 				}
 				case WM_KEYUP: [[fallthrough]];
 				case WM_SYSKEYUP:
 				{
-					SKeyboardEvent event;
+					SKeyboardEvent event(timestamp);
 					event.action = SKeyboardEvent::ECA_RELEASED;
 					event.window = window;
 					event.keyCode = getNablaKeyCodeFromNative(rawKeyboard.VKey);
 					auto lk = inputChannel->lockBackgroundBuffer();
 					inputChannel->pushIntoBackground(std::move(event));
+					break;
 				}
 				}
 
@@ -343,7 +378,8 @@ namespace ui
 			break;
 		}
 		}
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		if(shouldCallDefProc)
+			return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 
 	E_KEY_CODE CWindowWin32::getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode)
@@ -473,6 +509,6 @@ namespace ui
 	}
 
 }
-}
+
 
 #endif

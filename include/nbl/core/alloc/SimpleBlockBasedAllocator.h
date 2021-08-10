@@ -12,9 +12,7 @@
 
 #include <memory>
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 //! Doesn't resize memory arenas, therefore once allocated pointers shall not move
@@ -71,10 +69,9 @@ class SimpleBlockBasedAllocator
 			metaAlloc.deallocate(blocks,maxBlockCount);
 		}
 
-		SimpleBlockBasedAllocator(size_type _blockSize, size_type _maxBlockCount, Args&&... args) :
-			blockSize(_blockSize), effectiveBlockSize(Block::size_of(blockSize,args...)), maxBlockCount(_maxBlockCount),
-			metaAlloc(), blocks(metaAlloc.allocate(maxBlockCount, meta_alignment)),
-			blockAlloc(), blockCreationArgs(args...)
+		SimpleBlockBasedAllocator(size_type _blockSize, size_type _minBlockCount, size_type _maxBlockCount, Args&&... args) :
+			blockSize(_blockSize), effectiveBlockSize(Block::size_of(blockSize,args...)), minBlockCount(_minBlockCount), maxBlockCount(_maxBlockCount),
+			metaAlloc(), blocks(metaAlloc.allocate(maxBlockCount,meta_alignment)), blockAlloc(), blockCreationArgs(std::forward<Args>(args)...)
 		{
 			assert(maxBlockCount > 0u);
 			std::fill(blocks,blocks+maxBlockCount,nullptr);
@@ -84,6 +81,7 @@ class SimpleBlockBasedAllocator
         {
 			std::swap(blockSize, other.blockSize);
 			std::swap(effectiveBlockSize, other.effectiveBlockSize);
+			std::swap(minBlockCount, other.minBlockCount);
 			std::swap(maxBlockCount, other.maxBlockCount);
 			std::swap(metaAlloc, other.metaAlloc);
 			std::swap(blocks, other.blocks);
@@ -97,10 +95,9 @@ class SimpleBlockBasedAllocator
 
         inline void		reset()
         {
-			for (auto i=0u; i<maxBlockCount; i++)
+			for (auto i=minBlockCount; i<maxBlockCount; i++)
 				deleteBlock(i);
         }
-
 
 
 		inline void*	allocate(size_type bytes, size_type alignment) noexcept
@@ -142,7 +139,7 @@ class SimpleBlockBasedAllocator
 				if (addr<blockSize)
 				{
 					block->free(addr,bytes);
-					if (address_allocator_traits<AddressAllocator>::get_allocated_size(block->getAllocator())==size_type(0u))
+					if (i>=minBlockCount && address_allocator_traits<AddressAllocator>::get_allocated_size(block->getAllocator())==size_type(0u))
 						deleteBlock(i);
 					return;
 				}
@@ -155,6 +152,8 @@ class SimpleBlockBasedAllocator
 			if (blockSize != other.blockSize)
 				return true;
 			if (effectiveBlockSize != other.effectiveBlockSize)
+				return true;
+			if (minBlockCount != other.minBlockCount)
 				return true;
 			if (maxBlockCount != other.maxBlockCount)
 				return true;
@@ -173,6 +172,7 @@ class SimpleBlockBasedAllocator
     protected:
 		size_type blockSize;
 		size_type effectiveBlockSize;
+		size_type minBlockCount;
 		size_type maxBlockCount;
 		DataAllocator<Block*> metaAlloc;
 		Block** blocks;
@@ -212,7 +212,6 @@ class SimpleBlockBasedAllocator
 
 // no aliases
 
-}
 }
 
 #endif

@@ -7,6 +7,9 @@
 
 #include "nbl/system/declarations.h"
 
+#include "nbl/system/ISystem.h"
+#include "nbl/system/ILogger.h"
+
 #include "nbl/asset/interchange/SAssetBundle.h"
 
 namespace nbl::asset
@@ -91,11 +94,12 @@ public:
 
     struct SAssetLoadParams
     {
-        SAssetLoadParams(	size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
-							E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,
-							const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE) :
+		SAssetLoadParams(size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
+			E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,
+			const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE, system::logger_opt_ptr _logger = nullptr) :
 				decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
-				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags)
+				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags),
+				logger(std::move(_logger))
         {
         }
 
@@ -107,6 +111,7 @@ public:
 			loaderFlags(rhs.loaderFlags),
 			meshManipulatorOverride(rhs.meshManipulatorOverride),
 			restoreLevels(rhs.restoreLevels),
+			logger(rhs.logger),
 			reload(_reload)
 		{
 		}
@@ -119,6 +124,7 @@ public:
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
 		uint32_t restoreLevels = 0u;
 		const bool reload = false;
+		system::logger_opt_ptr logger;
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
@@ -243,9 +249,9 @@ public:
 
 		//! This function can be used to swap out the actually opened (or unknown unopened file if `inFile` is nullptr) file for a different one.
 		/** Especially useful if you've used some sort of a fake path and the file won't load from that path just via `io::IFileSystem` . */
-		inline virtual system::IFile* getLoadFile(system::IFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+		inline virtual core::smart_refctd_ptr<system::IFile> getLoadFile(system::IFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
-			return inFile;
+			return core::smart_refctd_ptr<system::IFile>(inFile);
 		}
 
 		//! When you sometimes have different passwords for different assets
@@ -285,7 +291,7 @@ public:
 	/** Check might look into the file.
 	\param file File handle to check.
 	\return True if file seems to be loadable. */
-	virtual bool isALoadableFileFormat(system::IFile* _file) const = 0;
+	virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const = 0;
 
 	//! Returns an array of string literals terminated by nullptr
 	virtual const char** getAssociatedFileExtensions() const = 0;

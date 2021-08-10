@@ -6,13 +6,12 @@
 #ifndef __NBL_I_SCENE_NODE_H_INCLUDED__
 #define __NBL_I_SCENE_NODE_H_INCLUDED__
 
-#include "nbl/video/video.h"
+//#include "nbl/video/video.h"
 
 #include "ISceneNodeAnimator.h"
 #include "aabbox3d.h"
 #include "matrix4x3.h"
 #include "IDummyTransformationSceneNode.h"
-#include "IDriverFence.h"
 
 namespace nbl
 {

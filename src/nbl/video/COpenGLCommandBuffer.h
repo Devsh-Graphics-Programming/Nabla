@@ -99,7 +99,7 @@ namespace impl
 #define _NBL_DEFINE_SCMD_SPEC(ECT) template<> struct SCmd<ECT> : SCmd_base<ECT>
     _NBL_DEFINE_SCMD_SPEC(ECT_BIND_INDEX_BUFFER)
     {
-        core::smart_refctd_ptr<IGPUBuffer> buffer;
+        core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
         asset::E_INDEX_TYPE indexType;
     };
@@ -120,14 +120,14 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_DRAW_INDIRECT)
     {
-        core::smart_refctd_ptr<IGPUBuffer> buffer;
+        core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
         uint32_t drawCount;
         uint32_t stride;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_DRAW_INDEXED_INDIRECT)
     {
-        core::smart_refctd_ptr<IGPUBuffer> buffer;
+        core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
         uint32_t drawCount;
         uint32_t stride;
@@ -154,14 +154,14 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_COPY_BUFFER)
     {
-        core::smart_refctd_ptr<IGPUBuffer> srcBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> srcBuffer;
         core::smart_refctd_ptr<IGPUBuffer> dstBuffer;
         uint32_t regionCount;
         const asset::SBufferCopy* regions;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_COPY_IMAGE)
     {
-        core::smart_refctd_ptr<IGPUImage> srcImage;
+        core::smart_refctd_ptr<const IGPUImage> srcImage;
         asset::E_IMAGE_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUImage> dstImage;
         asset::E_IMAGE_LAYOUT dstImageLayout;
@@ -170,7 +170,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_COPY_BUFFER_TO_IMAGE)
     {
-        core::smart_refctd_ptr<IGPUBuffer> srcBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> srcBuffer;
         core::smart_refctd_ptr<IGPUImage> dstImage;
         asset::E_IMAGE_LAYOUT dstImageLayout;
         uint32_t regionCount;
@@ -178,7 +178,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_COPY_IMAGE_TO_BUFFER)
     {
-        core::smart_refctd_ptr<IGPUImage> srcImage;
+        core::smart_refctd_ptr<const IGPUImage> srcImage;
         asset::E_IMAGE_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUBuffer> dstBuffer;
         uint32_t regionCount;
@@ -186,7 +186,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_BLIT_IMAGE)
     {
-        core::smart_refctd_ptr<IGPUImage> srcImage;
+        core::smart_refctd_ptr<const IGPUImage> srcImage;
         asset::E_IMAGE_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUImage> dstImage;
         asset::E_IMAGE_LAYOUT dstImageLayout;
@@ -196,7 +196,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_RESOLVE_IMAGE)
     {
-        core::smart_refctd_ptr<IGPUImage> srcImage;
+        core::smart_refctd_ptr<const IGPUImage> srcImage;
         asset::E_IMAGE_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUImage> dstImage;
         asset::E_IMAGE_LAYOUT dstImageLayout;
@@ -242,7 +242,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_DISPATCH_INDIRECT)
     {
-        core::smart_refctd_ptr<IGPUBuffer> buffer;
+        core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_DISPATCH_BASE)
@@ -287,11 +287,11 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_BIND_GRAPHICS_PIPELINE)
     {
-        core::smart_refctd_ptr<IGPUGraphicsPipeline> pipeline;
+        core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_BIND_COMPUTE_PIPELINE)
     {
-        core::smart_refctd_ptr<IGPUComputePipeline> pipeline;
+        core::smart_refctd_ptr<const IGPUComputePipeline> pipeline;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_RESET_QUERY_POOL)
     {
@@ -316,10 +316,10 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_BIND_DESCRIPTOR_SETS)
     {
         asset::E_PIPELINE_BIND_POINT pipelineBindPoint;
-        core::smart_refctd_ptr<IGPUPipelineLayout> layout;
+        core::smart_refctd_ptr<const IGPUPipelineLayout> layout;
         uint32_t firstSet;
         uint32_t dsCount;
-        core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+        core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
         core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
 
         SCmd() = default;
@@ -343,7 +343,7 @@ namespace impl
     {
         constexpr static inline uint32_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
-        core::smart_refctd_ptr<IGPUPipelineLayout> layout;
+        core::smart_refctd_ptr<const IGPUPipelineLayout> layout;
         std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags;
         uint32_t offset;
         uint32_t size;
@@ -407,6 +407,7 @@ protected:
 
     template <impl::E_COMMAND_TYPE ECT>
     using SCmd = impl::SCmd<ECT>;
+    system::logger_opt_smart_ptr m_logger;
 
     //NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
 #define _NBL_SCMD_TYPE_FOR_ECT(ECT) SCmd<impl::ECT>,
@@ -433,7 +434,7 @@ protected:
 
     static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid);
 
-    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo);
+    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
 
     static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
 
@@ -506,24 +507,29 @@ protected:
     {
         m_commands.emplace_back(std::move(cmd));
     }
-    core::vector<SCommand> m_commands;
+    core::vector<SCommand> m_commands; // TODO: embed in the command pool via the use of linked list
 
 public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
 
 
-    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
+    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger) : IGPUCommandBuffer(dev, lvl, _cmdpool), m_logger(std::move(logger)) {}
 
+    inline void begin(uint32_t _flags) override final
+    {
+        IGPUCommandBuffer::begin(_flags);
+        reset(_flags);
+    }
     bool reset(uint32_t _flags) override final;
 
 
-    bool bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
         if (!this->isCompatibleDevicewise(buffer))
             return false;
 
         SCmd<impl::ECT_BIND_INDEX_BUFFER> cmd;
-        cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.indexType = indexType;
         cmd.offset = offset;
         pushCommand<impl::ECT_BIND_INDEX_BUFFER>(std::move(cmd));
@@ -550,25 +556,73 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool drawIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
-        cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
         cmd.drawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
         return true;
     }
-    bool drawIndexedIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
-        cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
         cmd.drawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
         return true;
+    }
+
+    inline bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
+    {
+        if (meshBuffer && !meshBuffer->getInstanceCount())
+            return false;
+
+        const auto* pipeline = meshBuffer->getPipeline();
+        const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
+        auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
+        auto indexBufferBinding = meshBuffer->getIndexBufferBinding();
+        const auto indexType = meshBuffer->getIndexType();
+
+        const nbl::video::IGPUBuffer* gpuBufferBindings[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                gpuBufferBindings[i] = vertexBufferBindings[i].buffer.get();
+        }
+
+        size_t bufferBindingsOffsets[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                bufferBindingsOffsets[i] = vertexBufferBindings[i].offset;
+        }
+
+        bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
+        bindIndexBuffer(indexBufferBinding.buffer.get(), indexBufferBinding.offset, indexType);
+
+        const bool isIndexed = indexType != nbl::asset::EIT_UNKNOWN;
+        
+        const size_t instanceCount = meshBuffer->getInstanceCount();
+        const size_t firstInstance = meshBuffer->getBaseInstance();
+        const size_t firstVertex = meshBuffer->getBaseVertex();
+
+        if (isIndexed)
+        {
+            const size_t& indexCount = meshBuffer->getIndexCount();
+            const size_t firstIndex = 0; // I don't think we have utility telling us this one
+            const size_t& vertexOffset = firstVertex;
+
+            return drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+        else
+        {
+            const size_t& vertexCount = meshBuffer->getIndexCount();
+       
+            return draw(vertexCount, instanceCount, firstVertex, firstInstance);
+        }
     }
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
@@ -614,7 +668,7 @@ public:
         return true;
     }
 
-    bool copyBuffer(buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
+    bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcBuffer))
             return false;
@@ -623,7 +677,7 @@ public:
         if (regionCount == 0u)
             return false;
         SCmd<impl::ECT_COPY_BUFFER> cmd;
-        cmd.srcBuffer = core::smart_refctd_ptr<buffer_t>(srcBuffer);
+        cmd.srcBuffer = core::smart_refctd_ptr<const buffer_t>(srcBuffer);
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.regionCount = regionCount;
         auto* regions = getGLCommandPool()->emplace_n<asset::SBufferCopy>(regionCount, pRegions[0]);
@@ -635,14 +689,14 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
+    bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         if (!this->isCompatibleDevicewise(dstImage))
             return false;
         SCmd<impl::ECT_COPY_IMAGE> cmd;
-        cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
+        cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.dstImageLayout = dstImageLayout;
@@ -656,14 +710,14 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyBufferToImage(buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcBuffer))
             return false;
         if (!this->isCompatibleDevicewise(dstImage))
             return false;
         SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE> cmd;
-        cmd.srcBuffer = core::smart_refctd_ptr<buffer_t>(srcBuffer);
+        cmd.srcBuffer = core::smart_refctd_ptr<const buffer_t>(srcBuffer);
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.dstImageLayout = dstImageLayout;
         cmd.regionCount = regionCount;
@@ -676,14 +730,14 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyImageToBuffer(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyImageToBuffer(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         if (!this->isCompatibleDevicewise(dstBuffer))
             return false;
         SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER> cmd;
-        cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
+        cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
         cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
         cmd.regionCount = regionCount;
@@ -696,12 +750,12 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool blitImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
+    bool blitImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         SCmd<impl::ECT_BLIT_IMAGE> cmd;
-        cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
+        cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.regionCount = regionCount;
@@ -715,12 +769,12 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool resolveImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
+    bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         SCmd<impl::ECT_RESOLVE_IMAGE> cmd;
-        cmd.srcImage = core::smart_refctd_ptr<image_t>(srcImage);
+        cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
         cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
         cmd.dstImageLayout = dstImageLayout;
@@ -735,11 +789,12 @@ public:
         return true;
     }
 
-    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t** pBuffers, const size_t* pOffsets) override
+    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t*const *const pBuffers, const size_t* pOffsets) override
     {
         for (uint32_t i = 0u; i < bindingCount; ++i)
-            if (!this->isCompatibleDevicewise(pBuffers[i]))
-                return false;
+            if(pBuffers[i])
+                if (!this->isCompatibleDevicewise(pBuffers[i]))
+                    return false;
         SCmd<impl::ECT_BIND_VERTEX_BUFFERS> cmd;
         cmd.first = firstBinding;
         cmd.count = bindingCount;
@@ -809,12 +864,12 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool dispatchIndirect(buffer_t* buffer, size_t offset) override
+    bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
     {
         if (!this->isCompatibleDevicewise(buffer))
             return false;
         SCmd<impl::ECT_DISPATCH_INDIRECT> cmd;
-        cmd.buffer = core::smart_refctd_ptr<buffer_t>(buffer);
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
         pushCommand(std::move(cmd));
         return true;
@@ -853,7 +908,7 @@ public:
         return true;
     }
 
-    bool waitEvents(uint32_t eventCount, event_t** pEvents, const SDependencyInfo* depInfos) override
+    bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) override
     {
         if (eventCount == 0u)
             return false;
@@ -922,27 +977,27 @@ public:
         return IGPUCommandBuffer::setDeviceMask(deviceMask);
     }
 
-    bool bindGraphicsPipeline(graphics_pipeline_t* pipeline) override
+    bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) override
     {
         if (!this->isCompatibleDevicewise(pipeline))
             return false;
         SCmd<impl::ECT_BIND_GRAPHICS_PIPELINE> cmd;
-        cmd.pipeline = core::smart_refctd_ptr<graphics_pipeline_t>(pipeline);
+        cmd.pipeline = core::smart_refctd_ptr<const graphics_pipeline_t>(pipeline);
         pushCommand(std::move(cmd));
         return true;
     }
-    bool bindComputePipeline(compute_pipeline_t* pipeline) override
+    bool bindComputePipeline(const compute_pipeline_t* pipeline) override
     {
         if (!this->isCompatibleDevicewise(pipeline))
             return false;
         SCmd<impl::ECT_BIND_COMPUTE_PIPELINE> cmd;
-        cmd.pipeline = core::smart_refctd_ptr<compute_pipeline_t>(pipeline);
+        cmd.pipeline = core::smart_refctd_ptr<const compute_pipeline_t>(pipeline);
         pushCommand(std::move(cmd));
         return true;
     }
 
-    bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        descriptor_set_t** pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets
+    bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        const descriptor_set_t*const *const pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets
     ) override
     {
         if (!this->isCompatibleDevicewise(layout))
@@ -952,19 +1007,19 @@ public:
                 return false;
         SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
         cmd.pipelineBindPoint = pipelineBindPoint;
-        cmd.layout = core::smart_refctd_ptr<pipeline_layout_t>(layout);
+        cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
         cmd.firstSet = firstSet;
         cmd.dsCount = descriptorSetCount;
         for (uint32_t i = 0u; i < cmd.dsCount; ++i)
-            cmd.descriptorSets[i] = core::smart_refctd_ptr<IGPUDescriptorSet>(pDescriptorSets[i]);
+            cmd.descriptorSets[i] = core::smart_refctd_ptr<const IGPUDescriptorSet>(pDescriptorSets[i]);
         cmd.dynamicOffsets = std::move(dynamicOffsets);
         pushCommand(std::move(cmd));
         return true;
     }
-    bool pushConstants(pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         SCmd<impl::ECT_PUSH_CONSTANTS> cmd;
-        cmd.layout = core::smart_refctd_ptr<pipeline_layout_t>(layout);
+        cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
         cmd.stageFlags = stageFlags;
         cmd.offset = offset;
         cmd.size = size;
@@ -1053,6 +1108,9 @@ public:
             return false;
         if (dataSize > 65536ull)
             return false;
+        if (!dstBuffer->canUpdateSubRange())
+            return false;
+
         SCmd<impl::ECT_UPDATE_BUFFER> cmd;
         uint8_t* data = getGLCommandPool()->emplace_n<uint8_t>(dataSize);
         if (!data)
@@ -1065,7 +1123,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool executeCommands(uint32_t count, IGPUCommandBuffer** cmdbufs) override
+    bool executeCommands(uint32_t count, IGPUCommandBuffer*const *const cmdbufs) override
     {
         if (!IGPUCommandBuffer::executeCommands(count, cmdbufs))
             return false;

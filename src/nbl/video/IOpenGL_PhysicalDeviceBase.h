@@ -159,8 +159,8 @@ protected:
 
 public:
     IOpenGL_PhysicalDeviceBase(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
-		const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor, SDebugCallback* dbgCb) :
-		IPhysicalDevice(std::move(s), std::move(glslc)),
+		const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&& logger) :
+		IPhysicalDevice(std::move(s), std::move(glslc)), m_logger(std::move(logger)),
         m_egl(_egl), m_config(_config), m_gl_major(_major), m_gl_minor(_minor), m_dbgCb(dbgCb)
     {
         // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
@@ -350,22 +350,6 @@ public:
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
-		GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_glfeatures.DimAliasedLine);
-		GetFloatv(GL_ALIASED_POINT_SIZE_RANGE, m_glfeatures.DimAliasedPoint);
-
-		if constexpr (!IsGLES)
-		{
-			GetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, m_glfeatures.DimSmoothedLine);
-			GetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, m_glfeatures.DimSmoothedPoint);
-		}
-		else
-		{
-			m_glfeatures.DimSmoothedLine[0] = 0;
-			m_glfeatures.DimSmoothedLine[1] = 0;
-			m_glfeatures.DimSmoothedPoint[0] = 0;
-			m_glfeatures.DimSmoothedPoint[1] = 0;
-		}
-
 		bool runningInRenderDoc = false;
 #ifdef _NBL_PLATFORM_WINDOWS_
 		if (GetModuleHandleA("renderdoc.dll"))
@@ -494,6 +478,7 @@ protected:
 	COpenGLFeatureMap m_glfeatures;
 
 	SDebugCallback* m_dbgCb;
+	system::logger_opt_smart_ptr m_logger;
 };
 
 }

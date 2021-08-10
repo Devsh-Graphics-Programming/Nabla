@@ -57,11 +57,12 @@ namespace nbl
 		using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
 		class SContext;
-		bool readVersionField(system::IFile* _file, SContext& ctx);
+		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr);
 		bool readHeader(const char fileName[], SContext& ctx);
 		template<typename rgbaFormat>
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
-		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName);
+		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr logger);
+
 
 		//! A helpful struct for handling OpenEXR layout
 		/*
@@ -226,7 +227,7 @@ namespace nbl
 			SContext ctx;
 			InputFile file = fileName.c_str();
 
-			if (!readVersionField(_file, ctx))
+			if (!readVersionField(_file, ctx, _params.logger))
 				return {};
 
 			if (!readHeader(fileName.c_str(), ctx))
@@ -247,7 +248,7 @@ namespace nbl
 					int height;
 
 					auto params = perImageData.params;
-					params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName());
+					params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
 					params.type = ICPUImage::ET_2D;;
 					params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
 					params.samples = ICPUImage::ESCF_1_BIT;
@@ -257,8 +258,7 @@ namespace nbl
 
 					if (params.format == EF_UNKNOWN)
 					{
-						assert(false); // TODO: implement proper engine-wide logger
-						//os::Printer::log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file", file.fileName(), ELL_INFORMATION);
+						_params.logger.log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file %s", system::ILogger::ELL_INFO, file.fileName());
 						continue;
 					}
 
@@ -307,7 +307,7 @@ namespace nbl
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
-		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file) const
+		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{	
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
 			system::future<size_t> future;
@@ -356,7 +356,7 @@ namespace nbl
 			file.readPixels(dw.min.y, dw.max.y);
 		}
 
-		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName)
+		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr logger)
 		{
 			E_FORMAT retVal;
 
@@ -364,20 +364,18 @@ namespace nbl
 			const auto gChannel = doesTheChannelExist("G", mapOfChannels);
 			const auto bChannel = doesTheChannelExist("B", mapOfChannels);
 			const auto aChannel = doesTheChannelExist("A", mapOfChannels);
-
-			assert(false); // TODO: implement proper engine-wide logger
-			/*
+			
 			if (rChannel && gChannel && bChannel && aChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " RGBA file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " RGBA file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else if (rChannel && gChannel && bChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " RGB file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " RGB file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else if(rChannel && gChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " RG file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " RG file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else if(rChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " R file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " R file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else 
-				os::Printer::log("LOAD EXR: the file's channels are invalid to load", fileName, ELL_ERROR);
-			*/
+				logger.log("LOAD EXR: the file's channels are invalid to load %s", system::ILogger::ELL_ERROR, fileName.c_str());
+
 			auto doesMapOfChannelsFormatHaveTheSameFormatLikePassedToIt = [&](const PixelType ImfTypeToCompare)
 			{
 				for (auto& channel : mapOfChannels)
@@ -398,7 +396,7 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(system::IFile* _file, SContext& ctx)
+		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr logger)
 		{
 			RgbaInputFile file(_file->getFileName().string().c_str());
 			auto& versionField = ctx.versionField;
@@ -419,8 +417,7 @@ namespace nbl
 				if (isTheBitActive(9))
 				{
 					versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::TILES;
-					assert(false); // TODO: implement proper engine-wide logger
-					//os::Printer::log("LOAD EXR: the file consist of not supported tiles", file.fileName(), ELL_ERROR);
+					logger.log("LOAD EXR: the file consist of not supported tiles %s", system::ILogger::ELL_ERROR, file.fileName());
 					return false;
 				}
 				else
@@ -430,16 +427,14 @@ namespace nbl
 			{
 				versionField.Compoment.type = SContext::VersionField::Compoment::MULTI_PART_FILE;
 				versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::SCAN_LINES_OR_TILES;
-				assert(false); // TODO: implement proper engine-wide logger
-				//os::Printer::log("LOAD EXR: the file is a not supported multi part file", file.fileName(), ELL_ERROR);
+				logger.log("LOAD EXR: the file is a not supported multi part file %s", system::ILogger::ELL_ERROR, file.fileName());
 				return false;
 			}
 
 			if (!isTheBitActive(9) && isTheBitActive(11) && isTheBitActive(12))
 			{
 				versionField.doesItSupportDeepData = true;
-				assert(false); // TODO: implement proper engine-wide logger
-				//os::Printer::log("LOAD EXR: the file consist of not supported deep data", file.fileName(), ELL_ERROR);
+				logger.log("LOAD EXR: the file consist of not supported deep data%s", system::ILogger::ELL_ERROR, file.fileName());
 				return false;
 			}
 			else

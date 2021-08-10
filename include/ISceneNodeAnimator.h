@@ -8,8 +8,6 @@
 
 #include "nbl/core/declarations.h"
 
-#include "IEventReceiver.h"
-
 namespace nbl
 {
 namespace scene
@@ -22,7 +20,7 @@ namespace scene
 	change its position, rotation, scale and/or material. There are lots of animators
 	to choose from. You can create scene node animators with the ISceneManager interface.
 	*/
-	class ISceneNodeAnimator : public virtual core::IReferenceCounted, public IEventReceiver
+	class ISceneNodeAnimator : public virtual core::IReferenceCounted
 	{
 	public:
 		//! Animates a scene node.
@@ -34,12 +32,6 @@ namespace scene
 		/** When attached to an active camera, this animator will be
 		able to respond to events such as mouse and keyboard events. */
 		virtual bool isEventReceiverEnabled() const
-		{
-			return false;
-		}
-
-		//! Event receiver, override this function for camera controlling animators
-		virtual bool OnEvent(const SEvent& event)
 		{
 			return false;
 		}

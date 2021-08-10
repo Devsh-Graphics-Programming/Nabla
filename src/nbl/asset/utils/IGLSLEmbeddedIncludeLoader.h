@@ -21,7 +21,9 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		{
 			std::string pattern(getVirtualDirectoryName());
 			pattern += ".*";
-			HandleFunc_t tmp = [this](const std::string& _name) -> std::string {return getFromDiskOrEmbedding(_name);};
+			HandleFunc_t tmp = [this](const std::string& _name) -> std::string {
+				return getFromDiskOrEmbedding(_name);
+			};
 			return {{std::regex{pattern},std::move(tmp)}};
 		}
 		
@@ -49,19 +51,12 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
 		{
 			auto path = "nbl/builtin/" + _name;
-			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-			bool validInput = s->createFile(future, path, system::IFile::ECF_READ);
-			assert(validInput);
-			core::smart_refctd_ptr<system::IFile> file = future.get();
-
-			size_t fileSize = file->getSize();
-			std::string content(fileSize, '/0');
-			system::future<size_t> read_future;
-			file->read(read_future, content.data(), 0, fileSize);
-			assert(validInput);
-			read_future.get();
-
-			return content;
+			auto data = s->loadBuiltinData(path);
+			if (!data)
+				return "";
+			auto begin = reinterpret_cast<const char*>(data->getPointer());
+			auto end = begin + data->getSize();
+			return std::string(begin, end);
 		}
 };
 

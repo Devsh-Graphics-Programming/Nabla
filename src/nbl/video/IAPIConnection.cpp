@@ -15,12 +15,12 @@ core::smart_refctd_ptr<IAPIConnection> createOpenGLESConnection(core::smart_refc
 core::smart_refctd_ptr<IAPIConnection> createVulkanConnection(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, const SDebugCallback& dbgCb);
 
 
-core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(core::smart_refctd_ptr<system::ISystem>&& sys, E_API_TYPE apiType, uint32_t appVer, const char* appName, SDebugCallback* dbgCb)
+core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(core::smart_refctd_ptr<system::ISystem>&& sys, E_API_TYPE apiType, uint32_t appVer, const char* appName, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&& logger)
 {
     switch (apiType)
     {
     case EAT_OPENGL:
-        return createOpenGLConnection(std::move(sys), dbgCb);
+        return createOpenGLConnection(std::move(sys), dbgCb, std::move(logger));
     case EAT_OPENGL_ES:
         return createOpenGLESConnection(std::move(sys), dbgCb);
     case EAT_VULKAN:
@@ -30,7 +30,7 @@ core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(core::smart_refctd
     }
 }
 
-IAPIConnection::IAPIConnection(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
+IAPIConnection::IAPIConnection(core::smart_refctd_ptr<system::ISystem>&& sys, system::logger_opt_smart_ptr&& logger) : m_system(std::move(sys)), m_logger(std::move(logger))
 {
     //! This variable tells us where the directory holding "nbl/builtin/" is if the resources are not embedded
     /** For shipping products to end-users we recommend embedding the built-in resources to avoid a plethora of
@@ -42,13 +42,6 @@ IAPIConnection::IAPIConnection(core::smart_refctd_ptr<system::ISystem>&& sys) : 
 #else
         "";
 #endif
-    core::smart_refctd_ptr<system::ISystemCaller> caller;
-#ifdef _NBL_PLATFORM_WINDOWS_
-    caller = core::make_smart_refctd_ptr<system::CSystemCallerWin32>();
-#else
-    caller = nullptr;
-#endif
-
 
     m_GLSLCompiler = core::make_smart_refctd_ptr<asset::IGLSLCompiler>(m_system.get());
 }

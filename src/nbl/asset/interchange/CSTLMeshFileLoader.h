@@ -23,7 +23,7 @@ class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 
 		asset::SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-		bool isALoadableFileFormat(system::IFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -42,7 +42,8 @@ class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 		// skips to the first non-space character available
 		void goNextWord(system::IFile* file) const;
 		// returns the next word
-		const core::stringc& getNextToken(system::IFile* file, core::stringc& token) const;
+
+		const std::string_view getNextToken(system::IFile* file, const std::string_view token) const;
 		// skip to next printable character after the first line break
 		void goNextLine(system::IFile* file) const;
 		//! Read 3d vector of floats

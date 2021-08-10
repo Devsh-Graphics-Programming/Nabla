@@ -10,7 +10,6 @@
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
 #include "nbl/system/IFile.h"
-#include "os.h"
 
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
@@ -22,7 +21,7 @@
 #include <stdio.h> // required for jpeglib.h
 #ifdef _NBL_COMPILE_WITH_LIBJPEG_
 extern "C" {
-#include "libjpeg/jpeglib.h" // use irrlicht jpeglib
+#include "jpeglib.h"
 #include <setjmp.h>
 }
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
@@ -33,7 +32,7 @@ namespace asset
 {
 
 //! constructor
-CImageLoaderJPG::CImageLoaderJPG(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
+CImageLoaderJPG::CImageLoaderJPG()
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CImageLoaderJPG");
@@ -91,8 +90,9 @@ namespace jpeg
 		char temp1[JMSG_LENGTH_MAX];
 		(*cinfo->err->format_message)(cinfo, temp1);
 		std::string errMsg("JPEG FATAL ERROR in ");
-		errMsg += reinterpret_cast<char*>(cinfo->client_data);
-		os::Printer::log(errMsg, temp1, ELL_ERROR);
+		auto ctx = reinterpret_cast<CImageLoaderJPG::SContext*>(cinfo->client_data);
+		errMsg += ctx->filename;
+		ctx->logger.log(errMsg + temp1, system::ILogger::ELL_ERROR);
 	}
 
 	/*	Initialize source.  This is called by jpeg_read_header() before any
@@ -148,7 +148,7 @@ namespace jpeg
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file) const
+bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
 #ifndef _NBL_COMPILE_WITH_LIBJPEG_
 	return false;
@@ -175,7 +175,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	if (!_file || _file->getSize()>0xffffffffull)
         return {};
 
-	const auto& Filename = _file->getFileName();
+	const std::filesystem::path& Filename = _file->getFileName();
 
 	uint8_t* input = new uint8_t[_file->getSize()];
 
@@ -191,11 +191,14 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	//step fails.  (Unlikely, but it could happen if you are out of memory.)
 	//This routine fills in the contents of struct jerr, and returns jerr's
 	//address which we place into the link field in cinfo.
-
+	SContext ctx;
+	ctx.filename = const_cast<char*>(Filename.string().c_str());
+	ctx.logger = _params.logger;
 	cinfo.err = jpeg_std_error(&jerr.pub);
 	cinfo.err->error_exit = jpeg::error_exit;
 	cinfo.err->output_message = jpeg::output_message;
-    cinfo.client_data = const_cast<char*>(Filename.string().c_str());
+	cinfo.client_data = &ctx;
+
 
 	auto exitRoutine = [&] {
 		jpeg_destroy_decompress(&cinfo);
@@ -207,7 +210,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	// crashes when throwing within external c code
 	if (setjmp(jerr.setjmp_buffer))
 	{
-		os::Printer::log("Can't load libjpeg threw an error:", _file->getFileName().string(), ELL_ERROR);
+		_params.logger.log("Can't load libjpeg threw an error:", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 		// RAIIExiter takes care of cleanup
         return {};
 	}
@@ -272,23 +275,15 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
 			break;
 		case JCS_CMYK:
-			os::Printer::log("CMYK color space is unsupported:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("CMYK color space is unsupported:", system::ILogger::ELL_ERROR, _file->getFileName().string());
 			return {};
 			break;
 		case JCS_YCCK: // this I have no resources on
-			os::Printer::log("YCCK color space is unsupported:", _file->getFileName().string(), ELL_ERROR);
-			return {};
-			break;
-		case JCS_BG_RGB: // interesting
-			os::Printer::log("Loading JPEG Big Gamut RGB is not implemented yet:", _file->getFileName().string(), ELL_ERROR);
-			return {};
-			break;
-		case JCS_BG_YCC: // interesting
-			os::Printer::log("Loading JPEG Big Gamut YCbCr is not implemented yet:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("YCCK color space is unsupported: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 		default:
-			os::Printer::log("Can't load as color space is unknown:", _file->getFileName().string(), ELL_ERROR);
+			_params.logger.log("Can't load as color space is unknown: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 	}
@@ -335,7 +330,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	image->setBufferAndRegions(std::move(buffer), regions);
 
 	if (image->getCreationParameters().format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
 	
     return SAssetBundle(nullptr,{image});
 

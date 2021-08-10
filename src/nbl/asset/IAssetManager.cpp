@@ -12,7 +12,7 @@
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-//#include "nbl/asset/interchange/COBJMeshFileLoader.h"
+#include "nbl/asset/interchange/COBJMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
@@ -138,28 +138,28 @@ void IAssetManager::addLoadersAndWriters()
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this, core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-	//addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
 	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>(core::smart_refctd_ptr<system::ISystem>(m_system)));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
 #endif
 #ifdef  _NBL_COMPILE_WITH_GLI_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
 #endif 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>(core::smart_refctd_ptr<system::ISystem>(m_system)));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>(core::smart_refctd_ptr<system::ISystem>(m_system)));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
 	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));

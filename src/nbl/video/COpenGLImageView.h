@@ -23,7 +23,6 @@ class COpenGLImageView final : public IGPUImageView
 		GLuint name;
 		GLenum target;
 		GLenum internalFormat;
-
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR GLenum ViewTypeToGLenumTarget[IGPUImageView::ET_COUNT] = {
 			IOpenGL_FunctionTable::TEXTURE_1D,GL_TEXTURE_2D,GL_TEXTURE_3D,GL_TEXTURE_CUBE_MAP,IOpenGL_FunctionTable::TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_CUBE_MAP_ARRAY
@@ -37,7 +36,8 @@ class COpenGLImageView final : public IGPUImageView
 			return target;
 		}
 
-		COpenGLImageView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(dev, std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
+		COpenGLImageView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) :
+			IGPUImageView(dev, std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
 			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);

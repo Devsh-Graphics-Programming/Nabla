@@ -8,14 +8,12 @@
 #include "nbl/video/IGPUBufferView.h"
 
 #include "COpenGLCommon.h"
-#include "COpenGLBuffer.h"
+#include "nbl/video/COpenGLBuffer.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class COpenGLBufferView : public IGPUBufferView
@@ -48,7 +46,6 @@ class COpenGLBufferView : public IGPUBufferView
 		uint32_t m_textureSize;
 };
 
-}
 }
 #endif
 

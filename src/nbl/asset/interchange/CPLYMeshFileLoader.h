@@ -40,7 +40,7 @@ public:
 	//! Constructor
 	CPLYMeshFileLoader(IAssetManager* _am);
 
-    virtual bool isALoadableFileFormat(system::IFile* _file) const override;
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
     virtual const char** getAssociatedFileExtensions() const override
     {
@@ -88,7 +88,7 @@ private:
 
 	struct SPLYProperty
 	{
-		core::stringc Name;
+		std::string Name;
 		E_PLY_PROPERTY_TYPE Type;
 		#include "nbl/nblpack.h"
 		union
@@ -149,7 +149,7 @@ private:
 	{
 		// name of the element. We only want "vertex" and "face" elements
 		// but we have to parse the others anyway.
-		core::stringc Name;
+		std::string Name;
 		// The number of elements in the file
 		uint32_t Count;
 		// Properties of this element

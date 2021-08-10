@@ -13,6 +13,7 @@
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/system/ILogger.h"
 
 namespace nbl
 {
@@ -22,18 +23,17 @@ namespace asset
 //!  Surface Loader for PNG files
 class CImageLoaderPng : public asset::IAssetLoader
 {
-    core::smart_refctd_ptr<system::ISystem> m_system;
 public:
     struct SContext
     {
-        SContext(system::ISystem* sys) : system(sys) {}
-        system::ISystem* system;
+        SContext(const system::logger_opt_ptr _logger) :  logger(_logger) {}
         // Made file_pos initial value 8 cause it's first set to 8 in CImageLoaderPng::loadAsset
         // and set to 8 but you cannot access this struct from there
         size_t file_pos = 8;
+        system::logger_opt_ptr logger;
     };
-    explicit CImageLoaderPng(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
-    virtual bool isALoadableFileFormat(system::IFile* _file) const override;
+    explicit CImageLoaderPng() {}
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
     virtual const char** getAssociatedFileExtensions() const override
     {

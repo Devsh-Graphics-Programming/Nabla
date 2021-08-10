@@ -10,7 +10,6 @@
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
-#include "os.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 
@@ -105,6 +104,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 	char* const buf = fileContents.data();
 	system::future<size_t> future;
 	_file->read(future, buf, 0, filesize);
+	future.get();
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information
@@ -152,9 +152,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			if (ctx.useMaterials)
 			{
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-				#ifdef _NBL_DEBUG_OBJ_LOADER_
-					os::Printer::log("Reading material _file",tmpbuf);
-				#endif
+				_params.logger.log("Reading material _file %s", system::ILogger::ELL_DEBUG, tmpbuf);
 
                 std::string mtllib = relPath+tmpbuf;
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
@@ -216,9 +214,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 		case 's': // smoothing can be a group or off (equiv. to 0)
 			{
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _NBL_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded smoothing group start",tmpbuf, ELL_DEBUG);
-#endif
+				_params.logger.log("Loaded smoothing group start %s",system::ILogger::ELL_DEBUG, tmpbuf);
 				if (strcmp("off", tmpbuf)==0)
 					smoothingGroup=0u;
 				else
@@ -231,9 +227,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			{
 				noMaterial = false;
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _NBL_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded material start",tmpbuf, ELL_DEBUG);
-#endif
+				_params.logger.log("Loaded material start %s", system::ILogger::ELL_DEBUG, tmpbuf);
 				mtlName=tmpbuf;
 
                 if (ctx.useMaterials && !ctx.useGroups)
@@ -275,9 +269,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			SObjVertex v;
 
 			// get all vertices data in this face (current line of obj _file)
-			const core::stringc wordBuffer = copyLine(bufPtr, bufEnd);
+			const std::string wordBuffer = copyLine(bufPtr, bufEnd);
 			const char* linePtr = wordBuffer.c_str();
-			const char* const endPtr = linePtr+wordBuffer.size();
+			const char* const endPtr = linePtr + wordBuffer.size();
 
 			core::vector<uint32_t> faceCorners;
 			faceCorners.reserve(32ull);
@@ -387,9 +381,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             ixBufOffset += indices[i].size()*4ull;
 
             const uint32_t hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
-			#ifdef _NBL_DEBUG_OBJ_LOADER_
-				os::Printer::log("Has UV: ", hasUV ? "YES":"NO", ELL_DEBUG);
-			#endif
+			using namespace std::string_literals;
+			_params.logger.log("Has UV: "s + (hasUV ? "YES":"NO"), system::ILogger::ELL_DEBUG);
 			// search in loaded
 			pipeline_meta_pair_t pipeline;
 			{
@@ -623,10 +616,10 @@ uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uin
 }
 
 
-core::stringc COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd)
+std::string COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd)
 {
 	if (!inBuf)
-		return core::stringc();
+		return std::string();
 
 	const char* ptr = inBuf;
 	while (ptr<bufEnd)
@@ -636,7 +629,7 @@ core::stringc COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd
 		++ptr;
 	}
 	// we must avoid the +1 in case the array is used up
-	return core::stringc(inBuf, (uint32_t)(ptr-inBuf+((ptr < bufEnd) ? 1 : 0)));
+	return std::string(inBuf, (uint32_t)(ptr-inBuf+((ptr < bufEnd) ? 1 : 0)));
 }
 
 

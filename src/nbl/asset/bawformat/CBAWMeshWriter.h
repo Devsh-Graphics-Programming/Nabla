@@ -47,7 +47,7 @@ namespace asset
 			//! Initialization vector for GCM encryption
 			unsigned char initializationVector[16];
 			//! Directory to which texture paths will be relative in output mesh file
-			io::path relPath;
+			std::filesystem::path relPath;
 		};
 
 	private:
