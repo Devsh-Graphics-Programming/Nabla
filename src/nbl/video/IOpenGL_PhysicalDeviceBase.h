@@ -343,10 +343,13 @@ public:
 		if constexpr (!IsGLES)
 		{
 			GetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
-			m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
 		}
-		else
-			m_glfeatures.MaxUserClipPlanes = 0;
+		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance)) // ES
+		{
+				GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &num);
+		}
+		m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
+
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
