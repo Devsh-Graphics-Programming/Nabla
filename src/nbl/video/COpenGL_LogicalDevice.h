@@ -381,6 +381,7 @@ public:
 
     void waitIdle() override
     {
+        // TODO: I think glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
         SRequestWaitIdle params;
         auto& req = m_threadHandler.request(std::move(params));
         m_threadHandler.template waitForRequestCompletion<SRequestWaitIdle>(req);

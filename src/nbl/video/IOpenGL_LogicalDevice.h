@@ -594,6 +594,8 @@ protected:
                     pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device, &gl);
                 else
                     pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device);
+                // only fence create should flush, nothing else needs to do flush or wait idle
+                gl.glGeneral.pglFlush();
             }
                 break;
 
@@ -664,12 +666,6 @@ protected:
             default: 
                 break;
             }
-            // TODO: @Crisspl, only fence create should flush, nothing else needs to do flush or wait idle
-            gl.glGeneral.pglFlush();
-            // created GL object must be in fact ready when request gets reported as ready
-            // @matt - needed?
-            if (isCreationRequest(req.type))
-                gl.glGeneral.pglFinish();
         }
 
         void exit(FunctionTableType* gl)
