@@ -704,6 +704,9 @@ public:
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
+        if (!IGPUCommandBuffer::blitImage(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter))
+            return false;
+
         SCmd<impl::ECT_BLIT_IMAGE> cmd;
         cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;
