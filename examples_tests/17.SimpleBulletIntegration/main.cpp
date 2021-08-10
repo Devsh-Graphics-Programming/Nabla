@@ -6,13 +6,13 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
+#include "../common/Camera.hpp"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 #include "nbl/ext/Bullet/BulletUtility.h"
 #include "nbl/ext/Bullet/CPhysicsWorld.h"
-#include "Camera.hpp"
 
 using namespace nbl;
 using namespace core;
