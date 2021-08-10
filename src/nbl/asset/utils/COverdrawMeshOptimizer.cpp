@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold, const system::logger_opt_ptr& logger)
+void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold, const system::logger_opt_ptr logger)
 {
 	if (!_outbuffer || !_inbuffer)
 		return;

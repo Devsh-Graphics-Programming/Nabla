@@ -2,8 +2,7 @@
 
 #include "nbl/video/ILogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 E_API_TYPE IBackendObject::getAPIType() const
@@ -11,5 +10,4 @@ E_API_TYPE IBackendObject::getAPIType() const
     return m_originDevice->getAPIType();
 }
 
-}
 }

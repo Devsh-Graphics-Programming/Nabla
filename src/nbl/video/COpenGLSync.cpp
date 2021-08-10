@@ -2,8 +2,7 @@
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 COpenGLSync::~COpenGLSync()
@@ -12,5 +11,4 @@ COpenGLSync::~COpenGLSync()
         device->destroySync(sync);
 }
 
-}
 }

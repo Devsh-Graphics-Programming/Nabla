@@ -43,7 +43,7 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 
         void initialize() override;
 
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger = nullptr) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -57,7 +57,7 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 
     private:
         core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> makePipelineFromMtl(SContext& ctx, const SMtl& _mtl, bool hasUV);
-        core::vector<SMtl> readMaterials(system::IFile* _file, const system::logger_opt_ptr& logger) const;
+        core::vector<SMtl> readMaterials(system::IFile* _file, const system::logger_opt_ptr logger) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
 
         using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT>;

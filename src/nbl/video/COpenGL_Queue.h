@@ -16,8 +16,6 @@
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/containers/CMemoryPool.h"
-#include "nbl/video/debug/debug.h"
-#include "nbl/video/COpenGLDebug.h"
 //#include "renderdoc_app.h"
 
 //extern RENDERDOC_API_1_1_2* g_rdoc_api;
@@ -28,7 +26,6 @@ namespace nbl::video
 template <typename FunctionTableType_>
 class COpenGL_Queue final : public IGPUQueue
 {
-    system::logger_opt_smart_ptr m_logger;
     public:
         using FunctionTableType = FunctionTableType_;
         using FeaturesType = typename FunctionTableType::features_t;
@@ -38,7 +35,7 @@ class COpenGL_Queue final : public IGPUQueue
 
         struct ThreadInternalStateType
         {
-            ThreadInternalStateType(const egl::CEGL* egl, FeaturesType* features, system::logger_opt_smart_ptr&& logger) : gl(egl, features, std::move(logger)), ctxlocal(&gl) {}
+            ThreadInternalStateType(const egl::CEGL* egl, const FeaturesType* features, system::logger_opt_smart_ptr&& logger) : gl(egl,features,std::move(logger)), ctxlocal(&gl) {}
 
             FunctionTableType gl;
             SOpenGLContextLocalCache ctxlocal;
@@ -88,14 +85,13 @@ class COpenGL_Queue final : public IGPUQueue
             using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>;
             friend base_t;
 
-            CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, SDebugCallback* _dbgCb, system::logger_opt_smart_ptr&& logger) :
+            CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, const FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, COpenGLDebugCallback* _dbgCb) :
                 egl(_egl),
                 m_device(dev),
                 thisCtx(_ctx), pbuffer(_pbuf),
                 features(_features),
                 m_ctxid(_ctxid),
-                m_dbgCb(_dbgCb),
-                m_logger(std::move(logger))
+                m_dbgCb(_dbgCb)
             {
                 this->start();
             }
@@ -122,12 +118,12 @@ class COpenGL_Queue final : public IGPUQueue
                     _NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
 
-                new (state_ptr) ThreadInternalStateType(egl, features, system::logger_opt_smart_ptr(m_logger));
+                new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
 
                 if (m_dbgCb)
-                    gl.extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
+                    gl.extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
 
                 // defaults once set and not tracked by engine (should never change)
                 gl.glGeneral.pglEnable(GL_FRAMEBUFFER_SRGB);
@@ -240,19 +236,27 @@ class COpenGL_Queue final : public IGPUQueue
             IOpenGL_LogicalDevice* m_device;
             EGLContext thisCtx;
             EGLSurface pbuffer;
-            FeaturesType* features;
+            const FeaturesType* features;
             uint32_t m_ctxid;
-            SDebugCallback* m_dbgCb;
-            system::logger_opt_smart_ptr m_logger;
+            COpenGLDebugCallback* m_dbgCb;
         };
 
     public:
-        COpenGL_Queue(IOpenGL_LogicalDevice* gldev, ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _ctx, EGLSurface _surface, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority, SDebugCallback* _dbgCb, system::logger_opt_smart_ptr&& logger) :
-            IGPUQueue(dev, _famIx, _flags, _priority),
-            threadHandler(_egl, gldev, _features, _ctx, _surface, _ctxid, _dbgCb, system::logger_opt_smart_ptr(m_logger)),
+        COpenGL_Queue(
+            IOpenGL_LogicalDevice* gldev,
+            const egl::CEGL* _egl,
+            const FeaturesType* _features,
+            uint32_t _ctxid,
+            EGLContext _ctx,
+            EGLSurface _surface,
+            uint32_t _famIx,
+            E_CREATE_FLAGS _flags,
+            float _priority,
+            COpenGLDebugCallback* _dbgCb
+        ) : IGPUQueue(gldev,_famIx,_flags,_priority),
+            threadHandler(_egl,gldev,_features,_ctx,_surface,_ctxid,_dbgCb),
             m_mempool(128u,1u,512u,sizeof(void*)),
-            m_ctxid(_ctxid),
-            m_logger(std::move(logger))
+            m_ctxid(_ctxid)
         {
 
         }
@@ -375,6 +379,18 @@ class COpenGL_Queue final : public IGPUQueue
         memory_pool_t m_mempool;
         uint32_t m_ctxid;
 };
+
+}
+
+
+#include "nbl/video/COpenGLFunctionTable.h"
+#include "nbl/video/COpenGLESFunctionTable.h"
+
+namespace nbl::video
+{
+
+using COpenGLQueue = COpenGL_Queue<COpenGLFunctionTable>;
+using COpenGLESQueue = COpenGL_Queue<COpenGLESFunctionTable>;
 
 }
 

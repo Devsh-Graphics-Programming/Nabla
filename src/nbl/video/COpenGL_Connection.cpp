@@ -18,7 +18,9 @@ namespace nbl::video
 {
 
 template<E_API_TYPE API_TYPE>
-static core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE>::create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, COpenGLDebugCallback&& dbgCb)
+core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE>::create(
+    core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, COpenGLDebugCallback&& dbgCb
+)
 {
     egl::CEGL egl;
     if (!egl.initialize())
@@ -26,19 +28,19 @@ static core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<A
 
     core::smart_refctd_ptr<IPhysicalDevice> pdevice;
     if constexpr (API_TYPE==EAT_OPENGL)
-        pdevice = COpenGLPhysicalDevice::create(std::move(m_system),std::move(m_GLSLCompiler),std::move(egl),std::move(dbgCb));
+        pdevice = COpenGLPhysicalDevice::create(std::move(sys),std::move(egl),std::move(dbgCb));
     else
-        pdevice = COpenGLESPhysicalDevice::create(std::move(m_system),std::move(m_GLSLCompiler),std::move(egl),std::move(dbgCb));
+        pdevice = COpenGLESPhysicalDevice::create(std::move(sys),std::move(egl),std::move(dbgCb));
 
     if (!pdevice)
         return nullptr;
 
-    auto retval = core::make_smart_refctd_ptr<COpenGL_Connection<API_TYPE>>(std::move(pdevice));
-    return retval;
+    auto retval = new COpenGL_Connection<API_TYPE>(std::move(pdevice));
+    return core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>>(retval,core::dont_grab);
 }
 
 template<E_API_TYPE API_TYPE>
-core::smart_refctd_ptr<ISurface> COpenGL_Connection<API_TYPE>::createSurface(ui::IWindow* window)
+core::smart_refctd_ptr<ISurface> COpenGL_Connection<API_TYPE>::createSurface(ui::IWindow* window) const
 {
     // TODO surface creation needs to be reorganized
     // ALSO CREATE AND VALIDATE BEFORE CALLING CTORS!
@@ -80,13 +82,16 @@ core::smart_refctd_ptr<ISurface> COpenGL_Connection<API_TYPE>::createSurface(ui:
 }
 
 template<E_API_TYPE API_TYPE>
-IDebugCallback* COpenGL_Connection<API_TYPE>::getDebugCallback()
+IDebugCallback* COpenGL_Connection<API_TYPE>::getDebugCallback() const
 {
     if constexpr (API_TYPE == EAT_OPENGL)
-        return static_cast<const IOpenGL_PhysicalDeviceBase<COpenGLLogicalDevice>*>(m_pdevice)->getDebugCallback();
+        return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLLogicalDevice>*>(m_pdevice.get())->getDebugCallback();
     else
-        return static_cast<const IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>*>(m_pdevice)->getDebugCallback();
+        return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>*>(m_pdevice.get())->getDebugCallback();
 }
 
+
+template class COpenGL_Connection<EAT_OPENGL>;
+template class COpenGL_Connection<EAT_OPENGL_ES>;
 
 }

@@ -63,7 +63,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		*/
 
 		template<asset::E_FORMAT outFormat = asset::EF_UNKNOWN>
-		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, const system::logger_opt_ptr& logger, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
+		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, const system::logger_opt_ptr logger, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
 		{ 
 			const auto& viewParams = imageView->getCreationParameters();
 			const auto& subresource = viewParams.subresourceRange;
@@ -176,7 +176,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			and texel buffer attached as well.
 		*/
 
-		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, const system::logger_opt_ptr& logger)
+		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, const system::logger_opt_ptr logger)
 		{
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
