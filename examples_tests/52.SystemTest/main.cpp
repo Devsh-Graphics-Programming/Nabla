@@ -204,8 +204,10 @@ private:
 	system::logger_opt_smart_ptr m_logger;
 };
 
-int main()
+int main(int argc, char** argv)
 {
+	path CWD = path(argv[0]).parent_path().generic_string() + "/";
+	path mediaWD = CWD.generic_string() + "../../media/";
 	auto system = CommonAPI::createSystem();
 	// *** Select stdout/file logger ***
 	auto logger = make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
@@ -300,11 +302,11 @@ int main()
 		}
 	};
 	
-#if 0 // none of this is going to work as long as you dont have a CWD parameter in `IAssetLoader::SAssetLoadParams` or `IAssetWriter::SAssetWriteParams`
+	IAssetLoader::SAssetLoadParams lp;
+	lp.workingDirectory = mediaWD;
 	//PNG loader test
 	{
-		IAssetLoader::SAssetLoadParams lp;
-		auto asset = assetManager->getAsset("../../media/cegui_alfisko/screenshot.png", lp);
+		auto asset = assetManager->getAsset("cegui_alfisko/screenshot.png", lp);
 		assert(!asset.getContents().empty());
 		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
 		core::smart_refctd_ptr<ICPUImageView> imageView;
@@ -317,11 +319,12 @@ int main()
 		imageView = ICPUImageView::create(std::move(imgViewParams));
 
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		wp.workingDirectory = CWD;
+
 		assetManager->writeAsset("pngWriteSuccessful.png", wp);
 	}
 	//TODO OBJ loader test 
 	{
-		//IAssetLoader::SAssetLoadParams lp;
 		//auto bundle = assetManager->getAsset("../../media/sponza.obj", lp);
 		//assert(!bundle.getContents().empty());
 		//auto cpumesh = bundle.getContents().begin()[0];
@@ -332,8 +335,7 @@ int main()
 	}
 	//JPEG loader test
 	{
-		IAssetLoader::SAssetLoadParams lp;
-		auto asset = assetManager->getAsset("../../media/dwarf.jpg", lp);
+		auto asset = assetManager->getAsset("dwarf.jpg", lp);
 		assert(!asset.getContents().empty());
 		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
 		core::smart_refctd_ptr<ICPUImageView> imageView;
@@ -346,9 +348,29 @@ int main()
 		imageView = ICPUImageView::create(std::move(imgViewParams));
 
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		wp.workingDirectory = CWD;
+
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
-#endif
+	//TGA loader test
+	{
+		auto asset = assetManager->getAsset("color_space_test/R8.tga", lp);
+		assert(!asset.getContents().empty());
+		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
+		core::smart_refctd_ptr<ICPUImageView> imageView;
+		ICPUImageView::SCreationParams imgViewParams;
+		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewParams.format = E_FORMAT::EF_R8G8B8_SRGB;
+		imgViewParams.image = core::smart_refctd_ptr<ICPUImage>(cpuImage);
+		imgViewParams.viewType = ICPUImageView::ET_2D;
+		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+		imageView = ICPUImageView::create(std::move(imgViewParams));
+
+		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		wp.workingDirectory = CWD;
+		assetManager->writeAsset("TGAWriteSuccessful.tga", wp);
+	}
+
 	while (true)
 	{
 		input->getDefaultMouse(&mouse);

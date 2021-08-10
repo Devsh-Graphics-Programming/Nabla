@@ -13,8 +13,9 @@
 using namespace nbl;
 using namespace core;
 
-int main()
+int main(int argc, char** argv)
 {
+    system::path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
     constexpr uint32_t WIN_W = 1280;
     constexpr uint32_t WIN_H = 720;
     constexpr uint32_t FBO_COUNT = 1u;
@@ -32,6 +33,7 @@ int main()
     auto commandPool = std::move(initOutput.commandPool);
     auto assetManager = std::move(initOutput.assetManager);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+    auto logger = std::move(initOutput.logger);
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
     core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffers[1];
@@ -67,6 +69,8 @@ int main()
         */
 
         asset::IAssetLoader::SAssetLoadParams loadParams;
+        loadParams.workingDirectory = CWD;
+        loadParams.logger = logger.get();
         auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
         assert(!meshes_bundle.getContents().empty());
 

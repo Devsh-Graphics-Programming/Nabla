@@ -331,7 +331,6 @@ public:
 		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
 
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
-		windowsCreationParams.callback = nullptr;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
 		windowsCreationParams.x = 0;

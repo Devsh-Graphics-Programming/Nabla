@@ -154,7 +154,7 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	extension.Gamma = isSRGBFormat(convertedFormat) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
 	
 	system::future<size_t> extFuture;
-	file->write(future, &extension, offset, sizeof(extension));
+	file->write(extFuture, &extension, offset, sizeof(extension));
 	
 	if (extFuture.get() < (int32_t)sizeof(extension))
 		return false;
