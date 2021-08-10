@@ -100,6 +100,11 @@ public:
         );
     }
 
+    inline system::ISystem* getSystem() const {return m_system.get();}
+    inline asset::IGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
+
+    virtual IDebugCallback* getDebugCallback() = 0;
+
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
     {
         if (!validateLogicalDeviceCreation(params))
