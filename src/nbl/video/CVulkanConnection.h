@@ -17,7 +17,8 @@ class CVulkanConnection final : public IAPIConnection
 {
 public:
     CVulkanConnection(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer,
-        const char* appName, const SDebugCallback& dbgCb) : IAPIConnection(std::move(sys))
+        const char* appName, const SDebugCallback& dbgCb, system::logger_opt_smart_ptr&& logger)
+        : IAPIConnection(std::move(sys), std::move(logger))
     {
         VkResult result = volkInitialize();
         assert(result == VK_SUCCESS);
@@ -63,7 +64,7 @@ public:
             {
                 // Todo(achal): This needs to be handled in a platform agnostic way.
                 const uint32_t instanceExtensionCount = 3u;
-                char* instanceExtensions[instanceExtensionCount] = { "VK_KHR_surface", "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+                const char* instanceExtensions[instanceExtensionCount] = { "VK_KHR_surface", "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
 
                 instanceCreateInfo.enabledExtensionCount = instanceExtensionCount;
                 instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
@@ -89,7 +90,9 @@ public:
         m_physDevices = core::make_refctd_dynamic_array<physical_devs_array_t>(devCount);
         for (uint32_t i = 0u; i < devCount; ++i)
         {
-            (*m_physDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(vkphds[i], core::smart_refctd_ptr(m_system), std::move(m_GLSLCompiler));
+            (*m_physDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(vkphds[i],
+                core::smart_refctd_ptr(m_system), std::move(m_GLSLCompiler),
+                system::logger_opt_smart_ptr(m_logger));
         }
     }
 

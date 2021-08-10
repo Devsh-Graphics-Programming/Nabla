@@ -10,9 +10,11 @@ namespace video
 // Functions defined in connections' .cpp files
 // (i dont want to have all backends in single translation unit)
 // as a result, if one wants to turn off compilation of whole backend, one can just remove corresponding API connection's .cpp from build
-core::smart_refctd_ptr<IAPIConnection> createOpenGLConnection(core::smart_refctd_ptr<system::ISystem>&& sys, SDebugCallback* dbgCb);
-core::smart_refctd_ptr<IAPIConnection> createOpenGLESConnection(core::smart_refctd_ptr<system::ISystem>&& sys, SDebugCallback* dbgCb);
-core::smart_refctd_ptr<IAPIConnection> createVulkanConnection(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, const SDebugCallback& dbgCb);
+core::smart_refctd_ptr<IAPIConnection> createOpenGLConnection(core::smart_refctd_ptr<system::ISystem>&& sys, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&&);
+core::smart_refctd_ptr<IAPIConnection> createOpenGLESConnection(core::smart_refctd_ptr<system::ISystem>&& sys, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&&);
+core::smart_refctd_ptr<IAPIConnection> createVulkanConnection(
+    core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
+    const SDebugCallback& dbgCb, system::logger_opt_smart_ptr&&);
 
 
 core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(core::smart_refctd_ptr<system::ISystem>&& sys, E_API_TYPE apiType, uint32_t appVer, const char* appName, SDebugCallback* dbgCb, system::logger_opt_smart_ptr&& logger)
@@ -22,9 +24,9 @@ core::smart_refctd_ptr<IAPIConnection> IAPIConnection::create(core::smart_refctd
     case EAT_OPENGL:
         return createOpenGLConnection(std::move(sys), dbgCb, std::move(logger));
     case EAT_OPENGL_ES:
-        return createOpenGLESConnection(std::move(sys), dbgCb);
+        return createOpenGLESConnection(std::move(sys), dbgCb, std::move(logger));
     case EAT_VULKAN:
-        return createVulkanConnection(std::move(sys), appVer, appName, *dbgCb);
+        return createVulkanConnection(std::move(sys), appVer, appName, *dbgCb, std::move(logger));
     default:
         return nullptr;
     }

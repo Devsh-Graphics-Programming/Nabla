@@ -26,10 +26,11 @@ class CVulkanCommandPool final : public IGPUCommandPool
 
 
 public:
-    CVulkanCommandPool(ILogicalDevice* dev, IGPUCommandPool::E_CREATE_FLAGS flags,
+    CVulkanCommandPool(ILogicalDevice* dev, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags,
         uint32_t queueFamilyIndex, VkCommandPool commandPool)
-        : IGPUCommandPool(dev, flags, queueFamilyIndex), m_commandPool(commandPool),
-        mempool(BLOCK_SIZE, MAX_BLOCK_COUNT)
+        : IGPUCommandPool(dev, static_cast<E_CREATE_FLAGS>(flags), queueFamilyIndex),
+        m_commandPool(commandPool)
+        // mempool(BLOCK_SIZE, MAX_BLOCK_COUNT)
     {}
 
 #if 0
@@ -75,7 +76,7 @@ public:
 private:
     VkCommandPool m_commandPool;
     std::mutex mutex;
-    core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator> mempool;
+    // core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator> mempool;
 };
 
 }

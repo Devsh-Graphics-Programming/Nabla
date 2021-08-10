@@ -43,7 +43,7 @@ public:
         assert(vkEndCommandBuffer(m_cmdbuf) == VK_SUCCESS);
     }
 
-    bool bindIndexBuffer(buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
         return false;
     }
@@ -60,13 +60,17 @@ public:
         return false;
     }
 
-    bool drawIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         return false;
     }
 
-    bool drawIndexedIndirect(buffer_t* buffer, size_t offset, uint32_t drawCount,
-        uint32_t stride) override
+    bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    {
+        return false;
+    }
+
+    bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
     {
         return false;
     }
@@ -92,37 +96,37 @@ public:
         return false;
     }
 
-    bool copyBuffer(buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
+    bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
         return false;
     }
 
-    bool copyImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
+    bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
         return false;
     }
 
-    bool copyBufferToImage(buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         return false;
     }
 
-    bool copyImageToBuffer(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyImageToBuffer(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         return false;
     }
 
-    bool blitImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
+    bool blitImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
         return false;
     }
 
-    bool resolveImage(image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
+    bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
         return false;
     }
 
-    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t** pBuffers, const size_t* pOffsets) override
+    bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const *const pBuffers, const size_t* pOffsets) override
     {
         return false;
     }
@@ -157,7 +161,7 @@ public:
         return false;
     }
 
-    bool dispatchIndirect(buffer_t* buffer, size_t offset) override
+    bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
     {
         return false;
     }
@@ -177,7 +181,7 @@ public:
         return false;
     }
 
-    bool waitEvents(uint32_t eventCount, event_t** pEvents, const SDependencyInfo* depInfos) override
+    bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) override
     {
         return false;
     }
@@ -241,12 +245,12 @@ public:
     }
 
     //those two instead of bindPipeline(E_PIPELINE_BIND_POINT, pipeline)
-    bool bindGraphicsPipeline(graphics_pipeline_t* pipeline) override
+    bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) override
     {
         return false;
     }
 
-    bool bindComputePipeline(compute_pipeline_t* pipeline) override
+    bool bindComputePipeline(const compute_pipeline_t* pipeline) override
     {
         return false;
     }
@@ -259,14 +263,14 @@ public:
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
     bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
-        pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        descriptor_set_t** pDescriptorSets,
+        const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        const descriptor_set_t* const* const pDescriptorSets,
         core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr) override
     {
         return false;
     }
 
-    bool pushConstants(pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         return false;
     }

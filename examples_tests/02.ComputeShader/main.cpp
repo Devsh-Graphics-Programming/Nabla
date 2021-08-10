@@ -86,29 +86,35 @@ inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::vi
 #define LOG(...) printf(__VA_ARGS__); printf("\n");
 class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 {
-	void onWindowShown_impl() override
+	bool onWindowShown_impl() override
 	{
 		LOG("Window Shown");
+		return true;
 	}
-	void onWindowHidden_impl() override
+	bool onWindowHidden_impl() override
 	{
 		LOG("Window hidden");
+		return true;
 	}
-	void onWindowMoved_impl(int32_t x, int32_t y) override
+	bool onWindowMoved_impl(int32_t x, int32_t y) override
 	{
 		LOG("Window window moved to { %d, %d }", x, y);
+		return true;
 	}
-	void onWindowResized_impl(uint32_t w, uint32_t h) override
+	bool onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
 		LOG("Window resized to { %u, %u }", w, h);
+		return true;
 	}
-	void onWindowMinimized_impl() override
+	bool onWindowMinimized_impl() override
 	{
 		LOG("Window minimized");
+		return true;
 	}
-	void onWindowMaximized_impl() override
+	bool onWindowMaximized_impl() override
 	{
 		LOG("Window maximized");
+		return true;
 	}
 	void onGainedMouseFocus_impl() override
 	{
@@ -170,8 +176,8 @@ int main()
 	const size_t BLOCK_SIZE = 4096u * 1024u;
 	const size_t MAX_BLOCK_COUNT = 256u;
 
-	core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,
-		core::default_aligned_allocator> mempool(BLOCK_SIZE, MAX_BLOCK_COUNT);
+	// core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,
+	// 	core::default_aligned_allocator> mempool(BLOCK_SIZE, MAX_BLOCK_COUNT);
 
 	// core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator>::addr_allocator_type::
 //	core::address_allocator_traits<core::PoolAddressAllocator<uint32_t>>::multi_alloc_addr()

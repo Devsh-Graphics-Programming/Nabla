@@ -15,9 +15,9 @@ class IClipboardManager : public core::IReferenceCounted
 public:
     struct SImageClipboardRegion
     {
-        asset::VkOffset2D srcOffset;
-        asset::VkOffset2D dstOffset;
-        asset::VkExtent2D extent;
+        VkOffset2D srcOffset;
+        VkOffset2D dstOffset;
+        VkExtent2D extent;
     };
     virtual std::string getClipboardText() = 0;
     virtual bool setClipboardText(const std::string_view& data) = 0;

@@ -26,10 +26,12 @@ namespace nbl::video
 class CVKLogicalDevice final : public ILogicalDevice
 {
 public:
-    CVKLogicalDevice(VkDevice vkdev, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-    ILogicalDevice(EAT_VULKAN, params, std::move(sys), std::move(glslc)),
-    m_vkdev(vkdev),
-    m_devf(vkdev)
+    CVKLogicalDevice(IPhysicalDevice* physicalDevice, VkDevice vkdev, const SCreationParams& params,
+        core::smart_refctd_ptr<system::ISystem>&& sys,
+        core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
+        system::logger_opt_smart_ptr&& logger)
+        : ILogicalDevice(physicalDevice, params, std::move(sys), std::move(glslc)),
+    m_vkdev(vkdev), m_devf(vkdev), m_logger(std::move(logger))
     {
         // create actual queue objects
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
@@ -120,7 +122,7 @@ public:
     }
             
     // API needs to change. vkResetFences can fail.
-    void resetFences(uint32_t _count, IGPUFence** _fences) override
+    void resetFences(uint32_t _count, IGPUFence*const* _fences) override
     {
         assert(_count < 100);
 
@@ -139,7 +141,7 @@ public:
         vkResetFences(m_vkdev, _count, vk_fences);
     }
             
-    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) override
+    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence*const* _fences, bool _waitAll, uint64_t _timeout) override
     {
         assert(_count < 100);
 
@@ -172,7 +174,7 @@ public:
         return nullptr;
     }
             
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         VkCommandPool vk_commandPool = VK_NULL_HANDLE;
         VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -371,11 +373,11 @@ protected:
             std::string glsl(begin, end);
             core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
                 m_GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), shaderStage,
-                    _specInfo.m_filePathHint.c_str());
+                    _specInfo.m_filePathHint.string().c_str());
 
             spirv = m_GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
-                shaderStage, entryPoint.c_str(), _specInfo.m_filePathHint.c_str());
+                shaderStage, entryPoint.c_str(), _specInfo.m_filePathHint.string().c_str());
         }
         else
         {
@@ -387,7 +389,7 @@ protected:
             return nullptr;
 
         if (_spvopt)
-            spirv = _spvopt->optimize(spirv.get());
+            spirv = _spvopt->optimize(spirv.get(), m_logger.getOptRawPtr());
 
         if (!spirv)
             return nullptr;
@@ -475,6 +477,7 @@ protected:
     }
             
 private:
+    system::logger_opt_smart_ptr m_logger;
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
 };
