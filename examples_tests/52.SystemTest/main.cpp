@@ -349,12 +349,16 @@ int main()
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
 #endif
+	int frame = 1;
 	while (true)
 	{
+		std::string caption = "Test Window: frame " + std::to_string(frame);
+		window->setCaption(caption);
 		input->getDefaultMouse(&mouse);
 		input->getDefaultKeyboard(&keyboard);
 
 		mouse.consumeEvents(mouseProcess,logger.get());
 		keyboard.consumeEvents(keyboardProcess,logger.get());
+		frame++;
 	}
 }

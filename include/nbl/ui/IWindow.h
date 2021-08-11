@@ -192,6 +192,7 @@ public:
 
     IEventCallback* getEventCallback() const { return m_cb.get(); }
 
+    virtual void setCaption(const std::string_view& caption) = 0;
 protected:
     // TODO need to update constructors of all derived CWindow* classes
     IWindow(SCreationParams&& params) :
