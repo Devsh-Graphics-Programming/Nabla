@@ -2,6 +2,8 @@
 #define __NBL_C_VULKAN_COMMAND_BUFFER_H_INCLUDED__
 
 #include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/CVulkanBuffer.h"
+#include "nbl/video/CVulkanImage.h"
 
 #include <volk.h>
 
@@ -193,10 +195,9 @@ public:
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
-        // Todo(achal): Proper lifetime management of resources
         // Todo(achal): I could probably abstract this out into something like getVulkanCommandPool
 
-#if 0
+#if 1
         assert(memoryBarrierCount <= 100);
         VkMemoryBarrier vk_memoryBarriers[100];
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
@@ -207,19 +208,54 @@ public:
             vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].dstAccessMask);
         }
 
+        // Todo(achal): Proper lifetime management of IGPUBuffer
         assert(bufferMemoryBarrierCount <= 100);
         VkBufferMemoryBarrier vk_bufferMemoryBarriers[100];
+        for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
+        {
+            vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
+            vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.srcAccessMask);
+            vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.dstAccessMask);
+            vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = pBufferMemoryBarriers[i].srcQueueFamilyIndex;
+            vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = pBufferMemoryBarriers[i].dstQueueFamilyIndex;
+            vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get())->getInternalObject();
+            vk_bufferMemoryBarriers[i].offset = pBufferMemoryBarriers[i].offset;
+            vk_bufferMemoryBarriers[i].size = pBufferMemoryBarriers[i].size;
+        }
 
+        // Todo(achal): Proper lifetime management of IGPUImage
         assert(imageMemoryBarrierCount <= 100);
+        VkImageMemoryBarrier vk_imageMemoryBarriers[100];
+        for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
+        {
+            vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
+            vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.srcAccessMask);
+            vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.dstAccessMask);
+            vk_imageMemoryBarriers[i].oldLayout = static_cast<VkImageLayout>(pImageMemoryBarriers[i].oldLayout);
+            vk_imageMemoryBarriers[i].newLayout = static_cast<VkImageLayout>(pImageMemoryBarriers[i].newLayout);
+            vk_imageMemoryBarriers[i].srcQueueFamilyIndex = pImageMemoryBarriers[i].srcQueueFamilyIndex;
+            vk_imageMemoryBarriers[i].dstQueueFamilyIndex = pImageMemoryBarriers[i].dstQueueFamilyIndex;
+            vk_imageMemoryBarriers[i].image = static_cast<const CVulkanImage*>(pImageMemoryBarriers[i].image.get())->getInternalObject();
+            vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(pImageMemoryBarriers[i].subresourceRange.aspectMask);
+            vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = pImageMemoryBarriers[i].subresourceRange.baseMipLevel;
+            vk_imageMemoryBarriers[i].subresourceRange.levelCount = pImageMemoryBarriers[i].subresourceRange.levelCount;
+            vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = pImageMemoryBarriers[i].subresourceRange.baseArrayLayer;
+            vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
+        }
 
         vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask),
             static_cast<VkPipelineStageFlags>(dstStageMask),
-            static_cast<VkDependencyFlags>(dependencyFlags), memoryBarrierCount,
-            pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount,
-            pImageMemoryBarriers);
-#endif
+            static_cast<VkDependencyFlags>(dependencyFlags),
+            memoryBarrierCount, vk_memoryBarriers,
+            bufferMemoryBarrierCount, vk_bufferMemoryBarriers,
+            imageMemoryBarrierCount, vk_imageMemoryBarriers);
 
+        return true;
+#else
         return false;
+#endif
     }
 
     bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override

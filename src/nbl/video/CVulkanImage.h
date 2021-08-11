@@ -7,29 +7,22 @@
 
 #include <volk.h>
 #include "nbl/video/IGPUImage.h"
-#include "nbl/video/CVKLogicalDevice.h"
 
 namespace nbl::video
 {
+class ILogicalDevice;
 
 class CVulkanImage final : public IGPUImage
 {
 	protected:
 		virtual ~CVulkanImage();
 
-	private:
-		CVKLogicalDevice* m_vkdevice;
-		VkImage m_vkimg;
-		core::smart_refctd_ptr<CVKSwapchain> m_swapchain;
-
 	public:
 		//! constructor
-		CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
-		CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
-			IGPUImage(_vkdev, std::move(_params)), m_vkdevice(_vkdev), m_vkimg(_vkimg)
-		{
-
-		}
+		// CVulkanImage(ILogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
+		CVulkanImage(ILogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
+			IGPUImage(_vkdev, std::move(_params)), m_vkimg(_vkimg)
+		{}
 
 		inline VkImage getInternalObject() const { return m_vkimg; }
 
@@ -43,6 +36,10 @@ class CVulkanImage final : public IGPUImage
 		// This exists as a pure virtual function in ILogicalDevice which takes in a IDriverMemoryAllocation* --which is not a base class of this class
 		// inline void unmapMemory() override {}
 		// inline bool isDedicated() const override { return true; }
+
+	private:
+		VkImage m_vkimg;
+		// core::smart_refctd_ptr<CVKSwapchain> m_swapchain;
 };
 
 } // end namespace nbl::video

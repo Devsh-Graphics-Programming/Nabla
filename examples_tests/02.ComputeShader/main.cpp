@@ -173,19 +173,24 @@ struct DemoPOD
 
 int main()
 {
-	const size_t BLOCK_SIZE = 4096u * 1024u;
-	const size_t MAX_BLOCK_COUNT = 256u;
+	// const uint32_t BLOCK_SIZE = 1ull << 21u;
+	// const uint32_t MAX_BLOCK_COUNT = 256u;
 
-	// core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,
-	// 	core::default_aligned_allocator> mempool(BLOCK_SIZE, MAX_BLOCK_COUNT);
+	// PoolAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply,
+	// 	_size_type alignOffsetNeeded, _size_type maxAllocatableAlignment,
+	// 	size_type bufSz, size_type blockSz)
+	// 1. How will calculate m_reservedSpace
+	// 2. 
 
-	// core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator>::addr_allocator_type::
-//	core::address_allocator_traits<core::PoolAddressAllocator<uint32_t>>::multi_alloc_addr()
+	// void* reservedSpace = _NBL_ALIGNED_MALLOC(
+	// 	core::PoolAddressAllocator<uint32_t>::reserved_size(1u,
+	// 		MAX_BLOCK_COUNT * sizeof(ArgumentReferenceSegment), sizeof(ArgumentReferenceSegment)),
+	// 		_NBL_SIMD_ALIGNMENT);
 
-	// ArgumentReferenceSegment* newSegment = nullptr;
-	// UniformBufferObject* newSegment = nullptr;
-	// newSegment = mempool.emplace_n<ArgumentReferenceSegment>(1);
+	// core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,
+	// 	core::default_aligned_allocator, uint32_t> mempool(1024 * 4096, 0u, MAX_BLOCK_COUNT, 64ull);
 
+	// _NBL_ALIGNED_FREE(reservedSpace);
 
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
@@ -704,52 +709,44 @@ int main()
 	// Record commands in commandBuffers here
 	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
 	{
-		VkImageMemoryBarrier undefToComputeBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-		undefToComputeBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		undefToComputeBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		undefToComputeBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		undefToComputeBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-		undefToComputeBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		undefToComputeBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		undefToComputeBarrier.image = vk_swapchainImages[i];
+		video::IGPUCommandBuffer::SImageMemoryBarrier undefToComputeTransitionBarrier;
+		undefToComputeTransitionBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
+		undefToComputeTransitionBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		undefToComputeTransitionBarrier.oldLayout = asset::EIL_UNDEFINED;
+		undefToComputeTransitionBarrier.newLayout = asset::EIL_GENERAL;
+		undefToComputeTransitionBarrier.srcQueueFamilyIndex = ~0u;
+		undefToComputeTransitionBarrier.dstQueueFamilyIndex = ~0u;
+		undefToComputeTransitionBarrier.image = *(swapchainImages.begin() + i);
+		undefToComputeTransitionBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		undefToComputeTransitionBarrier.subresourceRange.baseMipLevel = 0u;
+		undefToComputeTransitionBarrier.subresourceRange.levelCount = 1u;
+		undefToComputeTransitionBarrier.subresourceRange.baseArrayLayer = 0u;
+		undefToComputeTransitionBarrier.subresourceRange.layerCount = 1u;
 
-		VkImageSubresourceRange subresourceRange = {};
-		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresourceRange.levelCount = 1u;
-		subresourceRange.layerCount = 1u;
-		undefToComputeBarrier.subresourceRange = subresourceRange;
-
-		VkImageMemoryBarrier computeToPresentBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-		computeToPresentBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		computeToPresentBarrier.dstAccessMask = 0;
-		computeToPresentBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-		computeToPresentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		computeToPresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		computeToPresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		computeToPresentBarrier.image = vk_swapchainImages[i];
-		computeToPresentBarrier.subresourceRange = subresourceRange;
+		video::IGPUCommandBuffer::SImageMemoryBarrier computeToPresentTransitionBarrier;
+		computeToPresentTransitionBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		computeToPresentTransitionBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+		computeToPresentTransitionBarrier.oldLayout = asset::EIL_GENERAL;
+		computeToPresentTransitionBarrier.newLayout = asset::EIL_PRESENT_SRC_KHR;
+		computeToPresentTransitionBarrier.srcQueueFamilyIndex = ~0u;
+		computeToPresentTransitionBarrier.dstQueueFamilyIndex = ~0u;
+		computeToPresentTransitionBarrier.image = *(swapchainImages.begin() + i);
+		computeToPresentTransitionBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		computeToPresentTransitionBarrier.subresourceRange.baseMipLevel = 0u;
+		computeToPresentTransitionBarrier.subresourceRange.levelCount = 1u;
+		computeToPresentTransitionBarrier.subresourceRange.baseArrayLayer = 0u;
+		computeToPresentTransitionBarrier.subresourceRange.layerCount = 1u;
 
 		commandBuffers[i]->begin(0);
 
-		// The fact that this pipeline barrier is solely on a compute queue might
+		// Todo(achal): The fact that this pipeline barrier is solely on a compute queue might
 		// affect the srcStageMask. More precisely, I think, for some reason, that
 		// VK_PIPELINE_STAGE_TRANSFER_BIT shouldn't be specified in compute queue
 		// but present queue (or transfer queue if theres one??)
-		vkCmdPipelineBarrier(vk_commandBuffers[i], VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u, &undefToComputeBarrier);
-
-		video::IGPUCommandBuffer::SImageMemoryBarrier undefToComputeTransitionBarrier;
-		// asset::SMemoryBarrier barrier;
-		// asset::E_IMAGE_LAYOUT oldLayout;
-		// asset::E_IMAGE_LAYOUT newLayout;
-		// uint32_t srcQueueFamilyIndex;
-		// uint32_t dstQueueFamilyIndex;
-		// core::smart_refctd_ptr<const image_t> image;
-		// asset::IImage::SSubresourceRange subresourceRange;
-		// undefToComputeTransitionBarrier.
-		commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
+		assert(commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u,
-			&undefToComputeTransitionBarrier);
+			&undefToComputeTransitionBarrier));
+
 
 		vkCmdBindPipeline(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
 
@@ -758,8 +755,10 @@ int main()
 
 		vkCmdDispatch(vk_commandBuffers[i], WIN_W, WIN_H, 1);
 
-		vkCmdPipelineBarrier(vk_commandBuffers[i], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentBarrier);
+
+		assert(commandBuffers[i]->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT,
+			0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier));
+
 
 		commandBuffers[i]->end();
 	}

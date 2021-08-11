@@ -2,15 +2,13 @@
 
 #include "nbl/video/CVKLogicalDevice.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 CVulkanImage::~CVulkanImage()
 {
     // auto* vk = m_vkdevice->getFunctionTable();
-    auto vkdev = m_vkdevice->getInternalObject();
+    // auto vkdev = m_vkdevice->getInternalObject();
 
     // if (this->wasCreatedBy(&vkdev))
     {
@@ -19,6 +17,7 @@ CVulkanImage::~CVulkanImage()
     }
 }
 
+#if 0
 CVulkanImage::CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params) : IGPUImage(_vkdev, std::move(_params)), m_vkdevice(_vkdev)
 {
     // auto* vk = m_vkdevice->getFunctionTable();
@@ -44,6 +43,6 @@ CVulkanImage::CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&
     // vk->vk.vkCreateImage(vkdev, &ci, nullptr, &m_vkimg);
     // vkCreateImage(vkdev, &ci, nullptr, &m_vkimg);
 }
+#endif
 
-}
 }
