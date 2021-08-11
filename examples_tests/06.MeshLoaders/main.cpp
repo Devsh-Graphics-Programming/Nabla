@@ -7,11 +7,14 @@
 #include <cstdio>
 #include <nabla.h>
 
+#include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
 using namespace core;
+
+#define NBL_MORE_LOGS
 
 int main()
 {
@@ -31,12 +34,13 @@ int main()
     auto fbo = std::move(initOutput.fbo[0]);
     auto commandPool = std::move(initOutput.commandPool);
     auto assetManager = std::move(initOutput.assetManager);
+    auto logger = std::move(initOutput.logger);
+    auto inputSystem = std::move(initOutput.inputSystem);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
-    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffers[1];
-    logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, commandBuffers);
-    auto commandBuffer = commandBuffers[0];
+    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
+    logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, &commandBuffer);
 
     auto createDescriptorPool = [&](const uint32_t textureCount)
     {
@@ -156,16 +160,57 @@ int main()
         }
     }
 
-    core::vectorSIMDf cameraPosition(-1, 2, -10);
-    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
-    matrix3x4SIMD viewMatrix = matrix3x4SIMD::buildCameraLookAtMatrixLH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
-    auto viewProjectionMatrix = matrix4SIMD::concatenateBFollowedByA(projectionMatrix, matrix4SIMD(viewMatrix));
+    CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+    CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
-    constexpr size_t NBL_FRAMES = 1000;
+    core::vectorSIMDf cameraPosition(0, 5, -10);
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+    Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix);
+    auto lastTime = std::chrono::system_clock::now();
+
+    constexpr size_t NBL_FRAMES_RENDER = 1000;
+    constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+    size_t frame_count = 0ull;
+    double time_sum = 0;
+    double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+    for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
+        dtList[i] = 0.0;
 
     nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
-	for(auto frame = 0; frame < NBL_FRAMES; ++frame)
+	for(auto frame = 0; frame < NBL_FRAMES_RENDER; ++frame)
 	{
+        auto renderStart = std::chrono::system_clock::now();
+        const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
+        lastTime = renderStart;
+        { // Calculate Simple Moving Average for FrameTime
+            time_sum -= dtList[frame_count];
+            time_sum += renderDt;
+            dtList[frame_count] = renderDt;
+            frame_count++;
+            if (frame_count >= NBL_FRAMES_TO_AVERAGE) 
+                frame_count = 0;
+        }
+        const double averageFrameTime = time_sum / (double)NBL_FRAMES_TO_AVERAGE;
+
+        #ifdef NBL_MORE_LOGS
+        logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
+        #endif // NBL_MORE_LOGS
+
+        auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
+        auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+        auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+
+        inputSystem->getDefaultMouse(&mouse);
+        inputSystem->getDefaultKeyboard(&keyboard);
+
+        camera.beginInputProcessing(nextPresentationTimeStamp);
+        mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+        keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+        camera.endInputProcessing(nextPresentationTimeStamp);
+
+        const auto& viewMatrix = camera.getViewMatrix();
+        const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
+
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
         commandBuffer->begin(0);
 
