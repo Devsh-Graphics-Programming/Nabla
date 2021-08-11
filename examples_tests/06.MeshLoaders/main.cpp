@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <nabla.h>
 
+#include "../common/QToQuitEventReceiver.h"
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
@@ -14,7 +15,11 @@
 using namespace nbl;
 using namespace core;
 
-#define NBL_MORE_LOGS
+/*
+    Uncomment for more detailed logging
+*/
+
+// #define NBL_MORE_LOGS
 
 int main()
 {
@@ -160,12 +165,13 @@ int main()
         }
     }
 
+    QToQuitEventReceiver escaper;
     CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
     CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
     core::vectorSIMDf cameraPosition(0, 5, -10);
-    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
-    Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix);
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+    Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
     auto lastTime = std::chrono::system_clock::now();
 
     constexpr size_t NBL_FRAMES_RENDER = 1000;
@@ -177,7 +183,7 @@ int main()
         dtList[i] = 0.0;
 
     nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
-	for(auto frame = 0; frame < NBL_FRAMES_RENDER; ++frame)
+	while(escaper.keepOpen())
 	{
         auto renderStart = std::chrono::system_clock::now();
         const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
@@ -205,7 +211,7 @@ int main()
 
         camera.beginInputProcessing(nextPresentationTimeStamp);
         mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-        keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+        keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); escaper.process(events); }, logger.get());
         camera.endInputProcessing(nextPresentationTimeStamp);
 
         const auto& viewMatrix = camera.getViewMatrix();
@@ -310,5 +316,5 @@ int main()
     auto gpuSourceImageView = fboCreationParams.attachments[0];
 
     bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], render_finished_sem.get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
-    return status;
+    assert(status);
 }

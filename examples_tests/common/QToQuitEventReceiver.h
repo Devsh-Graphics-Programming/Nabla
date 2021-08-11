@@ -5,31 +5,31 @@
 #ifndef __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
 #define __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
 
-#include "nabla.h"
+#include <nabla.h>
 
-//! Simple event receiver for most examples that closes the engine when Q is pressed
-class QToQuitEventReceiver : public nbl::IEventReceiver
+using namespace nbl;
+using namespace ui;
+
+/*
+	Simple event receiver for most examples
+	that closes the engine when Q is pressed
+*/
+
+class QToQuitEventReceiver
 {
 	public:
-		QToQuitEventReceiver() : running(true)
-		{
-		}
+		QToQuitEventReceiver() : running(true) {}
+		virtual ~QToQuitEventReceiver() {}
 
-		bool OnEvent(const nbl::SEvent& event)
+		void process(const IKeyboardEventChannel::range_t& events)
 		{
-			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			for (auto eventIterator = events.begin(); eventIterator != events.end(); eventIterator++)
 			{
-				switch (event.KeyInput.Key)
-				{
-					case nbl::KEY_KEY_Q: // switch wire frame mode
-						running = false;
-						return true;
-					default:
-						break;
-				}
-			}
+				auto event = *eventIterator;
 
-			return false;
+				if (event.keyCode == nbl::ui::EKC_Q)
+					running = false;
+			}
 		}
 
 		inline bool keepOpen() const { return running; }
@@ -38,4 +38,4 @@ class QToQuitEventReceiver : public nbl::IEventReceiver
 		bool running;
 };
 
-#endif
+#endif // __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
