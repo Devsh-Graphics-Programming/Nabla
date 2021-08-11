@@ -203,6 +203,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 		currDs = driver->createGPUDescriptorSet(core::smart_refctd_ptr(outputDsLayout));
 
 		const uint32_t thisPassMipCnt = mipLvlsRemaining > perPassMipCnt ? perPassMipCnt : mipLvlsRemaining;
+		outputPushConstants[i] = thisPassMipCnt;
 
 		{
 			IGPUDescriptorSet::SDescriptorInfo infos[7u];
@@ -246,7 +247,12 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 
 void DepthPyramidGenerator::createPipeline(IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config)
 {
-	outputPpln = driver->createGPUComputePipeline(nullptr, driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout)), core::smart_refctd_ptr(m_shader));
+	SPushConstantRange pcRange;
+	pcRange.size = sizeof(uint32_t);
+	pcRange.offset = 0u;
+	pcRange.stageFlags = ISpecializedShader::ESS_COMPUTE;
+
+	outputPpln = driver->createGPUComputePipeline(nullptr, driver->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(dsLayout)), core::smart_refctd_ptr(m_shader));
 }
 
 void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, uint32_t pushConstantsData, bool issueDefaultBarrier)
@@ -256,10 +262,9 @@ void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUIma
 	const vector2du32_SIMD globalWorkGroupSize = vector2du32_SIMD(lvl0MipExtent.width / static_cast<uint32_t>(m_config.workGroupSize), lvl0MipExtent.height / static_cast<uint32_t>(m_config.workGroupSize));
 	assert(m_globalWorkGroupSize.x > 0u && m_globalWorkGroupSize.y > 0u);
 
-	m_driver->pushConstants(ppln->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &pushConstantsData);
-
 	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, ppln->getLayout(), 0u, 1u, &ds.get(), nullptr);
 	m_driver->bindComputePipeline(ppln.get());
+	m_driver->pushConstants(ppln->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &pushConstantsData);
 
 	m_driver->dispatch(globalWorkGroupSize.X, globalWorkGroupSize.Y, 1u);
 

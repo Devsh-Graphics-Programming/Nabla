@@ -1194,20 +1194,21 @@ int main()
 
     using DPG = ext::DepthPyramidGenerator::DepthPyramidGenerator;
 
-    DPG dpg(driver, am, depthBufferView);
+    DPG::Config config;
+    DPG dpg(driver, am, depthBufferView, config);
 
     const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView);
     core::vector<core::smart_refctd_ptr<IGPUImageView>> mips(mipCnt);
-    DPG::createMipMapImageViews(driver, depthBufferView, mips.data());
+    DPG::createMipMapImageViews(driver, depthBufferView, mips.data(), config);
 
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> dpgDsLayout;
-    core::smart_refctd_ptr<IGPUDescriptorSet> dpgDs;
-    auto dsLayoutDsTmp = DPG::createDescriptorSet(driver, depthBufferView, mips.data());
-    dpgDsLayout = dsLayoutDsTmp.first;
-    dpgDs = dsLayoutDsTmp.second;
+    const uint32_t dpgDsCnt = DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, nullptr, nullptr, config);
+    core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> dpgDs(dpgDsCnt);
+    core::vector<uint32_t> dpgPushConstants(dpgDsCnt);
+    DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, dpgDs.data(), dpgPushConstants.data(), config);
 
     core::smart_refctd_ptr<IGPUComputePipeline> dpgPpln;
-    dpg.createPipeline(driver, depthBufferView, mips.data(), dpgDsLayout, dpgPpln);
+    dpg.createPipeline(driver, dpgDsLayout, dpgPpln, config);
 
     //! we want to move around the scene and view it from different angles
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.5f);
@@ -1248,7 +1249,8 @@ int main()
         fillVBuffer(sceneData.frustumCulledMdiBuffer);
 
         // create depth pyramid
-        dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs);
+        for (uint32_t i = 0u; i < dpgDsCnt; i++)
+            dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs[i], dpgPushConstants[i]);
 
         // occlusion cull (against partially filled new Z-buffer)
         driver->setRenderTarget(zBuffOnlyFrameBuffer);

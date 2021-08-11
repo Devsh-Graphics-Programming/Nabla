@@ -20,6 +20,11 @@ layout(binding = 1, set = 0, MIP_IMAGE_FORMAT) uniform image2D outMips[MIPMAP_LE
 
 shared float sharedMem[WORKGROUP_SIZE * 2u];
 
+layout(push_constant) uniform PushConstants
+{
+    uint thisPassMipCnt;
+} pc;
+
 void main()
 {
     const uvec2 base = gl_WorkGroupID.xy * gl_WorkGroupSize.xy;
@@ -42,7 +47,7 @@ void main()
         barrier();
 
         uint limit = WORKGROUP_SIZE >> 1u;
-        for (int i=1; i < 3; i++)
+        for (int i=1; i < pc.thisPassMipCnt; i++)
         {
           if (gl_LocalInvocationIndex < limit)
             sharedMem[gl_LocalInvocationIndex] = REDUCTION_OPERATOR(sharedMem[gl_LocalInvocationIndex], sharedMem[gl_LocalInvocationIndex + limit]);
