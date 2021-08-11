@@ -70,19 +70,17 @@ public:
 		const VkExtent3D lvl0MipExtent = calcLvl0MipExtent(image->getCreationParameters().image->getCreationParameters().extent, roundUpToPoTWithPadding);
 
 		// TODO: take `roundUpToPoTWithPadding` into account
-		return core::findMSB(std::min(lvl0MipExtent.width, lvl0MipExtent.height));
+		return core::findMSB(std::min(lvl0MipExtent.width, lvl0MipExtent.height)) + 1u;
 	}
 
 	static uint32_t createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config = Config());
 
-	static std::pair<core::smart_refctd_ptr<IGPUDescriptorSetLayout>, core::smart_refctd_ptr<IGPUDescriptorSet>> 
-		createDescriptorSet(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, const Config& config = Config());
+	static uint32_t createDescriptorSets(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, uint32_t* outputPushConstants, const Config& config = Config());
 
-	void createPipeline(
-		IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
-		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config = Config());
+	void createPipeline(IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config = Config());
 
-	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, bool issueDefaultBarrier = true);
+	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, uint32_t pushConstantsData, bool issueDefaultBarrier = true);
 
 	static inline void defaultBarrier()
 	{
