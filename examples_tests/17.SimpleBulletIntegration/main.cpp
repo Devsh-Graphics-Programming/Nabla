@@ -7,6 +7,7 @@
 
 #include "../common/CommonAPI.h"
 #include "../common/Camera.hpp"
+#include "../common/QToQuitEventReceiver.h"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
@@ -436,7 +437,7 @@ int main()
 		renderFinished[i] = device->createSemaphore();
 	}
 
-	// render loop
+	// Render
 	constexpr size_t MaxFramesToAverage = 100ull;
 	size_t frame_count = 0ull;
 	double time_sum = 0;
@@ -448,13 +449,20 @@ int main()
 	double dt = 0;
 	
 	// polling for events!
+	QToQuitEventReceiver escaper;
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+	
+	uint32_t resourceIx = 0;
 
-	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	while(escaper.keepOpen())
 	{
-		// Timing
+		resourceIx++;
+		if(resourceIx >= FRAMES_IN_FLIGHT) {
+			resourceIx = 0;
+		}
 
+		// Timing
 		auto renderStart = std::chrono::system_clock::now();
 		dt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart-lastTime).count();
 		lastTime = renderStart;
@@ -483,11 +491,12 @@ int main()
 
 		cam.beginInputProcessing(nextPresentationTimeStamp);
 		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { cam.mouseProcess(events); }, logger.get());
-		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { cam.keyboardProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void {
+			cam.keyboardProcess(events); 
+			escaper.process(events); 
+		}, logger.get());
 		cam.endInputProcessing(nextPresentationTimeStamp);
 
-		// Render
-		const auto resourceIx = i%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
