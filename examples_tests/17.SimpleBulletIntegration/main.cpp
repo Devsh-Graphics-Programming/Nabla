@@ -502,8 +502,8 @@ int main()
 
 		{
 			asset::SViewport vp;
-			vp.minDepth = 0.f;
-			vp.maxDepth = 1.f;
+			vp.minDepth = 1.f;
+			vp.maxDepth = 0.f;
 			vp.x = 0u;
 			vp.y = 0u;
 			vp.width = WIN_W;
