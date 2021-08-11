@@ -164,7 +164,7 @@ public:
 
 									auto oldEvent = *(channelEvents.end() - rewindBack);
 
-									// Which oldEvent of channels are earlier?
+									// Which oldEvent of channels are most recent.
 									if(oldEvent.timeStamp > maxEventTimeStamp) {
 										maxEventTimeStamp = oldEvent.timeStamp;
 										newDefaultIdx = chIdx;
