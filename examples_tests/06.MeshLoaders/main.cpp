@@ -221,8 +221,8 @@ int main()
         commandBuffer->begin(0);
 
         asset::SViewport viewport;
-        viewport.minDepth = 1.f;
-        viewport.maxDepth = 0.f;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
         viewport.x = 0u;
         viewport.y = 0u;
         viewport.width = WIN_W;
@@ -317,4 +317,6 @@ int main()
 
     bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], render_finished_sem.get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
     assert(status);
+
+    return 0;
 }
