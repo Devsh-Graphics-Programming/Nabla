@@ -15,6 +15,7 @@ class IOpenGL_LogicalDevice;
 class COpenGLFramebuffer final : public IGPUFramebuffer
 {
 public:
+#include "nbl/nblpack.h"
     struct hash_element_t
     {
         using id_t = uint64_t; 
@@ -22,7 +23,11 @@ public:
         uint32_t mip;
         uint32_t baseLayer;
         uint32_t layerCount;
-    };
+
+        inline bool operator==(const hash_element_t& rhs) const { return memcmp(this, &rhs, sizeof(hash_element_t)) == 0; }
+        inline bool operator!=(const hash_element_t& rhs) const { return !operator==(rhs); }
+    } PACK_STRUCT;
+#include "nbl/nblunpack.h"
     using hash_t = std::array<hash_element_t, IGPURenderpass::SCreationParams::MaxColorAttachments+1u>;
 
 private:

@@ -278,6 +278,8 @@ namespace nbl::video
             }
             else
             {
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
+
                 // TODO this isnt totally valid right?
                 const size_t bytesPerLayer = pitch * yRange * (compressed ? nbl::asset::getFormatChannelCount(format) : nbl::asset::getTexelOrBlockBytesize(format)); // all block compressed formats are decoded into 1 byte per channel format
                 for (uint32_t z = 0u; z < zRange; ++z)
