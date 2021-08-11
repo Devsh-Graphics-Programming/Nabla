@@ -22,7 +22,7 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(ctx.sourceCodeBuffer)});
 		}
 
-		bool CBufferLoaderBIN::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
+		bool CBufferLoaderBIN::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{
 			return true; // validation if needed
 		}

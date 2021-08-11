@@ -148,7 +148,7 @@ namespace jpeg
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr&) const
+bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
 #ifndef _NBL_COMPILE_WITH_LIBJPEG_
 	return false;

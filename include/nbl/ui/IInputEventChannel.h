@@ -7,6 +7,7 @@
 #include "nbl/core/containers/CCircularBuffer.h"
 #include "nbl/core/SRange.h"
 #include "nbl/ui/KeyCodes.h"
+#include "nbl/ui/SInputEvent.h"
 
 namespace nbl::ui
 {
@@ -86,7 +87,7 @@ namespace impl
 
             while (m_bgEventBuf.size() > 0ull)
             {
-                auto& ev = m_bgEventBuf.pop_front();
+                auto ev = m_bgEventBuf.pop_front();
                 m_frontEventBuf.push_back(std::move(ev));
             }
         }
@@ -98,49 +99,6 @@ namespace impl
         }
     };
 }
-
-struct SMouseEvent
-{
-    SMouseEvent()
-    {
-        using namespace std::chrono;
-        timeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
-    }
-    enum E_EVENT_TYPE : uint8_t
-    {
-        EET_UNITIALIZED = 0,
-        EET_CLICK = 1,
-        EET_SCROLL = 2, 
-        EET_MOVEMENT = 4
-    } type = EET_UNITIALIZED;
-    struct SClickEvent
-    {
-        int16_t clickPosX, clickPosY;
-        ui::E_MOUSE_BUTTON mouseButton;
-        enum E_ACTION : uint8_t
-        {
-            EA_UNITIALIZED = 0,
-            EA_PRESSED = 1,
-            EA_RELEASED = 2
-        } action = EA_UNITIALIZED;
-    };
-    struct SScrollEvent
-    {
-        int16_t verticalScroll, horizontalScroll;
-    };
-    struct SMovementEvent
-    {
-        int16_t movementX, movementY;
-    };
-    union
-    {
-        SClickEvent clickEvent;
-        SScrollEvent scrollEvent;
-        SMovementEvent movementEvent;
-    };
-    IWindow* window;
-    std::chrono::microseconds timeStamp;
-};
 
 class IMouseEventChannel : public impl::IEventChannelBase<SMouseEvent>
 {
@@ -160,23 +118,6 @@ public:
     { 
         return ET_MOUSE;
     }
-};
-
-struct SKeyboardEvent
-{
-    SKeyboardEvent() {
-        using namespace std::chrono;
-        timeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
-    }
-    enum E_KEY_ACTION : uint8_t
-    {
-        ECA_UNITIALIZED = 0,
-        ECA_PRESSED = 1,
-        ECA_RELEASED = 2
-    } action = ECA_UNITIALIZED;
-    ui::E_KEY_CODE keyCode = ui::EKC_NONE;
-    IWindow* window = nullptr;
-    std::chrono::microseconds timeStamp;
 };
 
 // TODO left/right shift/ctrl/alt kb flags

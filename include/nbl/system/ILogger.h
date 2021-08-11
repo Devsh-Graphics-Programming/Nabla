@@ -123,41 +123,6 @@ public:
 			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
 	}
 
-	template<typename... Args>
-	void logD(const std::string_view& fmtString, Args&&... args) const
-	{
-		if (logger != nullptr)
-			return logger->logD(fmtString, std::forward<Args>(args)...);
-	}
-
-	template<typename... Args>
-	void logI(const std::string_view& fmtString, Args&&... args) const
-	{
-		if (logger != nullptr)
-			return logger->logI(fmtString, std::forward<Args>(args)...);
-	}
-
-	template<typename... Args>
-	void logW(const std::string_view& fmtString, Args&&... args) const
-	{
-		if (logger != nullptr)
-			return logger->logW(fmtString, std::forward<Args>(args)...);
-	}
-
-	template<typename... Args>
-	void logE(const std::string_view& fmtString, Args&&... args) const
-	{
-		if (logger != nullptr)
-			return logger->logE(fmtString, std::forward<Args>(args)...);
-	}
-
-	template<typename... Args>
-	void logP(const std::string_view& fmtString, Args&&... args) const
-	{
-		if (logger != nullptr)
-			return logger->logP(fmtString, std::forward<Args>(args)...);
-	}
-
 	ILogger* get() const { return logger; }
 private:
 	mutable ILogger* logger;

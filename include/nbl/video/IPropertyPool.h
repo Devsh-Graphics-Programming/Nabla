@@ -8,12 +8,10 @@
 
 #include "nbl/asset/asset.h"
 
-#include "IGPUBuffer.h"
+#include "nbl/video/IGPUBuffer.h"
 
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 
@@ -97,6 +95,7 @@ class IPropertyPool : public core::IReferenceCounted
         IPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved)
             :   memoryBlock(std::move(_memoryBlock)), indexAllocator(reserved,0u,0u,PROPERTY_ADDRESS_ALLOCATOR_ARGS)
         {
+            // TODO: some test for block alignment
 			assert(memoryBlock.size>capacity*sizeof(uint32_t)); // this is really a lower bound
         }
         #undef PROPERTY_ADDRESS_ALLOCATOR_ARGS
@@ -109,7 +108,6 @@ class IPropertyPool : public core::IReferenceCounted
 };
 
 
-}
 }
 
 #endif

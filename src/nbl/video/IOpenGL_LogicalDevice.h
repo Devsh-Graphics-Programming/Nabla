@@ -50,7 +50,7 @@ namespace impl
         };
         */
 
-        enum E_REQUEST_TYPE
+        enum E_REQUEST_TYPE : uint8_t
         {
             // GL pipelines and vaos are kept, created and destroyed in COpenGL_Queue internal thread
             ERT_BUFFER_DESTROY,
@@ -88,7 +88,9 @@ namespace impl
 
             ERT_CTX_MAKE_CURRENT,
 
-            ERT_WAIT_IDLE
+            ERT_WAIT_IDLE,
+
+            ERT_INVALID
         };
 
         constexpr static inline bool isDestroyRequest(E_REQUEST_TYPE rt)
@@ -394,8 +396,25 @@ protected:
             SRequestWaitIdle
         >;
 
-        E_REQUEST_TYPE type;
+        // lock when overwriting the request
+        void reset()
+        {
+            if (isDestroyRequest(type))
+            {
+                uint32_t expected = ES_READY;
+                while (!state.compare_exchange_strong(expected,ES_RECORDING))
+                {
+                    state.wait(expected);
+                    expected = ES_READY;
+                }
+                assert(expected==ES_READY);
+            }
+            else
+                system::impl::IAsyncQueueDispatcherBase::request_base_t::reset();
+        }
+
         params_variant_t params_variant;
+        E_REQUEST_TYPE type = ERT_INVALID;
 
         // cast to `RequestParams::retval_t*`
         void* pretval;
@@ -444,10 +463,12 @@ protected:
         template <typename RequestParams>
         void waitForRequestCompletion(SRequest& req)
         {
-            auto lk = req.wait_for_result();
+            req.wait_ready();
 
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
             std::get<RequestParams>(req.params_variant) = RequestParams{};
+
+            req.discard_storage();
         }
 
         void init(FunctionTableType* state_ptr)

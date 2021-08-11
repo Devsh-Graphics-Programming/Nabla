@@ -6,6 +6,7 @@
 #include "nbl/ui/IClipboardManager.h"
 #include "nbl/ui/IInputEventChannel.h"
 #include <type_traits>
+#include <nbl/ui/ICursorControl.h>
 
 namespace nbl {
 namespace ui
@@ -38,43 +39,71 @@ public:
     class IEventCallback : public core::IReferenceCounted
     {
     public:
-        void onWindowShown(IWindow* w) 
+        [[nodiscard]] bool onWindowShown(IWindow* w) 
         {
-            w->m_flags &= (~ECF_HIDDEN);
-            onWindowShown_impl();
+            auto canShow = onWindowShown_impl();
+            if(canShow)
+            {
+                w->m_flags &= (~ECF_HIDDEN);
+            }
+            return canShow;
         }
-        void onWindowHidden(IWindow* w)
+        [[nodiscard]] bool onWindowHidden(IWindow* w)
         {
-            w->m_flags |= ECF_HIDDEN;
-            onWindowHidden_impl();
+            auto canHide = onWindowHidden_impl();
+            if (canHide)
+            {
+                w->m_flags |= ECF_HIDDEN;
+            }
+            return canHide;
         }
-        void onWindowMoved(IWindow* w, int32_t x, int32_t y)
+        [[nodiscard]] bool onWindowMoved(IWindow* w, int32_t x, int32_t y)
         {
-            w->m_x = x;
-            w->m_y = y;
-            onWindowMoved_impl(x, y);
+            auto canMove = onWindowMoved_impl(x, y);
+            if (canMove)
+            {
+                w->m_x = x;
+                w->m_y = y;
+            }
+            return canMove;
         }
-        void onWindowResized(IWindow* w, uint32_t width, uint32_t height)
+        [[nodiscard]] bool onWindowResized(IWindow* w, uint32_t width, uint32_t height)
         {
-            w->m_width = width;
-            w->m_height = height;
-            onWindowResized_impl(width, height);
+            auto canResize = onWindowResized_impl(width, height);
+            if (canResize)
+            {
+                w->m_width = width;
+                w->m_height = height;
+            }
+            return canResize;
         }
-        void onWindowRotated(IWindow* w)
+        [[nodiscard]] bool onWindowRotated(IWindow* w)
         {
-            onWindowRotated_impl();
+            return onWindowRotated_impl();
         }
-        void onWindowMinimized(IWindow* w)
+        [[nodiscard]] bool onWindowMinimized(IWindow* w)
         {
-            w->m_flags |= ECF_MINIMIZED;
-            w->m_flags &= (~ECF_MAXIMIZED);
-            onWindowMinimized_impl();
+            auto canMinimize = onWindowMinimized_impl();
+            if (canMinimize)
+            {
+                w->m_flags |= ECF_MINIMIZED;
+                w->m_flags &= (~ECF_MAXIMIZED);
+            }
+            return canMinimize;
         }
-        void onWindowMaximized(IWindow* w)
+        [[nodiscard]] bool onWindowMaximized(IWindow* w)
         {
-            w->m_flags |= ECF_MAXIMIZED;
-            w->m_flags &= (~ECF_MINIMIZED);
-            onWindowMaximized_impl();
+            auto canMaximize = onWindowMaximized_impl();
+            if (canMaximize)
+            {
+                w->m_flags |= ECF_MAXIMIZED;
+                w->m_flags &= (~ECF_MINIMIZED);
+            }
+            return canMaximize;
+        }
+        [[nodiscard]] bool onWindowClosed(IWindow* w)
+        {
+            return onWindowClosed_impl();
         }
         void onGainedMouseFocus(IWindow* w)
         {
@@ -111,13 +140,14 @@ public:
         }
 
     protected:
-        virtual void onWindowShown_impl() {}
-        virtual void onWindowHidden_impl() {}
-        virtual void onWindowMoved_impl(int32_t x, int32_t y) {}
-        virtual void onWindowResized_impl(uint32_t w, uint32_t h) {}
-        virtual void onWindowRotated_impl() {}
-        virtual void onWindowMinimized_impl() {}
-        virtual void onWindowMaximized_impl() {}
+        virtual bool onWindowShown_impl() { return true; }
+        virtual bool onWindowHidden_impl() { return true; }
+        virtual bool onWindowMoved_impl(int32_t x, int32_t y) { return true; }
+        virtual bool onWindowResized_impl(uint32_t w, uint32_t h) { return true; }
+        virtual bool onWindowRotated_impl() { return true; }
+        virtual bool onWindowMinimized_impl() { return true; }
+        virtual bool onWindowMaximized_impl() { return true; }
+        virtual bool onWindowClosed_impl() { return true; }
         virtual void onGainedMouseFocus_impl() {}
         virtual void onLostMouseFocus_impl() {}
         virtual void onGainedKeyboardFocus_impl() {}
@@ -154,15 +184,19 @@ public:
 
     inline uint32_t getWidth() const { return m_width; }
     inline uint32_t getHeight() const { return m_height; }
+    int32_t getX() const { return m_x; }
+    int32_t getY() const { return m_y; }
 
     virtual IClipboardManager* getClipboardManager() = 0;
+    virtual ICursorControl* getCursorControl() = 0;
+
     IEventCallback* getEventCallback() const { return m_cb.get(); }
 
     virtual void setCaption(const std::string_view& caption) = 0;
 protected:
     // TODO need to update constructors of all derived CWindow* classes
     IWindow(SCreationParams&& params) :
-        m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_flags(params.flags)
+        m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_x(params.x), m_y(params.y), m_flags(params.flags)
     {
 
     }
