@@ -27,7 +27,7 @@ int main()
     constexpr uint32_t WIN_H = 720;
     constexpr uint32_t FBO_COUNT = 1u;
 
-    auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "MeshLoaders");
+    auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
     auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
@@ -219,10 +219,10 @@ int main()
 
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
         commandBuffer->begin(0);
-
+        
         asset::SViewport viewport;
-        viewport.minDepth = 0.f;
-        viewport.maxDepth = 1.f;
+        viewport.minDepth = 1.f;
+        viewport.maxDepth = 0.f;
         viewport.x = 0u;
         viewport.y = 0u;
         viewport.width = WIN_W;
@@ -233,16 +233,18 @@ int main()
         nbl::asset::VkRect2D area;
         area.offset = { 0,0 };
         area.extent = { WIN_W, WIN_H };
-        nbl::asset::SClearValue clear;
-        clear.color.float32[0] = 1.f;
-        clear.color.float32[1] = 1.f;
-        clear.color.float32[2] = 1.f;
-        clear.color.float32[3] = 1.f;
-        beginInfo.clearValueCount = 1u;
+        asset::SClearValue clear[2] = {};
+        clear[0].color.float32[0] = 1.f;
+        clear[0].color.float32[1] = 1.f;
+        clear[0].color.float32[2] = 1.f;
+        clear[0].color.float32[3] = 1.f;
+        clear[1].depthStencil.depth = 0.f;
+        
+        beginInfo.clearValueCount = 2u;
         beginInfo.framebuffer = fbo;
         beginInfo.renderpass = renderpass;
         beginInfo.renderArea = area;
-        beginInfo.clearValues = &clear;
+        beginInfo.clearValues = clear;
 
         commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
