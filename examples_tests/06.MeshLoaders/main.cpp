@@ -174,7 +174,6 @@ int main()
     Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
     auto lastTime = std::chrono::system_clock::now();
 
-    constexpr size_t NBL_FRAMES_RENDER = 1000;
     constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
     size_t frame_count = 0ull;
     double time_sum = 0;

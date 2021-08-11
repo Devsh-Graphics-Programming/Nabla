@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <nabla.h>
 
+#include "../common/QToQuitEventReceiver.h"
+#include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
@@ -15,67 +17,49 @@ using namespace asset;
 using namespace core;
 
 /*
+	Uncomment for more detailed logging
+*/
 
-class CEventReceiver : public irr::IEventReceiver
+// #define NBL_MORE_LOGS
+
+class CEventReceiver
 {
 public:
-	CEventReceiver() : handledEvent(false), running(true), particlesVectorChangeFlag(false), forceChangeVelocityFlag(false), visualizeVelocityVectorsFlag(false) {}
+	CEventReceiver() : particlesVectorChangeFlag(false), forceChangeVelocityFlag(false), visualizeVelocityVectorsFlag(false) {}
 
-	bool OnEvent(const irr::SEvent& event)
+	void process(const IKeyboardEventChannel::range_t& events)
 	{
-		handledEvent = false;
+		particlesVectorChangeFlag = false;
+		forceChangeVelocityFlag = false;
+		visualizeVelocityVectorsFlag = false;
 
-		auto handleAnEvent = [&](auto executeStateChanging)
+		for (auto eventIterator = events.begin(); eventIterator != events.end(); eventIterator++)
 		{
-			executeStateChanging();
-			handledEvent = true;
-		};
+			auto event = *eventIterator;
 
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT)
-		{
-			if (event.KeyInput.Key == irr::KEY_KEY_Q)
-				handleAnEvent([&]{ running = false; });
+			if (event.keyCode == nbl::ui::EKC_X)
+				particlesVectorChangeFlag = true;
+			
+			if (event.keyCode == nbl::ui::EKC_Z)
+				forceChangeVelocityFlag = true;
 
-			if (event.KeyInput.Key == irr::KEY_KEY_X)
-				if(event.KeyInput.PressedDown)
-					handleAnEvent([&] { particlesVectorChangeFlag = true; });
-				else 
-					particlesVectorChangeFlag = false;
+			if (event.keyCode == nbl::ui::EKC_C)
+				visualizeVelocityVectorsFlag = true;
 
-			if (event.KeyInput.Key == irr::KEY_KEY_Z)
-				if (event.KeyInput.PressedDown)
-					handleAnEvent([&] { forceChangeVelocityFlag = true; });
-				else
-					forceChangeVelocityFlag = false;
-
-			if (event.KeyInput.Key == irr::KEY_KEY_C)
-			{
-				if (event.KeyInput.PressedDown)
-					handleAnEvent([&] { visualizeVelocityVectorsFlag = true; });
-			}
-			else if(event.KeyInput.Key == irr::KEY_KEY_V)
-				if (event.KeyInput.PressedDown)
-					handleAnEvent([&] { visualizeVelocityVectorsFlag = false; });
-				
+			if (event.keyCode == nbl::ui::EKC_V)
+				visualizeVelocityVectorsFlag = false;
 		}
-		
-		return handledEvent;
 	}
 
-	inline bool keepOpen() const { return running; }
 	inline bool isXPressed() const { return particlesVectorChangeFlag; }
 	inline bool isZPressed() const{ return forceChangeVelocityFlag; }
 	inline bool isCPressed() const { return visualizeVelocityVectorsFlag; }
 
 private:
-	bool handledEvent;
-	bool running;
 	bool particlesVectorChangeFlag;
 	bool forceChangeVelocityFlag;
 	bool visualizeVelocityVectorsFlag;
 };
-
-*/
 
 _NBL_STATIC_INLINE_CONSTEXPR size_t NUMBER_OF_PARTICLES = 1024 * 1024;		// total number of particles to move
 _NBL_STATIC_INLINE_CONSTEXPR size_t WORK_GROUP_SIZE = 128;					// work-items per work-group
@@ -146,7 +130,7 @@ int main()
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t FBO_COUNT = 1u;
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "MeshLoaders");
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
 	auto window = std::move(initOutput.window);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
@@ -158,6 +142,8 @@ int main()
 	auto fbo = std::move(initOutput.fbo[0]);
 	auto commandPool = std::move(initOutput.commandPool);
 	auto assetManager = std::move(initOutput.assetManager);
+	auto logger = std::move(initOutput.logger);
+	auto inputSystem = std::move(initOutput.inputSystem);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
@@ -409,13 +395,58 @@ int main()
 	const std::string captionData = "[Nabla Engine] Compute Shaders";
 	window->setCaption(captionData);
 
-	core::vectorSIMDf cameraPosition(-1, 2, -10);
-	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
-	matrix3x4SIMD viewMatrix = matrix3x4SIMD::buildCameraLookAtMatrixLH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
-	auto viewProjectionMatrix = matrix4SIMD::concatenateBFollowedByA(projectionMatrix, matrix4SIMD(viewMatrix));
+	CEventReceiver eventReceiver;
+	QToQuitEventReceiver escaper;
+	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
-	while (true)
+	core::vectorSIMDf cameraPosition(0, 0, 0);
+	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+	auto lastTime = std::chrono::system_clock::now();
+
+	constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+	size_t frame_count = 0ull;
+	double time_sum = 0;
+	double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+	for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
+		dtList[i] = 0.0;
+
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
+	while (escaper.keepOpen())
 	{
+		auto renderStart = std::chrono::system_clock::now();
+		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
+		lastTime = renderStart;
+		{ // Calculate Simple Moving Average for FrameTime
+			time_sum -= dtList[frame_count];
+			time_sum += renderDt;
+			dtList[frame_count] = renderDt;
+			frame_count++;
+			if (frame_count >= NBL_FRAMES_TO_AVERAGE)
+				frame_count = 0;
+		}
+		const double averageFrameTime = time_sum / (double)NBL_FRAMES_TO_AVERAGE;
+
+		#ifdef NBL_MORE_LOGS
+				logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
+		#endif // NBL_MORE_LOGS
+
+		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
+		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+
+		inputSystem->getDefaultMouse(&mouse);
+		inputSystem->getDefaultKeyboard(&keyboard);
+
+		camera.beginInputProcessing(nextPresentationTimeStamp);
+		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); eventReceiver.process(events); escaper.process(events); }, logger.get());
+		camera.endInputProcessing(nextPresentationTimeStamp);
+
+		const auto& viewMatrix = camera.getViewMatrix();
+		const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
+
 		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 		commandBuffer->begin(0);
 
@@ -432,23 +463,25 @@ int main()
 		nbl::asset::VkRect2D area;
 		area.offset = { 0,0 };
 		area.extent = { WIN_W, WIN_H };
-		nbl::asset::SClearValue clear;
-		clear.color.float32[0] = 0.f;
-		clear.color.float32[1] = 0.f;
-		clear.color.float32[2] = 0.f;
-		clear.color.float32[3] = 0.f;
+		nbl::asset::SClearValue clear[2];
+		clear[0].color.float32[0] = 0.f;
+		clear[0].color.float32[1] = 0.f;
+		clear[0].color.float32[2] = 0.f;
+		clear[0].color.float32[3] = 0.f;
+		clear[1].depthStencil.depth = 0.f;
+
 		beginInfo.clearValueCount = 1u;
 		beginInfo.framebuffer = fbo;
 		beginInfo.renderpass = renderpass;
 		beginInfo.renderArea = area;
-		beginInfo.clearValues = &clear;
+		beginInfo.clearValues = clear;
 
 		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
-		pushConstants.isXPressed = false;												// TODO: events
-		pushConstants.isZPressed = false;												// TODO: events
-		pushConstants.isCPressed = false;												// TODO: events
-		pushConstants.currentUserAbsolutePosition = cameraPosition.getAsVector3df();	// TODO: camera
+		pushConstants.isXPressed = eventReceiver.isXPressed();
+		pushConstants.isZPressed = eventReceiver.isZPressed();
+		pushConstants.isCPressed = eventReceiver.isCPressed();	
+		pushConstants.currentUserAbsolutePosition = camera.getPosition().getAsVector3df();
 
 		/*
 			Calculation of particle postitions takes place here
@@ -494,5 +527,26 @@ int main()
 		commandBuffer->pushConstants(gpuMeshBuffer2->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_GEOMETRY, 0, sizeof(SPushConstants), &pushConstants);
 		commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuMeshBuffer2->getPipeline()->getLayout(), 1u, 1u, &gpuGDescriptorSet1.get(), nullptr);
 		commandBuffer->drawMeshBuffer(gpuMeshBuffer2.get());
+
+		commandBuffer->endRenderPass();
+		commandBuffer->end();
+
+		auto img_acq_sem = logicalDevice->createSemaphore();
+		render_finished_sem = logicalDevice->createSemaphore();
+
+		uint32_t imgnum = 0u;
+		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; // ns
+		swapchain->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
+
+		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], img_acq_sem.get(), render_finished_sem.get());
+		CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], render_finished_sem.get(), imgnum);
 	}
+
+	const auto& fboCreationParams = fbo->getCreationParameters();
+	auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+	bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], render_finished_sem.get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+	assert(status);
+
+	return 0;
 }
