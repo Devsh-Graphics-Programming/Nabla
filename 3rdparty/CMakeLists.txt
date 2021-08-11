@@ -506,7 +506,6 @@ set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
-				OpenSSL
 				spirv_cross
 				png_static
 				zlibstatic
@@ -540,6 +539,11 @@ endif()
 if (NBL_COMPILE_WITH_SDL2 )
 	list(APPEND NBL_3RDPARTY_TARGETS
 	    SDL2-static
+	)
+endif()
+if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
+	list(APPEND NBL_3RDPARTY_TARGETS
+		OpenSSL
 	)
 endif()
 #TODO insert more targets that are conditionally built

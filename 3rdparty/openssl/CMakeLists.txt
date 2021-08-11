@@ -70,6 +70,15 @@ elseif(ANDROID) # cross-compile
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
 			VERBATIM
 		)
+		
+		add_custom_target(openssl_build DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a")
+		
+		add_library(OpenSSL INTERFACE)
+	
+		target_link_libraries(OpenSSL INTERFACE
+			"${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" 
+			"${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a"
+		)
 	elseif("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
 		#find_package(Perl REQUIRED) probably when bellow TODO is fixed we will have to use strawberry perl anyways due to default lack of Windows Console x32 module in Active Perl
 		

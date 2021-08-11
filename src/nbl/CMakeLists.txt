@@ -374,7 +374,7 @@ macro(nbl_target_include_parallel_hashmap _trgt)
 endmacro()
 
 macro(nbl_target_link_openssl _trgt)
-	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 		target_link_libraries(${_trgt} INTERFACE
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		)
@@ -629,7 +629,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 nbl_install_lib(png_static)
 
-if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 	install(FILES
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		DESTINATION lib
