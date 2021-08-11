@@ -175,9 +175,8 @@ int main()
 		if (cpuindexbuffer)
 			cpubuffers.push_back(cpuindexbuffer);
 
-		auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + 1, cpu2gpuParams);
+		auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size(), cpu2gpuParams);
 		{
-			auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + 1, cpu2gpuParams);
 			if (!gpubuffers || gpubuffers->size() < 1u)
 				assert(false);
 		}
