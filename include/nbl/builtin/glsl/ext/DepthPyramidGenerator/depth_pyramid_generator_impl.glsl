@@ -89,12 +89,7 @@ void main()
         const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]),REDUCTION_OPERATOR(samples[2], samples[3]));
         storeReducedValToImage(0, naturalOrder, reducedVal);
 
-        #ifndef REDUCION_OP_BOTH
-        sharedMemR[WORKGROUP_SIZE + gl_LocalInvocationIndex] = reducedVal;
-        #else
-        sharedMemR[WORKGROUP_SIZE + gl_LocalInvocationIndex] = reducedVal.x;
-        sharedMemG[WORKGROUP_SIZE + gl_LocalInvocationIndex] = reducedVal.y;
-        #endif
+        storeReducedValToSharedMemory(WORKGROUP_SIZE + gl_LocalInvocationIndex, reducedVal);
 
         barrier();
         copySharedMemValue(gl_LocalInvocationIndex, WORKGROUP_SIZE+(bitfieldReverse(gl_LocalInvocationIndex) >> (32 - findMSB(WORKGROUP_SIZE))));
