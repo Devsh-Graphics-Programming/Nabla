@@ -28,6 +28,7 @@ DepthPyramidGenerator::DepthPyramidGenerator(IVideoDriver* driver, IAssetManager
 #define MIPMAP_LEVELS_PER_PASS %u
 #define MIP_IMAGE_FORMAT %s
 #define STRETCH_MIN
+#define %s
 
 layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_SIZE) in;
  
@@ -36,7 +37,7 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 
 	constexpr char* imageFormats[] =
 	{
-		"r16f", "r32f", "r16g16f", "r32g32f"
+		"r16f", "r32f", "rg16f", "rg32f"
 	};
 
 	const char* format;
@@ -58,11 +59,32 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 		assert(false);
 	}
 
+	constexpr char* redOps[] =
+	{
+		"REDUCION_OP_MIN", "REDUCION_OP_MAX", "REDUCION_OP_BOTH"
+	};
+
+	const char* redOp;
+	switch (config.op)
+	{
+	case E_MIPMAP_GENERATION_OPERATOR::EMGO_MIN:
+		redOp = redOps[0];
+		break;
+	case E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX:
+		redOp = redOps[1];
+		break;
+	case E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH:
+		redOp = redOps[2];
+		break;
+	default:
+		assert(false);
+	}
+
 	const uint32_t perPassMipCnt = static_cast<uint32_t>(config.workGroupSize) == 32u ? 6u : 5u;
 
 	constexpr size_t extraSize = 32u;
 	auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
-	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), perPassMipCnt, format);
+	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), perPassMipCnt, format, redOp);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
 		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderCode), asset::ICPUShader::buffer_contains_glsl),

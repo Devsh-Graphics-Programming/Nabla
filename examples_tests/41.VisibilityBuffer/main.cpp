@@ -1195,6 +1195,8 @@ int main()
     using DPG = ext::DepthPyramidGenerator::DepthPyramidGenerator;
 
     DPG::Config config;
+    config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH;
+    config.outputFormat = DPG::E_IMAGE_FORMAT::EIF_R32G32_FLOAT;
     DPG dpg(driver, am, depthBufferView, config);
 
     const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView);
