@@ -9,7 +9,7 @@
 #define REDUCED_VAL_T float
 #elif defined(REDUCION_OP_BOTH)
 #define REDUCTION_OPERATOR(a, b) vec2(min(a, b), max(a, b))
-#define REDUCTION_OPERATOR_2(a, b) vec2(min(a.x, b.x), max(a.x, b.x))
+#define REDUCTION_OPERATOR_2(a, b) vec2(min(a.x, b.x), max(a.y, b.y))
 #define REDUCED_VAL_T vec2
 #endif
 
