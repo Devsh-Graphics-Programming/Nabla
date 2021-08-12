@@ -480,7 +480,7 @@ int main()
 			}
 		}
 		double averageFrameTime = (frameDataFilled) ? (time_sum / (double)MaxFramesToAverage) : (time_sum / frame_count);
-		logger->log("averageFrameTime = %f",system::ILogger::ELL_INFO, averageFrameTime);
+		// logger->log("averageFrameTime = %f",system::ILogger::ELL_INFO, averageFrameTime);
 		
 		// Calculate Next Presentation Time Stamp
 		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
