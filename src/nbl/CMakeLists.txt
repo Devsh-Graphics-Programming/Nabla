@@ -527,7 +527,7 @@ target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
 		${X11_INCLUDE_DIR} 
-		${X11_Xrandr_INCLUDE_PATH} 
+		X11_Xrandr_INCLUDE_PATH
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 

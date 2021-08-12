@@ -67,7 +67,9 @@ class CPLYMeshWriter : public asset::IAssetWriter
 					ss << std::setprecision(6) << _vec[i] * (currentFlipOnVariable ? -1 : 1) << " ";
 			}
             auto str = ss.str();
-            _file->write(str.c_str(), str.size());
+            system::future<size_t> future;
+            assert(false); //TODO should write offset be 0??? need to check this
+            _file->write(future, str.c_str(), 0, str.size());
         }
 };
 

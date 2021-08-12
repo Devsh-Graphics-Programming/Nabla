@@ -218,10 +218,10 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
             IAssetLoader::SAssetLoadContext ctx{params, _file};
 
-            std::filesystem::path filename = _file ? _file->getFileName() : _supposedFilename;
+            std::filesystem::path filename = _file ? _file->getFileName() : std::filesystem::path(_supposedFilename);
             auto file = _override->getLoadFile(_file, filename.string(), ctx, _hierarchyLevel);
 
-            filename = file.get() ? file->getFileName() : _supposedFilename;
+            filename = file.get() ? file->getFileName() : std::filesystem::path(_supposedFilename);
 
             const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
