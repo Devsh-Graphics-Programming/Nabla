@@ -192,7 +192,7 @@ public:
         if (!sc)
             return nullptr;
         // wait until swapchain's internal thread finish context creation
-        sc->waitForContextCreation();
+        sc->waitForInitComplete();
         // make master context (in logical device internal thread) again
         bindMasterContext();
 

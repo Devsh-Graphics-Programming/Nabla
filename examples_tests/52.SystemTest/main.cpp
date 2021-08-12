@@ -123,7 +123,9 @@ class InputSystem : public IReferenceCounted
 class WindowEventCallback : public IWindow::IEventCallback
 {
 public:
-	WindowEventCallback(core::smart_refctd_ptr<InputSystem>&& inputSystem, system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)) {}
+	WindowEventCallback(core::smart_refctd_ptr<InputSystem>&& inputSystem, system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false) {}
+
+	bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
 
 private:
 	bool onWindowShown_impl() override 
@@ -175,6 +177,7 @@ private:
 	bool onWindowClosed_impl() override
 	{
 		m_logger.log("Window closed");
+		m_gotWindowClosedMsg = true;
 		return true;
 	}
 
@@ -202,6 +205,7 @@ private:
 private:
 	core::smart_refctd_ptr<InputSystem> m_inputSystem;
 	system::logger_opt_smart_ptr m_logger;
+	bool m_gotWindowClosedMsg;
 };
 
 int main()
@@ -349,16 +353,12 @@ int main()
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
 #endif
-	int frame = 1;
-	while (true)
+	while (windowCb->isWindowOpen())
 	{
-		std::string caption = "Test Window: frame " + std::to_string(frame);
-		window->setCaption(caption);
 		input->getDefaultMouse(&mouse);
 		input->getDefaultKeyboard(&keyboard);
 
 		mouse.consumeEvents(mouseProcess,logger.get());
 		keyboard.consumeEvents(keyboardProcess,logger.get());
-		frame++;
 	}
 }

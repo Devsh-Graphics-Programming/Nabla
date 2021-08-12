@@ -110,9 +110,9 @@ public:
         return EAIR_SUCCESS;
     }
 
-    void waitForContextCreation()
+    void waitForInitComplete()
     {
-        m_threadHandler.waitForCtxCreation();
+        m_threadHandler.waitForInitComplete();
     }
 
 protected:
@@ -146,6 +146,7 @@ private:
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
             features(_features),
             images(_images),
+            m_initComplete(), // initialized to false
             m_dbgCb(_dbgCb),
             m_logger(std::move(logger))
         {
@@ -190,10 +191,9 @@ private:
             return syncs[imgix];
         }
 
-        void waitForCtxCreation()
+        void waitForInitComplete()
         {
-            auto lk = base_t::createLock();
-            m_ctxCreatedCvar.wait(lk, [this]() {return static_cast<bool>(m_makeCurrentRes); });
+            m_initComplete.wait(false);
         }
 
     protected:
@@ -202,10 +202,8 @@ private:
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-            EGLBoolean mcres = m_makeCurrentRes = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
+            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
             assert(mcres == EGL_TRUE);
-
-            m_ctxCreatedCvar.notify_one();
 
             const uint32_t fboCount = images.size();
             new (state_ptr) SThreadHandlerInternalState(egl, features, system::logger_opt_smart_ptr(m_logger));
@@ -236,6 +234,8 @@ private:
                 syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
                 syncs[i]->init(m_device, &gl, false);
             }
+            m_initComplete.test_and_set();
+            m_initComplete.notify_one();
         }
 
         void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)
@@ -295,8 +295,7 @@ private:
 
         bool needToBlit = false;
 
-        EGLBoolean m_makeCurrentRes = EGL_FALSE;
-        std::condition_variable m_ctxCreatedCvar;
+        std::atomic_flag m_initComplete;
 
         SDebugCallback* m_dbgCb;
     };
