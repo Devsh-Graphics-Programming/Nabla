@@ -22,7 +22,7 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./utfcpp)
 	update_git_submodule(./convertutf)
 	update_git_submodule(./libpng)
-	update_git_submodule(./openssl)
+	# update_git_submodule(./openssl)
 	update_git_submodule(./libjpeg-turbo)
 	update_git_submodule(./parallel-hashmap)
 	update_git_submodule(./gli)
@@ -33,7 +33,7 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 endif()
 
 # openssl
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
+# add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # volk
 if (Vulkan_FOUND)
@@ -506,7 +506,7 @@ set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
-				OpenSSL
+				# OpenSSL
 				spirv_cross
 				png_static
 				zlibstatic

@@ -376,7 +376,7 @@ endmacro()
 macro(nbl_target_link_openssl _trgt)
 	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
 		target_link_libraries(${_trgt} INTERFACE
-			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
+			# "$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		)
 
 		target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:OpenSSL,BINARY_DIR>/build/include")
@@ -479,8 +479,8 @@ endif()
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_dependencies(Nabla openssl_build)
-nbl_target_link_openssl(Nabla)
+# add_dependencies(Nabla openssl_build)
+# nbl_target_link_openssl(Nabla)
 #nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg_turbo(Nabla)
@@ -631,7 +631,7 @@ nbl_install_lib(png_static)
 
 if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
 	install(FILES
-			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
+			# "$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		DESTINATION lib
 	)
 endif()

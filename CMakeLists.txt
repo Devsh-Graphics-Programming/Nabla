@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 3.20)
 cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
 set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
+enable_language(ASM)
 
 option(NBL_BUILD_ANDROID "Build for Android?" OFF)
 
