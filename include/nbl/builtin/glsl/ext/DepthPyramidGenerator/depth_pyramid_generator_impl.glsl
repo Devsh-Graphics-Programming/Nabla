@@ -52,6 +52,15 @@ REDUCED_VAL_T reduceValFromSharedMemory(in uint val0Idx, in uint val1Idx)
 #endif
 }
 
+REDUCED_VAL_T getValFromSharedMemory(in uint idx)
+{
+#ifndef REDUCION_OP_BOTH
+  return sharedMemR[idx];
+#else
+  return vec2(sharedMemR[idx], sharedMemG[idx]);
+#endif
+}
+
 void copySharedMemValue(in uint dstIdx, in uint srcIdx)
 {
   sharedMemR[dstIdx] = sharedMemR[srcIdx];
@@ -110,7 +119,7 @@ void main()
           {
             const REDUCED_VAL_T reducedVal = reduceValFromSharedMemory(gl_LocalInvocationIndex, gl_LocalInvocationIndex + limit);
             storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
-            storeReducedValToImage(i, (base + morton), reducedVal);
+            storeReducedValToImage(i, (base >> i) + morton, getValFromSharedMemory(bitfieldReverse(gl_LocalInvocationIndex) >> uint(32 - findMSB(1024) + i + i)));
           }
           barrier();
           limit >>= 1u;
