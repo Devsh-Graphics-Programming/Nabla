@@ -19,6 +19,8 @@
 #include "nbl/video/CVulkanDescriptorSetLayout.h"
 #include "nbl/video/CVulkanSampler.h"
 #include "nbl/video/CVulkanPipelineLayout.h"
+#include "nbl/video/CVulkanPipelineCache.h"
+#include "nbl/video/CVulkanComputePipeline.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -204,6 +206,7 @@ public:
             
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
     {
+        // Todo(achal): Hoist creation out of constructor
         return core::make_smart_refctd_ptr<CVulkanRenderpass>(this, params);
     }
             
@@ -326,7 +329,7 @@ protected:
         VkCommandBuffer vk_commandBuffers[100];
 
         VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-        // allocateInfo.pNext = nullptr; (this must be NULL)
+        allocateInfo.pNext = nullptr; // this must be NULL
         allocateInfo.commandPool = vk_commandPool;
         allocateInfo.level = static_cast<VkCommandBufferLevel>(_level);
         allocateInfo.commandBufferCount = _count;
@@ -352,6 +355,7 @@ protected:
 
     core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
     {
+        // Todo(achal): Hoist creation out of constructor
         return core::make_smart_refctd_ptr<CVulkanFramebuffer>(this, std::move(params));
     }
 
@@ -360,8 +364,8 @@ protected:
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
         {
-        // Log a warning
-        return nullptr;
+            // Log a warning
+            return nullptr;
         }
         const CVulkanShader* unspecializedShader = static_cast<const CVulkanShader*>(_unspecialized);
 
@@ -399,7 +403,7 @@ protected:
 
         VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
         createInfo.pNext = nullptr;
-        // createInfo.flags = 0; (reserved for future use by Vulkan)
+        createInfo.flags = 0; // reserved for future use by Vulkan
         createInfo.codeSize = spirv->getSize();
         createInfo.pCode = reinterpret_cast<const uint32_t*>(spirv->getPointer());
 
@@ -422,6 +426,7 @@ protected:
 
     core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override
     {
+        // Todo(achal): Hoist creation out of constructor
         return core::make_smart_refctd_ptr<CVulkanImageView>(this, std::move(params));
     }
 
@@ -530,19 +535,42 @@ protected:
         }
     }
 
+    // For consistency's sake why not pass IGPUComputePipeline::SCreationParams as
+    // only second argument, like in createGPUComputePipelines_impl below? Especially
+    // now, since I've added more members to IGPUComputePipeline::SCreationParams
     core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(
         IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader) override
     {
-        return nullptr;
+        core::smart_refctd_ptr<IGPUComputePipeline> result = nullptr;
+
+        IGPUComputePipeline::SCreationParams creationParams = {};
+        creationParams.flags = static_cast<asset::E_PIPELINE_CREATE_FLAGS>(0); // No way to get this now!
+        creationParams.layout = std::move(_layout);
+        creationParams.shader = std::move(_shader);
+        creationParams.basePipeline = nullptr; // No way to get this now!
+        creationParams.basePipelineIndex = ~0u; // No way to get this now!
+
+        core::SRange<const IGPUComputePipeline::SCreationParams> creationParamsRange(&creationParams,
+            &creationParams + 1);
+
+        if (createGPUComputePipelines_impl(_pipelineCache, creationParamsRange, &result))
+        {
+            return result;
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     bool createGPUComputePipelines_impl(IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPUComputePipeline>* output) override
     {
-#if 0
-        assert(createInfos.size() <= 100);
+        constexpr uint32_t MAX_PIPELINE_COUNT = 100u;
+
+        assert(createInfos.size() <= MAX_PIPELINE_COUNT);
 
         const IGPUComputePipeline::SCreationParams* creationParams = createInfos.begin();
         for (size_t i = 0ull; i < createInfos.size(); ++i)
@@ -555,29 +583,66 @@ protected:
             }
         }
 
-        VkComputePipelineCreateInfo vk_createInfos[100];
+        VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
+        if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
+            vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
+
+        VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfos[MAX_PIPELINE_COUNT];
+
+        VkComputePipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
         for (size_t i = 0ull; i < createInfos.size(); ++i)
         {
+            const auto createInfo = createInfos.begin() + i;
+
             vk_createInfos[i].sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
             vk_createInfos[i].pNext = nullptr; // pNext must be either NULL or a pointer to a valid instance of VkPipelineCompilerControlCreateInfoAMD, VkPipelineCreationFeedbackCreateInfoEXT, or VkSubpassShadingPipelineCreateInfoHUAWEI
-            vk_createInfos[i].flags = ;
-            VkPipelineShaderStageCreateInfo    stage;
-            VkPipelineLayout                   layout;
-            VkPipeline                         basePipelineHandle;
-            int32_t                            basePipelineIndex;
+            vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(createInfo->flags);
+
+            if (createInfo->shader->getAPIType() == EAT_VULKAN)
+            {
+                const CVulkanSpecializedShader* specShader
+                    = static_cast<const CVulkanSpecializedShader*>(createInfo->shader.get());
+
+                vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+                vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
+                vk_shaderStageCreateInfos[i].flags = 0; // currently there is no way to get this in the API https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPipelineShaderStageCreateFlagBits.html
+                vk_shaderStageCreateInfos[i].stage = static_cast<VkShaderStageFlagBits>(specShader->getStage());
+                vk_shaderStageCreateInfos[i].module = specShader->getInternalObject();
+                vk_shaderStageCreateInfos[i].pName = "main"; // Probably want to change the API of IGPUSpecializedShader to have something like getEntryPointName like theres getStage
+                vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr; // Todo(achal): Should we have a asset::ISpecializedShader::SInfo member in CVulkanSpecializedShader, otherwise I don't know how I'm gonna get the values required for VkSpecializationInfo https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkSpecializationInfo.html
+            }
+
+            vk_createInfos[i].stage = vk_shaderStageCreateInfos[i];
+
+            vk_createInfos[i].layout = VK_NULL_HANDLE;
+            if (createInfo->layout && (createInfo->layout->getAPIType() == EAT_VULKAN))
+                vk_createInfos[i].layout = static_cast<const CVulkanPipelineLayout*>(createInfo->layout.get())->getInternalObject();
+
+            vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE;
+            if (createInfo->basePipeline && (createInfo->basePipeline->getAPIType() == EAT_VULKAN))
+                vk_createInfos[i].basePipelineHandle = static_cast<const CVulkanComputePipeline*>(createInfo->basePipeline.get())->getInternalObject();
+
+            vk_createInfos[i].basePipelineIndex = createInfo->basePipelineIndex;
         }
-
-        // vkCreateComputePipelines(m_vkdev, VK_NULL_HANDLE,
-        //     static_cast<uint32_t>(createInfos.size(), vk_createInfos, nullptr, vk_pipelines);
-
-        // struct SCreationParams
-        // {
-        //     core::smart_refctd_ptr<IGPUPipelineLayout> layout;
-        //     core::smart_refctd_ptr<IGPUSpecializedShader> shader;
-        // };
         
-#endif
-        return false;
+        VkPipeline vk_pipelines[MAX_PIPELINE_COUNT];
+        if (vkCreateComputePipelines(m_vkdev, vk_pipelineCache, static_cast<uint32_t>(createInfos.size()),
+            vk_createInfos, nullptr, vk_pipelines) == VK_SUCCESS)
+        {
+            for (size_t i = 0ull; i < createInfos.size(); ++i)
+            {
+                const auto createInfo = createInfos.begin() + i;
+
+                output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(this,
+                    core::smart_refctd_ptr(createInfo->layout),
+                    core::smart_refctd_ptr(createInfo->shader), vk_pipelines[i]);
+            }
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(IGPUPipelineCache* _pipelineCache,

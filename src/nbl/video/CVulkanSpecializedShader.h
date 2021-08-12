@@ -17,8 +17,9 @@ public:
 
     ~CVulkanSpecializedShader();
 
-// Todo(achal): Remove
-// private:
+    inline VkShaderModule getInternalObject() const { return m_shaderModule; }
+
+private:
     VkShaderModule m_shaderModule;
 };
 

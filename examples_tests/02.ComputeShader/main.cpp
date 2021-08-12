@@ -481,20 +481,9 @@ int main()
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
 		device->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
 
-#if 0
-	video::IGPUComputePipeline::SCreationParams createInfo = {};
-	createInfo.flags = static_cast<asset::E_PIPELINE_CREATE_FLAGS>(0);
-	createInfo.layout = ;
-	core::smart_refctd_ptr<IGPUSpecializedShader> shader;
-	core::smart_refctd_ptr<IGPUComputePipeline> basePipeline;
-	int32_t basePipelineIndex;
-	core::smart_refctd_ptr<video::IGPUComputePipeline> computePipeline = nullptr;
-	device->createGPUComputePipelines(nullptr, 1u, &createInfo, &computePipeline);
-#endif
-
-
-
-
+	core::smart_refctd_ptr<video::IGPUComputePipeline> pipeline =
+		device->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout),
+			core::smart_refctd_ptr(specializedShader));
 
 	// Todo(achal): I think we can make it greater than SC_IMG_COUNT
 	const uint32_t FRAMES_IN_FLIGHT = 2u;
@@ -534,7 +523,7 @@ int main()
 			swapchainImageViews[i].get())->getInternalObject();
 	}
 
-	VkShaderModule vk_shaderModule = reinterpret_cast<video::CVulkanSpecializedShader*>(specializedShader.get())->m_shaderModule;
+	VkShaderModule vk_shaderModule = reinterpret_cast<video::CVulkanSpecializedShader*>(specializedShader.get())->getInternalObject();
 
 	VkCommandPool vk_commandPool = reinterpret_cast<video::CVulkanCommandPool*>(commandPool.get())->getInternalObject();
 
@@ -545,6 +534,8 @@ int main()
 	VkDescriptorSetLayout vk_dsLayout = reinterpret_cast<const video::CVulkanDescriptorSetLayout*>(dsLayout.get())->getInternalObject();
 
 	VkPipelineLayout vk_pipelineLayout = reinterpret_cast<const video::CVulkanPipelineLayout*>(pipelineLayout.get())->getInternalObject();
+
+	VkPipeline vk_pipeline = reinterpret_cast<const video::CVulkanComputePipeline*>(pipeline.get())->getInternalObject();
 
 	// Pure vulkan stuff
 
@@ -626,7 +617,6 @@ int main()
 		vkUnmapMemory(vk_device, vk_ubosMemory[i]);
 	}
 
-
 	VkDescriptorPool vk_descriptorPool = VK_NULL_HANDLE;
 	{
 		const uint32_t descriptorPoolSizeStructsCount = 2u;
@@ -702,28 +692,6 @@ int main()
 
 			vkUpdateDescriptorSets(vk_device, descriptorCount, vk_descriptorWrites, 0u, nullptr);
 		}
-	}
-
-	VkPipeline vk_pipeline;
-	{
-		VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-		vk_shaderStageCreateInfo.pNext = nullptr;
-		vk_shaderStageCreateInfo.flags = 0;
-		vk_shaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-		vk_shaderStageCreateInfo.module = vk_shaderModule;
-		vk_shaderStageCreateInfo.pName = "main"; // Todo(achal): Get from shader specialization info
-		vk_shaderStageCreateInfo.pSpecializationInfo = nullptr;
-
-		VkComputePipelineCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
-		createInfo.pNext = nullptr;
-		createInfo.flags = 0;
-		createInfo.stage = vk_shaderStageCreateInfo;
-		createInfo.layout = vk_pipelineLayout;
-		createInfo.basePipelineHandle = VK_NULL_HANDLE;
-		createInfo.basePipelineIndex = -1;
-
-		assert(vkCreateComputePipelines(vk_device, VK_NULL_HANDLE, 1u, &createInfo,
-			nullptr, &vk_pipeline) == VK_SUCCESS);
 	}
 
 	// Record commands in commandBuffers here
