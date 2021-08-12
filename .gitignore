@@ -26,4 +26,4 @@ source/obj
 source/Irrlicht/libIrrlichtServer.a
 # stuff output by examples
 examples_tests/*/bin/*
-
+examples_tests/tmp/*

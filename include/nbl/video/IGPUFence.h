@@ -1,10 +1,9 @@
 #ifndef __NBL_I_GPU_FENCE_H_INCLUDED__
 #define __NBL_I_GPU_FENCE_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/declarations.h"
+
 #include "nbl/video/IBackendObject.h"
-#include "nbl/core/EventDeferredHandler.h"
-#include "nbl/core/BaseClasses.h"
 
 namespace nbl::video
 {

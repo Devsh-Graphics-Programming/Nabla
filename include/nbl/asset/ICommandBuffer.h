@@ -7,6 +7,7 @@
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ECommonEnums.h"
+#include "nbl/video/IGPUMeshBuffer.h"
 
 #include <type_traits>
 
@@ -221,11 +222,11 @@ public:
     }
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
-    // TODO: drawmeshbuffer would be handy
     virtual bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) = 0;
     virtual bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) = 0;
     virtual bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
     virtual bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
+    virtual bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) = 0;
 
     virtual bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const SViewport* pViewports) = 0;
 

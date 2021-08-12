@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "nbl_os.h"
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/CMeshManipulator.h"

@@ -8,7 +8,7 @@
 #include <algorithm>
 
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IDescriptor.h"

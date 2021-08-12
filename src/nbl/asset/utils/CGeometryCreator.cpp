@@ -6,8 +6,6 @@
 #include <iomanip>
 #include <cmath>
 
-#include "nbl_os.h"
-
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
 

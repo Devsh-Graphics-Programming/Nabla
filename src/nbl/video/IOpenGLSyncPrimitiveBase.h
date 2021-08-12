@@ -1,7 +1,7 @@
 #ifndef __NBL_I_OPENGL_SYNC_PRIMITIVE_BASE_H_INCLUDED__
 #define __NBL_I_OPENGL_SYNC_PRIMITIVE_BASE_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 #include "nbl/video/COpenGLSync.h"
 #include <atomic>
 #include <chrono>

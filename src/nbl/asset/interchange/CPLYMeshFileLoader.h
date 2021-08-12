@@ -40,7 +40,7 @@ public:
 	//! Constructor
 	CPLYMeshFileLoader(IAssetManager* _am);
 
-    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
     virtual const char** getAssociatedFileExtensions() const override
     {
@@ -51,7 +51,7 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
 
 	//! creates/loads an animated mesh from the file.
-    virtual SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 
@@ -88,7 +88,7 @@ private:
 
 	struct SPLYProperty
 	{
-		core::stringc Name;
+		std::string Name;
 		E_PLY_PROPERTY_TYPE Type;
 		#include "nbl/nblpack.h"
 		union
@@ -149,7 +149,7 @@ private:
 	{
 		// name of the element. We only want "vertex" and "face" elements
 		// but we have to parse the others anyway.
-		core::stringc Name;
+		std::string Name;
 		// The number of elements in the file
 		uint32_t Count;
 		// Properties of this element

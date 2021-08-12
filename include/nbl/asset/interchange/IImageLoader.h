@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_IMAGE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_LOADER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
@@ -20,7 +20,7 @@ class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 
 	protected:
 
-		IImageLoader() = default;
+		IImageLoader() {}
 		virtual ~IImageLoader() = 0;
 
 	private:

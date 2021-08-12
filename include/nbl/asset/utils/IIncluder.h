@@ -7,10 +7,8 @@
 
 #include <string>
 
-
-#include "nbl/core/core.h"
-#include "nbl/system/system.h"
-#include "IFileSystem.h"
+#include "nbl/system/path.h"
+#include "nbl/core/declarations.h"
 
 namespace nbl
 {
@@ -20,41 +18,43 @@ namespace asset
 class IIncluder : public core::IReferenceCounted
 {
 	protected:
-		core::vector<std::string> m_searchDirectories;
+		core::vector<std::filesystem::path> m_searchDirectories;
 
 		virtual ~IIncluder() = default;
 
 	public:
 		IIncluder() : m_searchDirectories{""} {}
 
-		virtual void addSearchDirectory(const std::string& _searchDir) { m_searchDirectories.push_back(_searchDir); }
+		virtual void addSearchDirectory(const system::path& _searchDir) { m_searchDirectories.push_back(_searchDir); }
 
-		std::string getIncludeStandard(const std::string& _path) const
+		std::string getIncludeStandard(const system::path& _path) const
 		{
-			for (const std::string& searchDir : m_searchDirectories)
+			for (const system::path& searchDir : m_searchDirectories)
 			{
-				io::path path = searchDir.c_str();
-				path += _path.c_str();
-				path = io::IFileSystem::flattenFilename(path);
-				std::string res = getInclude_internal(path.c_str());
+				system::path path = searchDir;
+				path += _path;
+				if(std::filesystem::exists(path))
+					path = std::filesystem::canonical(path).string();
+				std::string res = getInclude_internal(path);
 				if (!res.empty())
 					return res;
 			}
 			return {};
 		}
-		std::string getIncludeRelative(const std::string& _path, const std::string& _workingDir) const
+		std::string getIncludeRelative(const system::path& _path, const system::path& _workingDir) const
 		{
-			io::path path = _workingDir.c_str();
-			if (!_workingDir.empty() && _workingDir.back() != '/')
+			system::path path = _workingDir;
+			if (!_workingDir.empty() && *_workingDir.string().rbegin() != '/')
 				path += "/";
-			path += _path.c_str();
-			path = io::IFileSystem::flattenFilename(path);
-			return getInclude_internal(path.c_str());
+			path += _path;
+			if(std::filesystem::exists(path))
+				path = std::filesystem::canonical(path);
+			return getInclude_internal(path);
 		}
 
 	protected:
 		//! Always gets absolute path
-		virtual std::string getInclude_internal(const std::string& _path) const = 0;
+		virtual std::string getInclude_internal(const system::path& _path) const = 0;
 };
 
 }

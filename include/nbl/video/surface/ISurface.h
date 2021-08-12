@@ -5,8 +5,7 @@
 #include "nbl/asset/format/EColorSpace.h"
 #include "nbl/asset/format/EFormat.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IPhysicalDevice;
@@ -44,7 +43,6 @@ public:
     virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
 };
 
-}
 }
 
 

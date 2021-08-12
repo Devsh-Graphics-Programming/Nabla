@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_I_BUFFER_H_INCLUDED__
 #define __NBL_CORE_I_BUFFER_H_INCLUDED__
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/IReferenceCounted.h"
 
 namespace nbl::core

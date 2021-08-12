@@ -26,7 +26,6 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		GLenum internalFormat;
 		GLenum target;
 		GLuint name;
-
 	public:
 		//! constructor
 		COpenGLImage(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(dev, std::move(_params)),

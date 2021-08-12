@@ -1,4 +1,5 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -30,7 +31,7 @@ macro(FindLibraryAndSONAME _LIB)
       #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
     #endif()
 
-    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}")
+    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}") 
     set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
   endif()
 endmacro()
@@ -99,14 +100,14 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) # It affects with BAW source leading to linker errors, TODO
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" ON)
-option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF)
+option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
+option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -161,11 +162,6 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-set(NABLA_HEADERS_PUBLIC
-#	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_os.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h" 
-)
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
@@ -174,34 +170,22 @@ set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
-# Core Memory
-	${NBL_ROOT_PATH}/src/nbl/core/memory/CLeakDebugger.cpp
 )
 set(NBL_SYSTEM_SOURCES
-# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowX11.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -282,16 +266,16 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
-	#${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 	
 	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
 #${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES
@@ -313,14 +297,6 @@ set(NABLA_SRCS_COMMON
 	${NBL_SCENE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
 	${NBL_UI_SOURCES}
-
-# Junk to refactor
-#	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceLinux.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceConsole.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceStub.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceWin32.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/Irrlicht.cpp
 )
 
 if (NBL_EMBED_BUILTIN_RESOURCES)
@@ -343,9 +319,6 @@ set(NABLA_SRCS_NORMAL
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLDriver.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
@@ -538,7 +511,7 @@ if (UNIX)
 endif()
 
 target_include_directories(Nabla PUBLIC 
-	${CMAKE_CURRENT_BINARY_DIR}/build/import
+	${CMAKE_CURRENT_BINARY_DIR}/include
 	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
@@ -620,12 +593,11 @@ set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h
 #	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
 	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
-nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/build/import")
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)

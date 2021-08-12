@@ -5,8 +5,6 @@
 #ifndef __NBL_PCH_H_INCLUDED__
 #define __NBL_PCH_H_INCLUDED__
 
-#include "nabla.h"
-
 #include "nbl/core/pch_core.h"
 #include "nbl/asset/pch_asset.h"
 #include "nbl/video/pch_video.h"
@@ -33,7 +31,6 @@
 #include "IDummyTransformationSceneNode.h"
 #include "IEventReceiver.h"
 #include "IFileArchive.h"
-#include "IFileList.h"
 #include "IFileSystem.h"
 #include "IFrameBuffer.h"
 #include "IGPUBuffer.h"
@@ -50,7 +47,6 @@
 #include "ISceneNodeAnimatorCameraMaya.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "ISkinningStateManager.h"
-#include "ITimer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IVideoDriver.h"
 #include "IWriteFile.h"
@@ -107,8 +103,7 @@
 #include "CTarReader.h"
 #include "CWriteFile.h"
 #include "CZipReader.h"
-#include "FW_Mutex.h" // refactor
-#include "nbl_os.h"
+#include "os.h"
 */
 
 #endif

@@ -5,15 +5,14 @@
 #ifndef __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_LOADER_H_INCLUDED__
 
-#include "nbl/core/core.h"
-#include "IFileSystem.h"
+#include "nbl/system/declarations.h"
+
+#include "nbl/system/ISystem.h"
+#include "nbl/system/ILogger.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
-#include "IReadFile.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IMeshManipulator;
@@ -95,11 +94,12 @@ public:
 
     struct SAssetLoadParams
     {
-        SAssetLoadParams(	size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
-							E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,
-							const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE) :
+		SAssetLoadParams(size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
+			E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,
+			const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE, system::logger_opt_ptr _logger = nullptr) :
 				decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
-				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags)
+				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags),
+				logger(std::move(_logger))
         {
         }
 
@@ -111,6 +111,7 @@ public:
 			loaderFlags(rhs.loaderFlags),
 			meshManipulatorOverride(rhs.meshManipulatorOverride),
 			restoreLevels(rhs.restoreLevels),
+			logger(rhs.logger),
 			reload(_reload)
 		{
 		}
@@ -123,15 +124,16 @@ public:
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
 		uint32_t restoreLevels = 0u;
 		const bool reload = false;
+		system::logger_opt_ptr logger;
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
     struct SAssetLoadContext
     {
-		SAssetLoadContext(const SAssetLoadParams& _params, io::IReadFile* _mainFile) : params(_params), mainFile(_mainFile) {}
+		SAssetLoadContext(const SAssetLoadParams& _params, system::IFile* _mainFile) : params(_params), mainFile(_mainFile) {}
 
         const SAssetLoadParams params;
-        io::IReadFile* mainFile;
+        system::IFile* mainFile;
     };
 
     // following could be inlined
@@ -175,7 +177,7 @@ public:
 		_NBL_STATIC_INLINE_CONSTEXPR IAsset::E_MUTABILITY ASSET_MUTABILITY_ON_CACHE_INSERT = IAsset::EM_MUTABLE;
 
         IAssetManager* m_manager;
-		io::IFileSystem* m_filesystem;
+		system::ISystem* m_system;
     public:
 		IAssetLoaderOverride(IAssetManager* _manager);
 
@@ -237,7 +239,7 @@ public:
 				return;
 			// try compute absolute path
 			std::string relative = ctx.params.relativeDir+inOutFilename;
-			if (m_filesystem->existFile(relative.c_str()))
+			if (std::filesystem::exists(relative))
 			{
 				inOutFilename = relative;
 				return;
@@ -247,9 +249,9 @@ public:
 
 		//! This function can be used to swap out the actually opened (or unknown unopened file if `inFile` is nullptr) file for a different one.
 		/** Especially useful if you've used some sort of a fake path and the file won't load from that path just via `io::IFileSystem` . */
-		inline virtual io::IReadFile* getLoadFile(io::IReadFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+		inline virtual core::smart_refctd_ptr<system::IFile> getLoadFile(system::IFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
-			return inFile;
+			return core::smart_refctd_ptr<system::IFile>(inFile);
 		}
 
 		//! When you sometimes have different passwords for different assets
@@ -257,7 +259,7 @@ public:
 				Write to `outDecrKey` happens only if output value of `inOutDecrKeyLen` is less or equal to input value of `inOutDecrKeyLen`.
 		\param supposedFilename is the string after modification by getLoadFilename.
 		\param attempt if decryption or validation algorithm supports reporting failure, you can try different key*/
-		inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& inOutDecrKeyLen, const uint32_t attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+		inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& inOutDecrKeyLen, const uint32_t attempt, const system::IFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
 			if (ctx.params.decryptionKeyLen <= inOutDecrKeyLen)
 				memcpy(outDecrKey, ctx.params.decryptionKey, ctx.params.decryptionKeyLen);
@@ -266,7 +268,7 @@ public:
 		}
 
 		//! Only called when the was unable to be loaded
-		inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+		inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const system::IFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
 			outAddToCache = false; // if you want to return a “default error asset”
 			return SAssetBundle();
@@ -289,7 +291,7 @@ public:
 	/** Check might look into the file.
 	\param file File handle to check.
 	\return True if file seems to be loadable. */
-	virtual bool isALoadableFileFormat(io::IReadFile* _file) const = 0;
+	virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const = 0;
 
 	//! Returns an array of string literals terminated by nullptr
 	virtual const char** getAssociatedFileExtensions() const = 0;
@@ -300,20 +302,20 @@ public:
 	virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
 	//! Loads an asset from an opened file, returns nullptr in case of failure.
-	virtual SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) = 0;
+	virtual SAssetBundle loadAsset(system::IFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) = 0;
 
 	virtual void initialize() {}
 
 protected:
 	// accessors for loaders
-	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
-	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 
-	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
-	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 	SAssetBundle interm_getAssetInHierarchyWholeBundleRestore(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 
     void interm_setAssetMutability(const IAssetManager* _mgr, IAsset* _asset, IAsset::E_MUTABILITY _val);
@@ -330,7 +332,6 @@ protected:
 	}
 };
 
-}
 }
 
 #endif

@@ -7,6 +7,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/CEGL.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
+#include "nbl/system/ILogger.h"
 #include "nbl/video/COpenGLComputePipeline.h"
 #include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
 #include "nbl/video/IGPUSpecializedShader.h"
@@ -49,7 +50,7 @@ namespace impl
         };
         */
 
-        enum E_REQUEST_TYPE
+        enum E_REQUEST_TYPE : uint8_t
         {
             // GL pipelines and vaos are kept, created and destroyed in COpenGL_Queue internal thread
             ERT_BUFFER_DESTROY,
@@ -87,7 +88,9 @@ namespace impl
 
             ERT_CTX_MAKE_CURRENT,
 
-            ERT_WAIT_IDLE
+            ERT_WAIT_IDLE,
+
+            ERT_INVALID
         };
 
         constexpr static inline bool isDestroyRequest(E_REQUEST_TYPE rt)
@@ -307,6 +310,7 @@ namespace impl
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
 protected:
+    system::logger_opt_smart_ptr m_logger;
     struct SGLContext
     {
         EGLContext ctx = EGL_NO_CONTEXT;
@@ -393,8 +397,25 @@ protected:
             SRequestWaitIdle
         >;
 
-        E_REQUEST_TYPE type;
+        // lock when overwriting the request
+        void reset()
+        {
+            if (isDestroyRequest(type))
+            {
+                uint32_t expected = ES_READY;
+                while (!state.compare_exchange_strong(expected,ES_RECORDING))
+                {
+                    state.wait(expected);
+                    expected = ES_READY;
+                }
+                assert(expected==ES_READY);
+            }
+            else
+                system::impl::IAsyncQueueDispatcherBase::request_base_t::reset();
+        }
+
         params_variant_t params_variant;
+        E_REQUEST_TYPE type = ERT_INVALID;
 
         // cast to `RequestParams::retval_t*`
         void* pretval;
@@ -406,15 +427,22 @@ protected:
         using base_t = system::IAsyncQueueDispatcher<CThreadHandler<FunctionTableType>, SRequest, 256u, FunctionTableType>;
         friend base_t;
         using FeaturesType = typename FunctionTableType::features_t;
-
+        system::logger_opt_smart_ptr&& m_logger;
     public:
-        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, const SGLContext& glctx, SDebugCallback* _dbgCb) :
+        CThreadHandler(IOpenGL_LogicalDevice* dev,
+            const egl::CEGL* _egl,
+            FeaturesType* _features,
+            uint32_t _qcount,
+            const SGLContext& glctx,
+            SDebugCallback* _dbgCb,
+            system::logger_opt_smart_ptr&& logger) :
             m_queueCount(_qcount),
             egl(_egl),
             thisCtx(glctx.ctx), pbuffer(glctx.pbuffer),
             features(_features),
             device(dev),
-            m_dbgCb(_dbgCb)
+            m_dbgCb(_dbgCb),
+            m_logger(std::move(logger))
         {
         }
 
@@ -436,10 +464,12 @@ protected:
         template <typename RequestParams>
         void waitForRequestCompletion(SRequest& req)
         {
-            auto lk = req.wait();
+            req.wait_ready();
 
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
             std::get<RequestParams>(req.params_variant) = RequestParams{};
+
+            req.discard_storage();
         }
 
         void init(FunctionTableType* state_ptr)
@@ -449,7 +479,7 @@ protected:
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            new (state_ptr) FunctionTableType(egl, features);
+            new (state_ptr) FunctionTableType(egl, features, system::logger_opt_smart_ptr(m_logger));
             auto* gl = state_ptr;
             if (m_dbgCb)
                 gl->extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
@@ -635,6 +665,7 @@ protected:
             default: 
                 break;
             }
+            // TODO: @Crisspl, only fence create should flush, nothing else needs to do flush or wait idle
             gl.glGeneral.pglFlush();
             // created GL object must be in fact ready when request gets reported as ready
             // @matt - needed?
@@ -857,7 +888,12 @@ protected:
     core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
-    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : ILogicalDevice(api_type, params, std::move(fs), std::move(glslc)), m_egl(_egl)
+    IOpenGL_LogicalDevice(const egl::CEGL* _egl,
+        IPhysicalDevice* physicalDevice, 
+        const SCreationParams& params, 
+        core::smart_refctd_ptr<system::ISystem>&& s,
+        core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
+        system::logger_opt_smart_ptr&& logger) : ILogicalDevice(physicalDevice, params, std::move(s), std::move(glslc)), m_egl(_egl), m_logger(std::move(logger))
     {
 
     }

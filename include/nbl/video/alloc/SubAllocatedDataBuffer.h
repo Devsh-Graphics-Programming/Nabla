@@ -5,7 +5,7 @@
 #ifndef __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
 #define __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <type_traits>
 #include <mutex>

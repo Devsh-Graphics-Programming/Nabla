@@ -1,11 +1,10 @@
 #ifndef __NBL_E_API_TYPE_H_INCLUDED__
 #define __NBL_E_API_TYPE_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/declarations.h"
 #include <cstdint>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 enum E_API_TYPE : uint32_t
@@ -15,7 +14,6 @@ enum E_API_TYPE : uint32_t
     EAT_VULKAN
 };
 
-}
 }
 
 #endif

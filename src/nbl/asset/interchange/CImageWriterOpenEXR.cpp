@@ -129,20 +129,20 @@ namespace asset
 		return true;
 	}
 
-	bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+	bool CImageWriterOpenEXR::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 	{
 		if (!_override)
 			getDefaultOverride(_override);
 
 		SAssetWriteContext ctx{ _params, _file };
 
-		auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<const ICPUImageView>(_params.rootAsset));
+		auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<const ICPUImageView>(_params.rootAsset), _params.logger);
 		const asset::ICPUImage* image = imageSmart.get();
 
 		if (image->getBuffer()->isADummyObjectForCache())
 			return false;
 
-		io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
+		system::IFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
 
 		if (!file)
 			return false;
@@ -150,7 +150,7 @@ namespace asset
 		return writeImageBinary(file, image);
 	}
 
-	bool CImageWriterOpenEXR::writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image)
+	bool CImageWriterOpenEXR::writeImageBinary(system::IFile* file, const asset::ICPUImage* image)
 	{
 		const auto& params = image->getCreationParameters();
 			
@@ -159,11 +159,11 @@ namespace asset
 		std::array<uint32_t*, availableChannels> uint32_tPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
 
 		if (params.format == EF_R16G16B16A16_SFLOAT)
-			createAndWriteImage(halfPixelMapArray, image, file->getFileName().c_str());
+			createAndWriteImage(halfPixelMapArray, image, file->getFileName().string().c_str());
 		else if (params.format == EF_R32G32B32A32_SFLOAT)
-			createAndWriteImage(fullFloatPixelMapArray, image, file->getFileName().c_str());
+			createAndWriteImage(fullFloatPixelMapArray, image, file->getFileName().string().c_str());
 		else if (params.format == EF_R32G32B32A32_UINT)
-			createAndWriteImage(uint32_tPixelMapArray, image, file->getFileName().c_str());
+			createAndWriteImage(uint32_tPixelMapArray, image, file->getFileName().string().c_str());
 
 		return true;
 	}

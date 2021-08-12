@@ -1,18 +1,16 @@
 #ifndef __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
 #define __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/video/EApiType.h"
-#include "IFileSystem.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include <type_traits>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IPhysicalDevice : public core::IReferenceCounted
@@ -91,8 +89,8 @@ public:
         asset::VkExtent3D minImageTransferGranularity;
     };
 
-    IPhysicalDevice(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-        m_fs(std::move(fs)), m_GLSLCompiler(std::move(glslc))
+    IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+        m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
     {
 
     }
@@ -153,7 +151,7 @@ protected:
 
     virtual ~IPhysicalDevice() = default;
 
-    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
     SLimits m_limits;
@@ -162,7 +160,6 @@ protected:
     qfam_props_array_t m_qfamProperties;
 };
 
-}
 }
 
 #endif

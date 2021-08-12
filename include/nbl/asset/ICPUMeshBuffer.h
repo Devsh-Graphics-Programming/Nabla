@@ -88,10 +88,14 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             jointIDAttrId = MAX_VERTEX_ATTRIB_COUNT;
             jointWeightAttrId = MAX_VERTEX_ATTRIB_COUNT;
         }
-
+        
         virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
         {
+#ifdef OLD_SHADERS
             return CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+#else
+            return nullptr;
+#endif
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override

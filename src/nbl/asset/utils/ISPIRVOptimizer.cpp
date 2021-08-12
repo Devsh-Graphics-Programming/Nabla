@@ -3,15 +3,15 @@
 #include "spirv-tools/optimizer.hpp" 
 #include "spirv-tools/libspirv.hpp"
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl_os.h"
+#include "nbl/system/ILogger.h"
 
 using namespace nbl::asset;
 
 static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_5;
 
-nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t* _spirv, uint32_t _dwordCount) const
+nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const
 {
     //https://www.lunarg.com/wp-content/uploads/2020/05/SPIR-V-Shader-Legalization-and-Size-Reduction-Using-spirv-opt_v1.2.pdf
 
@@ -42,22 +42,23 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateIfConversionPass
     };
 
-    auto msgConsumer = [](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
+    auto msgConsumer = [&logger](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
     {
         using namespace std::string_literals;
 
-        constexpr static ELOG_LEVEL lvl2lvl[6]{
-            ELL_ERROR,
-            ELL_ERROR,
-            ELL_ERROR,
-            ELL_WARNING,
-            ELL_INFORMATION,
-            ELL_DEBUG
+
+        constexpr static system::ILogger::E_LOG_LEVEL lvl2lvl[6]{
+            system::ILogger::ELL_ERROR,
+            system::ILogger::ELL_ERROR,
+            system::ILogger::ELL_ERROR,
+            system::ILogger::ELL_WARNING,
+            system::ILogger::ELL_INFO,
+            system::ILogger::ELL_DEBUG
         };
         const auto lvl = lvl2lvl[level];
         const std::string location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
 
-        os::Printer::log(location, msg, lvl);
+        logger.log(location, lvl, msg);
     };
 
     spvtools::Optimizer opt(SPIRV_VERSION);
@@ -80,10 +81,10 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     return result;
 }
 
-nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const ICPUBuffer* _spirv) const
+nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr logger) const
 {
     const uint32_t* spirv = reinterpret_cast<const uint32_t*>(_spirv->getPointer());
     const uint32_t count = _spirv->getSize() / sizeof(uint32_t);
 
-    return optimize(spirv, count);
+    return optimize(spirv, count, logger);
 }

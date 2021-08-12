@@ -9,7 +9,7 @@
 #include <string>
 
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 namespace spirv_cross
 {

@@ -10,7 +10,7 @@
 
 
 #include "nbl/macros.h"
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ISpecializedShader.h"
 

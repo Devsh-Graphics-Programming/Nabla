@@ -6,7 +6,7 @@
 #ifndef __NBL_I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 #define __NBL_I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 namespace nbl
 {

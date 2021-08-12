@@ -20,7 +20,7 @@ template <typename FunctionTableType_>
 class COpenGL_Swapchain final : public ISwapchain
 {
     static inline constexpr uint32_t MaxImages = 4u;
-
+    system::logger_opt_smart_ptr m_logger;
 public:
     using ImagesArrayType = ISwapchain::images_array_t;
     using FunctionTableType = FunctionTableType_;
@@ -40,7 +40,15 @@ public:
         return true;
     }
 
-    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb)
+    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params,
+        IOpenGL_LogicalDevice* dev,
+        const egl::CEGL* _egl, 
+        ImagesArrayType&& images, 
+        COpenGLFeatureMap* _features, 
+        EGLContext _ctx, 
+        EGLConfig _config, 
+        SDebugCallback* _dbgCb,
+        system::logger_opt_smart_ptr&& logger)
     {
         if (!images || !images->size())
             return nullptr;
@@ -65,7 +73,7 @@ public:
                 return nullptr;
         }
 
-        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _ctx, _config, _dbgCb);
+        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _ctx, _config, _dbgCb, std::move(logger));
         return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
     }
 
@@ -102,16 +110,16 @@ public:
         return EAIR_SUCCESS;
     }
 
-    void waitForContextCreation()
+    void waitForInitComplete()
     {
-        m_threadHandler.waitForCtxCreation();
+        m_threadHandler.waitForInitComplete();
     }
 
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
-    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb) :
-        ISwapchain(dev, std::move(params)),
-        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config, _dbgCb)
+    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb, system::logger_opt_smart_ptr&& logger) :
+        ISwapchain(dev, std::move(params)), m_logger(std::move(logger)),
+        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config, _dbgCb, system::logger_opt_smart_ptr(m_logger))
     {
         m_images = std::move(images);
     }
@@ -124,13 +132,23 @@ private:
         friend base_t;
 
     public:
-        CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, EGLNativeWindowType _window, core::SRange<core::smart_refctd_ptr<IGPUImage>> _images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb) :
+        CThreadHandler(const egl::CEGL* _egl,
+            IOpenGL_LogicalDevice* dev,
+            EGLNativeWindowType _window,
+            core::SRange<core::smart_refctd_ptr<IGPUImage>> _images,
+            COpenGLFeatureMap* _features,
+            EGLContext _ctx,
+            EGLConfig _config,
+            SDebugCallback* _dbgCb,
+            system::logger_opt_smart_ptr&& logger) :
             m_device(dev),
             egl(_egl),
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
             features(_features),
             images(_images),
-            m_dbgCb(_dbgCb)
+            m_initComplete(), // initialized to false
+            m_dbgCb(_dbgCb),
+            m_logger(std::move(logger))
         {
             assert(images.size() <= MaxImages);
 
@@ -173,10 +191,9 @@ private:
             return syncs[imgix];
         }
 
-        void waitForCtxCreation()
+        void waitForInitComplete()
         {
-            auto lk = base_t::createLock();
-            m_ctxCreatedCvar.wait(lk, [this]() {return static_cast<bool>(m_makeCurrentRes); });
+            m_initComplete.wait(false);
         }
 
     protected:
@@ -185,13 +202,11 @@ private:
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-            EGLBoolean mcres = m_makeCurrentRes = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
+            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            m_ctxCreatedCvar.notify_one();
-
             const uint32_t fboCount = images.size();
-            new (state_ptr) SThreadHandlerInternalState(egl, features);
+            new (state_ptr) SThreadHandlerInternalState(egl, features, system::logger_opt_smart_ptr(m_logger));
             auto& gl = state_ptr[0];
 
             if (m_dbgCb)
@@ -219,6 +234,8 @@ private:
                 syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
                 syncs[i]->init(m_device, &gl, false);
             }
+            m_initComplete.test_and_set();
+            m_initComplete.notify_one();
         }
 
         void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)
@@ -267,6 +284,7 @@ private:
         core::SRange<core::smart_refctd_ptr<IGPUImage>> images;
         GLuint fbos[MaxImages]{};
         core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
+        system::logger_opt_smart_ptr m_logger;
         struct SRequest {
             SRequest() { sems.reserve(50); }
 
@@ -277,8 +295,7 @@ private:
 
         bool needToBlit = false;
 
-        EGLBoolean m_makeCurrentRes = EGL_FALSE;
-        std::condition_variable m_ctxCreatedCvar;
+        std::atomic_flag m_initComplete;
 
         SDebugCallback* m_dbgCb;
     };

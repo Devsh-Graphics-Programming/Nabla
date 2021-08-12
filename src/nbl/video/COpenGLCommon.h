@@ -9,7 +9,6 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/asset/format/EFormat.h"
-
 namespace nbl
 {
 namespace video
@@ -450,9 +449,6 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset
 		default:
 			break;
 	}
-#ifdef _NBL_DEBUG
-	os::Printer::log("Unsupported texture format", ELL_ERROR);
-#endif // _NBL_DEBUG
 	return GL_INVALID_ENUM;
 }
 
@@ -925,7 +921,7 @@ static GLenum formatEnumToGLenum(IOpenGL_FunctionTable* gl, asset::E_FORMAT fmt)
 
 
 //! Get opengl values for the GPU texture storage
-inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
+inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type, const system::logger_opt_ptr logger = nullptr)
 {
 	using namespace asset;
 	// default
@@ -1694,7 +1690,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 	}
 
 	if (colorformat == GL_INVALID_ENUM || type == GL_INVALID_ENUM)
-		os::Printer::log("Unsupported upload format", ELL_ERROR);
+		logger.log("Unsupported upload format", system::ILogger::ELL_ERROR);
 }
 
 }

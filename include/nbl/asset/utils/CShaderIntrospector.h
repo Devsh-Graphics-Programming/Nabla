@@ -5,9 +5,11 @@
 #ifndef __NBL_ASSET_C_SHADER_INTROSPECTOR_H_INCLUDED__
 #define __NBL_ASSET_C_SHADER_INTROSPECTOR_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+
 #include <cstdint>
 #include <memory>
-#include "nbl/core/Types.h"
+
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPUComputePipeline.h"
@@ -15,15 +17,18 @@
 #include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 
+
+#include "nbl/core/definitions.h"
+
+
 namespace spirv_cross
 {
     class ParsedIR;
     class Compiler;
     struct SPIRType;
 }
-namespace nbl
-{
-namespace asset
+
+namespace nbl::asset
 {
 
 class CIntrospectionData : public core::IReferenceCounted
@@ -81,7 +86,7 @@ class CShaderIntrospector : public core::Uncopyable
 			ISpecializedShader::E_SHADER_STAGE stage;
 			std::string entryPoint;
 			core::smart_refctd_dynamic_array<std::string> GLSLextensions;
-			std::string filePathHint;
+			std::filesystem::path filePathHint;
 
             inline bool operator<(const SIntrospectionParams& rhs) const
             {
@@ -201,7 +206,6 @@ class CShaderIntrospector : public core::Uncopyable
         Params2ShaderMap m_introspectionCache;
 };
 
-}//asset
-}//nbl
+} // nbl::asset
 
 #endif

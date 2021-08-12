@@ -11,8 +11,8 @@
 #include <cctype>
 #include "stddef.h"
 #include "string.h"
-#include "irrString.h" // file&class to kill
-#include "path.h" // file&class to kill
+
+#include <nbl/system/path.h>
 
 namespace nbl
 {
@@ -138,7 +138,7 @@ namespace core
 	@param str2 Second string to compare.
 	@returns If sizes of the two strings differ - signed difference between two sizes (i.e. (str1.size()-str2.size()) );
 		Otherwise - an integral value indicating the relationship between the strings:
-			<0 - the first character that does not match has a lower value in str1 than in str2
+			<0 - the first character that does not match has a lower value in str1 t in str2
 			0  - both strings are equal
 			>0 - the first character that does not match has a greater value in str1 than in str2
 	*/
@@ -221,41 +221,14 @@ namespace core
 
 	// ----------- some basic quite often used string functions -----------------
 
-	//! Search if a filename has a proper extension.
-	/** Compares file's extension to three given extensions ignoring case.
-	@param filename String being the file's name.
-	@param ext The extensions to compare with.
-	@returns 0 if `filename` does not contain '.' (dot) character or neither of given extensions match. Otherwise an integral value indicating which of given extension matched.
-	*/
-	namespace impl
+	inline int32_t isFileExtension(const std::filesystem::path& filename, const std::initializer_list<std::string_view>& extensions)
 	{
-		template<typename string_type, typename ext_string_type>
-		inline bool compareStrings(int32_t& retval, const string_type& filename, const int32_t& extPos, const ext_string_type& ext)
-		{
-			retval++; 
-			return filename.equals_substring_ignore_case(ext, extPos);
-		}
-		template<typename string_type, typename ext_string_type, typename... rest_string_type>
-		inline bool compareStrings(int32_t& retval, const string_type& filename, const int32_t& extPos, const ext_string_type& ext, const rest_string_type&... exts)
-		{
-			if (compareStrings(retval, filename, extPos, ext))
-				return true;
-			return compareStrings(retval, filename, extPos, exts...);
-		}
-	}
-	template<typename string_type, typename... ext_string_type>
-	inline int32_t isFileExtension(const string_type& filename, const ext_string_type&... ext)
-	{
-		int32_t extPos = filename.findLast('.');
-		if (extPos < 0)
-			return 0;
-		extPos += 1;
-
-		int32_t retval = 0;
-		if (impl::compareStrings<string_type, ext_string_type...>(retval,filename, extPos, ext...))
-			return retval;
-		else
-			return 0;
+		std::string filename_str = filename.string();
+		std::string file_ext = filename.extension().string();
+		file_ext = nbl::system::extension_wo_dot(file_ext);
+		auto found = std::find(extensions.begin(), extensions.end(), file_ext);
+		if (found == extensions.end()) return 0;
+		return found - extensions.begin() + 1;
 	}
 
 	//! Search if a filename has a proper extension.
@@ -264,37 +237,10 @@ namespace core
 	@param ext Variadic list of extensions to compare with
 	@returns Boolean value indicating whether file is of one of given extensions.
 	*/
-	template<typename string_type, typename... ext_string_type>
-	inline bool hasFileExtension(const string_type& filename, const ext_string_type&... ext)
+	template<typename... ext_string_type>
+	inline bool hasFileExtension(const std::filesystem::path& filename, const ext_string_type&... ext)
 	{
-		return isFileExtension(filename, ext...) > 0;
-	}
-
-	//! Cuts the filename extension from a source file path and store it in a dest file path.
-	/** @param dest String to save the result.
-	@param source Source string.
-	@returns Reference to string with the result (i.e. first parameter).
-	*/
-	inline io::path& cutFilenameExtension(io::path& dest, const io::path& source)
-	{
-		int32_t endPos = source.findLast('.');
-		dest = source.subString(0, endPos < 0 ? source.size() : endPos);
-		return dest;
-	}
-
-	//! Gets the filename extension from a file path.
-	/** @param dest String to save the result.
-	@param source Source string.
-	@returns Reference to string with the result (i.e. first parameter).
-	*/
-	inline io::path& getFileNameExtension(io::path& dest, const io::path& source)
-	{
-		int32_t endPos = source.findLast('.');
-		if (endPos < 0)
-			dest = "";
-		else
-			dest = source.subString(endPos, source.size());
-		return dest;
+		return isFileExtension(filename, { ext... }) > 0;
 	}
 
 	//! Delete path from filename.
@@ -302,21 +248,9 @@ namespace core
 	@param filename File names string.
 	@returns Reference to filename (i.e. the parameter).
 	*/
-	inline io::path& deletePathFromFilename(io::path& filename)
+	inline std::filesystem::path& deletePathFromFilename(std::filesystem::path& filename)
 	{
-		// delete path from filename
-		const char* s = filename.c_str();
-		const char* p = s + filename.size();
-
-		// search for path separator or beginning
-		while (*p != '/' && *p != '\\' && p != s) //! On Linux just delete them
-			p--;
-
-		if (p != s)
-		{
-			++p;
-			filename = p;
-		}
+		filename = filename.filename();
 		return filename;
 	}
 
@@ -325,15 +259,15 @@ namespace core
 	@param pathCount Number of path-tokens to clip the given path to.
 	@returns Reference to the first parameter.
 	*/
-	inline io::path& deletePathFromPath(io::path& filename, int32_t pathCount)
+	inline std::filesystem::path& deletePathFromPath(std::filesystem::path& filename, int32_t pathCount)
 	{
 		// delete path from filename
-		int32_t i = filename.size();
+		int32_t i = filename.string().size();
 
 		// search for path separator or beginning
 		while (i >= 0)
 		{
-			if (filename[i] == '/' || filename[i] == '\\') //! On Linux just delete the '\\' from path
+			if (filename.string()[i] == '/' || filename.string()[i] == '\\') //! On Linux just delete the '\\' from path
 			{
 				if (--pathCount <= 0)
 					break;
@@ -343,8 +277,7 @@ namespace core
 
 		if (i > 0)
 		{
-			filename[i + 1] = 0;
-			filename.validate();
+			filename.string()[i + 1] = 0;
 		}
 		else
 			filename = "";
@@ -356,24 +289,24 @@ namespace core
 	@param file File name string.
 	@returns offset of directory. 0 means in same directory; 1 means file is direct child of path, etc.
 	*/
-	inline int32_t isInSameDirectory(const io::path& path, const io::path& file)
+	inline int32_t isInSameDirectory(const std::filesystem::path& path, const std::filesystem::path& file)
 	{
 		int32_t subA = 0;
 		int32_t subB = 0;
 		int32_t pos;
 
-		if (path.size() && !path.equalsn(file, path.size()))
+		if (path.string().size() && !std::equal(path.string().begin(), path.string().end(), file.string().begin()))
 			return -1;
 
 		pos = 0;
-		while ((pos = path.findNext('/', pos)) >= 0)
+		while ((pos = path.string().find("/", pos)) >= 0)
 		{
 			subA += 1;
 			pos += 1;
 		}
 
 		pos = 0;
-		while ((pos = file.findNext('/', pos)) >= 0)
+		while ((pos = file.string().find('/', pos)) >= 0)
 		{
 			subB += 1;
 			pos += 1;
@@ -385,9 +318,16 @@ namespace core
 	//! Replaces all occurences of backslash with regular slashes.
 	/** @param inout Pointer to string to modify.
 	*/
-	inline void handleBackslashes(io::path* inout)
+	inline void handleBackslashes(std::filesystem::path* inout)
 	{
-		inout->replace('\\', '/'); //! On Linux just delete them
+		std::replace(inout->string().begin(), inout->string().end(), '\\', '/'); //! On Linux just delete them
+	}
+
+
+	inline std::filesystem::path toLower(const std::filesystem::path& path)
+	{
+		return std::transform(path.string().begin(), path.string().end(), path.string().begin(),
+			[](unsigned char c) { return std::tolower(c); });
 	}
 
 	//! Splits a path into essential components.
@@ -398,37 +338,25 @@ namespace core
 	@param[out] extension Pointer to string where extension component will be returned.
 	@param[in] make_lower Whether to return all components as lower-case-only strings.
 	*/
-	inline void splitFilename(const io::path& name, io::path* path = 0,
-		io::path * filename = 0, io::path * extension = 0, bool make_lower = false)
+	inline void splitFilename(const std::filesystem::path& name, std::filesystem::path* path = 0,
+		std::filesystem::path * filename = 0, std::filesystem::path * extension = 0, bool make_lower = false)
 	{
-		int32_t i = name.size();
-		int32_t extpos = i;
-
-		// search for path separator or beginning
-		while (i >= 0)
+		if (path != nullptr)
 		{
-			if (name[i] == '.')
-			{
-				extpos = i;
-				if (extension)
-					* extension = name.subString(extpos + 1, name.size() - (extpos + 1), make_lower);
-			}
-			else
-				if (name[i] == '/' || name[i] == '\\') //! On Linux just delete them
-				{
-					if (filename)
-						* filename = name.subString(i + 1, extpos - (i + 1), make_lower);
-					if (path)
-					{
-						*path = name.subString(0, i + 1, make_lower);
-						handleBackslashes(path);
-					}
-					return;
-				}
-			i -= 1;
+			*path = name.parent_path();
+			handleBackslashes(path);
+			if (make_lower) *path = toLower(*path);
 		}
-		if (filename)
-			* filename = name.subString(0, extpos, make_lower);
+		if (filename != nullptr)
+		{
+			*filename = name.filename();
+			if (make_lower) *filename = toLower(*filename);
+		}
+		if (extension != nullptr)
+		{
+			*extension = name.extension();
+			if(make_lower) *extension = toLower(*extension);
+		}
 	}
 
 	//! some standard function ( to remove dependencies )

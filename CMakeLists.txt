@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
-# For conditions of distribution and use, see copyright notice in nabla.h
+# For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
 cmake_minimum_required(VERSION 3.20)
 #policies
@@ -236,7 +236,7 @@ endif(USE_CCACHE)
 # global IDE stuff for examples
 set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Cause CUDA is a special snowflake
 if (NBL_COMPILE_WITH_CUDA)
@@ -263,7 +263,10 @@ endif()
 
 macro(nbl_adjust_flags)
 	option(NBL_SANITIZE_ADDRESS OFF)
-	option(NBL_GCC_SANITIZE_THREAD OFF) # @Anastazluk did MSVC finally include the thread sanitizer?
+	
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		option(NBL_SANITIZE_THREAD OFF)
+	endif()
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		add_compile_options(
@@ -325,7 +328,7 @@ macro(nbl_adjust_flags)
 		if (NBL_SANITIZE_ADDRESS)
 			add_compile_options(-fsanitize=address) 
 		endif()
-		if (NBL_GCC_SANITIZE_THREAD)
+		if (NBL_SANITIZE_THREAD)
 			add_compile_options(-fsanitize=thread)
 		endif()
 		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)

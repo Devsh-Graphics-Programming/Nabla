@@ -11,15 +11,16 @@
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 
 #include "nbl/asset/interchange/IAssetWriter.h"
-
+#include "nbl/system/ISystem.h"
 namespace nbl::asset
 {
 
 class CImageWriterTGA : public asset::IAssetWriter
 {
+        core::smart_refctd_ptr<system::ISystem> m_system; // TODO: remove
     public:
-	//! constructor
-	CImageWriterTGA();
+	    //! constructor
+	    explicit CImageWriterTGA(core::smart_refctd_ptr<system::ISystem>&& sys);
 
         virtual const char** getAssociatedFileExtensions() const override
         {
@@ -36,10 +37,7 @@ class CImageWriterTGA : public asset::IAssetWriter
 
         virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-        virtual bool writeAsset(
-        	io::IWriteFile* _file, const SAssetWriteParams& _params,
-        	IAssetWriterOverride* _override = nullptr
-        ) override;
+        virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
 } // namespace nbl::asset

@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #include "CMountPointReader.h"
 
 #ifdef __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
@@ -26,12 +26,12 @@ CArchiveLoaderMount::CArchiveLoaderMount( io::IFileSystem* fs)
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CArchiveLoaderMount::isALoadableFileFormat(const io::path& filename) const
+bool CArchiveLoaderMount::isALoadableFileFormat(const std::filesystem::path& filename) const
 {
-	io::path fname(filename);
-	deletePathFromFilename(fname);
+	std::filesystem::path fname(filename);
+	core::deletePathFromFilename(fname);
 
-	if (!fname.size())
+	if (!fname.string().size())
 		return true;
 	IFileList* list = FileSystem->createFileList();
 	bool ret = false;
@@ -59,14 +59,14 @@ bool CArchiveLoaderMount::isALoadableFileFormat(io::IReadFile* file) const
 }
 
 //! Creates an archive from the filename
-IFileArchive* CArchiveLoaderMount::createArchive(const io::path& filename) const
+IFileArchive* CArchiveLoaderMount::createArchive(const std::filesystem::path& filename) const
 {
 	IFileArchive *archive = 0;
 
 	EFileSystemType current = FileSystem->setFileListSystem(FILESYSTEM_NATIVE);
 
-	const io::path save = FileSystem->getWorkingDirectory();
-	io::path fullPath = io::IFileSystem::flattenFilename(FileSystem->getAbsolutePath(filename));
+	const std::filesystem::path save = FileSystem->getWorkingDirectory();
+	std::filesystem::path fullPath = io::IFileSystem::flattenFilename(std::filesystem::absolute(filename));
 
 	if (FileSystem->changeWorkingDirectoryTo(fullPath))
 	{
@@ -87,14 +87,14 @@ IFileArchive* CArchiveLoaderMount::createArchive(io::IReadFile* file) const
 }
 
 //! compatible Folder Architecture
-CMountPointReader::CMountPointReader(IFileSystem * parent, const io::path& basename)
+CMountPointReader::CMountPointReader(IFileSystem * parent, const std::filesystem::path& basename)
 	: CFileList(basename), Parent(parent)
 {
 	//! ensure CFileList path ends in a slash
-	if (Path.lastChar() != '/' )
-		Path.append('/');
+	if (*Path.string().rbegin() != '/' )
+		Path += '/';
 
-	const io::path& work = Parent->getWorkingDirectory();
+	const std::filesystem::path& work = Parent->getWorkingDirectory();
 
 	Parent->changeWorkingDirectoryTo(basename);
 	buildDirectory();
@@ -117,8 +117,8 @@ void CMountPointReader::buildDirectory()
 	auto files = list->getFiles();
 	for (auto it=files.begin(); it!=files.end(); it++)
 	{
-		io::path full = it->FullName;
-		full = full.subString(Path.size(), full.size() - Path.size());
+		std::filesystem::path full = it->FullName;
+		full = full.string().substr(Path.string().size(), full.string().size() - Path.string().size());
 
 		if (!it->IsDirectory)
 		{
@@ -127,13 +127,13 @@ void CMountPointReader::buildDirectory()
 		}
 		else
 		{
-			const io::path rel = it->Name;
+			const std::filesystem::path rel = it->Name;
 			RealFileNames.push_back(it->FullName);
 
-			io::path pwd  = Parent->getWorkingDirectory();
-			if (pwd.lastChar() != '/')
-				pwd.append('/');
-			pwd.append(rel);
+			std::filesystem::path pwd  = Parent->getWorkingDirectory();
+			if (*pwd.string().rbegin() != '/')
+				pwd.string() += '/';
+			pwd += rel;
 
 			if ( rel != "." && rel != ".." )
 			{
@@ -149,7 +149,7 @@ void CMountPointReader::buildDirectory()
 }
 
 //! opens a file by file name
-IReadFile* CMountPointReader::createAndOpenFile(const io::path& filename)
+IReadFile* CMountPointReader::createAndOpenFile(const std::filesystem::path& filename)
 {
     auto found = findFile(Files.begin(),Files.end(),filename,false);
 	if (found != Files.end())
@@ -165,3 +165,4 @@ IReadFile* CMountPointReader::createAndOpenFile(const io::path& filename)
 } // nbl
 
 #endif // __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
+#endif

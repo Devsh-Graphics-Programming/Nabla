@@ -13,9 +13,10 @@
 #include <string>
 
 #include "nbl/macros.h"
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
+#include "nbl/core/SRange.h"
 
-namespace nbl { namespace core
+namespace nbl::core
 {
 
 //#define I_JUST_WANT_TO_COMFORTABLY_WRITE_CODE_AND_I_WILL_REMEMBER_TO_UNDEF_THIS_BEFORE_BUILD
@@ -828,7 +829,7 @@ public:
 };
 #endif //INTELLISENSE_WORKAROUND
 
-}}
+}
 
 #undef INSERT_IMPL_VEC
 #undef INSERT_IMPL_ASSOC

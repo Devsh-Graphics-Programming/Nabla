@@ -8,7 +8,7 @@
 #include <string>
 
 #include "nbl/video/IGPUImageView.h"
-#include "EDriverTypes.h"
+//#include "EDriverTypes.h"
 
 
 namespace nbl
@@ -21,7 +21,7 @@ namespace video
 	public:
 		//! Get type of video driver
 		/** \return Type of driver. */
-		virtual E_DRIVER_TYPE getDriverType() const =0;
+		//virtual E_DRIVER_TYPE getDriverType() const =0;
 
         //! enumeration for querying features of the video driver.
         enum E_DRIVER_FEATURE

@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_S_RANGE_H_INCLUDED__
 #define __NBL_CORE_S_RANGE_H_INCLUDED__
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
 #include "stddef.h"
 #include <type_traits>
@@ -14,9 +14,7 @@
 	\brief File containing SRange utility struct for C++11 range loops
 */
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 template<typename T, typename IteratorType = std::add_pointer_t<T>, typename ConstIteratorType = std::add_pointer_t<const T> >
@@ -54,7 +52,6 @@ inline SRange<U> SRange_static_cast(const SRange<T>& smart_ptr)
 }
 */
 
-} // end namespace core
-} // end namespace nbl
+} // end namespace nbl::core
 
 #endif

@@ -1,14 +1,11 @@
-#include "COpenGLBuffer.h"
+#include "nbl/video/COpenGLBuffer.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
-
-std::atomic_uint32_t COpenGLBuffer::s_reallocCounter = 0u;
 
 void COpenGLBuffer::destroyGLBufferObjectWrapper()
 {
@@ -18,7 +15,6 @@ void COpenGLBuffer::destroyGLBufferObjectWrapper()
     device->destroyBuffer(BufferName);
 }
 
-}
 }
 
 #endif

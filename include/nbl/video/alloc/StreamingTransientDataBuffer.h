@@ -15,7 +15,7 @@
         static inline void operator delete(void* ptr, size_t size)   noexcept {Base::operator delete(ptr,size);}\
         static inline void operator delete[](void* ptr, size_t size) noexcept {Base::operator delete[](ptr,size);}
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <cstring>
 

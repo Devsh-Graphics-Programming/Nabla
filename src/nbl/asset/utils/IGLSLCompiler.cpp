@@ -12,21 +12,21 @@
 
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
-#include "nbl_os.h"
 
 namespace nbl
 {
+using namespace system;
 namespace asset
 {
 
 static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_5;
 
-IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
+IGLSLCompiler::IGLSLCompiler(system::ISystem* _s) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s)
 {
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_fs));
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_s));
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
+core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly, system::logger_opt_ptr logger) const
 {
     //shaderc requires entry point to be "main" in GLSL
     if (strcmp(_entryPoint, "main") != 0)
@@ -53,7 +53,7 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
     }
 
     if (bin_res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        os::Printer::log(bin_res.GetErrorMessage(), ELL_ERROR);
+        logger.log(bin_res.GetErrorMessage(), system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
@@ -62,21 +62,24 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 	return spirv;
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly, system::logger_opt_ptr logger) const
 {
     auto spirvBuffer = compileSPIRVFromGLSL(_glslCode,_stage,_entryPoint,_compilationId,_genDebugInfo,_outAssembly);
 	if (!spirvBuffer)
 		return nullptr;
     if (_opt)
-        spirvBuffer = _opt->optimize(spirvBuffer.get());
+        spirvBuffer = _opt->optimize(spirvBuffer.get(), system::logger_opt_ptr(logger.get()));
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer));
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly, system::logger_opt_ptr logger) const
 {
-    std::string glsl(_sourcefile->getSize(), '\0');
-    _sourcefile->read(glsl.data(), glsl.size());
+    size_t fileSize = _sourcefile->getSize();
+    std::string glsl(fileSize, '\0');
+    system::future<size_t> future;
+   _sourcefile->read(future, glsl.data(), 0, fileSize);
+    future.get();
     return createSPIRVFromGLSL(glsl.c_str(), _stage, _entryPoint, _compilationId, _opt, _outAssembly);
 }
 
@@ -154,11 +157,11 @@ namespace impl
     class Includer : public shaderc::CompileOptions::IncluderInterface
     {
         const asset::IIncludeHandler* m_inclHandler;
-        const io::IFileSystem* m_fs;
+        const system::ISystem* m_system;
         const uint32_t m_maxInclCnt;
 
     public:
-        Includer(const asset::IIncludeHandler* _inclhndlr, const io::IFileSystem* _fs, uint32_t _maxInclCnt) : m_inclHandler(_inclhndlr), m_fs(_fs), m_maxInclCnt{_maxInclCnt} {}
+        Includer(const asset::IIncludeHandler* _inclhndlr, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_inclHandler(_inclhndlr), m_system(_fs), m_maxInclCnt{_maxInclCnt} {}
 
         //_requesting_source in top level #include's is what shaderc::Compiler's compiling functions get as `input_file_name` parameter
         //so in order for properly working relative #include's (""-type) `input_file_name` has to be path to file from which the GLSL source really come from
@@ -170,7 +173,7 @@ namespace impl
         {
             shaderc_include_result* res = new shaderc_include_result;
             std::string res_str;
-            io::path relDir;
+            std::filesystem::path relDir;
             const bool reqFromBuiltin = asset::IIncludeHandler::isBuiltinPath(_requesting_source);
             const bool reqBuiltin = asset::IIncludeHandler::isBuiltinPath(_requested_source);
             if (!reqFromBuiltin && !reqBuiltin)
@@ -179,17 +182,16 @@ namespace impl
                 //  This rule applies also while a builtin is #includ`ing another builtin.
                 //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
                 //  or path relative to executable's working directory (""-type).
-                relDir = io::IFileSystem::getFileDir(_requesting_source);
-                if (relDir.lastChar() != '/')
-                    relDir.append('/');
+                relDir = std::filesystem::path(_requesting_source).parent_path();
             }
 
-            io::path name = (_type == shaderc_include_type_relative) ? (relDir + _requested_source) : (_requested_source);
+            std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir.string() + _requested_source) : (_requested_source);
+
             if (!reqBuiltin)
-                name = m_fs->getAbsolutePath(name);
+                name = std::filesystem::absolute(name);
 
             if (_type == shaderc_include_type_relative)
-                res_str = m_inclHandler->getIncludeRelative(_requested_source, relDir.c_str());
+                res_str = m_inclHandler->getIncludeRelative(_requested_source, relDir.string());
             else //shaderc_include_type_standard
                 res_str = m_inclHandler->getIncludeStandard(_requested_source);
 
@@ -204,14 +206,14 @@ namespace impl
             else {
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
                 disableAllDirectivesExceptIncludes(res_str);
-                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, name.c_str() );
+                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, name.string().c_str() );
 
                 res->content_length = res_str.size();
                 res->content = new char[res_str.size()+1u];
                 strcpy(const_cast<char*>(res->content), res_str.c_str());
-                res->source_name_length = name.size();
-                res->source_name = new char[name.size()+1u];
-                strcpy(const_cast<char*>(res->source_name), name.c_str());
+                res->source_name_length = name.native().size();
+                res->source_name = new char[name.native().size()+1u];
+                strcpy(const_cast<char*>(res->source_name), name.string().c_str());
             }
 
             return res;
@@ -228,18 +230,18 @@ namespace impl
     };
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt, system::logger_opt_ptr logger) const
 {
     impl::disableAllDirectivesExceptIncludes(glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
     shaderc::CompileOptions options;
     options.SetTargetSpirv(TARGET_SPIRV_VERSION);
-    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_fs, _maxSelfInclusionCnt+1u));//custom #include handler
+    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_system, _maxSelfInclusionCnt+1u));//custom #include handler
     const shaderc_shader_kind stage = _stage==ISpecializedShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        os::Printer::log(res.GetErrorMessage(), ELL_ERROR);
+        logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
@@ -249,11 +251,13 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
     return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str());
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(system::IFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt, system::logger_opt_ptr logger) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
-    _sourcefile->read(glsl.data(), glsl.size());
-    return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt);
+    system::future<size_t> future;
+    _sourcefile->read(future, glsl.data(), 0, _sourcefile->getSize());
+    future.get();
+    return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt, logger);
 }
 
 }}

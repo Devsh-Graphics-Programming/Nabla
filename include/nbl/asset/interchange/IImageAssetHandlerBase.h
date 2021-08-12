@@ -5,22 +5,22 @@
 #ifndef __NBL_ASSET_I_IMAGE_ASSET_HANDLER_BASE_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_ASSET_HANDLER_BASE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
-#include "ILogger.h"
-#include "nbl_os.h"
+#include "nbl/system/ILogger.h"
 
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 
-namespace nbl::asset
+namespace nbl
+{
+namespace asset
 {
 
 class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 {
 	protected:
-
-		IImageAssetHandlerBase() = default;
+		IImageAssetHandlerBase() {}
 		virtual ~IImageAssetHandlerBase() = 0;
 
 	public:
@@ -63,7 +63,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		*/
 
 		template<asset::E_FORMAT outFormat = asset::EF_UNKNOWN>
-		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
+		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, const system::logger_opt_ptr logger, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
 		{ 
 			const auto& viewParams = imageView->getCreationParameters();
 			const auto& subresource = viewParams.subresourceRange;
@@ -88,7 +88,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				size_t bufferSize = 0u;
 				const TexelBlockInfo info(newImageParams.format);
 				const core::rational<size_t> bytesPerPixel = asset::getBytesPerPixel(newImageParams.format);
-				for (auto i=0u; i<newMipCount; i++)
+				for (auto i = 0; i < newMipCount; i++)
 				{
 					auto& region = newRegions->operator[](i);
 					region.bufferOffset = bufferSize;
@@ -124,7 +124,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				identityTransform = identityTransform && (mapping == (decltype(mapping)::ES_R + i) || mapping == (decltype(mapping)::ES_IDENTITY));
 			}
 
-			for (auto i=0u; i<newMipCount; i++)
+			for (auto i = 0; i < newMipCount; i++)
 			{
 				auto fillCommonState = [&](auto& state)
 				{
@@ -148,13 +148,13 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 
 					if (!COPY_FILTER::execute(&state)) // execute is a static method
-						os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
+						logger.log("Something went wrong while copying texel block data!", system::ILogger::ELL_ERROR);
 				}
 				else
 				{
 					if (asset::isBlockCompressionFormat(finalFormat)) // execute is a static method
 					{
-						os::Printer::log("Transcoding to Block Compressed formats not supported!", ELL_ERROR);
+						logger.log("Transcoding to Block Compressed formats not supported!", system::ILogger::ELL_ERROR);
 						return newImage;
 					}
 
@@ -163,7 +163,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.swizzle = viewParams.components;
 
 						if (!CONVERSION_FILTER::execute(&state)) // static method
-							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
+							logger.log("Something went wrong while converting the image!", system::ILogger::ELL_ERROR);
 				}
 			}
 
@@ -176,7 +176,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			and texel buffer attached as well.
 		*/
 
-		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image)
+		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, const system::logger_opt_ptr logger)
 		{
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
@@ -222,7 +222,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				state.outOffset = { 0, 0, 0 };
 				state.outBaseLayer = 0;
 
-				for (auto itr=0u; itr<newConvertedImage->getCreationParameters().mipLevels; ++itr)
+				for (auto itr = 0; itr < newConvertedImage->getCreationParameters().mipLevels; ++itr)
 				{
 					auto regionWithMipMap = newConvertedImage->getRegions(itr).begin();
 
@@ -232,7 +232,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
 					if (!convertFilter.execute(&state))
-						os::Printer::log("Something went wrong while converting from R8 to R8G8B8 format!", ELL_WARNING);
+						logger.log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
 				}
 			}
 			return newConvertedImage;
@@ -268,6 +268,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 	private:
 };
 
+}
 }
 
 #endif

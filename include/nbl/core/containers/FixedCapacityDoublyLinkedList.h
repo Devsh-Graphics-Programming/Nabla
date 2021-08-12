@@ -7,7 +7,7 @@
 
 
 #include "nbl/core/alloc/PoolAddressAllocator.h"
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
 #include <functional>
 
