@@ -8,17 +8,20 @@
 #include "IDriverMemoryAllocation.h"
 #include <algorithm>
 
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
 namespace nbl::video
 {
 
 // TODO: get rid of double defs
-typedef uint64_t VkDeviceSize;
+// typedef uint64_t VkDeviceSize;
 //placeholder until we configure Vulkan SDK
-typedef struct VkMemoryRequirements {
-    VkDeviceSize    size;
-    VkDeviceSize    alignment; /// Used and valid only in Vulkan
-    uint32_t        memoryTypeBits; /// Used and valid only in Vulkan
-} VkMemoryRequirements; //depr
+// typedef struct VkMemoryRequirements {
+//     VkDeviceSize    size;
+//     VkDeviceSize    alignment; /// Used and valid only in Vulkan
+//     uint32_t        memoryTypeBits; /// Used and valid only in Vulkan
+// } VkMemoryRequirements; //depr
 
 //! Interface from which resources backed by IDriverMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
 class IDriverMemoryBacked : public virtual core::IReferenceCounted

@@ -16,6 +16,9 @@
 #include "nbl/video/CVulkanSpecializedShader.h"
 #include "nbl/video/CVulkanCommandPool.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
+#include "nbl/video/CVulkanDescriptorSetLayout.h"
+#include "nbl/video/CVulkanSampler.h"
+#include "nbl/video/CVulkanPipelineLayout.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -357,8 +360,8 @@ protected:
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
         {
-            // Log a warning
-            return nullptr;
+        // Log a warning
+        return nullptr;
         }
         const CVulkanShader* unspecializedShader = static_cast<const CVulkanShader*>(_unspecialized);
 
@@ -399,7 +402,7 @@ protected:
         // createInfo.flags = 0; (reserved for future use by Vulkan)
         createInfo.codeSize = spirv->getSize();
         createInfo.pCode = reinterpret_cast<const uint32_t*>(spirv->getPointer());
-        
+
         VkShaderModule vk_shaderModule;
         if (vkCreateShaderModule(m_vkdev, &createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
@@ -427,9 +430,53 @@ protected:
         return nullptr;
     }
 
+    //
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
     {
-        return nullptr;
+        VkDescriptorSetLayoutBinding vk_dsLayoutBindings[100];
+
+        uint32_t bindingCount = std::distance(_begin, _end);
+        for (uint32_t b = 0u; b < bindingCount; ++b)
+        {
+            auto binding = _begin + b;
+
+#if 0
+            if (binding->samplers)
+            {
+                assert(binding->count <= 100);
+                VkSampler immutableSamplers[100];
+                for (uint32_t i = 0u; i < binding->count; ++i)
+                {
+                    if (binding->samplers[i]->getAPIType() != EAT_VULKAN)
+                        continue;
+
+                    immutableSamplers[i] = static_cast<const CVulkanSampler*>(binding->samplers[i].get())->getInternalObject();
+                }
+            }
+#endif
+
+            vk_dsLayoutBindings[b].binding = binding->binding;
+            vk_dsLayoutBindings[b].descriptorType = static_cast<VkDescriptorType>(binding->type);
+            vk_dsLayoutBindings[b].descriptorCount = binding->count;
+            vk_dsLayoutBindings[b].stageFlags = static_cast<VkShaderStageFlags>(binding->stageFlags);
+            vk_dsLayoutBindings[b].pImmutableSamplers = nullptr; // Todo(achal)
+        }
+
+        VkDescriptorSetLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+        createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkDescriptorSetLayoutBindingFlagsCreateInfo or VkMutableDescriptorTypeCreateInfoVALVE
+        createInfo.flags = 0; // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
+        createInfo.bindingCount = bindingCount;
+        createInfo.pBindings = vk_dsLayoutBindings;
+
+        VkDescriptorSetLayout vk_dsLayout;
+        if (vkCreateDescriptorSetLayout(m_vkdev, &createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(this, _begin, _end, vk_dsLayout);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
@@ -437,18 +484,99 @@ protected:
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr) override
     {
-        return nullptr;
+        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u; // temporary max, I believe
+
+        const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { _layout0, _layout1, _layout2,
+            _layout3 };
+
+        VkDescriptorSetLayout vk_dsLayouts[MAX_DESCRIPTOR_SET_LAYOUT_COUNT];
+        uint32_t dsLayoutCount = 0u;
+        for (uint32_t i = 0u; i < MAX_DESCRIPTOR_SET_LAYOUT_COUNT; ++i)
+        {
+            if (tmp[i] && (tmp[i]->getAPIType() == EAT_VULKAN))
+                vk_dsLayouts[dsLayoutCount++] = static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject();
+        }
+
+        const auto pcRangeCount = std::distance(_pcRangesBegin, _pcRangesEnd);
+        assert(pcRangeCount <= 100);
+        VkPushConstantRange vk_pushConstantRanges[100];
+        for (uint32_t i = 0u; i < pcRangeCount; ++i)
+        {
+            const auto pcRange = _pcRangesBegin + i;
+
+            vk_pushConstantRanges[i].stageFlags = static_cast<VkShaderStageFlags>(pcRange->stageFlags);
+            vk_pushConstantRanges[i].offset = pcRange->offset;
+            vk_pushConstantRanges[i].size = pcRange->size;
+        }
+
+        VkPipelineLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+        createInfo.pNext = nullptr; // pNext must be NULL
+        createInfo.flags = 0; // flags must be 0
+        createInfo.setLayoutCount = dsLayoutCount;
+        createInfo.pSetLayouts = vk_dsLayouts;
+        createInfo.pushConstantRangeCount = pcRangeCount;
+        createInfo.pPushConstantRanges = vk_pushConstantRanges;
+                
+        VkPipelineLayout vk_pipelineLayout;
+        if (vkCreatePipelineLayout(m_vkdev, &createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(this, _pcRangesBegin, _pcRangesEnd,
+                std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3),
+                vk_pipelineLayout);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
-    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(IGPUPipelineCache* _pipelineCache,
-        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader) override
+    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(
+        IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader) override
     {
         return nullptr;
     }
 
-    bool createGPUComputePipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
+    bool createGPUComputePipelines_impl(IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPUComputePipeline>* output) override
     {
+#if 0
+        assert(createInfos.size() <= 100);
+
+        const IGPUComputePipeline::SCreationParams* creationParams = createInfos.begin();
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            if ((creationParams[i].layout->getAPIType() != EAT_VULKAN) ||
+                (creationParams[i].shader->getAPIType() != EAT_VULKAN))
+            {
+                // Probably log warning 
+                return false;
+            }
+        }
+
+        VkComputePipelineCreateInfo vk_createInfos[100];
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            vk_createInfos[i].sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            vk_createInfos[i].pNext = nullptr; // pNext must be either NULL or a pointer to a valid instance of VkPipelineCompilerControlCreateInfoAMD, VkPipelineCreationFeedbackCreateInfoEXT, or VkSubpassShadingPipelineCreateInfoHUAWEI
+            vk_createInfos[i].flags = ;
+            VkPipelineShaderStageCreateInfo    stage;
+            VkPipelineLayout                   layout;
+            VkPipeline                         basePipelineHandle;
+            int32_t                            basePipelineIndex;
+        }
+
+        // vkCreateComputePipelines(m_vkdev, VK_NULL_HANDLE,
+        //     static_cast<uint32_t>(createInfos.size(), vk_createInfos, nullptr, vk_pipelines);
+
+        // struct SCreationParams
+        // {
+        //     core::smart_refctd_ptr<IGPUPipelineLayout> layout;
+        //     core::smart_refctd_ptr<IGPUSpecializedShader> shader;
+        // };
+        
+#endif
         return false;
     }
 

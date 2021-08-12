@@ -159,11 +159,13 @@ struct alignas(256) UniformBufferObject
 
 struct ArgumentReferenceSegment
 {
-	std::array<core::smart_refctd_ptr<core::IReferenceCounted>, 63> arguments;
+	ArgumentReferenceSegment() : arguments(), argCount(0u), nextBlock(nullptr) {}
 
-	// What is this nextBlock here for?
-	// What emplace would return?
-	uint32_t argCount, nextBlock;
+	constexpr static uint8_t MAX_REFERENCES = 62u;
+	std::array<core::smart_refctd_ptr<const core::IReferenceCounted>,MAX_REFERENCES> arguments;
+
+	uint8_t argCount;
+	ArgumentReferenceSegment* nextBlock;
 };
 
 struct DemoPOD
@@ -173,24 +175,46 @@ struct DemoPOD
 
 int main()
 {
-	// const uint32_t BLOCK_SIZE = 1ull << 21u;
-	// const uint32_t MAX_BLOCK_COUNT = 256u;
+#if 0
+	const uint32_t NODES_PER_BLOCK = 4096u;
+	const uint32_t MAX_BLOCK_COUNT = 256u;
 
-	// PoolAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply,
-	// 	_size_type alignOffsetNeeded, _size_type maxAllocatableAlignment,
-	// 	size_type bufSz, size_type blockSz)
-	// 1. How will calculate m_reservedSpace
-	// 2. 
+	core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,uint32_t>
+		mempool(NODES_PER_BLOCK*sizeof(ArgumentReferenceSegment),1u,MAX_BLOCK_COUNT,static_cast<uint32_t>(sizeof(ArgumentReferenceSegment)));
 
-	// void* reservedSpace = _NBL_ALIGNED_MALLOC(
-	// 	core::PoolAddressAllocator<uint32_t>::reserved_size(1u,
-	// 		MAX_BLOCK_COUNT * sizeof(ArgumentReferenceSegment), sizeof(ArgumentReferenceSegment)),
-	// 		_NBL_SIMD_ALIGNMENT);
+	auto* tail = mempool.emplace<ArgumentReferenceSegment>();
+	auto emplace_n = [&mempool](
+		ArgumentReferenceSegment* head,
+		const core::smart_refctd_ptr<const core::IReferenceCounted>* begin,
+		const core::smart_refctd_ptr<const core::IReferenceCounted>* end
+	)
+	{
+		for (auto it=begin; it!=end; it++)
+		{
+			// allocate new segment if overflow
+			if (head->argCount==ArgumentReferenceSegment::MAX_REFERENCES)
+			{
+				auto newHead = mempool.emplace<ArgumentReferenceSegment>();
+				head->nextBlock = newHead;
+				head = newHead;
+			}
+			// fill to the brim
+			const auto count = core::min(end-it,ArgumentReferenceSegment::MAX_REFERENCES-head->argCount);
+			std::copy_n(it,count,head->arguments.begin()+head->argCount);
+			it += count;
+			head->argCount += count;
+		}
+	};
 
-	// core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,
-	// 	core::default_aligned_allocator, uint32_t> mempool(1024 * 4096, 0u, MAX_BLOCK_COUNT, 64ull);
-
-	// _NBL_ALIGNED_FREE(reservedSpace);
+	auto free_all = [&mempool](ArgumentReferenceSegment* tail)
+	{
+		while (tail)
+		{
+			mempool.free<ArgumentReferenceSegment>(tail);
+			tail = tail->nextBlock;
+		}
+	};
+#endif
 
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
@@ -433,6 +457,45 @@ int main()
 	assert(device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT,
 		commandBuffers));
 
+	const uint32_t bindingCount = 2u;
+	video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
+	{
+		// image2D
+		bindings[0].binding = 0u;
+		bindings[0].type = asset::EDT_STORAGE_IMAGE;
+		bindings[0].count = 1u;
+		bindings[0].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		bindings[0].samplers = nullptr;
+
+		// ubo
+		bindings[1].binding = 1u;
+		bindings[1].type = asset::EDT_UNIFORM_BUFFER;
+		bindings[1].count = 1u;
+		bindings[1].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		bindings[1].samplers = nullptr;
+	}
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
+		device->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
+
+	// Todo(achal): Make use of push constants for something just to test
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
+		device->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
+
+#if 0
+	video::IGPUComputePipeline::SCreationParams createInfo = {};
+	createInfo.flags = static_cast<asset::E_PIPELINE_CREATE_FLAGS>(0);
+	createInfo.layout = ;
+	core::smart_refctd_ptr<IGPUSpecializedShader> shader;
+	core::smart_refctd_ptr<IGPUComputePipeline> basePipeline;
+	int32_t basePipelineIndex;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> computePipeline = nullptr;
+	device->createGPUComputePipelines(nullptr, 1u, &createInfo, &computePipeline);
+#endif
+
+
+
+
+
 	// Todo(achal): I think we can make it greater than SC_IMG_COUNT
 	const uint32_t FRAMES_IN_FLIGHT = 2u;
 
@@ -464,11 +527,6 @@ int main()
 	VkQueue vk_computeQueue = reinterpret_cast<video::CVulkanQueue*>(
 		computeQueue)->getInternalObject();
 
-	VkImage vk_swapchainImages[SC_IMG_COUNT];
-	uint32_t i = 0u;
-	for (auto image : swapchainImages)
-		vk_swapchainImages[i++] = reinterpret_cast<video::CVulkanImage*>(image.get())->getInternalObject();
-
 	VkImageView vk_swapchainImageViews[SC_IMG_COUNT];
 	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
 	{
@@ -483,6 +541,10 @@ int main()
 	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
 	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
 		vk_commandBuffers[i] = reinterpret_cast<video::CVulkanCommandBuffer*>(commandBuffers[i].get())->getInternalObject();
+
+	VkDescriptorSetLayout vk_dsLayout = reinterpret_cast<const video::CVulkanDescriptorSetLayout*>(dsLayout.get())->getInternalObject();
+
+	VkPipelineLayout vk_pipelineLayout = reinterpret_cast<const video::CVulkanPipelineLayout*>(pipelineLayout.get())->getInternalObject();
 
 	// Pure vulkan stuff
 
@@ -564,35 +626,6 @@ int main()
 		vkUnmapMemory(vk_device, vk_ubosMemory[i]);
 	}
 
-	VkDescriptorSetLayout vk_dsLayout;
-	{
-		// image2D
-		VkDescriptorSetLayoutBinding vk_dsLayoutImageBinding = {};
-		vk_dsLayoutImageBinding.binding = 0u;
-		vk_dsLayoutImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		vk_dsLayoutImageBinding.descriptorCount = 1u;
-		vk_dsLayoutImageBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		vk_dsLayoutImageBinding.pImmutableSamplers = nullptr;
-
-		// ubo
-		VkDescriptorSetLayoutBinding vk_dsLayoutUboBinding = {};
-		vk_dsLayoutUboBinding.binding = 1u;
-		vk_dsLayoutUboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		vk_dsLayoutUboBinding.descriptorCount = 1u;
-		vk_dsLayoutUboBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		vk_dsLayoutUboBinding.pImmutableSamplers = nullptr;
-
-		VkDescriptorSetLayoutBinding vk_dsLayoutBindings[] =
-		{ vk_dsLayoutImageBinding, vk_dsLayoutUboBinding };
-
-		VkDescriptorSetLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-		createInfo.pNext = nullptr;
-		createInfo.flags = 0;
-		createInfo.bindingCount = 2u;
-		createInfo.pBindings = vk_dsLayoutBindings;
-
-		assert(vkCreateDescriptorSetLayout(vk_device, &createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS);
-	}
 
 	VkDescriptorPool vk_descriptorPool = VK_NULL_HANDLE;
 	{
@@ -671,19 +704,6 @@ int main()
 		}
 	}
 
-	VkPipelineLayout vk_pipelineLayout;
-	{
-		VkPipelineLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-		createInfo.pNext = nullptr;
-		createInfo.flags = 0;
-		createInfo.setLayoutCount = 1u;
-		createInfo.pSetLayouts = &vk_dsLayout;
-		createInfo.pushConstantRangeCount = 0u;
-		createInfo.pPushConstantRanges = nullptr;
-
-		assert(vkCreatePipelineLayout(vk_device, &createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS);
-	}
-
 	VkPipeline vk_pipeline;
 	{
 		VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
@@ -746,6 +766,8 @@ int main()
 		assert(commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u,
 			&undefToComputeTransitionBarrier));
+
+		// commandBuffers[i]->bindComputePipeline()
 
 
 		vkCmdBindPipeline(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
@@ -822,8 +844,6 @@ int main()
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
 	}
 	device->waitIdle();
-
-	vkDestroyCommandPool(vk_device, vk_commandPool, nullptr);
 
 #if 0
 	constexpr uint32_t WIN_W = 1280;
@@ -1021,6 +1041,6 @@ int main()
 	device->waitIdle();
 
 #endif
-	// return 0;
-	exit(0);
+	return 0;
+	// exit(0);
 }
