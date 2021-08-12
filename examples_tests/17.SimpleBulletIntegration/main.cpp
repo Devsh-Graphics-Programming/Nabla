@@ -439,6 +439,7 @@ int main()
 
 	// Render
 	constexpr size_t MaxFramesToAverage = 100ull;
+	bool frameDataFilled = false;
 	size_t frame_count = 0ull;
 	double time_sum = 0;
 	double dtList[MaxFramesToAverage] = {};
@@ -475,10 +476,11 @@ int main()
 			frame_count++;
 			if(frame_count >= MaxFramesToAverage) {
 				frame_count = 0;
+				frameDataFilled = true;
 			}
 		}
-		double averageFrameTime = time_sum / (double)MaxFramesToAverage;
-		// logger->log("dt = %f ------ averageFrameTime = %f",system::ILogger::ELL_INFO, dt, averageFrameTime);
+		double averageFrameTime = (frameDataFilled) ? (time_sum / (double)MaxFramesToAverage) : (time_sum / frame_count);
+		logger->log("averageFrameTime = %f",system::ILogger::ELL_INFO, averageFrameTime);
 		
 		// Calculate Next Presentation Time Stamp
 		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
