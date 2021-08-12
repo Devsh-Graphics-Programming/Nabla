@@ -41,6 +41,7 @@ int main()
     auto assetManager = std::move(initOutput.assetManager);
     auto logger = std::move(initOutput.logger);
     auto inputSystem = std::move(initOutput.inputSystem);
+    auto system = std::move(initOutput.system);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
@@ -60,11 +61,9 @@ int main()
 
     asset::ICPUMesh* meshRaw = nullptr;
     const asset::COBJMetadata* metaOBJ = nullptr;
-    {
-        //auto* fileSystem = assetManager->getFileSystem();
-
-        //auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
-        //quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fileSystem, "../../tmp/normalCache101010.sse"); // Matt what about this?
+    {        
+        auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
+        quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
 
         //fileSystem->addFileArchive("../../media/sponza.zip"); 
 
@@ -84,7 +83,7 @@ int main()
         auto cpuMesh = meshes_bundle.getContents().begin()[0];
         meshRaw = static_cast<asset::ICPUMesh*>(cpuMesh.get());
 
-        //quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fileSystem, "../../tmp/normalCache101010.sse"); // Matt what about this?
+        quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
     }
 
     // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
