@@ -4,6 +4,7 @@
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanImage.h"
+#include "nbl/video/CVulkanComputePipeline.h"
 
 #include <volk.h>
 
@@ -288,7 +289,13 @@ public:
 
     bool bindComputePipeline(const compute_pipeline_t* pipeline) override
     {
-        return false;
+        if (pipeline->getAPIType() != EAT_VULKAN)
+            return false;
+
+        VkPipeline vk_pipeline = static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject();
+        vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
+
+        return true;
     }
 
     //virtual bool resetQueryPool(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;

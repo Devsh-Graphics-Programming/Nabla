@@ -21,6 +21,7 @@
 #include "nbl/video/CVulkanPipelineLayout.h"
 #include "nbl/video/CVulkanPipelineCache.h"
 #include "nbl/video/CVulkanComputePipeline.h"
+#include "nbl/video/CVulkanDescriptorPool.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -199,9 +200,38 @@ public:
         }
     }
             
-    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
+    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(
+        IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount,
+        const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
     {
-        return nullptr;
+        constexpr uint32_t MAX_DESCRIPTOR_POOL_SIZE_COUNT = 100u;
+
+        assert(poolSizeCount <= MAX_DESCRIPTOR_POOL_SIZE_COUNT);
+
+        // I wonder if I can memcpy the entire array
+        VkDescriptorPoolSize vk_descriptorPoolSizes[MAX_DESCRIPTOR_POOL_SIZE_COUNT];
+        for (uint32_t i = 0u; i < poolSizeCount; ++i)
+        {
+            vk_descriptorPoolSizes[i].type = static_cast<VkDescriptorType>(poolSizes[i].type);
+            vk_descriptorPoolSizes[i].descriptorCount = poolSizes[i].count;
+        }
+
+        VkDescriptorPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+        createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkDescriptorPoolInlineUniformBlockCreateInfoEXT or VkMutableDescriptorTypeCreateInfoVALVE
+        createInfo.flags = static_cast<VkDescriptorPoolCreateFlags>(flags);
+        createInfo.maxSets = maxSets;
+        createInfo.poolSizeCount = poolSizeCount;
+        createInfo.pPoolSizes = vk_descriptorPoolSizes;
+
+        VkDescriptorPool vk_descriptorPool;
+        if (vkCreateDescriptorPool(m_vkdev, &createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(this, vk_descriptorPool);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
             
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override

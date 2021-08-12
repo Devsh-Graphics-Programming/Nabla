@@ -477,7 +477,32 @@ int main()
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
 		device->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
-	// Todo(achal): Make use of push constants for something just to test
+	const uint32_t descriptorPoolSizeCount = 2u;
+	video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
+	poolSizes[0].type = asset::EDT_STORAGE_IMAGE;
+	poolSizes[0].count = SC_IMG_COUNT;
+	poolSizes[1].type = asset::EDT_UNIFORM_BUFFER;
+	poolSizes[1].count = SC_IMG_COUNT;
+
+	video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
+		static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
+
+	core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool
+		= device->createDescriptorPool(descriptorPoolFlags, SC_IMG_COUNT,
+			descriptorPoolSizeCount, poolSizes);
+
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSets[SC_IMG_COUNT];
+
+	// Todo(achal): Test this as well: 
+	// device->createGPUDescriptorSets(descriptorPool.get(), SC_IMG_COUNT, )
+
+	// for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	// {
+	// 	descriptorSets[i] = device->createGPUDescriptorSet(descriptorPool.get(),
+	// 		core::smart_refctd_ptr(dsLayout));
+	// }
+
+	// Todo(achal): Make use of push constants for something, just to test
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
 		device->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
 
@@ -523,8 +548,6 @@ int main()
 			swapchainImageViews[i].get())->getInternalObject();
 	}
 
-	VkShaderModule vk_shaderModule = reinterpret_cast<video::CVulkanSpecializedShader*>(specializedShader.get())->getInternalObject();
-
 	VkCommandPool vk_commandPool = reinterpret_cast<video::CVulkanCommandPool*>(commandPool.get())->getInternalObject();
 
 	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
@@ -536,6 +559,8 @@ int main()
 	VkPipelineLayout vk_pipelineLayout = reinterpret_cast<const video::CVulkanPipelineLayout*>(pipelineLayout.get())->getInternalObject();
 
 	VkPipeline vk_pipeline = reinterpret_cast<const video::CVulkanComputePipeline*>(pipeline.get())->getInternalObject();
+
+	VkDescriptorPool vk_descriptorPool = reinterpret_cast<const video::CVulkanDescriptorPool*>(descriptorPool.get())->getInternalObject();
 
 	// Pure vulkan stuff
 
@@ -615,25 +640,6 @@ int main()
 			&mappedMemoryAddress) == VK_SUCCESS);
 		memcpy(mappedMemoryAddress, &uboData_cpu[i], sizeof(UniformBufferObject));
 		vkUnmapMemory(vk_device, vk_ubosMemory[i]);
-	}
-
-	VkDescriptorPool vk_descriptorPool = VK_NULL_HANDLE;
-	{
-		const uint32_t descriptorPoolSizeStructsCount = 2u;
-		VkDescriptorPoolSize vk_poolSizes[descriptorPoolSizeStructsCount] = {};
-		vk_poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		vk_poolSizes[0].descriptorCount = SC_IMG_COUNT;
-		vk_poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		vk_poolSizes[1].descriptorCount = SC_IMG_COUNT;
-
-		VkDescriptorPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-		createInfo.pNext = nullptr;
-		createInfo.flags = 0;
-		createInfo.maxSets = SC_IMG_COUNT;
-		createInfo.poolSizeCount = descriptorPoolSizeStructsCount;
-		createInfo.pPoolSizes = vk_poolSizes;
-		
-		assert(vkCreateDescriptorPool(vk_device, &createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS);
 	}
 
 	VkDescriptorSet vk_descriptorSets[SC_IMG_COUNT];
@@ -735,10 +741,9 @@ int main()
 			asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u,
 			&undefToComputeTransitionBarrier));
 
-		// commandBuffers[i]->bindComputePipeline()
+		assert(commandBuffers[i]->bindComputePipeline(pipeline.get()));
 
-
-		vkCmdBindPipeline(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
+		// commandBuffers[i]->bindDescriptorSets(asset::EPBP_COMPUTE, pipelineLayout.get(), 0u, 1u, )
 
 		vkCmdBindDescriptorSets(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE,
 			vk_pipelineLayout, 0u, 1u, &vk_descriptorSets[i], 0u, nullptr);
