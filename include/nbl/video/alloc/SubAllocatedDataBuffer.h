@@ -257,7 +257,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             #endif // _NBL_DEBUG
             mAllocator.multi_free_addr(count,addr,bytes);
         }
-        template<typename T>
+        template<typename T=core::IReferenceCounted>
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IGPUFence>&& fence, const T*const *const objectsToDrop=nullptr) noexcept
         {
             if (fence)
