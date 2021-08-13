@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <nabla.h>
 
-#include "../common/QToQuitEventReceiver.h"
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
@@ -42,6 +41,7 @@ int main()
     auto logger = std::move(initOutput.logger);
     auto inputSystem = std::move(initOutput.inputSystem);
     auto system = std::move(initOutput.system);
+    auto windowCallback = std::move(initOutput.windowCb);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
@@ -164,7 +164,6 @@ int main()
         }
     }
 
-    QToQuitEventReceiver escaper;
     CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
     CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
@@ -182,7 +181,7 @@ int main()
         dtList[i] = 0.0;
 
     nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
-	while(escaper.keepOpen())
+	while(windowCallback->isWindowOpen())
 	{
         auto renderStart = std::chrono::system_clock::now();
         const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
@@ -214,7 +213,7 @@ int main()
 
         camera.beginInputProcessing(nextPresentationTimeStamp);
         mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-        keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); escaper.process(events); }, logger.get());
+        keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
         camera.endInputProcessing(nextPresentationTimeStamp);
 
         const auto& viewMatrix = camera.getViewMatrix();
@@ -312,7 +311,7 @@ int main()
         uint32_t imgnum = 0u;
         constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; // ns
         swapchain->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-
+        
         CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], img_acq_sem.get(), render_finished_sem.get());
         CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], render_finished_sem.get(), imgnum);
 	}

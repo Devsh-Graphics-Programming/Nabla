@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <nabla.h>
 
-#include "../common/QToQuitEventReceiver.h"
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
@@ -144,6 +143,7 @@ int main()
 	auto assetManager = std::move(initOutput.assetManager);
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
+	auto windowCallback = std::move(initOutput.windowCb);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
@@ -396,7 +396,6 @@ int main()
 	window->setCaption(captionData);
 
 	CEventReceiver eventReceiver;
-	QToQuitEventReceiver escaper;
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
@@ -413,7 +412,7 @@ int main()
 		dtList[i] = 0.0;
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
-	while (escaper.keepOpen())
+	while (windowCallback->isWindowOpen())
 	{
 		auto renderStart = std::chrono::system_clock::now();
 		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
@@ -441,7 +440,7 @@ int main()
 
 		camera.beginInputProcessing(nextPresentationTimeStamp);
 		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); eventReceiver.process(events); escaper.process(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); eventReceiver.process(events); }, logger.get());
 		camera.endInputProcessing(nextPresentationTimeStamp);
 
 		const auto& viewMatrix = camera.getViewMatrix();
