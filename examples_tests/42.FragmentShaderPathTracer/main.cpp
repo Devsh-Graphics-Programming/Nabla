@@ -89,7 +89,7 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Compute Shader PathTracer", asset::EF_D32_SFLOAT);
 	auto system = std::move(initOutput.system);
 	auto window = std::move(initOutput.window);
 	auto gl = std::move(initOutput.apiConnection);
@@ -198,7 +198,7 @@ int main()
 
 		return gpuImageView;
 	};
-
+	
 	auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
 
 	smart_refctd_ptr<IGPUBufferView> gpuSequenceBufferView;
@@ -335,9 +335,6 @@ int main()
 		device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
-	// auto blitFBO = driver->addFrameBuffer();
-	// blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
-	
 	auto lastTime = std::chrono::system_clock::now();
 	constexpr uint32_t FRAME_COUNT = 500000u;
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
