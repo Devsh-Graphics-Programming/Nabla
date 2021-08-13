@@ -14,7 +14,7 @@ using namespace core;
 using namespace asset;
 using namespace video;
 
-nbl::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat)
+smart_refctd_ptr<IGPUImageView> createHDRImageView(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat)
 {
 	auto driver = device->getVideoDriver();
 
@@ -46,102 +46,7 @@ nbl::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDe
 		gpuImageViewColorBuffer = driver->createGPUImageView(std::move(imgViewInfo));
 	}
 
-	auto frameBuffer = driver->addFrameBuffer();
-	frameBuffer->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(gpuImageViewColorBuffer));
-
-	return frameBuffer;
-}
-
-
-void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severity,
-                           GLsizei length, const GLchar* message, const void* userParam)
-{
-    core::stringc outStr;
-    switch (severity)
-    {
-        //case GL_DEBUG_SEVERITY_HIGH:
-        case GL_DEBUG_SEVERITY_HIGH_ARB:
-            outStr = "[H.I.G.H]";
-            break;
-        //case GL_DEBUG_SEVERITY_MEDIUM:
-        case GL_DEBUG_SEVERITY_MEDIUM_ARB:
-            outStr = "[MEDIUM]";
-            break;
-        //case GL_DEBUG_SEVERITY_LOW:
-        case GL_DEBUG_SEVERITY_LOW_ARB:
-            outStr = "[  LOW  ]";
-            break;
-        case GL_DEBUG_SEVERITY_NOTIFICATION:
-            outStr = "[  LOW  ]";
-            break;
-        default:
-            outStr = "[UNKNOWN]";
-            break;
-    }
-    switch (source)
-    {
-        //case GL_DEBUG_SOURCE_API:
-        case GL_DEBUG_SOURCE_API_ARB:
-            switch (type)
-            {
-                //case GL_DEBUG_TYPE_ERROR:
-                case GL_DEBUG_TYPE_ERROR_ARB:
-                    outStr += "[OPENGL  API ERROR]\t\t";
-                    break;
-                //case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
-                case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
-                    outStr += "[OPENGL  DEPRECATED]\t\t";
-                    break;
-                //case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
-                case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
-                    outStr += "[OPENGL   UNDEFINED]\t\t";
-                    break;
-                //case GL_DEBUG_TYPE_PORTABILITY:
-                case GL_DEBUG_TYPE_PORTABILITY_ARB:
-                    outStr += "[OPENGL PORTABILITY]\t\t";
-                    break;
-                //case GL_DEBUG_TYPE_PERFORMANCE:
-                case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-                    outStr += "[OPENGL PERFORMANCE]\t\t";
-                    break;
-                default:
-                    outStr += "[OPENGL       OTHER]\t\t";
-                    //! special sauce
-                    //return;
-                    break;
-            }
-            outStr += message;
-            break;
-        //case GL_DEBUG_SOURCE_SHADER_COMPILER:
-        case GL_DEBUG_SOURCE_SHADER_COMPILER_ARB:
-            outStr += "[SHADER]\t\t";
-            outStr += message;
-            break;
-        //case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM_ARB:
-            outStr += "[WINDOW SYS]\t\t";
-            outStr += message;
-            break;
-        //case GL_DEBUG_SOURCE_THIRD_PARTY:
-        case GL_DEBUG_SOURCE_THIRD_PARTY_ARB:
-            outStr += "[3RDPARTY]\t\t";
-            outStr += message;
-            break;
-        //case GL_DEBUG_SOURCE_APPLICATION:
-        case GL_DEBUG_SOURCE_APPLICATION_ARB:
-            outStr += "[APP]\t\t";
-            outStr += message;
-            break;
-        //case GL_DEBUG_SOURCE_OTHER:
-        case GL_DEBUG_SOURCE_OTHER_ARB:
-            outStr += "[OTHER]\t\t";
-            outStr += message;
-            break;
-        default:
-            break;
-    }
-    outStr += "\n";
-    printf("%s",outStr.c_str());
+	return gpuImageViewColorBuffer;
 }
 
 struct ShaderParameters
@@ -156,6 +61,21 @@ enum E_LIGHT_GEOMETRY
 	ELG_TRIANGLE,
 	ELG_RECTANGLE
 };
+
+struct DispatchInfo_t
+{
+	uint32_t workGroupCount[3];
+};
+
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_SIZE = 16u;
+
+DispatchInfo_t getDispatchInfo(uint32_t imgWidth, uint32_t imgHeight) {
+	DispatchInfo_t ret = {};
+	ret.workGroupCount[0] = (uint32_t)core::ceil<float>((float)imgWidth / (float)DEFAULT_WORK_GROUP_SIZE);
+	ret.workGroupCount[1] = (uint32_t)core::ceil<float>((float)imgHeight / (float)DEFAULT_WORK_GROUP_SIZE);
+	ret.workGroupCount[2] = 1;
+	return ret;
+}
 
 int main()
 {
@@ -175,23 +95,7 @@ int main()
 
 	device->getCursorControl()->setVisible(false);
 	auto driver = device->getVideoDriver();
-#ifdef _DEBUG
-	if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::NBL_KHR_debug])
-	{
-		glEnable(GL_DEBUG_OUTPUT);
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		video::COpenGLExtensionHandler::pGlDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, true);
 
-		video::COpenGLExtensionHandler::pGlDebugMessageCallback(openGLCBFunc, NULL);
-	}
-	else
-	{
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-		video::COpenGLExtensionHandler::pGlDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, true);
-
-		video::COpenGLExtensionHandler::pGlDebugMessageCallbackARB(openGLCBFunc, NULL);
-	}
-#endif
 	auto assetManager = device->getAssetManager();
 	auto sceneManager = device->getSceneManager();
 	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
@@ -210,62 +114,49 @@ int main()
 
 	sceneManager->setActiveCamera(camera);
 
-	IGPUDescriptorSetLayout::SBinding descriptorSet3Bindings[] = {
-		{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr },
-		{ 1u, EDT_UNIFORM_TEXEL_BUFFER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr },
-		{ 2u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr }
+	IGPUDescriptorSetLayout::SBinding descriptorSet0Bindings[] = {
+		{ 0u, EDT_STORAGE_IMAGE, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
 	};
 	IGPUDescriptorSetLayout::SBinding uboBinding {0, asset::EDT_UNIFORM_BUFFER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr};
-
+	IGPUDescriptorSetLayout::SBinding descriptorSet3Bindings[] = {
+		{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
+		{ 1u, EDT_UNIFORM_TEXEL_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
+		{ 2u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr }
+	};
+	
+	auto gpuDescriptorSetLayout0 = driver->createGPUDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
 	auto gpuDescriptorSetLayout1 = driver->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
 	auto gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+3u);
 
-	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(device->getAssetManager(), device->getVideoDriver());
-
-	auto createGpuResources = [&](std::string pathToShader) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
+	auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 	{
-		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShader, {}).getContents().begin()[0]);
-		ISpecializedShader::SInfo info = cpuFragmentSpecializedShader->getSpecializationInfo();
+		auto cpuComputeSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShader, {}).getContents().begin()[0]);
+
+
+		ISpecializedShader::SInfo info = cpuComputeSpecializedShader->getSpecializationInfo();
 		info.m_backingBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ShaderParameters));
 		memcpy(info.m_backingBuffer->getPointer(),&kShaderParameters,sizeof(ShaderParameters));
 		info.m_entries = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ISpecializedShader::SInfo::SMapEntry>>(2u);
 		for (uint32_t i=0; i<2; i++)
 			info.m_entries->operator[](i) = {i,i*sizeof(uint32_t),sizeof(uint32_t)};
-		cpuFragmentSpecializedShader->setSpecializationInfo(std::move(info));
-
-		auto gpuFragmentSpecialedShader = driver->getGPUObjectsFromAssets(&cpuFragmentSpecializedShader.get(), &cpuFragmentSpecializedShader.get() + 1)->front();
-		IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentSpecialedShader.get() };
-
-		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
-
-		asset::SBlendParams blendParams;
-		SRasterizationParams rasterParams;
-		rasterParams.faceCullingMode = EFCM_NONE;
-		rasterParams.depthCompareOp = ECO_ALWAYS;
-		rasterParams.minSampleShading = 1.f;
-		rasterParams.depthWriteEnable = false;
-		rasterParams.depthTestEnable = false;
 
 
-		auto gpuPipeline = driver->createGPURenderpassIndependentPipeline(
-			nullptr, std::move(gpuPipelineLayout),
-			shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
-			std::get<SVertexInputParams>(fullScreenTriangle), blendParams, std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
+		cpuComputeSpecializedShader->setSpecializationInfo(std::move(info));
 
-		SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
-		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuPipeline), nullptr, nullptr, std::move(idxBinding));
-		{
-			gpuMeshBuffer->setIndexCount(3u);
-		}
+		auto gpuComputeSpecializedShader = driver->getGPUObjectsFromAssets(&cpuComputeSpecializedShader.get(), &cpuComputeSpecializedShader.get() + 1)->front();
 
-		return { gpuPipeline, gpuMeshBuffer };
+		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout0), core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+
+		auto gpuPipeline = driver->createGPUComputePipeline(nullptr, std::move(gpuPipelineLayout), std::move(gpuComputeSpecializedShader));
+
+		return gpuPipeline;
 	};
 
-	E_LIGHT_GEOMETRY lightGeom = ELG_RECTANGLE;
-	constexpr const char* shaderPaths[] = {"../litBySphere.frag","../litByTriangle.frag","../litByRectangle.frag"};
-	auto gpuEnvmapResources = createGpuResources(shaderPaths[lightGeom]);
-	auto gpuEnvmapPipeline = gpuEnvmapResources.first;
-	auto gpuEnvmapMeshBuffer = gpuEnvmapResources.second;
+	E_LIGHT_GEOMETRY lightGeom = ELG_SPHERE;
+	constexpr const char* shaderPaths[] = {"../litBySphere.comp","../litByTriangle.comp","../litByRectangle.comp"};
+	auto gpuComputePipeline = createGpuResources(shaderPaths[lightGeom]);
+	
+	DispatchInfo_t dispatchInfo = getDispatchInfo(driver->getScreenSize().Width, driver->getScreenSize().Height);
 
 	auto createGPUImageView = [&](std::string pathToOpenEXRHDRIImage)
 	{
@@ -348,6 +239,27 @@ int main()
 		viewParams.subresourceRange.layerCount = 1u;
 		gpuScrambleImageView = driver->createGPUImageView(std::move(viewParams));
 	}
+	
+	// Create Out Image TODO
+	auto outImgView = createHDRImageView(device, asset::EF_R16G16B16A16_SFLOAT);
+
+	auto uboDescriptorSet0 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout0));
+	{
+		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet;
+		writeDescriptorSet.dstSet = uboDescriptorSet0.get();
+		writeDescriptorSet.binding = 0;
+		writeDescriptorSet.count = 1u;
+		writeDescriptorSet.arrayElement = 0u;
+		writeDescriptorSet.descriptorType = asset::EDT_STORAGE_IMAGE;
+		video::IGPUDescriptorSet::SDescriptorInfo info;
+		{
+			info.desc = outImgView;
+			info.image.sampler = nullptr;
+			info.image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
+		}
+		writeDescriptorSet.info = &info;
+		driver->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
+	}
 
 	auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
 	auto uboDescriptorSet1 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout1));
@@ -401,15 +313,16 @@ int main()
 		driver->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
-	auto HDRFramebuffer = createHDRFramebuffer(device, asset::EF_R16G16B16A16_SFLOAT);
+	auto blitFBO = driver->addFrameBuffer();
+	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
+
 	float colorClearValues[] = { 1.f, 1.f, 1.f, 1.f };
 
 	uint64_t lastFPSTime = 0;
 	while (device->run() && receiver.keepOpen())
 	if (device->isWindowFocused())
 	{
-		driver->setRenderTarget(HDRFramebuffer, false);
-		driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0, colorClearValues);
+		driver->beginScene(false, false);
 
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
@@ -430,15 +343,16 @@ int main()
 			memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
 			driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, sizeof(uboData), &uboData);
 
-			driver->bindGraphicsPipeline(gpuEnvmapPipeline.get());
-			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
-			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 3u, 1u, &descriptorSet3.get(), nullptr);
-			driver->drawMeshBuffer(gpuEnvmapMeshBuffer.get());
+			driver->bindComputePipeline(gpuComputePipeline.get());
+			driver->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0u, 1u, &uboDescriptorSet0.get(), nullptr);
+			driver->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
+			driver->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 3u, 1u, &descriptorSet3.get(), nullptr);
+			driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
 		}
 		// TODO: tone mapping and stuff
 
 		driver->setRenderTarget(nullptr, false);
-		driver->blitRenderTargets(HDRFramebuffer, nullptr, false, false);
+		driver->blitRenderTargets(blitFBO, nullptr, false, false);
 
 		driver->endScene();
 
@@ -454,5 +368,5 @@ int main()
 	}
 
 	// TODO: screenshot
-	ext::ScreenShot::createScreenShot(device, HDRFramebuffer->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot.exr");
+	ext::ScreenShot::createScreenShot(device, blitFBO->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot.exr");
 }

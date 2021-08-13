@@ -14,9 +14,22 @@ layout(set = 3, binding = 0) uniform sampler2D envMap;
 layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
 layout(set = 3, binding = 2) uniform usampler2D scramblebuf;
 
-layout(location = 0) in vec2 TexCoord;
+layout(set=0, binding=0, rgba16f) uniform image2D outImage;
 
-layout(location = 0) out vec4 pixelColor;
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#define _NBL_GLSL_WORKGROUP_SIZE_ 16
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=_NBL_GLSL_WORKGROUP_SIZE_, local_size_z=1) in;
+#endif
+
+ivec2 getCoordinates() {
+    return ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+}
+
+vec2 getTexCoords() {
+    ivec2 imageSize = imageSize(outImage);
+    ivec2 iCoords = getCoordinates();
+    return vec2(float(iCoords.x) / imageSize.x, float(iCoords.y) / imageSize.y);
+}
 
 
 #include <nbl/builtin/glsl/limits/numeric.glsl>
@@ -547,7 +560,6 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         bsdfLightIDs = getBSDFLightIDAndDetermineNormal(isotropic.N,objectID,intersection);
 
         isotropic.V.dir = -_immutable.direction;
-        //isotropic.V.dPosdScreen = screw that
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
         isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 
@@ -651,19 +663,27 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
 
 void main()
 {
-    if (((MAX_DEPTH-1)>>MAX_DEPTH_LOG2)>0 || ((SAMPLES-1)>>MAX_SAMPLES_LOG2)>0)
-    {
-        pixelColor = vec4(1.0,0.0,0.0,1.0);
+    const ivec2 coords = getCoordinates();
+    const vec2 texCoord = getTexCoords();
+
+    if (false == (all(lessThanEqual(ivec2(0),coords)) && all(greaterThan(imageSize(outImage),coords)))) {
         return;
     }
 
-	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,TexCoord,0).rg;
+    if (((MAX_DEPTH-1)>>MAX_DEPTH_LOG2)>0 || ((SAMPLES-1)>>MAX_SAMPLES_LOG2)>0)
+    {
+        vec4 pixelCol = vec4(1.0,0.0,0.0,1.0);
+        imageStore(outImage, coords, pixelCol);
+        return;
+    }
+
+	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,texCoord,0).rg;
     const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
 
 
     const mat4 invMVP = inverse(cameraData.params.MVP);
     
-    vec4 NDC = vec4(TexCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
+    vec4 NDC = vec4(texCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
     vec3 camPos;
     {
         vec4 tmp = invMVP*NDC;
@@ -743,7 +763,8 @@ void main()
             color = vec3(1.0,0.0,0.0);
     #endif
 
-    pixelColor = vec4(color, 1.0);
+    vec4 pixelCol = vec4(color, 1.0);
+    imageStore(outImage, coords, pixelCol);
 }
 /** TODO: Improving Rendering
 
