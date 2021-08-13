@@ -117,7 +117,7 @@ int main()
 	constexpr uint32_t PoolSizesCount = 5u;
 	nbl::video::IDescriptorPool::SDescriptorPoolSize poolSizes[PoolSizesCount] = {
 		{ EDT_STORAGE_BUFFER, 1},
-		{ EDT_STORAGE_IMAGE, 1},
+		{ EDT_STORAGE_IMAGE, 8},
 		{ EDT_COMBINED_IMAGE_SAMPLER, 2},
 		{ EDT_UNIFORM_TEXEL_BUFFER, 1},
 		{ EDT_UNIFORM_BUFFER, 1},
@@ -257,19 +257,25 @@ int main()
 	}
 	
 	// Create Out Image TODO
-	auto outImgView = createHDRImageView(device, asset::EF_R16G16B16A16_SFLOAT, WIN_W, WIN_H);
+	smart_refctd_ptr<IGPUImageView> outHDRImageViews[FBO_COUNT] = {};
+	for(uint32_t i = 0; i < FBO_COUNT; ++i) {
+		outHDRImageViews[i] = createHDRImageView(device, asset::EF_R16G16B16A16_SFLOAT, WIN_W, WIN_H);
+	}
 
-	auto uboDescriptorSet0 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout0));
+	core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSets0[FBO_COUNT] = {};
+	for(uint32_t i = 0; i < FBO_COUNT; ++i)
 	{
+		auto & descSet = descriptorSets0[i];
+		descSet = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout0));
 		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet;
-		writeDescriptorSet.dstSet = uboDescriptorSet0.get();
+		writeDescriptorSet.dstSet = descSet.get();
 		writeDescriptorSet.binding = 0;
 		writeDescriptorSet.count = 1u;
 		writeDescriptorSet.arrayElement = 0u;
 		writeDescriptorSet.descriptorType = asset::EDT_STORAGE_IMAGE;
 		video::IGPUDescriptorSet::SDescriptorInfo info;
 		{
-			info.desc = outImgView;
+			info.desc = outHDRImageViews[i];
 			info.image.sampler = nullptr;
 			info.image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
 		}
@@ -363,7 +369,6 @@ int main()
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 	
 	uint32_t resourceIx = 0;
-
 	while(escaper.keepOpen())
 	{
 		resourceIx++;
@@ -477,13 +482,35 @@ int main()
 		// cube envmap handle
 		{
 			cb->bindComputePipeline(gpuComputePipeline.get());
-			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0u, 1u, &uboDescriptorSet0.get(), nullptr);
+			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0u, 1u, &descriptorSets0[imgnum].get(), nullptr);
 			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
 			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 3u, 1u, &descriptorSet3.get(), nullptr);
 			cb->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
 		}
 		// TODO: tone mapping and stuff
-		
+
+		// Copy HDR Image to SwapChain
+		auto srcImgViewCreationParams = outHDRImageViews[imgnum]->getCreationParameters();
+		auto dstImgViewCreationParams = fbo[imgnum]->getCreationParameters().attachments[0]->getCreationParameters();
+
+		SImageBlit blit = {};
+		blit.srcOffsets[0] = {0, 0, 0};
+		blit.srcOffsets[1] = {WIN_W, WIN_H, 1};
+		blit.srcSubresource.aspectMask = srcImgViewCreationParams.subresourceRange.aspectMask;
+		blit.srcSubresource.mipLevel = srcImgViewCreationParams.subresourceRange.baseMipLevel;
+		blit.srcSubresource.baseArrayLayer = srcImgViewCreationParams.subresourceRange.baseArrayLayer;
+		blit.srcSubresource.layerCount = srcImgViewCreationParams.subresourceRange.layerCount;
+		blit.dstOffsets[0] = {0, 0, 0};
+		blit.dstOffsets[1] = {WIN_W, WIN_H, 1};
+		blit.dstSubresource.aspectMask = dstImgViewCreationParams.subresourceRange.aspectMask;
+		blit.dstSubresource.mipLevel = dstImgViewCreationParams.subresourceRange.baseMipLevel;
+		blit.dstSubresource.baseArrayLayer = dstImgViewCreationParams.subresourceRange.baseArrayLayer;
+		blit.dstSubresource.layerCount = dstImgViewCreationParams.subresourceRange.layerCount;
+
+		auto srcImg = srcImgViewCreationParams.image;
+		auto dstImg = dstImgViewCreationParams.image;
+		cb->blitImage(srcImg.get(), EIL_GENERAL, dstImg.get(), EIL_COLOR_ATTACHMENT_OPTIMAL, 1u, &blit , ISampler::ETF_NEAREST);
+
 		cb->endRenderPass();
 		cb->end();
 		
