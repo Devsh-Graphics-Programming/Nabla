@@ -583,18 +583,10 @@ set(NABLA_HEADERS_TO_INSTALL
 
 set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
 nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
