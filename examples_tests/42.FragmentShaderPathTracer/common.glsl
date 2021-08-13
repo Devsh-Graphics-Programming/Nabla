@@ -22,7 +22,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=_NBL_GLSL_WORKGROUP_
 #endif
 
 ivec2 getCoordinates() {
-    return ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    return ivec2(gl_GlobalInvocationID.xy);
 }
 
 vec2 getTexCoords() {
@@ -677,7 +677,7 @@ void main()
         return;
     }
 
-	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,texCoord,0).rg;
+	nbl_glsl_xoroshiro64star_state_t scramble_start_state = texelFetch(scramblebuf,coords,0).rg;
     const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
 
 
