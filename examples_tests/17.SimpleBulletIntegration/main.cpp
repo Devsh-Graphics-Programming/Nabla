@@ -7,7 +7,6 @@
 
 #include "../common/CommonAPI.h"
 #include "../common/Camera.hpp"
-#include "../common/QToQuitEventReceiver.h"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
@@ -166,6 +165,7 @@ int main()
 	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
 	auto system = std::move(initOutput.system);
 	auto window = std::move(initOutput.window);
+	auto windowCb = std::move(initOutput.windowCb);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
@@ -450,13 +450,12 @@ int main()
 	double dt = 0;
 	
 	// polling for events!
-	QToQuitEventReceiver escaper;
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 	
 	uint32_t resourceIx = 0;
 
-	while(escaper.keepOpen())
+	while(windowCb->isWindowOpen())
 	{
 		resourceIx++;
 		if(resourceIx >= FRAMES_IN_FLIGHT) {
@@ -495,7 +494,6 @@ int main()
 		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { cam.mouseProcess(events); }, logger.get());
 		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void {
 			cam.keyboardProcess(events); 
-			escaper.process(events); 
 		}, logger.get());
 		cam.endInputProcessing(nextPresentationTimeStamp);
 
