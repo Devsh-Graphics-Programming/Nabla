@@ -175,9 +175,8 @@ int main()
 		if (cpuindexbuffer)
 			cpubuffers.push_back(cpuindexbuffer);
 
-		auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + 1, cpu2gpuParams);
+		auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size(), cpu2gpuParams);
 		{
-			auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + 1, cpu2gpuParams);
 			if (!gpubuffers || gpubuffers->size() < 1u)
 				assert(false);
 		}
@@ -245,6 +244,7 @@ int main()
 	auto lastTime = std::chrono::system_clock::now();
 
 	constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+	bool frameDataFilled = false;
 	size_t frame_count = 0ull;
 	double time_sum = 0;
 	double dtList[NBL_FRAMES_TO_AVERAGE] = {};
@@ -263,9 +263,13 @@ int main()
 			dtList[frame_count] = renderDt;
 			frame_count++;
 			if (frame_count >= NBL_FRAMES_TO_AVERAGE)
+			{
+				frameDataFilled = true;
 				frame_count = 0;
+			}
+				
 		}
-		const double averageFrameTime = time_sum / (double)NBL_FRAMES_TO_AVERAGE;
+		const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
 
 		#ifdef NBL_MORE_LOGS
 				logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
