@@ -1,3 +1,5 @@
+#ifdef _NBL_PLATFORM_WINDOWS_
+
 #include "nbl/system/CFileWin32.h"
 
 #define LODWORD(_qw)    ((DWORD)(_qw))
@@ -67,3 +69,4 @@ void nbl::system::CFileWin32::seek(size_t position)
 	LONG hiDword = HIDWORD(position);
 	SetFilePointer(m_native, position, &hiDword, FILE_BEGIN);
 }
+#endif

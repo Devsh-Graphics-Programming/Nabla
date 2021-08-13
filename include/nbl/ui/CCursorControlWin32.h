@@ -1,5 +1,7 @@
 #ifndef __NBL_SYSTEM_C_CURSOR_CONTROL_WIN32_H_INCLUDED__
 #define __NBL_SYSTEM_C_CURSOR_CONTROL_WIN32_H_INCLUDED__
+#ifdef _NBL_PLATFORM_WINDOWS_
+
 #include "nbl/ui/ICursorControl.h"
 #include "nbl/ui/CWindowManagerWin32.h"
 
@@ -18,4 +20,5 @@ namespace nbl::ui
 		SRelativePosition getRelativePosition(IWindow* window) override;
 	};
 }
+#endif
 #endif

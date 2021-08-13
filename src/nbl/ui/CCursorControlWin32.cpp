@@ -1,3 +1,5 @@
+#ifdef _NBL_PLATFORM_WINDOWS_
+
 #include <Windows.h>
 
 #include "nbl/ui/CCursorControlWin32.h"
@@ -42,3 +44,4 @@ namespace nbl::ui
 		return { ((cursorPos.x + 0.5f - window->getX()) / float(window->getWidth()) - 0.5f) * 2, ((cursorPos.y + 0.5f - window->getY()) / float(window->getWidth()) - 0.5f) * 2 };
 	}
 }
+#endif

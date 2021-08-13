@@ -1,5 +1,6 @@
 #ifndef _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
 #define _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include "ISystem.h"
 #include "CFileWin32.h"
 
@@ -20,4 +21,5 @@ class CSystemCallerWin32 final : public ISystemCaller
 
 }
 
+#endif
 #endif

@@ -138,8 +138,8 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
     public:
 
-        IAsyncQueueDispatcher() = default;
-        ~IAsyncQueueDispatcher() = default;
+        IAsyncQueueDispatcher() {};
+        ~IAsyncQueueDispatcher() {};
 
         using mutex_t = typename base_t::mutex_t;
         using lock_t = typename base_t::lock_t;
