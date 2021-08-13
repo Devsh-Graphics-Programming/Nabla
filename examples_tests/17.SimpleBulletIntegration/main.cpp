@@ -159,7 +159,7 @@ int main()
 {
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
-	constexpr uint32_t FBO_COUNT = 1u;
+	constexpr uint32_t FBO_COUNT = 2u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
@@ -175,7 +175,7 @@ int main()
 	auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
-	auto fbo = std::move(initOutput.fbo[0]);
+	auto fbo = std::move(initOutput.fbo);
 	auto commandPool = std::move(initOutput.commandPool);
 	auto assetManager = std::move(initOutput.assetManager);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
@@ -537,7 +537,7 @@ int main()
 			clearValues[1].depthStencil.stencil = 0.0f;
 
 			info.renderpass = renderpass;
-			info.framebuffer = fbo;
+			info.framebuffer = fbo[imgnum];
 			info.clearValueCount = 2u;
 			info.clearValues = clearValues;
 			info.renderArea.offset = { 0, 0 };
