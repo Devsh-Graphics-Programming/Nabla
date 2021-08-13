@@ -62,7 +62,8 @@ int main()
 	nbl::video::IGPUDescriptorSetLayout::SBinding binding{ 0u, nbl::asset::EDT_COMBINED_IMAGE_SAMPLER, 1u, nbl::video::IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
 	auto gpuDescriptorSetLayout3 = logicalDevice->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 	auto gpuDescriptorPool = createDescriptorPool(1u); // per single texture
-	auto fullScreenTriangle = nbl::ext::FullScreenTriangle::createFullScreenTriangle(cpu2gpuParams);
+	auto& fullScreenTriangle = nbl::ext::FullScreenTriangle::createFullScreenTriangle(cpu2gpuParams);
+	auto gpuVertexShader = std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader>>(fullScreenTriangle);
 
 	auto createGPUPipeline = [&](nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE typeOfImage)
 	{
@@ -99,7 +100,7 @@ int main()
 			gpuFragmentShader = (*gpu_array)[0];
 		}
 
-		nbl::video::IGPUSpecializedShader* gpuShaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentShader.get() };
+		nbl::video::IGPUSpecializedShader* gpuShaders[2] = { gpuVertexShader.get(), gpuFragmentShader.get() };
 		nbl::asset::SBlendParams blendParams;
 		blendParams.logicOpEnable = false;
 		blendParams.logicOp = nbl::asset::ELO_NO_OP;
@@ -114,7 +115,7 @@ int main()
 
 		auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
-		return logicalDevice->createGPURenderpassIndependentPipeline
+		return logicalDevice->createGPURenderpassIndependentPipeline // TODO: crashes due to shaders
 		(
 			nullptr, 
 			std::move(gpuPipelineLayout),

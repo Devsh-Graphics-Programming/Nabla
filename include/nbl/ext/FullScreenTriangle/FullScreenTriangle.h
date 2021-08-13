@@ -14,7 +14,7 @@ namespace ext
 namespace FullScreenTriangle
 {
 
-inline auto createFullScreenTriangle(nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
+inline std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>, asset::SVertexInputParams, asset::SPrimitiveAssemblyParams>& createFullScreenTriangle(nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
 {
 	if (!cpu2gpuParams.assetManager)
 		assert(false);
@@ -31,7 +31,7 @@ inline auto createFullScreenTriangle(nbl::video::IGPUObjectFromAssetConverter::S
 	assert(!contents.empty());
 	auto pShader = static_cast<asset::ICPUSpecializedShader*>((contents.begin()->get()));
 
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuSpecializedShader;
+	auto& gpuSpecializedShader = std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader>>(retval);
 	{
 		auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&pShader, &pShader + 1, cpu2gpuParams);
 		if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
