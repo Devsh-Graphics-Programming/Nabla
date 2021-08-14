@@ -20,12 +20,12 @@
 ../../media/color_space_test/R8_2.png
 
 ; TGA, 24/32-bit & 8-bit grayscale (+RLE)
-../../media/color_space_test/R8G8B8_RLE.tga
+;../../media/color_space_test/R8G8B8_RLE.tga
 
-../../media/color_space_test/R8G8B8A8.tga
-../../media/color_space_test/R8G8B8A8_RLE.tga
+;../../media/color_space_test/R8G8B8A8.tga
+;../../media/color_space_test/R8G8B8A8_RLE.tga
 
-../../media/color_space_test/R8.tga
+;../../media/color_space_test/R8.tga
 
 
 ; DDS, RGBA Block Compression with mipmaps, cubemaps, arrays, cubemap mipmap images, grayscale

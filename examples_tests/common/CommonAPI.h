@@ -408,15 +408,6 @@ public:
 
 		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
 
-		result.cpu2gpuParams.assetManager = result.assetManager.get();
-		result.cpu2gpuParams.device = result.logicalDevice.get();
-		result.cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
-		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
-		result.cpu2gpuParams.pipelineCache = nullptr;
-		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue; // the queue is capable of transfering
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;  // the queue is capable of computing
-
 		return result;
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,

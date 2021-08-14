@@ -98,10 +98,10 @@ class IGPUObjectFromAssetConverter
             {
                 IGPUQueue* queue = nullptr;
                 //! If not null, fence will be written here. Written fence will be signaled once last operations of corresponding type (transfer/compute) are finished.
-                core::smart_refctd_ptr<IGPUFence>* const fence = nullptr;
+                core::smart_refctd_ptr<IGPUFence>* fence = nullptr;
                 //! If not null, semaphore will be written here. Written semaphore will be signaled once last operations of corresponding type (transfer/compute) are finished.
-                core::smart_refctd_ptr<IGPUSemaphore>* const semaphore = nullptr;
-                core::smart_refctd_ptr<IGPUEvent>* const event = nullptr;
+                core::smart_refctd_ptr<IGPUSemaphore>* semaphore = nullptr;
+                core::smart_refctd_ptr<IGPUEvent>* event = nullptr;
             };
 
             //! Required not null
