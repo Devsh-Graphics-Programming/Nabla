@@ -125,7 +125,7 @@ protected:
         COpenGLDebugCallback* _dbgCb
     ) : ISwapchain(dev,std::move(params)),
         m_threadHandler(
-            _egl,dev,static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
+            _egl,dev,static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject<EGLNativeWindowType>(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
         )
     {
         m_images = std::move(images);

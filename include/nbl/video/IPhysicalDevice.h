@@ -2,6 +2,7 @@
 #define __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
 
 #include "nbl/system/declarations.h"
+
 #include <type_traits>
 
 #include "nbl/asset/IImage.h" //for VkExtent3D only

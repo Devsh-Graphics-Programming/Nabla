@@ -23,8 +23,6 @@ class COpenGL_Connection final : public IAPIConnection
             return {&m_pdevice,&m_pdevice+1};
         }
 
-        core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const override;
-
         IDebugCallback* getDebugCallback() const override;
 
     private:
