@@ -32,6 +32,8 @@ public:
 
     E_STATUS wait(IOpenGL_FunctionTable* _gl, uint64_t timeout)
     {
+        if (!m_sync || !m_sync->isInitialized())
+            return ES_NOT_READY;
         COpenGLSync::E_STATUS status = m_sync->waitCPU(_gl, timeout);
         if (status == COpenGLSync::ES_FAIL)
             return ES_ERROR;
