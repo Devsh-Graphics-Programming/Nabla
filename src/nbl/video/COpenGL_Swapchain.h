@@ -264,10 +264,11 @@ private:
             }
 
             gl.extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-            egl->call.peglSwapBuffers(egl->display, surface);
             syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>();
             syncs[imgix]->init(m_device, &gl, false);
-            gl.glGeneral.pglFlush();
+            // swap buffers performs an implicit flush before swapping 
+            // https://www.khronos.org/registry/EGL/sdk/docs/man/html/eglSwapBuffers.xhtml
+            egl->call.peglSwapBuffers(egl->display, surface);
         }
 
         void exit(SThreadHandlerInternalState* gl)

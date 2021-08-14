@@ -203,6 +203,8 @@ class COpenGL_Queue final : public IGPUQueue
                     {
                         submit.syncToInit->init(m_device, &gl);
                     }
+                    else // need to flush, otherwise OpenGL goes gaslighting the user with wrong error messages
+                        gl.glGeneral.pglFlush();
 
                     //if (g_rdoc_api)
                     //	g_rdoc_api->EndFrameCapture(NULL, NULL);

@@ -609,11 +609,15 @@ protected:
                 auto& p = std::get<SRequestFlushMappedMemoryRanges>(req.params_variant);
                 for (auto mrng : p.memoryRanges)
                     gl.extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(mrng.memory)->getOpenGLName(), mrng.offset, mrng.length);
+                // too scarred to test without it
+                gl.glGeneral.pglFlush();
             }
                 break;
             case ERT_INVALIDATE_MAPPED_MEMORY_RANGES:
             {
                 gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+                // too scarred to test without it
+                gl.glGeneral.pglFlush();
             }
                 break;
             case ERT_MAP_BUFFER_RANGE:
@@ -622,6 +626,8 @@ protected:
 
                 void** pretval = reinterpret_cast<void**>(req.pretval);
                 pretval[0] = gl.extGlMapNamedBufferRange(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName(), p.offset, p.size, p.flags);
+                // too scarred to test without it
+                gl.glGeneral.pglFlush();
             }
                 break;
             case ERT_UNMAP_BUFFER:
@@ -671,6 +677,11 @@ protected:
             default: 
                 break;
             }
+            // Nvidia's OpenGL nastily gaslights the user with plain wrong errors, i.e. about invalid offsets and sizes when doing buffer2buffer copies
+            // there's nothing in the spec saying that I must flush after creating a buffer with ARB_buffer_storage on another context/thread in the sharelist
+            // but all this undocumented goodness has finally reared its head
+            if (isCreationRequest(req.type))
+                gl.glGeneral.pglFlush();
         }
 
         void exit(FunctionTableType* gl)
