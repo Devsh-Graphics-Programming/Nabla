@@ -300,7 +300,9 @@ int main()
 			beginInfo.clearValues = &clear;
 
 			commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
-			ext::FullScreenTriangle::recordDrawCalls(commandBuffer.get(), gpuGraphicsPipeline.get(), &gpuSamplerDescriptorSet3.get());
+			commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
+			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 3, 1, &gpuSamplerDescriptorSet3.get(), nullptr);
+			ext::FullScreenTriangle::recordDrawCalls(commandBuffer.get());
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
 

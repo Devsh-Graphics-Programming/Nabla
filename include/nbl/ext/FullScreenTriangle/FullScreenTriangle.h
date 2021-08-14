@@ -98,13 +98,26 @@ namespace nbl
 				records.
 			*/
 
-			inline bool recordDrawCalls(video::IGPUCommandBuffer* commandBuffer, video::IGPUGraphicsPipeline* gpuGraphicsPipeline, const video::IGPUDescriptorSet *const* gpuDescriptorSets, uint32_t descriptorSetNumber = 3, uint32_t descriptorSetCount = 1)
+			inline bool recordDrawCalls(video::IGPUCommandBuffer* commandBuffer)
 			{
 				_NBL_STATIC_INLINE_CONSTEXPR auto VERTEX_COUNT = 3;
 				_NBL_STATIC_INLINE_CONSTEXPR auto INSTANCE_COUNT = 1;
 
-				commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline);
-				commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), descriptorSetNumber, descriptorSetCount, gpuDescriptorSets, nullptr);
+				const nbl::video::IGPUBuffer* gpuBufferBindings[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+				{
+					for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+						gpuBufferBindings[i] = nullptr;
+				}
+
+				size_t bufferBindingsOffsets[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+				{
+					for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+						bufferBindingsOffsets[i] = 0;
+				}
+
+				commandBuffer->bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
+				commandBuffer->bindIndexBuffer(nullptr, 0, nbl::asset::EIT_UNKNOWN);
+
 				return commandBuffer->draw(VERTEX_COUNT, INSTANCE_COUNT, 0, 0);
 			}
 		}
