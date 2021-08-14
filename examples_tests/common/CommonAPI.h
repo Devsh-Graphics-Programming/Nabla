@@ -1,14 +1,10 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/ui/CWindowManagerWin32.h>
-#include <nbl/system/ISystem.h>
-#include <nbl/system/CStdoutLogger.h>
-#include <nbl/system/CFileLogger.h>
-#include <nbl/system/CColoredStdoutLoggerWin32.h>
-#include <nbl/system/CSystemWin32.h>
 
-#endif
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#endif // TODO more platforms
+// TODO: make these include themselves via `nabla.h`
 
 class CommonAPI
 {
@@ -343,8 +339,9 @@ public:
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
-		result.apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
-		result.surface = result.apiConnection->createSurface(result.window.get());
+		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+		result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+		result.apiConnection = _apiConnection;
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
