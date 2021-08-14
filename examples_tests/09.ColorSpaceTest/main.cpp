@@ -62,10 +62,9 @@ int main()
 	nbl::video::IGPUDescriptorSetLayout::SBinding binding{ 0u, nbl::asset::EDT_COMBINED_IMAGE_SAMPLER, 1u, nbl::video::IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
 	auto gpuDescriptorSetLayout3 = logicalDevice->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 	auto gpuDescriptorPool = createDescriptorPool(1u); // per single texture
-	auto& fullScreenTriangle = nbl::ext::FullScreenTriangle::createFullScreenTriangle(cpu2gpuParams);
-	auto gpuVertexShader = std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader>>(fullScreenTriangle);
+	auto& fstProtoPipeline = nbl::ext::FullScreenTriangle::createProtoPipeline(cpu2gpuParams);
 
-	auto createGPUPipeline = [&](nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE typeOfImage)
+	auto createGPUPipeline = [&](nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE typeOfImage) -> core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>
 	{
 		auto getPathToFragmentShader = [&]()
 		{
@@ -100,45 +99,13 @@ int main()
 			gpuFragmentShader = (*gpu_array)[0];
 		}
 
-		nbl::video::IGPUSpecializedShader* gpuShaders[2] = { gpuVertexShader.get(), gpuFragmentShader.get() };
-		nbl::asset::SBlendParams blendParams;
-		blendParams.logicOpEnable = false;
-		blendParams.logicOp = nbl::asset::ELO_NO_OP;
-		for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
-		nbl::asset::SRasterizationParams rasterParams;
-		rasterParams.faceCullingMode = nbl::asset::EFCM_NONE;
-		rasterParams.depthCompareOp = nbl::asset::ECO_ALWAYS;
-		rasterParams.minSampleShading = 1.f;
-		rasterParams.depthWriteEnable = false;
-		rasterParams.depthTestEnable = false;
-
 		auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
-
-		return logicalDevice->createGPURenderpassIndependentPipeline // TODO: crashes due to shaders
-		(
-			nullptr, 
-			std::move(gpuPipelineLayout),
-			gpuShaders,
-			gpuShaders + sizeof(gpuShaders) / sizeof(nbl::video::IGPUSpecializedShader*),
-			std::get<nbl::asset::SVertexInputParams>(fullScreenTriangle), 
-			blendParams,
-			std::get<nbl::asset::SPrimitiveAssemblyParams>(fullScreenTriangle),
-			rasterParams
-		);
+		return ext::FullScreenTriangle::createRenderpassIndependentPipeline(logicalDevice.get(), fstProtoPipeline, std::move(gpuFragmentShader), std::move(gpuPipelineLayout));
 	};
 
 	auto gpuPipelineFor2D = createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_2D);
 	auto gpuPipelineFor2DArrays = createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_2D_ARRAY);
 	auto gpuPipelineForCubemaps = createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_CUBE_MAP);
-
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> gpuMeshBuffer;
-	{
-		nbl::asset::SBufferBinding<nbl::video::IGPUBuffer> idxBinding{ 0ull, nullptr };
-		gpuMeshBuffer = core::make_smart_refctd_ptr<nbl::video::IGPUMeshBuffer>(nullptr, nullptr, nullptr, std::move(idxBinding));
-		gpuMeshBuffer->setIndexCount(3u);
-		gpuMeshBuffer->setInstanceCount(1u);
-	}
 
 	nbl::core::vector<nbl::core::smart_refctd_ptr<nbl::asset::ICPUImageView>> cpuImageViews;
 	nbl::core::vector<NBL_CAPTION_DATA_TO_DISPLAY> captionTexturesData;
@@ -333,9 +300,7 @@ int main()
 			beginInfo.clearValues = &clear;
 
 			commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
-			commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
-			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, currentGpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuSamplerDescriptorSet3.get(), nullptr);
-			commandBuffer->drawMeshBuffer(gpuMeshBuffer.get());
+			ext::FullScreenTriangle::recordDrawCalls(commandBuffer.get(), gpuGraphicsPipeline.get(), &gpuSamplerDescriptorSet3.get());
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
 
