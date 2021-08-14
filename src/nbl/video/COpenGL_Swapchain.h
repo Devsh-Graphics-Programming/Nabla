@@ -1,14 +1,16 @@
 #ifndef __NBL_VIDEO_C_OPENGL__SWAPCHAIN_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL__SWAPCHAIN_H_INCLUDED__
 
-#include "nbl/video/ISwapchain.h"
-#include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/system/IThreadHandler.h"
-#include "nbl/video/COpenGLImage.h"
+
+#include "nbl/video/ISwapchain.h"
 #include "nbl/video/surface/ISurfaceGL.h"
+
+#include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLSync.h"
 #include "nbl/video/COpenGLFence.h"
 #include "nbl/video/COpenGLSemaphore.h"
+#include "nbl/video/COpenGLImage.h"
 
 namespace nbl::video
 {
@@ -125,7 +127,7 @@ protected:
         COpenGLDebugCallback* _dbgCb
     ) : ISwapchain(dev,std::move(params)),
         m_threadHandler(
-            _egl,dev,static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject<EGLNativeWindowType>(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
+            _egl,dev,m_params.surface->getNativeWindowHandle(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
         )
     {
         m_images = std::move(images);
@@ -141,7 +143,7 @@ private:
     public:
         CThreadHandler(const egl::CEGL* _egl,
             IOpenGL_LogicalDevice* dev,
-            EGLNativeWindowType _window,
+            const void* _window,
             core::SRange<core::smart_refctd_ptr<IGPUImage>> _images,
             const COpenGLFeatureMap* _features,
             EGLContext _ctx,
@@ -165,7 +167,7 @@ private:
 
                 EGL_NONE
             };
-            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, _window, surface_attributes);
+            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, *reinterpret_cast<const EGLNativeWindowType*>(_window), surface_attributes);
             assert(surface != EGL_NO_SURFACE);
 
             base_t::start();

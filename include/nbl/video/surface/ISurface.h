@@ -17,6 +17,7 @@ class ISurface : public core::IReferenceCounted
 {
     protected:
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
+        ~ISurface() = default;
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
 
@@ -46,6 +47,19 @@ class ISurface : public core::IReferenceCounted
 
         // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
         virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
+
+        // used by some drivers
+        virtual const void* getNativeWindowHandle() const = 0;
+};
+
+template<class Window>
+class CSurface : public ISurface
+{
+    protected:
+        CSurface(core::smart_refctd_ptr<IAPIConnection>&& api, core::smart_refctd_ptr<Window>&& window) : ISurface(std::move(api)), m_window(std::move(window)) {}
+        ~CSurface() = default;
+
+        core::smart_refctd_ptr<Window> m_window;
 };
 
 }

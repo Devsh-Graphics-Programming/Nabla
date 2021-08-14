@@ -1,37 +1,58 @@
 #ifndef __NBL_I_SURFACE_GL_H_INCLUDED__
 #define __NBL_I_SURFACE_GL_H_INCLUDED__
 
+#include "nbl/ui/IWindowWin32.h"
+#include "nbl/ui/IWindowAndroid.h"
+#include "nbl/ui/IWindowX11.h"
+#include "nbl/ui/IWindowWayland.h"
+
 #include "nbl/video/surface/ISurface.h"
-#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/COpenGL_Connection.h"
 
 namespace nbl::video
 {
 
-class ISurfaceGL : public ISurface
+template<class Window>
+class CSurfaceGL final : public CSurface<Window>
 {
     public:
-        template<typename EGL_native_window_t>
-        inline EGL_native_window_t getInternalObject() const
+        using this_t = CSurfaceGL<Window>;
+        using base_t = CSurface<Window>;
+
+        template<video::E_API_TYPE API_TYPE>
+        static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, core::smart_refctd_ptr<Window>&& window)
         {
-            static_assert(sizeof(EGL_native_window_t)<=sizeof(void*));
-            EGL_native_window_t retval;
-            memcpy(&retval,&m_winHandle,sizeof(EGL_native_window_t));
-            return retval;
+            if (!api || !window)
+                return nullptr;
+            auto retval = new this_t>(std::move(api),std::move(window));
+            return core::smart_refctd_ptr<this_t>>(retval,core::dont_grab);
         }
 
         bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
         {
             const E_API_TYPE pdev_api = dev->getAPIType();
-            // GL/GLES backends have just 1 queue family
-            return (_queueFamIx == 0u) && ((pdev_api == EAT_OPENGL) || (pdev_api == EAT_OPENGL_ES));
+            // GL/GLES backends have just 1 queue family and device
+            return _queueFamIx==0u && dev==*base_t::m_api->getPhysicalDevices().begin()->get();
+        }
+
+        inline const void* getNativeWindowHandle() const override
+        {
+            return &base_t::m_window->getNativeHandle();
         }
 
     protected:
-        template<video::E_API_TYPE API_TYPE, typename EGL_native_window_t>
-        explicit ISurfaceGL(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, const EGL_native_window_t w) : ISurface(std::move(api)), m_winHandle(reinterpret_cast<const void*>(w)) {}
-
-        const void* m_winHandle;
+        template<video::E_API_TYPE API_TYPE>
+        explicit CSurfaceGL(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, core::smart_refctd_ptr<Window>&& window) : base_t(std::move(api),std::move(window))
+        {
+        }
 };
+
+
+// TODO: conditional defines
+using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
+//using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
+//using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
+//using CSurfaceGLWayland = CSurfaceGL<ui::IWindowWayland>;
 
 }
 

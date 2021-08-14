@@ -38,6 +38,7 @@
 
 // platform and API specific stuff
 #include "nbl/video/COpenGL_Connection.h"
+#include "nbl/video/surface/ISurfaceGL.h"
 
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"
