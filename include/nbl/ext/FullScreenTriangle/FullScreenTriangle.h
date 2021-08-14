@@ -15,7 +15,7 @@ namespace nbl
 		{
 			using NBL_PROTO_PIPELINE = std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>, asset::SVertexInputParams, asset::SPrimitiveAssemblyParams, asset::SBlendParams, nbl::asset::SRasterizationParams>;
 
-			inline NBL_PROTO_PIPELINE& createProtoPipeline(nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
+			inline NBL_PROTO_PIPELINE createProtoPipeline(nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
 			{
 				if (!cpu2gpuParams.assetManager)
 					assert(false);
