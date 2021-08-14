@@ -192,6 +192,16 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             return const_cast<IGPUBuffer*>(static_cast<const ThisType*>(this)->getBuffer());
         }
 
+        //!
+        inline void         cull_frees() noexcept
+        {
+            #ifdef _NBL_DEBUG
+            std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+            assert(tLock.owns_lock());
+            #endif // _NBL_DEBUG
+            deferredFrees.cullEvents(0u);
+        }
+
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
         inline size_type    max_size() noexcept
         {

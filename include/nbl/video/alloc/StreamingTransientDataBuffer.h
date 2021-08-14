@@ -61,6 +61,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
 
         inline void*        getBufferPointer() noexcept {return Base::mAllocator.getCurrentBufferAllocation().ptr;}
 
+        inline void         cull_frees() noexcept {Base::cull_frees();}
 
         inline size_type    max_size() noexcept {return Base::max_size();}
 
@@ -141,6 +142,14 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         inline void*        getBufferPointer() noexcept
         {
             return Base::getBufferPointer();
+        }
+
+        //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
+        inline void    cull_frees() noexcept
+        {
+            lock.lock();
+            Base::cull_frees();
+            lock.unlock();
         }
 
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!

@@ -290,8 +290,6 @@ public:
         for (uint32_t i = 0u; i < _count; ++i)
         {
             assert(_fences[i]);
-            auto* glfence = static_cast<COpenGLFence*>(_fences[i]);
-            assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
         }
 #endif
         auto tmp = SRequestWaitForFences::clock_t::now();

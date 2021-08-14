@@ -692,6 +692,11 @@ public:
                 submit.pWaitDstStageMask = nullptr;
                 queue->submit(1u,&submit,fence);
                 waitForFences(1u,&fence,false,9999999999ull);
+                //waitSemaphoreCount = 0u;
+                //semaphoresToWaitBeforeOverwrite = nullptr;
+                //stagesToWaitForPerSemaphore = nullptr;
+                // but before we reset we need to poll the events (which are tied to this fence)
+                m_defaultUploadBuffer.get()->cull_frees();
                 // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
                 resetFences(1u,&fence);
                 cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
