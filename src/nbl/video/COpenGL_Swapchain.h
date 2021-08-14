@@ -218,6 +218,10 @@ private:
             new (state_ptr) SThreadHandlerInternalState(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
             auto& gl = state_ptr[0];
 
+            #ifdef _NBL_DEBUG
+            gl.glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+            // TODO: debug message control (to exclude callback spam)
+            #endif
             if (m_dbgCb)
                 gl.extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
 

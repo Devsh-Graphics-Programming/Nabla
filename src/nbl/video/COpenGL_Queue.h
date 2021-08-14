@@ -121,7 +121,11 @@ class COpenGL_Queue final : public IGPUQueue
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
-
+                
+                #ifdef _NBL_DEBUG
+                gl.glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+                // TODO: debug message control (to exclude callback spam)
+                #endif
                 if (m_dbgCb)
                     gl.extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
 
