@@ -24,15 +24,17 @@ class CSurfaceGL final : public CSurface<Window>
         {
             if (!api || !window)
                 return nullptr;
-            auto retval = new this_t>(std::move(api),std::move(window));
-            return core::smart_refctd_ptr<this_t>>(retval,core::dont_grab);
+            auto retval = new this_t(std::move(api),std::move(window));
+            return core::smart_refctd_ptr<this_t>(retval,core::dont_grab);
         }
 
         bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
         {
             const E_API_TYPE pdev_api = dev->getAPIType();
             // GL/GLES backends have just 1 queue family and device
-            return _queueFamIx==0u && dev==*base_t::m_api->getPhysicalDevices().begin()->get();
+            assert(dev->getQueueFamilyProperties().size()==1u);
+            assert(base_t::m_api->getPhysicalDevices().size()==1u);
+            return _queueFamIx==0u && dev==base_t::m_api->getPhysicalDevices().begin()->get();
         }
 
         inline const void* getNativeWindowHandle() const override
