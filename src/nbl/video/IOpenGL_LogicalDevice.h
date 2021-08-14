@@ -609,15 +609,15 @@ protected:
                 auto& p = std::get<SRequestFlushMappedMemoryRanges>(req.params_variant);
                 for (auto mrng : p.memoryRanges)
                     gl.extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(mrng.memory)->getOpenGLName(), mrng.offset, mrng.length);
-                // too scarred to test without it
-                gl.glGeneral.pglFlush();
+                // section 5.3 of OpenGL 4.6 spec "Changes to mapped buffer data followed by a command such as Unmap-Buffer or FlushMappedBufferRange."
+                gl.glGeneral.pglFlush(); // see TODO at the end
             }
                 break;
             case ERT_INVALIDATE_MAPPED_MEMORY_RANGES:
             {
                 gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT);
-                // too scarred to test without it
-                gl.glGeneral.pglFlush();
+                // too scarred to test without it (does it fall under section 5.3 ?)
+                gl.glGeneral.pglFlush(); // see TODO at the end
             }
                 break;
             case ERT_MAP_BUFFER_RANGE:
@@ -626,8 +626,8 @@ protected:
 
                 void** pretval = reinterpret_cast<void**>(req.pretval);
                 pretval[0] = gl.extGlMapNamedBufferRange(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName(), p.offset, p.size, p.flags);
-                // too scarred to test without it
-                gl.glGeneral.pglFlush();
+                // section 5.3 of OpenGL 4.6 spec "Changes to mapped buffer data followed by a command such as Unmap-Buffer or FlushMappedBufferRange."
+                gl.glGeneral.pglFlush(); // see TODO at the end
             }
                 break;
             case ERT_UNMAP_BUFFER:
@@ -680,8 +680,13 @@ protected:
             // Nvidia's OpenGL nastily gaslights the user with plain wrong errors, i.e. about invalid offsets and sizes when doing buffer2buffer copies
             // there's nothing in the spec saying that I must flush after creating a buffer with ARB_buffer_storage on another context/thread in the sharelist
             // but all this undocumented goodness has finally reared its head
+            // TODO: OpenGL spec is worse and looser than Vulkan, because we use DSA this affects us, if we didnt it wouldn't.
+            // Anyway any creation, mapping, flushing (and maybe even invalidation call) would need to be wrapped up into an opaque API future,
+            // which is always ready on Vulkan, but on OpenGL its packaged together with a GLsync (or a faux fence+semaphore).
+            // Flushing is a particular PITA because its a not a thing that synchronises with the CPU.
+            // One could also want object creation to optionally only sync with a queue submission and not CPU (so a semaphore).
             if (isCreationRequest(req.type))
-                gl.glGeneral.pglFlush();
+                gl.glGeneral.pglFlush(); // see TODO above
         }
 
         void exit(FunctionTableType* gl)
