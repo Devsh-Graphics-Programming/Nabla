@@ -125,6 +125,10 @@ int main()
 					nbl::asset::IAssetLoader::SAssetLoadParams loadParams(0ull, nullptr, cachingFlags);
 					auto cpuTextureBundle = assetManager->getAsset(pathToTexture, loadParams);
 					auto cpuTextureContents = cpuTextureBundle.getContents();
+					{
+						bool status = !cpuTextureContents.empty();
+						assert(status);
+					}
 
 					if (cpuTextureContents.begin() == cpuTextureContents.end())
 						assert(false); // cannot perform test in this scenario
