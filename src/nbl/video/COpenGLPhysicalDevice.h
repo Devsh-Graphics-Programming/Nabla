@@ -31,7 +31,7 @@ public:
 protected:
 	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
 	{
-		return core::make_smart_refctd_ptr<COpenGLESLogicalDevice>(this,params,&m_egl,&m_glfeatures,m_config,m_gl_major,m_gl_minor);
+		return core::make_smart_refctd_ptr<COpenGLLogicalDevice>(this,params,&m_egl,&m_glfeatures,m_config,m_gl_major,m_gl_minor);
 	}
 
 private:
