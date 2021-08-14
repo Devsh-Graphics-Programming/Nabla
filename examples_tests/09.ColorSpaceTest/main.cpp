@@ -158,7 +158,6 @@ int main()
 						}
 					}
 
-					std::string finalFileNameWithExtension;
 					std::filesystem::path filename, extension;
 					core::splitFilename(pathToTexture.c_str(), nullptr, &filename, &extension);
 
@@ -179,9 +178,8 @@ int main()
 							assert(false);
 					}();
 					
-
-					finalFileNameWithExtension = filename.string() + ".";
-					finalFileNameWithExtension += extension.string();
+					const std::string finalFileNameWithExtension = captionData.name + captionData.extension;
+					std::cout << finalFileNameWithExtension << "\n";
 
 					auto tryToWrite = [&](asset::IAsset* asset)
 					{
