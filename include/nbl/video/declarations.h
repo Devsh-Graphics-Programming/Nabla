@@ -43,4 +43,8 @@
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"
 
+
+//
+#include "nbl/video/decl/IBackendObject.h"
+
 #endif

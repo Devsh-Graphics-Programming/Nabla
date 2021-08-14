@@ -539,35 +539,35 @@ protected:
             {
                 auto& p = std::get<SRequestBufferCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(device, &gl, p.mreqs, p.canModifySubdata);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.canModifySubdata);
             }
                 break;
             case ERT_BUFFER_VIEW_CREATE:
             {
                 auto& p = std::get<SRequestBufferViewCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBufferView>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBufferView>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBufferView>(device, &gl, std::move(p.buffer), p.format, p.offset, p.size);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBufferView>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.buffer), p.format, p.offset, p.size);
             }
                 break;
             case ERT_IMAGE_CREATE:
             {
                 auto& p = std::get<SRequestImageCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(device, &gl, std::move(p.params));
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:
             {
                 auto& p = std::get<SRequestImageViewCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImageView>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImageView>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImageView>(device, &gl, std::move(p.params));
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImageView>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
             }
                 break;
             case ERT_SAMPLER_CREATE:
             {
                 auto& p = std::get<SRequestSamplerCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUSampler>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLSampler>(device, &gl, p.params);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLSampler>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.params);
             }
                 break;
             case ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE:
@@ -591,9 +591,9 @@ protected:
                 auto& p = std::get<SRequestFenceCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUFence>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUFence>*>(req.pretval);
                 if (p.flags & IGPUFence::ECF_SIGNALED_BIT)
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device, &gl);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl);
                 else
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device));
                 // only fence create should flush, nothing else needs to do flush or wait idle
                 gl.glGeneral.pglFlush();
             }
@@ -754,7 +754,7 @@ protected:
             }
 
             return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
-                device, device, &gl,
+                core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl,
                 std::move(layout),
                 shaders.begin(), shaders.end(),
                 params.vertexInput, params.blend, params.primitiveAssembly, params.rasterization,
@@ -797,7 +797,7 @@ protected:
                 }
             }
 
-            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
+            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
         IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, uint64_t _timeout)
         {

@@ -41,7 +41,7 @@ public:
     }
 
     static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params,
-        IOpenGL_LogicalDevice* dev,
+        core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
         const egl::CEGL* _egl, 
         ImagesArrayType&& images, 
         const COpenGLFeatureMap* _features, 
@@ -72,8 +72,8 @@ public:
                 return nullptr;
         }
 
-        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params),dev,_egl,std::move(images),_features,_ctx,_config,_dbgCb);
-        return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
+        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params),std::move(dev),_egl,std::move(images),_features,_ctx,_config,_dbgCb);
+        return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc,core::dont_grab);
     }
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
@@ -118,16 +118,16 @@ protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
     COpenGL_Swapchain(
         SCreationParams&& params,
-        IOpenGL_LogicalDevice* dev,
+        core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
         const egl::CEGL* _egl,
         ImagesArrayType&& images,
         const COpenGLFeatureMap* _features,
         EGLContext _ctx,
         EGLConfig _config,
         COpenGLDebugCallback* _dbgCb
-    ) : ISwapchain(dev,std::move(params)),
+    ) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)),
         m_threadHandler(
-            _egl,dev,m_params.surface->getNativeWindowHandle(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
+            _egl,dev.get(),m_params.surface->getNativeWindowHandle(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
         )
     {
         m_images = std::move(images);

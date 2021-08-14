@@ -267,8 +267,7 @@ set(NBL_VIDEO_SOURCES
 
 # Property Pools
 	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
-	
-	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
+
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 

@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 
-COpenGLFramebuffer::COpenGLFramebuffer(IOpenGL_LogicalDevice* dev, SCreationParams&& params) : IGPUFramebuffer(dev, std::move(params)), m_device(dev)
+COpenGLFramebuffer::COpenGLFramebuffer(core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev, SCreationParams&& params) : IGPUFramebuffer(core::smart_refctd_ptr(dev), std::move(params)), m_device(dev.get())
 {
 }
 
