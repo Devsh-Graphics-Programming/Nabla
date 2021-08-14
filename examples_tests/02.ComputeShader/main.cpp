@@ -491,16 +491,100 @@ int main()
 		= device->createDescriptorPool(descriptorPoolFlags, SC_IMG_COUNT,
 			descriptorPoolSizeCount, poolSizes);
 
+	// For each swapchain image we have one descriptor set with two descriptors each
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSets[SC_IMG_COUNT];
 
 	// Todo(achal): Test this as well: 
 	// device->createGPUDescriptorSets(descriptorPool.get(), SC_IMG_COUNT, )
 
-	// for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-	// {
-	// 	descriptorSets[i] = device->createGPUDescriptorSet(descriptorPool.get(),
-	// 		core::smart_refctd_ptr(dsLayout));
-	// }
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		descriptorSets[i] = device->createGPUDescriptorSet(descriptorPool.get(),
+			core::smart_refctd_ptr(dsLayout));
+	}
+
+	core::smart_refctd_ptr<video::IGPUBuffer> ubos[SC_IMG_COUNT];
+
+	// Kinda janky to pass buffer size like this, I think, because we're overriding
+	// these values at the end of createGPUBuffer anyway (by the values obtained from
+	// vkGetBufferMemoryRequirements)
+	video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements = {};
+	memoryRequirements.vulkanReqs.size = sizeof(UniformBufferObject);
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+		ubos[i] = device->createGPUBuffer(memoryRequirements, true);
+
+	// Allocate memory for GPU buffer
+
+	// THIS IS ONLY USED FOR DETERMINING THE SIZE OF ALLOCATION FOR NOW
+	// Again kinda janky to pass size of allocation this way
+	video::IDriverMemoryBacked::SDriverMemoryRequirements additionalMemReqs = {};
+	additionalMemReqs.vulkanReqs.size = sizeof(UniformBufferObject);
+
+	core::smart_refctd_ptr<video::IDriverMemoryAllocation> ubosMemory[SC_IMG_COUNT];
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+		ubosMemory[i] = device->allocateDeviceLocalMemory(additionalMemReqs);
+
+	video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfos[SC_IMG_COUNT];
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		bindBufferInfos[i].buffer = ubos[i].get();
+		bindBufferInfos[i].memory = ubosMemory[i].get();
+		bindBufferInfos[i].offset = 0ull;
+	}
+	assert(device->bindBufferMemory(SC_IMG_COUNT, bindBufferInfos));
+
+	// Fill up ubos with dummy data
+	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer
+	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(ubosMemory[i].get(),
+			0ull, sizeof(UniformBufferObject));
+		void* mappedMemoryAddress = device->mapMemory(mappedMemoryRange);
+		assert(mappedMemoryAddress);
+
+		memcpy(mappedMemoryAddress, &uboData_cpu[i], sizeof(UniformBufferObject));
+
+		device->unmapMemory(ubosMemory[i].get());
+	}
+
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		const uint32_t writeDescriptorCount = 2u;
+
+		video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
+		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
+
+		// image2D
+		{
+			descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
+			descriptorInfos[0].image.sampler = nullptr;
+			descriptorInfos[0].desc = swapchainImageViews[i];
+
+			writeDescriptorSets[0].dstSet = descriptorSets[i].get();
+			writeDescriptorSets[0].binding = 0u;
+			writeDescriptorSets[0].arrayElement = 0u;
+			writeDescriptorSets[0].count = 1u;
+			writeDescriptorSets[0].descriptorType = asset::EDT_STORAGE_IMAGE;
+			writeDescriptorSets[0].info = &descriptorInfos[0];
+		}
+
+		// ubo
+		{
+			descriptorInfos[1].buffer.offset = 0ull;
+			descriptorInfos[1].buffer.size = sizeof(UniformBufferObject);
+			descriptorInfos[1].desc = ubos[i];
+
+			writeDescriptorSets[1].dstSet = descriptorSets[i].get();
+			writeDescriptorSets[1].binding = 1u;
+			writeDescriptorSets[1].arrayElement = 0u;
+			writeDescriptorSets[1].count = 1u;
+			writeDescriptorSets[1].descriptorType = asset::EDT_UNIFORM_BUFFER;
+			writeDescriptorSets[1].info = &descriptorInfos[1];
+		}
+
+		device->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
+	}
 
 	// Todo(achal): Make use of push constants for something, just to test
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
@@ -521,183 +605,6 @@ int main()
 		acquireSemaphores[i] = device->createSemaphore();
 		releaseSemaphores[i] = device->createSemaphore();
 		frameFences[i] = device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
-	}
-	
-	// Hacky vulkan stuff begins --get handles to existing Vulkan stuff
-	VkPhysicalDevice vk_physicalDevice = gpu->getInternalObject();
-	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
-
-	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
-	VkFence vk_frameFences[FRAMES_IN_FLIGHT];
-	{
-		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
-		{
-			vk_acquireSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(acquireSemaphores[i].get())->getInternalObject();
-			vk_releaseSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(releaseSemaphores[i].get())->getInternalObject();
-			vk_frameFences[i] = reinterpret_cast<video::CVulkanFence*>(frameFences[i].get())->getInternalObject();
-		}
-	}
-
-	VkQueue vk_computeQueue = reinterpret_cast<video::CVulkanQueue*>(
-		computeQueue)->getInternalObject();
-
-	VkImageView vk_swapchainImageViews[SC_IMG_COUNT];
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-	{
-		vk_swapchainImageViews[i] = reinterpret_cast<video::CVulkanImageView*>(
-			swapchainImageViews[i].get())->getInternalObject();
-	}
-
-	VkCommandPool vk_commandPool = reinterpret_cast<video::CVulkanCommandPool*>(commandPool.get())->getInternalObject();
-
-	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-		vk_commandBuffers[i] = reinterpret_cast<video::CVulkanCommandBuffer*>(commandBuffers[i].get())->getInternalObject();
-
-	VkDescriptorSetLayout vk_dsLayout = reinterpret_cast<const video::CVulkanDescriptorSetLayout*>(dsLayout.get())->getInternalObject();
-
-	VkPipelineLayout vk_pipelineLayout = reinterpret_cast<const video::CVulkanPipelineLayout*>(pipelineLayout.get())->getInternalObject();
-
-	VkPipeline vk_pipeline = reinterpret_cast<const video::CVulkanComputePipeline*>(pipeline.get())->getInternalObject();
-
-	VkDescriptorPool vk_descriptorPool = reinterpret_cast<const video::CVulkanDescriptorPool*>(descriptorPool.get())->getInternalObject();
-
-	// Pure vulkan stuff
-
-	// Create UBO (and their memory) per swapchain image
-	VkBuffer vk_ubos[SC_IMG_COUNT];
-	VkDeviceMemory vk_ubosMemory[SC_IMG_COUNT];
-	{
-		VkDeviceSize vk_uboSize = sizeof(UniformBufferObject);
-
-		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-		{
-			VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-			vk_createInfo.pNext = nullptr;
-			vk_createInfo.flags = 0;
-			vk_createInfo.size = vk_uboSize;
-			vk_createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-			vk_createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			vk_createInfo.queueFamilyIndexCount = 0u;
-			vk_createInfo.pQueueFamilyIndices = nullptr;
-
-			assert(vkCreateBuffer(vk_device, &vk_createInfo, nullptr, &vk_ubos[i]) == VK_SUCCESS);
-
-			VkMemoryRequirements vk_memoryRequirements;
-			vkGetBufferMemoryRequirements(vk_device, vk_ubos[i], &vk_memoryRequirements);
-
-			// Find the type of memory you want to allocate for this buffer, it has to have
-			// the following properties:
-			// 	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-			// i.e. should be visible to host application and should be coherent with host
-			// application
-
-			const uint32_t vk_supportedMemoryTypes = vk_memoryRequirements.memoryTypeBits;
-			const VkMemoryPropertyFlags vk_desiredMemoryProperties =
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-			uint32_t vk_memoryTypeIndex = ~0u;
-			{
-				VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
-				vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice,
-					&vk_physicalDeviceMemoryProperties);
-
-				for (uint32_t i = 0u; i < vk_physicalDeviceMemoryProperties.memoryTypeCount; ++i)
-				{
-					const bool isMemoryTypeSupportedForResource =
-						(vk_supportedMemoryTypes & (1 << i));
-
-					const bool doesMemoryHaveDesirableProperites =
-						(vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags
-							& vk_desiredMemoryProperties) == vk_desiredMemoryProperties;
-					if (isMemoryTypeSupportedForResource && doesMemoryHaveDesirableProperites)
-					{
-						vk_memoryTypeIndex = i;
-						break;
-					}
-				}
-			}
-			assert(vk_memoryTypeIndex != ~0u);
-
-			VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-			vk_allocateInfo.pNext = nullptr;
-			vk_allocateInfo.allocationSize = vk_uboSize;
-			vk_allocateInfo.memoryTypeIndex = vk_memoryTypeIndex;
-
-			assert(vkAllocateMemory(vk_device, &vk_allocateInfo, nullptr, &vk_ubosMemory[i]) == VK_SUCCESS);
-
-			assert(vkBindBufferMemory(vk_device, vk_ubos[i], vk_ubosMemory[i], 0) == VK_SUCCESS);
-		}
-	}
-
-	// Todo(achal): Would it make sense to ditch map/unmap now in favor of staging buffer now??
-	// Fill up ubos with dummy data
-	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-	{
-		void* mappedMemoryAddress;
-		assert(vkMapMemory(vk_device, vk_ubosMemory[i], 0, sizeof(UniformBufferObject), 0,
-			&mappedMemoryAddress) == VK_SUCCESS);
-		memcpy(mappedMemoryAddress, &uboData_cpu[i], sizeof(UniformBufferObject));
-		vkUnmapMemory(vk_device, vk_ubosMemory[i]);
-	}
-
-	VkDescriptorSet vk_descriptorSets[SC_IMG_COUNT];
-	{
-		VkDescriptorSetLayout vk_dsLayouts[SC_IMG_COUNT];
-		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-			vk_dsLayouts[i] = vk_dsLayout;
-
-		VkDescriptorSetAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
-		allocateInfo.pNext = nullptr;
-		allocateInfo.descriptorPool = vk_descriptorPool;
-		allocateInfo.descriptorSetCount = SC_IMG_COUNT;
-		allocateInfo.pSetLayouts = vk_dsLayouts;
-
-		assert(vkAllocateDescriptorSets(vk_device, &allocateInfo, vk_descriptorSets) == VK_SUCCESS);
-
-		// Update descriptor sets
-		for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-		{
-			VkDescriptorImageInfo vk_imageInfo = {};
-			vk_imageInfo.sampler = VK_NULL_HANDLE;
-			vk_imageInfo.imageView = vk_swapchainImageViews[i];
-			vk_imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-			VkDescriptorBufferInfo vk_bufferInfo = {};
-			vk_bufferInfo.buffer = vk_ubos[i];
-			vk_bufferInfo.offset = 0;
-			vk_bufferInfo.range = sizeof(UniformBufferObject);
-
-			const uint32_t descriptorCount = 2u;
-			VkWriteDescriptorSet vk_descriptorWrites[descriptorCount] = {};
-
-			// image2D
-			vk_descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			vk_descriptorWrites[0].pNext = nullptr;
-			vk_descriptorWrites[0].dstSet = vk_descriptorSets[i];
-			vk_descriptorWrites[0].dstBinding = 0u;
-			vk_descriptorWrites[0].dstArrayElement = 0u;
-			vk_descriptorWrites[0].descriptorCount = 1u;
-			vk_descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			vk_descriptorWrites[0].pImageInfo = &vk_imageInfo;
-			vk_descriptorWrites[0].pBufferInfo = nullptr;
-			vk_descriptorWrites[0].pTexelBufferView = nullptr;
-
-			// ubo
-			vk_descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			vk_descriptorWrites[1].pNext = nullptr;
-			vk_descriptorWrites[1].dstSet = vk_descriptorSets[i];
-			vk_descriptorWrites[1].dstBinding = 1u;
-			vk_descriptorWrites[1].dstArrayElement = 0u;
-			vk_descriptorWrites[1].descriptorCount = 1u; // this is probably for specifying an array of ubos
-			vk_descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			vk_descriptorWrites[1].pImageInfo = nullptr;
-			vk_descriptorWrites[1].pBufferInfo = &vk_bufferInfo;
-			vk_descriptorWrites[1].pTexelBufferView = nullptr;
-
-			vkUpdateDescriptorSets(vk_device, descriptorCount, vk_descriptorWrites, 0u, nullptr);
-		}
 	}
 
 	// Record commands in commandBuffers here
@@ -743,19 +650,81 @@ int main()
 
 		assert(commandBuffers[i]->bindComputePipeline(pipeline.get()));
 
-		// commandBuffers[i]->bindDescriptorSets(asset::EPBP_COMPUTE, pipelineLayout.get(), 0u, 1u, )
+		const video::IGPUDescriptorSet* tmp[] = { descriptorSets[i].get() };
+		assert(commandBuffers[i]->bindDescriptorSets(asset::EPBP_COMPUTE, pipelineLayout.get(),
+			0u, 1u, tmp));
 
-		vkCmdBindDescriptorSets(vk_commandBuffers[i], VK_PIPELINE_BIND_POINT_COMPUTE,
-			vk_pipelineLayout, 0u, 1u, &vk_descriptorSets[i], 0u, nullptr);
-
-		vkCmdDispatch(vk_commandBuffers[i], WIN_W, WIN_H, 1);
-
+		commandBuffers[i]->dispatch(WIN_W, WIN_H, 1);
 
 		assert(commandBuffers[i]->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT,
 			0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier));
 
-
 		commandBuffers[i]->end();
+	}
+
+
+
+
+	
+	// Hacky vulkan stuff begins --get handles to existing Vulkan stuff
+	VkPhysicalDevice vk_physicalDevice = gpu->getInternalObject();
+	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
+
+	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
+	VkFence vk_frameFences[FRAMES_IN_FLIGHT];
+	{
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+		{
+			vk_acquireSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(acquireSemaphores[i].get())->getInternalObject();
+			vk_releaseSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(releaseSemaphores[i].get())->getInternalObject();
+			vk_frameFences[i] = reinterpret_cast<video::CVulkanFence*>(frameFences[i].get())->getInternalObject();
+		}
+	}
+
+	VkQueue vk_computeQueue = reinterpret_cast<video::CVulkanQueue*>(
+		computeQueue)->getInternalObject();
+
+	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+		vk_commandBuffers[i] = reinterpret_cast<video::CVulkanCommandBuffer*>(commandBuffers[i].get())->getInternalObject();	
+
+	// Pure vulkan stuff
+
+	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	{
+		// Todo(achal): Need to do something about this
+		// Find the type of memory you want to allocate for this buffer, it has to have
+		// the following properties:
+		// 	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		// i.e. should be visible to host application and should be coherent with host
+		// application
+			
+		const uint32_t vk_supportedMemoryTypes = ubos[i]->getMemoryReqs().vulkanReqs.memoryTypeBits;
+		const VkMemoryPropertyFlags vk_desiredMemoryProperties =
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+		uint32_t vk_memoryTypeIndex = ~0u;
+		{
+			VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
+			vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice,
+				&vk_physicalDeviceMemoryProperties);
+
+			for (uint32_t i = 0u; i < vk_physicalDeviceMemoryProperties.memoryTypeCount; ++i)
+			{
+				const bool isMemoryTypeSupportedForResource =
+					(vk_supportedMemoryTypes & (1 << i));
+
+				const bool doesMemoryHaveDesirableProperites =
+					(vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags
+						& vk_desiredMemoryProperties) == vk_desiredMemoryProperties;
+				if (isMemoryTypeSupportedForResource && doesMemoryHaveDesirableProperites)
+				{
+					vk_memoryTypeIndex = i;
+					break;
+				}
+			}
+		}
+		assert(vk_memoryTypeIndex != ~0u);
 	}
 
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
@@ -1015,5 +984,4 @@ int main()
 
 #endif
 	return 0;
-	// exit(0);
 }

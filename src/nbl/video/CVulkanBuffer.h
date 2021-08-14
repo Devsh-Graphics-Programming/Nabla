@@ -6,6 +6,7 @@
 
 namespace nbl::video
 {
+
 class ILogicalDevice;
 
 class CVulkanBuffer : public IGPUBuffer
@@ -19,7 +20,29 @@ public:
 
     inline VkBuffer getInternalObject() const { return m_buffer; };
 
+    // Todo(achal): I don't think its possible
+    bool canUpdateSubRange() const override { return false; }
+
+    //! Returns the allocation which is bound to the resource
+    IDriverMemoryAllocation* getBoundMemory() override
+    {
+        return nullptr;
+    }
+
+    //! Constant version
+    const IDriverMemoryAllocation* getBoundMemory() const override
+    {
+        return nullptr;
+    }
+
+    //! Returns the offset in the allocation at which it is bound to the resource
+    size_t getBoundMemoryOffset() const override
+    {
+        return 0ull;
+    }
+
 private:
+    // Todo(achal): A smart_refctd_ptr to buffer's memory, perhaps?
     VkBuffer m_buffer;
 
 };

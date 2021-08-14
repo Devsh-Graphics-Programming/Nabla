@@ -325,6 +325,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanComputePipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 
 
 	#opengl

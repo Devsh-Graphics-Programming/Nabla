@@ -5,6 +5,8 @@
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanComputePipeline.h"
+#include "nbl/video/CVulkanPipelineLayout.h"
+#include "nbl/video/CVulkanDescriptorSet.h"
 
 #include <volk.h>
 
@@ -159,9 +161,11 @@ public:
         return false;
     }
 
+    // Doesn't really require the return value here
     bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
-        return false;
+        vkCmdDispatch(m_cmdbuf, groupCountX, groupCountY, groupCountZ);
+        return true;
     }
 
     bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
@@ -310,7 +314,32 @@ public:
         const descriptor_set_t* const* const pDescriptorSets,
         core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr) override
     {
-        return false;
+        if (layout->getAPIType() != EAT_VULKAN)
+            return false;
+
+        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 100u;
+
+        VkPipelineLayout vk_pipelineLayout = static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject();
+
+        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT];
+        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+        {
+            if (pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
+                vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
+        }
+
+        uint32_t vk_dynamicOffsetCount = 0u;
+        uint32_t* vk_dynamicOffsets = nullptr;
+        if (dynamicOffsets)
+        {
+            vk_dynamicOffsetCount = dynamicOffsets->size();
+            vk_dynamicOffsets = dynamicOffsets->begin();
+        }
+
+        vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+            vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, vk_dynamicOffsetCount, vk_dynamicOffsets);
+
+        return true;
     }
 
     bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override

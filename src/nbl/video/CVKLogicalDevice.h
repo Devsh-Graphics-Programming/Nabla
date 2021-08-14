@@ -22,6 +22,9 @@
 #include "nbl/video/CVulkanPipelineCache.h"
 #include "nbl/video/CVulkanComputePipeline.h"
 #include "nbl/video/CVulkanDescriptorPool.h"
+#include "nbl/video/CVulkanDescriptorSet.h"
+#include "nbl/video/CVulkanMemoryAllocation.h"
+#include "nbl/video/CVulkanBuffer.h"
 // #include "nbl/video/surface/ISurfaceVK.h"
 
 namespace nbl::video
@@ -249,7 +252,72 @@ public:
     {
         return;
     }
-            
+
+    //! Binds memory allocation to provide the backing for the resource.
+    /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
+    so pooling or aliasing memory for different resources is not possible.
+    There is no unbind, so once memory is bound it remains bound until you destroy the resource object.
+    Actually all resource classes in OpenGL implement both IDriverMemoryBacked and IDriverMemoryAllocation,
+    so effectively the memory is pre-bound at the time of creation.
+    \return true on success, always false under OpenGL.*/
+    bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override
+    {
+        for (uint32_t i = 0u; i < bindInfoCount; ++i)
+        {
+            if ((pBindInfos[i].buffer->getAPIType() != EAT_VULKAN) /*|| (pBindInfos[i].memory->getAPIType() != EAT_VULKAN)*/)
+                continue;
+
+            VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pBindInfos[i].buffer)->getInternalObject();
+            VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
+            if (vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
+                return false;
+        }
+
+        return true;
+    }
+
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs,
+        const bool canModifySubData = false) override
+    {
+        // Todo(achal): I would probably need to create an IGPUBuffer::SCreationParams
+        // Not sure about the course of action to resolve this yet.
+        VkBufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+        createInfo.flags = 0; // currently no way to specify these, could nbl::asset::IImage::E_CREATE_FLAGS be used here, but then
+        createInfo.size = initialMreqs.vulkanReqs.size;
+        createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; // currently no way to specify this, its high time though
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; 
+        createInfo.queueFamilyIndexCount = 0u; 
+        createInfo.pQueueFamilyIndices = nullptr;
+
+        VkBuffer vk_buffer;
+        if (vkCreateBuffer(m_vkdev, &createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
+        {
+            IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
+
+            // Not sure if I'd actually need these
+            bufferMemoryReqs.memoryHeapLocation = initialMreqs.memoryHeapLocation;
+            bufferMemoryReqs.mappingCapability = initialMreqs.mappingCapability;
+            bufferMemoryReqs.prefersDedicatedAllocation = initialMreqs.prefersDedicatedAllocation;
+            bufferMemoryReqs.requiresDedicatedAllocation = initialMreqs.requiresDedicatedAllocation;
+
+            vkGetBufferMemoryRequirements(m_vkdev, vk_buffer, &bufferMemoryReqs.vulkanReqs);
+
+            return core::make_smart_refctd_ptr<CVulkanBuffer>(this, bufferMemoryReqs, vk_buffer);
+        }
+        else
+        {
+            return nullptr;
+        }
+    }
+
+    //! Low level function used to implement the above, use with caution
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    {
+        return nullptr;
+    }
+        
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
         const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
@@ -262,8 +330,7 @@ public:
         
     }
 
-    // Todo(achal): There's already a createGPUImage method in ILogicalDevice
-    core::smart_refctd_ptr<IGPUImage> createGPUImage(IGPUImage::SCreationParams&& params)
+    core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) override
     {
 #if 0
         VkImageCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -287,6 +354,12 @@ public:
         return core::make_smart_refctd_ptr<CVulkanImage>(this, std::move(params));
 #endif
         return nullptr;
+    }
+
+    //! The counterpart of @see bindBufferMemory for images
+    bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
+    {
+        return false;
     }
             
     core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
@@ -318,8 +391,171 @@ public:
     void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
         uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override
     {
-        return;
+        constexpr uint32_t MAX_DESCRIPTOR_WRITE_COUNT = 100u;
+        constexpr uint32_t MAX_DESCRIPTOR_COPY_COUNT = 100u;
+        constexpr uint32_t MAX_DESCRIPTOR_ARRAY_COUNT = MAX_DESCRIPTOR_WRITE_COUNT;
+
+        // Todo(achal): This exceeds 16384 bytes on stack, move to heap
+
+        assert(descriptorWriteCount <= MAX_DESCRIPTOR_WRITE_COUNT);
+        VkWriteDescriptorSet vk_writeDescriptorSets[MAX_DESCRIPTOR_WRITE_COUNT];
+
+        uint32_t bufferInfoOffset = 0u;
+        VkDescriptorBufferInfo vk_bufferInfos[MAX_DESCRIPTOR_WRITE_COUNT * MAX_DESCRIPTOR_ARRAY_COUNT];
+
+        uint32_t imageInfoOffset = 0u;
+        VkDescriptorImageInfo vk_imageInfos[MAX_DESCRIPTOR_WRITE_COUNT * MAX_DESCRIPTOR_ARRAY_COUNT];
+
+        uint32_t bufferViewOffset = 0u;
+        VkBufferView vk_bufferViews[MAX_DESCRIPTOR_WRITE_COUNT * MAX_DESCRIPTOR_ARRAY_COUNT];
+
+        for (uint32_t i = 0u; i < descriptorWriteCount; ++i)
+        {
+            vk_writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            vk_writeDescriptorSets[i].pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkWriteDescriptorSetAccelerationStructureKHR, VkWriteDescriptorSetAccelerationStructureNV, or VkWriteDescriptorSetInlineUniformBlockEXT
+
+            const IGPUDescriptorSetLayout* layout = pDescriptorWrites[i].dstSet->getLayout();
+            if (layout->getAPIType() != EAT_VULKAN)
+                continue;
+
+            const CVulkanDescriptorSet* vulkanDescriptorSet = static_cast<const CVulkanDescriptorSet*>(pDescriptorWrites[i].dstSet);
+            vk_writeDescriptorSets[i].dstSet = vulkanDescriptorSet->getInternalObject();
+
+            vk_writeDescriptorSets[i].dstBinding = pDescriptorWrites[i].binding;
+            vk_writeDescriptorSets[i].dstArrayElement = pDescriptorWrites[i].arrayElement;
+            vk_writeDescriptorSets[i].descriptorCount = pDescriptorWrites[i].count;
+            vk_writeDescriptorSets[i].descriptorType = static_cast<VkDescriptorType>(pDescriptorWrites[i].descriptorType);
+
+            assert(pDescriptorWrites[i].count <= MAX_DESCRIPTOR_ARRAY_COUNT);
+
+            switch (pDescriptorWrites[i].info->desc->getTypeCategory())
+            {
+                case asset::IDescriptor::EC_BUFFER:
+                {
+                    for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
+                    {
+                        // if (pDescriptorWrites[i].info[j].desc->getAPIType() != EAT_VULKAN)
+                        //     continue;
+
+                        VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
+
+                        vk_bufferInfos[j].buffer = vk_buffer;
+                        vk_bufferInfos[j].offset = pDescriptorWrites[i].info[j].buffer.offset;
+                        vk_bufferInfos[j].range = pDescriptorWrites[i].info[j].buffer.size;
+                    }
+
+                    vk_writeDescriptorSets[i].pBufferInfo = vk_bufferInfos + bufferInfoOffset;
+                    bufferInfoOffset += pDescriptorWrites[i].count;
+                } break;
+
+                case asset::IDescriptor::EC_IMAGE:
+                {
+                    for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
+                    {
+                        auto descriptorWriteImageInfo = pDescriptorWrites[i].info[j].image;
+
+                        VkSampler vk_sampler = VK_NULL_HANDLE;
+                        if (descriptorWriteImageInfo.sampler && (descriptorWriteImageInfo.sampler->getAPIType() == EAT_VULKAN))
+                            vk_sampler = static_cast<const CVulkanSampler*>(descriptorWriteImageInfo.sampler.get())->getInternalObject();
+
+                        // if (pDescriptorWrites[i].info[j].desc->getAPIType() != EAT_VULKAN)
+                        //     continue;
+                        VkImageView vk_imageView = static_cast<const CVulkanImageView*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
+
+                        vk_imageInfos[j].sampler = vk_sampler;
+                        vk_imageInfos[j].imageView = vk_imageView;
+                        vk_imageInfos[j].imageLayout = static_cast<VkImageLayout>(descriptorWriteImageInfo.imageLayout);
+                    }
+
+                    vk_writeDescriptorSets[i].pImageInfo = vk_imageInfos + imageInfoOffset;
+                    imageInfoOffset += pDescriptorWrites[i].count;
+                } break;
+
+                case asset::IDescriptor::EC_BUFFER_VIEW:
+                {
+                    // Todo(achal): Implement when you create the buffer view stuff
+                    assert(false);
+                } break;
+            }
+        }
+
+        assert(descriptorCopyCount <= MAX_DESCRIPTOR_COPY_COUNT);
+        VkCopyDescriptorSet vk_copyDescriptorSets[MAX_DESCRIPTOR_COPY_COUNT];
+
+        for (uint32_t i = 0u; i < descriptorCopyCount; ++i)
+        {
+            vk_copyDescriptorSets[i].sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+            vk_copyDescriptorSets[i].pNext = nullptr; // pNext must be NULL
+
+            // if (pDescriptorCopies[i].srcSet->getAPIType() != EAT_VULKAN)
+            //     continue;
+            vk_copyDescriptorSets[i].srcSet = static_cast<const CVulkanDescriptorSet*>(pDescriptorCopies[i].srcSet)->getInternalObject();
+
+            vk_copyDescriptorSets[i].srcBinding = pDescriptorCopies[i].srcBinding;
+            vk_copyDescriptorSets[i].srcArrayElement = pDescriptorCopies[i].srcArrayElement;
+
+            // if (pDescriptorCopies[i].dstSet->getAPIType() != EAT_VULKAN)
+            //     continue;
+            vk_copyDescriptorSets[i].dstSet = static_cast<const CVulkanDescriptorSet*>(pDescriptorCopies[i].dstSet)->getInternalObject();
+
+            vk_copyDescriptorSets[i].dstBinding = pDescriptorCopies[i].dstBinding;
+            vk_copyDescriptorSets[i].dstArrayElement = pDescriptorCopies[i].dstArrayElement;
+            vk_copyDescriptorSets[i].descriptorCount = pDescriptorCopies[i].count;
+        }
+
+        vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets, descriptorCopyCount, vk_copyDescriptorSets);
     }
+
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
+    {
+        // Todo(achal): I need to take into account getDeviceLocalGPUMemoryReqs, probably
+        
+        VkMemoryAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+        allocateInfo.pNext = nullptr; // Todo(achal): What extensions?
+        allocateInfo.allocationSize = additionalReqs.vulkanReqs.size;
+        allocateInfo.memoryTypeIndex = 2u; // Todo(achal): LOL?!
+
+        VkDeviceMemory vk_deviceMemory;
+        if (vkAllocateMemory(m_vkdev, &allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory);
+        }
+        else
+        {
+            return nullptr;
+        }
+    }
+
+    //! If cannot or don't want to use device local memory, then this memory can be used
+    /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateSpilloverMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
+    {
+        return nullptr;
+    }
+
+    //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateUpStreamingMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
+    {
+        return nullptr;
+    }
+
+    //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDownStreamingMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
+    {
+        return nullptr;
+    }
+
+    //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
+    {
+        return nullptr;
+    }
+
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
@@ -335,12 +571,30 @@ public:
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override
     {
-        return nullptr;
+        // if (memory.memory->getAPIType() != EAT_VULKAN)
+        //     return nullptr;
+
+        VkMemoryMapFlags memoryMapFlags = 0; // reserved for future use, by Vulkan
+        VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(memory.memory)->getInternalObject();
+        void* mappedPtr;
+        if (vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
+            static_cast<VkDeviceSize>(memory.length), memoryMapFlags, &mappedPtr) == VK_SUCCESS)
+        {
+            return mappedPtr;
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     void unmapMemory(IDriverMemoryAllocation* memory) override
     {
+        // if (memory.memory->getAPIType() != EAT_VULKAN)
+        //     return;
 
+        VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(memory)->getInternalObject();
+        vkUnmapMemory(m_vkdev, vk_deviceMemory);
     }
 
     CVulkanDeviceFunctionTable* getFunctionTable() { return &m_devf; }
@@ -462,7 +716,32 @@ protected:
 
     core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override
     {
-        return nullptr;
+        if (pool->getAPIType() != EAT_VULKAN)
+            return nullptr;
+
+        const CVulkanDescriptorPool* vulkanPool = static_cast<const CVulkanDescriptorPool*>(pool);
+
+        VkDescriptorSetAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+        allocateInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDescriptorSetVariableDescriptorCountAllocateInfo
+
+        allocateInfo.descriptorPool = vulkanPool->getInternalObject();
+        allocateInfo.descriptorSetCount = 1u; // Isn't creating only descriptor set every time wasteful?
+
+        if (layout->getAPIType() != EAT_VULKAN)
+            return nullptr;
+        VkDescriptorSetLayout dsLayout = static_cast<const CVulkanDescriptorSetLayout*>(layout.get())->getInternalObject();
+        allocateInfo.pSetLayouts = &dsLayout;
+
+        VkDescriptorSet vk_descriptorSet;
+        if (vkAllocateDescriptorSets(m_vkdev, &allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(this, std::move(layout),
+                core::smart_refctd_ptr<const CVulkanDescriptorPool>(vulkanPool), vk_descriptorSet);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     //
