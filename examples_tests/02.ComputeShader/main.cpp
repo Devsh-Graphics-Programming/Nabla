@@ -3,6 +3,8 @@
 
 #include "../common/CommonAPI.h"
 
+#include "../../src/nbl/video/CVulkanConnection.h"
+
 // Temporary
 #include <volk/volk.h>
 #include "../../src/nbl/video/CVulkanPhysicalDevice.h"
@@ -64,24 +66,6 @@ void main()
 	}
 })";
 #endif
-
-inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
-{
-	using namespace nbl;
-	const char* sev = nullptr;
-	switch (severity)
-	{
-	case video::EDMS_VERBOSE:
-		sev = "verbose"; break;
-	case video::EDMS_INFO:
-		sev = "info"; break;
-	case video::EDMS_WARNING:
-		sev = "warning"; break;
-	case video::EDMS_ERROR:
-		sev = "error"; break;
-	}
-	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
-}
 
 #define LOG(...) printf(__VA_ARGS__); printf("\n");
 class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
@@ -157,73 +141,11 @@ struct alignas(256) UniformBufferObject
 	float r, g, b, a;
 };
 
-struct ArgumentReferenceSegment
-{
-	ArgumentReferenceSegment() : arguments(), argCount(0u), nextBlock(nullptr) {}
-
-	constexpr static uint8_t MAX_REFERENCES = 62u;
-	std::array<core::smart_refctd_ptr<const core::IReferenceCounted>,MAX_REFERENCES> arguments;
-
-	uint8_t argCount;
-	ArgumentReferenceSegment* nextBlock;
-};
-
-struct DemoPOD
-{
-	int32_t x[256];
-};
-
 int main()
 {
-#if 0
-	const uint32_t NODES_PER_BLOCK = 4096u;
-	const uint32_t MAX_BLOCK_COUNT = 256u;
-
-	core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,uint32_t>
-		mempool(NODES_PER_BLOCK*sizeof(ArgumentReferenceSegment),1u,MAX_BLOCK_COUNT,static_cast<uint32_t>(sizeof(ArgumentReferenceSegment)));
-
-	auto* tail = mempool.emplace<ArgumentReferenceSegment>();
-	auto emplace_n = [&mempool](
-		ArgumentReferenceSegment* head,
-		const core::smart_refctd_ptr<const core::IReferenceCounted>* begin,
-		const core::smart_refctd_ptr<const core::IReferenceCounted>* end
-	)
-	{
-		for (auto it=begin; it!=end; it++)
-		{
-			// allocate new segment if overflow
-			if (head->argCount==ArgumentReferenceSegment::MAX_REFERENCES)
-			{
-				auto newHead = mempool.emplace<ArgumentReferenceSegment>();
-				head->nextBlock = newHead;
-				head = newHead;
-			}
-			// fill to the brim
-			const auto count = core::min(end-it,ArgumentReferenceSegment::MAX_REFERENCES-head->argCount);
-			std::copy_n(it,count,head->arguments.begin()+head->argCount);
-			it += count;
-			head->argCount += count;
-		}
-	};
-
-	auto free_all = [&mempool](ArgumentReferenceSegment* tail)
-	{
-		while (tail)
-		{
-			mempool.free<ArgumentReferenceSegment>(tail);
-			tail = tail->nextBlock;
-		}
-	};
-#endif
-
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t SC_IMG_COUNT = 3u; // problematic, shouldn't fix the number of swapchain images at compile time, since Vulkan is under no obligation to return you the exact number of images you requested
-
-	// Note(achal): This is unused, for now
-	video::SDebugCallback dbgcb;
-	dbgcb.callback = &debugCallback;
-	dbgcb.userData = nullptr;
 
 	auto system = CommonAPI::createSystem(); // Todo(achal): Need to get rid of this
 
@@ -241,9 +163,18 @@ int main()
 	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
 	auto window = winManager->createWindow(std::move(params));
 
-	core::smart_refctd_ptr<video::IAPIConnection> vk = video::IAPIConnection::create(
-		std::move(system), video::EAT_VULKAN, 0, "02.ComputeShader", &dbgcb);
+	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
+		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", true);
+
+	core::smart_refctd_ptr<video::CSurfaceVulkanWin32> surface =
+		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
+			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+
+
+
+#if 0
 	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(window.get());
+
 
 	// Todo(achal): Remove
 	VkSurfaceKHR vk_surface = reinterpret_cast<video::ISurfaceVK*>(surface.get())->m_surface;
@@ -789,6 +720,7 @@ int main()
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
 	}
 	device->waitIdle();
+#endif
 
 #if 0
 	constexpr uint32_t WIN_W = 1280;
@@ -986,5 +918,6 @@ int main()
 	device->waitIdle();
 
 #endif
+
 	return 0;
 }

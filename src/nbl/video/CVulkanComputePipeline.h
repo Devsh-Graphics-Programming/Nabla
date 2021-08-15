@@ -12,10 +12,10 @@ class ILogicalDevice;
 class CVulkanComputePipeline : public IGPUComputePipeline
 {
 public:
-    CVulkanComputePipeline(ILogicalDevice* dev,
+    CVulkanComputePipeline(core::smart_refctd_ptr<ILogicalDevice>&& dev,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& layout, 
         core::smart_refctd_ptr<IGPUSpecializedShader>&& shader, VkPipeline pipeline)
-        : IGPUComputePipeline(dev, std::move(layout), std::move(shader)), m_pipeline(pipeline)
+        : IGPUComputePipeline(std::move(dev), std::move(layout), std::move(shader)), m_pipeline(pipeline)
     {}
 
     ~CVulkanComputePipeline();

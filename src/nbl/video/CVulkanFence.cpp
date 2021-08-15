@@ -5,18 +5,17 @@
 namespace nbl::video
 {
 
-CVulkanFence::CVulkanFence(CVKLogicalDevice* _vkdev, E_CREATE_FLAGS _flags, VkFence fence)
-    : IGPUFence(_vkdev, _flags), m_vkdev(_vkdev), m_fence(fence)
-{
-}
-
 CVulkanFence::~CVulkanFence()
 {
-    // auto* vk = m_vkdev->getFunctionTable();
-    auto vkdev = m_vkdev->getInternalObject();
+    const auto originDevice = getOriginDevice();
 
-    // vk->vk.vkDestroyFence(vkdev, m_fence, nullptr);
-    vkDestroyFence(vkdev, m_fence, nullptr);
+    if (originDevice->getAPIType() == EAT_VULKAN)
+    {
+        // auto* vk = m_vkdev->getFunctionTable();
+        VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        // vk->vk.vkDestroyFence(vkdev, m_fence, nullptr);
+        vkDestroyFence(vk_device, m_fence, nullptr);
+    }
 }
 
 }

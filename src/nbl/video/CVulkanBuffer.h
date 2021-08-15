@@ -12,8 +12,8 @@ class ILogicalDevice;
 class CVulkanBuffer : public IGPUBuffer
 {
 public:
-    CVulkanBuffer(ILogicalDevice* dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, 
-        VkBuffer buffer) : IGPUBuffer(dev, reqs), m_buffer(buffer)
+    CVulkanBuffer(core::smart_refctd_ptr<ILogicalDevice>&& dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, 
+        VkBuffer buffer) : IGPUBuffer(std::move(dev), reqs), m_buffer(buffer)
     {}
 
     ~CVulkanBuffer();

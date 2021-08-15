@@ -12,8 +12,8 @@ class ILogicalDevice;
 class CVulkanDescriptorPool : public IDescriptorPool
 {
 public:
-    CVulkanDescriptorPool(ILogicalDevice* dev, VkDescriptorPool descriptorPool)
-        : IDescriptorPool(dev), m_descriptorPool(descriptorPool)
+    CVulkanDescriptorPool(core::smart_refctd_ptr<ILogicalDevice>&& dev, VkDescriptorPool descriptorPool)
+        : IDescriptorPool(std::move(dev)), m_descriptorPool(descriptorPool)
     {}
 
     ~CVulkanDescriptorPool();

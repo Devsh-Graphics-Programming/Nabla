@@ -12,8 +12,8 @@ class ILogicalDevice;
 class CVulkanPipelineCache : public IGPUPipelineCache
 {
 public:
-    CVulkanPipelineCache(ILogicalDevice* dev, VkPipelineCache pipelineCache)
-        : IGPUPipelineCache(dev), m_pipelineCache(pipelineCache)
+    CVulkanPipelineCache(core::smart_refctd_ptr<ILogicalDevice>&& dev, VkPipelineCache pipelineCache)
+        : IGPUPipelineCache(std::move(dev)), m_pipelineCache(pipelineCache)
     {}
 
     ~CVulkanPipelineCache();

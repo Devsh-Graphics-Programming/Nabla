@@ -10,9 +10,9 @@ class ILogicalDevice;
 class CVulkanDescriptorSetLayout : public IGPUDescriptorSetLayout
 {
 public:
-    CVulkanDescriptorSetLayout(ILogicalDevice* dev, const SBinding* const _begin,
+    CVulkanDescriptorSetLayout(core::smart_refctd_ptr<ILogicalDevice>&& dev, const SBinding* const _begin,
         const SBinding* const _end, VkDescriptorSetLayout vk_dsLayout)
-        : IGPUDescriptorSetLayout(dev, _begin, _end), m_dsLayout(vk_dsLayout)
+        : IGPUDescriptorSetLayout(std::move(dev), _begin, _end), m_dsLayout(vk_dsLayout)
     {}
 
     ~CVulkanDescriptorSetLayout();

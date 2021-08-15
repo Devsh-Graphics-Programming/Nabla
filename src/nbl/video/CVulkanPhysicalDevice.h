@@ -14,17 +14,16 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(VkPhysicalDevice _vkphd, core::smart_refctd_ptr<system::ISystem>&& sys,
-        core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, system::logger_opt_smart_ptr&& logger)
-        : IPhysicalDevice(std::move(sys), std::move(glslc)), m_vkphysdev(_vkphd),
-        m_logger(std::move(logger))
+    CVulkanPhysicalDevice(VkPhysicalDevice vk_physicalDevice, core::smart_refctd_ptr<system::ISystem>&& sys,
+        core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc)
+        : IPhysicalDevice(std::move(sys), std::move(glslc)), m_vkPhysicalDevice(vk_physicalDevice)
     {
         // Get physical device's limits
         VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES };
         {
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             deviceProperties.pNext = &subgroupProperties;
-            vkGetPhysicalDeviceProperties2(m_vkphysdev, &deviceProperties);
+            vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
                     
             // TODO fill m_properties
                     
@@ -64,7 +63,7 @@ public:
         // Get physical device's features
         {
             VkPhysicalDeviceFeatures features;
-            vkGetPhysicalDeviceFeatures(m_vkphysdev, &features);
+            vkGetPhysicalDeviceFeatures(m_vkPhysicalDevice, &features);
                     
             m_features.robustBufferAccess = features.robustBufferAccess;
             m_features.imageCubeArray = features.imageCubeArray;
@@ -86,9 +85,9 @@ public:
         }
                 
         uint32_t qfamCount = 0u;
-        vkGetPhysicalDeviceQueueFamilyProperties(m_vkphysdev, &qfamCount, nullptr);
+        vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, nullptr);
         core::vector<VkQueueFamilyProperties> qfamprops(qfamCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(m_vkphysdev, &qfamCount, qfamprops.data());
+        vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, qfamprops.data());
                 
         m_qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(qfamCount);
         for (uint32_t i = 0u; i < qfamCount; ++i)
@@ -103,37 +102,42 @@ public:
         }
     }
             
-    inline VkPhysicalDevice getInternalObject() const { return m_vkphysdev; }
+    inline VkPhysicalDevice getInternalObject() const { return m_vkPhysicalDevice; }
             
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
+    IDebugCallback* getDebugCallback() override { return nullptr; }
+
     void getAvailableFormatsForSurface(const ISurface* surface, uint32_t& formatCount, ISurface::SFormat* formats) const override
     {
+#if 0
         const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface); // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
 
-        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkphysdev, vk_surface->m_surface, &formatCount, nullptr);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkPhysicalDevice, vk_surface->m_surface, &formatCount, nullptr);
 
         if (!formats)
             return;
 
         std::vector<VkSurfaceFormatKHR> vk_formats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkphysdev, vk_surface->m_surface, &formatCount, vk_formats.data());
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkPhysicalDevice, vk_surface->m_surface, &formatCount, vk_formats.data());
 
         for (uint32_t i = 0u; i < formatCount; ++i)
         {
             formats[i].format = ISurfaceVK::getFormat(vk_formats[i].format);
             formats[i].colorSpace = ISurfaceVK::getColorSpace(vk_formats[i].colorSpace);
         }
+#endif
     }
     
     ISurface::E_PRESENT_MODE getAvailablePresentModesForSurface(const ISurface* surface) const override
     {
+#if 0
         const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface); // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
 
         uint32_t count = 0u;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkphysdev, vk_surface->m_surface, &count, NULL);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkPhysicalDevice, vk_surface->m_surface, &count, NULL);
         std::vector<VkPresentModeKHR> vk_presentModes(count);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkphysdev, vk_surface->m_surface, &count, vk_presentModes.data());
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkPhysicalDevice, vk_surface->m_surface, &count, vk_presentModes.data());
 
         ISurface::E_PRESENT_MODE result = static_cast<ISurface::E_PRESENT_MODE>(0);
 
@@ -141,18 +145,23 @@ public:
             result = static_cast<ISurface::E_PRESENT_MODE>(result | ISurfaceVK::getPresentMode(vk_presentModes[i]));
 
         return result;
+#endif
+        return ISurface::E_PRESENT_MODE::EPM_FIFO;
     }
     
     uint32_t getMinImageCountForSurface(const ISurface* surface) const override
     {
+#if 0
         // Todo(achal): This is problematic, if passed `surface` isn't a vulkan surface
         const ISurfaceVK* vk_surface = static_cast<const ISurfaceVK*>(surface);
 
         VkSurfaceCapabilitiesKHR surfaceCapabilities;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_vkphysdev, vk_surface->m_surface,
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_vkPhysicalDevice, vk_surface->m_surface,
             &surfaceCapabilities);
 
         return surfaceCapabilities.minImageCount;
+#endif
+        return ~0u;
     }
             
 protected:
@@ -194,16 +203,14 @@ protected:
         createInfo.pEnabledFeatures = &deviceFeatures;
                 
         VkDevice vkdev = VK_NULL_HANDLE;
-        assert(vkCreateDevice(m_vkphysdev, &createInfo, nullptr, &vkdev) == VK_SUCCESS);
+        assert(vkCreateDevice(m_vkPhysicalDevice, &createInfo, nullptr, &vkdev) == VK_SUCCESS);
                 
         return core::make_smart_refctd_ptr<CVKLogicalDevice>(this, vkdev, params,
-            core::smart_refctd_ptr(m_system), core::smart_refctd_ptr(m_GLSLCompiler),
-            system::logger_opt_smart_ptr(m_logger));
+            core::smart_refctd_ptr(m_system));
     }
             
 private:
-    VkPhysicalDevice m_vkphysdev;
-    system::logger_opt_smart_ptr m_logger;
+    VkPhysicalDevice m_vkPhysicalDevice;
 };
         
 }

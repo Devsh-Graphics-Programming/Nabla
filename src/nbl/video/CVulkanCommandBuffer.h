@@ -20,9 +20,9 @@ struct ArgumentReferenceSegment;
 class CVulkanCommandBuffer : public IGPUCommandBuffer
 {
 public:
-    CVulkanCommandBuffer(ILogicalDevice* logicalDevice, E_LEVEL level,
+    CVulkanCommandBuffer(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, E_LEVEL level,
         VkCommandBuffer _vkcmdbuf, IGPUCommandPool* commandPool)
-        : IGPUCommandBuffer(logicalDevice, level, commandPool), m_cmdbuf(_vkcmdbuf)
+        : IGPUCommandBuffer(std::move(logicalDevice), level, commandPool), m_cmdbuf(_vkcmdbuf)
     {
         if (m_cmdpool->getAPIType() == EAT_VULKAN)
         {

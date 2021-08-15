@@ -7,12 +7,15 @@
 namespace nbl::video
 {
 
-class CVKLogicalDevice;
+class ILogicalDevice;
 
 class CVulkanQueue final : public IGPUQueue
 {
 public:
-    CVulkanQueue(CVKLogicalDevice* vkdev, VkQueue vkq, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority);
+    CVulkanQueue(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, VkQueue vkq, uint32_t _famIx,
+        E_CREATE_FLAGS _flags, float _priority) : IGPUQueue(std::move(logicalDevice), _famIx,
+            _flags, _priority), m_vkQueue(vkq)
+    {}
 
     bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
 
@@ -20,11 +23,10 @@ public:
     // failed or succeeded
     bool present(const SPresentInfo& info) override;
 
-    inline VkQueue getInternalObject() const { return m_vkqueue; }
+    inline VkQueue getInternalObject() const { return m_vkQueue; }
 
 private:
-    CVKLogicalDevice* m_vkdevice;
-    VkQueue m_vkqueue;
+    VkQueue m_vkQueue;
 };
 
 }

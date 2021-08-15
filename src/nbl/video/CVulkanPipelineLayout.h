@@ -12,14 +12,14 @@ class ILogicalDevice;
 class CVulkanPipelineLayout : public IGPUPipelineLayout
 {
 public:
-    CVulkanPipelineLayout(ILogicalDevice* dev,
+    CVulkanPipelineLayout(core::smart_refctd_ptr<ILogicalDevice>&& dev,
         const asset::SPushConstantRange* const _pcRangesBegin,
         const asset::SPushConstantRange* const _pcRangesEnd,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3, VkPipelineLayout vk_layout)
-        : IGPUPipelineLayout(dev, _pcRangesBegin, _pcRangesEnd, std::move(_layout0),
+        : IGPUPipelineLayout(std::move(dev), _pcRangesBegin, _pcRangesEnd, std::move(_layout0),
             std::move(_layout1), std::move(_layout2), std::move(_layout3)), m_layout(vk_layout)
     {}
 

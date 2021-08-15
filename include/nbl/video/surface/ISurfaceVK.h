@@ -7,9 +7,49 @@
 namespace nbl::video
 {
 
-class IPhysicalDevice;
 class CVulkanConnection;
+class IPhysicalDevice;
 
+template <typename Window>
+class CSurfaceVulkan final : public CSurface<Window>
+{
+public:
+    using this_t = CSurfaceVulkan<Window>;
+    using base_t = CSurface<Window>;
+
+    static core::smart_refctd_ptr<this_t> create(
+        core::smart_refctd_ptr<video::CVulkanConnection>&& api,
+        core::smart_refctd_ptr<Window>&& window);
+
+    inline const void* getNativeWindowHandle() const override
+    {
+        return &base_t::m_window->getNativeHandle();
+    }
+
+    // Todo(achal): vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
+    bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
+    {
+        return false;
+    }
+
+// Todo(achal): Remove
+// private:
+    explicit CSurfaceVulkan(core::smart_refctd_ptr<video::CVulkanConnection>&& api,
+        core::smart_refctd_ptr<Window>&& window, VkSurfaceKHR vk_surface)
+        : base_t(std::move(api), std::move(window)), m_surface(vk_surface)
+    {}
+
+    ~CSurfaceVulkan();
+
+    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+};
+
+using CSurfaceVulkanWin32 = CSurfaceVulkan<ui::IWindowWin32>;
+
+
+
+
+#if 0
 class ISurfaceVK : public ISurface
 {
 public:
@@ -257,6 +297,7 @@ public:
     VkSurfaceKHR m_surface;
     core::smart_refctd_ptr<const CVulkanConnection> m_apiConnection;
 };
+#endif
 
 }
 

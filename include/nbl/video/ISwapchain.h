@@ -28,7 +28,7 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
 
         asset::IImage::E_USAGE_FLAGS imageUsage;
         asset::E_SHARING_MODE imageSharingMode;
-        ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
+        // ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
         //VkCompositeAlphaFlagBitsKHR compositeAlpha;
         //VkBool32 clipped;
         //VkSwapchainKHR oldSwapchain;

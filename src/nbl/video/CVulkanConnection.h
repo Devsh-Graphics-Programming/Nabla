@@ -7,7 +7,7 @@
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"
-#   include "nbl/video/surface/CSurfaceVKWin32.h"
+// #   include "nbl/video/surface/CSurfaceVKWin32.h"
 #endif
 
 namespace nbl::video
@@ -16,23 +16,39 @@ namespace nbl::video
 class CVulkanConnection final : public IAPIConnection
 {
 public:
-    CVulkanConnection(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer,
-        const char* appName, const SDebugCallback& dbgCb, system::logger_opt_smart_ptr&& logger)
-        : IAPIConnection(std::move(sys), std::move(logger))
+    static core::smart_refctd_ptr<CVulkanConnection> create(
+        core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
+        bool enableValidation = true)
     {
-        VkResult result = volkInitialize();
-        assert(result == VK_SUCCESS);
-        
+        const std::vector<const char*> requiredInstanceLayerNames({ "VK_LAYER_KHRONOS_validation" });
+
+        // Todo(achal): Do I need to check availability for these?
+        // Currently all applications are forced to have support for windows and debug utils messenger
+        const uint32_t instanceExtensionCount = 3u;
+        const char* instanceExtensions[instanceExtensionCount] = { "VK_KHR_surface", "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+
+        if (volkInitialize() != VK_SUCCESS)
+        {
+            printf("Failed to initialize volk!\n");
+            return nullptr;
+        }
+
         VkApplicationInfo applicationInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+        applicationInfo.pNext = nullptr; // pNext must be NULL
+        applicationInfo.pApplicationName = appName;
+        applicationInfo.applicationVersion = appVer;
+        applicationInfo.pEngineName = "Nabla";
         applicationInfo.apiVersion = VK_MAKE_VERSION(1, 1, 0);
         applicationInfo.engineVersion = NABLA_VERSION_INTEGER;
-        applicationInfo.pEngineName = "Nabla";
-        applicationInfo.applicationVersion = appVer;
-        applicationInfo.pApplicationName = appName;
-        
-        // Todo(achal): Get this from the user
-        const std::vector<const char*> requiredInstanceLayerNames({ "VK_LAYER_KHRONOS_validation" });
-        assert(areAllInstanceLayersAvailable(requiredInstanceLayerNames));
+
+        if (enableValidation)
+        {
+            if (!areAllInstanceLayersAvailable(requiredInstanceLayerNames))
+            {
+                printf("Validation layers requested but not available!\n");
+                return nullptr;
+            }
+        }
 
         // Note(achal): This exact create info is used for application wide debug messenger for now
         VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
@@ -43,82 +59,86 @@ public:
 
         VkInstanceCreateInfo instanceCreateInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
         instanceCreateInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugUtilsMessengerCreateInfo;
+        instanceCreateInfo.flags = static_cast<VkInstanceCreateFlags>(0);
         instanceCreateInfo.pApplicationInfo = &applicationInfo;
         instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(requiredInstanceLayerNames.size());
         instanceCreateInfo.ppEnabledLayerNames = requiredInstanceLayerNames.data();
+        instanceCreateInfo.enabledExtensionCount = 3u;
+        instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
 
+        VkInstance vk_instance;
+        if (vkCreateInstance(&instanceCreateInfo, nullptr, &vk_instance) != VK_SUCCESS)
         {
-            // Todo(achal): Get this from the user
-            const bool isWorkloadHeadlessCompute = false;
-
-            // Todo(achal): Not always use the debug messenger. There are also other extensions for this, check if we want to use them.
-            if (isWorkloadHeadlessCompute)
-            {
-                const uint32_t instanceExtensionCount = 1u;
-                const char* instanceExtensions[instanceExtensionCount] = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
-
-                instanceCreateInfo.enabledExtensionCount = instanceExtensionCount;
-                instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
-            }
-            else
-            {
-                // Todo(achal): This needs to be handled in a platform agnostic way.
-                const uint32_t instanceExtensionCount = 3u;
-                const char* instanceExtensions[instanceExtensionCount] = { "VK_KHR_surface", "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
-
-                instanceCreateInfo.enabledExtensionCount = instanceExtensionCount;
-                instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
-            }
+            printf("Failed to create vulkan instance, for some reason!\n");
+            return nullptr;
         }
-        
-        if (vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance) != VK_SUCCESS)
-            printf("FAiled to create vulkan instance!\n");
-        assert(m_instance);
-        
-        // Todo(achal): I gotta look into this ie if (and how) we want to use volkLoadInstanceOnly
-        // volkLoadInstanceOnly(m_instance);
-        volkLoadInstance(m_instance);
 
-        vkCreateDebugUtilsMessengerEXT(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugMessenger);
-        assert(m_debugMessenger);
-        
-        uint32_t devCount = 0u;
-        vkEnumeratePhysicalDevices(m_instance, &devCount, nullptr);
-        core::vector<VkPhysicalDevice> vkphds(devCount, VK_NULL_HANDLE);
-        vkEnumeratePhysicalDevices(m_instance, &devCount, vkphds.data());
-
-        m_physDevices = core::make_refctd_dynamic_array<physical_devs_array_t>(devCount);
-        for (uint32_t i = 0u; i < devCount; ++i)
+        // Todo(achal): Perhaps use volkLoadInstanceOnly?
+        volkLoadInstance(vk_instance);
+        VkDebugUtilsMessengerEXT vk_debugMessenger;
+        if (vkCreateDebugUtilsMessengerEXT(vk_instance, &debugUtilsMessengerCreateInfo, nullptr, &vk_debugMessenger) != VK_SUCCESS)
         {
-            (*m_physDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(vkphds[i],
-                core::smart_refctd_ptr(m_system), std::move(m_GLSLCompiler),
-                system::logger_opt_smart_ptr(m_logger));
+            printf("Failed to create debug messenger for some reason!\n");
+            return nullptr;
         }
+
+        constexpr uint32_t MAX_PHYSICAL_DEVICE_COUNT = 16u;
+        uint32_t physicalDeviceCount = 0u;
+        VkPhysicalDevice vk_physicalDevices[MAX_PHYSICAL_DEVICE_COUNT];
+        {
+            VkResult retval = vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, nullptr);
+            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+            {
+                printf("Failed to enumerate physical devices!\n");
+                return nullptr;
+            }
+
+            vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, vk_physicalDevices);
+        }
+
+        physical_devs_array_t physicalDevices = core::make_refctd_dynamic_array<physical_devs_array_t>(physicalDeviceCount);
+        for (uint32_t i = 0u; i < physicalDeviceCount; ++i)
+        {
+            (*physicalDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(
+                vk_physicalDevices[i], core::smart_refctd_ptr(sys),
+                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()));
+        }
+
+        return core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance, physicalDevices, vk_debugMessenger);
+    }
+
+    VkInstance getInternalObject() const { return m_vkInstance; }
+
+    core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const override
+    {
+        return core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>>{ m_physicalDevices->begin(), m_physicalDevices->end() };
     }
 
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
-    core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const override
-    {
-        return core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>>{ m_physDevices->begin(), m_physDevices->end() };
-    }
+    // Todo(achal)
+    IDebugCallback* getDebugCallback() const override { return nullptr; }
 
-    core::smart_refctd_ptr<ISurface> createSurface(ui::IWindow* window) const override;
+// Todo(achal): Remove
+// private:
 
-    VkInstance getInternalObject() const { return m_instance; }
+    using physical_devs_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IPhysicalDevice>>;
 
-protected:
+    CVulkanConnection(VkInstance instance, physical_devs_array_t physicalDevices,
+        VkDebugUtilsMessengerEXT debugUtilsMessenger = VK_NULL_HANDLE)
+        : m_vkInstance(instance), m_physicalDevices(physicalDevices),
+        m_vkDebugUtilsMessengerEXT(debugUtilsMessenger)
+    {}
+
     ~CVulkanConnection()
     {
-        vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
-        vkDestroyInstance(m_instance, nullptr);
+        vkDestroyDebugUtilsMessengerEXT(m_vkInstance, m_vkDebugUtilsMessengerEXT, nullptr);
+        vkDestroyInstance(m_vkInstance, nullptr);
     }
 
-private:
-    VkInstance m_instance = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
-    using physical_devs_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IPhysicalDevice>>;
-    physical_devs_array_t m_physDevices;
+    VkInstance m_vkInstance = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    physical_devs_array_t m_physicalDevices = nullptr;
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL placeholderDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
         const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)
@@ -151,6 +171,5 @@ private:
 };
 
 }
-
 
 #endif

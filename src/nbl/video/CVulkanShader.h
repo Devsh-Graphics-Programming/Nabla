@@ -10,13 +10,14 @@ class ILogicalDevice;
 class CVulkanShader : public IGPUShader
 {
 public:
-    CVulkanShader(ILogicalDevice* dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& spirv)
-        : IGPUShader(dev), m_code(std::move(spirv)), m_containsGLSL(false)
+    CVulkanShader(core::smart_refctd_ptr<ILogicalDevice>&& dev,
+        core::smart_refctd_ptr<asset::ICPUBuffer>&& spirv)
+        : IGPUShader(std::move(dev)), m_code(std::move(spirv)), m_containsGLSL(false)
     {}
 
-    CVulkanShader(ILogicalDevice* dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& glslSource,
-        buffer_contains_glsl_t buffer_contains_glsl)
-        : IGPUShader(dev), m_code(std::move(glslSource)), m_containsGLSL(true)
+    CVulkanShader(core::smart_refctd_ptr<ILogicalDevice>&& dev,
+        core::smart_refctd_ptr<asset::ICPUBuffer>&& glslSource, buffer_contains_glsl_t buffer_contains_glsl)
+        : IGPUShader(std::move(dev)), m_code(std::move(glslSource)), m_containsGLSL(true)
     {}
 
     const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };

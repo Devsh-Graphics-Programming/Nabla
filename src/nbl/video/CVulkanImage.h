@@ -20,8 +20,8 @@ class CVulkanImage final : public IGPUImage
 	public:
 		//! constructor
 		// CVulkanImage(ILogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
-		CVulkanImage(ILogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
-			IGPUImage(_vkdev, std::move(_params)), m_vkimg(_vkimg)
+		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
+			IGPUImage(std::move(_vkdev), std::move(_params)), m_vkimg(_vkimg)
 		{}
 
 		inline VkImage getInternalObject() const { return m_vkimg; }

@@ -27,9 +27,10 @@ class CVulkanCommandPool final : public IGPUCommandPool
      constexpr static inline uint32_t MAX_BLOCK_COUNT = 256u;
 
 public:
-    CVulkanCommandPool(ILogicalDevice* dev, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags,
-        uint32_t queueFamilyIndex, VkCommandPool commandPool)
-        : IGPUCommandPool(dev, static_cast<E_CREATE_FLAGS>(flags), queueFamilyIndex),
+    CVulkanCommandPool(core::smart_refctd_ptr<ILogicalDevice>&& dev,
+        std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags, uint32_t queueFamilyIndex,
+        VkCommandPool commandPool)
+        : IGPUCommandPool(std::move(dev), static_cast<E_CREATE_FLAGS>(flags), queueFamilyIndex),
         m_commandPool(commandPool), mempool(NODES_PER_BLOCK * sizeof(ArgumentReferenceSegment),
             1u, MAX_BLOCK_COUNT, static_cast<uint32_t>(sizeof(ArgumentReferenceSegment)))
     {}

@@ -8,16 +8,15 @@
 namespace nbl::video
 {
 
-CVulkanQueue::CVulkanQueue(CVKLogicalDevice* vkdev, VkQueue vkq, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) : 
-    IGPUQueue(vkdev, _famIx, _flags, _priority), m_vkdevice(vkdev), m_vkqueue(vkq)
-{
-    
-}
-
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
-    auto vkdev = m_vkdevice->getInternalObject();
-    // auto* vk = m_vkdevice->getFunctionTable();
+    // Probably should abstract this??
+    const auto originDevice = getOriginDevice();
+    if (originDevice->getAPIType() != EAT_VULKAN)
+        return false;
+
+    // auto* vk = m_vkdev->getFunctionTable();
+    VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
 
     uint32_t waitSemCnt = 0u;
     uint32_t signalSemCnt = 0u;
@@ -105,7 +104,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
 
     VkFence fence = _fence ? static_cast<CVulkanFence*>(_fence)->getInternalObject() : VK_NULL_HANDLE;
     // vk->vk.vkQueueSubmit(m_vkqueue, _count, submits, fence);
-    if (vkQueueSubmit(m_vkqueue, _count, submits, fence) == VK_SUCCESS)
+    if (vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
         return true;
 
     return false;
@@ -135,7 +134,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
             // Probably log warning/error?
             return false;
         }
-        vk_swapchains[i] = reinterpret_cast<CVKSwapchain*>(info.swapchains[i])->m_swapchain;
+        vk_swapchains[i] = reinterpret_cast<CVKSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
     }
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -145,7 +144,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     presentInfo.pSwapchains = vk_swapchains;
     presentInfo.pImageIndices = info.imgIndices;
 
-    VkResult result = vkQueuePresentKHR(m_vkqueue, &presentInfo);
+    VkResult result = vkQueuePresentKHR(m_vkQueue, &presentInfo);
 
     switch (result)
     {
