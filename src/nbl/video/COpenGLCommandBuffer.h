@@ -4,6 +4,7 @@
 #include "nbl/core/declarations.h"
 
 #include <variant>
+
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
@@ -513,7 +514,7 @@ public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
 
 
-    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger) : IGPUCommandBuffer(dev, lvl, _cmdpool), m_logger(std::move(logger)) {}
+    COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger) : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)) {}
 
     inline void begin(uint32_t _flags) override final
     {

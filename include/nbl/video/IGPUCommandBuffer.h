@@ -13,7 +13,6 @@
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUPipelineLayout.h"
 #include "nbl/video/IGPUCommandPool.h"
-#include "nbl/video/IBackendObject.h"
 
 namespace nbl::video
 {
@@ -76,7 +75,7 @@ public:
     IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
 
 protected:
-    IGPUCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(dev), m_cmdpool(_cmdpool)
+    IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)
     {
     }
     virtual ~IGPUCommandBuffer() = default;

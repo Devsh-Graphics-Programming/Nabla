@@ -19,7 +19,7 @@ public:
 
 	CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd);
 
-	native_handle_t getNativeHandle() const override { return m_native; }
+	const native_handle_t& getNativeHandle() const override { return m_native; }
 
 	~CWindowWin32() override;
 private:

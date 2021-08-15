@@ -12,21 +12,19 @@
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
 
-namespace nbl
-{ 
-namespace video
+namespace nbl::video
 {
 
 class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipeline<IGPUComputePipeline::SHADER_STAGE_COUNT>
 {
     public:
         COpenGLComputePipeline(
-            ILogicalDevice* device, IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl,
+            core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& device, IOpenGL_FunctionTable* _gl,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs,
             uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLname, const COpenGLSpecializedShader::SProgramBinary& _binary
-        ) : IGPUComputePipeline(device, std::move(_layout), std::move(_cs)), 
-            IOpenGLPipeline(_dev, _gl, _ctxCount, _ctxID, &_GLname, &_binary),
+        ) : IGPUComputePipeline(core::smart_refctd_ptr(device), std::move(_layout), std::move(_cs)), 
+            IOpenGLPipeline(device.get(), _gl, _ctxCount, _ctxID, &_GLname, &_binary),
             m_lastUpdateStamp(0u)
         {
 
@@ -75,7 +73,6 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
         mutable uint32_t m_lastUpdateStamp;
 };
 
-}
 }
 
 #endif

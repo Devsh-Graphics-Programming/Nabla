@@ -2,8 +2,11 @@
 #define __NBL_I_SURFACE_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
+
 #include "nbl/asset/format/EColorSpace.h"
 #include "nbl/asset/format/EFormat.h"
+
+#include "nbl/video/IAPIConnection.h"
 
 namespace nbl::video
 {
@@ -12,44 +15,51 @@ class IPhysicalDevice;
 
 class ISurface : public core::IReferenceCounted
 {
-protected:
-    virtual ~ISurface() = default;
+    protected:
+        ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
+        ~ISurface() = default;
 
-public:
-    struct SColorSpace
-    {
-        asset::E_COLOR_PRIMARIES primary;
-        asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION eotf;
-    };
-    struct SFormat
-    {
-        asset::E_FORMAT format;
-        SColorSpace colorSpace;
-    };
-    enum E_PRESENT_MODE : uint8_t
-    {
-        EPM_IMMEDIATE       = 1 << 0,
-        EPM_MAILBOX         = 1 << 1,
-        EPM_FIFO            = 1 << 2,
-        EPM_FIFO_RELAXED    = 1 << 3
-    };
+        core::smart_refctd_ptr<IAPIConnection> m_api;
 
-    enum E_SURFACE_TRANSFORM_FLAGS : uint32_t
-    {
-        EST_IDENTITY_BIT = 0x00000001,
-        EST_ROTATE_90_BIT = 0x00000002,
-        EST_ROTATE_180_BIT = 0x00000004,
-        EST_ROTATE_270_BIT = 0x00000008,
-        EST_HORIZONTAL_MIRROR_BIT = 0x00000010,
-        EST_HORIZONTAL_MIRROR_ROTATE_90_BIT = 0x00000020,
-        EST_HORIZONTAL_MIRROR_ROTATE_180_BIT = 0x00000040,
-        EST_HORIZONTAL_MIRROR_ROTATE_270_BIT = 0x00000080,
-        EST_INHERIT_BIT = 0x00000100,
-        EST_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
-    };
+    public:
+        struct SColorSpace
+        {
+            asset::E_COLOR_PRIMARIES primary;
+            asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION eotf;
+        };
+        struct SFormat
+        {
+            asset::E_FORMAT format;
+            SColorSpace colorSpace;
+        };
+        enum E_PRESENT_MODE
+        {
+            EPM_IMMEDIATE = 0,
+            EPM_MAILBOX = 1,
+            EPM_FIFO = 2,
+            EPM_FIFO_RELAXED = 3
+        };
 
-    // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
-    virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
+        // TODO
+        // IPhysicalDevice::getAvailableFormatsForSurface(const ISurface*, SFormat* out);
+        // IPhysicalDevice::getAvailablePresentModesForSurface(const ISurface*, E_PRESENT_MODE* out);
+        // IPhysicalDevice::getMinImageCountForSurface(const ISurface*)
+
+        // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
+        virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
+
+        // used by some drivers
+        virtual const void* getNativeWindowHandle() const = 0;
+};
+
+template<class Window>
+class CSurface : public ISurface
+{
+    protected:
+        CSurface(core::smart_refctd_ptr<IAPIConnection>&& api, core::smart_refctd_ptr<Window>&& window) : ISurface(std::move(api)), m_window(std::move(window)) {}
+        ~CSurface() = default;
+
+        core::smart_refctd_ptr<Window> m_window;
 };
 
 }
