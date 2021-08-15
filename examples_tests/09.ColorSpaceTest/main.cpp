@@ -92,8 +92,6 @@ int main()
 	auto gpuDescriptorPool = createDescriptorPool(1u); // per single texture
 	auto fstProtoPipeline = nbl::ext::FullScreenTriangle::createProtoPipeline(cpu2gpuParams);
 	{
-		//! reset fences/semaphores (thought it would fix the big amount gpu conversion, but it did not)
-
 		gpuTransferFence = std::move(logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0)));
 		gpuTransferSemaphore = std::move(logicalDevice->createSemaphore());
 
@@ -319,10 +317,11 @@ int main()
 
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 		uint32_t acquiredNextFBO = {};
-		size_t resourceIx = {};
+		auto resourceIx = -1;
 
 		while (true)
 		{
+			++resourceIx;
 			if (resourceIx >= FRAMES_IN_FLIGHT)
 				resourceIx = 0;
 
@@ -378,8 +377,6 @@ int main()
 
 			CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
 			CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
-
-			++resourceIx;
 		}
 
 		const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();

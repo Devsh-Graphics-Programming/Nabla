@@ -239,9 +239,11 @@ int main()
 {
 	constexpr uint32_t NBL_WINDOW_WIDTH = 1280;
 	constexpr uint32_t NBL_WINDOW_HEIGHT = 720;
-	constexpr uint32_t FBO_COUNT = 1u;
+	constexpr uint32_t SC_IMG_COUNT = 3u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	auto initOutput = CommonAPI::Init<NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT, FBO_COUNT>(video::EAT_OPENGL, "DerivMapTest");
+	auto initOutput = CommonAPI::Init<NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT, SC_IMG_COUNT>(video::EAT_OPENGL, "DerivativeMapTest");
 	auto window = std::move(initOutput.window);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
@@ -250,14 +252,40 @@ int main()
 	auto queues = std::move(initOutput.queues);
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
-	auto fbo = std::move(initOutput.fbo[0]);
+	auto fbos = std::move(initOutput.fbo);
 	auto commandPool = std::move(initOutput.commandPool);
 	auto assetManager = std::move(initOutput.assetManager);
-	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
-	core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
-	logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, &commandBuffer);
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuTransferFence;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuTransferSemaphore;
+
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuComputeFence;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuComputeSemaphore;
+	{
+		gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		gpuTransferSemaphore = logicalDevice->createSemaphore();
+
+		gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		gpuComputeSemaphore = logicalDevice->createSemaphore();
+
+		cpu2gpuParams.assetManager = assetManager.get();
+		cpu2gpuParams.device = logicalDevice.get();
+		cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
+		cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
+		cpu2gpuParams.pipelineCache = nullptr;
+		cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
+
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queues[decltype(initOutput)::EQT_COMPUTE];
+	}
 
 	auto createDescriptorPool = [&](const uint32_t textureCount)
 	{
@@ -273,9 +301,16 @@ int main()
 	nbl::video::IGPUDescriptorSetLayout::SBinding binding{ 0u, nbl::asset::EDT_COMBINED_IMAGE_SAMPLER, 1u, nbl::video::IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
 	auto gpuDescriptorSetLayout3 = logicalDevice->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 	auto gpuDescriptorPool = createDescriptorPool(1u); // per single texture
-	auto fullScreenTriangle = nbl::ext::FullScreenTriangle::createFullScreenTriangle(cpu2gpuParams);
+	auto fstProtoPipeline = nbl::ext::FullScreenTriangle::createProtoPipeline(cpu2gpuParams);
+	{
+		gpuTransferFence = std::move(logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0)));
+		gpuTransferSemaphore = std::move(logicalDevice->createSemaphore());
 
-	auto createGPUPipeline = [&](nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE typeOfImage)
+		gpuComputeFence = std::move(logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0)));
+		gpuComputeSemaphore = std::move(logicalDevice->createSemaphore());
+	}
+
+	auto createGPUPipeline = [&](nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE typeOfImage) -> core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>
 	{
 		auto getPathToFragmentShader = [&]()
 		{
@@ -310,45 +345,13 @@ int main()
 			gpuFragmentShader = (*gpu_array)[0];
 		}
 
-		nbl::video::IGPUSpecializedShader* gpuShaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentShader.get() };
-		nbl::asset::SBlendParams blendParams;
-		blendParams.logicOpEnable = false;
-		blendParams.logicOp = nbl::asset::ELO_NO_OP;
-		for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
-		nbl::asset::SRasterizationParams rasterParams;
-		rasterParams.faceCullingMode = nbl::asset::EFCM_NONE;
-		rasterParams.depthCompareOp = nbl::asset::ECO_ALWAYS;
-		rasterParams.minSampleShading = 1.f;
-		rasterParams.depthWriteEnable = false;
-		rasterParams.depthTestEnable = false;
-
 		auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
-
-		return logicalDevice->createGPURenderpassIndependentPipeline // TODO: crashes due to shaders
-		(
-			nullptr,
-			std::move(gpuPipelineLayout),
-			gpuShaders,
-			gpuShaders + sizeof(gpuShaders) / sizeof(nbl::video::IGPUSpecializedShader*),
-			std::get<nbl::asset::SVertexInputParams>(fullScreenTriangle),
-			blendParams,
-			std::get<nbl::asset::SPrimitiveAssemblyParams>(fullScreenTriangle),
-			rasterParams
-		);
+		return ext::FullScreenTriangle::createRenderpassIndependentPipeline(logicalDevice.get(), fstProtoPipeline, std::move(gpuFragmentShader), std::move(gpuPipelineLayout));
 	};
 
 	auto gpuPipelineFor2D = createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_2D);
-	auto gpuPipelineFor2DArrays = createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_2D_ARRAY);
-	auto gpuPipelineForCubemaps = createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_CUBE_MAP);
-
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> gpuMeshBuffer;
-	{
-		nbl::asset::SBufferBinding<nbl::video::IGPUBuffer> idxBinding{ 0ull, nullptr };
-		gpuMeshBuffer = core::make_smart_refctd_ptr<nbl::video::IGPUMeshBuffer>(nullptr, nullptr, nullptr, std::move(idxBinding));
-		gpuMeshBuffer->setIndexCount(3u);
-		gpuMeshBuffer->setInstanceCount(1u);
-	}
+	decltype(gpuPipelineFor2D) gpuPipelineFor2DArrays = nullptr; // createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_2D_ARRAY);
+	decltype(gpuPipelineFor2D) gpuPipelineForCubemaps = nullptr; // createGPUPipeline(nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE::ET_CUBE_MAP);
 
 	nbl::core::vector<nbl::core::smart_refctd_ptr<nbl::asset::ICPUImageView>> cpuImageViews;
 	nbl::core::vector<NBL_CAPTION_DATA_TO_DISPLAY> captionTexturesData;
@@ -368,6 +371,10 @@ int main()
 					nbl::asset::IAssetLoader::SAssetLoadParams loadParams(0ull, nullptr, cachingFlags);
 					auto cpuTextureBundle = assetManager->getAsset(pathToTexture, loadParams);
 					auto cpuTextureContents = cpuTextureBundle.getContents();
+					{
+						bool status = !cpuTextureContents.empty();
+						assert(status);
+					}
 
 					if (cpuTextureContents.begin() == cpuTextureContents.end())
 						assert(false); // cannot perform test in this scenario
@@ -377,7 +384,7 @@ int main()
 						bool status = asset->getAssetType() == IAsset::ET_IMAGE;
 						assert(status);
 					}
-				
+
 					auto cpuImage = core::smart_refctd_ptr_static_cast<ICPUImage>(std::move(asset));
 					cpuImage = createDerivMapFromHeightMap(cpuImage.get(), ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK);
 					{
@@ -393,8 +400,7 @@ int main()
 
 						newCpuImageViewTexture = nbl::asset::ICPUImageView::create(std::move(viewParams));
 					}
-					
-					std::string finalFileNameWithExtension;
+
 					std::filesystem::path filename, extension;
 					core::splitFilename(pathToTexture.c_str(), nullptr, &filename, &extension);
 
@@ -415,8 +421,8 @@ int main()
 							assert(false);
 					}();
 
-					finalFileNameWithExtension = filename.string() + ".";
-					finalFileNameWithExtension += extension.string();
+					const std::string finalFileNameWithExtension = captionData.name + captionData.extension;
+					std::cout << finalFileNameWithExtension << "\n";
 
 					auto tryToWrite = [&](asset::IAsset* asset)
 					{
@@ -495,14 +501,42 @@ int main()
 			gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 		}
 
-		const std::string windowCaption = "[Nabla Engine] Deriv Map Test Demo - CURRENT IMAGE: " + captionData.name + " - VIEW TYPE: " + captionData.viewType + " - EXTENSION: " + captionData.extension;
+		const std::string windowCaption = "[Nabla Engine] Derivative Map Test Demo - CURRENT IMAGE: " + captionData.name + " - VIEW TYPE: " + captionData.viewType + " - EXTENSION: " + captionData.extension;
 		window->setCaption(windowCaption);
 
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
+		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+
+		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+		core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+		core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+		{
+			imageAcquire[i] = logicalDevice->createSemaphore();
+			renderFinished[i] = logicalDevice->createSemaphore();
+		}
+
 		auto startPoint = std::chrono::high_resolution_clock::now();
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> render_finished_sem;
+
+		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+		uint32_t acquiredNextFBO = {};
+		auto resourceIx = -1;
 
 		while (true)
 		{
+			++resourceIx;
+			if (resourceIx >= FRAMES_IN_FLIGHT)
+				resourceIx = 0;
+
+			auto& commandBuffer = commandBuffers[resourceIx];
+			auto& fence = frameComplete[resourceIx];
+
+			if (fence)
+				while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+			else
+				fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
 			auto aPoint = std::chrono::high_resolution_clock::now();
 			if (std::chrono::duration_cast<std::chrono::milliseconds>(aPoint - startPoint).count() > SWITCH_IMAGES_PER_X_MILISECONDS)
 				break;
@@ -519,44 +553,41 @@ int main()
 			viewport.height = NBL_WINDOW_HEIGHT;
 			commandBuffer->setViewport(0u, 1u, &viewport);
 
+			swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
 			nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
-			nbl::asset::VkRect2D area;
-			area.offset = { 0,0 };
-			area.extent = { NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT };
-			nbl::asset::SClearValue clear;
-			clear.color.float32[0] = 1.f;
-			clear.color.float32[1] = 1.f;
-			clear.color.float32[2] = 1.f;
-			clear.color.float32[3] = 1.f;
-			beginInfo.clearValueCount = 1u;
-			beginInfo.framebuffer = fbo;
-			beginInfo.renderpass = renderpass;
-			beginInfo.renderArea = area;
-			beginInfo.clearValues = &clear;
+			{
+				nbl::asset::VkRect2D area;
+				area.offset = { 0,0 };
+				area.extent = { NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT };
+				nbl::asset::SClearValue clear;
+				clear.color.float32[0] = 1.f;
+				clear.color.float32[1] = 1.f;
+				clear.color.float32[2] = 1.f;
+				clear.color.float32[3] = 1.f;
+				beginInfo.clearValueCount = 1u;
+				beginInfo.framebuffer = fbos[acquiredNextFBO];
+				beginInfo.renderpass = renderpass;
+				beginInfo.renderArea = area;
+				beginInfo.clearValues = &clear;
+			}
 
 			commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 			commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
-			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, currentGpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuSamplerDescriptorSet3.get(), nullptr);
-			commandBuffer->drawMeshBuffer(gpuMeshBuffer.get());
+			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 3, 1, &gpuSamplerDescriptorSet3.get(), nullptr);
+			ext::FullScreenTriangle::recordDrawCalls(commandBuffer.get());
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
 
-			auto img_acq_sem = logicalDevice->createSemaphore();
-			render_finished_sem = logicalDevice->createSemaphore();
-
-			uint32_t imgnum = 0u;
-			constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; // ns
-			swapchain->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
-
-			CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], img_acq_sem.get(), render_finished_sem.get());
-			CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], render_finished_sem.get(), imgnum);
+			CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+			CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
 		}
 
-		const auto& fboCreationParams = fbo->getCreationParameters();
+		const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
 		auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-		const std::string writePath = "screenShot_deriv_" + captionData.name + ".png";
-		bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], render_finished_sem.get(), gpuSourceImageView.get(), assetManager.get(), writePath);
+		const std::string writePath = "screenShot_" + captionData.name + ".png";
+		bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), writePath);
 		return status;
 	};
 
@@ -568,4 +599,6 @@ int main()
 		bool status = presentImageOnTheScreen(nbl::core::smart_refctd_ptr(gpuImageView), captionData);
 		assert(status);
 	}
+
+	return 0;
 }
