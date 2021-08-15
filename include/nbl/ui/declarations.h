@@ -9,12 +9,13 @@
 #include "nbl/system/declarations.h"
 
 // windows
-#include "nbl/ui/IWindowManager.h"
-#include "nbl/ui/IWindowWin32.h"
-// TODO
-//#include "nbl/ui/IWindowAndroid.h"
-//#include "nbl/ui/IWindowX11.h"
-//#include "nbl/ui/IWindowWayland.h"
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#	include "nbl/ui/CWindowManagerWin32.h"
+#elif defined(_NBL_BUILD_WITH_WAYLAND) && defined(_NBL_TEST_WAYLAND)
+#	include "nbl/ui/CWindowManagerWayland.h"
+#elif defined(_NBL_PLATFORM_LINUX_)
+#	include "nbl/ui/CWindowManagerX11.h"
+#endif // TODO more platforms (android)
 
 // clipboards
 #include "nbl/ui/IClipboardManager.h"

@@ -15,8 +15,18 @@
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/SReadWriteSpinLock.h"
 
-#include "nbl/system/ILogger.h"
-#include "nbl/system/ISystem.h"
+// files
 #include "nbl/system/IFile.h"
+
+// loggers
+#include "nbl/system/CStdoutLogger.h"
+#include "nbl/system/CFileLogger.h"
+
+//whole system
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#	include "nbl/system/CSystemWin32.h"
+#elif defined(_NBL_PLATFORM_LINUX_)
+#	include "nbl/system/CSystemLinux.h"
+#endif // TODO more platforms (android)
 
 #endif

@@ -10,10 +10,11 @@
 #include <X11/extensions/Xrandr.h>
 #include "nbl_os.h"
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
+
 class CWindowManagerX11;
+
 class CWindowX11 final : public IWindowX11
 {
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
@@ -23,7 +24,7 @@ public:
 	explicit CWindowX11(CWindowManagerX11* manager, Display* dpy, native_handle_t win);
     ~CWindowX11();
 	Display* getDisplay() const override { return m_dpy; }
-	native_handle_t getNativeHandle() const override { return m_native; }
+	const native_handle_t& getNativeHandle() const override { return m_native; }
 
 	static core::smart_refctd_ptr<CWindowX11> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
 	{
@@ -46,7 +47,6 @@ private:
 	std::map<XID, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannel;
 };
 
-}
 }
 
 #endif

@@ -2,8 +2,7 @@
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 COpenGLImageView::~COpenGLImageView()
@@ -12,5 +11,4 @@ COpenGLImageView::~COpenGLImageView()
     device->destroyTexture(name);
 }
 
-}
 }

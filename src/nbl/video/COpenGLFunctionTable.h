@@ -254,7 +254,7 @@ public:
 
 
     COpenGLFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features, system::logger_opt_smart_ptr&& logger) :
-		IOpenGL_FunctionTable(_egl, _features, std::move(logger)),
+		IOpenGL_FunctionTable(_egl,_features, std::move(logger)),
 		gl4Framebuffer(_egl),
 		gl4Buffer(_egl),
 		gl4Texture(_egl),

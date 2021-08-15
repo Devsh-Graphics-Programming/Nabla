@@ -8,8 +8,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 class IWindowWin32 : public IWindow
@@ -23,10 +22,9 @@ public:
 
     using native_handle_t = HWND;
 
-    virtual native_handle_t getNativeHandle() const = 0;
+    virtual const native_handle_t& getNativeHandle() const = 0;
 };
 
-}
 }
 
 #endif

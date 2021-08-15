@@ -1,14 +1,10 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/ui/CWindowManagerWin32.h>
-#include <nbl/system/ISystem.h>
-#include <nbl/system/CStdoutLogger.h>
-#include <nbl/system/CFileLogger.h>
-#include <nbl/system/CColoredStdoutLoggerWin32.h>
-#include <nbl/system/CSystemWin32.h>
 
-#endif
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#endif // TODO more platforms
+// TODO: make these include themselves via `nabla.h`
 
 class CommonAPI
 {
@@ -352,12 +348,10 @@ public:
 		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
-
-		auto dbgcb = new video::SDebugCallback();
-		dbgcb->callback = &defaultDebugCallback;
-		dbgcb->userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), dbgcb);
-		result.surface = result.apiConnection->createSurface(result.window.get());
+		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
+		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+		result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+		result.apiConnection = _apiConnection;
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
@@ -639,22 +633,5 @@ public:
 			++currentIndex;
 		}
 		return -1;
-	}
-	static void defaultDebugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
-	{
-		using namespace nbl;
-		const char* sev = nullptr;
-		switch (severity)
-		{
-		case video::EDMS_VERBOSE:
-			sev = "verbose"; break;
-		case video::EDMS_INFO:
-			sev = "info"; break;
-		case video::EDMS_WARNING:
-			sev = "warning"; break;
-		case video::EDMS_ERROR:
-			sev = "error"; break;
-		}
-		std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 	}
 };

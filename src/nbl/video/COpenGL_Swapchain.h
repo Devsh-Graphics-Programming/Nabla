@@ -1,15 +1,16 @@
-#ifndef __NBL_C_OPENGL__SWAPCHAIN_H_INCLUDED__
-#define __NBL_C_OPENGL__SWAPCHAIN_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_OPENGL__SWAPCHAIN_H_INCLUDED__
+#define __NBL_VIDEO_C_OPENGL__SWAPCHAIN_H_INCLUDED__
+
+#include "nbl/system/IThreadHandler.h"
 
 #include "nbl/video/ISwapchain.h"
-#include "nbl/video/IOpenGL_FunctionTable.h"
-#include "nbl/system/IThreadHandler.h"
-#include "nbl/video/COpenGLImage.h"
 #include "nbl/video/surface/ISurfaceGL.h"
+
+#include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLSync.h"
 #include "nbl/video/COpenGLFence.h"
 #include "nbl/video/COpenGLSemaphore.h"
-#include "nbl/video/debug/debug.h"
+#include "nbl/video/COpenGLImage.h"
 
 namespace nbl::video
 {
@@ -20,7 +21,6 @@ template <typename FunctionTableType_>
 class COpenGL_Swapchain final : public ISwapchain
 {
     static inline constexpr uint32_t MaxImages = 4u;
-    system::logger_opt_smart_ptr m_logger;
 public:
     using ImagesArrayType = ISwapchain::images_array_t;
     using FunctionTableType = FunctionTableType_;
@@ -41,14 +41,13 @@ public:
     }
 
     static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params,
-        IOpenGL_LogicalDevice* dev,
+        core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
         const egl::CEGL* _egl, 
         ImagesArrayType&& images, 
-        COpenGLFeatureMap* _features, 
+        const COpenGLFeatureMap* _features, 
         EGLContext _ctx, 
         EGLConfig _config, 
-        SDebugCallback* _dbgCb,
-        system::logger_opt_smart_ptr&& logger)
+        COpenGLDebugCallback* _dbgCb)
     {
         if (!images || !images->size())
             return nullptr;
@@ -73,8 +72,8 @@ public:
                 return nullptr;
         }
 
-        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), dev, _egl, std::move(images), _features, _ctx, _config, _dbgCb, std::move(logger));
-        return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
+        auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params),std::move(dev),_egl,std::move(images),_features,_ctx,_config,_dbgCb);
+        return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc,core::dont_grab);
     }
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
@@ -117,9 +116,19 @@ public:
 
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
-    COpenGL_Swapchain(SCreationParams&& params, IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, ImagesArrayType&& images, COpenGLFeatureMap* _features, EGLContext _ctx, EGLConfig _config, SDebugCallback* _dbgCb, system::logger_opt_smart_ptr&& logger) :
-        ISwapchain(dev, std::move(params)), m_logger(std::move(logger)),
-        m_threadHandler(_egl, dev, static_cast<ISurfaceGL*>(m_params.surface.get())->getInternalObject(), { images->begin(), images->end() }, _features, _ctx, _config, _dbgCb, system::logger_opt_smart_ptr(m_logger))
+    COpenGL_Swapchain(
+        SCreationParams&& params,
+        core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
+        const egl::CEGL* _egl,
+        ImagesArrayType&& images,
+        const COpenGLFeatureMap* _features,
+        EGLContext _ctx,
+        EGLConfig _config,
+        COpenGLDebugCallback* _dbgCb
+    ) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)),
+        m_threadHandler(
+            _egl,dev.get(),m_params.surface->getNativeWindowHandle(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
+        )
     {
         m_images = std::move(images);
     }
@@ -134,14 +143,13 @@ private:
     public:
         CThreadHandler(const egl::CEGL* _egl,
             IOpenGL_LogicalDevice* dev,
-            EGLNativeWindowType _window,
+            const void* _window,
             core::SRange<core::smart_refctd_ptr<IGPUImage>> _images,
-            COpenGLFeatureMap* _features,
+            const COpenGLFeatureMap* _features,
             EGLContext _ctx,
             EGLConfig _config,
-            SDebugCallback* _dbgCb,
-            system::logger_opt_smart_ptr&& logger) :
-            m_device(dev),
+            COpenGLDebugCallback* _dbgCb
+        ) : m_device(dev),
             egl(_egl),
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
             features(_features),
@@ -161,7 +169,7 @@ private:
 
                 EGL_NONE
             };
-            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, _window, surface_attributes);
+            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, *reinterpret_cast<const EGLNativeWindowType*>(_window), surface_attributes);
             assert(surface != EGL_NO_SURFACE);
 
             base_t::start();
@@ -206,11 +214,15 @@ private:
             assert(mcres == EGL_TRUE);
 
             const uint32_t fboCount = images.size();
-            new (state_ptr) SThreadHandlerInternalState(egl, features, system::logger_opt_smart_ptr(m_logger));
+            new (state_ptr) SThreadHandlerInternalState(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
             auto& gl = state_ptr[0];
 
+            #ifdef _NBL_DEBUG
+            gl.glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+            // TODO: debug message control (to exclude callback spam)
+            #endif
             if (m_dbgCb)
-                gl.extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
+                gl.extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
 
             gl.glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
 
@@ -253,10 +265,11 @@ private:
             }
 
             gl.extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-            egl->call.peglSwapBuffers(egl->display, surface);
             syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>();
             syncs[imgix]->init(m_device, &gl, false);
-            gl.glGeneral.pglFlush();
+            // swap buffers performs an implicit flush before swapping 
+            // https://www.khronos.org/registry/EGL/sdk/docs/man/html/eglSwapBuffers.xhtml
+            egl->call.peglSwapBuffers(egl->display, surface);
         }
 
         void exit(SThreadHandlerInternalState* gl)
@@ -280,11 +293,11 @@ private:
 		const egl::CEGL* egl;
 		EGLContext thisCtx;
 		EGLSurface surface;
-		COpenGLFeatureMap* features;
+		const COpenGLFeatureMap* features;
         core::SRange<core::smart_refctd_ptr<IGPUImage>> images;
         GLuint fbos[MaxImages]{};
         core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
-        system::logger_opt_smart_ptr m_logger;
+        COpenGLDebugCallback* m_dbgCb;
         struct SRequest {
             SRequest() { sems.reserve(50); }
 
@@ -303,6 +316,18 @@ private:
     CThreadHandler m_threadHandler;
     uint32_t m_imgIx = 0u;
 };
+
+}
+
+
+#include "nbl/video/COpenGLFunctionTable.h"
+#include "nbl/video/COpenGLESFunctionTable.h"
+
+namespace nbl::video
+{
+
+using COpenGLSwapchain = COpenGL_Swapchain<COpenGLFunctionTable>;
+using COpenGLESSwapchain = COpenGL_Swapchain<COpenGLESFunctionTable>;
 
 }
 

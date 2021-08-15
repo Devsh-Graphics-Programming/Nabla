@@ -5,14 +5,14 @@
 #ifndef __NBL_VIDEO_I_GPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
+
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
+
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUPipelineLayout.h"
-#include "nbl/video/IBackendObject.h"
 
-namespace nbl
-{
-namespace video
+
+namespace nbl::video
 {
 
 //! GPU Version of Renderpass Independent Pipeline
@@ -26,16 +26,15 @@ class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPi
 
 	public:
 		IGPURenderpassIndependentPipeline(
-			ILogicalDevice* dev,
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
 			IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
 			const asset::SVertexInputParams& _vertexInputParams,
 			const asset::SBlendParams& _blendParams,
 			const asset::SPrimitiveAssemblyParams& _primAsmParams,
 			const asset::SRasterizationParams& _rasterParams
-		) : base_t(std::move(_layout), _shadersBegin, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams), IBackendObject(dev)
+		) : base_t(std::move(_layout), _shadersBegin, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams), IBackendObject(std::move(dev))
 		{
-
 		}
 
 		struct SCreationParams
@@ -52,7 +51,6 @@ class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPi
 		virtual ~IGPURenderpassIndependentPipeline() = default;
 };
 
-}
 }
 
 #endif

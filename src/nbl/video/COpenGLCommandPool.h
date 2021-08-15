@@ -23,7 +23,7 @@ class COpenGLCommandPool final : public IGPUCommandPool
 
     public:
         using IGPUCommandPool::IGPUCommandPool;
-        COpenGLCommandPool(ILogicalDevice* dev, std::underlying_type_t<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IGPUCommandPool(dev, static_cast<E_CREATE_FLAGS>(_flags), _familyIx), mempool(BLOCK_SIZE,0u,MAX_BLOCK_COUNT,MIN_ALLOC_SZ) {}
+        COpenGLCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, std::underlying_type_t<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IGPUCommandPool(std::move(dev), static_cast<E_CREATE_FLAGS>(_flags), _familyIx), mempool(BLOCK_SIZE,0u,MAX_BLOCK_COUNT,MIN_ALLOC_SZ) {}
 
         template <typename T, typename... Args>
         T* emplace_n(uint32_t n, Args&&... args)

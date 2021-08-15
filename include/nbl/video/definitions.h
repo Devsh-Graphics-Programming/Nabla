@@ -9,4 +9,8 @@
 #include "nbl/asset/asset.h"
 #include "nbl/ui/definitions.h"
 
+//
+#include "nbl/video/def/IBackendObject.h"
+
+
 #endif
