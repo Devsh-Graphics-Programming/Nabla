@@ -25,7 +25,7 @@
 #include "nbl/video/CVulkanDescriptorSet.h"
 #include "nbl/video/CVulkanMemoryAllocation.h"
 #include "nbl/video/CVulkanBuffer.h"
-// #include "nbl/video/surface/ISurfaceVK.h"
+// #include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
 {

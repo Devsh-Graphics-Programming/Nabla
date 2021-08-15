@@ -6,7 +6,7 @@
 #include <volk.h>
 
 #include "nbl/video/CVKLogicalDevice.h"
-#include "nbl/video/surface/ISurfaceVK.h"
+#include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
 {

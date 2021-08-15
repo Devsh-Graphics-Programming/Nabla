@@ -1,9 +1,8 @@
-#include "nbl/video/surface/ISurfaceVK.h"
+#include "nbl/video/surface/CSurfaceVulkan.h"
 
+#include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanConnection.h"
-
-#include <volk.h>
 
 namespace nbl::video
 {
@@ -47,31 +46,25 @@ CSurfaceVulkan<Window>::~CSurfaceVulkan()
     }
 }
 
-template class CSurfaceVulkan<ui::IWindowWin32>;
-
-#if 0
-ISurfaceVK::ISurfaceVK(core::smart_refctd_ptr<const CVulkanConnection>&& apiConnection)
-    : m_apiConnection(std::move(apiConnection)) {}
-
-bool ISurfaceVK::isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
+template <typename Window>
+bool CSurfaceVulkan<Window>::isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
 {
     if (dev->getAPIType() != EAT_VULKAN)
+        return false;
+
+    VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
+
+    VkBool32 supported;
+    if (vkGetPhysicalDeviceSurfaceSupportKHR(vk_physicalDevice, _queueFamIx, m_surface, &supported) == VK_SUCCESS)
     {
-        // Todo(achal): Log error
+        return static_cast<bool>(supported);
+    }
+    else
+    {
         return false;
     }
-
-    auto vkphd = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
-    VkBool32 supported;
-    vkGetPhysicalDeviceSurfaceSupportKHR(vkphd, _queueFamIx, m_surface, &supported);
-
-    return static_cast<bool>(supported);
 }
 
-ISurfaceVK::~ISurfaceVK()
-{
-    vkDestroySurfaceKHR(m_apiConnection->getInternalObject(), m_surface, nullptr);
-}
-#endif
+template class CSurfaceVulkan<ui::IWindowWin32>;
 
 }
