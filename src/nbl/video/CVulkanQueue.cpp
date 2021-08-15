@@ -44,8 +44,8 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         mem = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(memSize, _NBL_SIMD_ALIGNMENT) );
     }
 
-    // auto raii_ = core::makeRAIIExiter([mem,stackmem_]{ _NBL_ALIGNED_FREE(mem); });
-    auto raii_ = core::makeRAIIExiter([mem]{ _NBL_ALIGNED_FREE(mem); });
+    // Todo(achal): FREE ONLY IF _NBL_ALIGNED_MALLOC was called
+    // auto raii_ = core::makeRAIIExiter([mem]{ _NBL_ALIGNED_FREE(mem); });
 
     VkSubmitInfo* submits = reinterpret_cast<VkSubmitInfo*>(mem);
     mem += submitsSz;

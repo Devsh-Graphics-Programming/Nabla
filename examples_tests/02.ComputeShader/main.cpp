@@ -662,10 +662,10 @@ int main()
 		commandBuffers[i]->end();
 	}
 
-	// pipeline->drop();
+	pipeline->drop();
 	
 
-
+#if 0
 	// Hacky vulkan stuff begins --get handles to existing Vulkan stuff
 	VkPhysicalDevice vk_physicalDevice = gpu->getInternalObject();
 	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
@@ -726,6 +726,7 @@ int main()
 		}
 		assert(vk_memoryTypeIndex != ~0u);
 	}
+#endif
 
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
 	
@@ -745,35 +746,37 @@ int main()
 		// At this stage the final color values are output from the pipeline
 		// Todo(achal): Not really sure why are waiting at this pipeline stage for
 		// acquiring the image to render
-		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		// VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-		submitInfo.waitSemaphoreCount = 1u;
-		submitInfo.pWaitSemaphores = &vk_acquireSemaphores[currentFrameIndex];
-		submitInfo.pWaitDstStageMask = &pipelineStageFlags;
-		submitInfo.commandBufferCount = 1u;
-		submitInfo.pCommandBuffers = &vk_commandBuffers[imageIndex];
-		submitInfo.signalSemaphoreCount = 1u;
-		submitInfo.pSignalSemaphores = &vk_releaseSemaphores[currentFrameIndex];
+		// VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+		// submitInfo.waitSemaphoreCount = 1u;
+		// submitInfo.pWaitSemaphores = &vk_acquireSemaphores[currentFrameIndex];
+		// submitInfo.pWaitDstStageMask = &pipelineStageFlags;
+		// submitInfo.commandBufferCount = 1u;
+		// submitInfo.pCommandBuffers = &vk_commandBuffers[imageIndex];
+		// submitInfo.signalSemaphoreCount = 1u;
+		// submitInfo.pSignalSemaphores = &vk_releaseSemaphores[currentFrameIndex];
 
 		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
 		// once it finishes its execution
 		device->resetFences(1u, &fence_frame);
 
-		VkResult result = vkQueueSubmit(vk_computeQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
-		assert(result == VK_SUCCESS);
+		asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+		
+		video::IGPUQueue::SSubmitInfo submitInfo = {};
+		submitInfo.waitSemaphoreCount = 1u;
+		submitInfo.pWaitSemaphores = &acquireSemaphore_frame;
+		submitInfo.pWaitDstStageMask = &waitDstStageFlags;
+		submitInfo.signalSemaphoreCount = 1u;
+		submitInfo.pSignalSemaphores = &releaseSemaphore_frame;
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.commandBuffers = &commandBuffers[imageIndex].get();
+		assert(computeQueue->submit(1u, &submitInfo, fence_frame));
 
-		// asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+		// VkResult result = vkQueueSubmit(vk_computeQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
+		// assert(result == VK_SUCCESS);
 
-		// video::IGPUQueue::SSubmitInfo submitInfo = {};
-		// submitInfo.waitSemaphoreCount = 1u;
-		// submitInfo.pWaitSemaphores = &acquireSemaphore_frame;
-		// submitInfo.pWaitDstStageMask = &waitDstStageFlags;
-		// submitInfo.signalSemaphoreCount = 1u;
-		// submitInfo.pSignalSemaphores = &releaseSemaphore_frame;
-		// submitInfo.commandBufferCount = 1u;
-		// submitInfo.commandBuffers = ;
-		// assert(graphicsQueue->submit(1u, &submitInfo, fence_frame));
+
 
 		video::IGPUQueue::SPresentInfo presentInfo;
 		presentInfo.waitSemaphoreCount = 1u;
