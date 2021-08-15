@@ -559,7 +559,7 @@ int main()
 		{
 			descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
 			descriptorInfos[0].image.sampler = nullptr;
-			descriptorInfos[0].desc = swapchainImageViews[i];
+			descriptorInfos[0].desc = swapchainImageViews[i]; // shouldn't IGPUDescriptorSet hold a reference to the resources in its descriptors?
 
 			writeDescriptorSets[0].dstSet = descriptorSets[i].get();
 			writeDescriptorSets[0].binding = 0u;
@@ -662,10 +662,10 @@ int main()
 		commandBuffers[i]->end();
 	}
 
-
-
-
+	// pipeline->drop();
 	
+
+
 	// Hacky vulkan stuff begins --get handles to existing Vulkan stuff
 	VkPhysicalDevice vk_physicalDevice = gpu->getInternalObject();
 	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();

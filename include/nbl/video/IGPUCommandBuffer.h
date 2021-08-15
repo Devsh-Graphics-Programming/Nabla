@@ -65,7 +65,7 @@ public:
             IGPUEvent,
             IGPUCommandBuffer
         >::begin(_flags);
-        if (m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT==0u)
+        if ((m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT)==0u)
         {
             assert(m_state != ES_INITIAL);
         }

@@ -12,62 +12,67 @@ namespace nbl::video
 
 struct ArgumentReferenceSegment
 {
-    std::array<core::smart_refctd_ptr<core::IReferenceCounted>, 63> arguments;
+    ArgumentReferenceSegment() : arguments(), argCount(0u), next(nullptr) {}
+    
+    constexpr static uint8_t MAX_REFERENCES = 62u;
+    std::array<core::smart_refctd_ptr<const core::IReferenceCounted>, MAX_REFERENCES> arguments;
 
-    // What is this nextBlock here for?
-    // What emplace would return?
-    uint32_t argCount, nextBlock;
+    uint8_t argCount;
+    ArgumentReferenceSegment* next;
 };
 
 class CVulkanCommandPool final : public IGPUCommandPool
 {
-    constexpr static inline size_t BLOCK_SIZE = 4096u * 1024u;
-    constexpr static inline size_t MAX_BLOCK_COUNT = 256u;
-
+     constexpr static inline uint32_t NODES_PER_BLOCK = 4096u;
+     constexpr static inline uint32_t MAX_BLOCK_COUNT = 256u;
 
 public:
     CVulkanCommandPool(ILogicalDevice* dev, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags,
         uint32_t queueFamilyIndex, VkCommandPool commandPool)
         : IGPUCommandPool(dev, static_cast<E_CREATE_FLAGS>(flags), queueFamilyIndex),
-        m_commandPool(commandPool)
-        // mempool(BLOCK_SIZE, MAX_BLOCK_COUNT)
+        m_commandPool(commandPool), mempool(NODES_PER_BLOCK * sizeof(ArgumentReferenceSegment),
+            1u, MAX_BLOCK_COUNT, static_cast<uint32_t>(sizeof(ArgumentReferenceSegment)))
     {}
 
-#if 0
-    template <typename T>
-    void emplace_n(const uint32_t n, core::smart_refctd_ptr<T>* elements,
-        ArgumentReferenceSegment* head, ArgumentReferenceSegment* tail)
+    void emplace_n(ArgumentReferenceSegment*& tail,
+        const core::smart_refctd_ptr<const core::IReferenceCounted>* begin,
+        const core::smart_refctd_ptr<const core::IReferenceCounted>* end)
     {
         std::unique_lock<std::mutex> lock(mutex);
 
-        assert((head && tail) || (!head && !tail));
+        if (!tail)
+            tail = mempool.emplace<ArgumentReferenceSegment>();
 
-        if (!head)
+        auto it = begin;
+        while (it != end)
         {
-            mempool.emplace<ArgumentReferenceSegment>()
-        }
-        else
-        {
-            // We're currently at tail
-            // How would I know if *tail is filled, so I need to ask a new segment from the pool?
-            const uint32_t spaceLeftInCurrentSegment = 63 - tail->argCount;
-            if (n > spaceLeftInCurrentSegment)
+            // allocate new segment if overflow
+            if (tail->argCount == ArgumentReferenceSegment::MAX_REFERENCES)
             {
-                // ask a new segment from the pool
-            }
-            else
-            {
-
+                auto newTail = mempool.emplace<ArgumentReferenceSegment>();
+                tail->next = newTail;
+                tail = newTail;
             }
 
-            finalTotal = tail->argCount + n
-            if (tail->argCount < 63)
-
+            // fill to the brim
+            const auto count = core::min(end - it, ArgumentReferenceSegment::MAX_REFERENCES - tail->argCount);
+            std::copy_n(it, count, tail->arguments.begin() + tail->argCount);
+            it += count;
+            tail->argCount += count;
         }
-        mempool.emplace
-        // return mempool.emplace_n<T>()
     }
-#endif
+
+    void free_all(ArgumentReferenceSegment* head)
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+
+        while (head)
+        {
+            ArgumentReferenceSegment* next = head->next;
+            mempool.free<ArgumentReferenceSegment>(head);
+            head = next;
+        }
+    }
 
     VkCommandPool getInternalObject() const { return m_commandPool; }
 
@@ -76,7 +81,7 @@ public:
 private:
     VkCommandPool m_commandPool;
     std::mutex mutex;
-    // core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator> mempool;
+    core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, uint32_t> mempool;
 };
 
 }

@@ -2,6 +2,9 @@
 #define __NBL_C_VULKAN_COMMAND_BUFFER_H_INCLUDED__
 
 #include "nbl/video/IGPUCommandBuffer.h"
+
+// Todo(achal): I think I a lot of them could be made forward declarations if I introduce
+// a CVulkanCommandBuffer.cpp
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanComputePipeline.h"
@@ -20,20 +23,29 @@ public:
     CVulkanCommandBuffer(ILogicalDevice* logicalDevice, E_LEVEL level,
         VkCommandBuffer _vkcmdbuf, IGPUCommandPool* commandPool)
         : IGPUCommandBuffer(logicalDevice, level, commandPool), m_cmdbuf(_vkcmdbuf)
-    {}
+    {
+        if (m_cmdpool->getAPIType() == EAT_VULKAN)
+        {
+            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            vulkanCommandPool->emplace_n(m_argListTail, nullptr, nullptr);
+            m_argListHead = m_argListTail;
+        }
+    }
+
+    ~CVulkanCommandBuffer()
+    {
+        freeSpaceInCmdPool();
+    }
 
     // API needs to change, vkBeginCommandBuffer can fail
-    void begin(uint32_t _flags) override
+    void begin(uint32_t recordingFlags) override
     {
-        assert(m_state != ES_PENDING);
-        assert(m_state != ES_RECORDING);
-
-        m_state = ES_RECORDING;
-        m_recordingFlags = _flags;
-
+        // Should we do manual state management? Wouldn't relying on validation errors be better?
+        // IGPUCommandBuffer::begin(recordingFlags);
+        
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-        beginInfo.pNext = nullptr; // Todo(achal)
-        beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(_flags);
+        beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
+        beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags);
         beginInfo.pInheritanceInfo = nullptr; // useful if it was a secondary command buffer
         
         assert(vkBeginCommandBuffer(m_cmdbuf, &beginInfo) == VK_SUCCESS);
@@ -42,10 +54,17 @@ public:
     // API needs to changed, vkEndCommandBuffer can fail
     void end() override
     {
-        assert(m_state != ES_PENDING);
-        m_state = ES_EXECUTABLE;
-
         assert(vkEndCommandBuffer(m_cmdbuf) == VK_SUCCESS);
+    }
+
+    bool reset(uint32_t _flags) override
+    {
+        freeSpaceInCmdPool();
+
+        if (vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags)) == VK_SUCCESS)
+            return true;
+        else
+            return false;
     }
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
@@ -296,6 +315,15 @@ public:
         if (pipeline->getAPIType() != EAT_VULKAN)
             return false;
 
+        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = 
+            { core::smart_refctd_ptr<const compute_pipeline_t>(pipeline) };
+
+        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 1u);
+
         VkPipeline vk_pipeline = static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject();
         vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
 
@@ -380,6 +408,15 @@ public:
     VkCommandBuffer getInternalObject() const { return m_cmdbuf; }
 
 private:
+    void freeSpaceInCmdPool()
+    {
+        if (m_cmdpool->getAPIType() == EAT_VULKAN)
+        {
+            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            vulkanCommandPool->free_all(m_argListHead);
+        }
+    }
+
     ArgumentReferenceSegment* m_argListHead = nullptr;
     ArgumentReferenceSegment* m_argListTail = nullptr;
     VkCommandBuffer m_cmdbuf;
