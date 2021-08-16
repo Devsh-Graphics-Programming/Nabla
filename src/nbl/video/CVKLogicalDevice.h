@@ -28,6 +28,7 @@
 #include "nbl/video/CVulkanMemoryAllocation.h"
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanBufferView.h"
+#include "nbl/video/CVulkanForeignImage.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
@@ -127,18 +128,18 @@ public:
         uint32_t i = 0u;
         for (auto& image : (*images))
         {
-            CVulkanImage::SCreationParams creationParams;
+            CVulkanForeignImage::SCreationParams creationParams;
             creationParams.arrayLayers = params.arrayLayers;
             creationParams.extent = { params.width, params.height, 1u };
-            creationParams.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0); // Todo(achal)
+            creationParams.flags = static_cast<CVulkanForeignImage::E_CREATE_FLAGS>(0); // Todo(achal)
             creationParams.format = params.surfaceFormat.format;
             creationParams.mipLevels = 1u;
             creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
             creationParams.type = CVulkanImage::ET_2D;
 
-            // Todo(achal): Probably need to change this to CVulkanForeignImage
-            image = core::make_smart_refctd_ptr<CVulkanImage>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(creationParams), vk_images[i++]);
+            image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(creationParams),
+                vk_images[i++]);
         }
 
         return core::make_smart_refctd_ptr<CVKSwapchain>(
@@ -210,16 +211,14 @@ public:
     // API needs to change. vkResetFences can fail.
     void resetFences(uint32_t _count, IGPUFence*const* _fences) override
     {
-        assert(_count < 100);
+        constexpr uint32_t MAX_FENCE_COUNT = 100u;
+        assert(_count < MAX_FENCE_COUNT);
 
-        VkFence vk_fences[100];
+        VkFence vk_fences[MAX_FENCE_COUNT];
         for (uint32_t i = 0u; i < _count; ++i)
         {
             if (_fences[i]->getAPIType() != EAT_VULKAN)
-            {
-                // Probably log warning?
-                assert(false);
-            }
+                return;
 
             vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
@@ -229,16 +228,15 @@ public:
             
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence*const* _fences, bool _waitAll, uint64_t _timeout) override
     {
-        assert(_count < 100);
+        constexpr uint32_t MAX_FENCE_COUNT = 100u;
 
-        VkFence vk_fences[100];
+        assert(_count <= MAX_FENCE_COUNT);
+
+        VkFence vk_fences[MAX_FENCE_COUNT];
         for (uint32_t i = 0u; i < _count; ++i)
         {
             if (_fences[i]->getAPIType() != EAT_VULKAN)
-            {
-                // Probably log warning?
                 return IGPUFence::E_STATUS::ES_ERROR;
-            }
 
             vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
@@ -391,10 +389,28 @@ public:
         }
     }
 
-    //! Low level function used to implement the above, use with caution
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
     {
-        return nullptr;
+        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(initialMreqs, false);
+
+        if (!gpuBuffer)
+            return nullptr;
+
+        // Todo(achal): Probably do not call getMemoryReqs at all but
+        // vkGetBufferMemoryRequirements or equivalent
+        core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =
+            allocateDeviceLocalMemory(gpuBuffer->getMemoryReqs());
+
+        if (!bufferMemory)
+            return nullptr;
+
+        ILogicalDevice::SBindBufferMemoryInfo bindBufferInfo = {};
+        bindBufferInfo.buffer = gpuBuffer.get();
+        bindBufferInfo.memory = bufferMemory.get();
+        bindBufferInfo.offset = 0ull;
+        bindBufferMemory(1u, &bindBufferInfo);
+
+        return gpuBuffer;
     }
         
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
@@ -417,59 +433,68 @@ public:
 
     core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) override
     {
-#if 0
-        VkImageCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-        createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
-        createInfo.imageType = createInfo.imageType = static_cast<VkImageType>(params.type);
-        createInfo.format = ISurfaceVK::getVkFormat(params.format);
-        createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
-        createInfo.mipLevels = params.mipLevels;
-        createInfo.arrayLayers = params.arrayLayers;
-        createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
-        createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
-        createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
-        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // Todo(achal): enumize this
-        createInfo.queueFamilyIndexCount = params.queueFamilyIndices->size();
-        createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
-        createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
+        VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        vk_createInfo.pNext = nullptr; // there are a lot of extensions
+        vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
+        vk_createInfo.imageType = static_cast<VkImageType>(params.type);
+        vk_createInfo.format = getVkFormatFromFormat(params.format);
+        vk_createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
+        vk_createInfo.mipLevels = params.mipLevels;
+        vk_createInfo.arrayLayers = params.arrayLayers;
+        vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
+        vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
+        vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
+        vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
+        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndices->size();
+        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
 
         VkImage vk_image;
-        assert(vkCreateImage(m_vkdev, &createInfo, nullptr, &vk_image) == VK_SUCCESS); // Todo(achal): error handling
-
-        return core::make_smart_refctd_ptr<CVulkanImage>(this, std::move(params));
-#endif
-        return nullptr;
+        if (vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<CVKLogicalDevice>(this),
+                std::move(params), vk_image);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
-    //! The counterpart of @see bindBufferMemory for images
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
     {
-        return false;
+        for (uint32_t i = 0u; i < bindInfoCount; ++i)
+        {
+            if (pBindInfos[i].image->getAPIType() != EAT_VULKAN)
+                continue;
+            VkImage vk_image = static_cast<const CVulkanImage*>(pBindInfos[i].image)->getInternalObject();
+
+            // if (pBindInfos[i].memory->getAPIType() != EAT_VULKAN)
+            //     continue;
+            VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
+
+            if (vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory,
+                static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
             
     core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
+        // Todo(achal)
 #if 0
-        VkImageCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-        createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
-        createInfo.imageType = createInfo.imageType = static_cast<VkImageType>(params.type);
-        createInfo.format = ISurfaceVK::getVkFormat(params.format);
-        createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
-        createInfo.mipLevels = params.mipLevels;
-        createInfo.arrayLayers = params.arrayLayers;
-        createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
-        createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
-        createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
-        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // Todo(achal): enumize this
-        createInfo.queueFamilyIndexCount = params.queueFamilyIndices->size();
-        createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
-        createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
-
-        VkImage vk_image;
-        assert(vkCreateImage(m_vkdev, &createInfo, nullptr, &vk_image) == VK_SUCCESS); // Todo(achal): error handling
-
-        return core::make_smart_refctd_ptr<CVulkanImage>(this, std::move(params));
+        core::smart_refctd_ptr<IGPUImage> gpuImage = createGPUImage(core::smart_refctd_ptr(params));
+        if (!gpuImage)
+            return nullptr;
+        
+        core::smart_refctd_ptr<video::IDriverMemoryAllocation> imageMemory =
+            allocateDeviceLocalMemory(gpuImage->getMemoryReqs());
 #endif
+
         return nullptr;
     }
 

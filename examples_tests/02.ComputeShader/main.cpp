@@ -6,10 +6,8 @@
 #include "../../src/nbl/video/CVulkanConnection.h"
 
 // Temporary
-#include <volk/volk.h>
-#include "../../src/nbl/video/CVulkanPhysicalDevice.h"
-#include "../../src/nbl/video/CVKLogicalDevice.h"
-#include "../../src/nbl/video/CVulkanImage.h"
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
 
@@ -418,7 +416,6 @@ int main()
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 		ubos[i] = device->createGPUBuffer(memoryRequirements);
 
-
 	// Allocate memory for GPU buffer
 	core::smart_refctd_ptr<video::IDriverMemoryAllocation> ubosMemory[MAX_SWAPCHAIN_IMAGE_COUNT];
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
@@ -572,9 +569,7 @@ int main()
 	}
 
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
-
 	
-#if 0
 	uint32_t currentFrameIndex = 0u;
 	while (!windowShouldClose_Global)
 	{
@@ -582,30 +577,19 @@ int main()
 		video::IGPUSemaphore* releaseSemaphore_frame = releaseSemaphores[currentFrameIndex].get();
 		video::IGPUFence* fence_frame = frameFences[currentFrameIndex].get();
 
-		assert(device->waitForFences(1u, &fence_frame, true, ~0ull) == video::IGPUFence::ES_SUCCESS);
+		video::IGPUFence::E_STATUS retval = device->waitForFences(1u, &fence_frame, true, ~0ull);
+		assert(retval == video::IGPUFence::ES_SUCCESS);
 
 		uint32_t imageIndex;
 		swapchain->acquireNextImage(~0ull, acquireSemaphores[currentFrameIndex].get(), nullptr,
 			&imageIndex);
 
-		// At this stage the final color values are output from the pipeline
-		// Todo(achal): Not really sure why are waiting at this pipeline stage for
-		// acquiring the image to render
-		// VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-		// VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-		// submitInfo.waitSemaphoreCount = 1u;
-		// submitInfo.pWaitSemaphores = &vk_acquireSemaphores[currentFrameIndex];
-		// submitInfo.pWaitDstStageMask = &pipelineStageFlags;
-		// submitInfo.commandBufferCount = 1u;
-		// submitInfo.pCommandBuffers = &vk_commandBuffers[imageIndex];
-		// submitInfo.signalSemaphoreCount = 1u;
-		// submitInfo.pSignalSemaphores = &vk_releaseSemaphores[currentFrameIndex];
-
 		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
 		// once it finishes its execution
 		device->resetFences(1u, &fence_frame);
 
+		// Todo(achal): Not really sure why are waiting at this pipeline stage for
+		// acquiring the image to render
 		asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
 		
 		video::IGPUQueue::SSubmitInfo submitInfo = {};
@@ -616,12 +600,8 @@ int main()
 		submitInfo.pSignalSemaphores = &releaseSemaphore_frame;
 		submitInfo.commandBufferCount = 1u;
 		submitInfo.commandBuffers = &commandBuffers[imageIndex].get();
-		assert(computeQueue->submit(1u, &submitInfo, fence_frame));
 
-		// VkResult result = vkQueueSubmit(vk_computeQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
-		// assert(result == VK_SUCCESS);
-
-
+		computeQueue->submit(1u, &submitInfo, fence_frame);
 
 		video::IGPUQueue::SPresentInfo presentInfo;
 		presentInfo.waitSemaphoreCount = 1u;
@@ -629,12 +609,11 @@ int main()
 		presentInfo.swapchainCount = 1u;
 		presentInfo.swapchains = &rawPointerToSwapchain;
 		presentInfo.imgIndices = &imageIndex;
-		assert(presentQueue->present(presentInfo));
+		presentQueue->present(presentInfo);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
 	}
 	device->waitIdle();
-#endif
 
 #if 0
 	constexpr uint32_t WIN_W = 1280;

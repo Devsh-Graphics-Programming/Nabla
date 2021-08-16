@@ -5,41 +5,35 @@
 #ifndef __NBL_VIDEO_C_VULKAN_IMAGE_H_INCLUDED__
 #define __NBL_VIDEO_C_VULKAN_IMAGE_H_INCLUDED__
 
-#include <volk.h>
 #include "nbl/video/IGPUImage.h"
+
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
 
 namespace nbl::video
 {
+
 class ILogicalDevice;
 
-class CVulkanImage final : public IGPUImage
+class CVulkanImage : public IGPUImage
 {
-	protected:
-		virtual ~CVulkanImage();
-
 	public:
-		//! constructor
 		// CVulkanImage(ILogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
 		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
-			IGPUImage(std::move(_vkdev), std::move(_params)), m_vkimg(_vkimg)
+			IGPUImage(std::move(_vkdev), std::move(_params)), m_vkImage(_vkimg)
 		{}
 
-		inline VkImage getInternalObject() const { return m_vkimg; }
+		inline VkImage getInternalObject() const { return m_vkImage; }
 
-		// Todo(achal): Gotta move move this into a new file CVulkanMemoryAllocation
-		// inline size_t getAllocationSize() const override { return this->getImageDataSizeInBytes(); }
+		// Todo(achal)
 		inline IDriverMemoryAllocation* getBoundMemory() override { return nullptr; }
 		inline const IDriverMemoryAllocation* getBoundMemory() const override { return nullptr; }
 		inline size_t getBoundMemoryOffset() const override { return 0ull; }
 
-		// inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
-		// This exists as a pure virtual function in ILogicalDevice which takes in a IDriverMemoryAllocation* --which is not a base class of this class
-		// inline void unmapMemory() override {}
-		// inline bool isDedicated() const override { return true; }
+	protected:
+		virtual ~CVulkanImage();
 
-	private:
-		VkImage m_vkimg;
-		// core::smart_refctd_ptr<CVKSwapchain> m_swapchain;
+		VkImage m_vkImage;
 };
 
 } // end namespace nbl::video

@@ -11,12 +11,13 @@ namespace nbl::video
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
     // Probably should abstract this??
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() != EAT_VULKAN)
+    // const auto originDevice = getOriginDevice();
+    if (m_originDevice2->getAPIType() != EAT_VULKAN)
         return false;
 
     // auto* vk = m_vkdev->getFunctionTable();
-    VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+    // VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+    VkDevice vk_device = static_cast<const CVKLogicalDevice*>(m_originDevice2)->getInternalObject();
 
     uint32_t waitSemCnt = 0u;
     uint32_t signalSemCnt = 0u;
@@ -117,10 +118,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {
         if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
-        {
-            // Probably log warning/error?
             return false;
-        }
 
         vk_waitSemaphores[i] = reinterpret_cast<CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
     }
@@ -130,10 +128,8 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     for (uint32_t i = 0u; i < info.swapchainCount; ++i)
     {
         if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
-        {
-            // Probably log warning/error?
             return false;
-        }
+
         vk_swapchains[i] = reinterpret_cast<CVKSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
     }
 
