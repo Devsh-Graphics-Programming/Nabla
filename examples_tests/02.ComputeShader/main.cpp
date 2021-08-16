@@ -360,8 +360,6 @@ int main()
 	assert(device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
 		swapchainImageCount, commandBuffers));
 
-
-#if 0
 	const uint32_t bindingCount = 2u;
 	video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
 	{
@@ -382,6 +380,8 @@ int main()
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
 		device->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
+
+#if 0
 	const uint32_t descriptorPoolSizeCount = 2u;
 	video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
 	poolSizes[0].type = asset::EDT_STORAGE_IMAGE;

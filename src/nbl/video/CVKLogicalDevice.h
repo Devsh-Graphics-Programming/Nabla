@@ -862,56 +862,61 @@ protected:
         }
     }
 
-    //
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
     {
-#if 0
-        VkDescriptorSetLayoutBinding vk_dsLayoutBindings[100];
+        constexpr uint32_t MAX_BINDING_COUNT = 100u;
+        constexpr uint32_t MAX_SAMPLER_COUNT_PER_BINDING = 100u;
 
         uint32_t bindingCount = std::distance(_begin, _end);
+        assert(bindingCount <= MAX_BINDING_COUNT);
+
+        uint32_t samplerOffset = 0u;
+        VkSampler vk_samplers[MAX_SAMPLER_COUNT_PER_BINDING * MAX_BINDING_COUNT];
+        VkDescriptorSetLayoutBinding vk_dsLayoutBindings[MAX_BINDING_COUNT];
+
         for (uint32_t b = 0u; b < bindingCount; ++b)
         {
             auto binding = _begin + b;
-
-#if 0
-            if (binding->samplers)
-            {
-                assert(binding->count <= 100);
-                VkSampler immutableSamplers[100];
-                for (uint32_t i = 0u; i < binding->count; ++i)
-                {
-                    if (binding->samplers[i]->getAPIType() != EAT_VULKAN)
-                        continue;
-
-                    immutableSamplers[i] = static_cast<const CVulkanSampler*>(binding->samplers[i].get())->getInternalObject();
-                }
-            }
-#endif
 
             vk_dsLayoutBindings[b].binding = binding->binding;
             vk_dsLayoutBindings[b].descriptorType = static_cast<VkDescriptorType>(binding->type);
             vk_dsLayoutBindings[b].descriptorCount = binding->count;
             vk_dsLayoutBindings[b].stageFlags = static_cast<VkShaderStageFlags>(binding->stageFlags);
-            vk_dsLayoutBindings[b].pImmutableSamplers = nullptr; // Todo(achal)
+            vk_dsLayoutBindings[b].pImmutableSamplers = nullptr;
+
+            if (binding->samplers)
+            {
+                assert(binding->count <= MAX_SAMPLER_COUNT_PER_BINDING);
+
+                for (uint32_t i = 0u; i < binding->count; ++i)
+                {
+                    if (binding->samplers[i]->getAPIType() != EAT_VULKAN)
+                        continue;
+
+                    vk_samplers[samplerOffset + i] = static_cast<const CVulkanSampler*>(binding->samplers[i].get())->getInternalObject();
+                }
+
+                vk_dsLayoutBindings[b].pImmutableSamplers = vk_samplers + samplerOffset;
+                samplerOffset += binding->count;
+            }
         }
 
-        VkDescriptorSetLayoutCreateInfo createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-        createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkDescriptorSetLayoutBindingFlagsCreateInfo or VkMutableDescriptorTypeCreateInfoVALVE
-        createInfo.flags = 0; // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
-        createInfo.bindingCount = bindingCount;
-        createInfo.pBindings = vk_dsLayoutBindings;
+        VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkDescriptorSetLayoutBindingFlagsCreateInfo or VkMutableDescriptorTypeCreateInfoVALVE
+        vk_createInfo.flags = 0; // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
+        vk_createInfo.bindingCount = bindingCount;
+        vk_createInfo.pBindings = vk_dsLayoutBindings;
 
         VkDescriptorSetLayout vk_dsLayout;
-        if (vkCreateDescriptorSetLayout(m_vkdev, &createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS)
+        if (vkCreateDescriptorSetLayout(m_vkdev, &vk_createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(this, _begin, _end, vk_dsLayout);
+            return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), _begin, _end, vk_dsLayout);
         }
         else
         {
             return nullptr;
         }
-#endif
-        return nullptr;
     }
 
     core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
