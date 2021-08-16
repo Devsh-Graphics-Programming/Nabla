@@ -75,50 +75,6 @@ enum E_PIPELINE_STAGE_FLAGS : uint32_t
     EPSF_COMMAND_PREPROCESS_BIT_NV = 0x00020000
 };
 
-enum E_PIPELINE_CREATE_FLAGS : uint32_t
-{
-    EPCF_DISABLE_OPTIMIZATION_BIT = 0x00000001,
-    EPCF_ALLOW_DERIVATIVES_BIT = 0x00000002,
-    EPCF_DERIVATIVE_BIT = 0x00000004,
-    EPCF_VIEW_INDEX_FROM_DEVICE_INDEX_BIT = 0x00000008,
-    EPCF_DISPATCH_BASE_BIT = 0x00000010,
-    // Provided by VK_KHR_ray_tracing_pipeline
-    EPCF_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR = 0x00004000,
-    // Provided by VK_KHR_ray_tracing_pipeline
-    EPCF_RAY_TRACING_NO_NULL_CLOSEST_HIT_SHADERS_BIT_KHR = 0x00008000,
-    // Provided by VK_KHR_ray_tracing_pipeline
-    EPCF_RAY_TRACING_NO_NULL_MISS_SHADERS_BIT_KHR = 0x00010000,
-    // Provided by VK_KHR_ray_tracing_pipeline
-    EPCF_RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR = 0x00020000,
-    // Provided by VK_KHR_ray_tracing_pipeline
-    EPCF_RAY_TRACING_SKIP_TRIANGLES_BIT_KHR = 0x00001000,
-    // Provided by VK_KHR_ray_tracing_pipeline
-    EPCF_RAY_TRACING_SKIP_AABBS_BIT_KHR = 0x00002000,
-    // Provided by VK_KHR_ray_tracing_pipeline
-    EPCF_RAY_TRACING_SHADER_GROUP_HANDLE_CAPTURE_REPLAY_BIT_KHR = 0x00080000,
-    // Provided by VK_NV_ray_tracing
-    EPCF_DEFER_COMPILE_BIT_NV = 0x00000020,
-    // Provided by VK_KHR_pipeline_executable_properties
-    EPCF_CAPTURE_STATISTICS_BIT_KHR = 0x00000040,
-    // Provided by VK_KHR_pipeline_executable_properties
-    EPCF_CAPTURE_INTERNAL_REPRESENTATIONS_BIT_KHR = 0x00000080,
-    // Provided by VK_NV_device_generated_commands
-    EPCF_INDIRECT_BINDABLE_BIT_NV = 0x00040000,
-    // Provided by VK_KHR_pipeline_library
-    EPCF_LIBRARY_BIT_KHR = 0x00000800,
-    // Provided by VK_EXT_pipeline_creation_cache_control
-    EPCF_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT_EXT = 0x00000100,
-    // Provided by VK_EXT_pipeline_creation_cache_control
-    EPCF_EARLY_RETURN_ON_FAILURE_BIT_EXT = 0x00000200,
-    // Provided by VK_NV_ray_tracing_motion_blur
-    EPCF_RAY_TRACING_ALLOW_MOTION_BIT_NV = 0x00100000,
-    EPCF_DISPATCH_BASE = EPCF_DISPATCH_BASE_BIT,
-    // Provided by VK_KHR_device_group
-    EPCF_VIEW_INDEX_FROM_DEVICE_INDEX_BIT_KHR = EPCF_VIEW_INDEX_FROM_DEVICE_INDEX_BIT,
-    // Provided by VK_KHR_device_group
-    EPCF_DISPATCH_BASE_KHR = EPCF_DISPATCH_BASE,
-};
-
 enum E_ACCESS_FLAGS : uint32_t
 {
     EAF_INDIRECT_COMMAND_READ_BIT = 0x00000001,

@@ -30,8 +30,11 @@ class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader
 
         struct SCreationParams
         {
+            IPipeline::E_PIPELINE_CREATION flags;
             core::smart_refctd_ptr<IGPUPipelineLayout> layout;
             core::smart_refctd_ptr<IGPUSpecializedShader> shader;
+            core::smart_refctd_ptr<IGPUComputePipeline> basePipeline;
+            int32_t basePipelineIndex;
         };
 
     protected:

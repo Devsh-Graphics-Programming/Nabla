@@ -27,6 +27,7 @@
 #include "nbl/video/CVulkanDescriptorSet.h"
 #include "nbl/video/CVulkanMemoryAllocation.h"
 #include "nbl/video/CVulkanBuffer.h"
+#include "nbl/video/CVulkanBufferView.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
@@ -155,7 +156,7 @@ public:
         if (vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanSemaphore>
-                (core::smart_refctd_ptr<ILogicalDevice>(this), semaphore);
+                (core::smart_refctd_ptr<CVKLogicalDevice>(this), semaphore);
         }
         else
         {
@@ -192,8 +193,8 @@ public:
         VkFence vk_fence;
         if (vkCreateFence(m_vkdev, &vk_createInfo, nullptr, &vk_fence) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanFence>(core::smart_refctd_ptr<ILogicalDevice>(this),
-                flags, vk_fence);
+            return core::make_smart_refctd_ptr<CVulkanFence>(
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), flags, vk_fence);
         }
         else
         {
@@ -304,8 +305,8 @@ public:
         VkDescriptorPool vk_descriptorPool;
         if (vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(core::smart_refctd_ptr<ILogicalDevice>(this),
-                vk_descriptorPool);
+            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), vk_descriptorPool);
         }
         else
         {
@@ -329,13 +330,6 @@ public:
         return;
     }
 
-    //! Binds memory allocation to provide the backing for the resource.
-    /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
-    so pooling or aliasing memory for different resources is not possible.
-    There is no unbind, so once memory is bound it remains bound until you destroy the resource object.
-    Actually all resource classes in OpenGL implement both IDriverMemoryBacked and IDriverMemoryAllocation,
-    so effectively the memory is pre-bound at the time of creation.
-    \return true on success, always false under OpenGL.*/
     bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override
     {
         for (uint32_t i = 0u; i < bindInfoCount; ++i)
@@ -357,20 +351,28 @@ public:
         const bool canModifySubData = false) override
     {
         // Todo(achal): I would probably need to create an IGPUBuffer::SCreationParams
-        // Not sure about the course of action to resolve this yet.
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-        vk_createInfo.flags = 0; // currently no way to specify these, could nbl::asset::IImage::E_CREATE_FLAGS be used here, but then
+        vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0); // Nabla doesn't support any of these flags
         vk_createInfo.size = initialMreqs.vulkanReqs.size;
-        vk_createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; // currently no way to specify this, its high time though
-        vk_createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; 
-        vk_createInfo.queueFamilyIndexCount = 0u; 
-        vk_createInfo.pQueueFamilyIndices = nullptr;
+        vk_createInfo.usage = initialMreqs.vulkanBufferUsageFlags;
+        vk_createInfo.sharingMode = static_cast<VkSharingMode>(initialMreqs.sharingMode); 
+
+        if (initialMreqs.queueFamilyIndices)
+        {
+            vk_createInfo.queueFamilyIndexCount = initialMreqs.queueFamilyIndices->size();
+            vk_createInfo.pQueueFamilyIndices = initialMreqs.queueFamilyIndices->data();
+        }
 
         VkBuffer vk_buffer;
         if (vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
         {
             IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
+
+            // These are only temporary
+            bufferMemoryReqs.vulkanBufferUsageFlags = initialMreqs.vulkanBufferUsageFlags;
+            bufferMemoryReqs.sharingMode = initialMreqs.sharingMode;
+            bufferMemoryReqs.queueFamilyIndices = initialMreqs.queueFamilyIndices;
 
             // Not sure if I'd actually need these
             bufferMemoryReqs.memoryHeapLocation = initialMreqs.memoryHeapLocation;
@@ -380,8 +382,8 @@ public:
 
             vkGetBufferMemoryRequirements(m_vkdev, vk_buffer, &bufferMemoryReqs.vulkanReqs);
 
-            return core::make_smart_refctd_ptr<CVulkanBuffer>(core::smart_refctd_ptr<ILogicalDevice>(this),
-                bufferMemoryReqs, vk_buffer);
+            return core::make_smart_refctd_ptr<CVulkanBuffer>(
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), bufferMemoryReqs, vk_buffer);
         }
         else
         {
@@ -474,8 +476,8 @@ public:
     void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
         uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override
     {
-        constexpr uint32_t MAX_DESCRIPTOR_WRITE_COUNT = 100u;
-        constexpr uint32_t MAX_DESCRIPTOR_COPY_COUNT = 100u;
+        constexpr uint32_t MAX_DESCRIPTOR_WRITE_COUNT = 25u;
+        constexpr uint32_t MAX_DESCRIPTOR_COPY_COUNT = 25u;
         constexpr uint32_t MAX_DESCRIPTOR_ARRAY_COUNT = MAX_DESCRIPTOR_WRITE_COUNT;
 
         // Todo(achal): This exceeds 16384 bytes on stack, move to heap
@@ -556,8 +558,17 @@ public:
 
                 case asset::IDescriptor::EC_BUFFER_VIEW:
                 {
-                    // Todo(achal): Implement when you create the buffer view stuff
-                    assert(false);
+                    for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
+                    {
+                        // if (pDescriptorWrites[i].info[j].desc->getAPIType() != EAT_VULKAN)
+                        //     continue;
+
+                        VkBufferView vk_bufferView = static_cast<const CVulkanBufferView*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
+                        vk_bufferViews[j] = vk_bufferView;
+                    }
+
+                    vk_writeDescriptorSets[i].pTexelBufferView = vk_bufferViews + bufferViewOffset;
+                    bufferViewOffset += pDescriptorWrites[i].count;
                 } break;
             }
         }
@@ -592,15 +603,53 @@ public:
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(
         const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
     {
-        // Todo(achal): I need to take into account getDeviceLocalGPUMemoryReqs, probably
-        
-        VkMemoryAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-        allocateInfo.pNext = nullptr; // Todo(achal): What extensions?
-        allocateInfo.allocationSize = additionalReqs.vulkanReqs.size;
-        allocateInfo.memoryTypeIndex = 2u; // Todo(achal): LOL?!
+        // Todo(achal): Remove this, and integrate it with
+        // IDriverMemoryBacked::SDriverMemoryRequirements if possible. Probably we can cache this
+        // in a struct of 5 uint32_t's (deviceLocal, spillover, upstreaming,
+        // downstreaming, cpuSizeGPUVisible) per CVulkanPhysicalDevice and just access
+        // the relevant index in here.
+#if 0
+        uint32_t memoryTypeIndex = ~0u;
+        {
+            if (m_physicalDevice->getAPIType() != EAT_VULKAN)
+                return nullptr;
+
+            VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(m_physicalDevice.get())->getInternalObject();
+
+            VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
+            vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
+
+            // Todo(achal): I need to take into account getDeviceLocalGPUMemoryReqs, probably
+            const uint32_t supportedMemoryTypes = additionalReqs.vulkanReqs.memoryTypeBits;
+            IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDeviceLocalGPUMemoryReqs();
+
+            const VkMemoryPropertyFlags desiredMemoryProperties =
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+            for (uint32_t i = 0u; i < vk_physicalDeviceMemoryProperties.memoryTypeCount; ++i)
+            {
+                const bool isMemoryTypeSupportedForResource = (supportedMemoryTypes & (1 << i));
+
+                const bool doesMemoryHaveDesirableProperites =
+                    (vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags
+                        & desiredMemoryProperties) == desiredMemoryProperties;
+                if (isMemoryTypeSupportedForResource && doesMemoryHaveDesirableProperites)
+                {
+                    memoryTypeIndex = i;
+                    break;
+                }
+            }
+        }
+        assert(memoryTypeIndex != ~0u);
+#endif
+
+        VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+        vk_allocateInfo.pNext = nullptr; // No extensions for now
+        vk_allocateInfo.allocationSize = additionalReqs.vulkanReqs.size;
+        vk_allocateInfo.memoryTypeIndex = 2u; // Todo(achal): LOL?!
 
         VkDeviceMemory vk_deviceMemory;
-        if (vkAllocateMemory(m_vkdev, &allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
+        if (vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory);
         }
@@ -657,11 +706,11 @@ public:
         // if (memory.memory->getAPIType() != EAT_VULKAN)
         //     return nullptr;
 
-        VkMemoryMapFlags memoryMapFlags = 0; // reserved for future use, by Vulkan
+        VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
         VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(memory.memory)->getInternalObject();
         void* mappedPtr;
         if (vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
-            static_cast<VkDeviceSize>(memory.length), memoryMapFlags, &mappedPtr) == VK_SUCCESS)
+            static_cast<VkDeviceSize>(memory.length), vk_memoryMapFlags, &mappedPtr) == VK_SUCCESS)
         {
             return mappedPtr;
         }
@@ -792,7 +841,31 @@ protected:
 
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override
     {
-        return nullptr;
+        if (_underlying->getAPIType() != EAT_VULKAN)
+            return nullptr;
+
+        VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(_underlying)->getInternalObject();
+
+        VkBufferViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO };
+        vk_createInfo.pNext = nullptr; // pNext must be NULL
+        vk_createInfo.flags = static_cast<VkBufferViewCreateFlags>(0); // flags must be 0
+        vk_createInfo.buffer = vk_buffer;
+        vk_createInfo.format = getVkFormatFromFormat(_fmt);
+        vk_createInfo.offset = _offset;
+        vk_createInfo.range = _size;
+
+        VkBufferView vk_bufferView;
+        if (vkCreateBufferView(m_vkdev, &vk_createInfo, nullptr, &vk_bufferView) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanBufferView>(
+                core::smart_refctd_ptr<CVKLogicalDevice>(this),
+                core::smart_refctd_ptr<IGPUBuffer>(_underlying), _fmt, _offset,
+                _size, vk_bufferView);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override
@@ -835,12 +908,12 @@ protected:
         if (pool->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        const CVulkanDescriptorPool* vulkanPool = static_cast<const CVulkanDescriptorPool*>(pool);
+        const CVulkanDescriptorPool* vulkanDescriptorPool = static_cast<const CVulkanDescriptorPool*>(pool);
 
         VkDescriptorSetAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
         vk_allocateInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDescriptorSetVariableDescriptorCountAllocateInfo
 
-        vk_allocateInfo.descriptorPool = vulkanPool->getInternalObject();
+        vk_allocateInfo.descriptorPool = vulkanDescriptorPool->getInternalObject();
         vk_allocateInfo.descriptorSetCount = 1u; // Isn't creating only descriptor set every time wasteful?
 
         if (layout->getAPIType() != EAT_VULKAN)
@@ -852,8 +925,8 @@ protected:
         if (vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(
-                core::smart_refctd_ptr<ILogicalDevice>(this), std::move(layout),
-                core::smart_refctd_ptr<const CVulkanDescriptorPool>(vulkanPool),
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(layout),
+                core::smart_refctd_ptr<const CVulkanDescriptorPool>(vulkanDescriptorPool),
                 vk_descriptorSet);
         }
         else
@@ -864,8 +937,8 @@ protected:
 
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
     {
-        constexpr uint32_t MAX_BINDING_COUNT = 100u;
-        constexpr uint32_t MAX_SAMPLER_COUNT_PER_BINDING = 100u;
+        constexpr uint32_t MAX_BINDING_COUNT = 25u;
+        constexpr uint32_t MAX_SAMPLER_COUNT_PER_BINDING = 25u;
 
         uint32_t bindingCount = std::distance(_begin, _end);
         assert(bindingCount <= MAX_BINDING_COUNT);
@@ -924,6 +997,7 @@ protected:
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2 = nullptr,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3 = nullptr) override
     {
+        constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
         constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u; // temporary max, I believe
 
         const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2,
@@ -938,8 +1012,8 @@ protected:
         }
 
         const auto pcRangeCount = std::distance(_pcRangesBegin, _pcRangesEnd);
-        assert(pcRangeCount <= 100);
-        VkPushConstantRange vk_pushConstantRanges[100];
+        assert(pcRangeCount <= MAX_PC_RANGE_COUNT);
+        VkPushConstantRange vk_pushConstantRanges[MAX_PC_RANGE_COUNT];
         for (uint32_t i = 0u; i < pcRangeCount; ++i)
         {
             const auto pcRange = _pcRangesBegin + i;
@@ -961,7 +1035,7 @@ protected:
         if (vkCreatePipelineLayout(m_vkdev, &vk_createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(
-                core::smart_refctd_ptr<ILogicalDevice>(this), _pcRangesBegin, _pcRangesEnd,
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), _pcRangesBegin, _pcRangesEnd,
                 std::move(layout0), std::move(layout1), std::move(layout2), std::move(layout3),
                 vk_pipelineLayout);
         }
@@ -981,12 +1055,11 @@ protected:
         core::smart_refctd_ptr<IGPUComputePipeline> result = nullptr;
 
         IGPUComputePipeline::SCreationParams creationParams = {};
-        // Todo(achal): Put E_PIPELINE_CREATE_FLAGS in a different place
-        // creationParams.flags = static_cast<asset::E_PIPELINE_CREATE_FLAGS>(0); // No way to get this now!
+        creationParams.flags = static_cast<video::IGPUComputePipeline::E_PIPELINE_CREATION>(0); // No way to get this now!
         creationParams.layout = std::move(_layout);
         creationParams.shader = std::move(_shader);
-        // creationParams.basePipeline = nullptr; // No way to get this now!
-        // creationParams.basePipelineIndex = ~0u; // No way to get this now!
+        creationParams.basePipeline = nullptr; // No way to get this now!
+        creationParams.basePipelineIndex = ~0u; // No way to get this now!
 
         core::SRange<const IGPUComputePipeline::SCreationParams> creationParamsRange(&creationParams,
             &creationParams + 1);
@@ -1015,7 +1088,6 @@ protected:
             if ((creationParams[i].layout->getAPIType() != EAT_VULKAN) ||
                 (creationParams[i].shader->getAPIType() != EAT_VULKAN))
             {
-                // Probably log warning 
                 return false;
             }
         }
@@ -1033,21 +1105,21 @@ protected:
 
             vk_createInfos[i].sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
             vk_createInfos[i].pNext = nullptr; // pNext must be either NULL or a pointer to a valid instance of VkPipelineCompilerControlCreateInfoAMD, VkPipelineCreationFeedbackCreateInfoEXT, or VkSubpassShadingPipelineCreateInfoHUAWEI
-            // vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(createInfo->flags); // Todo(achal)
+            vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(createInfo->flags);
 
-            if (createInfo->shader->getAPIType() == EAT_VULKAN)
-            {
-                const CVulkanSpecializedShader* specShader
-                    = static_cast<const CVulkanSpecializedShader*>(createInfo->shader.get());
+            if (createInfo->shader->getAPIType() != EAT_VULKAN)
+                continue;
 
-                vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-                vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
-                vk_shaderStageCreateInfos[i].flags = 0; // currently there is no way to get this in the API https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPipelineShaderStageCreateFlagBits.html
-                vk_shaderStageCreateInfos[i].stage = static_cast<VkShaderStageFlagBits>(specShader->getStage());
-                vk_shaderStageCreateInfos[i].module = specShader->getInternalObject();
-                vk_shaderStageCreateInfos[i].pName = "main"; // Probably want to change the API of IGPUSpecializedShader to have something like getEntryPointName like theres getStage
-                vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr; // Todo(achal): Should we have a asset::ISpecializedShader::SInfo member in CVulkanSpecializedShader, otherwise I don't know how I'm gonna get the values required for VkSpecializationInfo https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkSpecializationInfo.html
-            }
+            const CVulkanSpecializedShader* specShader
+                = static_cast<const CVulkanSpecializedShader*>(createInfo->shader.get());
+
+            vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
+            vk_shaderStageCreateInfos[i].flags = 0; // currently there is no way to get this in the API https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPipelineShaderStageCreateFlagBits.html
+            vk_shaderStageCreateInfos[i].stage = static_cast<VkShaderStageFlagBits>(specShader->getStage());
+            vk_shaderStageCreateInfos[i].module = specShader->getInternalObject();
+            vk_shaderStageCreateInfos[i].pName = "main"; // Probably want to change the API of IGPUSpecializedShader to have something like getEntryPointName like theres getStage
+            vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr; // Todo(achal): Should we have a asset::ISpecializedShader::SInfo member in CVulkanSpecializedShader, otherwise I don't know how I'm gonna get the values required for VkSpecializationInfo https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkSpecializationInfo.html
 
             vk_createInfos[i].stage = vk_shaderStageCreateInfos[i];
 
@@ -1056,12 +1128,10 @@ protected:
                 vk_createInfos[i].layout = static_cast<const CVulkanPipelineLayout*>(createInfo->layout.get())->getInternalObject();
 
             vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE;
-            // Todo(achal):
-            // if (createInfo->basePipeline && (createInfo->basePipeline->getAPIType() == EAT_VULKAN))
-            //     vk_createInfos[i].basePipelineHandle = static_cast<const CVulkanComputePipeline*>(createInfo->basePipeline.get())->getInternalObject();
+            if (createInfo->basePipeline && (createInfo->basePipeline->getAPIType() == EAT_VULKAN))
+                vk_createInfos[i].basePipelineHandle = static_cast<const CVulkanComputePipeline*>(createInfo->basePipeline.get())->getInternalObject();
 
-            // Todo(achal):
-            // vk_createInfos[i].basePipelineIndex = createInfo->basePipelineIndex;
+            vk_createInfos[i].basePipelineIndex = createInfo->basePipelineIndex;
         }
         
         VkPipeline vk_pipelines[MAX_PIPELINE_COUNT];
@@ -1073,7 +1143,7 @@ protected:
                 const auto createInfo = createInfos.begin() + i;
 
                 output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
-                    core::smart_refctd_ptr<ILogicalDevice>(this),
+                    core::smart_refctd_ptr<CVKLogicalDevice>(this),
                     core::smart_refctd_ptr(createInfo->layout),
                     core::smart_refctd_ptr(createInfo->shader), vk_pipelines[i]);
             }

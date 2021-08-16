@@ -357,8 +357,8 @@ int main()
 			video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
-	assert(device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
-		swapchainImageCount, commandBuffers));
+	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
+		swapchainImageCount, commandBuffers);
 
 	const uint32_t bindingCount = 2u;
 	video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
@@ -380,68 +380,72 @@ int main()
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
 		device->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
-
-#if 0
 	const uint32_t descriptorPoolSizeCount = 2u;
 	video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
 	poolSizes[0].type = asset::EDT_STORAGE_IMAGE;
-	poolSizes[0].count = SC_IMG_COUNT;
+	poolSizes[0].count = swapchainImageCount;
 	poolSizes[1].type = asset::EDT_UNIFORM_BUFFER;
-	poolSizes[1].count = SC_IMG_COUNT;
+	poolSizes[1].count = swapchainImageCount;
 
 	video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
 		static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
 
 	core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool
-		= device->createDescriptorPool(descriptorPoolFlags, SC_IMG_COUNT,
+		= device->createDescriptorPool(descriptorPoolFlags, swapchainImageCount,
 			descriptorPoolSizeCount, poolSizes);
 
 	// For each swapchain image we have one descriptor set with two descriptors each
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSets[SC_IMG_COUNT];
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSets[MAX_SWAPCHAIN_IMAGE_COUNT];
 
 	// Todo(achal): Test this as well: 
 	// device->createGPUDescriptorSets(descriptorPool.get(), SC_IMG_COUNT, )
-
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		descriptorSets[i] = device->createGPUDescriptorSet(descriptorPool.get(),
 			core::smart_refctd_ptr(dsLayout));
 	}
 
-	core::smart_refctd_ptr<video::IGPUBuffer> ubos[SC_IMG_COUNT];
+	core::smart_refctd_ptr<video::IGPUBuffer> ubos[MAX_SWAPCHAIN_IMAGE_COUNT];
 
 	// Kinda janky to pass buffer size like this, I think, because we're overriding
 	// these values at the end of createGPUBuffer anyway (by the values obtained from
 	// vkGetBufferMemoryRequirements)
 	video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements = {};
 	memoryRequirements.vulkanReqs.size = sizeof(UniformBufferObject);
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-		ubos[i] = device->createGPUBuffer(memoryRequirements, true);
+	memoryRequirements.vulkanBufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	memoryRequirements.sharingMode = asset::ESM_EXCLUSIVE;
+	memoryRequirements.queueFamilyIndices = nullptr;
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+		ubos[i] = device->createGPUBuffer(memoryRequirements);
+
 
 	// Allocate memory for GPU buffer
+	core::smart_refctd_ptr<video::IDriverMemoryAllocation> ubosMemory[MAX_SWAPCHAIN_IMAGE_COUNT];
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	{
+		// THIS IS ONLY USED FOR DETERMINING THE SIZE OF ALLOCATION FOR NOW
+		// Again kinda janky to pass size of allocation this way
+		video::IDriverMemoryBacked::SDriverMemoryRequirements additionalMemReqs = {};
+		additionalMemReqs.vulkanReqs.size = sizeof(UniformBufferObject);
+		additionalMemReqs.vulkanReqs.memoryTypeBits = ubos[i]->getMemoryReqs().vulkanReqs.memoryTypeBits;
 
-	// THIS IS ONLY USED FOR DETERMINING THE SIZE OF ALLOCATION FOR NOW
-	// Again kinda janky to pass size of allocation this way
-	video::IDriverMemoryBacked::SDriverMemoryRequirements additionalMemReqs = {};
-	additionalMemReqs.vulkanReqs.size = sizeof(UniformBufferObject);
-
-	core::smart_refctd_ptr<video::IDriverMemoryAllocation> ubosMemory[SC_IMG_COUNT];
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
 		ubosMemory[i] = device->allocateDeviceLocalMemory(additionalMemReqs);
+	}
 
-	video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfos[SC_IMG_COUNT];
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfos[MAX_SWAPCHAIN_IMAGE_COUNT];
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		bindBufferInfos[i].buffer = ubos[i].get();
 		bindBufferInfos[i].memory = ubosMemory[i].get();
 		bindBufferInfos[i].offset = 0ull;
 	}
-	assert(device->bindBufferMemory(SC_IMG_COUNT, bindBufferInfos));
+	device->bindBufferMemory(swapchainImageCount, bindBufferInfos);
 
 	// Fill up ubos with dummy data
-	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer
+	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer,
+	// infact device local memory shouldn't be host mapped
 	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(ubosMemory[i].get(),
 			0ull, sizeof(UniformBufferObject));
@@ -453,7 +457,7 @@ int main()
 		device->unmapMemory(ubosMemory[i].get());
 	}
 
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		const uint32_t writeDescriptorCount = 2u;
 
@@ -499,7 +503,7 @@ int main()
 		device->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout),
 			core::smart_refctd_ptr(specializedShader));
 
-	// Todo(achal): I think we can make it greater than SC_IMG_COUNT
+	// Todo(achal): Consider making it greater than swapchainImageCount
 	const uint32_t FRAMES_IN_FLIGHT = 2u;
 
 	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
@@ -513,7 +517,7 @@ int main()
 	}
 
 	// Record commands in commandBuffers here
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		video::IGPUCommandBuffer::SImageMemoryBarrier undefToComputeTransitionBarrier;
 		undefToComputeTransitionBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
@@ -549,92 +553,28 @@ int main()
 		// affect the srcStageMask. More precisely, I think, for some reason, that
 		// VK_PIPELINE_STAGE_TRANSFER_BIT shouldn't be specified in compute queue
 		// but present queue (or transfer queue if theres one??)
-		assert(commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
+		commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u,
-			&undefToComputeTransitionBarrier));
+			&undefToComputeTransitionBarrier);
 
-		assert(commandBuffers[i]->bindComputePipeline(pipeline.get()));
+		commandBuffers[i]->bindComputePipeline(pipeline.get());
 
 		const video::IGPUDescriptorSet* tmp[] = { descriptorSets[i].get() };
-		assert(commandBuffers[i]->bindDescriptorSets(asset::EPBP_COMPUTE, pipelineLayout.get(),
-			0u, 1u, tmp));
+		commandBuffers[i]->bindDescriptorSets(asset::EPBP_COMPUTE, pipelineLayout.get(),
+			0u, 1u, tmp);
 
 		commandBuffers[i]->dispatch(WIN_W, WIN_H, 1);
 
-		assert(commandBuffers[i]->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT,
-			0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier));
+		commandBuffers[i]->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT,
+			0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier);
 
 		commandBuffers[i]->end();
 	}
 
-	pipeline->drop();
-	
-
-#if 0
-	// Hacky vulkan stuff begins --get handles to existing Vulkan stuff
-	VkPhysicalDevice vk_physicalDevice = gpu->getInternalObject();
-	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
-
-	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
-	VkFence vk_frameFences[FRAMES_IN_FLIGHT];
-	{
-		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
-		{
-			vk_acquireSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(acquireSemaphores[i].get())->getInternalObject();
-			vk_releaseSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(releaseSemaphores[i].get())->getInternalObject();
-			vk_frameFences[i] = reinterpret_cast<video::CVulkanFence*>(frameFences[i].get())->getInternalObject();
-		}
-	}
-
-	VkQueue vk_computeQueue = reinterpret_cast<video::CVulkanQueue*>(
-		computeQueue)->getInternalObject();
-
-	VkCommandBuffer vk_commandBuffers[SC_IMG_COUNT];
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-		vk_commandBuffers[i] = reinterpret_cast<video::CVulkanCommandBuffer*>(commandBuffers[i].get())->getInternalObject();	
-
-	// Pure vulkan stuff
-
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-	{
-		// Todo(achal): Need to do something about this
-		// Find the type of memory you want to allocate for this buffer, it has to have
-		// the following properties:
-		// 	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-		// i.e. should be visible to host application and should be coherent with host
-		// application
-			
-		const uint32_t vk_supportedMemoryTypes = ubos[i]->getMemoryReqs().vulkanReqs.memoryTypeBits;
-		const VkMemoryPropertyFlags vk_desiredMemoryProperties =
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-		uint32_t vk_memoryTypeIndex = ~0u;
-		{
-			VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
-			vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice,
-				&vk_physicalDeviceMemoryProperties);
-
-			for (uint32_t i = 0u; i < vk_physicalDeviceMemoryProperties.memoryTypeCount; ++i)
-			{
-				const bool isMemoryTypeSupportedForResource =
-					(vk_supportedMemoryTypes & (1 << i));
-
-				const bool doesMemoryHaveDesirableProperites =
-					(vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags
-						& vk_desiredMemoryProperties) == vk_desiredMemoryProperties;
-				if (isMemoryTypeSupportedForResource && doesMemoryHaveDesirableProperites)
-				{
-					vk_memoryTypeIndex = i;
-					break;
-				}
-			}
-		}
-		assert(vk_memoryTypeIndex != ~0u);
-	}
-#endif
-
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
+
 	
+#if 0
 	uint32_t currentFrameIndex = 0u;
 	while (!windowShouldClose_Global)
 	{

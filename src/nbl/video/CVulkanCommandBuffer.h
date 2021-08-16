@@ -48,13 +48,15 @@ public:
         beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags);
         beginInfo.pInheritanceInfo = nullptr; // useful if it was a secondary command buffer
         
-        assert(vkBeginCommandBuffer(m_cmdbuf, &beginInfo) == VK_SUCCESS);
+        VkResult retval = vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
+        assert(retval == VK_SUCCESS);
     }
 
     // API needs to changed, vkEndCommandBuffer can fail
     void end() override
     {
-        assert(vkEndCommandBuffer(m_cmdbuf) == VK_SUCCESS);
+        VkResult retval = vkEndCommandBuffer(m_cmdbuf);
+        assert(retval == VK_SUCCESS);
     }
 
     bool reset(uint32_t _flags) override
@@ -219,11 +221,16 @@ public:
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
-        // Todo(achal): I could probably abstract this out into something like getVulkanCommandPool
+        constexpr uint32_t MAX_BARRIER_COUNT = 100u;
 
-#if 1
-        assert(memoryBarrierCount <= 100);
-        VkMemoryBarrier vk_memoryBarriers[100];
+        // Todo(achal): Should probably just abstract this out?
+        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+
+        assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
+        VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
         {
             vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
@@ -232,9 +239,10 @@ public:
             vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].dstAccessMask);
         }
 
-        // Todo(achal): Proper lifetime management of IGPUBuffer
-        assert(bufferMemoryBarrierCount <= 100);
-        VkBufferMemoryBarrier vk_bufferMemoryBarriers[100];
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_BARRIER_COUNT];
+
+        assert(bufferMemoryBarrierCount <= MAX_BARRIER_COUNT);
+        VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
         {
             vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -246,11 +254,13 @@ public:
             vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get())->getInternalObject();
             vk_bufferMemoryBarriers[i].offset = pBufferMemoryBarriers[i].offset;
             vk_bufferMemoryBarriers[i].size = pBufferMemoryBarriers[i].size;
-        }
 
-        // Todo(achal): Proper lifetime management of IGPUImage
-        assert(imageMemoryBarrierCount <= 100);
-        VkImageMemoryBarrier vk_imageMemoryBarriers[100];
+            tmp[i] = pBufferMemoryBarriers[i].buffer;
+        }
+        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + bufferMemoryBarrierCount);
+
+        assert(imageMemoryBarrierCount <= MAX_BARRIER_COUNT);
+        VkImageMemoryBarrier vk_imageMemoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
         {
             vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -267,7 +277,10 @@ public:
             vk_imageMemoryBarriers[i].subresourceRange.levelCount = pImageMemoryBarriers[i].subresourceRange.levelCount;
             vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = pImageMemoryBarriers[i].subresourceRange.baseArrayLayer;
             vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
+
+            tmp[i] = pImageMemoryBarriers[i].image;
         }
+        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + imageMemoryBarrierCount);
 
         vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask),
             static_cast<VkPipelineStageFlags>(dstStageMask),
@@ -277,9 +290,6 @@ public:
             imageMemoryBarrierCount, vk_imageMemoryBarriers);
 
         return true;
-#else
-        return false;
-#endif
     }
 
     bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
