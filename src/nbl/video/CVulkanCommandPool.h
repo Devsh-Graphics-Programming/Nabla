@@ -1,4 +1,4 @@
-#ifndef __NBL_C__VULKAN_COMMAND_POOL_H_INCLUDED__
+#ifndef __NBL_C_VULKAN_COMMAND_POOL_H_INCLUDED__
 
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/core/containers/CMemoryPool.h"
@@ -86,5 +86,5 @@ private:
 };
 
 }
-#define __NBL_C__VULKAN_COMMAND_POOL_H_INCLUDED__
+#define __NBL_C_VULKAN_COMMAND_POOL_H_INCLUDED__
 #endif

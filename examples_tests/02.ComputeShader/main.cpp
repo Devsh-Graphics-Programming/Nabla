@@ -344,8 +344,6 @@ int main()
 		}
 	}
 
-
-#if 0
 	// TODO: Load from "../compute.comp" instead of getting source from src
 	core::smart_refctd_ptr<video::IGPUShader> unspecializedShader = device->createGPUShader(
 		core::make_smart_refctd_ptr<asset::ICPUShader>(src));
@@ -358,10 +356,12 @@ int main()
 		device->createCommandPool(computeFamilyIndex,
 			video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[SC_IMG_COUNT];
-	assert(device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, SC_IMG_COUNT,
-		commandBuffers));
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
+	assert(device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
+		swapchainImageCount, commandBuffers));
 
+
+#if 0
 	const uint32_t bindingCount = 2u;
 	video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
 	{

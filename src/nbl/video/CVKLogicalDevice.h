@@ -270,7 +270,7 @@ public:
         if (vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanCommandPool>(
-                core::smart_refctd_ptr<ILogicalDevice>(this), flags, familyIndex, vk_commandPool);
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), flags, familyIndex, vk_commandPool);
         }
         else
         {
@@ -403,12 +403,12 @@ public:
         if (cpushader->containsGLSL())
         {
             return core::make_smart_refctd_ptr<CVulkanShader>(
-                core::smart_refctd_ptr<ILogicalDevice>(this), std::move(clone),
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(clone),
                 IGPUShader::buffer_contains_glsl);
         }
         else
         {
-            return core::make_smart_refctd_ptr<CVulkanShader>(core::smart_refctd_ptr<ILogicalDevice>(this),
+            return core::make_smart_refctd_ptr<CVulkanShader>(core::smart_refctd_ptr<CVKLogicalDevice>(this),
                 std::move(clone));
         }
     }
@@ -688,17 +688,19 @@ protected:
     bool createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
         uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs) override
     {
+        constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = 1000u;
+
         if (cmdPool->getAPIType() != EAT_VULKAN)
             return false;
 
-        auto vk_commandPool = reinterpret_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
+        auto vulkanCommandPool = reinterpret_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
 
-        assert(count <= 100);
-        VkCommandBuffer vk_commandBuffers[100];
+        assert(count <= MAX_COMMAND_BUFFER_COUNT);
+        VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
 
         VkCommandBufferAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
         vk_allocateInfo.pNext = nullptr; // this must be NULL
-        vk_allocateInfo.commandPool = vk_commandPool;
+        vk_allocateInfo.commandPool = vulkanCommandPool;
         vk_allocateInfo.level = static_cast<VkCommandBufferLevel>(level);
         vk_allocateInfo.commandBufferCount = count;
 
@@ -706,8 +708,9 @@ protected:
         {
             for (uint32_t i = 0u; i < count; ++i)
             {
-                outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(core::smart_refctd_ptr<ILogicalDevice>(this),
-                    level, vk_commandBuffers[i], cmdPool);
+                outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
+                    core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
+                    cmdPool);
             }
 
             return true;
@@ -729,13 +732,12 @@ protected:
         return nullptr; // return core::make_smart_refctd_ptr<CVulkanFramebuffer>(this, std::move(params));
     }
 
-    // Todo(achal): For some reason this is not printing shader compilation errors to console
+    // Todo(achal): For some reason this is not printing shader errors to console
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo, const asset::ISPIRVOptimizer* spvopt) override
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
-        {
             return nullptr;
-        }
+
         const CVulkanShader* unspecializedShader = static_cast<const CVulkanShader*>(_unspecialized);
 
         const std::string& entryPoint = specInfo.entryPoint;
@@ -780,7 +782,7 @@ protected:
         if (vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanSpecializedShader>(
-                core::smart_refctd_ptr<ILogicalDevice>(this), vk_shaderModule, shaderStage);
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), vk_shaderModule, shaderStage);
         }
         else
         {
