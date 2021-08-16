@@ -145,7 +145,7 @@ int main()
 {
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
-	constexpr uint32_t SC_IMG_COUNT = 3u; // problematic, shouldn't fix the number of swapchain images at compile time, since Vulkan is under no obligation to return you the exact number of images you requested
+	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
 
 	auto system = CommonAPI::createSystem(); // Todo(achal): Need to get rid of this
 
@@ -178,6 +178,7 @@ int main()
 	uint32_t presentFamilyIndex(~0u);
 
 	// Todo(achal): Probably want to put these into some struct
+	uint32_t minSwapchainImageCount(~0u);
 	nbl::video::ISurface::SFormat surfaceFormat;
 	nbl::video::ISurface::E_PRESENT_MODE presentMode;
 	// nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform; // Todo(achal)
@@ -241,14 +242,14 @@ int main()
 			if ((surfaceCapabilities.supportedUsageFlags & asset::IImage::EUF_STORAGE_BIT) == 0)
 				isGPUSuitable = false;
 			
-			// Todo(achal): Refactor this a bit
-			if ((surfaceCapabilities.maxImageCount != 0) && (SC_IMG_COUNT > surfaceCapabilities.maxImageCount)
-				|| (surfaceFormats.empty()) || (availablePresentModes == video::ISurface::EPM_UNKNOWN))
-			{
+			if ((surfaceFormats.empty()) || (availablePresentModes == video::ISurface::EPM_UNKNOWN))
 				isGPUSuitable = false;
-			}
 
 			// Todo(achal): Probably a more sophisticated way to choose these
+			minSwapchainImageCount = core::min(surfaceCapabilities.minImageCount + 1u, MAX_SWAPCHAIN_IMAGE_COUNT);
+			if ((surfaceCapabilities.maxImageCount != 0u) && (minSwapchainImageCount > surfaceCapabilities.maxImageCount))
+				minSwapchainImageCount = surfaceCapabilities.maxImageCount;
+
 			surfaceFormat = surfaceFormats[0];
 			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(availablePresentModes & (1 << 0));
 			// preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
@@ -307,7 +308,7 @@ int main()
 
 	nbl::video::ISwapchain::SCreationParams sc_params = {};
 	sc_params.surface = surface;
-	sc_params.minImageCount = SC_IMG_COUNT;
+	sc_params.minImageCount = minSwapchainImageCount;
 	sc_params.surfaceFormat = surfaceFormat;
 	sc_params.presentMode = presentMode;
 	sc_params.width = WIN_W;
@@ -322,11 +323,8 @@ int main()
 
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
-	assert(swapchainImageCount == SC_IMG_COUNT);
 
-#if 0
-
-	core::smart_refctd_ptr<video::IGPUImageView> swapchainImageViews[SC_IMG_COUNT];
+	core::smart_refctd_ptr<video::IGPUImageView> swapchainImageViews[MAX_SWAPCHAIN_IMAGE_COUNT];
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		auto img = swapchainImages.begin()[i];
@@ -339,13 +337,15 @@ int main()
 			viewParams.subresourceRange.levelCount = 1u;
 			viewParams.subresourceRange.baseArrayLayer = 0u;
 			viewParams.subresourceRange.layerCount = 1u;
-			viewParams.image = std::move(img); // this might create problems
+			viewParams.image = core::smart_refctd_ptr<video::IGPUImage>(img);
 
 			swapchainImageViews[i] = device->createGPUImageView(std::move(viewParams));
 			assert(swapchainImageViews[i]);
 		}
 	}
 
+
+#if 0
 	// TODO: Load from "../compute.comp" instead of getting source from src
 	core::smart_refctd_ptr<video::IGPUShader> unspecializedShader = device->createGPUShader(
 		core::make_smart_refctd_ptr<asset::ICPUShader>(src));

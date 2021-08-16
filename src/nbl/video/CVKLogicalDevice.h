@@ -795,8 +795,37 @@ protected:
 
     core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override
     {
-        // Todo(achal): Hoist creation out of constructor
-        return nullptr; // return core::make_smart_refctd_ptr<CVulkanImageView>(this, std::move(params));
+        VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkImageViewUsageCreateInfo, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+        vk_createInfo.flags = static_cast<VkImageViewCreateFlags>(params.flags);
+
+        if (params.image->getAPIType() != EAT_VULKAN)
+            return nullptr;
+
+        VkImage vk_image = static_cast<const CVulkanImage*>(params.image.get())->getInternalObject();
+        vk_createInfo.image = vk_image;
+        vk_createInfo.viewType = static_cast<VkImageViewType>(params.viewType);
+        vk_createInfo.format = getVkFormatFromFormat(params.format);
+        vk_createInfo.components.r = static_cast<VkComponentSwizzle>(params.components.r);
+        vk_createInfo.components.g = static_cast<VkComponentSwizzle>(params.components.g);
+        vk_createInfo.components.b = static_cast<VkComponentSwizzle>(params.components.b);
+        vk_createInfo.components.a = static_cast<VkComponentSwizzle>(params.components.a);
+        vk_createInfo.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(params.subresourceRange.aspectMask);
+        vk_createInfo.subresourceRange.baseMipLevel = params.subresourceRange.baseMipLevel;
+        vk_createInfo.subresourceRange.levelCount = params.subresourceRange.levelCount;
+        vk_createInfo.subresourceRange.baseArrayLayer = params.subresourceRange.baseArrayLayer;
+        vk_createInfo.subresourceRange.layerCount = params.subresourceRange.layerCount;
+
+        VkImageView vk_imageView;
+        if (vkCreateImageView(m_vkdev, &vk_createInfo, nullptr, &vk_imageView) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanImageView>(core::smart_refctd_ptr<CVKLogicalDevice>(this),
+                std::move(params), vk_imageView);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override
