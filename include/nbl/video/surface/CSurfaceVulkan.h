@@ -27,16 +27,18 @@ public:
 
     bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override;
 
+    inline VkSurfaceKHR getInternalObject() const { return m_vkSurfaceKHR; }
+
 // Todo(achal): Remove
 // private:
     explicit CSurfaceVulkan(core::smart_refctd_ptr<video::CVulkanConnection>&& api,
         core::smart_refctd_ptr<Window>&& window, VkSurfaceKHR vk_surface)
-        : base_t(std::move(api), std::move(window)), m_surface(vk_surface)
+        : base_t(std::move(api), std::move(window)), m_vkSurfaceKHR(vk_surface)
     {}
 
     ~CSurfaceVulkan();
 
-    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+    VkSurfaceKHR m_vkSurfaceKHR = VK_NULL_HANDLE;
 };
 
 using CSurfaceVulkanWin32 = CSurfaceVulkan<ui::IWindowWin32>;

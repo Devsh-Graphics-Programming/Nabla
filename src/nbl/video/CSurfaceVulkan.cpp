@@ -42,7 +42,7 @@ CSurfaceVulkan<Window>::~CSurfaceVulkan()
     if (base_t::m_api->getAPIType() == EAT_VULKAN)
     {
         VkInstance vk_instance = static_cast<const CVulkanConnection*>(base_t::m_api.get())->getInternalObject();
-        vkDestroySurfaceKHR(vk_instance, m_surface, nullptr);
+        vkDestroySurfaceKHR(vk_instance, m_vkSurfaceKHR, nullptr);
     }
 }
 
@@ -55,7 +55,7 @@ bool CSurfaceVulkan<Window>::isSupported(const IPhysicalDevice* dev, uint32_t _q
     VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
 
     VkBool32 supported;
-    if (vkGetPhysicalDeviceSurfaceSupportKHR(vk_physicalDevice, _queueFamIx, m_surface, &supported) == VK_SUCCESS)
+    if (vkGetPhysicalDeviceSurfaceSupportKHR(vk_physicalDevice, _queueFamIx, m_vkSurfaceKHR, &supported) == VK_SUCCESS)
     {
         return static_cast<bool>(supported);
     }

@@ -170,16 +170,7 @@ int main()
 		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
 			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 
-
-
-#if 0
-	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(window.get());
-
-
-	// Todo(achal): Remove
-	VkSurfaceKHR vk_surface = reinterpret_cast<video::ISurfaceVK*>(surface.get())->m_surface;
-
-	auto gpus = vk->getPhysicalDevices();
+	auto gpus = apiConnection->getPhysicalDevices();
 	assert(!gpus.empty());
 
 	// I want a GPU which supports both compute queue and present queue
@@ -189,21 +180,19 @@ int main()
 	// Todo(achal): Probably want to put these into some struct
 	nbl::video::ISurface::SFormat surfaceFormat;
 	nbl::video::ISurface::E_PRESENT_MODE presentMode;
-	nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
+	// nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform; // Todo(achal)
 	nbl::asset::E_SHARING_MODE imageSharingMode;
 	VkExtent2D swapchainExtent;
-	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
-	QueueFamilyIndicesArrayType queueFamilyIndices;
 
-	// Todo(achal): Should be an IPhysicalDevice
-	core::smart_refctd_ptr<video::CVulkanPhysicalDevice> gpu = nullptr;
+	// Todo(achal): Abstract this out
+	core::smart_refctd_ptr<video::IPhysicalDevice> gpu = nullptr;
 	for (size_t i = 0ull; i < gpus.size(); ++i)
 	{
-		// Todo(achal): Hacks, get rid
-		gpu = core::smart_refctd_ptr_static_cast<video::CVulkanPhysicalDevice>(*(gpus.begin() + i));
+		gpu = gpus.begin()[i];
 
 		bool isGPUSuitable = false;
 
+		// Todo(achal): Abstract out
 		// Queue families --need to look for compute and present families
 		{
 			const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
@@ -211,6 +200,7 @@ int main()
 			for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
 			{
 				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+
 				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
 					computeFamilyIndex = familyIndex;
 
@@ -225,32 +215,11 @@ int main()
 			}
 		}
 
-		// Check if this physical device supports the swapchain extension
-		// Todo(achal): Eventually move this to CommonAPI.h
-		{
-			// Todo(achal): Get this from the user
-			const uint32_t requiredDeviceExtensionCount = 1u;
-			const char* requiredDeviceExtensionNames[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+		// Since our workload is not headless compute, a swapchain is mandatory
+		if (!gpu->isSwapchainSupported())
+			isGPUSuitable = false;
 
-			uint32_t availableExtensionCount;
-			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, NULL);
-			std::vector<VkExtensionProperties> availableExtensions(availableExtensionCount);
-			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, availableExtensions.data());
-
-			bool requiredDeviceExtensionsAvailable = false;
-			for (uint32_t i = 0u; i < availableExtensionCount; ++i)
-			{
-				if (strcmp(availableExtensions[i].extensionName, requiredDeviceExtensionNames[0]) == 0)
-				{
-					requiredDeviceExtensionsAvailable = true;
-					break;
-				}
-			}
-
-			if (!requiredDeviceExtensionsAvailable)
-				isGPUSuitable = false;
-		}
-
+		// Todo(achal): Abstract it out
 		// Check if the surface is adequate
 		{
 			uint32_t surfaceFormatCount;
@@ -258,31 +227,31 @@ int main()
 			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
 			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, surfaceFormats.data());
 
-			video::ISurface::E_PRESENT_MODE presentModes =
+			video::ISurface::E_PRESENT_MODE availablePresentModes =
 				gpu->getAvailablePresentModesForSurface(surface.get());
 
-			// Todo(achal): Probably should make a ISurface::SCapabilities
-			// struct for this as a wrapper for VkSurfaceCapabilitiesKHR
-			// nbl::video::ISurface::SCapabilities surfaceCapabilities = ;
-			VkSurfaceCapabilitiesKHR surfaceCapabilities;
-			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->getInternalObject(),
-				vk_surface, &surfaceCapabilities);
+			video::ISurface::SCapabilities surfaceCapabilities = {};
+			if (!gpu->getSurfaceCapabilities(surface.get(), surfaceCapabilities))
+				isGPUSuitable = false;
 
 			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
 			printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
 
-			assert(surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT);
-
+			// This flag is required, for some reason, I forgot xD
+			if ((surfaceCapabilities.supportedUsageFlags & asset::IImage::EUF_STORAGE_BIT) == 0)
+				isGPUSuitable = false;
+			
+			// Todo(achal): Refactor this a bit
 			if ((surfaceCapabilities.maxImageCount != 0) && (SC_IMG_COUNT > surfaceCapabilities.maxImageCount)
-				|| (surfaceFormats.empty()) || (presentModes == static_cast<video::ISurface::E_PRESENT_MODE>(0)))
+				|| (surfaceFormats.empty()) || (availablePresentModes == video::ISurface::EPM_UNKNOWN))
 			{
 				isGPUSuitable = false;
 			}
 
 			// Todo(achal): Probably a more sophisticated way to choose these
 			surfaceFormat = surfaceFormats[0];
-			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(presentModes & (1 << 0));
-			preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
+			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(availablePresentModes & (1 << 0));
+			// preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
 			swapchainExtent = surfaceCapabilities.currentExtent;
 		}
 
@@ -303,11 +272,13 @@ int main()
 		imageSharingMode = asset::ESM_CONCURRENT;
 	}
 
+	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
+	QueueFamilyIndicesArrayType queueFamilyIndices;
 	queueFamilyIndices = core::make_refctd_dynamic_array<QueueFamilyIndicesArrayType>(deviceCreationParams.queueParamsCount);
 	{
-		const uint32_t temp[] = { computeFamilyIndex, presentFamilyIndex };
+		const uint32_t tmp[] = { computeFamilyIndex, presentFamilyIndex };
 		for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
-			(*queueFamilyIndices)[i] = temp[i];
+			(*queueFamilyIndices)[i] = tmp[i];
 	}
 
 	// Could make this a static member of IGPUQueue, something like
@@ -323,7 +294,8 @@ int main()
 		queueCreationParams[i].priorities = &defaultQueuePriority;
 	}
 	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
-	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
+
+	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(deviceCreationParams);
 
 	video::IGPUQueue* computeQueue = device->getQueue(computeFamilyIndex, 0u);
 	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
@@ -332,6 +304,7 @@ int main()
 	// VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT are supported for current surface format
 	// and current physical device. In fact, we might want to put this up as a criteria
 	// for making the physical device suitable
+
 	nbl::video::ISwapchain::SCreationParams sc_params = {};
 	sc_params.surface = surface;
 	sc_params.minImageCount = SC_IMG_COUNT;
@@ -341,7 +314,6 @@ int main()
 	sc_params.height = WIN_H;
 	sc_params.queueFamilyIndices = queueFamilyIndices;
 	sc_params.imageSharingMode = imageSharingMode;
-	sc_params.preTransform = preTransform;
 	sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
 		asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
 
@@ -351,6 +323,8 @@ int main()
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
 	assert(swapchainImageCount == SC_IMG_COUNT);
+
+#if 0
 
 	core::smart_refctd_ptr<video::IGPUImageView> swapchainImageViews[SC_IMG_COUNT];
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)

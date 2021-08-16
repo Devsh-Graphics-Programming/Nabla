@@ -126,13 +126,21 @@ public:
     virtual ISurface::E_PRESENT_MODE getAvailablePresentModesForSurface(const ISurface* surface) const
     {
         assert(false); // Invalid code path
-        return static_cast<ISurface::E_PRESENT_MODE>(16);
+        return ISurface::EPM_UNKNOWN;
     }
 
-    virtual uint32_t getMinImageCountForSurface(const ISurface* surface) const
+    // This would probably always return true for OpenGL because theres no context
+    // without a window
+    virtual bool isSwapchainSupported() const
     {
         assert(false); // Invalid code path
-        return ~0u;
+        return false;
+    }
+
+    virtual bool getSurfaceCapabilities(const ISurface* surface, ISurface::SCapabilities& capabilities) const
+    {
+        assert(false); // Invalid code path
+        return false;
     }
 
 protected:

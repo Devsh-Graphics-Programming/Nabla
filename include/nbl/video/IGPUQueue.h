@@ -39,8 +39,10 @@ class IGPUQueue : public core::IReferenceCounted, public IBackendObject
         };
 
         //! `flags` takes bits from E_CREATE_FLAGS
-        IGPUQueue(core::smart_refctd_ptr<const ILogicalDevice>&& dev, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
-            : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
+        // IGPUQueue(core::smart_refctd_ptr<const ILogicalDevice>&& dev, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
+        //     : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
+        IGPUQueue(ILogicalDevice* dev, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
+            : IBackendObject(dev), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
         {
 
         }

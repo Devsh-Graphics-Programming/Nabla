@@ -328,21 +328,21 @@ set(NABLA_SRCS_NORMAL
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
+	# ${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp

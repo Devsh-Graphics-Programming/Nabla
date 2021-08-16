@@ -1,9 +1,9 @@
 #ifndef __NBL_C_VULKAN_CONNECTION_H_INCLUDED__
 #define __NBL_C_VULKAN_CONNECTION_H_INCLUDED__
 
-#include <volk.h>
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/CVulkanPhysicalDevice.h"
+#include "nbl/video/CVulkanCommon.h"
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"

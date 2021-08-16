@@ -249,7 +249,8 @@ class COpenGL_Queue final : public IGPUQueue
 
     public:
         COpenGL_Queue(
-            core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& gldev,
+            // core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& gldev,
+            IOpenGL_LogicalDevice* gldev,
             const egl::CEGL* _egl,
             const FeaturesType* _features,
             uint32_t _ctxid,
@@ -259,8 +260,10 @@ class COpenGL_Queue final : public IGPUQueue
             E_CREATE_FLAGS _flags,
             float _priority,
             COpenGLDebugCallback* _dbgCb
-        ) : IGPUQueue(core::smart_refctd_ptr(gldev),_famIx,_flags,_priority),
-            threadHandler(_egl,gldev.get(),_features,_ctx,_surface,_ctxid,_dbgCb),
+        // ) : IGPUQueue(core::smart_refctd_ptr(gldev),_famIx,_flags,_priority),
+        ) : IGPUQueue((gldev),_famIx,_flags,_priority),
+            // threadHandler(_egl,gldev.get(),_features,_ctx,_surface,_ctxid,_dbgCb),
+            threadHandler(_egl,gldev,_features,_ctx,_surface,_ctxid,_dbgCb),
             m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {

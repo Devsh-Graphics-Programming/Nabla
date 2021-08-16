@@ -8,6 +8,9 @@
 
 #include "nbl/video/IAPIConnection.h"
 
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
+
 namespace nbl::video
 {
 
@@ -37,13 +40,26 @@ class ISurface : public core::IReferenceCounted
             EPM_IMMEDIATE = 0,
             EPM_MAILBOX = 1,
             EPM_FIFO = 2,
-            EPM_FIFO_RELAXED = 3
+            EPM_FIFO_RELAXED = 3,
+            EPM_UNKNOWN = 4
         };
 
-        // TODO
-        // IPhysicalDevice::getAvailableFormatsForSurface(const ISurface*, SFormat* out);
-        // IPhysicalDevice::getAvailablePresentModesForSurface(const ISurface*, E_PRESENT_MODE* out);
-        // IPhysicalDevice::getMinImageCountForSurface(const ISurface*)
+        struct SCapabilities
+        {
+            uint32_t minImageCount;
+            uint32_t maxImageCount;
+            VkExtent2D currentExtent;
+            VkExtent2D minImageExtent;
+            VkExtent2D maxImageExtent;
+            uint32_t maxImageArrayLayers;
+            // Todo(achal)
+            // VkSurfaceTransformFlagsKHR       supportedTransforms;
+            // VkSurfaceTransformFlagBitsKHR    currentTransform;
+            // VkCompositeAlphaFlagsKHR         supportedCompositeAlpha;
+            asset::IImage::E_USAGE_FLAGS supportedUsageFlags;
+        };
+
+        inline E_API_TYPE getAPIType() const { return m_api->getAPIType(); }
 
         // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
         virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;

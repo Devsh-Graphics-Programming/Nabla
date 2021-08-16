@@ -4,6 +4,8 @@
 #include <algorithm>
 
 #include "nbl/video/ILogicalDevice.h"
+// Todo(achal): I should probably consider putting some defintions in CVKLogicalDevice.cpp
+#include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanDeviceFunctionTable.h"
 #include "nbl/video/CVKSwapchain.h"
 #include "nbl/video/CVulkanQueue.h"
@@ -25,13 +27,11 @@
 #include "nbl/video/CVulkanDescriptorSet.h"
 #include "nbl/video/CVulkanMemoryAllocation.h"
 #include "nbl/video/CVulkanBuffer.h"
-// #include "nbl/video/surface/CSurfaceVulkan.h"
+#include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
 {
 
-// Todo(achal): There are methods in this class which aren't pure virtual in ILogicalDevice,
-// need to implement those as well
 class CVKLogicalDevice final : public ILogicalDevice
 {
 public:
@@ -58,23 +58,91 @@ public:
                 // Todo(achal): Kinda weird situation here by passing the same ILogicalDevice
                 // refctd_ptr to both CThreadSafeGPUQueueAdapter and CVulkanQueue separately
                 const uint32_t ix = offset + j;
+                // (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(
+                //     core::make_smart_refctd_ptr<CVulkanQueue>(
+                //         core::smart_refctd_ptr<CVKLogicalDevice>(this), q, famIx, flags, priority),
+                //     core::smart_refctd_ptr<CVKLogicalDevice>(this));
+
                 (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(
                     core::make_smart_refctd_ptr<CVulkanQueue>(
-                        core::smart_refctd_ptr<ILogicalDevice>(this), q, famIx, flags, priority),
-                    core::smart_refctd_ptr<ILogicalDevice>(this));
+                        (this), q, famIx, flags, priority),
+                    (this));
             }
         }
     }
             
     ~CVKLogicalDevice()
     {
-        m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
+        // m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
+        vkDestroyDevice(m_vkdev, nullptr);
     }
             
-    // Todo(achal): Need to hoist out creation
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override
     {
-        return nullptr; // return core::make_smart_refctd_ptr<CVKSwapchain>(std::move(params), this);
+        constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
+
+        if (params.surface->getAPIType() != EAT_VULKAN)
+            return nullptr;
+
+        // Todo(achal): not sure yet, how would I handle multiple platforms without making
+        // this function templated
+        VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
+
+        VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+        vk_createInfo.surface = vk_surface;
+        vk_createInfo.minImageCount = params.minImageCount;
+        vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
+        vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
+        vk_createInfo.imageExtent = { params.width, params.height };
+        vk_createInfo.imageArrayLayers = params.arrayLayers;
+        vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
+        vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
+        vk_createInfo.queueFamilyIndexCount = static_cast<uint32_t>(params.queueFamilyIndices->size());
+        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        vk_createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // Todo(achal)     
+        vk_createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Todo(achal)
+        vk_createInfo.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
+        vk_createInfo.clipped = VK_TRUE; // Todo(achal)
+        vk_createInfo.oldSwapchain = VK_NULL_HANDLE; // Todo(achal)
+
+        VkSwapchainKHR vk_swapchain;
+        if (vkCreateSwapchainKHR(m_vkdev, &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)
+            return nullptr;
+
+        uint32_t imageCount;
+        VkResult retval = vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, nullptr);
+        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE)) // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
+            return nullptr;
+
+        assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
+
+        VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
+        retval = vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, vk_images);
+        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE)) // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
+            return nullptr;
+
+        ISwapchain::images_array_t images = core::make_refctd_dynamic_array<ISwapchain::images_array_t>(imageCount);
+
+        uint32_t i = 0u;
+        for (auto& image : (*images))
+        {
+            CVulkanImage::SCreationParams creationParams;
+            creationParams.arrayLayers = params.arrayLayers;
+            creationParams.extent = { params.width, params.height, 1u };
+            creationParams.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0); // Todo(achal)
+            creationParams.format = params.surfaceFormat.format;
+            creationParams.mipLevels = 1u;
+            creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
+            creationParams.type = CVulkanImage::ET_2D;
+
+            // Todo(achal): Probably need to change this to CVulkanForeignImage
+            image = core::make_smart_refctd_ptr<CVulkanImage>(
+                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(creationParams), vk_images[i++]);
+        }
+
+        return core::make_smart_refctd_ptr<CVKSwapchain>(
+            core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(params),
+            std::move(images), vk_swapchain);
     }
     
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
