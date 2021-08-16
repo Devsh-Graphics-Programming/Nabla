@@ -83,11 +83,6 @@ public:
         return m_defaultUploadBuffer.get();
     }
 
-    StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer()
-    {
-        return m_defaultDownloadBuffer.get();
-    }
-
     virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
     virtual core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) = 0;

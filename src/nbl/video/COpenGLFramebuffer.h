@@ -15,34 +15,18 @@ class IOpenGL_LogicalDevice;
 class COpenGLFramebuffer final : public IGPUFramebuffer
 {
 public:
-#include "nbl/nblpack.h"
-    struct hash_element_t
-    {
-        using id_t = uint64_t; 
-        id_t id;// reinterpret_cast of pointer
-        uint32_t mip;
-        uint32_t baseLayer;
-        uint32_t layerCount;
-
-        inline bool operator==(const hash_element_t& rhs) const { return memcmp(this, &rhs, sizeof(hash_element_t)) == 0; }
-        inline bool operator!=(const hash_element_t& rhs) const { return !operator==(rhs); }
-    } PACK_STRUCT;
-#include "nbl/nblunpack.h"
-    using hash_t = std::array<hash_element_t, IGPURenderpass::SCreationParams::MaxColorAttachments+1u>;
+    using hash_t = std::array<uint64_t, IGPURenderpass::SCreationParams::MaxColorAttachments+1u>;
 
 private:
     using base_t = IGPUFramebuffer;
 
     IOpenGL_LogicalDevice* m_device;
 
-    static hash_t getHashImage(const IGPUImage* img, uint32_t ix, uint32_t mip = 0u, int32_t layer = -1)
+    static hash_t getHashImage(const IGPUImage* img, uint32_t ix)
     {
         hash_t hash;
         memset(hash.data(), 0, sizeof(hash_t::value_type) * hash.size());
-        hash[ix].id = reinterpret_cast<hash_t::value_type::id_t>(img);
-        hash[ix].baseLayer = layer < 0 ? 0u : static_cast<uint32_t>(layer);
-        hash[ix].layerCount = layer < 0 ? img->getCreationParameters().arrayLayers : 1u;
-        hash[ix].mip = mip;
+        hash[ix] = reinterpret_cast<hash_t::value_type>(img);
         return hash;
     }
 
@@ -51,38 +35,27 @@ public:
 
     ~COpenGLFramebuffer();
 
-    static hash_t getHashColorImage(const IGPUImage* img, uint32_t mip = 0u, int32_t layer = -1)
+    static hash_t getHashColorImage(const IGPUImage* img)
     {
-        return getHashImage(img, 0u, mip, layer);
+        return getHashImage(img, 0);
     }
-    static GLuint getNameColorImage(IOpenGL_FunctionTable* gl, const IGPUImage* img, uint32_t mip = 0u, int32_t layer = -1)
+    static GLuint getNameColorImage(IOpenGL_FunctionTable* gl, const IGPUImage* img)
     {
         GLuint fbo;
         gl->extGlCreateFramebuffers(1u, &fbo);
         auto* glimg = static_cast<const COpenGLImage*>(img);
         const GLenum textarget = glimg->getOpenGLTarget();
-        if (layer < 0)
-            gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), mip, textarget);
-        else
-            gl->extGlNamedFramebufferTextureLayer(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), glimg->getOpenGLTarget(), mip, layer);
+        gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), 0, textarget);
         GLenum drawbuf = GL_COLOR_ATTACHMENT0;
         gl->extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuf);
 
-        GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
-        assert(status == GL_FRAMEBUFFER_COMPLETE);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
-        {
-            gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);
-            return 0u;
-        }
-
         return fbo;
     }
-    static hash_t getHashDepthStencilImage(const IGPUImage* img, uint32_t mip = 0u, int32_t layer = -1)
+    static hash_t getHashDepthStencilImage(const IGPUImage* img)
     {
-        return getHashImage(img, IGPURenderpass::SCreationParams::MaxColorAttachments, mip, layer);
+        return getHashImage(img, IGPURenderpass::SCreationParams::MaxColorAttachments);
     }
-    static GLuint getNameDepthStencilImage(IOpenGL_FunctionTable* gl, const IGPUImage* img, uint32_t mip = 0u, int32_t layer = -1)
+    static GLuint getNameDepthStencilImage(IOpenGL_FunctionTable* gl, const IGPUImage* img)
     {
         GLuint fbo;
         auto* glimg = static_cast<const COpenGLImage*>(img);
@@ -97,18 +70,7 @@ public:
             attpoint = GL_DEPTH_STENCIL_ATTACHMENT;
         else return 0u;
         gl->extGlCreateFramebuffers(1u, &fbo);
-        if (layer < 0)
-            gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), mip, textarget);
-        else
-            gl->extGlNamedFramebufferTextureLayer(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), glimg->getOpenGLTarget(), mip, layer);
-
-        GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
-        assert(status == GL_FRAMEBUFFER_COMPLETE);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
-        {
-            gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);
-            return 0u;
-        }
+        gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), 0, textarget);
 
         return fbo;
     }
@@ -127,19 +89,13 @@ public:
                 continue;
 
             auto& att = attachments[a];
-            static_assert(sizeof(hash_t::value_type::id_t)==sizeof(void*), "Bad reinterpret_cast!");
-            hash[i].id = reinterpret_cast<hash_t::value_type::id_t>(att.get());
-            hash[i].baseLayer = 0u;
-            hash[i].layerCount = att->getCreationParameters().subresourceRange.layerCount;
-            hash[i].mip = 0u;
+            static_assert(sizeof(hash_t::value_type)==sizeof(void*), "Bad reinterpret_cast!");
+            hash[i] = reinterpret_cast<hash_t::value_type>(att.get());
         }
         if (sub.depthStencilAttachment && sub.depthStencilAttachment->attachment != IGPURenderpass::ATTACHMENT_UNUSED)
         {
             auto& att = attachments[sub.depthStencilAttachment->attachment];
-            hash[IGPURenderpass::SCreationParams::MaxColorAttachments].id = reinterpret_cast<hash_t::value_type::id_t>(att.get());
-            hash[IGPURenderpass::SCreationParams::MaxColorAttachments].baseLayer = 0u;
-            hash[IGPURenderpass::SCreationParams::MaxColorAttachments].layerCount = att->getCreationParameters().subresourceRange.layerCount;
-            hash[IGPURenderpass::SCreationParams::MaxColorAttachments].mip = 0u;
+            hash[IGPURenderpass::SCreationParams::MaxColorAttachments] = reinterpret_cast<hash_t::value_type>(att.get());
         }
 
         return hash;

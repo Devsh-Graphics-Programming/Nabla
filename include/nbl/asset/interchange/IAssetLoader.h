@@ -96,10 +96,11 @@ public:
     {
 		SAssetLoadParams(size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
 			E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,
-			const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE, system::logger_opt_ptr _logger = nullptr) :
+			const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE, 
+			system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
 				decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags),
-				logger(std::move(_logger))
+				logger(std::move(_logger)), workingDirectory(cwd)
         {
         }
 
@@ -112,6 +113,7 @@ public:
 			meshManipulatorOverride(rhs.meshManipulatorOverride),
 			restoreLevels(rhs.restoreLevels),
 			logger(rhs.logger),
+			workingDirectory(rhs.workingDirectory),
 			reload(_reload)
 		{
 		}
@@ -124,6 +126,7 @@ public:
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
 		uint32_t restoreLevels = 0u;
 		const bool reload = false;
+		std::filesystem::path workingDirectory = "";
 		system::logger_opt_ptr logger;
     };
 

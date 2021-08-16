@@ -58,6 +58,7 @@ struct nabla {
     ASensorEventQueue* sensorEventQueue;
 
     core::smart_refctd_ptr<ui::IWindow> window;
+    core::smart_refctd_ptr<system::ISystem> system;
     core::smart_refctd_ptr<video::IAPIConnection> api;
     core::smart_refctd_ptr<video::IPhysicalDevice> gpu;
     core::smart_refctd_ptr<video::ILogicalDevice> dev;
@@ -77,10 +78,10 @@ struct nabla {
 static int engine_init_display(struct nabla* engine) {
     //debug_break();
     // initialize OpenGL ES and EGL
-
+    engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
     engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(engine->app->window);
 
-    engine->api = video::IAPIConnection::create(video::EAT_OPENGL_ES, 0, "android-sample", /*&dbgcb*/nullptr);
+    engine->api = video::IAPIConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), video::EAT_OPENGL_ES, 0, "android-sample", /*&dbgcb*/nullptr);
 
     auto surface = engine->api->createSurface(engine->window.get());
 

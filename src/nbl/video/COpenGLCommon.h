@@ -1385,6 +1385,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 			type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
 		}
 		break;
+#if 0
 		case asset::EF_BC1_RGB_UNORM_BLOCK:
 		{
 			colorformat = GL_RGB;
@@ -1685,6 +1686,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 			type = GL_UNSIGNED_BYTE;
 		}
 		break;
+#endif
 		default:
 			break;
 	}

@@ -46,17 +46,16 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         core::smart_refctd_ptr<PipelineType> m_pipeline;
 
 	    // draw params
-        uint32_t indexCount = 0u;
-        uint32_t instanceCount = 1u;
-	    int32_t baseVertex = 0;
-        uint32_t baseInstance = 0u;
+        uint32_t indexCount;
+        uint32_t instanceCount;
+	    int32_t baseVertex;
+        uint32_t baseInstance;
 
         // others
         uint32_t maxJointsPerVx : 3;
         uint32_t indexType : 2;
 
     public:
-        IMeshBuffer() : maxJointsPerVx(0u), indexType(EIT_UNKNOWN) {}
 	    //! Constructor.
 	    IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline,
             core::smart_refctd_ptr<DescSetType>&& _ds,
@@ -188,18 +187,6 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
 		    m_indexBufferBinding = std::move(bufferBinding);
 	    }
-
-        virtual inline void setAttachedDescriptorSet(core::smart_refctd_ptr<DescSetType>&& descriptorSet)
-        {
-            //assert(!isImmutable_debug());
-            m_descriptorSet = std::move(descriptorSet);
-        }
-
-        virtual inline void setPipeline(core::smart_refctd_ptr<PipelineType>&& pipeline)
-        {
-            //assert(!isImmutable_debug());
-            m_pipeline = std::move(pipeline);
-        }
 
         inline uint64_t getAttribCombinedOffset(uint32_t attrId) const
         {

@@ -192,7 +192,7 @@ public:
         if (!sc)
             return nullptr;
         // wait until swapchain's internal thread finish context creation
-        sc->waitForInitComplete();
+        sc->waitForContextCreation();
         // make master context (in logical device internal thread) again
         bindMasterContext();
 
@@ -293,19 +293,10 @@ public:
             assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
         }
 #endif
-        auto tmp = SRequestWaitForFences::clock_t::now();
-        const auto end = tmp+std::chrono::nanoseconds(_timeout);
-        
-        // dont hog the queue, let other requests jump in every 50us (20000 device non-queue requests/second if something is polling)
-        constexpr uint64_t pollingQuanta = 50000u;
+        SRequestWaitForFences params{ {_fences,_fences + _count},_waitAll,_timeout };
         IGPUFence::E_STATUS retval;
-        do
-        {
-            tmp += std::chrono::nanoseconds(pollingQuanta);
-            SRequestWaitForFences params{ {_fences,_fences+_count},core::min(tmp,end),_waitAll };
-            auto& req = m_threadHandler.request(std::move(params),&retval);
-            m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
-        } while (retval==IGPUFence::ES_TIMEOUT && SRequestWaitForFences::clock_t::now()<end);
+        auto& req = m_threadHandler.request(std::move(params), &retval);
+        m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
 
         return retval;
     }

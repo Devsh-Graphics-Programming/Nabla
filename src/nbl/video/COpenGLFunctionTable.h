@@ -93,6 +93,8 @@ public:
 		, glTextureBufferRangeEXT
 		, glTextureStorage2DMultisampleEXT
 		, glTextureStorage3DMultisampleEXT
+		, glGetTextureSubImage
+		, glGetCompressedTextureSubImage
 		, glGetTextureImage
 		, glGetTextureImageEXT
 		, glGetCompressedTextureImage
@@ -1331,7 +1333,15 @@ public:
 			glTexture.pglBindTexture(target, bound);
 		}
 	}
-
+	void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image])
+			gl4Texture.pglGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
+#ifdef _NBL_DEBUG
+		else
+			m_logger.log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", system::ILogger::ELL_ERROR);
+#endif // _NBL_DEBUG
+	}
 	void extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
 	{
 		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])

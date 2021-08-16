@@ -343,13 +343,10 @@ public:
 		if constexpr (!IsGLES)
 		{
 			GetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
+			m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
 		}
-		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance)) // ES
-		{
-				GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &num);
-		}
-		m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
-
+		else
+			m_glfeatures.MaxUserClipPlanes = 0;
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
@@ -405,8 +402,6 @@ public:
 			m_limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
 			m_limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
 			m_limits.maxBufferSize = std::max(m_limits.maxUBOSize, m_limits.maxSSBOSize);
-
-			m_limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
 
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);

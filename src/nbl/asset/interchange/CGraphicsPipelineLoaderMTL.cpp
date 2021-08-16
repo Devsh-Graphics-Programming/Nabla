@@ -121,7 +121,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
     const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = fullName.parent_path().string();
+		auto dir = fullName.filename().string();
         return dir;
 	}();
 
@@ -526,13 +526,13 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             const uint32_t hierarchyLevel = _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW; // this is weird actually, we're not sure if we're loading image or image view
             SAssetBundle bundle;
             if (i != CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
-                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             else
             {
                 // we need bumpmap restored to create derivative map from it
                 const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
                 lp.restoreLevels = std::max(lp.restoreLevels, hierarchyLevel + restoreLevels);
-                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
             if (asset)
