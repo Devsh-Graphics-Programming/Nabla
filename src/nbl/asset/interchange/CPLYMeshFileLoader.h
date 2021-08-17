@@ -184,6 +184,7 @@ private:
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
 		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
+		size_t fileOffset = {};
     };
 
 	bool allocateBuffer(SContext& _ctx);

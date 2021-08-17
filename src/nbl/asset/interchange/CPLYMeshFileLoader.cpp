@@ -9,9 +9,8 @@
 
 #include <numeric>
 
-#include "IReadFile.h"
-#include "nbl_os.h"
-
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 #include "nbl/asset/utils/IMeshManipulator.h"
 
 #include "CPLYMeshFileLoader.h"
@@ -29,7 +28,7 @@ CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am)
 
 CPLYMeshFileLoader::~CPLYMeshFileLoader() {}
 
-bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
+bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
     const char* headers[3]{
         "format ascii 1.0",
@@ -37,12 +36,11 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
         "format binary_big_endian 1.0"
     };
 
-    const size_t prevPos = _file->getPos();
-
     char buf[40];
-    _file->seek(0u);
-    _file->read(buf, sizeof(buf));
-    _file->seek(prevPos);
+   
+	system::future<size_t> future;
+	_file->read(future, buf, 0, sizeof(buf));
+	future.get();
 
     char* header = buf;
     if (strncmp(header, "ply", 3u) != 0)
@@ -174,7 +172,7 @@ void CPLYMeshFileLoader::initialize()
 }
 
 //! creates/loads an animated mesh from the file.
-asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (!_file)
 		return {};
@@ -194,15 +192,16 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		return {};
 	}
 
+	const uint32_t WORD_BUFFER_LENGTH = 512u;
+	char logInputsBuffer[WORD_BUFFER_LENGTH] {};
+
 	// start with empty mesh
     core::smart_refctd_ptr<asset::ICPUMesh> mesh;
 	uint32_t vertCount=0;
 
 	// Currently only supports ASCII meshes
 	if (strcmp(getNextLine(ctx), "ply"))
-	{
-		os::Printer::log("Not a valid PLY file", ctx.inner.mainFile->getFileName().c_str(), ELL_ERROR);
-	}
+		_params.logger.log("Not a valid PLY file %s", system::ILogger::ELL_ERROR, ctx.inner.mainFile->getFileName().string().c_str());
 	else
 	{
 		// cut the next line out
@@ -240,7 +239,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				else if (strcmp(word, "ascii"))
 				{
 					// abort if this isn't an ascii or a binary mesh
-					os::Printer::log("Unsupported PLY mesh format", word, ELL_ERROR);
+					_params.logger.log("Unsupported PLY mesh format %s", system::ILogger::ELL_ERROR, word);
 					continueReading = false;
 				}
 
@@ -249,7 +248,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 					word = getNextWord(ctx);
 					if (strcmp(word, "1.0"))
 					{
-						os::Printer::log("Unsupported PLY mesh version", word, ELL_WARNING);
+						_params.logger.log("Unsupported PLY mesh version %s", system::ILogger::ELL_WARNING, word);
 					}
 				}
 			}
@@ -259,7 +258,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 				if (!ctx.ElementList.size())
 				{
-					os::Printer::log("PLY property found before element", word, ELL_WARNING);
+					_params.logger.log("PLY property found before element %s", system::ILogger::ELL_WARNING, word);
 				}
 				else
 				{
@@ -280,7 +279,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 						prop.Data.List.CountType = getPropertyType(word);
 						if (ctx.IsBinaryFile && prop.Data.List.CountType == EPLYPT_UNKNOWN)
 						{
-							os::Printer::log("Cannot read binary PLY file containing data types of unknown length", word, ELL_ERROR);
+							_params.logger.log("Cannot read binary PLY file containing data types of unknown length %s", system::ILogger::ELL_WARNING, word);
 							continueReading = false;
 						}
 						else
@@ -289,14 +288,14 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 							prop.Data.List.ItemType = getPropertyType(word);
 							if (ctx.IsBinaryFile && prop.Data.List.ItemType == EPLYPT_UNKNOWN)
 							{
-								os::Printer::log("Cannot read binary PLY file containing data types of unknown length", word, ELL_ERROR);
+								_params.logger.log("Cannot read binary PLY file containing data types of unknown length %s", system::ILogger::ELL_ERROR, word);
 								continueReading = false;
 							}
 						}
 					}
 					else if (ctx.IsBinaryFile && prop.Type == EPLYPT_UNKNOWN)
 					{
-						os::Printer::log("Cannot read binary PLY file containing data types of unknown length", word, ELL_ERROR);
+						_params.logger.log("Cannot read binary PLY file containing data types of unknown length %s", system::ILogger::ELL_ERROR, word);
 						continueReading = false;
 					}
 
@@ -333,7 +332,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			}
 			else
 			{
-				os::Printer::log("Unknown item in PLY file", word, ELL_WARNING);
+				_params.logger.log("Unknown item in PLY file %s", system::ILogger::ELL_WARNING, word);
 			}
 
 			if (readingHeader && continueReading)
@@ -748,20 +747,24 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 	_ctx.StartPointer = _ctx.Buffer;
 	_ctx.EndPointer = _ctx.StartPointer + length;
 
-	if (_ctx.inner.mainFile->getPos() == _ctx.inner.mainFile->getSize())
+	if (_ctx.fileOffset >= _ctx.inner.mainFile->getSize() - 1) // TODO: check it
 	{
 		_ctx.EndOfFile = true;
 	}
 	else
 	{
 		// read data from the file
-		uint32_t count = _ctx.inner.mainFile->read(_ctx.EndPointer, PLY_INPUT_BUFFER_SIZE - length);
+		system::future<size_t> future;
+		_ctx.inner.mainFile->read(future, _ctx.EndPointer, _ctx.fileOffset, PLY_INPUT_BUFFER_SIZE - length);
+		const auto bytesRead = future.get();
+
+		_ctx.fileOffset += bytesRead;
 
 		// increment the end pointer by the number of bytes read
-		_ctx.EndPointer += count;
+		_ctx.EndPointer += bytesRead;
 
 		// if we didn't completely fill the buffer
-		if (count != PLY_INPUT_BUFFER_SIZE - length)
+		if (bytesRead != PLY_INPUT_BUFFER_SIZE - length)
 		{
 			// blank the rest of the memory
 			memset(_ctx.EndPointer, 0, _ctx.Buffer + PLY_INPUT_BUFFER_SIZE - _ctx.EndPointer);
