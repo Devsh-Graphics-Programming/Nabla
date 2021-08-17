@@ -3,17 +3,16 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
+#include "nbl/asset/IAssetManager.h"
+
+#ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include <numeric>
-
-#include "BuildConfigOptions.h"
 
 #include "IReadFile.h"
 #include "nbl_os.h"
 
 #include "nbl/asset/utils/IMeshManipulator.h"
-
-#ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include "CPLYMeshFileLoader.h"
 
@@ -1017,21 +1016,21 @@ float CPLYMeshFileLoader::getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int16_t*>(_ctx.StartPointer)));
+					retVal = core::Byteswap::byteswap<int16_t>(*(reinterpret_cast<int16_t*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<int16_t*>(_ctx.StartPointer));
 				_ctx.StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (_ctx.IsWrongEndian)
-					retVal = float(os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer))));
+					retVal = float(core::Byteswap::byteswap<int32_t>(*(reinterpret_cast<int32_t*>(_ctx.StartPointer))));
 				else
 					retVal = float(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
 				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
+					retVal = core::Byteswap::byteswap<float>(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<float*>(_ctx.StartPointer));
 				_ctx.StartPointer += 4;
@@ -1100,21 +1099,21 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<uint16_t*>(_ctx.StartPointer)));
+					retVal = core::Byteswap::byteswap<uint16_t>(*(reinterpret_cast<uint16_t*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<uint16_t*>(_ctx.StartPointer));
 				_ctx.StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
+					retVal = core::Byteswap::byteswap<int32_t>(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<int32_t*>(_ctx.StartPointer));
 				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (_ctx.IsWrongEndian)
-					retVal = (uint32_t)os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
+					retVal = (uint32_t)core::Byteswap::byteswap<float>(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
 					retVal = (uint32_t)(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				_ctx.StartPointer += 4;

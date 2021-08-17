@@ -6,6 +6,8 @@
 #ifndef __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
