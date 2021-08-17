@@ -194,7 +194,7 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
                 }
         };
 
-        // using base_t::base_t;
+        using base_t::base_t;
 
     protected:
         //! Must be called from within process_request()

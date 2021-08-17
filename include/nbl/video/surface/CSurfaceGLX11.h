@@ -1,7 +1,7 @@
 #ifndef __NBL_C_SURFACE_GL_LINUX_H_INCLUDED__
 #define __NBL_C_SURFACE_GL_LINUX_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/asset/compile_config.h"
 
 #ifdef _NBL_PLATFORM_LINUX_
 

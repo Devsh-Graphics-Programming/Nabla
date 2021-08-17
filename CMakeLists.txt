@@ -417,7 +417,7 @@ elseif(ANDROID)
 	set(_NBL_PLATFORM_ANDROID_ 1)
 elseif(UNIX)
 	set(_NBL_PLATFORM_LINUX_ 1)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1 -fpermissive")
 endif()
 
 #uncomment in the future

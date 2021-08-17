@@ -61,6 +61,7 @@ private:
     };
     struct SRequestParams_CREATE_FILE : SRequestParamsBase<ERT_CREATE_FILE>
     {
+        SRequestParams_CREATE_FILE() {};
         inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
 
         char filename[MAX_FILENAME_LENGTH] {};
@@ -68,17 +69,19 @@ private:
     };
     struct SRequestParams_READ : SRequestParamsBase<ERT_READ>
     {
-        IFile* file;
-        void* buffer;
-        size_t offset;
-        size_t size;
+        SRequestParams_READ() {};
+        IFile* file = nullptr;
+        void* buffer = nullptr;
+        size_t offset = 0;
+        size_t size = 0;
     };
     struct SRequestParams_WRITE : SRequestParamsBase<ERT_WRITE>
     {
-        IFile* file;
-        const void* buffer;
-        size_t offset;
-        size_t size;
+        SRequestParams_WRITE() {};
+        IFile* file = nullptr;
+        const void* buffer = nullptr;
+        size_t offset = 0;
+        size_t size = 0;
     };
     struct SRequestType : impl::ICancellableAsyncQueueDispatcherBase::request_base_t
     {

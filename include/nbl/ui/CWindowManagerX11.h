@@ -2,9 +2,9 @@
 #ifndef C_WINDOW_MANAGER_X11
 #define C_WINDOW_MANAGER_X11
 
-#include <IWindowManager.h>
+#include <nbl/ui/IWindowManager.h>
 #include <X11/Xlib.h>
-#include <CWindowX11.h>
+#include <nbl/ui/CWindowX11.h>
 #include <string>
 namespace nbl::ui
 {

@@ -13,8 +13,8 @@ namespace impl
 class IAsyncQueueDispatcherBase
 {
     public:
-        IAsyncQueueDispatcherBase() = default;
-        ~IAsyncQueueDispatcherBase() = default;
+        IAsyncQueueDispatcherBase() {};
+        ~IAsyncQueueDispatcherBase() {};
         // dont want to play around with relaxed memory ordering yet
         struct request_base_t
         {
@@ -137,7 +137,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
 
     public:
-
+        
         IAsyncQueueDispatcher() {};
         ~IAsyncQueueDispatcher() {};
 

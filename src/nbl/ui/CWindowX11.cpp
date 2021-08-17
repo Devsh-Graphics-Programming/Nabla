@@ -1,6 +1,7 @@
 #ifdef _NBL_PLATFORM_LINUX_
-#include <CWindowX11.h>
-#include <CWindowManagerX11.h>
+#if 0
+#include <nbl/ui/CWindowX11.h>
+#include <nbl/ui/CWindowManagerX11.h>
 
 #include <X11/extensions/XI.h>
 
@@ -15,7 +16,6 @@
 namespace nbl {
 namespace ui
 {
-
 
 
 int CWindowX11::printXErrorCallback(Display *Display, XErrorEvent *event)
@@ -388,5 +388,7 @@ CWindowX11:~CWindowX11()
 }
 
 }}
+
+#endif
 
 #endif
