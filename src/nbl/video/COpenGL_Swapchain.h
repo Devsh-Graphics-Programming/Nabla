@@ -154,9 +154,7 @@ private:
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
             features(_features),
             images(_images),
-            m_initComplete(), // initialized to false
-            m_dbgCb(_dbgCb),
-            m_logger(std::move(logger))
+            m_dbgCb(_dbgCb)
         {
             assert(images.size() <= MaxImages);
 
@@ -310,7 +308,8 @@ private:
 
         std::atomic_flag m_initComplete;
 
-        SDebugCallback* m_dbgCb;
+        EGLBoolean m_makeCurrentRes = EGL_FALSE;
+        std::condition_variable m_ctxCreatedCvar;
     };
 
     CThreadHandler m_threadHandler;
