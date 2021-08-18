@@ -521,7 +521,7 @@ set(NBL_3RDPARTY_TARGETS
 				MachineIndependent
 				GenericCodeGen
 				SPIRV 
-				SPIRV-Tools
+				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
 				egl 
 )
