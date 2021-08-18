@@ -267,6 +267,12 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			std::get<cache_type_t<CacheFormat>>(cache).insert(std::make_pair(key,value));		
 		}
 
+		template<E_FORMAT CacheFormat>
+		inline size_t getSerializedCacheSizeInBytes()
+		{
+			return getSerializedCacheSizeInBytes_impl<CacheFormat>(std::get<cache_type_t<CacheFormat>>(cache).capacity());
+		}
+
 		//!
 		template<E_FORMAT CacheFormat>
 		inline bool loadCacheFromBuffer(const SBufferRange<const ICPUBuffer>& buffer, bool replaceCurrentContents = true)
@@ -315,8 +321,6 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			return loadCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
 		}
 #endif
-
-		//!
 		template<E_FORMAT CacheFormat>
 		inline bool saveCacheToBuffer(SBufferRange<ICPUBuffer>& buffer)
 		{
@@ -352,13 +356,6 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		{
 			auto file = core::smart_refctd_ptr<io::IWriteFile>(fs->createAndWriteFile(path.c_str()));
 			return saveCacheToFile<CacheFormat>(file.get());
-		}
-
-		//!
-		template<E_FORMAT CacheFormat>
-		inline size_t getSerializedCacheSizeInBytes()
-		{
-			return getSerializedCacheSizeInBytes_impl<CacheFormat>(std::get<cache_type_t<CacheFormat>>(cache).capacity());
 		}
 #endif
 	protected:
