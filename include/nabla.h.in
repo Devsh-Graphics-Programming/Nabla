@@ -66,9 +66,8 @@
 #include "dimension2d.h"
 #include "IDummyTransformationSceneNode.h"
 #include "ISceneNode.h"
-#include "ISceneNodeAnimator.h"
-#include "ISceneNodeAnimatorCameraFPS.h"
-#include "ISceneNodeAnimatorCameraMaya.h"
+
+// TEST
 
 #include "splines.h"
 
