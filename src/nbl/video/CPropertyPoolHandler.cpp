@@ -1,5 +1,4 @@
-#include "nbl/video/CPropertyPoolHandler.h"
-#include "nbl/video/CPropertyPool.h"
+#include "nbl/video/ILogicalDevice.h"
 
 using namespace nbl;
 using namespace video;
@@ -68,18 +67,20 @@ void main()
 	outBuff[propID].data[outIndex] = inBuff[propID].data[inIndex];
 }
 )";
-
+#endif
 //
-CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCache* pipelineCache) : m_driver(driver)
+CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device))
 {
-	assert(m_driver);
-	const auto maxSSBO = core::min(m_driver->getMaxSSBOBindings(),16u); // TODO: make sure not dynamic offset, support proper queries per stage!
+	auto system = m_device->getPhysicalDevice()->getSystem();
+	
+	const auto maxSSBO = m_device->getPhysicalDevice()->getLimits().maxPerStageSSBOs;
 
 	const uint32_t maxPropertiesPerPass = (maxSSBO-1u)/2u;
+#if 0
 	m_perPropertyCountItems.reserve(maxPropertiesPerPass);
 	m_tmpIndexRanges.reserve(maxPropertiesPerPass);
 
-	const auto maxSteamingAllocations = maxPropertiesPerPass+1u;
+	const auto maxStreamingAllocations = maxPropertiesPerPass+1u;
 	m_tmpAddresses.resize(maxSteamingAllocations);
 	m_tmpSizes.resize(maxSteamingAllocations);
 	m_alignments.resize(maxSteamingAllocations,alignof(uint32_t));
@@ -89,11 +90,13 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 		const auto propCount = i+1u;
 		m_perPropertyCountItems.emplace_back(m_driver,pipelineCache,propCount);
 	}
+#endif
 }
 
 //
 CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint)
 {
+#if 0
 	bool success = true;
 
 	uint32_t transferCount = 0u;
@@ -119,6 +122,8 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(cons
 		oit++;
 	}
 	return transferProperties(transferRequests.data(),transferRequests.data()+transferCount,maxWaitPoint);
+#endif
+	return {false,nullptr};
 }
 
 //
@@ -127,6 +132,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
 
 	transfer_result_t retval = { true,nullptr };
+#if 0
 	if (totalProps!=0u)
 	{
 		const uint32_t maxPropertiesPerPass = m_perPropertyCountItems.size();
@@ -309,11 +315,11 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 		if (leftOverProps)
 			copyPass(requests,leftOverProps);
 	}
-
+#endif
 	return retval;
 }
 
-
+#if 0
 //
 CPropertyPoolHandler::PerPropertyCountItems::PerPropertyCountItems(IVideoDriver* driver, IGPUPipelineCache* pipelineCache, uint32_t propertyCount) : descriptorSetCache(driver,propertyCount)
 {

@@ -19,7 +19,7 @@
 #include "nbl/video/CPropertyPool.h"
 #include "nbl/video/CPropertyPoolHandler.h"
 
-// think about foler name for those
+// think about folder name for those
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/ILogicalDevice.h"
@@ -36,7 +36,15 @@
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUObjectFromAssetConverter.h"
 
+// platform and API specific stuff
+#include "nbl/video/COpenGL_Connection.h"
+#include "nbl/video/surface/ISurfaceGL.h"
+
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"
+
+
+//
+#include "nbl/video/decl/IBackendObject.h"
 
 #endif

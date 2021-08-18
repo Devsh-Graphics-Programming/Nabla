@@ -6,7 +6,7 @@
 #ifndef __NBL_I_SCENE_NODE_H_INCLUDED__
 #define __NBL_I_SCENE_NODE_H_INCLUDED__
 
-//#include "nbl/video/video.h"
+#include "nbl/video/declarations.h"
 
 #include "ISceneNodeAnimator.h"
 #include "aabbox3d.h"

@@ -4,18 +4,19 @@
 
 namespace nbl::video
 {
-    /*
-        A thread-safe implementation of IGPUQueue.
-        Note, that using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
-    */
-    class CThreadSafeGPUQueueAdapter : public IGPUQueue
-    {
+
+/*
+    A thread-safe implementation of IGPUQueue.
+    Note, that using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
+*/
+class CThreadSafeGPUQueueAdapter : public IGPUQueue
+{
     protected:
         core::smart_refctd_ptr<IGPUQueue> originalQueue = nullptr;
         std::mutex m;
     public:
-        CThreadSafeGPUQueueAdapter(nbl::core::smart_refctd_ptr<IGPUQueue>&& original, video::ILogicalDevice* device) : IGPUQueue(device, original->getFamilyIndex(), original->getFlags(), original->getPriority()),
-            originalQueue(std::move(original)) {}        
+        CThreadSafeGPUQueueAdapter(nbl::core::smart_refctd_ptr<IGPUQueue>&& original, core::smart_refctd_ptr<const ILogicalDevice>&& device)
+            : IGPUQueue(std::move(device),original->getFamilyIndex(),original->getFlags(),original->getPriority()), originalQueue(std::move(original)) {}        
 
         CThreadSafeGPUQueueAdapter() : IGPUQueue(nullptr, 0, E_CREATE_FLAGS::ECF_PROTECTED_BIT, 0.f) {};
 
@@ -35,6 +36,7 @@ namespace nbl::video
         {
             return originalQueue.get();
         }
-    };
+};
+
 }
 #endif

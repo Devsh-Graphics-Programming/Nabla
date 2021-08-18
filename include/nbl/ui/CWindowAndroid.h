@@ -5,8 +5,7 @@
 
 #ifdef _NBL_PLATFORM_ANDROID_
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 class CWindowAndroid : public IWindowAndroid

@@ -6,6 +6,9 @@
 #include <X11/Xlib.h>
 #include <nbl/ui/CWindowX11.h>
 #include <string>
+
+#if 0 // @Nihon - disabled that file - causes many problems
+
 namespace nbl::ui
 {
 
@@ -180,4 +183,6 @@ private:
 
 }
 #endif
+#endif
+
 #endif

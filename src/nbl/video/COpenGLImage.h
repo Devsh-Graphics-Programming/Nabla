@@ -5,7 +5,8 @@
 #ifndef __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
 #define __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
 
-#include "BuildConfigOptions.h"
+
+#include "BuildConfigOptions.h" // ?
 
 #include "nbl/video/IGPUImage.h"
 
@@ -13,9 +14,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
@@ -28,7 +27,7 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		GLuint name;
 	public:
 		//! constructor
-		COpenGLImage(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(dev, std::move(_params)),
+		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(_params)),
 			internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
 		{
 			#ifdef OPENGL_LEAK_DEBUG
@@ -83,9 +82,8 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		inline bool isDedicated() const override { return true; }
 };
 
+} // end namespace nbl::video
 
-} // end namespace video
-} // end namespace nbl
 
 #endif
 

@@ -4,8 +4,7 @@
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 COpenGLBufferView::~COpenGLBufferView()
@@ -14,7 +13,6 @@ COpenGLBufferView::~COpenGLBufferView()
     device->destroyTexture(m_textureName);
 }
 
-}
 }
 
 #endif

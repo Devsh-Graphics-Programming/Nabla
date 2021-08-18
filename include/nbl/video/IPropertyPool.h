@@ -24,11 +24,10 @@ class IPropertyPool : public core::IReferenceCounted
         _NBL_STATIC_INLINE_CONSTEXPR auto invalid_index = PropertyAddressAllocator::invalid_address;
 
 		//
-		inline const asset::SBufferRange<IGPUBuffer>& getMemoryBlock() const { return memoryBlock; }
+        virtual const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const =0;
 
 		//
 		virtual uint32_t getPropertyCount() const =0;
-		virtual size_t getPropertyOffset(uint32_t ix) const =0;
 		virtual uint32_t getPropertySize(uint32_t ix) const =0;
 
         //
@@ -86,24 +85,14 @@ class IPropertyPool : public core::IReferenceCounted
         }
         
         //
-        #define PROPERTY_ADDRESS_ALLOCATOR_ARGS 1u,capacity,1u
-        static inline PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity)
-        {
-            return PropertyAddressAllocator::reserved_size(PROPERTY_ADDRESS_ALLOCATOR_ARGS);
-        }
+        static PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity);
+
     protected:
-        IPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved)
-            :   memoryBlock(std::move(_memoryBlock)), indexAllocator(reserved,0u,0u,PROPERTY_ADDRESS_ALLOCATOR_ARGS)
-        {
-            // TODO: some test for block alignment
-			assert(memoryBlock.size>capacity*sizeof(uint32_t)); // this is really a lower bound
-        }
-        #undef PROPERTY_ADDRESS_ALLOCATOR_ARGS
+        IPropertyPool(uint32_t capacity, void* reserved);
+        virtual ~IPropertyPool() {}
 
-		virtual ~IPropertyPool() {}
+        static bool validateBlocks(const ILogicalDevice* device, const IPropertyPool& declvalPool, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks);
 
-
-        asset::SBufferRange<IGPUBuffer> memoryBlock;
         PropertyAddressAllocator indexAllocator;
 };
 

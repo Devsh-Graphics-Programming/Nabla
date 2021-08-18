@@ -11,17 +11,17 @@
 
 namespace nbl::video
 {
-#if 0
+
 class IPropertyPool;
 
 // property pool factory is externally synchronized
 class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
 {
 	public:
-		CPropertyPoolHandler(ILogicalDevice* device, IGPUPipelineCache* pipelineCache);
+		CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device);
 
         _NBL_STATIC_INLINE_CONSTEXPR auto MinimumPropertyAlignment = alignof(uint32_t);
-
+#if 0
         //
 		inline uint32_t getPipelineCount() const { return m_perPropertyCountItems.size(); }
         //
@@ -30,9 +30,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         //
 		inline IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) { return m_perPropertyCountItems[ix].descriptorSetCache.getLayout().get(); }
 		inline const IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) const { return m_perPropertyCountItems[ix].descriptorSetCache.getLayout().get(); }
-
+#endif
 		
-		using transfer_result_t = std::pair<bool, core::smart_refctd_ptr<IDriverFence> >;
+		using transfer_result_t = std::pair<bool, core::smart_refctd_ptr<core::IReferenceCounted> >;
 
 		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
 		struct AllocationRequest
@@ -62,7 +62,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			};
 		};
 		transfer_result_t transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
-		
+#if 0		
 		// only public because GPUDeferredEventHandlerST needs to know about it
 		class DeferredDescriptorSetReclaimer
 		{
@@ -110,7 +110,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 					unusedSets->push_back(std::move(set));
 				}
 		};
-
+#endif
     protected:
 		~CPropertyPoolHandler()
 		{
@@ -120,7 +120,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto IdealWorkGroupSize = 256u;
 
-
+#if 0
 		class DescriptorSetCache
 		{
 				GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> deferredReclaims;
@@ -179,7 +179,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			DescriptorSetCache descriptorSetCache;
 			core::smart_refctd_ptr<IGPUComputePipeline> pipeline;
 		};
-		IVideoDriver* m_driver;
 		// TODO: Optimize to only use one allocation for all these arrays
 		core::vector<PerPropertyCountItems> m_perPropertyCountItems;
 		struct IndexUploadRange
@@ -191,8 +190,10 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		};
         core::vector<IndexUploadRange> m_tmpIndexRanges;
         core::vector<uint32_t> m_tmpAddresses,m_tmpSizes,m_alignments;
-};
 #endif
+		core::smart_refctd_ptr<ILogicalDevice> m_device;
+};
+
 
 }
 
