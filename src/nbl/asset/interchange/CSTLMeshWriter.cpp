@@ -3,21 +3,19 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "nbl/core/core.h"
-
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
 
-#include "CSTLMeshWriter.h"
-
-#include "nbl_os.h"
-#include "IWriteFile.h"
-#include "IFileSystem.h"
-#include "ISceneManager.h"
+#include "nbl/asset/IAssetManager.h"
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 
 namespace nbl
 {
 namespace asset
 {
+
+using namespace io;
+using namespace core;
 
 constexpr auto POSITION_ATTRIBUTE = 0;
 constexpr auto COLOR_ATTRIBUTE = 1;
