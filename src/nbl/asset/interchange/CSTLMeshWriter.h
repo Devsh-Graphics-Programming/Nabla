@@ -39,17 +39,17 @@ class CSTLMeshWriter : public asset::IAssetWriter
 
     protected:
         // write binary format
-        bool writeMeshBinary(system::IFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
+        bool writeMeshBinary(system::IFile* file, const asset::ICPUMesh* mesh, SAssetWriteContext* context);
 
         // write text format
-        bool writeMeshASCII(system::IFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
+        bool writeMeshASCII(system::IFile* file, const asset::ICPUMesh* mesh, SAssetWriteContext* context);
 
         // create vector output with line end into string
-        void getVectorAsStringLine(const core::vectorSIMDf& v, const std::string_view s) const;
+        void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const;
 
         // write face information to file
         void writeFaceText(system::IFile* file, const core::vectorSIMDf& v1,
-            const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, const SAssetWriteParams& _params);
+            const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SAssetWriteContext* context);
 };
 
 } // end namespace

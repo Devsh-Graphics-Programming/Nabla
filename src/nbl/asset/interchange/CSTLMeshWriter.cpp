@@ -35,7 +35,7 @@ CSTLMeshWriter::~CSTLMeshWriter()
 }
 
 //! writes a mesh
-bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     if (!_override)
         getDefaultOverride(_override);
@@ -50,24 +50,24 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 #   endif
     assert(mesh);
 
-    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
+	system::IFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
 
 	if (!file)
 		return false;
 
-	os::Printer::log("Writing mesh", file->getFileName().c_str());
+	_params.logger.log("WRITING STL: writing the file %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
 	if (flags & asset::EWF_BINARY)
-		return writeMeshBinary(file, mesh, _params);
+		return writeMeshBinary(file, mesh, &ctx);
 	else
-		return writeMeshASCII(file, mesh, _params);
+		return writeMeshASCII(file, mesh, &ctx);
 }
 
 namespace
 {
 template <class I>
-inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, uint32_t _colorVaid, asset::IAssetWriter::SAssetWriteParams _params)
+inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context)
 {
 	auto& inputParams = buffer->getPipeline()->getVertexInputParams();
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
@@ -133,36 +133,89 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
 		if (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
 			flipVectors();
 
-        file->write(&normal, 12);
-        file->write(&vertex1, 12);
-        file->write(&vertex2, 12);
-        file->write(&vertex3, 12);
-        file->write(&color, 2); // saving color using non-standard VisCAM/SolidView trick
+		system::future<size_t> future;
+
+		file->write(future, &normal, context->fileOffset, 12);
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
+
+		file->write(future, &vertex1, context->fileOffset, 12);
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
+
+		file->write(future, &vertex2, context->fileOffset, 12);
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
+
+		file->write(future, &vertex3, context->fileOffset, 12);
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
+
+		file->write(future, &color, context->fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
     }
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params)
+bool CSTLMeshWriter::writeMeshBinary(system::IFile* file, const asset::ICPUMesh* mesh, IAssetWriter::SAssetWriteContext* context)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine";
     constexpr size_t HEADER_SIZE = 80u;
 
-	file->write(headerTxt,sizeof(headerTxt));
-	const core::stringc name(io::IFileSystem::getFileBasename(file->getFileName(),false));
+	system::future<size_t> future;
+	file->write(future, headerTxt, context->fileOffset, sizeof(headerTxt));
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	const std::string name = file->getFileName().filename().replace_extension().string(); // TODO: check it
 	const int32_t sizeleft = HEADER_SIZE - sizeof(headerTxt) - name.size();
-	if (sizeleft<0)
-		file->write(name.c_str(), HEADER_SIZE - sizeof(headerTxt));
+
+	if (sizeleft < 0)
+	{
+		file->write(future, name.c_str(), context->fileOffset, HEADER_SIZE - sizeof(headerTxt));
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
 	else
 	{
 		const char buf[80] = {0};
-		file->write(name.c_str(),name.size());
-		file->write(buf,sizeleft);
+
+		file->write(future, name.c_str(), context->fileOffset, name.size());
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
+		
+		file->write(future, buf, context->fileOffset, sizeleft);
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
 	}
+
 	uint32_t facenum = 0;
 	for (auto& mb : mesh->getMeshBuffers())
 		facenum += mb->getIndexCount()/3;
-	file->write(&facenum,4);
+
+	file->write(future, &facenum, context->fileOffset, sizeof(facenum));
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
 
 	// write mesh buffers
 
@@ -174,31 +227,52 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
             type = asset::EIT_UNKNOWN;
 		if (type== asset::EIT_16BIT)
         {
-            writeFacesBinary<uint16_t>(buffer, false, file, COLOR_ATTRIBUTE, _params);
+            writeFacesBinary<uint16_t>(buffer, false, file, COLOR_ATTRIBUTE, context);
         }
 		else if (type== asset::EIT_32BIT)
         {
-            writeFacesBinary<uint32_t>(buffer, false, file, COLOR_ATTRIBUTE, _params);
+            writeFacesBinary<uint32_t>(buffer, false, file, COLOR_ATTRIBUTE, context);
         }
 		else
         {
-            writeFacesBinary<uint16_t>(buffer, true, file, COLOR_ATTRIBUTE, _params); //template param doesn't matter if there's no indices
+            writeFacesBinary<uint16_t>(buffer, true, file, COLOR_ATTRIBUTE, context); //template param doesn't matter if there's no indices
         }
 	}
 	return true;
 }
 
-
-bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params)
+bool CSTLMeshWriter::writeMeshASCII(system::IFile* file, const asset::ICPUMesh* mesh, IAssetWriter::SAssetWriteContext* context)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
 
-	file->write("solid ",6);
-    file->write(headerTxt, sizeof(headerTxt)-1);
-	const core::stringc name(io::IFileSystem::getFileBasename(file->getFileName(), false));
-	file->write(name.c_str(), name.size());
-	file->write("\n", 1);
+	system::future<size_t> future;
+
+	file->write(future, "solid ", context->fileOffset, 6);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	const std::string name = file->getFileName().filename().replace_extension().string();
+
+	file->write(future, name.c_str(), context->fileOffset, name.size());
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, "\n", context->fileOffset, 1);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
 
 	// write mesh buffers
 	for (auto& buffer : mesh->getMeshBuffers())
@@ -217,7 +291,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
                     buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
                     buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]),
-					_params
+					context
                 );
             }
 		}
@@ -230,7 +304,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
                     buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
                     buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]),
-					_params
+					context
                 );
             }
 		}
@@ -243,40 +317,57 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     buffer->getPosition(j),
                     buffer->getPosition(j+1ul),
                     buffer->getPosition(j+2ul),
-					_params
+					context
                 );
             }
         }
-		file->write("\n",1);
+		
+		file->write(future, "\n", context->fileOffset, 1);
+		{
+			const auto bytesWritten = future.get();
+			context->fileOffset += bytesWritten;
+		}
 	}
 
-	file->write("endsolid ",9);
-    file->write(headerTxt, sizeof(headerTxt)-1);
-	file->write(name.c_str(),name.size());
+	file->write(future, "endsolid ", context->fileOffset, 9);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, name.c_str(), context->fileOffset, name.size());
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
 
 	return true;
 }
 
-
-void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, core::stringc& s) const
+void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const
 {
     std::ostringstream tmp;
     tmp << v.X << " " << v.Y << " " << v.Z << "\n";
-    s = core::stringc(tmp.str().c_str());
+    s = std::string(tmp.str().c_str());
 }
 
-
-void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
+void CSTLMeshWriter::writeFaceText(system::IFile* file,
 		const core::vectorSIMDf& v1,
 		const core::vectorSIMDf& v2,
 		const core::vectorSIMDf& v3,
-	    const SAssetWriteParams& _params)
+		IAssetWriter::SAssetWriteContext* context)
 {
 	core::vectorSIMDf vertex1 = v3;
 	core::vectorSIMDf vertex2 = v2;
 	core::vectorSIMDf vertex3 = v1;
 	core::vectorSIMDf normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
-	core::stringc tmp;
+	std::string tmp;
 
 	auto flipVectors = [&]()
 	{
@@ -286,24 +377,84 @@ void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 	};
 
-	if (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
+	if (!(context->params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
 		flipVectors();
 
-	file->write("facet normal ",13);
+	system::future<size_t> future;
+
+	file->write(future, "facet normal ", context->fileOffset, 13);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
 	getVectorAsStringLine(normal, tmp);
-	file->write(tmp.c_str(),tmp.size());
-	file->write("  outer loop\n",13);
-	file->write("    vertex ",11);
+
+	file->write(future, tmp.c_str(), context->fileOffset, tmp.size());
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, "  outer loop\n", context->fileOffset, 13);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, "    vertex ", context->fileOffset, 11);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
 	getVectorAsStringLine(vertex1, tmp);
-	file->write(tmp.c_str(),tmp.size());
-	file->write("    vertex ",11);
+
+	file->write(future, tmp.c_str(), context->fileOffset, tmp.size());
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, "    vertex ", context->fileOffset, 11);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
 	getVectorAsStringLine(vertex2, tmp);
-	file->write(tmp.c_str(),tmp.size());
-	file->write("    vertex ",11);
+
+	file->write(future, tmp.c_str(), context->fileOffset, tmp.size());
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, "    vertex ", context->fileOffset, 11);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
 	getVectorAsStringLine(vertex3, tmp);
-	file->write(tmp.c_str(),tmp.size());
-	file->write("  endloop\n",10);
-	file->write("endfacet\n",9);
+
+	file->write(future, tmp.c_str(), context->fileOffset, tmp.size());
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, "  endloop\n", context->fileOffset, 10);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
+
+	file->write(future, "endfacet\n", context->fileOffset, 9);
+	{
+		const auto bytesWritten = future.get();
+		context->fileOffset += bytesWritten;
+	}
 }
 
 } // end namespace

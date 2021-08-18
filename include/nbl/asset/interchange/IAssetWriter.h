@@ -113,6 +113,7 @@ public:
     {
         const SAssetWriteParams params;
         system::IFile* outputFile;
+        size_t fileOffset = {};
     };
 
 public:
