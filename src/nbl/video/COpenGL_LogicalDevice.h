@@ -112,8 +112,7 @@ public:
                 (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
         }
 
-        initDefaultDownloadBuffer();
-        initDefaultUploadBuffer();
+        deferredCommonInit();
     }
 
 

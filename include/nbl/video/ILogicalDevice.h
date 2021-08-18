@@ -763,20 +763,18 @@ public:
 
     // Not implemented stuff:
     //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)
-    //vkGetBufferMemoryRequirements // wonder how it works with dedicated memory XD
     //vkGetDescriptorSetLayoutSupport
     //vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
     //vkGetPipelineCacheData //as pipeline cache method?? (why not)
     //vkMergePipelineCaches //as pipeline cache method (why not)
     //vkCreateQueryPool //????
-    //vkCreateShaderModule //????
-#if 0
+    
     //!
     virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const
     {
-        return m_propertyPoolHandler;
+        return m_propertyPoolHandler.get();
     }
-#endif
+
 protected:
     ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params) : m_physicalDevice(physicalDevice)
     {
@@ -812,19 +810,21 @@ protected:
         post_mapMemory(memory, nullptr, { 0,0 }, IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
     }
 
-    void initDefaultDownloadBuffer(size_t size = 0x4000000ull)
+    void deferredCommonInit(size_t downstreamSize = 0x4000000ull, size_t upstreamSize = 0x4000000ull)
     {
-        auto reqs = getDownStreamingMemoryReqs();
-        reqs.vulkanReqs.size = size;
-        reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-        m_defaultDownloadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this, reqs);
-    }
-    void initDefaultUploadBuffer(size_t size = 0x4000000ull)
-    {
-        auto reqs = getUpStreamingMemoryReqs();
-        reqs.vulkanReqs.size = size;
-        reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-        m_defaultUploadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this, reqs);
+        {
+            auto reqs = getDownStreamingMemoryReqs();
+            reqs.vulkanReqs.size = downstreamSize;
+            reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
+            m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(this, reqs);
+        }
+        {
+            auto reqs = getUpStreamingMemoryReqs();
+            reqs.vulkanReqs.size = upstreamSize;
+            reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
+            m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(this, reqs);
+        }
+        m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr<ILogicalDevice>(this));
     }
 
     virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
@@ -877,7 +877,7 @@ protected:
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
 
-    //core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
+    core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
 };
 
 }

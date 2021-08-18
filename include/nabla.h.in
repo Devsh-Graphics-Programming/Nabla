@@ -64,7 +64,6 @@
 #include "quaternion.h"
 #include "rect.h"
 #include "dimension2d.h"
-#include "ICursorControl.h"
 #include "IDummyTransformationSceneNode.h"
 #include "ISceneNode.h"
 #include "ISceneNodeAnimator.h"
