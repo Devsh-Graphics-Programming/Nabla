@@ -16,13 +16,10 @@
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/EApiType.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/video/CPropertyPoolHandler.h"
 
 namespace nbl::video
 {
-
-// fwd decl
-class CPropertyPoolHandler;
-class IGPUObjectFromAssetConverter;
 
 class ILogicalDevice : public core::IReferenceCounted
 {
@@ -773,12 +770,15 @@ public:
     //vkMergePipelineCaches //as pipeline cache method (why not)
     //vkCreateQueryPool //????
     //vkCreateShaderModule //????
-
+#if 0
     //!
-    //virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
-
+    virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const
+    {
+        return m_propertyPoolHandler;
+    }
+#endif
 protected:
-    ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : m_physicalDevice(physicalDevice), m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
+    ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params) : m_physicalDevice(physicalDevice)
     {
         uint32_t qcnt = 0u;
         uint32_t greatestFamNum = 0u;
@@ -867,8 +867,6 @@ protected:
     virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
     virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
 
-    core::smart_refctd_ptr<system::ISystem> m_system;
-    core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
     core::smart_refctd_ptr<IPhysicalDevice> m_physicalDevice;
 
     using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
@@ -878,6 +876,8 @@ protected:
 
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
+
+    //core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
 };
 
 }

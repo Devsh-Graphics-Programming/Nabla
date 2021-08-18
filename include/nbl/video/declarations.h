@@ -2,14 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_VIDEO_H_INCLUDED__
-#define __NBL_VIDEO_H_INCLUDED__
+#ifndef __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
+#define __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
 
-#include "nbl/video/compile_config.h"
 
 // dependencies
 #include "nbl/asset/asset.h"
-#include "nbl/ui/ui.h"
+#include "nbl/ui/declarations.h"
 
 // alloc
 #include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
@@ -17,10 +16,10 @@
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // properties
-//#include "nbl/video/CPropertyPool.h"
-//#include "nbl/video/CPropertyPoolHandler.h"
+#include "nbl/video/CPropertyPool.h"
+#include "nbl/video/CPropertyPoolHandler.h"
 
-// think about foler name for those
+// think about folder name for those
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/ILogicalDevice.h"
@@ -37,7 +36,15 @@
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUObjectFromAssetConverter.h"
 
+// platform and API specific stuff
+#include "nbl/video/COpenGL_Connection.h"
+#include "nbl/video/surface/ISurfaceGL.h"
+
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"
+
+
+//
+#include "nbl/video/decl/IBackendObject.h"
 
 #endif

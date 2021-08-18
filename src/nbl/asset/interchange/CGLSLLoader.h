@@ -20,7 +20,7 @@ class CGLSLLoader final : public asset::IAssetLoader
 {
 	public:
 		CGLSLLoader() = default;
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger = nullptr) const override
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
 			char tmp[10] = { 0 };
 			char* end = tmp+sizeof(tmp);

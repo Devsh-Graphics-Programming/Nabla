@@ -3,12 +3,14 @@
 
 #include "nbl/system/declarations.h"
 
-#include "nbl/video/ILogicalDevice.h"
+#include <type_traits>
+
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
-#include "nbl/video/EApiType.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
-#include <type_traits>
+
+#include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/EApiType.h"
 
 namespace nbl::video
 {
@@ -87,12 +89,6 @@ public:
         asset::VkExtent3D minImageTransferGranularity;
     };
 
-    IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-        m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
-    {
-
-    }
-
     const SLimits& getLimits() const { return m_limits; }
     const SFeatures& getFeatures() const { return m_features; }
 
@@ -105,6 +101,11 @@ public:
         );
     }
 
+    inline system::ISystem* getSystem() const {return m_system.get();}
+    inline asset::IGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
+
+    virtual IDebugCallback* getDebugCallback() = 0;
+
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
     {
         if (!validateLogicalDeviceCreation(params))
@@ -116,6 +117,12 @@ public:
     virtual E_API_TYPE getAPIType() const = 0;
 
 protected:
+    IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+        m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
+    {
+
+    }
+
     virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) = 0;
 
     bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const

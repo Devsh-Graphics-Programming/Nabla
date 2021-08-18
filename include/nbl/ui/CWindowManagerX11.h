@@ -41,7 +41,6 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xinput, system::DefaultFuncPtrL
 	,XFreeDeviceMotionEvents	
 );
 
-#ifdef _NBL_LINUX_X11_RANDR_
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xrandr, system::DefaultFuncPtrLoader
     ,XF86VidModeModeInfo
     ,XF86VidModeSwitchToMode
@@ -51,8 +50,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xrandr, system::DefaultFuncPtrL
     ,XF86VidModeSwitchToMode
     ,XF86VidModeSetViewPort
 );
-#endif
-#ifdef _NBL_LINUX_X11_VIDMODE_
+
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xxf86vm, system::DefaultFuncPtrLoader
     ,XRRGetScreenInfo
     ,XRRSetScreenConfig
@@ -63,7 +61,6 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xxf86vm, system::DefaultFuncPtr
     ,XRRSetScreenConfig
     ,XRRFreeScreenConfigInfo
 );
-#endif
 
 class CWindowManagerX11 : public IWindowManager
 {
@@ -175,12 +172,8 @@ private:
 	} m_windowThreadManager;
 		X11 x11("X11");
 		Xinput xinput("Xinput");
-#ifdef _NBL_LINUX_X11_RANDR_
     	Xrandr xrandr("Xrandr");
-#endif
-#ifdef _NBL_LINUX_X11_VIDMODE_
     	Xxf86vm xxf86vm("Xxf86vm");
-#endif	
 
 }
 

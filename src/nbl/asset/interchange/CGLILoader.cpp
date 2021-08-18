@@ -34,9 +34,9 @@ namespace nbl
 {
 	namespace asset
 	{
-		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr& logger);
+		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr logger);
 		static inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
-		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr& logger);
+		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr logger);
 
 		asset::SAssetBundle CGLILoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -221,7 +221,7 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
-		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr& logger)
+		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr logger)
 		{
 			const auto fileName = file->getFileName().string();
 			core::vector<char> memory(file->getSize());
@@ -249,7 +249,7 @@ namespace nbl
 			}
 		}
 
-		bool CGLILoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
+		bool CGLILoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{
 			const auto fileName = std::string(_file->getFileName().string());
 
@@ -306,7 +306,7 @@ namespace nbl
 			return false;
 		}
 
-		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr& logger)
+		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr logger)
 		{
 			using namespace gli;
 			gli::gl::format formatToTranslate = glVersion.translate(texture.format(), texture.swizzles());

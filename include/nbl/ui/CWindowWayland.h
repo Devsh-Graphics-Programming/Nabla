@@ -8,8 +8,7 @@
 #include <utility>
 #include <cstring>
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 class CWindowWayland : public IWindowWayland
@@ -21,7 +20,7 @@ public:
 	explicit CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, wl_display* dpy, native_handle_t win);
 
     struct wl_display* getDisplay() const override { return m_dpy; }
-	native_handle_t getNativeHandle() const override { return m_native; }
+	const native_handle_t& getNativeHandle() const override { return m_native; }
 
 	static core::smart_refctd_ptr<CWindowWayland> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
 	{
@@ -39,7 +38,6 @@ private:
     native_handle_t m_native;
 };
 
-}
 }
 #endif
 

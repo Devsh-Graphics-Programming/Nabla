@@ -4,6 +4,7 @@
 #include "nbl/core/declarations.h"
 
 #include <variant>
+
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
@@ -434,7 +435,7 @@ protected:
 
     static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid);
 
-    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr& logger);
+    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
 
     static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
 
@@ -513,7 +514,7 @@ public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
 
 
-    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger) : IGPUCommandBuffer(dev, lvl, _cmdpool), m_logger(std::move(logger)) {}
+    COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger) : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)) {}
 
     inline void begin(uint32_t _flags) override final
     {

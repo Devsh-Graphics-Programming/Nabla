@@ -93,7 +93,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
-bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr& logger) const
+bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
     if (!_file)
         return false;
@@ -694,7 +694,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     return ds;
 }
 
-auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const system::logger_opt_ptr& logger) const -> core::vector<SMtl>
+auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const system::logger_opt_ptr logger) const -> core::vector<SMtl>
 {
     std::string mtl;
     size_t fileSize = _file->getSize();

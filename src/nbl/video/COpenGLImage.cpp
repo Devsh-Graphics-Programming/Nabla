@@ -2,8 +2,7 @@
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 #include "nbl/video/COpenGLFramebuffer.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 COpenGLImage::~COpenGLImage()
@@ -19,5 +18,4 @@ COpenGLImage::~COpenGLImage()
     device->destroyFramebuffer(fbohash);
 }
 
-}
 }

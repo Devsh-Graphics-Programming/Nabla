@@ -138,8 +138,8 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 using namespace nbl;
 using namespace nbl::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _SLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
-	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(dev, _specInfo.shaderStage),
+COpenGLSpecializedShader::COpenGLSpecializedShader(core::smart_refctd_ptr<ILogicalDevice>&& dev, uint32_t _SLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
+	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(std::move(dev),_specInfo.shaderStage),
     m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
 	m_specInfo(_specInfo),//TODO make it move()
 	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))
@@ -155,7 +155,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t
 	m_uniformsList = uniformList;
 }
 
-auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr& logger) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger) const -> std::pair<GLuint, SProgramBinary>
 {
 	spirv_cross::ParsedIR parsed;
 	if (_parsedSpirv)

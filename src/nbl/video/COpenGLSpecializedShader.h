@@ -101,11 +101,11 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			return true;
 		}
 
-		COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
+		COpenGLSpecializedShader(core::smart_refctd_ptr<ILogicalDevice>&& dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
-		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr& logger = nullptr) const;
+		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger = nullptr) const;
 
 		const SInfo& getSpecializationInfo() const { return m_specInfo; }
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }

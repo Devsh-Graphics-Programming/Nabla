@@ -5,19 +5,20 @@
 #ifndef __NBL_VIDEO_C_OPENGL_SHADER_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_SHADER_H_INCLUDED__
 
+
 #include "nbl/asset/ICPUBuffer.h"
+
 #include "nbl/video/IGPUShader.h"
 
-namespace nbl
-{
-namespace video
+
+namespace nbl::video
 {
 
 class COpenGLShader : public IGPUShader
 {
 	public:
-		COpenGLShader(ILogicalDevice* dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv) : IGPUShader(dev), m_code(std::move(_spirv)), m_containsGLSL(false) {}
-		COpenGLShader(ILogicalDevice* dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl) : IGPUShader(dev), m_code(std::move(_glsl)), m_containsGLSL(true) {}
+		COpenGLShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv) : IGPUShader(std::move(dev)), m_code(std::move(_spirv)), m_containsGLSL(false) {}
+		COpenGLShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl) : IGPUShader(std::move(dev)), m_code(std::move(_glsl)), m_containsGLSL(true) {}
 
 		const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		const core::smart_refctd_ptr<asset::ICPUBuffer>& getSPVorGLSL_refctd() const { return m_code; };
@@ -148,7 +149,6 @@ R"(
 		const bool									m_containsGLSL;
 };
 
-}
 }
 
 #endif

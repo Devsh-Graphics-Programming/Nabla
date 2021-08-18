@@ -10,8 +10,7 @@
 #include <wayland-client-protocol.h>
 #include <wayland-egl.h>
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 class IWindowWayland : public IWindow
@@ -24,11 +23,10 @@ public:
 
     using native_handle_t = struct wl_egl_window*;
 
-    virtual native_handle_t getNativeHandle() const = 0;
+    virtual const native_handle_t& getNativeHandle() const = 0;
     virtual struct wl_display* getDisplay() const = 0;
 };
 
-}
 }
 
 #endif //_NBL_BUILD_WITH_WAYLAND
