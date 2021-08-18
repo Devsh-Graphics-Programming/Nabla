@@ -31,6 +31,9 @@ class IPropertyPool : public core::IReferenceCounted
 		virtual uint32_t getPropertySize(uint32_t ix) const =0;
 
         //
+        inline bool isContiguous() const {return m_indexToAddr;}
+
+        //
         inline uint32_t getAllocated() const
         {
             return indexAllocator.get_allocated_size();
@@ -53,15 +56,24 @@ class IPropertyPool : public core::IReferenceCounted
         inline bool allocateProperties(uint32_t* outIndicesBegin, uint32_t* outIndicesEnd)
         {
             constexpr uint32_t unit = 1u;
+            uint32_t head = getAllocated();
             for (auto it=outIndicesBegin; it!=outIndicesEnd; it++)
             {
-                auto& addr = *it;
-                if (addr!=invalid_index)
+                auto& index = *it;
+                if (index!=invalid_index)
                     continue;
 
-                addr = indexAllocator.alloc_addr(unit,unit);
-                if (addr==invalid_index)
+                index = indexAllocator.alloc_addr(unit,unit);
+                if (index==invalid_index)
                     return false;
+                
+                if (isContiguous())
+                {
+                    assert(m_indexToAddr[index]==invalid_index);
+                    assert(m_addrToIndex[head]==invalid_index);
+                    m_indexToAddr[index] = head;
+                    m_addrToIndex[head++] = index;
+                }
             }
             return true;
         }
@@ -69,13 +81,43 @@ class IPropertyPool : public core::IReferenceCounted
         //
         inline void freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
         {
+            uint32_t head = getAllocated();
+            assert(std::distance(indicesBegin,indicesEnd)<=head);
+
             constexpr uint32_t unit = 1u;
             for (auto it=indicesBegin; it!=indicesEnd; it++)
             {
-                auto& addr = *it;
-                if (addr!=invalid_index)
-                    indexAllocator.free_addr(addr,unit);
+                auto& index = *it;
+                if (index==invalid_index)
+                    continue;
+                
+                if (isContiguous())
+                {
+                    auto& addr = m_indexToAddr[index];
+                    auto& lastIx = m_addrToIndex[--head];
+                    assert(addr!=invalid_index&&lastIx!=invalid_index);
+                    m_indexToAddr[lastIx] = addr;
+                    m_addrToIndex[addr] = lastIx;
+                    lastIx = invalid_index;
+                    addr = invalid_index;
+                }
+
+                indexAllocator.free_addr(index,unit);
             }
+        }
+
+        //
+        inline uint32_t indexToAddress(const uint32_t index)
+        {
+            if (isContiguous())
+                return m_indexToAddr[index];
+            return index;
+        }
+        inline uint32_t addressToIndex(const uint32_t addr)
+        {
+            if (isContiguous())
+                return m_addrToIndex[addr];
+            return addr;
         }
 
         //
@@ -85,15 +127,17 @@ class IPropertyPool : public core::IReferenceCounted
         }
         
         //
-        static PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity);
+        static PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity, bool contiguous=false);
 
     protected:
-        IPropertyPool(uint32_t capacity, void* reserved);
+        IPropertyPool(uint32_t capacity, void* reserved, bool contiguous=false);
         virtual ~IPropertyPool() {}
 
         static bool validateBlocks(const ILogicalDevice* device, const IPropertyPool& declvalPool, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks);
 
         PropertyAddressAllocator indexAllocator;
+        uint32_t* m_indexToAddr;
+        uint32_t* m_addrToIndex;
 };
 
 
