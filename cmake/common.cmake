@@ -262,7 +262,7 @@ endmacro()
 
 function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
+	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE) # WTF TODO: change CMAKE_BINARY_DIR in future! 
 endfunction()
 
 

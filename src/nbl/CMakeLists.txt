@@ -626,6 +626,10 @@ set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 )
 
 nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/build/import")
+# TODO, change to nbl_install_headers
+install(FILES "${NBL_ROOT_PATH_BINARY}/include/nbl/config/Release/BuildConfigOptions.h" DESTINATION include/nbl/config CONFIGURATIONS Release)
+install(FILES "${NBL_ROOT_PATH_BINARY}/include/nbl/config/Debug/BuildConfigOptions.h" DESTINATION debug/include/nbl/config CONFIGURATIONS Debug)
+install(FILES "${NBL_ROOT_PATH_BINARY}/include/nbl/config/RelWithDebInfo/BuildConfigOptions.h" DESTINATION relwithdebinfo/include/nbl/config CONFIGURATIONS RelWithDebInfo)
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)
