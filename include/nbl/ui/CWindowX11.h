@@ -1,14 +1,13 @@
 #ifndef __C_WINDOW_X11_H_INCLUDED__
 #define __C_WINDOW_X11_H_INCLUDED__
 
-#ifdef _NBL_PLATFORM_LINUX_x1
+#ifdef _NBL_PLATFORM_LINUX_
 #include "nbl/ui/IWindowX11.h"
-
 
 #include <X11/Xutil.h>
 #include <X11/extensions/xf86vmode.h>
 #include <X11/extensions/Xrandr.h>
-#include "nbl_os.h"
+// #include "nbl_os.h" // @Nihon - no such file
 
 namespace nbl::ui
 {
@@ -38,6 +37,8 @@ public:
 	void processEvent(XEvent event);
 private:
     CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
+	IClipboardManager* getClipboardManager() override;
+	ICursorControl* getCursorControl() override;
 
     Display* m_dpy;
     native_handle_t m_native;

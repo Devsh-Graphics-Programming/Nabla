@@ -50,11 +50,21 @@ class CSurfaceGL final : public CSurface<Window>
 };
 
 
-// TODO: conditional defines
-// using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
-//using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
-using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
-//using CSurfaceGLWayland = CSurfaceGL<ui::IWindowWayland>;
+#ifdef _NBL_PLATFORM_WINDOWS_
+    using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
+#endif
+
+#ifdef _NBL_PLATFORM_ANDROID_
+    using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
+#endif
+
+#ifdef _NBL_PLATFORM_LINUX_
+    using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
+#endif
+
+#ifdef _NBL_BUILD_WITH_WAYLAND // TODO: Probably in the future - _NBL_BUILD_PLATFORM_WAYLAND_
+    using CSurfaceGLWayland = CSurfaceGL<ui::IWindowWayland>;
+#endif
 
 }
 
