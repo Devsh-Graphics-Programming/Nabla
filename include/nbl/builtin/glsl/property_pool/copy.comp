@@ -1,0 +1,61 @@
+#version 440 core
+layout(local_size_x=_NBL_BUILTIN_PROPERTY_COPY_GROUP_SIZE_) in;
+
+layout(set=0,binding=0) readonly restrict buffer Indices
+{
+    uint elementCount[_NBL_BUILTIN_PROPERTY_COUNT_];
+	int propertyDWORDsize_upDownFlag[_NBL_BUILTIN_PROPERTY_COUNT_];
+    uint indexOffset[_NBL_BUILTIN_PROPERTY_COUNT_];
+    uint indices[];
+};
+
+
+layout(set=0, binding=1) readonly restrict buffer InData
+{
+    uint data[];
+} inBuff[_NBL_BUILTIN_PROPERTY_COUNT_];
+layout(set=0, binding=2) writeonly restrict buffer OutData
+{
+    uint data[];
+} outBuff[_NBL_BUILTIN_PROPERTY_COUNT_];
+
+//#define OPTIMIZE
+#ifdef OPTIMIZE
+uint shared workgroupShared[_NBL_BUILTIN_PROPERTY_COPY_GROUP_SIZE_];
+#endif
+
+
+void main()
+{
+    const uint propID = gl_WorkGroupID.y;
+
+	const int combinedFlag = propertyDWORDsize_upDownFlag[propID];
+	const bool download = combinedFlag<0;
+
+	const uint propDWORDs = uint(download ? (-combinedFlag):combinedFlag);
+#ifdef OPTIMIZE
+	const uint localIx = gl_LocalInvocationID.x;
+	const uint MaxItemsToProcess = ;
+	if (localIx<MaxItemsToProcess)
+		workgroupShared[localIx] = indices[localIx+indexOffset[propID]];
+	barrier();
+	memoryBarrier();
+#endif
+
+    const uint index = gl_GlobalInvocationID.x/propDWORDs;
+    if (index>=elementCount[propID])
+        return;
+
+	const uint redir = (
+#ifdef OPTIMIZE
+		workgroupShared[index]
+#else 
+		indices[index+indexOffset[propID]]
+#endif
+	// its equivalent to `indices[index]*propDWORDs+gl_GlobalInvocationID.x%propDWORDs`
+    -index)*propDWORDs+gl_GlobalInvocationID.x;
+
+    const uint inIndex = download ? redir:gl_GlobalInvocationID.x;
+    const uint outIndex = download ? gl_GlobalInvocationID.x:redir;
+	outBuff[propID].data[outIndex] = inBuff[propID].data[inIndex];
+}
