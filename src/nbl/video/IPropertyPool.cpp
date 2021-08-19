@@ -26,16 +26,16 @@ IPropertyPool::IPropertyPool(uint32_t capacity, void* reserved, bool contiguous)
     }
 }
 
-bool IPropertyPool::validateBlocks(const ILogicalDevice* device, const IPropertyPool& declvalPool, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks)
+bool IPropertyPool::validateBlocks(const ILogicalDevice* device, const uint32_t propertyCount, const size_t* propertySizes, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks)
 {
-    for (auto i=0u; i<declvalPool.getPropertyCount(); i++)
+    for (auto i=0u; i<propertyCount; i++)
     {
         const auto& memBlk = _memoryBlocks[i];
         if (!memBlk.isValid())
             return false;
         if (memBlk.offset%device->getPhysicalDevice()->getLimits().SSBOAlignment)
             return false;
-        if (memBlk.size<declvalPool.getPropertySize(i)*capacity)
+        if (memBlk.size<propertySizes[i]*capacity)
             return false;
     }
     return true;

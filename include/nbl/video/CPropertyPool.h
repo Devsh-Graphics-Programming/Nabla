@@ -37,7 +37,7 @@ class CPropertyPool final : public IPropertyPool
             return core::min<size_t>(IPropertyPool::invalid_index,capacity);
         }
 
-		static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, uint32_t capacity=0u, allocator<uint8_t>&& alloc = allocator<uint8_t>())
+		static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, uint32_t capacity=0u, const bool contiguous=false, allocator<uint8_t>&& alloc = allocator<uint8_t>())
 		{
             if (!capacity)
                 capacity = calcApproximateCapacity(_memoryBlocks);
@@ -46,21 +46,21 @@ class CPropertyPool final : public IPropertyPool
 			if (!reserved)
 				return nullptr;
 
-			auto retval = create(device,_memoryBlocks,reserved,std::move(alloc));
+			auto retval = create(device,_memoryBlocks,capacity,reserved,contiguous,std::move(alloc));
 			if (!retval)
 				std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,reserved,reservedSize);
 
 			return retval;
 		}
 		// if this method fails to create the pool, the callee must free the reserved memory themselves, also the reserved pointer must be compatible with the allocator so it can free it
-        static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, const uint32_t capacity, void* reserved, allocator<uint8_t>&& alloc=allocator<uint8_t>())
+        static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, const uint32_t capacity, void* reserved, const bool contiguous=false, allocator<uint8_t>&& alloc=allocator<uint8_t>())
         {
-            if (!IPropertyPool::validateBlocks(device,std::declval<this_t>(),capacity,_memoryBlocks))
+            if (!IPropertyPool::validateBlocks(device,PropertyCount,PropertySizes.data(),capacity,_memoryBlocks))
                 return nullptr;
             if (!reserved || !capacity)
                 return nullptr;
 
-			auto* pool = new CPropertyPool(_memoryBlocks,capacity,reserved,std::move(alloc));
+			auto* pool = new CPropertyPool(_memoryBlocks,capacity,reserved,contiguous,std::move(alloc));
             return core::smart_refctd_ptr<CPropertyPool>(pool,core::dont_grab);
         }
 
@@ -72,8 +72,8 @@ class CPropertyPool final : public IPropertyPool
 		uint32_t getPropertySize(uint32_t ix) const override {return static_cast<uint32_t>(PropertySizes[ix]);}
 
 	protected:
-        CPropertyPool(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, const uint32_t capacity, void* _reserved, allocator<uint8_t>&& _alloc)
-            : IPropertyPool(capacity,_reserved), alloc(std::move(_alloc)), reserved(_reserved)
+        CPropertyPool(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, const uint32_t capacity, void* _reserved, bool contiguous, allocator<uint8_t>&& _alloc)
+            : IPropertyPool(capacity,_reserved,contiguous), alloc(std::move(_alloc)), reserved(_reserved)
         {
             std::copy_n(_memoryBlocks,getPropertyCount(),m_memoryBlocks);
         }

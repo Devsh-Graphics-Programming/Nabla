@@ -78,11 +78,10 @@ class IPropertyPool : public core::IReferenceCounted
             return true;
         }
 
-        //
+        // TODO: return how to copy the tail around
         inline void freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
         {
             uint32_t head = getAllocated();
-            assert(std::distance(indicesBegin,indicesEnd)<=head);
 
             constexpr uint32_t unit = 1u;
             for (auto it=indicesBegin; it!=indicesEnd; it++)
@@ -90,9 +89,12 @@ class IPropertyPool : public core::IReferenceCounted
                 auto& index = *it;
                 if (index==invalid_index)
                     continue;
-                
+
+                indexAllocator.free_addr(index,unit);
                 if (isContiguous())
                 {
+                    assert(head!=0u);
+
                     auto& addr = m_indexToAddr[index];
                     auto& lastIx = m_addrToIndex[--head];
                     assert(addr!=invalid_index&&lastIx!=invalid_index);
@@ -101,9 +103,15 @@ class IPropertyPool : public core::IReferenceCounted
                     lastIx = invalid_index;
                     addr = invalid_index;
                 }
-
-                indexAllocator.free_addr(index,unit);
             }
+            /* TODO: figure out how to schedule a copy
+            for (auto addr=head; addr<oldHead; addr++)
+            {
+                auto changedIx = m_addrToIndex[addr];
+                auto newAddr = m_indexToAddr[changedIx];
+                data[newAddr] = data[addr];
+            }
+            */
         }
 
         //
@@ -133,7 +141,7 @@ class IPropertyPool : public core::IReferenceCounted
         IPropertyPool(uint32_t capacity, void* reserved, bool contiguous=false);
         virtual ~IPropertyPool() {}
 
-        static bool validateBlocks(const ILogicalDevice* device, const IPropertyPool& declvalPool, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks);
+        static bool validateBlocks(const ILogicalDevice* device, const uint32_t propertyCount, const size_t* propertySizes, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks);
 
         PropertyAddressAllocator indexAllocator;
         uint32_t* m_indexToAddr;

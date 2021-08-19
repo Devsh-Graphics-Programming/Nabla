@@ -18,51 +18,41 @@ class IPropertyPool;
 class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
 {
 	public:
-		CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device);
+		// TODO: factor this out
+		class DescriptorSetCache
+		{
+			public:
+				DescriptorSetCache() = default;
+				DescriptorSetCache(core::smart_refctd_ptr<IDescriptorPool>&& _descPool, core::smart_refctd_ptr<IGPUDescriptorSet>&& _canonicalDS);
+				// ~DescriptorSetCache(); destructor of `deferredReclaims` will wait for all fences
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto MinimumPropertyAlignment = alignof(uint32_t);
+				//
+				inline IGPUDescriptorSet* getCanonicalDescriptorSet() {return m_canonicalDS.get();}
+				inline const IGPUDescriptorSet* getCanonicalDescriptorSet() const {return m_canonicalDS.get();}
+
+				//
+				DescriptorSetCache(const DescriptorSetCache&) = delete;
+				inline DescriptorSetCache(DescriptorSetCache&& other) : DescriptorSetCache()
+				{
+					operator=(std::move(other));
+				}
+
+				DescriptorSetCache& operator=(const DescriptorSetCache& other) = delete;
+				inline DescriptorSetCache& operator=(DescriptorSetCache&& other)
+				{
+					std::swap(m_descPool,other.m_descPool);
+					std::swap(m_canonicalDS,other.m_canonicalDS);
+					//std::swap(layout,other.layout);
+					//std::swap(propertyCount,other.propertyCount);
+					return *this;
+				}
 #if 0
-        //
-		inline uint32_t getPipelineCount() const { return m_perPropertyCountItems.size(); }
-        //
-		inline IGPUComputePipeline* getPipeline(uint32_t ix) { return m_perPropertyCountItems[ix].pipeline.get(); }
-		inline const IGPUComputePipeline* getPipeline(uint32_t ix) const { return m_perPropertyCountItems[ix].pipeline.get(); }
-        //
-		inline IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) { return m_perPropertyCountItems[ix].descriptorSetCache.getLayout().get(); }
-		inline const IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) const { return m_perPropertyCountItems[ix].descriptorSetCache.getLayout().get(); }
-#endif
-		
-		using transfer_result_t = std::pair<bool, core::smart_refctd_ptr<core::IReferenceCounted> >;
+				core::smart_refctd_ptr<IGPUDescriptorSet> getNextSet(
+					IVideoDriver* driver, const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses
+				);
 
-		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
-		struct AllocationRequest
-		{
-			IPropertyPool* pool;
-			core::SRange<uint32_t> outIndices;
-			const void* const* data; 
-		};
-		transfer_result_t addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
-
-        //
-		struct TransferRequest
-		{
-			TransferRequest() : download(false), pool(nullptr), indices{nullptr,nullptr}, propertyID(0xdeadbeefu)
-			{
-				readData = nullptr;
-			}
-
-			bool download;
-			IPropertyPool* pool;
-			core::SRange<const uint32_t> indices;
-			uint32_t propertyID;
-			union
-			{
-				const void* readData;
-				void* writeData;
-			};
-		};
-		transfer_result_t transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
-#if 0		
+				void releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set);
+				
 		// only public because GPUDeferredEventHandlerST needs to know about it
 		class DeferredDescriptorSetReclaimer
 		{
@@ -110,77 +100,72 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 					unusedSets->push_back(std::move(set));
 				}
 		};
+			private:
+				GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> deferredReclaims;
+				core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> unusedSets;
 #endif
+				core::smart_refctd_ptr<IDescriptorPool> m_descPool;
+				core::smart_refctd_ptr<IGPUDescriptorSet> m_canonicalDS;
+		};
+
+
+		//
+		CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device);
+
+        _NBL_STATIC_INLINE_CONSTEXPR auto MinimumPropertyAlignment = alignof(uint32_t);
+
+        //
+		inline IGPUComputePipeline* getPipeline() {return m_pipeline.get();}
+		inline const IGPUComputePipeline* getPipeline() const {return m_pipeline.get();}
+        //
+		inline IGPUDescriptorSet* getCanonicalDescriptorSet() { return m_dsCache.getCanonicalDescriptorSet(); }
+		inline const IGPUDescriptorSet* getCanonicalDescriptorSet() const { return m_dsCache.getCanonicalDescriptorSet(); }
+
+		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
+		struct AllocationRequest
+		{
+			AllocationRequest() : pool(nullptr), outIndices{nullptr,nullptr}, data(nullptr) {}
+
+			IPropertyPool* pool;
+			core::SRange<uint32_t> outIndices;
+			const void* const* data; 
+		};
+		// returns false if an allocation or part of a transfer has failed
+		// while its possible to detect which allocation has failer, its not possible to know exactly what transfer failed
+		bool addProperties(IGPUCommandBuffer* cmdbuf, const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd);
+
+        //
+		struct TransferRequest
+		{
+			TransferRequest() : download(false), pool(nullptr), indices{nullptr,nullptr}, propertyID(0xdeadbeefu)
+			{
+				readData = nullptr;
+			}
+
+			bool download;
+			IPropertyPool* pool;
+			core::SRange<const uint32_t> indices;
+			uint32_t propertyID;
+			union
+			{
+				const void* readData;
+				void* writeData;
+			};
+		};
+		bool transferProperties(IGPUCommandBuffer* cmdbuf, const TransferRequest* requestsBegin, const TransferRequest* requestsEnd);
+
     protected:
 		~CPropertyPoolHandler()
 		{
+			free(m_tmpIndexRanges);
 			// pipelines drop themselves automatically
 		}
 
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto IdealWorkGroupSize = 256u;
-
-#if 0
-		class DescriptorSetCache
-		{
-				GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> deferredReclaims;
-				core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> unusedSets;
-				core::smart_refctd_ptr<IGPUDescriptorSetLayout> layout;
-				uint32_t propertyCount;
-		
-			public:
-				inline DescriptorSetCache() : deferredReclaims(), unusedSets(), layout(), propertyCount(0u) {}
-				DescriptorSetCache(IVideoDriver* driver, uint32_t _propertyCount);
-				DescriptorSetCache(const DescriptorSetCache&) = delete;
-				inline DescriptorSetCache(DescriptorSetCache&& other) : DescriptorSetCache()
-				{
-					operator=(std::move(other));
-				}
-
-				// ~DescriptorSetCache(); destructor of `deferredReclaims` will wait for all fences
-
-				DescriptorSetCache& operator=(const DescriptorSetCache& other) = delete;
-				inline DescriptorSetCache& operator=(DescriptorSetCache&& other)
-				{
-					std::swap(deferredReclaims,other.deferredReclaims);
-					std::swap(unusedSets,other.unusedSets);
-					std::swap(layout,other.layout);
-					std::swap(propertyCount,other.propertyCount);
-					return *this;
-				}
+		static inline constexpr auto IdealWorkGroupSize = 256u;
+		static inline constexpr auto DescriptorCacheSize = 128u;
 
 
-				core::smart_refctd_ptr<IGPUDescriptorSetLayout> getLayout() const { return core::smart_refctd_ptr(layout); }
-
-				core::smart_refctd_ptr<IGPUDescriptorSet> getNextSet(
-					IVideoDriver* driver, const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses
-				);
-
-				void releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set);
-		};
-		struct PerPropertyCountItems
-		{
-			inline PerPropertyCountItems() : descriptorSetCache(), pipeline() {}
-			PerPropertyCountItems(IVideoDriver* driver, IGPUPipelineCache* pipelineCache, uint32_t propertyCount);
-			PerPropertyCountItems(const PerPropertyCountItems&) = delete;
-			inline PerPropertyCountItems(PerPropertyCountItems&& other) : PerPropertyCountItems()
-			{
-				operator=(std::move(other));
-			}
-
-			PerPropertyCountItems& operator=(const PerPropertyCountItems&) = delete;
-			inline PerPropertyCountItems& operator=(PerPropertyCountItems&& other)
-			{
-				std::swap(descriptorSetCache,other.descriptorSetCache);
-				std::swap(pipeline,other.pipeline);
-				return *this;
-			}
-
-			DescriptorSetCache descriptorSetCache;
-			core::smart_refctd_ptr<IGPUComputePipeline> pipeline;
-		};
-		// TODO: Optimize to only use one allocation for all these arrays
-		core::vector<PerPropertyCountItems> m_perPropertyCountItems;
+		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		struct IndexUploadRange
 		{
 			IndexUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
@@ -188,10 +173,13 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			core::SRange<const uint32_t> source;
 			uint32_t destOff;
 		};
-        core::vector<IndexUploadRange> m_tmpIndexRanges;
-        core::vector<uint32_t> m_tmpAddresses,m_tmpSizes,m_alignments;
-#endif
-		core::smart_refctd_ptr<ILogicalDevice> m_device;
+        IndexUploadRange* m_tmpIndexRanges;
+		uint32_t* m_tmpAddresses,* m_tmpSizes,* m_alignments;
+		uint8_t m_maxPropertiesPerPass;
+
+		DescriptorSetCache m_dsCache;
+
+		core::smart_refctd_ptr<IGPUComputePipeline> m_pipeline;
 };
 
 
