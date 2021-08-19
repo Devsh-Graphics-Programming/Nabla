@@ -75,7 +75,8 @@ void main()
 }
 )===";
 
-struct InstanceData {
+struct InstanceData
+{
 	core::vector3df_SIMD color;
 	core::matrix3x4SIMD modelMatrix; // = 3 x vector3df_SIMD
 };
@@ -171,6 +172,7 @@ int main()
 	auto device = std::move(initOutput.logicalDevice);
 	auto queues = std::move(initOutput.queues);
 	auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
+	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
 	auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
@@ -180,13 +182,12 @@ int main()
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
+	// TODO: roll into CommonAPI
+	auto computeCommandPool = device->createCommandPool(computeQueue->getFamilyIndex(),video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 
-	nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
-	
-	core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
-	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
-
-	core::vector<GPUObject> gpuObjects; 
+	// property transfer cmdbuffers
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> propXferCmdbuf[FRAMES_IN_FLIGHT];
+	device->createCommandBuffers(computeCommandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,propXferCmdbuf);
 
 	// Instance Data
 	constexpr uint32_t NumCubes = 20;
@@ -199,7 +200,35 @@ int main()
 	constexpr uint32_t startIndexSpheres = startIndexCylinders + NumCylinders;
 	constexpr uint32_t startIndexCones = startIndexSpheres + NumSpheres;
 	
-	constexpr uint32_t NumInstances = NumCubes + NumCylinders + NumSpheres + NumCones;
+	constexpr uint32_t MaxNumInstances = NumCubes + NumCylinders + NumSpheres + NumCones;
+
+	// Instances Buffer
+	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(InstanceData)*MaxNumInstances);
+
+	auto propertyPoolHandler = device->getDefaultPropertyPoolHandler();
+	// GPU data pool
+	using instance_property_pool_t = video::CPropertyPool<core::allocator,InstanceData>;
+	core::smart_refctd_ptr<instance_property_pool_t> propertyPool;
+	{
+		asset::SBufferRange<video::IGPUBuffer> block = {0,gpuInstancesBuffer->getSize(),gpuInstancesBuffer};
+		propertyPool = instance_property_pool_t::create(device.get(),&block,MaxNumInstances);
+
+		std::array<video::CPropertyPoolHandler::AllocationRequest,4u> requests;
+		/*
+		{
+			= {propertyPool.get(),outInstanceIndices,&data};
+		}
+		propertyPoolHandler->addProperties(propXferCmdbuf[0].get(),requests.data(),requests.data()+requests.size());
+		*/
+	}
+
+	// initialize
+	constexpr uint32_t NumInstances = MaxNumInstances;
+
+
+
+
+	core::vector<GPUObject> gpuObjects;
 	
 	core::vector<InstanceData> instancesData;
 	instancesData.resize(NumInstances);
@@ -337,17 +366,14 @@ int main()
 	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, assetManager.get(), shaders, shaders+2);
 	
-	// Instances Buffer
-	
-	constexpr size_t BUF_SZ = sizeof(InstanceData) * NumInstances;
-	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(BUF_SZ);
-	
 	// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
+	video::IGPUObjectFromAssetConverter CPU2GPU;
 	auto createGPUObject = [&](
 		asset::ICPUMeshBuffer * cpuMesh,
 		core::smart_refctd_ptr<video::IGPUBuffer> instancesBuffer,
 		uint64_t numInstances, uint64_t instanceBufferOffset,
-		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject {
+		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
+	{
 		GPUObject ret = {};
 		
 		uint32_t instanceBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT - 1u;
@@ -451,6 +477,8 @@ int main()
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
+	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
 	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
 	{
 		// Timing
@@ -535,13 +563,13 @@ int main()
 		}
 		// Update instances buffer 
 		{
-			// Update Physics
+			// Update Physics (TODO: fixed timestep)
 			world->getWorld()->stepSimulation(dt);
 
 			asset::SBufferRange<video::IGPUBuffer> range;
 			range.buffer = gpuInstancesBuffer;
 			range.offset = 0;
-			range.size = BUF_SZ;
+			range.size = gpuInstancesBuffer->getSize();
 			device->updateBufferRangeViaStagingBuffer(graphicsQueue, range, instancesData.data());
 		}
 		// draw
