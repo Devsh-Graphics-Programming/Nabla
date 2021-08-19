@@ -125,6 +125,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		struct AllocationRequest
 		{
 			AllocationRequest() : pool(nullptr), outIndices{nullptr,nullptr}, data(nullptr) {}
+			AllocationRequest(IPropertyPool* _pool, core::SRange<uint32_t> _outIndices, const void* const* _data) : pool(_pool), outIndices(_outIndices), data(_data) {}
 
 			IPropertyPool* pool;
 			core::SRange<uint32_t> outIndices;

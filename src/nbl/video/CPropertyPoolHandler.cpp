@@ -68,7 +68,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		}
 		m_dsCache = DescriptorSetCache(std::move(descPool),std::move(canonicalDS));
 	}
-
+	// TODO: push constants
 	auto layout = m_device->createGPUPipelineLayout(nullptr,nullptr,std::move(dsLayout));
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
@@ -122,9 +122,6 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 				
 		auto copyPass = [&](const TransferRequest* localRequests, uint32_t propertiesThisPass) -> void
 		{
-#if 0
-			const uint32_t headerSize = sizeof(uint32_t)*3u*propertiesThisPass;
-
 			uint32_t upAllocations = 1u;
 			uint32_t downAllocations = 0u;
 			for (uint32_t i=0u; i<propertiesThisPass; i++)
@@ -134,10 +131,12 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 				else
 					upAllocations++;
 			}
-			
-			uint32_t* const upSizes = m_tmpSizes.data()+1u;
-			uint32_t* const downAddresses = m_tmpAddresses.data()+upAllocations;
-			uint32_t* const downSizes = m_tmpSizes.data()+upAllocations;
+
+			// TODO: no idea what's going on here
+#if 0
+			uint32_t* const upSizes = m_tmpSizes+1u;
+			uint32_t* const downAddresses = m_tmpAddresses+upAllocations;
+			uint32_t* const downSizes = m_tmpSizes+upAllocations;
 
 			// figure out the sizes to allocate
 			uint32_t maxElements = 0u;
@@ -192,7 +191,6 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 				m_tmpSizes[0u] += indexOffset;
 				m_tmpSizes[0u] *= sizeof(uint32_t);
 			}
-
 			// allocate indices and upload/allocate data
 			{
 				std::fill(m_tmpAddresses.begin(),m_tmpAddresses.begin()+propertiesThisPass+1u,invalid_address);
@@ -253,12 +251,9 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 				if (downAllocations)
 					downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments.data());
 			}
-
-			const auto pipelineIndex = propertiesThisPass-1u;
-			auto& items = m_perPropertyCountItems[pipelineIndex];
-			auto pipeline = items.pipeline.get();
-			m_driver->bindComputePipeline(pipeline);
-
+#endif
+			cmdbuf->bindComputePipeline(m_pipeline.get());
+#if 0
 			// update desc sets
 			auto set = items.descriptorSetCache.getNextSet(m_driver,localRequests,m_tmpSizes[0],m_tmpAddresses.data(),downAddresses);
 			if (!set)
@@ -269,9 +264,10 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 
 			// bind desc sets
 			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&set.get(),nullptr);
-		
-			// dispatch (this will need to change to a cmd buffer submission with a fence)
-			m_driver->dispatch((maxElements+IdealWorkGroupSize-1u)/IdealWorkGroupSize,propertiesThisPass,1u);
+#endif		
+			// dispatch
+			cmdbuf->dispatch((maxElements+IdealWorkGroupSize-1u)/IdealWorkGroupSize,propertiesThisPass,1u);
+#if 0
 			auto& fence = retval.second = m_driver->placeFence(true);
 
 			// deferred release resources

@@ -190,19 +190,13 @@ int main()
 	device->createCommandBuffers(computeCommandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,propXferCmdbuf);
 
 	// Instance Data
-	constexpr uint32_t NumCubes = 20;
-	constexpr uint32_t NumCylinders = 20;
-	constexpr uint32_t NumSpheres = 20;
-	constexpr uint32_t NumCones = 0;
-
-	constexpr uint32_t startIndexCubes = 0;
-	constexpr uint32_t startIndexCylinders = startIndexCubes + NumCubes;
-	constexpr uint32_t startIndexSpheres = startIndexCylinders + NumCylinders;
-	constexpr uint32_t startIndexCones = startIndexSpheres + NumSpheres;
-	
-	constexpr uint32_t MaxNumInstances = NumCubes + NumCylinders + NumSpheres + NumCones;
+	std::array<uint32_t,20u> cubeIDs;
+	std::array<uint32_t,20u> cylinderIDs;
+	std::array<uint32_t,20u> sphereIDs;
+	std::array<uint32_t,10u> coneIDs;
 
 	// Instances Buffer
+	constexpr uint32_t MaxNumInstances = cubeIDs.size() + cylinderIDs.size() + sphereIDs.size() + coneIDs.size();
 	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(InstanceData)*MaxNumInstances);
 
 	auto propertyPoolHandler = device->getDefaultPropertyPoolHandler();
@@ -212,23 +206,48 @@ int main()
 	{
 		asset::SBufferRange<video::IGPUBuffer> block = {0,gpuInstancesBuffer->getSize(),gpuInstancesBuffer};
 		propertyPool = instance_property_pool_t::create(device.get(),&block,MaxNumInstances);
+		
+		core::vector<InstanceData> initialData;
+		initialData.resize(MaxNumInstances);
+		const auto* cubeData = initialData.data();
+		const auto* cylinderData = cubeData+cubeIDs.size();
+		const auto* sphereData = cylinderData+cylinderIDs.size();
+		const auto* coneData = sphereData+sphereIDs.size();
+		for (auto i=0u; i<MaxNumInstances; i++)
+			initialData[i].color = core::vector3df_SIMD(float(i)/float(MaxNumInstances),0.5f,1.f);
 
 		std::array<video::CPropertyPoolHandler::AllocationRequest,4u> requests;
-		/*
+		auto setupRequest = [&requests,propertyPool](const uint32_t i, auto& ix_array, const InstanceData* const* data) -> void
 		{
-			= {propertyPool.get(),outInstanceIndices,&data};
-		}
-		propertyPoolHandler->addProperties(propXferCmdbuf[0].get(),requests.data(),requests.data()+requests.size());
-		*/
+			// need to initialize the addresses to invalid for them to get allocated
+			std::fill(ix_array.begin(),ix_array.end(),instance_property_pool_t::invalid_index);
+			requests[i] = video::CPropertyPoolHandler::AllocationRequest(
+				propertyPool.get(),
+				core::SRange<uint32_t>{ix_array.data(),ix_array.data()+ix_array.size()},
+				reinterpret_cast<const void* const*>(data)
+			);
+		};
+		setupRequest(0u,cubeIDs,&cubeData);
+		setupRequest(1u,cylinderIDs,&cylinderData);
+		setupRequest(2u,sphereIDs,&sphereData);
+		setupRequest(3u,coneIDs,&coneData);
+
+		auto cmdbuf = propXferCmdbuf[0].get();
+		cmdbuf->begin();
+		propertyPoolHandler->addProperties(cmdbuf,requests.data(),requests.data()+requests.size());
+		cmdbuf->end();
 	}
 
+	// Physics Setup
+	ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(nbl::ext::Bullet3::CPhysicsWorld);
+	world->getWorld()->setGravity(btVector3(0, -5, 0));
+
 	// initialize
+	constexpr uint32_t startIndexCubes = 0;
+	constexpr uint32_t startIndexCylinders = startIndexCubes + cubeIDs.size();
+	constexpr uint32_t startIndexSpheres = startIndexCylinders + cylinderIDs.size();
+	constexpr uint32_t startIndexCones = startIndexSpheres + sphereIDs.size();
 	constexpr uint32_t NumInstances = MaxNumInstances;
-
-
-
-
-	core::vector<GPUObject> gpuObjects;
 	
 	core::vector<InstanceData> instancesData;
 	instancesData.resize(NumInstances);
@@ -237,9 +256,10 @@ int main()
 		instancesData[i].color = core::vector3df_SIMD(float(i) / float(NumInstances), 0.5f, 1.0f);
 	}
 
-	// Physics Setup
-	ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(nbl::ext::Bullet3::CPhysicsWorld);
-	world->getWorld()->setGravity(btVector3(0, -5, 0));
+
+
+
+	core::vector<GPUObject> gpuObjects;
 
 	// BasePlate
 	core::matrix3x4SIMD baseplateMat;
@@ -440,14 +460,14 @@ int main()
 		return ret;
 	};
 
-	if(NumCubes > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), gpuInstancesBuffer, NumCubes, sizeof(InstanceData) * startIndexCubes));
-	if(NumCylinders > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCylinder.get(), gpuInstancesBuffer, NumCylinders, sizeof(InstanceData) * startIndexCylinders, asset::EFCM_NONE));
-	if(NumSpheres > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshSphere.get(), gpuInstancesBuffer, NumSpheres, sizeof(InstanceData) * startIndexSpheres));
-	if(NumCones > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCone.get(), gpuInstancesBuffer, NumCones, sizeof(InstanceData) * startIndexCones, asset::EFCM_NONE));
+	if(cubeIDs.size() > 0)
+		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), gpuInstancesBuffer, cubeIDs.size(), sizeof(InstanceData) * startIndexCubes));
+	if(cylinderIDs.size() > 0)
+		gpuObjects.push_back(createGPUObject(cpuMeshCylinder.get(), gpuInstancesBuffer, cylinderIDs.size(), sizeof(InstanceData) * startIndexCylinders, asset::EFCM_NONE));
+	if(sphereIDs.size() > 0)
+		gpuObjects.push_back(createGPUObject(cpuMeshSphere.get(), gpuInstancesBuffer, sphereIDs.size(), sizeof(InstanceData) * startIndexSpheres));
+	if(coneIDs.size() > 0)
+		gpuObjects.push_back(createGPUObject(cpuMeshCone.get(), gpuInstancesBuffer, coneIDs.size(), sizeof(InstanceData) * startIndexCones, asset::EFCM_NONE));
 
 	auto lastTime = std::chrono::system_clock::now();
 	constexpr uint32_t FRAME_COUNT = 500000u;
