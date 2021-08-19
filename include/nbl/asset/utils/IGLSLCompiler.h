@@ -111,33 +111,37 @@ class IGLSLCompiler final : public core::IReferenceCounted
 				}
 			};
 			constexpr size_t templateArgsCount = sizeof...(Args);
-			size_t bufferSize = original == nullptr ? 0 : original->conservativeSizeEstimate();
+			size_t origLen = original ? original->conservativeSizeEstimate():0u;
 			size_t formatArgsCharSize = (getMaxSize(args) + ...);
 			size_t formatSize = strlen(fmt);
 			// 2 is an average size of a format (% and a letter) in chars. 
 			// Assuming the format contains only one letter, but if it's 2, the outSize is gonna be a touch bigger.
-			size_t outSize = bufferSize + formatArgsCharSize + formatSize - 2 * templateArgsCount;
+			size_t outSize = origLen + formatArgsCharSize + formatSize - 2 * templateArgsCount;
 
 			nbl::core::smart_refctd_ptr<ICPUBuffer> outBuffer = nbl::core::make_smart_refctd_ptr<ICPUBuffer>(outSize);
 
 			size_t versionDirectiveLength = 0;
 
-			auto origCode = original != nullptr ? reinterpret_cast<const char*>(original->getSPVorGLSL()->getPointer()) : 0;
+			std::string_view origCode;
 			auto outCode = reinterpret_cast<char*>(outBuffer->getPointer());
-			if (original != nullptr)
+			if (original!=nullptr)
 			{
-				std::regex r("#version .*\n");
-				std::cmatch match;
-				std::regex_search(origCode, match, r);
-				versionDirectiveLength = match.position() + match.length();
+				origCode = std::string_view(reinterpret_cast<const char*>(original->getSPVorGLSL()->getPointer()),origLen);
+				auto start = origCode.find("#version");
+				auto end = origCode.find("\n",start);
+				if (end!=std::string_view::npos)
+					versionDirectiveLength = end+1u;
 			}
 
-			std::copy(outCode, outCode + versionDirectiveLength, const_cast<char*>(origCode));
+			std::copy_n(origCode.data(),versionDirectiveLength,outCode);
+			outCode += versionDirectiveLength;
 
-			sprintf(outCode + versionDirectiveLength,
-				(std::string(fmt) + "%s").c_str(),
-				std::forward<Args>(args)...,
-				origCode + versionDirectiveLength);
+			outCode += sprintf(outCode,fmt,std::forward<Args>(args)...);
+
+			auto epilogueLen = origLen-versionDirectiveLength;
+			std::copy_n(origCode.data()+versionDirectiveLength,epilogueLen,outCode);
+			outCode += epilogueLen;
+			*outCode = 0; // terminating char
 
 			return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), IShader::buffer_contains_glsl_t{});
 
