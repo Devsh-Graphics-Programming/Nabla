@@ -12,6 +12,7 @@
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
+#include "nbl/system/IFileViewAllocator.h"
 
 #include "nbl/builtin/MTLdefaults.h"
 
@@ -80,7 +81,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     // default pipelines
     constexpr std::string_view filename = "Nabla default MTL material";
 
-    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ);
+    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CPlainHeapAllocator>>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ, strlen(DUMMY_MTL_CONTENT));
     
     system::future<size_t> future;
     default_mtl_file->write(future, DUMMY_MTL_CONTENT, 0, strlen(DUMMY_MTL_CONTENT));

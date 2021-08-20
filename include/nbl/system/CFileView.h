@@ -4,48 +4,56 @@
 
 namespace nbl::system
 {
+template<typename allocator_t>
 class CFileView : public IFile
 {
+	static_assert(std::is_base_of_v<IFileViewAllocator, allocator_t>);
+	allocator_t allocator;
+	size_t m_size;
 public:
-	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name)
+	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags, size_t fileSize) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize)
 	{
+		m_buffer = (std::byte*)allocator.alloc(fileSize);
 	}
-
+	~CFileView()
+	{
+		allocator.dealloc(m_buffer);
+	}
 	virtual const std::filesystem::path& getFileName() const override
 	{
 		return m_name;
 	}
 
-	void* getMappedPointer() override final { return m_buffer.data(); }
-	const void* getMappedPointer() const override final { return m_buffer.data(); }
+	void* getMappedPointer() override final { return m_buffer; }
+	const void* getMappedPointer() const override final { return m_buffer; }
 
 	size_t getSize() const override final
 	{
-		return m_buffer.size();
+		return m_size;
 	}
 protected:
 	size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) override final
 	{
-		if (offset + sizeToRead > m_buffer.size())
+		if (offset + sizeToRead > m_size)
 		{
 			return 0u;
 		}
-		memcpy(buffer, m_buffer.data(), sizeToRead);
+		memcpy(buffer, m_buffer, sizeToRead);
 		return sizeToRead;
 	}
 
 	size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) override final
 	{
-		if (offset + sizeToWrite > m_buffer.size())
+		if (offset + sizeToWrite > m_size)
 		{
-			m_buffer.resize(offset + sizeToWrite);
+			return 0;
 		}
-		memcpy(m_buffer.data() + offset, buffer, sizeToWrite);
+		memcpy(m_buffer + offset, buffer, sizeToWrite);
 		return sizeToWrite;
 	}
 private:
 	std::filesystem::path m_name;
-	core::vector<uint8_t> m_buffer;
+	std::byte* m_buffer;
 };
 
 // TODO custom allocator memory file
