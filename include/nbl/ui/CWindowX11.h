@@ -7,7 +7,7 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/xf86vmode.h>
 #include <X11/extensions/Xrandr.h>
-// #include "nbl_os.h" // @Nihon - no such file
+#include "nbl/system/declarations.h"
 
 namespace nbl::ui
 {
