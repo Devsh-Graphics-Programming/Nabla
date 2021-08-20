@@ -28,7 +28,12 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
             uint32_t count;
         };
 
-        explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
+        explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, uint32_t _maxSets) : IBackendObject(std::move(dev)), m_maxSets(_maxSets) {}
+
+        uint32_t getCapacity() const { return m_maxSets; }
+
+    protected:
+        uint32_t m_maxSets;
 };
 
 }

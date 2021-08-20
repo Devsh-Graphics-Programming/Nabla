@@ -8,51 +8,65 @@
 
 #include "nbl/asset/asset.h"
 
+#include "nbl/video/IDescriptorPool.h"
+
 
 namespace nbl::video
 {
 
-class IPropertyPool;
-
-// property pool factory is externally synchronized
-class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
+	
+// TODO: factor this out
+class DescriptorSetCache : public core::IReferenceCounted
 {
 	public:
-		// TODO: factor this out
-		class DescriptorSetCache
+		inline DescriptorSetCache(core::smart_refctd_ptr<IDescriptorPool>&& _descPool, core::smart_refctd_ptr<IGPUDescriptorSet>&& _canonicalDS)
+			:	m_descPool(std::move(_descPool)), m_canonicalDS(std::move(_canonicalDS)), m_reserved(malloc(DescSetAllocator::reserved_size(1u,m_descPool->getCapacity(),1u))),
+				m_setAllocator(m_reserved,0u,0u,1u,m_descPool->getCapacity(),1u), m_deferredReclaims()
 		{
-			public:
-				DescriptorSetCache() = default;
-				DescriptorSetCache(core::smart_refctd_ptr<IDescriptorPool>&& _descPool, core::smart_refctd_ptr<IGPUDescriptorSet>&& _canonicalDS);
-				// ~DescriptorSetCache(); destructor of `deferredReclaims` will wait for all fences
+			m_cache = new core::smart_refctd_ptr<IGPUDescriptorSet>[m_descPool->getCapacity()];
+		}
 
-				//
-				inline IGPUDescriptorSet* getCanonicalDescriptorSet() {return m_canonicalDS.get();}
-				inline const IGPUDescriptorSet* getCanonicalDescriptorSet() const {return m_canonicalDS.get();}
+		//
+		//inline IGPUDescriptorSet* getCanonicalDescriptorSet() {return m_canonicalDS.get();}
+		inline const IGPUDescriptorSet* getCanonicalDescriptorSet() const {return m_canonicalDS.get();}
 
-				//
-				DescriptorSetCache(const DescriptorSetCache&) = delete;
-				inline DescriptorSetCache(DescriptorSetCache&& other) : DescriptorSetCache()
-				{
-					operator=(std::move(other));
-				}
+		//
+		DescriptorSetCache(const DescriptorSetCache&) = delete;
+		inline DescriptorSetCache(DescriptorSetCache&& other) : DescriptorSetCache()
+		{
+			operator=(std::move(other));
+		}
 
-				DescriptorSetCache& operator=(const DescriptorSetCache& other) = delete;
-				inline DescriptorSetCache& operator=(DescriptorSetCache&& other)
-				{
-					std::swap(m_descPool,other.m_descPool);
-					std::swap(m_canonicalDS,other.m_canonicalDS);
-					//std::swap(layout,other.layout);
-					//std::swap(propertyCount,other.propertyCount);
-					return *this;
-				}
-#if 0
-				core::smart_refctd_ptr<IGPUDescriptorSet> getNextSet(
-					IVideoDriver* driver, const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses
-				);
+		DescriptorSetCache& operator=(const DescriptorSetCache& other) = delete;
+		inline DescriptorSetCache& operator=(DescriptorSetCache&& other)
+		{
+			std::swap(m_descPool,other.m_descPool);
+			std::swap(m_canonicalDS,other.m_canonicalDS);
+			std::swap(m_reserved,other.m_reserved);
+			std::swap(m_setAllocator,other.m_setAllocator);
+			std::swap(m_cache,other.m_cache);
+			return *this;
+		}
 
-				void releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set);
-				
+		//
+		IGPUDescriptorSet* getSet(uint32_t setIx)
+		{
+			if (setIx<m_descPool->getCapacity())
+				return m_cache[setIx].get();
+			return nullptr;
+		}
+
+		//
+		inline uint32_t acquireSet()
+		{
+			return m_setAllocator.alloc_addr(1u,1u);
+		}
+
+		//
+		void releaseSet(core::smart_refctd_ptr<IGPUFence>&& fence, uint32_t setIx)
+		{
+		}
+
 		// only public because GPUDeferredEventHandlerST needs to know about it
 		class DeferredDescriptorSetReclaimer
 		{
@@ -85,7 +99,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				}
 
 				struct single_poll_t {};
-				static single_poll_t single_poll;
+				static inline single_poll_t single_poll;
 				inline bool operator()(single_poll_t _single_poll)
 				{
 					operator()();
@@ -100,15 +114,32 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 					unusedSets->push_back(std::move(set));
 				}
 		};
-			private:
-				GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> deferredReclaims;
-				core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> unusedSets;
-#endif
-				core::smart_refctd_ptr<IDescriptorPool> m_descPool;
-				core::smart_refctd_ptr<IGPUDescriptorSet> m_canonicalDS;
-		};
+	protected:
+		inline DescriptorSetCache() : m_descPool(nullptr), m_canonicalDS(nullptr), m_reserved(nullptr), m_setAllocator(), m_cache(nullptr), m_deferredReclaims() {}
+		~DescriptorSetCache()
+		{
+			// destructor of `deferredReclaims` will wait for all fences
+			delete[] m_cache;
+			free(m_reserved);
+		}
+
+		core::smart_refctd_ptr<IDescriptorPool> m_descPool;
+		core::smart_refctd_ptr<IGPUDescriptorSet> m_canonicalDS;
+		void* m_reserved;
+		using DescSetAllocator = core::PoolAddressAllocatorST<uint32_t>;
+		DescSetAllocator m_setAllocator;
+		core::smart_refctd_ptr<IGPUDescriptorSet>* m_cache;
+		GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> m_deferredReclaims;
+};
 
 
+
+class IPropertyPool;
+
+// property pool factory is externally synchronized
+class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
+{
+	public:
 		//
 		CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device);
 
@@ -118,7 +149,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		inline IGPUComputePipeline* getPipeline() {return m_pipeline.get();}
 		inline const IGPUComputePipeline* getPipeline() const {return m_pipeline.get();}
         //
-		inline IGPUDescriptorSet* getCanonicalDescriptorSet() { return m_dsCache.getCanonicalDescriptorSet(); }
+		//inline IGPUDescriptorSet* getCanonicalDescriptorSet() { return m_dsCache.getCanonicalDescriptorSet(); }
 		inline const IGPUDescriptorSet* getCanonicalDescriptorSet() const { return m_dsCache.getCanonicalDescriptorSet(); }
 
 		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
@@ -178,7 +209,15 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		uint32_t* m_tmpAddresses,* m_tmpSizes,* m_alignments;
 		uint8_t m_maxPropertiesPerPass;
 
-		DescriptorSetCache m_dsCache;
+		// TODO: investigate using Push Descriptors for this
+		class TransferDescriptorSetCache : public DescriptorSetCache
+		{
+			public:
+				TransferDescriptorSetCache(ILogicalDevice* const device, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout, uint32_t maxPropertiesPerPass);
+				//
+				IGPUDescriptorSet* getNextSet(const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses);
+		};
+		TransferDescriptorSetCache m_dsCache;
 
 		core::smart_refctd_ptr<IGPUComputePipeline> m_pipeline;
 };
