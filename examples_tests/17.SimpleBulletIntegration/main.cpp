@@ -239,7 +239,7 @@ int main()
 	}
 
 	// Physics Setup
-	ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(nbl::ext::Bullet3::CPhysicsWorld);
+	auto world = ext::Bullet3::CPhysicsWorld::create();
 	world->getWorld()->setGravity(btVector3(0, -5, 0));
 
 	// initialize
@@ -625,8 +625,6 @@ int main()
 	world->deletebtObject(cylinderRigidBodyData.shape);
 	world->deletebtObject(sphereRigidBodyData.shape);
 	world->deletebtObject(coneRigidBodyData.shape);
-	
-	world->drop();
 
 
 	return 0;
