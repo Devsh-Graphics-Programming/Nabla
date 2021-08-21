@@ -1,4 +1,5 @@
-#include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPropertyPool.h"
+#include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
 using namespace nbl;
@@ -45,6 +46,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 //
 CPropertyPoolHandler::TransferDescriptorSetCache::TransferDescriptorSetCache(ILogicalDevice* const device, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout, uint32_t maxPropertiesPerPass) : DescriptorSetCache()
 {
+	// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
 	auto descPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&layout.get(),&layout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	auto canonicalDS = device->createGPUDescriptorSet(descPool.get(),std::move(layout));
 	{
@@ -368,9 +370,4 @@ IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::getNextSet(
 	driver->updateDescriptorSets(3u,dsWrite,0u,nullptr);
 
 	return retval;
-}
-
-void CPropertyPoolHandler::DescriptorSetCache::releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set)
-{
-	deferredReclaims.addEvent(GPUEventWrapper(std::move(fence)),DeferredDescriptorSetReclaimer(&unusedSets,std::move(set)));
 }

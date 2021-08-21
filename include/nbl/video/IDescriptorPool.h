@@ -17,6 +17,7 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
+            ECF_NONE = 0x00u,
             ECF_FREE_DESCRIPTOR_SET_BIT = 0x01,
             ECF_UPDATE_AFTER_BIND_BIT = 0x02,
             ECF_HOST_ONLY_BIT_VALVE = 0x04

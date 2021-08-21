@@ -829,14 +829,17 @@ protected:
             reqs.vulkanReqs.size = downstreamSize;
             reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
             m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(this, reqs);
+            //drop(); // TODO: remove circular ref
         }
         {
             auto reqs = getUpStreamingMemoryReqs();
             reqs.vulkanReqs.size = upstreamSize;
             reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
             m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(this, reqs);
+            //drop(); // TODO: remove circular ref
         }
         m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr<ILogicalDevice>(this));
+        //drop(); // TODO: remove circular ref
     }
 
     virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
