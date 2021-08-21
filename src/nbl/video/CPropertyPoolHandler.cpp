@@ -1,4 +1,5 @@
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 
 using namespace nbl;
 using namespace video;
@@ -44,7 +45,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 //
 CPropertyPoolHandler::TransferDescriptorSetCache::TransferDescriptorSetCache(ILogicalDevice* const device, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout, uint32_t maxPropertiesPerPass) : DescriptorSetCache()
 {
-	auto descPool = device->createDescriptorPool(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,CPropertyPoolHandler::DescriptorCacheSize,0u,nullptr); // TODO
+	auto descPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&layout.get(),&layout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	auto canonicalDS = device->createGPUDescriptorSet(descPool.get(),std::move(layout));
 	{
 		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos(maxPropertiesPerPass*2u+1u);
