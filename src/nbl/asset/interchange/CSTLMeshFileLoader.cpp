@@ -3,14 +3,14 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "nbl/asset/IAssetManager.h"
-
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
+
+#include "CSTLMeshFileLoader.h"
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
 
-#include "CSTLMeshFileLoader.h"
+#include "nbl/asset/IAssetManager.h"
 
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
