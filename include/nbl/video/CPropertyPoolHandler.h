@@ -103,7 +103,14 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				using IDescriptorSetCache::IDescriptorSetCache;
 
 				//
-				IGPUDescriptorSet* acquireSet(CPropertyPoolHandler* handler, const TransferRequest* requests, uint32_t propertyCount, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses);
+				IGPUDescriptorSet* acquireSet(
+					CPropertyPoolHandler* handler,
+					const TransferRequest* requests,
+					const uint32_t indexCount,
+					const uint32_t propertyCount,
+					const uint32_t* uploadAddresses,
+					const uint32_t* downloadAddresses
+				);
 		};
 		core::smart_refctd_ptr<TransferDescriptorSetCache> m_dsCache;
 

@@ -2,6 +2,8 @@
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
+#include "nbl/builtin/glsl/property_pool/transfer.glsl"
+
 using namespace nbl;
 using namespace video;
 
@@ -17,7 +19,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	
 	const auto maxStreamingAllocations = m_maxPropertiesPerPass+1u;
 	{
-		m_tmpIndexRanges = reinterpret_cast<IndexUploadRange*>(malloc((sizeof(IndexUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
+		m_tmpIndexRanges = reinterpret_cast<IndexUploadRange*>(malloc((sizeof(IndexUploadRange)+sizeof(nbl_glsl_property_pool_transfer_t))*maxStreamingAllocations));
 		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpIndexRanges+maxStreamingAllocations);
 		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
 		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
@@ -100,13 +102,13 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 			}
 
 			// TODO: no idea what's going on here
-#if 0
 			uint32_t* const upSizes = m_tmpSizes+1u;
 			uint32_t* const downAddresses = m_tmpAddresses+upAllocations;
 			uint32_t* const downSizes = m_tmpSizes+upAllocations;
 
 			// figure out the sizes to allocate
 			uint32_t maxElements = 0u;
+#if 0
 			auto RangeComparator = [](auto lhs, auto rhs)->bool{return lhs.source.begin()<rhs.source.begin();};
 			{
 				m_tmpSizes[0u] = 3u*propertiesThisPass;
@@ -221,7 +223,7 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 #endif
 			cmdbuf->bindComputePipeline(m_pipeline.get());
 			// update desc sets
-			auto set = m_dsCache->acquireSet(this,localRequests,propertiesThisPass,nullptr,nullptr);//m_tmpAddresses.data(),downAddresses);
+			auto set = m_dsCache->acquireSet(this,localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
 			if (!set)
 				return false;
 
@@ -256,7 +258,14 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 	return retval;
 }
 
-IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(CPropertyPoolHandler* handler, const TransferRequest* requests, uint32_t propertyCount, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses)
+IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
+	CPropertyPoolHandler* handler,
+	const TransferRequest* requests,
+	const uint32_t indexCount,
+	const uint32_t propertyCount,
+	const uint32_t* uploadAddresses,
+	const uint32_t* downloadAddresses
+)
 {
 	auto setIx = IDescriptorSetCache::acquireSet();
 	if (setIx==IDescriptorSetCache::invalid_index)
@@ -269,50 +278,47 @@ IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	auto downBuff = device->getDefaultDownStreamingBuffer()->getBuffer();
 
 	const auto maxPropertiesPerPass = handler->getMaxPropertiesPerTransferDispatch();
-	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertyTransfers+2u];
+	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertyTransfers*2u+1u];
 	infos[0].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-	infos[0].buffer = { *(uploadAddresses++),~0u };
+	infos[0].buffer = { *(uploadAddresses++),sizeof(nbl_glsl_property_pool_transfer_t)*maxPropertiesPerPass+indexCount*sizeof(uint32_t) };
+	auto* inDescInfo = infos+1;
+	auto* outDescInfo = infos+1+maxPropertiesPerPass;
 	for (uint32_t i=0u; i<propertyCount; i++)
 	{
 		const auto& request = requests[i];
-
 		const bool download = request.download;
 			
 		const auto* pool = request.pool;
 		const auto& propMemBlock = pool->getPropertyMemoryBlock(request.propertyID);
+		const uint32_t transferPropertySize = request.indices.size()*pool->getPropertySize(request.propertyID);
 
-		const uint32_t propertySize = pool->getPropertySize(request.propertyID);
-		const uint32_t transferPropertySize = request.indices.size()*propertySize;
-
-		auto& inDescInfo = infos[i+1];
-		auto& outDescInfo = infos[i+1+maxPropertiesPerPass];
 		if (download)
 		{
-			inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
-			inDescInfo.buffer = {propMemBlock.offset,propMemBlock.size};
+			inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
+			inDescInfo[i].buffer = {propMemBlock.offset,propMemBlock.size};
 
-			outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
-			outDescInfo.buffer = { *(downloadAddresses++),transferPropertySize };
+			outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
+			outDescInfo[i].buffer = { *(downloadAddresses++),transferPropertySize };
 		}
 		else
 		{
-			inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-			inDescInfo.buffer = { *(uploadAddresses++),transferPropertySize };
+			inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+			inDescInfo[i].buffer = { *(uploadAddresses++),transferPropertySize };
 					
-			outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
-			outDescInfo.buffer = {propMemBlock.offset,propMemBlock.size};
+			outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
+			outDescInfo[i].buffer = {propMemBlock.offset,propMemBlock.size};
 		}
 	}
 	{
-		auto assignBuf = [](auto it, auto streamBuff) -> void
+		auto assignBuf = [](auto& info, auto streamBuff) -> void
 		{
-			it->desc = core::smart_refctd_ptr<IGPUBuffer>(streamBuff);
-			it->buffer = {0u,streamBuff->getSize()};
+			info.desc = core::smart_refctd_ptr<IGPUBuffer>(streamBuff);
+			info.buffer = {0u,streamBuff->getSize()};
 		};
 		for (auto i=propertyCount; i<maxPropertiesPerPass; i++)
-			assignBuf(infos+i+1u,upBuff);
+			assignBuf(inDescInfo[i],upBuff);
 		for (auto i=propertyCount; i<maxPropertiesPerPass; i++)
-			assignBuf(infos+i+1u+maxPropertiesPerPass,downBuff);
+			assignBuf(outDescInfo[i],downBuff);
 	}
 	IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
 	for (auto i=0u; i<3u; i++)

@@ -233,7 +233,7 @@ int main()
 		setupRequest(3u,coneIDs,&coneData);
 
 		auto cmdbuf = propXferCmdbuf[0].get();
-		cmdbuf->begin();
+		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		propertyPoolHandler->addProperties(cmdbuf,requests.data(),requests.data()+requests.size());
 		cmdbuf->end();
 	}
