@@ -487,7 +487,10 @@ protected:
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
-                _specInfo.m_filePathHint.string().c_str()
+                _specInfo.m_filePathHint.string().c_str(),
+                true,
+                nullptr,
+                getLogger()
             );
 
             if (!spirv)
