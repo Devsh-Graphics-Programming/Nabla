@@ -12,7 +12,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
 	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
 	
-	const auto maxSSBO = m_device->getPhysicalDevice()->getLimits().maxPerStageSSBOs;
+	const auto maxSSBO = core::min<uint32_t>(m_device->getPhysicalDevice()->getLimits().maxPerStageSSBOs,MaxPropertyTransfers);
 	m_maxPropertiesPerPass = (maxSSBO-1u)/2u;
 	
 	const auto maxStreamingAllocations = m_maxPropertiesPerPass+1u;
@@ -37,48 +37,12 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		bindings[j].samplers = nullptr;
 	}
 	auto dsLayout = m_device->createGPUDescriptorSetLayout(bindings,bindings+3);
-	m_dsCache = TransferDescriptorSetCache(m_device.get(),core::smart_refctd_ptr(dsLayout),m_maxPropertiesPerPass);
+	// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
+	auto descPool = m_device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
+	m_dsCache = core::make_smart_refctd_ptr<TransferDescriptorSetCache>(m_device.get(),std::move(descPool),core::smart_refctd_ptr(dsLayout));
 	// TODO: push constants
 	auto layout = m_device->createGPUPipelineLayout(nullptr,nullptr,std::move(dsLayout));
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
-}
-
-//
-CPropertyPoolHandler::TransferDescriptorSetCache::TransferDescriptorSetCache(ILogicalDevice* const device, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout, uint32_t maxPropertiesPerPass) : DescriptorSetCache()
-{
-	// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
-	auto descPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&layout.get(),&layout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
-	auto canonicalDS = device->createGPUDescriptorSet(descPool.get(),std::move(layout));
-	{
-		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos(maxPropertiesPerPass*2u+1u);
-		{
-			auto assignBuf = [](auto it, auto streamBuff) -> void
-			{
-				it->desc = core::smart_refctd_ptr<IGPUBuffer>(streamBuff->getBuffer());
-				it->buffer = { 0u,streamBuff->getBuffer()->getSize() };
-			};
-			auto upload = device->getDefaultUpStreamingBuffer();
-			auto download = device->getDefaultDownStreamingBuffer();
-			auto infosIt = infos.begin();
-			for (auto i=0u; i<=maxPropertiesPerPass; i++)
-				assignBuf(infosIt++,upload);
-			for (auto i=0u; i<maxPropertiesPerPass; i++)
-				assignBuf(infosIt++,download);
-		}
-		IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
-		for (auto i=0u; i<3u; i++)
-		{
-			writes[i].dstSet = canonicalDS.get();
-			writes[i].binding = i;
-			writes[i].arrayElement = 0u;
-			writes[i].count = i ? maxPropertiesPerPass:1u;
-			writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-			writes[i].info = i ? (writes[i-1u].info+writes[i-1u].count):infos.data();
-		}
-		device->updateDescriptorSets(3u,writes,0u,nullptr);
-	}
-	// call the constructor again
-	new (this) DescriptorSetCache(std::move(descPool),std::move(canonicalDS));
 }
 
 //
@@ -113,6 +77,7 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 {
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
 
+	bool retval = true;
 	if (totalProps!=0u)
 	{
 		const auto fullPasses = totalProps/m_maxPropertiesPerPass;
@@ -122,7 +87,7 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		uint8_t* upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
 				
-		auto copyPass = [&](const TransferRequest* localRequests, uint32_t propertiesThisPass) -> void
+		auto copyPass = [&](const TransferRequest* localRequests, uint32_t propertiesThisPass) -> bool
 		{
 			uint32_t upAllocations = 1u;
 			uint32_t downAllocations = 0u;
@@ -255,21 +220,16 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 			}
 #endif
 			cmdbuf->bindComputePipeline(m_pipeline.get());
-#if 0
 			// update desc sets
-			auto set = items.descriptorSetCache.getNextSet(m_driver,localRequests,m_tmpSizes[0],m_tmpAddresses.data(),downAddresses);
+			auto set = m_dsCache->acquireSet(this,localRequests,propertiesThisPass,nullptr,nullptr);//m_tmpAddresses.data(),downAddresses);
 			if (!set)
-			{
-				retval.first = false;
-				return;
-			}
+				return false;
 
 			// bind desc sets
-			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&set.get(),nullptr);
-#endif		
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
 			// dispatch
-			cmdbuf->dispatch((maxElements-1u)/IdealWorkGroupSize+1u,propertiesThisPass,1u);
 #if 0
+			cmdbuf->dispatch((maxElements-1u)/IdealWorkGroupSize+1u,propertiesThisPass,1u);
 			auto& fence = retval.second = m_driver->placeFence(true);
 
 			// deferred release resources
@@ -278,96 +238,93 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 				downBuff->multi_free(downAllocations,downAddresses,downSizes,core::smart_refctd_ptr(fence));
 			items.descriptorSetCache.releaseSet(core::smart_refctd_ptr(fence),std::move(set));
 #endif
+			return true;
 		};
 
 		
 		auto requests = requestsBegin;
 		for (uint32_t i=0; i<fullPasses; i++)
 		{
-			copyPass(requests,m_maxPropertiesPerPass);
+			retval = copyPass(requests,m_maxPropertiesPerPass)&&retval;
 			requests += m_maxPropertiesPerPass;
 		}
 
 		const auto leftOverProps = totalProps-fullPasses*m_maxPropertiesPerPass;
 		if (leftOverProps)
-			copyPass(requests,leftOverProps);
+			retval = copyPass(requests,leftOverProps)&&retval;
 	}
-	return true;
+	return retval;
 }
 
-
-IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::getNextSet(const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses)
+IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(CPropertyPoolHandler* handler, const TransferRequest* requests, uint32_t propertyCount, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses)
 {
-	//deferredReclaims.pollForReadyEvents(DeferredDescriptorSetReclaimer::single_poll);
+	auto setIx = IDescriptorSetCache::acquireSet();
+	if (setIx==IDescriptorSetCache::invalid_index)
+		return nullptr;
+	IGPUDescriptorSet* retval = IDescriptorSetCache::getSet(setIx);
+	
+	//
+	auto device = handler->getDevice();
+	auto upBuff = device->getDefaultUpStreamingBuffer()->getBuffer();
+	auto downBuff = device->getDefaultDownStreamingBuffer()->getBuffer();
 
-	core::smart_refctd_ptr<IGPUDescriptorSet> retval;
-	if (unusedSets.size())
+	const auto maxPropertiesPerPass = handler->getMaxPropertiesPerTransferDispatch();
+	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertyTransfers+2u];
+	infos[0].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+	infos[0].buffer = { *(uploadAddresses++),~0u };
+	for (uint32_t i=0u; i<propertyCount; i++)
 	{
-		retval = std::move(unusedSets.back());
-		unusedSets.pop_back();
-	}
-	else
-		retval = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
+		const auto& request = requests[i];
 
-
-	constexpr auto kSyntheticMax = 64;
-	assert(propertyCount<kSyntheticMax);
-	IGPUDescriptorSet::SDescriptorInfo info[kSyntheticMax];
-
-	IGPUDescriptorSet::SWriteDescriptorSet dsWrite[3u];
-	{
-		auto upBuff = driver->getDefaultUpStreamingBuffer()->getBuffer();
-		auto downBuff = driver->getDefaultDownStreamingBuffer()->getBuffer();
-
-		info[0].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-		info[0].buffer = { *(uploadAddresses++),parameterBufferSize };
-		for (uint32_t i=0u; i<propertyCount; i++)
-		{
-			const auto& request = requests[i];
-
-			const bool download = request.download;
+		const bool download = request.download;
 			
-			const auto* pool = request.pool;
-			const auto& poolMemBlock = pool->getMemoryBlock();
+		const auto* pool = request.pool;
+		const auto& propMemBlock = pool->getPropertyMemoryBlock(request.propertyID);
 
-			const uint32_t propertySize = pool->getPropertySize(request.propertyID);
-			const uint32_t transferPropertySize = request.indices.size()*propertySize;
-			const uint32_t poolPropertyBlockSize = pool->getCapacity()*propertySize;
+		const uint32_t propertySize = pool->getPropertySize(request.propertyID);
+		const uint32_t transferPropertySize = request.indices.size()*propertySize;
 
-			auto& inDescInfo = info[i+1];
-			auto& outDescInfo = info[propertyCount+i+1];
-			if (download)
-			{
-				inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(poolMemBlock.buffer);
-				inDescInfo.buffer = { pool->getPropertyOffset(request.propertyID),poolPropertyBlockSize };
+		auto& inDescInfo = infos[i+1];
+		auto& outDescInfo = infos[i+1+maxPropertiesPerPass];
+		if (download)
+		{
+			inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
+			inDescInfo.buffer = {propMemBlock.offset,propMemBlock.size};
 
-				outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
-				outDescInfo.buffer = { *(downloadAddresses++),transferPropertySize };
-			}
-			else
-			{
-				inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-				inDescInfo.buffer = { *(uploadAddresses++),transferPropertySize };
+			outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
+			outDescInfo.buffer = { *(downloadAddresses++),transferPropertySize };
+		}
+		else
+		{
+			inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+			inDescInfo.buffer = { *(uploadAddresses++),transferPropertySize };
 					
-				outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(poolMemBlock.buffer);
-				outDescInfo.buffer = { pool->getPropertyOffset(request.propertyID),poolPropertyBlockSize };
-			}
+			outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
+			outDescInfo.buffer = {propMemBlock.offset,propMemBlock.size};
 		}
 	}
+	{
+		auto assignBuf = [](auto it, auto streamBuff) -> void
+		{
+			it->desc = core::smart_refctd_ptr<IGPUBuffer>(streamBuff);
+			it->buffer = {0u,streamBuff->getSize()};
+		};
+		for (auto i=propertyCount; i<maxPropertiesPerPass; i++)
+			assignBuf(infos+i+1u,upBuff);
+		for (auto i=propertyCount; i<maxPropertiesPerPass; i++)
+			assignBuf(infos+i+1u+maxPropertiesPerPass,downBuff);
+	}
+	IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
 	for (auto i=0u; i<3u; i++)
 	{
-		dsWrite[i].dstSet = retval.get();
-		dsWrite[i].binding = i;
-		dsWrite[i].arrayElement = 0u;
-		dsWrite[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writes[i].dstSet = retval;
+		writes[i].binding = i;
+		writes[i].arrayElement = 0u;
+		writes[i].count = i ? maxPropertiesPerPass:1u;
+		writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writes[i].info = i ? (writes[i-1u].info+writes[i-1u].count):infos;
 	}
-	dsWrite[0].count = 1u;
-	dsWrite[0].info = info+0;
-	dsWrite[1].count = propertyCount;
-	dsWrite[1].info = info+1;
-	dsWrite[2].count = propertyCount;
-	dsWrite[2].info = info+1+propertyCount;
-	driver->updateDescriptorSets(3u,dsWrite,0u,nullptr);
+	device->updateDescriptorSets(3u,writes,0u,nullptr);
 
 	return retval;
 }
