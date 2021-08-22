@@ -1473,7 +1473,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto gpuImgViews = getGPUObjectsFromAssets<asset::ICPUImageView>(cpuImgViews.data(), cpuImgViews.data()+cpuImgViews.size(), _params);
     auto gpuSamplers = getGPUObjectsFromAssets<asset::ICPUSampler>(cpuSamplers.data(), cpuSamplers.data()+cpuSamplers.size(), _params);
     
-    auto dsPool = _params.device->createDescriptorPoolForDSLayouts(gpuLayouts->begin(), gpuLayouts->end());
+    auto dsPool = _params.device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&gpuLayouts->begin()->get(),&gpuLayouts->end()->get());
 
 	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes(maxWriteCount);
 	auto write_it = writes.begin();

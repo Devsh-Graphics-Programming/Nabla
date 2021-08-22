@@ -447,7 +447,7 @@ public:
         return createGPUDescriptorSet_impl(pool, std::move(layout));
     }
 
-    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const core::smart_refctd_ptr<IGPUDescriptorSetLayout>* const begin, const core::smart_refctd_ptr<IGPUDescriptorSetLayout>* const end, const uint32_t* setCounts=nullptr)
+    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
     {
         uint32_t totalSetCount = 0;
         std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes; // TODO: use a map
@@ -457,7 +457,7 @@ public:
             const auto setCount = setCounts ? (*setCountsIt):1u;
             totalSetCount += setCount;
 
-            auto bindings = curLayout->get()->getBindings();
+            auto bindings = (*curLayout)->getBindings();
             for (const auto& binding : bindings)
             {
                 auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
@@ -475,10 +475,6 @@ public:
         
         core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(flags, totalSetCount, poolSizes.size(), poolSizes.data());
         return dsPool;
-    }
-    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const core::smart_refctd_ptr<const IGPUDescriptorSetLayout>* const begin, const core::smart_refctd_ptr<const IGPUDescriptorSetLayout>* const end, const uint32_t* setCounts=nullptr)
-    {
-        return createDescriptorPoolForDSLayouts(flags,reinterpret_cast<const core::smart_refctd_ptr<IGPUDescriptorSetLayout>*>(begin),reinterpret_cast<const core::smart_refctd_ptr<IGPUDescriptorSetLayout>*>(end),setCounts);
     }
 
     void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
