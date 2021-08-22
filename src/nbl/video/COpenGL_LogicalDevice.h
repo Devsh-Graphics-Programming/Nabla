@@ -213,7 +213,7 @@ public:
 
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
     {
-        return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this));
+        return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
 
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
