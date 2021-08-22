@@ -22,21 +22,16 @@ class IDescriptorSetCache : public core::IReferenceCounted
 	public:
 		using DescSetAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		inline IDescriptorSetCache(core::smart_refctd_ptr<IDescriptorPool>&& _descPool, core::smart_refctd_ptr<IGPUDescriptorSet>&& _canonicalDS)
-			:	m_descPool(std::move(_descPool)), m_canonicalDS(std::move(_canonicalDS)), m_reserved(malloc(DescSetAllocator::reserved_size(1u,m_descPool->getCapacity(),1u))),
-				m_setAllocator(m_reserved,0u,0u,1u,m_descPool->getCapacity(),1u), m_deferredReclaims()
-		{
-			m_cache = new core::smart_refctd_ptr<IGPUDescriptorSet>[m_descPool->getCapacity()];
-		}
+		IDescriptorSetCache(ILogicalDevice* device, core::smart_refctd_ptr<IDescriptorPool>&& _descPool, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _canonicalLayout);
 
 		//
 		inline uint32_t getCapacity() const {return m_descPool->getCapacity();}
 
 		//
-		//inline IGPUDescriptorSet* getCanonicalDescriptorSet() {return m_canonicalDS.get();}
-		inline const IGPUDescriptorSet* getCanonicalDescriptorSet() const {return m_canonicalDS.get();}
+		inline const IGPUDescriptorSetLayout* getCanonicalLayout() const {return m_canonicalLayout.get();}
 
 		//
+		constexpr static inline auto invalid_index = DescSetAllocator::invalid_address;
 		IGPUDescriptorSet* getSet(uint32_t setIx)
 		{
 			if (setIx<m_descPool->getCapacity())
@@ -47,12 +42,8 @@ class IDescriptorSetCache : public core::IReferenceCounted
 		//
 		inline uint32_t acquireSet()
 		{
-			auto retval = m_setAllocator.alloc_addr(1u,1u);
-			if (retval!=DescSetAllocator::invalid_address)
-				return retval;
 			m_deferredReclaims.pollForReadyEvents(DeferredDescriptorSetReclaimer::single_poll);
-			retval = m_setAllocator.alloc_addr(1u,1u);
-			return retval;
+			return m_setAllocator.alloc_addr(1u,1u);
 		}
 
 		// needs to be called before you reset any fences which latch the deferred release
@@ -64,7 +55,7 @@ class IDescriptorSetCache : public core::IReferenceCounted
 		//
 		inline void releaseSet(ILogicalDevice* device, core::smart_refctd_ptr<IGPUFence>&& fence, const uint32_t setIx)
 		{
-			if (setIx==DescSetAllocator::invalid_address)
+			if (setIx==invalid_index)
 				return;
 
 			m_deferredReclaims.addEvent(GPUEventWrapper(device,std::move(fence)),DeferredDescriptorSetReclaimer(this,setIx));
@@ -96,7 +87,7 @@ class IDescriptorSetCache : public core::IReferenceCounted
 					m_cache = other.m_cache;
 					m_setIx = other.m_setIx;
 					other.m_cache = nullptr;
-					other.m_setIx = DescSetAllocator::invalid_address;
+					other.m_setIx = IDescriptorSetCache::invalid_index;
 					return *this;
 				}
 
@@ -127,18 +118,19 @@ class IDescriptorSetCache : public core::IReferenceCounted
 
 	protected:
 		friend class DeferredDescriptorSetReclaimer;
+		IDescriptorSetCache(ILogicalDevice* device, const uint32_t capacity);
 		~IDescriptorSetCache()
 		{
 			// destructor of `deferredReclaims` will wait for all fences
-			delete[] m_cache;
 			free(m_reserved);
+			delete[] m_cache;
 		}
 
 		core::smart_refctd_ptr<IDescriptorPool> m_descPool;
-		core::smart_refctd_ptr<IGPUDescriptorSet> m_canonicalDS;
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_canonicalLayout;
+		core::smart_refctd_ptr<IGPUDescriptorSet>* m_cache;
 		void* m_reserved;
 		DescSetAllocator m_setAllocator;
-		core::smart_refctd_ptr<IGPUDescriptorSet>* m_cache;
 		GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> m_deferredReclaims;
 };
 

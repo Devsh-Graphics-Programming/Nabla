@@ -1,4 +1,6 @@
+#include "nbl/video/IPropertyPool.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 
 using namespace nbl;
 using namespace video;

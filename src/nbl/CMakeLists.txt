@@ -266,6 +266,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
+	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorSetCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 
