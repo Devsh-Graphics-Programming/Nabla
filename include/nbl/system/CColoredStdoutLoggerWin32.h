@@ -1,18 +1,25 @@
-//#ifdef _NBL_PLATFORM_WINDOWS_
 #ifndef _NBL_SYSTEM_C_COLORFUL_STDOUT_LOGGER_WIN32_INCLUDED_
 #define _NBL_SYSTEM_C_COLORFUL_STDOUT_LOGGER_WIN32_INCLUDED_
-#include "IThreadsafeLogger.h"
-#include <Windows.h>
+
+#include "nbl/system/IThreadsafeLogger.h"
+//instead of #include <Windows.h>
+#include "nbl/system/DefaultFuncPtrLoader.h"
+
+#ifdef _NBL_PLATFORM_WINDOWS_
+
 namespace nbl::system
 {
-	class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
-	{
+
+class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
+{
 		HANDLE m_native_console;
+
 	public:
 		CColoredStdoutLoggerWin32(std::underlying_type_t<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask)
 		{
 			m_native_console = GetStdHandle(STD_OUTPUT_HANDLE);
 		}
+
 	private:
 		virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
 		{
@@ -26,35 +33,36 @@ namespace nbl::system
 		{
 			switch (level)
 			{
-			case ELL_DEBUG: // Gray
-			{
-				return 8;
-			}
-			case ELL_INFO: // White
-			{
-				return 7;
-			}
-			case ELL_WARNING: // Yellow
-			{
-				return 14;
-			}
-			case ELL_ERROR: // Red
-			{
-				return 12;
-			}
-			case ELL_PERFORMANCE: // Blue
-			{
-				return 11;
-			}
-			case ELL_NONE: 
-			{
-				assert(false); // how did this happen?? Btw, do we even need this log level? 
-				return 0;
-			}
+				case ELL_DEBUG: // Gray
+				{
+					return 8;
+				}
+				case ELL_INFO: // White
+				{
+					return 7;
+				}
+				case ELL_WARNING: // Yellow
+				{
+					return 14;
+				}
+				case ELL_ERROR: // Red
+				{
+					return 12;
+				}
+				case ELL_PERFORMANCE: // Blue
+				{
+					return 11;
+				}
+				case ELL_NONE: 
+				{
+					assert(false); // how did this happen?? Btw, do we even need this log level? 
+					return 0;
+				}
 			}
 		}
-	};
+};
+
 }
+#endif
 
 #endif
-//#endif

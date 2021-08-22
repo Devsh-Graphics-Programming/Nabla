@@ -3,8 +3,9 @@
 
 #include "IFile.h"
 
-
+#include "nbl/system/DefaultFuncPtrLoader.h"
 #ifdef _NBL_PLATFORM_WINDOWS_
+
 namespace nbl::system
 {
 
