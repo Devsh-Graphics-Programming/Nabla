@@ -463,11 +463,11 @@ public:
                 auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
                 if (ps != poolSizes.end())
                 {
-                    ps->count += setCount;
+                    ps->count += setCount*binding.count;
                 }
                 else
                 {
-                    poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, setCount });
+                    poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, setCount*binding.count });
                 }
             }
 
