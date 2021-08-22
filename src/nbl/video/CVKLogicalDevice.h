@@ -29,6 +29,7 @@
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanBufferView.h"
 #include "nbl/video/CVulkanForeignImage.h"
+#include "nbl/video/CVulkanDeferredOperation.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
@@ -258,6 +259,16 @@ public:
         return nullptr;
     }
             
+    core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override {
+        VkDeferredOperationKHR vk_deferredOp;
+        VkResult vk_res = vkCreateDeferredOperationKHR(m_vkdev, nullptr, &vk_deferredOp);
+        if(VK_SUCCESS == vk_res) {
+            return core::make_smart_refctd_ptr<CVulkanDeferredOperation>(core::smart_refctd_ptr<CVKLogicalDevice>(this), vk_deferredOp);
+        } else {
+            return nullptr;
+        }
+    }
+
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };

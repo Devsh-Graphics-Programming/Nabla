@@ -14,6 +14,7 @@
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUPipelineCache.h"
+#include "nbl/video/IDeferredOperation.h"
 #include "nbl/video/EApiType.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/CPropertyPoolHandler.h"
@@ -229,6 +230,9 @@ public:
     \return true on success, always false under OpenGL.*/
     virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
+    //! Creates DeferredOperation for Host Operations; Initial State is completed
+    virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
+
     //! Creates the buffer, allocates memory dedicated memory and binds it at once.
     inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
     {
@@ -433,6 +437,7 @@ public:
             return nullptr;
         return createGPUImageView_impl(std::move(params));
     }
+
 
     core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
     {
