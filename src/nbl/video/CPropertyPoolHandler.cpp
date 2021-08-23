@@ -303,7 +303,10 @@ bool CPropertyPoolHandler::transferProperties(
 			// deferred release resources
 			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<IGPUFence>(fence),setIx);
 			// dont drop the cmdbuffer until the transfer is complete
-			upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+			auto cmdbuffs = reinterpret_cast<const IGPUCommandBuffer**>(m_tmpIndexRanges);
+			cmdbuffs[0] = cmdbuf;
+			std::fill_n(cmdbuffs+1u,upAllocations-1u,nullptr);
+			upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes,core::smart_refctd_ptr<IGPUFence>(fence),cmdbuffs);
 			if (downAllocations) // TODO: invalidate, defer, etc
 				downBuff->multi_free(downAllocations,downAddresses,downSizes);
 

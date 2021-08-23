@@ -75,85 +75,45 @@ void main()
 }
 )===";
 
-struct InstanceData
+class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 {
-	core::vector3df_SIMD color;
-	core::matrix3x4SIMD modelMatrix; // = 3 x vector3df_SIMD
-};
-
-class CInstancedMotionState : public ext::Bullet3::IMotionStateBase{
 public:
 	btTransform m_correctionMatrix;
 
 	inline CInstancedMotionState() {}
-	inline CInstancedMotionState(core::vector<InstanceData> * instancesData, uint32_t index, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
-		: m_instances_data(instancesData), 
-		  m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)),
-		  m_index(index),
-		  ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat))
+	inline CInstancedMotionState(core::vector<core::matrix3x4SIMD>* instanceXforms, uint32_t index, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
+		: m_instanceXforms(instanceXforms), m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)),
+		  m_index(index), ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat))
 	{
 		m_index = index;
 	}
 
-	inline ~CInstancedMotionState() {
+	inline ~CInstancedMotionState()
+	{
 	}
 
-	inline virtual void getWorldTransform(btTransform &worldTrans) const override {
-		if(m_instances_data != nullptr) {
-			auto mat = (*m_instances_data)[m_index].modelMatrix;
-			auto graphicsWorldTrans = ext::Bullet3::convertMatrixSIMD(mat);
-			worldTrans = graphicsWorldTrans * m_correctionMatrix.inverse();
-		}
-	};
+	inline virtual void getWorldTransform(btTransform &worldTrans) const override
+	{
+		assert(m_instanceXforms);
+		assert(m_index<m_instanceXforms->size());
+		const auto& mat = m_instanceXforms->operator[](m_index);
+		// TODO: cache the bullet matrix
+		auto graphicsWorldTrans = ext::Bullet3::convertMatrixSIMD(mat);
+		worldTrans = graphicsWorldTrans*m_correctionMatrix.inverse();
+	}
 
-	inline virtual void setWorldTransform(const btTransform &worldTrans) override {
-		if(m_instances_data != nullptr) {
-			if(m_instances_data->size() > m_index) {
-				auto & graphicsWorldTrans = (*m_instances_data)[m_index].modelMatrix;
-				graphicsWorldTrans = ext::Bullet3::convertbtTransform(worldTrans * m_correctionMatrix);
-			}
-		}
-	};
+	inline virtual void setWorldTransform(const btTransform &worldTrans) override
+	{
+		assert(m_instanceXforms);
+		assert(m_index<m_instanceXforms->size());
+		m_instanceXforms->operator[](m_index) = ext::Bullet3::convertbtTransform(worldTrans*m_correctionMatrix);
+	}
 
 protected:
-	core::vector<InstanceData> * m_instances_data;
+	core::vector<core::matrix3x4SIMD>* m_instanceXforms;
 	uint32_t m_index;
 };
 
-struct GPUObject {
-	core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
-	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
-};
-
-static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createMeshBufferFromGeomCreatorReturnType(
-	asset::IGeometryCreator::return_type& _data,
-	asset::IAssetManager* _manager,
-	asset::ICPUSpecializedShader** _shadersBegin, asset::ICPUSpecializedShader** _shadersEnd)
-{
-	//creating pipeline just to forward vtx and primitive params
-	auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
-		nullptr, _shadersBegin, _shadersEnd, 
-		_data.inputParams, 
-		asset::SBlendParams(),
-		_data.assemblyParams,
-		asset::SRasterizationParams()
-		);
-
-	auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>(
-		nullptr, nullptr,
-		_data.bindings, std::move(_data.indexBuffer)
-	);
-
-	mb->setIndexCount(_data.indexCount);
-	mb->setIndexType(_data.indexType);
-	mb->setBoundingBox(_data.bbox);
-	mb->setPipeline(std::move(pipeline));
-	constexpr auto NORMAL_ATTRIBUTE = 3;
-	mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
-
-	return mb;
-
-}
 
 int main()
 {
@@ -190,67 +150,7 @@ int main()
 	// property transfer cmdbuffers
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> propXferCmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(computeCommandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,propXferCmdbuf);
-
-	// Instance Data
-	std::array<uint32_t,20u> cubeIDs;
-	std::array<uint32_t,20u> cylinderIDs;
-	std::array<uint32_t,20u> sphereIDs;
-	std::array<uint32_t,10u> coneIDs;
-
-	// Instances Buffer
-	constexpr uint32_t MaxNumInstances = cubeIDs.size() + cylinderIDs.size() + sphereIDs.size() + coneIDs.size();
-	auto gpuInstancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(InstanceData)*MaxNumInstances);
-
-	auto propertyPoolHandler = device->getDefaultPropertyPoolHandler();
-	// GPU data pool
-	using instance_property_pool_t = video::CPropertyPool<core::allocator,InstanceData>;
-	core::smart_refctd_ptr<instance_property_pool_t> propertyPool;
-	{
-		asset::SBufferRange<video::IGPUBuffer> block = {0,gpuInstancesBuffer->getSize(),gpuInstancesBuffer};
-		propertyPool = instance_property_pool_t::create(device.get(),&block,MaxNumInstances);
-		
-		core::vector<InstanceData> initialData;
-		initialData.resize(MaxNumInstances);
-		const auto* cubeData = initialData.data();
-		const auto* cylinderData = cubeData+cubeIDs.size();
-		const auto* sphereData = cylinderData+cylinderIDs.size();
-		const auto* coneData = sphereData+sphereIDs.size();
-		for (auto i=0u; i<MaxNumInstances; i++)
-			initialData[i].color = core::vector3df_SIMD(float(i)/float(MaxNumInstances),0.5f,1.f);
-
-		std::array<video::CPropertyPoolHandler::AllocationRequest,4u> requests;
-		auto setupRequest = [&requests,propertyPool](const uint32_t i, auto& ix_array, const InstanceData* const* data) -> void
-		{
-			// need to initialize the addresses to invalid for them to get allocated
-			std::fill(ix_array.begin(),ix_array.end(),instance_property_pool_t::invalid_index);
-			requests[i] = video::CPropertyPoolHandler::AllocationRequest(
-				propertyPool.get(),
-				core::SRange<uint32_t>{ix_array.data(),ix_array.data()+ix_array.size()},
-				reinterpret_cast<const void* const*>(data)
-			);
-		};
-		setupRequest(0u,cubeIDs,&cubeData);
-		setupRequest(1u,cylinderIDs,&cylinderData);
-		setupRequest(2u,sphereIDs,&sphereData);
-		setupRequest(3u,coneIDs,&coneData);
-
-		auto fence = frameComplete[FRAMES_IN_FLIGHT-1].get();
-		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
-
-		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		propertyPoolHandler->addProperties(cmdbuf,fence,requests.data(),requests.data()+requests.size(),logger.get());
- 		cmdbuf->end();
-		
-		video::IGPUQueue::SSubmitInfo submit;
-		{
-			submit.commandBufferCount = 1u;
-			submit.commandBuffers = &cmdbuf;
-			submit.signalSemaphoreCount = 0u;
-			submit.waitSemaphoreCount = 0u;
-
-			computeQueue->submit(1u,&submit,fence);
-		}
-	}
+	
 
 	// Physics Setup
 	auto world = ext::Bullet3::CPhysicsWorld::create();
@@ -269,6 +169,77 @@ int main()
 
 		basePlateBody = world->createRigidBody(basePlateRigidBodyData);
 		world->bindRigidBody(basePlateBody);
+	}
+
+
+	// Instance Data
+	std::array<uint32_t,20u> cubeIDs;
+	std::array<uint32_t,20u> cylinderIDs;
+	std::array<uint32_t,20u> sphereIDs;
+	std::array<uint32_t,10u> coneIDs;
+	constexpr uint32_t startIndexCubes = 0;
+	constexpr uint32_t startIndexCylinders = startIndexCubes + cubeIDs.size();
+	constexpr uint32_t startIndexSpheres = startIndexCylinders + cylinderIDs.size();
+	constexpr uint32_t startIndexCones = startIndexSpheres + sphereIDs.size();
+
+	// Instances Buffer
+	constexpr uint32_t MaxNumInstances = cubeIDs.size() + cylinderIDs.size() + sphereIDs.size() + coneIDs.size();
+	auto colorBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(core::vectorSIMDf)*MaxNumInstances);
+	auto transformBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(core::matrix3x4SIMD)*MaxNumInstances);
+
+	core::vector<core::matrix3x4SIMD> instanceTransforms(MaxNumInstances);
+	// GPU data pool
+	using instance_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
+	core::smart_refctd_ptr<instance_property_pool_t> propertyPool;
+	auto propertyPoolHandler = device->getDefaultPropertyPoolHandler();
+	{
+		asset::SBufferRange<video::IGPUBuffer> blocks[2];
+		blocks[0] = { 0,colorBuffer->getSize(),colorBuffer };
+		blocks[1] = { 0,transformBuffer->getSize(),transformBuffer };
+		propertyPool = instance_property_pool_t::create(device.get(),blocks,MaxNumInstances);
+		
+		core::vector<core::vectorSIMDf> initialColor(MaxNumInstances);
+		for (auto i=0u; i<MaxNumInstances; i++)
+		{
+			initialColor[i] = core::vector3df_SIMD(float(i)/float(MaxNumInstances),0.5f,1.f);
+			instanceTransforms[i].setTranslation(core::vectorSIMDf(float(i % 3) - 1.0f, i * 1.5f, 0.0f));
+		}
+
+		std::array<video::CPropertyPoolHandler::AllocationRequest,4u> requests;
+		const void* data[4u][2u] = {};
+		auto setupRequest = [&](const uint32_t i, auto& ix_array, const uint32_t rangeStart) -> void
+		{
+			data[i][0] = initialColor.data()+rangeStart;
+			data[i][1] = instanceTransforms.data()+rangeStart;
+			// need to initialize the addresses to invalid for them to get allocated
+			std::fill(ix_array.begin(),ix_array.end(),instance_property_pool_t::invalid_index);
+			requests[i] = video::CPropertyPoolHandler::AllocationRequest(
+				propertyPool.get(),
+				core::SRange<uint32_t>{ix_array.data(),ix_array.data()+ix_array.size()},
+				reinterpret_cast<const void* const*>(data[i])
+			);
+		};
+		setupRequest(0u,cubeIDs,startIndexCubes);
+		setupRequest(1u,cylinderIDs,startIndexCylinders);
+		setupRequest(2u,sphereIDs,startIndexSpheres);
+		setupRequest(3u,coneIDs,startIndexCones);
+
+		auto& fence = frameComplete[FRAMES_IN_FLIGHT-1] = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
+
+		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+		propertyPoolHandler->addProperties(cmdbuf,fence.get(),requests.data(),requests.data()+requests.size(),logger.get());
+ 		cmdbuf->end();
+		
+		video::IGPUQueue::SSubmitInfo submit;
+		{
+			submit.commandBufferCount = 1u;
+			submit.commandBuffers = &cmdbuf;
+			submit.signalSemaphoreCount = 0u;
+			submit.waitSemaphoreCount = 0u;
+
+			computeQueue->submit(1u,&submit,fence.get());
+		}
 	}
 		
 	// Shapes RigidBody Data
@@ -309,17 +280,16 @@ int main()
 
 
 	// initialize
-	constexpr uint32_t startIndexCubes = 0;
-	constexpr uint32_t startIndexCylinders = startIndexCubes + cubeIDs.size();
-	constexpr uint32_t startIndexSpheres = startIndexCylinders + cylinderIDs.size();
-	constexpr uint32_t startIndexCones = startIndexSpheres + sphereIDs.size();
 
 	core::vector<btRigidBody*> bodies;
 	bodies.resize(MaxNumInstances);
 
-	core::vector<InstanceData> instancesData;
-	instancesData.resize(MaxNumInstances);
-
+	// TODO: replace with the actual scenemanager
+	struct GPUObject
+	{
+		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
+		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
+	};
 	core::vector<GPUObject> gpuObjects;
 
 	for(uint32_t i = 0; i < MaxNumInstances; ++i) {
@@ -341,17 +311,12 @@ int main()
 			rigidBodyData = cylinderRigidBodyData;
 			correction_mat.setRotation(core::quaternion(core::PI<float>() / 2.0f, 0.0f, 0.0f));
 		}
-
-		core::matrix3x4SIMD mat;
-		mat.setTranslation(core::vectorSIMDf(float(i % 3) - 1.0f, i * 1.5f, 0.0f));
-		
-		instancesData[i].modelMatrix = mat;
-		rigidBodyData.trans = mat;
+		rigidBodyData.trans = instanceTransforms[i];
 		
 		auto & body = bodies[i];
 
 		bodies[i] = world->createRigidBody(rigidBodyData);
-		world->bindRigidBody<CInstancedMotionState>(body, &instancesData, i, mat, correction_mat);
+		world->bindRigidBody<CInstancedMotionState>(body, &instanceTransforms, i, instanceTransforms[i], correction_mat);
 	}
 
 	// weird fix -> do not read the next 6 lines (It doesn't affect the program logically) -> waiting for access_violation_repro branch to fix and merge
@@ -372,13 +337,7 @@ int main()
 	auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
 	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
-	// Camera 
-	core::vectorSIMDf cameraPosition(0, 5, -10);
-	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
-	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), proj);
-
 	// Creating CPU Shaders 
-
 	auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
 		auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
@@ -393,6 +352,35 @@ int main()
 	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 	
+	auto createMeshBufferFromGeomCreatorReturnType = [](
+		asset::IGeometryCreator::return_type& _data,
+		asset::IAssetManager* _manager,
+		asset::ICPUSpecializedShader** _shadersBegin, asset::ICPUSpecializedShader** _shadersEnd)
+	{
+		//creating pipeline just to forward vtx and primitive params
+		auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
+			nullptr, _shadersBegin, _shadersEnd, 
+			_data.inputParams, 
+			asset::SBlendParams(),
+			_data.assemblyParams,
+			asset::SRasterizationParams()
+			);
+
+		auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>(
+			nullptr, nullptr,
+			_data.bindings, std::move(_data.indexBuffer)
+		);
+
+		mb->setIndexCount(_data.indexCount);
+		mb->setIndexType(_data.indexType);
+		mb->setBoundingBox(_data.bbox);
+		mb->setPipeline(std::move(pipeline));
+		constexpr auto NORMAL_ATTRIBUTE = 3;
+		mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
+
+		return mb;
+
+	};
 	auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders+2);
@@ -401,14 +389,13 @@ int main()
 	// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
 	video::IGPUObjectFromAssetConverter CPU2GPU;
 	auto createGPUObject = [&](
-		asset::ICPUMeshBuffer * cpuMesh,
-		core::smart_refctd_ptr<video::IGPUBuffer> instancesBuffer,
-		uint64_t numInstances, uint64_t instanceBufferOffset,
+		asset::ICPUMeshBuffer * cpuMesh, uint32_t numInstances, uint64_t rangeStart,
 		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
 	{
 		GPUObject ret = {};
 		
-		uint32_t instanceBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT - 1u;
+		uint32_t xformBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT-1u;
+		uint32_t colorBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT-2u;
 
 		auto pipeline = cpuMesh->getPipeline();
 		{
@@ -418,28 +405,30 @@ int main()
 			rasterParams.faceCullingMode = faceCullingMode;
 
 			auto & vtxinputParams = pipeline->getVertexInputParams();
-			vtxinputParams.bindings[instanceBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
-			vtxinputParams.bindings[instanceBufferBinding].stride = sizeof(InstanceData);
+			vtxinputParams.bindings[colorBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
+			vtxinputParams.bindings[colorBufferBinding].stride = sizeof(core::vectorSIMDf);
+			vtxinputParams.bindings[xformBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
+			vtxinputParams.bindings[xformBufferBinding].stride = sizeof(core::matrix3x4SIMD);
 			// Color
-			vtxinputParams.attributes[4].binding = instanceBufferBinding;
+			vtxinputParams.attributes[4].binding = colorBufferBinding;
 			vtxinputParams.attributes[4].relativeOffset = 0;
 			vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 			// World Row 0
-			vtxinputParams.attributes[5].binding = instanceBufferBinding;
-			vtxinputParams.attributes[5].relativeOffset = sizeof(core::vector3df_SIMD);
+			vtxinputParams.attributes[5].binding = xformBufferBinding;
+			vtxinputParams.attributes[5].relativeOffset = 0;
 			vtxinputParams.attributes[5].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 			// World Row 1
-			vtxinputParams.attributes[6].binding = instanceBufferBinding;
-			vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD) * 2;
+			vtxinputParams.attributes[6].binding = xformBufferBinding;
+			vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD);
 			vtxinputParams.attributes[6].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 			// World Row 2
-			vtxinputParams.attributes[7].binding = instanceBufferBinding;
-			vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD) * 3;
+			vtxinputParams.attributes[7].binding = xformBufferBinding;
+			vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD)*2u;
 			vtxinputParams.attributes[7].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
 
 
 			vtxinputParams.enabledAttribFlags |= 0x1u << 4 | 0x1u << 5 | 0x1u << 6 | 0x1u << 7;
-			vtxinputParams.enabledBindingFlags |= 0x1u << instanceBufferBinding;
+			vtxinputParams.enabledBindingFlags |= (0x1u<<xformBufferBinding)|(0x1u<<colorBufferBinding);
 
 			// for wireframe rendering
 			#if 0
@@ -453,12 +442,15 @@ int main()
 
 		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
 	
-		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh, &cpuMesh + 1,cpu2gpuParams)->front();
+		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh,&cpuMesh+1,cpu2gpuParams)->front();
 	
 		asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
-		vtxInstanceBufBnd.offset = instanceBufferOffset;
-		vtxInstanceBufBnd.buffer = instancesBuffer;
-		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd), instanceBufferBinding);
+		vtxInstanceBufBnd.offset = rangeStart*sizeof(core::vectorSIMDf);
+		vtxInstanceBufBnd.buffer = colorBuffer;
+		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd),colorBufferBinding);
+		vtxInstanceBufBnd.offset = rangeStart*sizeof(core::matrix3x4SIMD);
+		vtxInstanceBufBnd.buffer = transformBuffer;
+		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd),xformBufferBinding);
 		ret.gpuMesh->setInstanceCount(numInstances);
 
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
@@ -467,20 +459,22 @@ int main()
 		gp_params.renderpassIndependent = rpIndependentPipeline; // TODO: fix use gpuMesh->getPipeline instead
 		gp_params.subpassIx = 0u;
 
-		ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+		ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr,std::move(gp_params));
 
 		return ret;
 	};
 
 	if(cubeIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), gpuInstancesBuffer, cubeIDs.size(), sizeof(InstanceData) * startIndexCubes));
+		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), cubeIDs.size(), startIndexCubes));
 	if(cylinderIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCylinder.get(), gpuInstancesBuffer, cylinderIDs.size(), sizeof(InstanceData) * startIndexCylinders, asset::EFCM_NONE));
+		gpuObjects.push_back(createGPUObject(cpuMeshCylinder.get(), cylinderIDs.size(), startIndexCylinders, asset::EFCM_NONE));
 	if(sphereIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshSphere.get(), gpuInstancesBuffer, sphereIDs.size(), sizeof(InstanceData) * startIndexSpheres));
+		gpuObjects.push_back(createGPUObject(cpuMeshSphere.get(), sphereIDs.size(), startIndexSpheres));
 	if(coneIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCone.get(), gpuInstancesBuffer, coneIDs.size(), sizeof(InstanceData) * startIndexCones, asset::EFCM_NONE));
+		gpuObjects.push_back(createGPUObject(cpuMeshCone.get(), coneIDs.size(), startIndexCones, asset::EFCM_NONE));
 
+
+	//
 	auto lastTime = std::chrono::system_clock::now();
 	constexpr uint32_t FRAME_COUNT = 500000u;
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
@@ -503,6 +497,11 @@ int main()
 	}
 
 	double dt = 0;
+
+	// Camera 
+	core::vectorSIMDf cameraPosition(0, 5, -10);
+	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
+	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), proj);
 	
 	// polling for events!
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
@@ -598,10 +597,10 @@ int main()
 			world->getWorld()->stepSimulation(dt);
 
 			asset::SBufferRange<video::IGPUBuffer> range;
-			range.buffer = gpuInstancesBuffer;
+			range.buffer = transformBuffer;
 			range.offset = 0;
-			range.size = gpuInstancesBuffer->getSize();
-			device->updateBufferRangeViaStagingBuffer(graphicsQueue, range, instancesData.data());
+			range.size = transformBuffer->getSize();
+			device->updateBufferRangeViaStagingBuffer(graphicsQueue, range, instanceTransforms.data());
 		}
 		// draw
 		{
