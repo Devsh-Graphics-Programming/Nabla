@@ -15,6 +15,8 @@ namespace nbl::video
 
 class CVulkanConnection final : public IAPIConnection
 {
+    using physical_devs_array_t = core::smart_refctd_dynamic_array<IPhysicalDevice*>;
+
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
@@ -99,9 +101,8 @@ public:
         physical_devs_array_t physicalDevices = core::make_refctd_dynamic_array<physical_devs_array_t>(physicalDeviceCount);
         for (uint32_t i = 0u; i < physicalDeviceCount; ++i)
         {
-            (*physicalDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(
-                vk_physicalDevices[i], core::smart_refctd_ptr(sys),
-                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()));
+            (*physicalDevices)[i] = new CVulkanPhysicalDevice(vk_physicalDevices[i],
+                core::smart_refctd_ptr(sys), core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()));
         }
 
         return core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance, physicalDevices, vk_debugMessenger);
@@ -109,9 +110,9 @@ public:
 
     VkInstance getInternalObject() const { return m_vkInstance; }
 
-    core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const override
+    core::SRange<IPhysicalDevice *const> getPhysicalDevices() const override
     {
-        return core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>>{ m_physicalDevices->begin(), m_physicalDevices->end() };
+        return core::SRange<IPhysicalDevice *const>(m_physicalDevices->begin(), m_physicalDevices->end());
     }
 
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
@@ -122,8 +123,6 @@ public:
 // Todo(achal): Remove
 // private:
 
-    using physical_devs_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IPhysicalDevice>>;
-
     CVulkanConnection(VkInstance instance, physical_devs_array_t physicalDevices,
         VkDebugUtilsMessengerEXT debugUtilsMessenger = VK_NULL_HANDLE)
         : m_vkInstance(instance), m_physicalDevices(physicalDevices),
@@ -132,6 +131,14 @@ public:
 
     ~CVulkanConnection()
     {
+        if (m_physicalDevices && !m_physicalDevices->empty())
+        {
+            for (uint32_t i = 0u; i < m_physicalDevices->size(); ++i)
+            {
+                delete (*m_physicalDevices)[i];
+            }
+        }
+
         vkDestroyDebugUtilsMessengerEXT(m_vkInstance, m_vkDebugUtilsMessengerEXT, nullptr);
         vkDestroyInstance(m_vkInstance, nullptr);
     }

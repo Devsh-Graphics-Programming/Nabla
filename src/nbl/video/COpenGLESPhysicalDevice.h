@@ -13,7 +13,7 @@ class COpenGLESPhysicalDevice final : public IOpenGL_PhysicalDeviceBase<COpenGLE
     using base_t = IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>;
 
 public:
-	static core::smart_refctd_ptr<COpenGLESPhysicalDevice> create(core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& dbgCb)
+	static COpenGLESPhysicalDevice* create(core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& dbgCb)
 	{
 		constexpr EGLint OPENGL_ES_MAJOR = 3;
 		constexpr EGLint OPENGL_ES_MINOR_BEST  = 2;
@@ -23,8 +23,7 @@ public:
 		if (initRes.ctx==EGL_NO_CONTEXT || initRes.minor<OPENGL_ES_MINOR_WORST) // TODO: delete context if minor is too low, right now its leaking
 			return nullptr;
 
-		auto* pdev = new COpenGLESPhysicalDevice(std::move(s),std::move(_egl),std::move(dbgCb),initRes.config,initRes.ctx,initRes.major,initRes.minor);
-		return core::smart_refctd_ptr<COpenGLESPhysicalDevice>(pdev,core::dont_grab);
+		return new COpenGLESPhysicalDevice(std::move(s),std::move(_egl),std::move(dbgCb),initRes.config,initRes.ctx,initRes.major,initRes.minor);
 	}
 
 	E_API_TYPE getAPIType() const override { return EAT_OPENGL_ES; }

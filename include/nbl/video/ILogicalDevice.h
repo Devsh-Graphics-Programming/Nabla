@@ -61,7 +61,7 @@ public:
         size_t offset;
     };
 
-    inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice.get(); }
+    inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
     E_API_TYPE getAPIType() const;
 
@@ -867,7 +867,8 @@ protected:
     virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
     virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
 
-    core::smart_refctd_ptr<IPhysicalDevice> m_physicalDevice;
+    core::smart_refctd_ptr<IAPIConnection> m_api;
+    IPhysicalDevice* m_physicalDevice;
 
     using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
     queues_array_t m_queues;

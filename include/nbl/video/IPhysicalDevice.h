@@ -15,7 +15,7 @@
 namespace nbl::video
 {
 
-class IPhysicalDevice : public core::IReferenceCounted
+class IPhysicalDevice : public core::Interface, public core::Unmovable
 {
 public:
     struct SLimits
@@ -116,7 +116,7 @@ public:
 
     virtual E_API_TYPE getAPIType() const = 0;
 
-    // Note(achal): Not making them pure virtual only because the OpenGL backends doesn't have any implementation
+    // Todo(achal): Not making them pure virtual only because the OpenGL backends doesn't have any implementation
     // for them
     virtual void getAvailableFormatsForSurface(const ISurface* surface, uint32_t& formatCount, ISurface::SFormat* formats) const
     {
@@ -142,6 +142,8 @@ public:
         assert(false); // Invalid code path
         return false;
     }
+
+    virtual ~IPhysicalDevice() = 0 {}
 
 protected:
     IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
@@ -181,7 +183,6 @@ protected:
         return true;
     }
 
-    virtual ~IPhysicalDevice() = default;
 
     core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;

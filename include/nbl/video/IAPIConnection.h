@@ -16,7 +16,7 @@ class IAPIConnection : public core::IReferenceCounted
     public:
         virtual E_API_TYPE getAPIType() const = 0;
 
-        virtual core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const = 0;
+        virtual core::SRange<IPhysicalDevice *const> getPhysicalDevices() const = 0;
 
         virtual IDebugCallback* getDebugCallback() const = 0;
 };
