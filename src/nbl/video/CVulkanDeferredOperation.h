@@ -1,5 +1,5 @@
-#ifndef __NBL_C_VULKAN_DEFERRED_OPERATION_H_INCLUDED__
-#define __NBL_C_VULKAN_DEFERRED_OPERATION_H_INCLUDED__
+#ifndef _NBL_VIDEO_C_VULKAN_DEFERRED_OPERATION_H_INCLUDED_
+#define _NBL_VIDEO_C_VULKAN_DEFERRED_OPERATION_H_INCLUDED_
 
 #include "nbl/video/IDeferredOperation.h"
 
@@ -17,11 +17,13 @@ public:
         : IDeferredOperation(std::move(dev)), m_deferredOp(vkDeferredOp)
     { }
 
+public:
     ~CVulkanDeferredOperation();
     
     bool join() override;
     uint32_t getMaxConcurrency() override;
     E_STATUS getStatus() override;
+    E_STATUS joinAndWait() override;
 
     inline VkDeferredOperationKHR getInternalObject() const { return m_deferredOp; }
 

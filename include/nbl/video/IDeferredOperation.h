@@ -1,5 +1,5 @@
-#ifndef __NBL_I_DEFERRED_OPERATION_H_INCLUDED__
-#define __NBL_I_DEFERRED_OPERATION_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_DEFERRED_OPERATION_H_INCLUDED_
+#define _NBL_VIDEO_I_DEFERRED_OPERATION_H_INCLUDED_
 
 
 #include "nbl/core/IReferenceCounted.h"
@@ -11,7 +11,10 @@ namespace nbl::video
 
 class IDeferredOperation : public core::IReferenceCounted, public IBackendObject
 {
-    public:
+public:
+        explicit IDeferredOperation(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
+        
+public:
         enum E_STATUS : uint32_t
         {
             ES_COMPLETED,
@@ -20,11 +23,10 @@ class IDeferredOperation : public core::IReferenceCounted, public IBackendObject
             ES_THREAD_IDLE,
         };
 
-        explicit IDeferredOperation(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
-        
         virtual bool join() = 0;
         virtual uint32_t getMaxConcurrency() = 0;
         virtual E_STATUS getStatus() = 0;
+        virtual E_STATUS joinAndWait() = 0;
 };
 
 }

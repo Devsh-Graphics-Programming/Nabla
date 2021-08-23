@@ -22,26 +22,39 @@ bool CVulkanDeferredOperation::join() {
 uint32_t CVulkanDeferredOperation::getMaxConcurrency() {
     const auto originDevice = getOriginDevice();
     VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
-    uint32_t res = vkGetDeferredOperationMaxConcurrencyKHR(vk_device, m_deferredOp);
-    return res;
+    uint32_t ret = vkGetDeferredOperationMaxConcurrencyKHR(vk_device, m_deferredOp);
+    return ret;
 }
     
 IDeferredOperation::E_STATUS CVulkanDeferredOperation::getStatus() {
     const auto originDevice = getOriginDevice();
     VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
     VkResult vk_res = vkGetDeferredOperationResultKHR(vk_device, m_deferredOp);
+    auto ret = E_STATUS::ES_NOT_READY;
     if(VK_SUCCESS == vk_res) {
-        return E_STATUS::ES_COMPLETED;
+        ret = E_STATUS::ES_COMPLETED;
     } else if (VK_NOT_READY == vk_res) {
-        return E_STATUS::ES_NOT_READY;
+        ret = E_STATUS::ES_NOT_READY;
     }  else if (VK_THREAD_DONE_KHR == vk_res) {
-        return E_STATUS::ES_THREAD_DONE;
+        ret = E_STATUS::ES_THREAD_DONE;
     }  else if (VK_THREAD_IDLE_KHR == vk_res) {
-        return E_STATUS::ES_THREAD_IDLE;
+        ret = E_STATUS::ES_THREAD_IDLE;
     } else {
         assert(false && "This case is not handled.");
-        return E_STATUS::ES_NOT_READY;
     }
+    return ret;
+}
+ 
+IDeferredOperation::E_STATUS CVulkanDeferredOperation::joinAndWait() {
+    auto ret = E_STATUS::ES_NOT_READY;
+    auto maxConcurrency = getMaxConcurrency();
+    if(maxConcurrency > 0) {
+        bool join_success = join();
+        if(join_success) {
+            ret = getStatus();
+        }
+    }
+    return ret;
 }
 
 }
