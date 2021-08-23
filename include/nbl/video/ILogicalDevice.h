@@ -61,6 +61,15 @@ public:
         size_t offset;
     };
 
+    virtual ~ILogicalDevice()
+    {
+        if (m_queues && m_queues->empty())
+        {
+            for (uint32_t i = 0u; i < m_queues->size(); ++i)
+                delete (*m_queues)[i];
+        }
+    }
+
     inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
     E_API_TYPE getAPIType() const;
@@ -75,7 +84,7 @@ public:
     inline CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
-        return (*m_queues)[offset + _ix].get();
+        return (*m_queues)[offset + _ix];
     }
 
     inline StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer()
@@ -870,7 +879,7 @@ protected:
     core::smart_refctd_ptr<IAPIConnection> m_api;
     IPhysicalDevice* m_physicalDevice;
 
-    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
+    using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;
     queues_array_t m_queues;
     using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
     q_offsets_array_t m_offsets;

@@ -12,13 +12,22 @@ namespace nbl::video
 class CThreadSafeGPUQueueAdapter : public IGPUQueue
 {
     protected:
-        core::smart_refctd_ptr<IGPUQueue> originalQueue = nullptr;
+        core::smart_refctd_ptr<ILogicalDevice> logicalDevice = nullptr;
+        IGPUQueue* originalQueue = nullptr;
         std::mutex m;
     public:
-        CThreadSafeGPUQueueAdapter(nbl::core::smart_refctd_ptr<IGPUQueue>&& original, core::smart_refctd_ptr<const ILogicalDevice>&& device)
+        CThreadSafeGPUQueueAdapter(IGPUQueue* original, core::smart_refctd_ptr<const ILogicalDevice>&& device)
             : IGPUQueue(std::move(device),original->getFamilyIndex(),original->getFlags(),original->getPriority()), originalQueue(std::move(original)) {}        
 
         CThreadSafeGPUQueueAdapter() : IGPUQueue(nullptr, 0, E_CREATE_FLAGS::ECF_PROTECTED_BIT, 0.f) {};
+
+        ~CThreadSafeGPUQueueAdapter()
+        {
+            if (originalQueue)
+            {
+                delete originalQueue;
+            }
+        }
 
         virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
         {
@@ -34,7 +43,7 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
 
         IGPUQueue* getUnderlyingQueue() const
         {
-            return originalQueue.get();
+            return originalQueue;
         }
 };
 

@@ -36,7 +36,7 @@ class COpenGL_Connection final : public IAPIConnection
 
         // 1. Probably could make it a std::unique_ptr?
         // 2. Probably could put it into IAPIConnection itself with
-        // a `count` value?
+        // a `count` value or dynamic_array?
         IPhysicalDevice* m_pdevice = nullptr;
 };
 
