@@ -686,7 +686,7 @@ public:
             uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
             uint32_t alignment = 64u; // smallest mapping alignment capability
             uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), bufferRange.size-uploadedSize));
-            m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &subSize, &alignment);
+            m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &subSize, &alignment);
 
             // keep trying again
             if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)

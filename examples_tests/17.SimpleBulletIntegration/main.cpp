@@ -182,7 +182,9 @@ int main()
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
+
 	// TODO: roll into CommonAPI
+	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	auto computeCommandPool = device->createCommandPool(computeQueue->getFamilyIndex(),video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 
 	// property transfer cmdbuffers
@@ -232,10 +234,22 @@ int main()
 		setupRequest(2u,sphereIDs,&sphereData);
 		setupRequest(3u,coneIDs,&coneData);
 
-		auto cmdbuf = propXferCmdbuf[0].get();
+		auto fence = frameComplete[FRAMES_IN_FLIGHT-1].get();
+		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
+
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		propertyPoolHandler->addProperties(cmdbuf,requests.data(),requests.data()+requests.size());
+		propertyPoolHandler->addProperties(cmdbuf,fence,requests.data(),requests.data()+requests.size(),logger.get());
 		cmdbuf->end();
+		
+		video::IGPUQueue::SSubmitInfo submit;
+		{
+			submit.commandBufferCount = 1u;
+			submit.commandBuffers = &cmdbuf;
+			submit.signalSemaphoreCount = 0u;
+			submit.waitSemaphoreCount = 0u;
+
+			computeQueue->submit(1u,&submit,fence);
+		}
 	}
 
 	// Physics Setup
@@ -473,7 +487,6 @@ int main()
 	constexpr uint32_t FRAME_COUNT = 500000u;
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
-	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
 	for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)

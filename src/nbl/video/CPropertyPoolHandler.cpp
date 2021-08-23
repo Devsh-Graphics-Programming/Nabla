@@ -23,7 +23,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpIndexRanges+maxStreamingAllocations);
 		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
 		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
-		std::fill_n(m_alignments,maxStreamingAllocations,alignof(uint32_t));
+		std::fill_n(m_alignments,maxStreamingAllocations,static_cast<uint32_t>(alignof(uint32_t)));
 	}
 
 	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_BUILTIN_MAX_PROPERTIES_PER_COPY_ %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass));
@@ -48,14 +48,29 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 }
 
 //
-bool CPropertyPoolHandler::addProperties(IGPUCommandBuffer* cmdbuf, const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd)
+bool CPropertyPoolHandler::addProperties(
+	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
+	const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd,
+	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
+)
+{
+	return addProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
+}
+bool CPropertyPoolHandler::addProperties(
+	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
+	IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
+	const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
+)
 {
 	bool success = true;
 
 	uint32_t transferCount = 0u;
 	for (auto it=requestsBegin; it!=requestsEnd; it++)
 	{
-		success = it->pool->allocateProperties(it->outIndices.begin(),it->outIndices.end()) && success;
+		const bool allocSuccess = it->pool->allocateProperties(it->outIndices.begin(),it->outIndices.end());
+		if (!allocSuccess)
+			logger.log("CPropertyPoolHandler: Failed to allocate %d properties from pool %p, part of request %d!",system::ILogger::ELL_WARNING,it->outIndices.size(),it->pool,it-requestsBegin);
+		success = allocSuccess&&success;
 		transferCount += it->pool->getPropertyCount();
 	}
 
@@ -71,11 +86,23 @@ bool CPropertyPoolHandler::addProperties(IGPUCommandBuffer* cmdbuf, const Alloca
 		oit->readData = it->data[i];
 		oit++;
 	}
-	return transferProperties(cmdbuf,transferRequests.data(),transferRequests.data()+transferCount) && success;
+	return transferProperties(upBuff,downBuff,cmdbuf,fence,transferRequests.data(),transferRequests.data()+transferCount,logger,maxWaitPoint) && success;
 }
 
 //
-bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const TransferRequest* requestsBegin, const TransferRequest* requestsEnd)
+bool CPropertyPoolHandler::transferProperties(
+	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
+	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
+	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
+)
+{
+	return transferProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
+}
+bool CPropertyPoolHandler::transferProperties(
+	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
+	IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger,
+	const std::chrono::high_resolution_clock::time_point maxWaitPoint
+)
 {
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
 
@@ -84,8 +111,6 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 	{
 		const auto fullPasses = totalProps/m_maxPropertiesPerPass;
 
-		auto upBuff = m_device->getDefaultUpStreamingBuffer();
-		auto downBuff = m_device->getDefaultDownStreamingBuffer();
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		uint8_t* upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
 				
@@ -106,6 +131,7 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 			uint32_t* const downSizes = m_tmpSizes+upAllocations;
 
 			uint32_t maxElements = 0u;
+			uint32_t slabCount = 0u;
 			auto RangeComparator = [](auto lhs, auto rhs)->bool{return lhs.source.begin()<rhs.source.begin();};
 			// figure out the sizes to allocate
 			{
@@ -154,95 +180,117 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 					}
 					// note the size of the last slab
 					indexOffset += oit->source.size();
-					m_tmpIndexRanges.resize(std::distance(m_tmpIndexRanges,++oit));
+					slabCount = std::distance(m_tmpIndexRanges,++oit);
 
 					m_tmpSizes[0u] += indexOffset*sizeof(uint32_t);
 				}
 			}
 			// allocate indices and upload/allocate data
+			bool retval = true; // success
+			std::fill(m_tmpAddresses,m_tmpAddresses+propertiesThisPass+1u,invalid_address);
+			std::fill(downAddresses,downAddresses+propertiesThisPass,invalid_address);
+			auto freeUpAllocOnFail = core::makeRAIIExiter([&]()->void
 			{
-				// TODO: handle overflow (chunk the updates)
-				std::fill(m_tmpAddresses,m_tmpAddresses+propertiesThisPass+1u,invalid_address);
-				upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses,m_tmpSizes,m_alignments);
-#if 0
-
-				uint8_t* indexBufferPtr = upBuffPtr+m_tmpAddresses[0u]/sizeof(uint32_t);
-				// write `elementCount`
-				for (uint32_t i=0; i<propertiesThisPass; i++)
-					*(indexBufferPtr++) = localRequests[i].indices.size();
-				// write `propertyDWORDsize_upDownFlag`
+				if (!retval)
+				{
+					upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes);
+					upBuff->multi_free(downAllocations,downAddresses,downSizes);
+				}
+			});
+			{
+				// TODO: handle overflow (chunk the updates with `max_size()` on the upload and download allocators)
+				const auto unallocatedBytes = upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses,m_tmpSizes,m_alignments);
+				if (!(retval=unallocatedBytes==0u))
+				{
+					logger.log("CPropertyPoolHandler: Timed out during upstream staging allocation, failed to allocate %d bytes!",system::ILogger::ELL_ERROR,unallocatedBytes);
+					return retval;
+				}
+			}
+			// upload data
+			{
+				uint8_t* indexBufferPtr = upBuffPtr+m_tmpAddresses[0u];
+				// write header
 				for (uint32_t i=0; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
-					int32_t propSize = request.pool->getPropertySize(request.propertyID);
-					propSize /= sizeof(uint32_t);
-					if (request.download)
-						propSize = -propSize;
-					*reinterpret_cast<int32_t*>(indexBufferPtr++) = propSize;
-				}
 
-				// write `indexOffset`
-				for (uint32_t i=0; i<propertiesThisPass; i++)
-				{
-					const auto& originalRange = localRequests->indices;
-					// find the slab
-					IndexUploadRange dummy;
-					dummy.source = originalRange;
-					dummy.destOff = 0xdeadbeefu;
-					auto aboveOrEqual = std::lower_bound(m_tmpIndexRanges.begin(),m_tmpIndexRanges.end(),dummy,RangeComparator);
-					auto containing = aboveOrEqual->source.begin()!=originalRange.begin() ? (aboveOrEqual-1):aboveOrEqual;
-					//
-					assert(containing->source.begin()<=originalRange.begin() && originalRange.end()<=containing->source.end());
-					*(indexBufferPtr++) = containing->destOff+(originalRange.begin()-containing->source.begin());
+					auto& transfer = reinterpret_cast<nbl_glsl_property_pool_transfer_t*>(indexBufferPtr)[i];
+					transfer.propertyDWORDsize_upDownFlag = request.pool->getPropertySize(request.propertyID)/sizeof(uint32_t);
+					if (request.download)
+						transfer.propertyDWORDsize_upDownFlag = -transfer.propertyDWORDsize_upDownFlag;
+					const auto& originalRange = request.indices;
+					transfer.elementCount = originalRange.size();
+					{
+						// find the slab
+						IndexUploadRange dummy;
+						dummy.source = originalRange;
+						dummy.destOff = 0xdeadbeefu;
+						auto aboveOrEqual = std::lower_bound(m_tmpIndexRanges,m_tmpIndexRanges+slabCount,dummy,RangeComparator);
+						auto containing = aboveOrEqual->source.begin()!=originalRange.begin() ? (aboveOrEqual-1):aboveOrEqual;
+						//
+						assert(containing->source.begin()<=originalRange.begin() && originalRange.end()<=containing->source.end());
+						transfer.indexOffset = containing->destOff+(originalRange.begin()-containing->source.begin());
+					}
+
+					indexBufferPtr += sizeof(nbl_glsl_property_pool_transfer_t);
 				}
 				// write the indices
-				for (auto slab : m_tmpIndexRanges)
+				for (auto i=0u; i<slabCount; i++)
 				{
-					const auto indexCount = slab.source.size();
-					memcpy(indexBufferPtr,slab.source.begin(),sizeof(uint32_t)*indexCount);
+					const auto& indices = m_tmpIndexRanges[i].source;
+					const auto indexCount = indices.size();
+					memcpy(indexBufferPtr,indices.begin(),sizeof(uint32_t)*indexCount);
 					indexBufferPtr += indexCount;
 				}
-				
+	
 				// upload
-				auto upAddrIt = m_tmpAddresses.begin()+1;
+				auto upAddrIt = m_tmpAddresses+1u;
 				for (uint32_t i=0u; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
 					if (request.download)
 						continue;
 					
-					if ((*upAddrIt)!=invalid_address)
-					{
-						size_t propSize = request.pool->getPropertySize(request.propertyID);
-						memcpy(upBuffPtr+(*(upAddrIt++)),request.writeData,request.indices.size()*propSize);
-					}
+					const auto addr = *(upAddrIt++);
+					assert(addr!=invalid_address);
+					const size_t propSize = request.pool->getPropertySize(request.propertyID);
+					memcpy(upBuffPtr+addr,request.writeData,request.indices.size()*propSize);
 				}
-#endif
 
 				if (downAllocations)
-					downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments);
+				{
+					const auto unallocatedBytes = downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments);
+					if (!(retval=unallocatedBytes==0u))
+					{
+						logger.log("CPropertyPoolHandler: Timed out during downstream staging allocation, failed to allocate %d bytes!",system::ILogger::ELL_ERROR,unallocatedBytes);
+						return retval;
+					}
+				}
+			}
+
+			// update desc sets
+			auto setIx = m_dsCache->acquireSet(this,localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
+			if (!(retval=setIx!=IDescriptorSetCache::invalid_index))
+			{
+				logger.log("CPropertyPoolHandler: Failed to acquire descriptor set!",system::ILogger::ELL_ERROR);
+				return retval;
 			}
 
 			cmdbuf->bindComputePipeline(m_pipeline.get());
-			// update desc sets
-			auto set = m_dsCache->acquireSet(this,localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
-			if (!set)
-				return false;
-
 			// bind desc sets
+			auto set = m_dsCache->getSet(setIx);
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
 			// dispatch
 			cmdbuf->dispatch((maxElements-1u)/IdealWorkGroupSize+1u,propertiesThisPass,1u);
 
-#if 0
-			auto& fence = retval.second = m_driver->placeFence(true);
 			// deferred release resources
-			items.descriptorSetCache.releaseSet(core::smart_refctd_ptr(fence),std::move(set));
-			upBuff->multi_free(upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),core::smart_refctd_ptr(fence));
+			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<IGPUFence>(fence),setIx);
+			// dont drop the cmdbuffer until the transfer is complete
+			upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
 			if (downAllocations)
-				downBuff->multi_free(downAllocations,downAddresses,downSizes,core::smart_refctd_ptr(fence));
-#endif
-			return true;
+				downBuff->multi_free(downAllocations,downAddresses,downSizes,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+
+			return retval;
 		};
 
 		
@@ -260,7 +308,7 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 	return retval;
 }
 
-IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
+uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	CPropertyPoolHandler* handler,
 	const TransferRequest* requests,
 	const uint32_t indexCount,
@@ -269,10 +317,10 @@ IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	const uint32_t* downloadAddresses
 )
 {
-	auto setIx = IDescriptorSetCache::acquireSet();
-	if (setIx==IDescriptorSetCache::invalid_index)
-		return nullptr;
-	IGPUDescriptorSet* retval = IDescriptorSetCache::getSet(setIx);
+	auto retval = IDescriptorSetCache::acquireSet();
+	if (retval==IDescriptorSetCache::invalid_index)
+		return IDescriptorSetCache::invalid_index;
+	IGPUDescriptorSet* set = IDescriptorSetCache::getSet(retval);
 	
 	//
 	auto device = handler->getDevice();
@@ -325,7 +373,7 @@ IGPUDescriptorSet* CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
 	for (auto i=0u; i<3u; i++)
 	{
-		writes[i].dstSet = retval;
+		writes[i].dstSet = set;
 		writes[i].binding = i;
 		writes[i].arrayElement = 0u;
 		writes[i].count = i ? maxPropertiesPerPass:1u;

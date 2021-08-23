@@ -49,8 +49,16 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			const void* const* data; 
 		};
 		// returns false if an allocation or part of a transfer has failed
-		// while its possible to detect which allocation has failer, its not possible to know exactly what transfer failed
-		bool addProperties(IGPUCommandBuffer* cmdbuf, const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd);
+		// while its possible to detect which allocation has failed, its not possible to know exactly what transfer failed
+		bool addProperties(
+			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
+			IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd,
+			system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
+		);
+		bool addProperties(
+			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
+			const std::chrono::high_resolution_clock::time_point maxWaitPoint = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(1500u)
+		);
 
         //
 		struct TransferRequest
@@ -70,7 +78,16 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				void* writeData;
 			};
 		};
-		bool transferProperties(IGPUCommandBuffer* cmdbuf, const TransferRequest* requestsBegin, const TransferRequest* requestsEnd);
+		// fence must be not pending yet
+		bool transferProperties(
+			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
+			IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
+			system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
+		);
+		bool transferProperties(
+			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger,
+			const std::chrono::high_resolution_clock::time_point maxWaitPoint = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(500u)
+		);
 
     protected:
 		~CPropertyPoolHandler()
@@ -103,7 +120,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				using IDescriptorSetCache::IDescriptorSetCache;
 
 				//
-				IGPUDescriptorSet* acquireSet(
+				uint32_t acquireSet(
 					CPropertyPoolHandler* handler,
 					const TransferRequest* requests,
 					const uint32_t indexCount,
