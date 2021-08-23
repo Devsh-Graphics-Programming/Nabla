@@ -380,6 +380,7 @@ namespace nbl::ui
 		}
 		if(shouldCallDefProc)
 			return DefWindowProc(hWnd, message, wParam, lParam);
+		return 0;
 	}
 
 	E_KEY_CODE CWindowWin32::getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode)
