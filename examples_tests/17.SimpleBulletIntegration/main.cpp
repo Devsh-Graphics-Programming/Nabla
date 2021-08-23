@@ -77,42 +77,42 @@ void main()
 
 class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 {
-public:
-	btTransform m_correctionMatrix;
+	public:
+		btTransform m_correctionMatrix;
 
-	inline CInstancedMotionState() {}
-	inline CInstancedMotionState(core::vector<core::matrix3x4SIMD>* instanceXforms, uint32_t index, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
-		: m_instanceXforms(instanceXforms), m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)),
-		  m_index(index), ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat))
-	{
-		m_index = index;
-	}
+		inline CInstancedMotionState() {}
+		inline CInstancedMotionState(uint32_t index, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
+			: m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)), m_index(index), ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat))
+		{
+			m_cachedMat = m_startWorldTrans*m_correctionMatrix.inverse();
+			m_index = index;
+		}
 
-	inline ~CInstancedMotionState()
-	{
-	}
+		inline ~CInstancedMotionState()
+		{
+		}
 
-	inline virtual void getWorldTransform(btTransform &worldTrans) const override
-	{
-		assert(m_instanceXforms);
-		assert(m_index<m_instanceXforms->size());
-		const auto& mat = m_instanceXforms->operator[](m_index);
-		// TODO: cache the bullet matrix
-		auto graphicsWorldTrans = ext::Bullet3::convertMatrixSIMD(mat);
-		worldTrans = graphicsWorldTrans*m_correctionMatrix.inverse();
-	}
+		inline virtual void getWorldTransform(btTransform &worldTrans) const override
+		{
+			worldTrans = m_cachedMat;
+		}
 
-	inline virtual void setWorldTransform(const btTransform &worldTrans) override
-	{
-		assert(m_instanceXforms);
-		assert(m_index<m_instanceXforms->size());
-		m_instanceXforms->operator[](m_index) = ext::Bullet3::convertbtTransform(worldTrans*m_correctionMatrix);
-	}
+		inline virtual void setWorldTransform(const btTransform &worldTrans) override
+		{
+			m_cachedMat = worldTrans;
 
-protected:
-	core::vector<core::matrix3x4SIMD>* m_instanceXforms;
-	uint32_t m_index;
+			s_updateIndices.push_back(m_index);
+			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat*m_correctionMatrix));
+		}
+
+		static core::vector<uint32_t> s_updateIndices;
+		static core::vector<core::matrix3x4SIMD> s_updateData;
+	protected:
+		btTransform m_cachedMat;
+		uint32_t m_index;
 };
+core::vector<uint32_t> CInstancedMotionState::s_updateIndices;
+core::vector<core::matrix3x4SIMD> CInstancedMotionState::s_updateData;
 
 
 int main()
@@ -182,13 +182,49 @@ int main()
 	constexpr uint32_t startIndexSpheres = startIndexCylinders + cylinderIDs.size();
 	constexpr uint32_t startIndexCones = startIndexSpheres + sphereIDs.size();
 
-	// Instances Buffer
 	constexpr uint32_t MaxNumInstances = cubeIDs.size() + cylinderIDs.size() + sphereIDs.size() + coneIDs.size();
+	// Instances Buffer
 	auto colorBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(core::vectorSIMDf)*MaxNumInstances);
 	auto transformBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(core::matrix3x4SIMD)*MaxNumInstances);
+	// Physics
+	core::vector<btRigidBody*> bodies;
+	bodies.resize(MaxNumInstances);
+	// Shapes RigidBody Data
+	ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData;
+	ext::Bullet3::CPhysicsWorld::RigidBodyData cylinderRigidBodyData;
+	ext::Bullet3::CPhysicsWorld::RigidBodyData sphereRigidBodyData;
+	ext::Bullet3::CPhysicsWorld::RigidBodyData coneRigidBodyData;
+	{
+		cubeRigidBodyData.mass = 2.0f;
+		cubeRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
+		btVector3 inertia;
+		cubeRigidBodyData.shape->calculateLocalInertia(cubeRigidBodyData.mass, inertia);
+		cubeRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
+	{
+		cylinderRigidBodyData.mass = 1.0f;
+		cylinderRigidBodyData.shape = world->createbtObject<btCylinderShape>(btVector3(0.5, 0.5, 0.5));
+		btVector3 inertia;
+		cylinderRigidBodyData.shape->calculateLocalInertia(cylinderRigidBodyData.mass, inertia);
+		cylinderRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
+	{
+		sphereRigidBodyData.mass = 1.0f;
+		sphereRigidBodyData.shape = world->createbtObject<btSphereShape>(0.5);
+		btVector3 inertia;
+		sphereRigidBodyData.shape->calculateLocalInertia(sphereRigidBodyData.mass, inertia);
+		sphereRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
+	{
+		coneRigidBodyData.mass = 1.0f;
+		coneRigidBodyData.shape = world->createbtObject<btConeShape>(0.5, 1.0);
+		btVector3 inertia;
+		coneRigidBodyData.shape->calculateLocalInertia(coneRigidBodyData.mass, inertia);
+		coneRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+	}
 
-	core::vector<core::matrix3x4SIMD> instanceTransforms(MaxNumInstances);
 	// GPU data pool
+	constexpr auto TransformPropertyID = 1u;
 	using instance_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
 	core::smart_refctd_ptr<instance_property_pool_t> propertyPool;
 	auto propertyPoolHandler = device->getDefaultPropertyPoolHandler();
@@ -199,10 +235,35 @@ int main()
 		propertyPool = instance_property_pool_t::create(device.get(),blocks,MaxNumInstances);
 		
 		core::vector<core::vectorSIMDf> initialColor(MaxNumInstances);
+		core::vector<core::matrix3x4SIMD> instanceTransforms(MaxNumInstances);
 		for (auto i=0u; i<MaxNumInstances; i++)
 		{
 			initialColor[i] = core::vector3df_SIMD(float(i)/float(MaxNumInstances),0.5f,1.f);
 			instanceTransforms[i].setTranslation(core::vectorSIMDf(float(i % 3) - 1.0f, i * 1.5f, 0.0f));
+			// TODO: make this code pretty
+			{	
+				core::matrix3x4SIMD correction_mat; 
+
+				auto & rigidBodyData = cubeRigidBodyData;
+				if(i >= startIndexCones) 
+				{
+					rigidBodyData = coneRigidBodyData;
+					correction_mat.setTranslation(core::vector3df_SIMD(0.0f, -0.5f, 0.0f));
+				}
+				else if(i >= startIndexSpheres) 
+				{
+					rigidBodyData = sphereRigidBodyData;
+				}
+				else if(i >= startIndexCylinders) 
+				{
+					rigidBodyData = cylinderRigidBodyData;
+					correction_mat.setRotation(core::quaternion(core::PI<float>() / 2.0f, 0.0f, 0.0f));
+				}
+				rigidBodyData.trans = instanceTransforms[i];
+		
+				auto& body = bodies[i] = world->createRigidBody(rigidBodyData);
+				world->bindRigidBody<CInstancedMotionState>(body, i, instanceTransforms[i], correction_mat);
+			}
 		}
 
 		std::array<video::CPropertyPoolHandler::AllocationRequest,4u> requests;
@@ -241,83 +302,7 @@ int main()
 			computeQueue->submit(1u,&submit,fence.get());
 		}
 	}
-		
-	// Shapes RigidBody Data
-	ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData;
-	ext::Bullet3::CPhysicsWorld::RigidBodyData cylinderRigidBodyData;
-	ext::Bullet3::CPhysicsWorld::RigidBodyData sphereRigidBodyData;
-	ext::Bullet3::CPhysicsWorld::RigidBodyData coneRigidBodyData;
-	{
-		cubeRigidBodyData.mass = 2.0f;
-		cubeRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
-		btVector3 inertia;
-		cubeRigidBodyData.shape->calculateLocalInertia(cubeRigidBodyData.mass, inertia);
-		cubeRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
-	{
-		cylinderRigidBodyData.mass = 1.0f;
-		cylinderRigidBodyData.shape = world->createbtObject<btCylinderShape>(btVector3(0.5, 0.5, 0.5));
-		btVector3 inertia;
-		cylinderRigidBodyData.shape->calculateLocalInertia(cylinderRigidBodyData.mass, inertia);
-		cylinderRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
-	{
-		sphereRigidBodyData.mass = 1.0f;
-		sphereRigidBodyData.shape = world->createbtObject<btSphereShape>(0.5);
-		btVector3 inertia;
-		sphereRigidBodyData.shape->calculateLocalInertia(sphereRigidBodyData.mass, inertia);
-		sphereRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
-	{
-		coneRigidBodyData.mass = 1.0f;
-		coneRigidBodyData.shape = world->createbtObject<btConeShape>(0.5, 1.0);
-		btVector3 inertia;
-		coneRigidBodyData.shape->calculateLocalInertia(coneRigidBodyData.mass, inertia);
-		coneRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
 
-
-
-
-	// initialize
-
-	core::vector<btRigidBody*> bodies;
-	bodies.resize(MaxNumInstances);
-
-	// TODO: replace with the actual scenemanager
-	struct GPUObject
-	{
-		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
-		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
-	};
-	core::vector<GPUObject> gpuObjects;
-
-	for(uint32_t i = 0; i < MaxNumInstances; ++i) {
-		
-		core::matrix3x4SIMD correction_mat; 
-
-		auto & rigidBodyData = cubeRigidBodyData;
-		if(i >= startIndexCones) 
-		{
-			rigidBodyData = coneRigidBodyData;
-			correction_mat.setTranslation(core::vector3df_SIMD(0.0f, -0.5f, 0.0f));
-		}
-		else if(i >= startIndexSpheres) 
-		{
-			rigidBodyData = sphereRigidBodyData;
-		}
-		else if(i >= startIndexCylinders) 
-		{
-			rigidBodyData = cylinderRigidBodyData;
-			correction_mat.setRotation(core::quaternion(core::PI<float>() / 2.0f, 0.0f, 0.0f));
-		}
-		rigidBodyData.trans = instanceTransforms[i];
-		
-		auto & body = bodies[i];
-
-		bodies[i] = world->createRigidBody(rigidBodyData);
-		world->bindRigidBody<CInstancedMotionState>(body, &instanceTransforms, i, instanceTransforms[i], correction_mat);
-	}
 
 	// weird fix -> do not read the next 6 lines (It doesn't affect the program logically) -> waiting for access_violation_repro branch to fix and merge
 	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
@@ -385,9 +370,14 @@ int main()
 	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, assetManager.get(), shaders, shaders+2);
-	
+
+	// TODO: replace with an actual scenemanager
+	struct GPUObject
+	{
+		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
+		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
+	};
 	// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
-	video::IGPUObjectFromAssetConverter CPU2GPU;
 	auto createGPUObject = [&](
 		asset::ICPUMeshBuffer * cpuMesh, uint32_t numInstances, uint64_t rangeStart,
 		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
@@ -440,8 +430,8 @@ int main()
 		auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u);
 		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
+		video::IGPUObjectFromAssetConverter CPU2GPU;
 		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
-	
 		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh,&cpuMesh+1,cpu2gpuParams)->front();
 	
 		asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
@@ -464,6 +454,7 @@ int main()
 		return ret;
 	};
 
+	core::vector<GPUObject> gpuObjects;
 	if(cubeIDs.size() > 0)
 		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), cubeIDs.size(), startIndexCubes));
 	if(cylinderIDs.size() > 0)
@@ -568,9 +559,24 @@ int main()
 			vp.height = WIN_H;
 			cb->setViewport(0u, 1u, &vp);
 		}
-		// renderpass 
+		// acquire image 
 		uint32_t imgnum = 0u;
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
+		// Update instances buffer 
+		{
+			// Update Physics (TODO: fixed timestep)
+			world->getWorld()->stepSimulation(dt);
+			video::CPropertyPoolHandler::TransferRequest request;
+			request.download = false;
+			request.pool = propertyPool.get();
+			request.indices = {CInstancedMotionState::s_updateIndices.data(),CInstancedMotionState::s_updateIndices.data()+CInstancedMotionState::s_updateIndices.size()};
+			request.propertyID = TransformPropertyID;
+			request.data = CInstancedMotionState::s_updateData.data();
+			propertyPoolHandler->transferProperties(cb.get(),fence.get(),&request,&request+1u,logger.get());
+			CInstancedMotionState::s_updateIndices.clear();
+			CInstancedMotionState::s_updateData.clear();
+		}
+		// renderpass
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
@@ -590,17 +596,6 @@ int main()
 			info.renderArea.offset = { 0, 0 };
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
-		}
-		// Update instances buffer 
-		{
-			// Update Physics (TODO: fixed timestep)
-			world->getWorld()->stepSimulation(dt);
-
-			asset::SBufferRange<video::IGPUBuffer> range;
-			range.buffer = transformBuffer;
-			range.offset = 0;
-			range.size = transformBuffer->getSize();
-			device->updateBufferRangeViaStagingBuffer(graphicsQueue, range, instanceTransforms.data());
 		}
 		// draw
 		{
