@@ -101,21 +101,18 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 					upAllocations++;
 			}
 
-			// TODO: no idea what's going on here
 			uint32_t* const upSizes = m_tmpSizes+1u;
 			uint32_t* const downAddresses = m_tmpAddresses+upAllocations;
 			uint32_t* const downSizes = m_tmpSizes+upAllocations;
 
-			// figure out the sizes to allocate
 			uint32_t maxElements = 0u;
-#if 0
 			auto RangeComparator = [](auto lhs, auto rhs)->bool{return lhs.source.begin()<rhs.source.begin();};
+			// figure out the sizes to allocate
 			{
-				m_tmpSizes[0u] = 3u*propertiesThisPass;
+				m_tmpSizes[0u] = sizeof(nbl_glsl_property_pool_transfer_t)*m_maxPropertiesPerPass;
 
 				uint32_t* upSizesIt = upSizes;
 				uint32_t* downSizesIt = downSizes;
-				m_tmpIndexRanges.resize(propertiesThisPass);
 				for (uint32_t i=0; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
@@ -132,38 +129,42 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 				}
 
 				// find slabs (reduce index duplication)
-				std::sort(m_tmpIndexRanges.begin(),m_tmpIndexRanges.end(),RangeComparator);
-				uint32_t indexOffset = 0u;
-				auto oit = m_tmpIndexRanges.begin();
-				for (auto it=m_tmpIndexRanges.begin()+1u; it!=m_tmpIndexRanges.end(); it++)
 				{
-					const auto& inRange = it->source;
-					maxElements = core::max<uint32_t>(inRange.size(),maxElements);
+					std::sort(m_tmpIndexRanges,m_tmpIndexRanges+propertiesThisPass,RangeComparator);
 
-					// check for discontinuity
-					auto& outRange = oit->source;
-					if (inRange.begin()>outRange.end())
+					uint32_t indexOffset = 0u;
+					auto oit = m_tmpIndexRanges;
+					for (auto i=1u; i<propertiesThisPass; i++)
 					{
-						indexOffset += outRange.size();
-						// begin a new slab
-						oit++;
-						*oit = *it;
-						oit->destOff = indexOffset;
-					}
-					else
-						reinterpret_cast<const uint32_t**>(&outRange)[1] = inRange.end();
-				}
-				// note the size of the last slab
-				indexOffset += oit->source.size();
-				m_tmpIndexRanges.resize(std::distance(m_tmpIndexRanges.begin(),++oit));
+						const auto& inRange = m_tmpIndexRanges[i].source;
+						maxElements = core::max<uint32_t>(inRange.size(),maxElements);
 
-				m_tmpSizes[0u] += indexOffset;
-				m_tmpSizes[0u] *= sizeof(uint32_t);
+						// check for discontinuity
+						auto& outRange = oit->source;
+						if (inRange.begin()>outRange.end())
+						{
+							indexOffset += outRange.size();
+							// begin a new slab
+							oit++;
+							*oit = m_tmpIndexRanges[i];
+							oit->destOff = indexOffset;
+						}
+						else
+							reinterpret_cast<const uint32_t**>(&outRange)[1] = inRange.end();
+					}
+					// note the size of the last slab
+					indexOffset += oit->source.size();
+					m_tmpIndexRanges.resize(std::distance(m_tmpIndexRanges,++oit));
+
+					m_tmpSizes[0u] += indexOffset*sizeof(uint32_t);
+				}
 			}
 			// allocate indices and upload/allocate data
 			{
-				std::fill(m_tmpAddresses.begin(),m_tmpAddresses.begin()+propertiesThisPass+1u,invalid_address);
-				upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),m_alignments.data());
+				// TODO: handle overflow (chunk the updates)
+				std::fill(m_tmpAddresses,m_tmpAddresses+propertiesThisPass+1u,invalid_address);
+				upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses,m_tmpSizes,m_alignments);
+#if 0
 
 				uint8_t* indexBufferPtr = upBuffPtr+m_tmpAddresses[0u]/sizeof(uint32_t);
 				// write `elementCount`
@@ -216,11 +217,12 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 						memcpy(upBuffPtr+(*(upAddrIt++)),request.writeData,request.indices.size()*propSize);
 					}
 				}
+#endif
 
 				if (downAllocations)
-					downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments.data());
+					downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments);
 			}
-#endif
+
 			cmdbuf->bindComputePipeline(m_pipeline.get());
 			// update desc sets
 			auto set = m_dsCache->acquireSet(this,localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
@@ -230,15 +232,15 @@ bool CPropertyPoolHandler::transferProperties(IGPUCommandBuffer* cmdbuf, const T
 			// bind desc sets
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
 			// dispatch
-#if 0
 			cmdbuf->dispatch((maxElements-1u)/IdealWorkGroupSize+1u,propertiesThisPass,1u);
-			auto& fence = retval.second = m_driver->placeFence(true);
 
+#if 0
+			auto& fence = retval.second = m_driver->placeFence(true);
 			// deferred release resources
+			items.descriptorSetCache.releaseSet(core::smart_refctd_ptr(fence),std::move(set));
 			upBuff->multi_free(upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),core::smart_refctd_ptr(fence));
 			if (downAllocations)
 				downBuff->multi_free(downAllocations,downAddresses,downSizes,core::smart_refctd_ptr(fence));
-			items.descriptorSetCache.releaseSet(core::smart_refctd_ptr(fence),std::move(set));
 #endif
 			return true;
 		};
