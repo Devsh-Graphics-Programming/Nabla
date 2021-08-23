@@ -6,16 +6,19 @@
 #include "nbl/core/decl/BaseClasses.h"
 
 #include <memory>
+#include <type_traits>
 
 namespace nbl::core
 {
 
-template <class AddressAllocator, template<class> class DataAllocator, typename... Args>
+template <class AddressAllocator, template<class> class DataAllocator, bool isThreadSafe, typename... Args>
 class CMemoryPool : public Uncopyable
 {
 public:
     using addr_allocator_type = AddressAllocator;
-    using allocator_type = SimpleBlockBasedAllocator<AddressAllocator,DataAllocator,Args...>;
+    using allocator_type = std::conditional<isThreadSafe,
+        SimpleBlockBasedAllocatorMT<AddressAllocator,DataAllocator,Args...>,
+        SimpleBlockBasedAllocatorST<AddressAllocator,DataAllocator,Args...>>::type;
     using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;
     using addr_type = size_type;
 

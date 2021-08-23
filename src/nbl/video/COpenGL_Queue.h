@@ -385,7 +385,7 @@ class COpenGL_Queue final : public IGPUQueue
 
     private:
         CThreadHandler threadHandler;
-        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,uint32_t>;
+        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,false,uint32_t>;
         memory_pool_t m_mempool;
         uint32_t m_ctxid;
 };

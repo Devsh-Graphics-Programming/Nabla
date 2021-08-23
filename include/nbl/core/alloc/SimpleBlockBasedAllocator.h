@@ -11,6 +11,7 @@
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 
 #include <memory>
+#include <mutex>
 
 namespace nbl::core
 {
@@ -209,7 +210,53 @@ class SimpleBlockBasedAllocator
 		}
 };
 
+template<class AddressAllocator, template<class> class DataAllocator, typename... Args>
+using SimpleBlockBasedAllocatorST = SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>;
 
+
+template<class AddressAllocator, template<class> class DataAllocator, class RecursiveLockable=std::recursive_mutex, typename... Args>
+class SimpleBlockBasedAllocatorMT : protected SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>
+{
+    typedef SimpleBlockBasedAllocatorST<AddressAllocator, DataAllocator, Args...> Base;
+	
+protected:
+        RecursiveLockable lock;
+
+        virtual ~SimpleBlockBasedAllocatorMT() {}
+
+	public:
+        using size_type = typename Base::size_type;
+		_NBL_STATIC_INLINE_CONSTEXPR size_type meta_alignment = 64u;
+		
+    public:
+		
+        inline void		reset()
+        {
+			lock.lock();
+			Base::reset();
+			lock.unlock();
+        }
+
+		inline void*	allocate(size_type bytes, size_type alignment) noexcept
+		{
+			lock.lock();
+			Base::allocate(bytes, alignment);
+			lock.unlock();
+		}
+		inline void		deallocate(void* p, size_type bytes) noexcept
+		{
+			lock.lock();
+			Base::deallocate(p, bytes);
+			lock.unlock();
+		}
+
+		//! Extra == Use WITH EXTREME CAUTION
+		inline RecursiveLockable&   get_lock() noexcept
+		{
+			return lock;
+		}
+
+};
 // no aliases
 
 }
