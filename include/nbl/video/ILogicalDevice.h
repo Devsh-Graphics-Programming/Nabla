@@ -61,7 +61,7 @@ public:
         IDriverMemoryAllocation* memory;
         size_t offset;
     };
-
+    
     inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice.get(); }
 
     E_API_TYPE getAPIType() const;
