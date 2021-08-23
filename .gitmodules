@@ -99,3 +99,9 @@
 [submodule "3rdparty/EGL"]
 	path = 3rdparty/EGL
 	url = https://github.com/Crisspl/EGL.git
+[submodule "3rdparty/simdjson"]
+	path = 3rdparty/simdjson
+	url = https://github.com/simdjson/simdjson.git
+[submodule "3rdparty/glTFSampleModels"]
+	path = 3rdparty/glTFSampleModels
+	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
