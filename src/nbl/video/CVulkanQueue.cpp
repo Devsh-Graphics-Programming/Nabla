@@ -11,13 +11,12 @@ namespace nbl::video
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
     // Probably should abstract this??
-    // const auto originDevice = getOriginDevice();
-    if (m_originDevice2->getAPIType() != EAT_VULKAN)
+    const auto originDevice = getOriginDevice();
+    if (originDevice->getAPIType() != EAT_VULKAN)
         return false;
 
     // auto* vk = m_vkdev->getFunctionTable();
-    // VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
-    VkDevice vk_device = static_cast<const CVKLogicalDevice*>(m_originDevice2)->getInternalObject();
+    VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
 
     uint32_t waitSemCnt = 0u;
     uint32_t signalSemCnt = 0u;

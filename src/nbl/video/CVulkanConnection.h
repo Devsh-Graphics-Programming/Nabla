@@ -7,7 +7,6 @@
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"
-// #   include "nbl/video/surface/CSurfaceVKWin32.h"
 #endif
 
 namespace nbl::video

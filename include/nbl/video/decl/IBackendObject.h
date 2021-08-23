@@ -14,9 +14,6 @@ class ILogicalDevice;
 class IBackendObject
 {
     public:
-        const ILogicalDevice* m_originDevice2;
-        IBackendObject(const ILogicalDevice* device) : m_originDevice2(device) {}
-
         IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device);
 
         E_API_TYPE getAPIType() const;

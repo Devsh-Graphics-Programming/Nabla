@@ -34,9 +34,9 @@ template<E_API_TYPE API_TYPE>
 IDebugCallback* COpenGL_Connection<API_TYPE>::getDebugCallback() const
 {
     if constexpr (API_TYPE == EAT_OPENGL)
-        return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLLogicalDevice>*>(m_pdevice.get())->getDebugCallback();
+        return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLLogicalDevice>*>(m_pdevice)->getDebugCallback();
     else
-        return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>*>(m_pdevice.get())->getDebugCallback();
+        return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>*>(m_pdevice)->getDebugCallback();
 }
 
 

@@ -86,14 +86,9 @@ public:
 
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
-                // (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(
-                //     core::make_smart_refctd_ptr<QueueType>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),_egl,m_glfeatures,ctxid,glctx.ctx,glctx.pbuffer,famIx,flags,priority,static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback())),
-                //     core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this)
-                // );
-
                 (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(
-                    core::make_smart_refctd_ptr<QueueType>((this),_egl,m_glfeatures,ctxid,glctx.ctx,glctx.pbuffer,famIx,flags,priority,static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback())),
-                    (this)
+                    core::make_smart_refctd_ptr<QueueType>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),_egl,m_glfeatures,ctxid,glctx.ctx,glctx.pbuffer,famIx,flags,priority,static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback())),
+                    core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this)
                 );
             }
         }

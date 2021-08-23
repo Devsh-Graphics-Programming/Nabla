@@ -60,15 +60,10 @@ public:
                 // Todo(achal): Kinda weird situation here by passing the same ILogicalDevice
                 // refctd_ptr to both CThreadSafeGPUQueueAdapter and CVulkanQueue separately
                 const uint32_t ix = offset + j;
-                // (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(
-                //     core::make_smart_refctd_ptr<CVulkanQueue>(
-                //         core::smart_refctd_ptr<CVKLogicalDevice>(this), q, famIx, flags, priority),
-                //     core::smart_refctd_ptr<CVKLogicalDevice>(this));
-
                 (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(
                     core::make_smart_refctd_ptr<CVulkanQueue>(
-                        (this), q, famIx, flags, priority),
-                    (this));
+                        core::smart_refctd_ptr<CVKLogicalDevice>(this), q, famIx, flags, priority),
+                    core::smart_refctd_ptr<CVKLogicalDevice>(this));
             }
         }
     }
