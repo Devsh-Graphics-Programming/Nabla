@@ -41,6 +41,12 @@ public:
 	//! Returns an array of string literals terminated by nullptr
 	virtual const char** getAssociatedFileExtensions() const = 0;
 
+	virtual bool isMountable() const = 0;
+
+	virtual bool mount(const IFile* file, const std::string_view& passphrase) = 0;
+	
+	virtual bool unmount(const IFile* file) = 0;
+
 	//! Creates an archive from the file
 	/** \param file File handle to use.
 	\return Pointer to newly created archive, or 0 upon error. */
