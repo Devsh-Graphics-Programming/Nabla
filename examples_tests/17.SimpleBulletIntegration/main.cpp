@@ -572,7 +572,8 @@ int main()
 			request.indices = {CInstancedMotionState::s_updateIndices.data(),CInstancedMotionState::s_updateIndices.data()+CInstancedMotionState::s_updateIndices.size()};
 			request.propertyID = TransformPropertyID;
 			request.data = CInstancedMotionState::s_updateData.data();
-			propertyPoolHandler->transferProperties(cb.get(),fence.get(),&request,&request+1u,logger.get());
+			auto result = propertyPoolHandler->transferProperties(cb.get(),fence.get(),&request,&request+1u,logger.get());
+			assert(result.transferSuccess);
 			CInstancedMotionState::s_updateIndices.clear();
 			CInstancedMotionState::s_updateData.clear();
 		}
