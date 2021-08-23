@@ -7,51 +7,62 @@
 #include <cstdio>
 #include <nabla.h>
 
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#endif // TODO more platforms
+
 using namespace nbl;
 using namespace core;
 using namespace asset;
+using namespace system;
+
+static inline nbl::core::smart_refctd_ptr<nbl::system::ISystem> createSystem()
+{
+	using namespace nbl;
+	using namespace core;
+	using namespace system;
+	smart_refctd_ptr<ISystemCaller> caller = nullptr;
+
+	#ifdef _NBL_PLATFORM_WINDOWS_
+	caller = make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
+	#endif
+
+	return make_smart_refctd_ptr<ISystem>(std::move(caller));
+}
 
 int main(int argc, char * argv[])
 {
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; 
-	params.ZBufferBits = 24; 
-	params.DriverType = video::EDT_NULL; 
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = true; 
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; 
-	auto device = createDeviceEx(params);
-
-	if (!device)
-		return 1;
+	auto system = createSystem();
+	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
 
 	const bool isItDefaultImage = argc == 1;
 	if (isItDefaultImage)
-		os::Printer::log("No image specified - loading a default OpenEXR image placed in media/OpenEXR!", ELL_INFORMATION);
+		logger->log("No image specified - loading a default OpenEXR image placed in media/OpenEXR!", ILogger::ELL_INFO);
 	else if (argc == 2)
-		os::Printer::log(argv[1] + std::string(" specified!"), ELL_INFORMATION);
+		logger->log((argv[1] + std::string(" specified!")).c_str(), ILogger::ELL_INFO);
 	else
 	{
-		os::Printer::log("To many arguments - pass a single filename without .exr extension of OpenEXR image placed in media/OpenEXR! ", ELL_ERROR);
+		logger->log("To many arguments - pass a single filename without .exr extension of OpenEXR image placed in media/OpenEXR!", ILogger::ELL_ERROR);
 		return 0;
 	}
 
-	auto driver = device->getVideoDriver();
-	auto smgr = device->getSceneManager();
-	auto am = device->getAssetManager();
-
-	IAssetLoader::SAssetLoadParams lp;
+	IAssetLoader::SAssetLoadParams loadParams;
 	constexpr std::string_view defaultImagePath = "../../media/noises/spp_benchmark_4k_512.exr";
 	const auto filePath = std::string(isItDefaultImage ? defaultImagePath.data() : argv[1]);
-	auto image_bundle = am->getAsset(filePath, lp);
-	auto contents = image_bundle.getContents();
-	assert(!contents.empty());
-	auto meta = image_bundle.getMetadata()->selfCast<const COpenEXRMetadata>();
-	assert(meta);
 
-	uint32_t i=0u;
+	const asset::COpenEXRMetadata* meta;
+	auto image_bundle = assetManager->getAsset(filePath, loadParams);
+	auto contents = image_bundle.getContents();
+	{
+		bool status = !contents.empty();
+		assert(status);
+		status = meta = image_bundle.getMetadata()->selfCast<const COpenEXRMetadata>();
+		assert(status);
+	}
+	
+
+	uint32_t i = 0u;
 	for (auto asset : contents)
 	{
 		auto image = IAsset::castDown<ICPUImage>(asset);
@@ -67,15 +78,16 @@ int main(int argc, char * argv[])
 
 		auto channelsName = metadata->m_name;
 
-		io::path fileName, extension, finalFileNameWithExtension;
-		core::splitFilename(filePath.c_str(), nullptr, &fileName, &extension);
-		finalFileNameWithExtension = fileName + ".";
-		finalFileNameWithExtension += extension;
+		std::filesystem::path filename, extension;
+		core::splitFilename(filePath.c_str(), nullptr, &filename, &extension);
+		const std::string finalFileNameWithExtension = filename.string() + extension.string();
+		const std::string finalOutputPath = channelsName.empty() ? (filename.string() + "_" + std::to_string(i++) + extension.string()) : (filename.string() + "_" + channelsName + extension.string());
 
-		const std::string finalOutputPath = channelsName.empty() ? (std::string(fileName.c_str()) + "_" + std::to_string(i++) + "." + std::string(extension.c_str())) : (std::string(fileName.c_str()) + "_" + channelsName + "." + std::string(extension.c_str()));
-
-		const auto params = IAssetWriter::SAssetWriteParams(imageView.get(), EWF_BINARY);
-		am->writeAsset(finalOutputPath, params);
+		const auto writeParams = IAssetWriter::SAssetWriteParams(imageView.get(), EWF_BINARY);
+		{
+			bool status = assetManager->writeAsset(finalOutputPath, writeParams);
+			assert(status);
+		}
 	}
 		
 	return 0;
