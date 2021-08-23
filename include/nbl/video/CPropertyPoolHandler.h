@@ -122,9 +122,11 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				//
 				uint32_t acquireSet(
 					CPropertyPoolHandler* handler,
+					IGPUBuffer* const upBuff,
+					IGPUBuffer* const downBuff,
 					const TransferRequest* requests,
-					const uint32_t indexCount,
 					const uint32_t propertyCount,
+					const uint32_t firstSSBOSize,
 					const uint32_t* uploadAddresses,
 					const uint32_t* downloadAddresses
 				);

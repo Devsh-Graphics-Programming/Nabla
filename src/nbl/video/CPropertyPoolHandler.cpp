@@ -17,7 +17,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	const auto maxSSBO = core::min<uint32_t>(m_device->getPhysicalDevice()->getLimits().maxPerStageSSBOs,MaxPropertyTransfers);
 	m_maxPropertiesPerPass = (maxSSBO-1u)/2u;
 	
-	const auto maxStreamingAllocations = m_maxPropertiesPerPass+1u;
+	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+1u;
 	{
 		m_tmpIndexRanges = reinterpret_cast<IndexUploadRange*>(malloc((sizeof(IndexUploadRange)+sizeof(nbl_glsl_property_pool_transfer_t))*maxStreamingAllocations));
 		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpIndexRanges+maxStreamingAllocations);
@@ -190,7 +190,7 @@ bool CPropertyPoolHandler::transferProperties(
 			std::fill(m_tmpAddresses,m_tmpAddresses+propertiesThisPass+1u,invalid_address);
 			std::fill(downAddresses,downAddresses+propertiesThisPass,invalid_address);
 			auto freeUpAllocOnFail = core::makeRAIIExiter([&]()->void
-			{
+			{ 
 				if (!retval)
 				{
 					upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes);
@@ -269,7 +269,7 @@ bool CPropertyPoolHandler::transferProperties(
 			}
 
 			// update desc sets
-			auto setIx = m_dsCache->acquireSet(this,localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
+			auto setIx = m_dsCache->acquireSet(this,upBuff->getBuffer(),downBuff->getBuffer(),localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
 			if (!(retval=setIx!=IDescriptorSetCache::invalid_index))
 			{
 				logger.log("CPropertyPoolHandler: Failed to acquire descriptor set!",system::ILogger::ELL_ERROR);
@@ -310,9 +310,11 @@ bool CPropertyPoolHandler::transferProperties(
 
 uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	CPropertyPoolHandler* handler,
+	IGPUBuffer* const upBuff,
+	IGPUBuffer* const downBuff,
 	const TransferRequest* requests,
-	const uint32_t indexCount,
 	const uint32_t propertyCount,
+	const uint32_t firstSSBOSize,
 	const uint32_t* uploadAddresses,
 	const uint32_t* downloadAddresses
 )
@@ -324,13 +326,11 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	
 	//
 	auto device = handler->getDevice();
-	auto upBuff = device->getDefaultUpStreamingBuffer()->getBuffer();
-	auto downBuff = device->getDefaultDownStreamingBuffer()->getBuffer();
 
 	const auto maxPropertiesPerPass = handler->getMaxPropertiesPerTransferDispatch();
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertyTransfers*2u+1u];
 	infos[0].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-	infos[0].buffer = { *(uploadAddresses++),sizeof(nbl_glsl_property_pool_transfer_t)*maxPropertiesPerPass+indexCount*sizeof(uint32_t) };
+	infos[0].buffer = { *(uploadAddresses++),firstSSBOSize };
 	auto* inDescInfo = infos+1;
 	auto* outDescInfo = infos+1+maxPropertiesPerPass;
 	for (uint32_t i=0u; i<propertyCount; i++)

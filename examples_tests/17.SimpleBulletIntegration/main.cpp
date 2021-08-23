@@ -239,7 +239,7 @@ int main()
 
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		propertyPoolHandler->addProperties(cmdbuf,fence,requests.data(),requests.data()+requests.size(),logger.get());
-		cmdbuf->end();
+ 		cmdbuf->end();
 		
 		video::IGPUQueue::SSubmitInfo submit;
 		{
