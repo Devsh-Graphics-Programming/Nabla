@@ -5,9 +5,8 @@
 #ifndef _NBL_EXT_BULLET_I_MOTION_STATE_BASE_INCLUDED_
 #define _NBL_EXT_BULLET_I_MOTION_STATE_BASE_INCLUDED_
 
-#include <cstdint>
 #include "nabla.h"
-#include "nbl/core/IReferenceCounted.h"
+
 #include "btBulletDynamicsCommon.h"
 
 namespace nbl::ext::Bullet3

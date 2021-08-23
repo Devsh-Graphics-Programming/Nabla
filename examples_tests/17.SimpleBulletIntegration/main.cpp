@@ -256,39 +256,20 @@ int main()
 	auto world = ext::Bullet3::CPhysicsWorld::create();
 	world->getWorld()->setGravity(btVector3(0, -5, 0));
 
-	// initialize
-	constexpr uint32_t startIndexCubes = 0;
-	constexpr uint32_t startIndexCylinders = startIndexCubes + cubeIDs.size();
-	constexpr uint32_t startIndexSpheres = startIndexCylinders + cylinderIDs.size();
-	constexpr uint32_t startIndexCones = startIndexSpheres + sphereIDs.size();
-	constexpr uint32_t NumInstances = MaxNumInstances;
-	
-	core::vector<InstanceData> instancesData;
-	instancesData.resize(NumInstances);
-	
-	for(uint32_t i = 0; i < NumInstances; ++i) {
-		instancesData[i].color = core::vector3df_SIMD(float(i) / float(NumInstances), 0.5f, 1.0f);
-	}
-
-
-
-
-	core::vector<GPUObject> gpuObjects;
-
 	// BasePlate
-	core::matrix3x4SIMD baseplateMat;
-	baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
-
+	btRigidBody* basePlateBody;
 	ext::Bullet3::CPhysicsWorld::RigidBodyData basePlateRigidBodyData;
-	basePlateRigidBodyData.mass = 0.0f;
-	basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
-	basePlateRigidBodyData.trans = baseplateMat;
+	{
+		core::matrix3x4SIMD baseplateMat;
+		baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
 
-	btRigidBody *body2 = world->createRigidBody(basePlateRigidBodyData);
-	world->bindRigidBody(body2);
+		basePlateRigidBodyData.mass = 0.0f;
+		basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
+		basePlateRigidBodyData.trans = baseplateMat;
 
-	core::vector<btRigidBody*> bodies;
-	bodies.resize(NumInstances);
+		basePlateBody = world->createRigidBody(basePlateRigidBodyData);
+		world->bindRigidBody(basePlateBody);
+	}
 		
 	// Shapes RigidBody Data
 	ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData;
@@ -324,7 +305,24 @@ int main()
 		coneRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
 	}
 
-	for(uint32_t i = 0; i < NumInstances; ++i) {
+
+
+
+	// initialize
+	constexpr uint32_t startIndexCubes = 0;
+	constexpr uint32_t startIndexCylinders = startIndexCubes + cubeIDs.size();
+	constexpr uint32_t startIndexSpheres = startIndexCylinders + cylinderIDs.size();
+	constexpr uint32_t startIndexCones = startIndexSpheres + sphereIDs.size();
+
+	core::vector<btRigidBody*> bodies;
+	bodies.resize(MaxNumInstances);
+
+	core::vector<InstanceData> instancesData;
+	instancesData.resize(MaxNumInstances);
+
+	core::vector<GPUObject> gpuObjects;
+
+	for(uint32_t i = 0; i < MaxNumInstances; ++i) {
 		
 		core::matrix3x4SIMD correction_mat; 
 
@@ -626,10 +624,12 @@ int main()
 		
 	}
 	
-	world->unbindRigidBody(body2, false);
-	world->deleteRigidBody(body2);
+	world->unbindRigidBody(basePlateBody,false);
+	world->deleteRigidBody(basePlateBody);
+	world->deletebtObject(basePlateRigidBodyData.shape);
 	
-	for (uint32_t i = 0; i < NumInstances; ++i) {
+	for (uint32_t i=0u; i<MaxNumInstances; ++i)
+	{
 		world->unbindRigidBody(bodies[i]);
 		world->deleteRigidBody(bodies[i]);
 	}

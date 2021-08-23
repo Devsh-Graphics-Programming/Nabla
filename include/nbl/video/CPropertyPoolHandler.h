@@ -65,18 +65,14 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		{
 			TransferRequest() : download(false), pool(nullptr), indices{nullptr,nullptr}, propertyID(0xdeadbeefu)
 			{
-				readData = nullptr;
+				data = nullptr;
 			}
 
 			bool download;
 			IPropertyPool* pool;
 			core::SRange<const uint32_t> indices;
 			uint32_t propertyID;
-			union
-			{
-				const void* readData;
-				void* writeData;
-			};
+			const void* data;
 		};
 		// fence must be not pending yet
 		bool transferProperties(
