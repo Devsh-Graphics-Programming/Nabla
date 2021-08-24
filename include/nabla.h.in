@@ -39,7 +39,6 @@
 // scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
 #include "nbl/scene/scene.h"
 
-
 // core lib
 #include "nbl/core/definitions.h"
 
@@ -51,8 +50,6 @@
 
 // video lib (access to Graphics API, remote rendering, etc) [DEPENDS: asset, (optional) ui]
 #include "nbl/video/definitions.h"
-
-
 
 #include "aabbox3d.h"
 #include "vector2d.h"

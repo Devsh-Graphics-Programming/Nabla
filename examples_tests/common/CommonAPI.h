@@ -196,7 +196,9 @@ public:
 	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
 	{
 	public:
-		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)) {}
+		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false){}
+		
+		bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
 
 	private:
 		bool onWindowShown_impl() override
@@ -245,6 +247,13 @@ public:
 		{
 			m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
 		}
+		
+		bool onWindowClosed_impl() override
+		{
+			m_logger.log("Window closed");
+			m_gotWindowClosedMsg = true;
+			return true;
+		}
 
 		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
 		{
@@ -270,6 +279,7 @@ public:
 	private:
 		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem;
 		nbl::system::logger_opt_smart_ptr m_logger;
+		bool m_gotWindowClosedMsg;
 	};
 
 	static nbl::core::smart_refctd_ptr<nbl::system::ISystem> createSystem()
@@ -295,8 +305,9 @@ public:
 			EQT_TRANSFER_DOWN,
 			EQT_COUNT
 		};
-
+		
 		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
+		nbl::core::smart_refctd_ptr<CommonAPIEventCallback> windowCb;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
@@ -308,7 +319,6 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
 		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
 		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
-		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 		nbl::core::smart_refctd_ptr<nbl::system::CColoredStdoutLoggerWin32> logger;
 		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
 
@@ -325,9 +335,9 @@ public:
 		result.system = createSystem();
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
+		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
 
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
-		windowsCreationParams.callback = nullptr;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
 		windowsCreationParams.x = 64u;
@@ -335,7 +345,7 @@ public:
 		windowsCreationParams.system = core::smart_refctd_ptr(result.system);
 		windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
 		windowsCreationParams.windowCaption = app_name.data();
-		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
+		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
@@ -390,15 +400,6 @@ public:
 		result.physicalDevice = std::move(gpu);
 
 		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
-
-		result.cpu2gpuParams.assetManager = result.assetManager.get();
-		result.cpu2gpuParams.device = result.logicalDevice.get();
-		result.cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
-		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
-		result.cpu2gpuParams.pipelineCache = nullptr;
-		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue; // the queue is capable of transfering
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;  // the queue is capable of computing
 
 		return result;
 	}

@@ -21,6 +21,11 @@ namespace nbl::ui
 		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 	}
 
+	void CWindowWin32::setCaption(const std::string_view& caption)
+	{
+		SetWindowText(m_native, caption.data());
+	}
+
 	CWindowWin32::~CWindowWin32()
 	{
 		m_windowManager->destroyWindow(this);

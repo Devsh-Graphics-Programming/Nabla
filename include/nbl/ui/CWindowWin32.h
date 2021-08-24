@@ -23,7 +23,7 @@ public:
 	CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd);
 
 	const native_handle_t& getNativeHandle() const override { return m_native; }
-
+	void setCaption(const std::string_view& caption) override;
 	~CWindowWin32() override;
 private:
 	CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params);

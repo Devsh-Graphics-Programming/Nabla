@@ -49,7 +49,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 }
 
 //
-bool CPropertyPoolHandler::addProperties(
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
 	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
 	const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd,
 	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
@@ -57,7 +57,7 @@ bool CPropertyPoolHandler::addProperties(
 {
 	return addProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
 }
-bool CPropertyPoolHandler::addProperties(
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 	IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
 	const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
@@ -87,11 +87,13 @@ bool CPropertyPoolHandler::addProperties(
 		oit->data = it->data[i];
 		oit++;
 	}
-	return transferProperties(upBuff,downBuff,cmdbuf,fence,transferRequests.data(),transferRequests.data()+transferCount,logger,maxWaitPoint) && success;
+	transfer_result_t result = transferProperties(upBuff,downBuff,cmdbuf,fence,transferRequests.data(),transferRequests.data()+transferCount,logger,maxWaitPoint);
+	result.transferSuccess = result.transferSuccess&&success;
+	return result;
 }
 
 //
-bool CPropertyPoolHandler::transferProperties(
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
 	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
 	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
 	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
@@ -99,7 +101,7 @@ bool CPropertyPoolHandler::transferProperties(
 {
 	return transferProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
 }
-bool CPropertyPoolHandler::transferProperties(
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 	IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger,
 	const std::chrono::high_resolution_clock::time_point maxWaitPoint
@@ -107,7 +109,15 @@ bool CPropertyPoolHandler::transferProperties(
 {
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
 
-	bool retval = true;
+	transfer_result_t result =
+	{
+		download_future_t(
+			core::smart_refctd_ptr(m_device),
+			core::smart_refctd_ptr<StreamingTransientDataBufferMT<>>(upBuff),
+			core::smart_refctd_ptr<IGPUFence>(fence),
+			totalProps
+		),true
+	};
 	if (totalProps!=0u)
 	{
 		const auto fullPasses = totalProps/m_maxPropertiesPerPass;
@@ -307,8 +317,7 @@ bool CPropertyPoolHandler::transferProperties(
 			cmdbuffs[0] = cmdbuf;
 			std::fill_n(cmdbuffs+1u,upAllocations-1u,nullptr);
 			upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes,core::smart_refctd_ptr<IGPUFence>(fence),cmdbuffs);
-			if (downAllocations) // TODO: invalidate, defer, etc
-				downBuff->multi_free(downAllocations,downAddresses,downSizes);
+			result.download.push(downAllocations,downAddresses,downSizes);
 
 			return retval;
 		};
@@ -317,16 +326,58 @@ bool CPropertyPoolHandler::transferProperties(
 		auto requests = requestsBegin;
 		for (uint32_t i=0; i<fullPasses; i++)
 		{
-			retval = copyPass(requests,m_maxPropertiesPerPass)&&retval;
+			result.transferSuccess = copyPass(requests,m_maxPropertiesPerPass)&&result.transferSuccess;
 			requests += m_maxPropertiesPerPass;
 		}
 
 		const auto leftOverProps = totalProps-fullPasses*m_maxPropertiesPerPass;
 		if (leftOverProps)
-			retval = copyPass(requests,leftOverProps)&&retval;
+			result.transferSuccess = copyPass(requests,leftOverProps)&&result.transferSuccess;
 	}
-	return retval;
+	return result;
 }
+
+CPropertyPoolHandler::download_future_t::~download_future_t()
+{
+	if (m_sizes)
+	{
+		const auto status = m_device->getFenceStatus(m_fence.get());
+		if (status==IGPUFence::ES_TIMEOUT||status==IGPUFence::ES_NOT_READY)
+		{
+			const core::IReferenceCounted*const *const perfectForwardingAintPerfect = nullptr;
+			m_downBuff->multi_free(m_allocCount,m_addresses,m_sizes,std::move(m_fence),perfectForwardingAintPerfect);
+		}
+		else
+			m_downBuff->multi_free(m_allocCount,m_addresses,m_sizes);
+	}
+	if (m_addresses)
+		delete[] m_addresses;
+}
+
+bool CPropertyPoolHandler::download_future_t::wait()
+{
+	if (!m_allocCount || !m_sizes)
+		return true;
+
+	IGPUFence::E_STATUS result;
+	do
+	{
+		result = m_device->waitForFences(1u,&m_fence.get(),true,9999999999ull);
+	} while (result==IGPUFence::ES_TIMEOUT||result==IGPUFence::ES_NOT_READY);
+	m_downBuff->multi_free(m_allocCount,m_addresses,m_sizes);
+	m_sizes = nullptr;
+	m_fence = nullptr;
+	m_device = nullptr;
+	return result==IGPUFence::ES_SUCCESS;
+}
+
+const void* CPropertyPoolHandler::download_future_t::getData(const uint32_t downRequestIndex)
+{
+	if (downRequestIndex<m_allocCount)
+		return reinterpret_cast<uint8_t*>(m_downBuff->getBufferPointer())+m_addresses[downRequestIndex];
+	return nullptr;
+}
+
 
 uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	CPropertyPoolHandler* handler,
