@@ -3,6 +3,7 @@
 #include <nbl/ui/CCursorControlWin32.h>
 
 #ifdef _NBL_PLATFORM_WINDOWS_
+#include <winternl.h>
 #include <hidusage.h>
 #include <hidpi.h>
 #include <codecvt>
@@ -385,6 +386,7 @@ namespace nbl::ui
 		}
 		if(shouldCallDefProc)
 			return DefWindowProc(hWnd, message, wParam, lParam);
+		// TODO: not all paths return a value !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 	}
 
 	E_KEY_CODE CWindowWin32::getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode)

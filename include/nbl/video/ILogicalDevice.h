@@ -82,6 +82,10 @@ public:
     {
         return m_defaultUploadBuffer.get();
     }
+    inline StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer()
+    {
+        return m_defaultDownloadBuffer.get();
+    }
 
     virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
@@ -443,29 +447,33 @@ public:
         return createGPUDescriptorSet_impl(pool, std::move(layout));
     }
 
-    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(core::smart_refctd_ptr<IGPUDescriptorSetLayout>* begin, core::smart_refctd_ptr<IGPUDescriptorSetLayout>* end)
+    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
     {
-        size_t setCount = end - begin;
-        std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes;
-        for (auto* curLayout = begin; curLayout != end; curLayout++)
+        uint32_t totalSetCount = 0;
+        std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes; // TODO: use a map
+        auto setCountsIt = setCounts;
+        for (auto* curLayout = begin; curLayout!=end; curLayout++,setCountsIt++)
         {
-            auto bindings = curLayout->get()->getBindings();
+            const auto setCount = setCounts ? (*setCountsIt):1u;
+            totalSetCount += setCount;
+
+            auto bindings = (*curLayout)->getBindings();
             for (const auto& binding : bindings)
             {
                 auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
                 if (ps != poolSizes.end())
                 {
-                    ++ps->count;
+                    ps->count += setCount*binding.count;
                 }
                 else
                 {
-                    poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, 1 });
+                    poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, setCount*binding.count });
                 }
             }
 
         }
         
-        core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT, setCount, poolSizes.size(), poolSizes.data());
+        core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(flags, totalSetCount, poolSizes.size(), poolSizes.data());
         return dsPool;
     }
 
@@ -678,7 +686,7 @@ public:
             uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
             uint32_t alignment = 64u; // smallest mapping alignment capability
             uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), bufferRange.size-uploadedSize));
-            m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &subSize, &alignment);
+            m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &subSize, &alignment);
 
             // keep trying again
             if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
@@ -765,20 +773,18 @@ public:
 
     // Not implemented stuff:
     //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)
-    //vkGetBufferMemoryRequirements // wonder how it works with dedicated memory XD
     //vkGetDescriptorSetLayoutSupport
     //vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
     //vkGetPipelineCacheData //as pipeline cache method?? (why not)
     //vkMergePipelineCaches //as pipeline cache method (why not)
     //vkCreateQueryPool //????
-    //vkCreateShaderModule //????
-#if 0
+    
     //!
     virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const
     {
-        return m_propertyPoolHandler;
+        return m_propertyPoolHandler.get();
     }
-#endif
+
 protected:
     ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params) : m_physicalDevice(physicalDevice)
     {
@@ -814,19 +820,24 @@ protected:
         post_mapMemory(memory, nullptr, { 0,0 }, IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
     }
 
-    void initDefaultDownloadBuffer(size_t size = 0x4000000ull)
+    void deferredCommonInit(size_t downstreamSize = 0x4000000ull, size_t upstreamSize = 0x4000000ull)
     {
-        auto reqs = getDownStreamingMemoryReqs();
-        reqs.vulkanReqs.size = size;
-        reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-        m_defaultDownloadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this, reqs);
-    }
-    void initDefaultUploadBuffer(size_t size = 0x4000000ull)
-    {
-        auto reqs = getUpStreamingMemoryReqs();
-        reqs.vulkanReqs.size = size;
-        reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-        m_defaultUploadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this, reqs);
+        {
+            auto reqs = getDownStreamingMemoryReqs();
+            reqs.vulkanReqs.size = downstreamSize;
+            reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
+            m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(this, reqs);
+            //drop(); // TODO: remove circular ref
+        }
+        {
+            auto reqs = getUpStreamingMemoryReqs();
+            reqs.vulkanReqs.size = upstreamSize;
+            reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
+            m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(this, reqs);
+            //drop(); // TODO: remove circular ref
+        }
+        m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr<ILogicalDevice>(this));
+        //drop(); // TODO: remove circular ref
     }
 
     virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
@@ -879,7 +890,7 @@ protected:
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
     core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
 
-    //core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
+    core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
 };
 
 }

@@ -340,8 +340,8 @@ public:
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
-		windowsCreationParams.x = 0;
-		windowsCreationParams.y = 0;
+		windowsCreationParams.x = 64u;
+		windowsCreationParams.y = 64u;
 		windowsCreationParams.system = core::smart_refctd_ptr(result.system);
 		windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
 		windowsCreationParams.windowCaption = app_name.data();

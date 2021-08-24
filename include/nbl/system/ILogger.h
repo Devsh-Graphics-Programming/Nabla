@@ -1,6 +1,9 @@
 #ifndef _NBL_SYSTEM_I_LOGGER_INCLUDED_
 #define _NBL_SYSTEM_I_LOGGER_INCLUDED_
 
+#include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/decl/smart_refctd_ptr.h"
+
 #include <string>
 #include <cstdint>
 #include <chrono>
@@ -11,12 +14,12 @@
 #include <cstdarg>
 #include <codecvt>
 
-#include "nbl/core/IReferenceCounted.h"
 
 namespace nbl::system
 {
-	class ILogger : public core::IReferenceCounted
-	{
+
+class ILogger : public core::IReferenceCounted
+{
 	public:
 		enum E_LOG_LEVEL : uint8_t
 		{
@@ -106,48 +109,48 @@ namespace nbl::system
 		}
 	private:
 		std::underlying_type_t<E_LOG_LEVEL> m_logLevelMask;
-	};
+};
 
 
 
 class logger_opt_ptr final
 {
-public:
-	logger_opt_ptr(ILogger* const _logger) : logger(_logger) {}
-	~logger_opt_ptr() = default;
+	public:
+		logger_opt_ptr(ILogger* const _logger) : logger(_logger) {}
+		~logger_opt_ptr() = default;
 
-	template<typename... Args>
-	void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
-	{
-		if (logger != nullptr)
-			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
-	}
+		template<typename... Args>
+		void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
+		{
+			if (logger != nullptr)
+				return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
+		}
 
-	ILogger* get() const { return logger; }
-private:
-	mutable ILogger* logger;
+		ILogger* get() const { return logger; }
+	private:
+		mutable ILogger* logger;
 };
 
 class logger_opt_smart_ptr final
 {
-public:
-	logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
-	logger_opt_smart_ptr(std::nullptr_t t) : logger(nullptr) {}
-	~logger_opt_smart_ptr() = default;
+	public:
+		logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
+		logger_opt_smart_ptr(std::nullptr_t t) : logger(nullptr) {}
+		~logger_opt_smart_ptr() = default;
 
-	template<typename... Args>
-	void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
-	{
-		if (logger.get() != nullptr)
-			return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
-	}
+		template<typename... Args>
+		void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
+		{
+			if (logger.get() != nullptr)
+				return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
+		}
 
-	ILogger* getRaw() const { return logger.get(); }
-	logger_opt_ptr getOptRawPtr() const { return logger_opt_ptr(logger.get()); }
-	const core::smart_refctd_ptr<ILogger>& get() const { return logger; }
+		ILogger* getRaw() const { return logger.get(); }
+		logger_opt_ptr getOptRawPtr() const { return logger_opt_ptr(logger.get()); }
+		const core::smart_refctd_ptr<ILogger>& get() const { return logger; }
 
-private:
-	mutable core::smart_refctd_ptr<ILogger> logger;
+	private:
+		mutable core::smart_refctd_ptr<ILogger> logger;
 };
 
 

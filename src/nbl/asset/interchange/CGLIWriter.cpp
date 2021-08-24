@@ -22,6 +22,8 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 
+#include "nbl/system/ISystem.h"
+
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 

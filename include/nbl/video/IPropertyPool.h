@@ -24,12 +24,14 @@ class IPropertyPool : public core::IReferenceCounted
         _NBL_STATIC_INLINE_CONSTEXPR auto invalid_index = PropertyAddressAllocator::invalid_address;
 
 		//
-		inline const asset::SBufferRange<IGPUBuffer>& getMemoryBlock() const { return memoryBlock; }
+        virtual const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const =0;
 
 		//
 		virtual uint32_t getPropertyCount() const =0;
-		virtual size_t getPropertyOffset(uint32_t ix) const =0;
 		virtual uint32_t getPropertySize(uint32_t ix) const =0;
+
+        //
+        inline bool isContiguous() const {return m_indexToAddr;}
 
         //
         inline uint32_t getAllocated() const
@@ -54,29 +56,76 @@ class IPropertyPool : public core::IReferenceCounted
         inline bool allocateProperties(uint32_t* outIndicesBegin, uint32_t* outIndicesEnd)
         {
             constexpr uint32_t unit = 1u;
+            uint32_t head = getAllocated();
             for (auto it=outIndicesBegin; it!=outIndicesEnd; it++)
             {
-                auto& addr = *it;
-                if (addr!=invalid_index)
+                auto& index = *it;
+                if (index!=invalid_index)
                     continue;
 
-                addr = indexAllocator.alloc_addr(unit,unit);
-                if (addr==invalid_index)
+                index = indexAllocator.alloc_addr(unit,unit);
+                if (index==invalid_index)
                     return false;
+                
+                if (isContiguous())
+                {
+                    assert(m_indexToAddr[index]==invalid_index);
+                    assert(m_addrToIndex[head]==invalid_index);
+                    m_indexToAddr[index] = head;
+                    m_addrToIndex[head++] = index;
+                }
             }
             return true;
         }
 
-        //
+        // TODO: return how to copy the tail around
         inline void freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
         {
+            uint32_t head = getAllocated();
+
             constexpr uint32_t unit = 1u;
             for (auto it=indicesBegin; it!=indicesEnd; it++)
             {
-                auto& addr = *it;
-                if (addr!=invalid_index)
-                    indexAllocator.free_addr(addr,unit);
+                auto& index = *it;
+                if (index==invalid_index)
+                    continue;
+
+                indexAllocator.free_addr(index,unit);
+                if (isContiguous())
+                {
+                    assert(head!=0u);
+
+                    auto& addr = m_indexToAddr[index];
+                    auto& lastIx = m_addrToIndex[--head];
+                    assert(addr!=invalid_index&&lastIx!=invalid_index);
+                    m_indexToAddr[lastIx] = addr;
+                    m_addrToIndex[addr] = lastIx;
+                    lastIx = invalid_index;
+                    addr = invalid_index;
+                }
             }
+            /* TODO: figure out how to schedule a copy
+            for (auto addr=head; addr<oldHead; addr++)
+            {
+                auto changedIx = m_addrToIndex[addr];
+                auto newAddr = m_indexToAddr[changedIx];
+                data[newAddr] = data[addr];
+            }
+            */
+        }
+
+        //
+        inline uint32_t indexToAddress(const uint32_t index)
+        {
+            if (isContiguous())
+                return m_indexToAddr[index];
+            return index;
+        }
+        inline uint32_t addressToIndex(const uint32_t addr)
+        {
+            if (isContiguous())
+                return m_addrToIndex[addr];
+            return addr;
         }
 
         //
@@ -86,25 +135,17 @@ class IPropertyPool : public core::IReferenceCounted
         }
         
         //
-        #define PROPERTY_ADDRESS_ALLOCATOR_ARGS 1u,capacity,1u
-        static inline PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity)
-        {
-            return PropertyAddressAllocator::reserved_size(PROPERTY_ADDRESS_ALLOCATOR_ARGS);
-        }
+        static PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity, bool contiguous=false);
+
     protected:
-        IPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved)
-            :   memoryBlock(std::move(_memoryBlock)), indexAllocator(reserved,0u,0u,PROPERTY_ADDRESS_ALLOCATOR_ARGS)
-        {
-            // TODO: some test for block alignment
-			assert(memoryBlock.size>capacity*sizeof(uint32_t)); // this is really a lower bound
-        }
-        #undef PROPERTY_ADDRESS_ALLOCATOR_ARGS
+        IPropertyPool(uint32_t capacity, void* reserved, bool contiguous=false);
+        virtual ~IPropertyPool() {}
 
-		virtual ~IPropertyPool() {}
+        static bool validateBlocks(const ILogicalDevice* device, const uint32_t propertyCount, const size_t* propertySizes, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks);
 
-
-        asset::SBufferRange<IGPUBuffer> memoryBlock;
         PropertyAddressAllocator indexAllocator;
+        uint32_t* m_indexToAddr;
+        uint32_t* m_addrToIndex;
 };
 
 

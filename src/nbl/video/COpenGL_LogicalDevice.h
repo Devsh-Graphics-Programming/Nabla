@@ -112,8 +112,7 @@ public:
                 (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
         }
 
-        initDefaultDownloadBuffer();
-        initDefaultUploadBuffer();
+        deferredCommonInit();
     }
 
 
@@ -214,7 +213,7 @@ public:
 
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
     {
-        return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this));
+        return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
 
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
@@ -486,7 +485,10 @@ protected:
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
-                _specInfo.m_filePathHint.string().c_str()
+                _specInfo.m_filePathHint.string().c_str(),
+                true,
+                nullptr,
+                getLogger()
             );
 
             if (!spirv)
