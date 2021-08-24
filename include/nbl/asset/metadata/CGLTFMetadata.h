@@ -6,7 +6,7 @@
 #define __NBL_ASSET_C_GLTF_METADATA_H_INCLUDED__
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
-#include "nbl/asset/CGLTFPipelineMetadata.h"
+#include "nbl/asset/metadata/CGLTFPipelineMetadata.h"
 
 namespace nbl
 {

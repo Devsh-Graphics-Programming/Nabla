@@ -1,14 +1,27 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
+#include <iostream>
+#include <cstdio>
 #include <nabla.h>
 
-#include "../include/nbl/asset/metadata/CGLTFMetadata.h"
-#include "../common/QToQuitEventReceiver.h"
-#include "../include/nbl/ext/ScreenShot/ScreenShot.h"
+#include "../common/Camera.hpp"
+#include "../common/CommonAPI.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "nbl/asset/metadata/CGLTFMetadata.h"
 
 using namespace nbl;
 using namespace asset;
 using namespace video;
 using namespace core;
+
+/*
+	Uncomment for more detailed logging
+*/
+
+// #define NBL_MORE_LOGS
 
 #include "nbl/nblpack.h"
 struct GraphicsData
@@ -18,12 +31,14 @@ struct GraphicsData
 		struct Resources
 		{
 			const IGPUMeshBuffer* gpuMeshBuffer;
-			const IGPURenderpassIndependentPipeline* gpuPipeline;
+			core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
+			const IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline;
 			const asset::CGLTFPipelineMetadata* pipelineMetadata;
 		};
 
 		core::vector<Resources> resources;
 	};
+
 
 	core::vector<Mesh> meshes;
 
@@ -32,53 +47,136 @@ struct GraphicsData
 
 int main()
 {
-	SIrrlichtCreationParameters params;
-	params.Bits = 24; 
-	params.ZBufferBits = 24; 
-	params.DriverType = video::EDT_OPENGL; 
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = true;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false;
-	auto device = createDeviceEx(params);
+	constexpr uint32_t WIN_W = 1280;
+	constexpr uint32_t WIN_H = 720;
+	constexpr uint32_t SC_IMG_COUNT = 3u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	if (!device)
-		return 1;
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+	auto window = std::move(initOutput.window);
+	auto gl = std::move(initOutput.apiConnection);
+	auto surface = std::move(initOutput.surface);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto logicalDevice = std::move(initOutput.logicalDevice);
+	auto queues = std::move(initOutput.queues);
+	auto swapchain = std::move(initOutput.swapchain);
+	auto renderpass = std::move(initOutput.renderpass);
+	auto fbos = std::move(initOutput.fbo);
+	auto commandPool = std::move(initOutput.commandPool);
+	auto assetManager = std::move(initOutput.assetManager);
+	auto logger = std::move(initOutput.logger);
+	auto inputSystem = std::move(initOutput.inputSystem);
+	auto system = std::move(initOutput.system);
+	auto windowCallback = std::move(initOutput.windowCb);
 
-	device->getCursorControl()->setVisible(false);
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuTransferFence;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuTransferSemaphore;
 
-	auto* driver = device->getVideoDriver();
-    auto* sceneManager = device->getSceneManager();
-    auto* assetManager = device->getAssetManager();
-    auto* fileSystem = assetManager->getFileSystem();
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuComputeFence;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuComputeSemaphore;
 
-    asset::IAssetLoader::SAssetLoadParams loadingParams;
-
-    auto meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/Avocado/glTF/Avocado.gltf", loadingParams);
 	{
-		bool status = !meshes_bundle.getContents().empty();
-		assert(status);
-	}
-   
-    auto mesh = meshes_bundle.getContents().begin()[0];
-    auto* mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
-	auto* meta = meshes_bundle.getMetadata()->selfCast<asset::CGLTFMetadata>();
+		gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		gpuTransferSemaphore = logicalDevice->createSemaphore();
 
-	auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+		gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		gpuComputeSemaphore = logicalDevice->createSemaphore();
+
+		cpu2gpuParams.assetManager = assetManager.get();
+		cpu2gpuParams.device = logicalDevice.get();
+		cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
+		cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
+		cpu2gpuParams.pipelineCache = nullptr;
+		cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
+
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queues[decltype(initOutput)::EQT_COMPUTE];
+	}
+
+	auto cpu2gpuWaitForFences = [&]() -> void
+	{
+		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+		}
+
+		waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+		}
+	};
+
+	auto createDescriptorPool = [&](const uint32_t amount, const E_DESCRIPTOR_TYPE type)
+	{
+		constexpr uint32_t maxItemCount = 256u;
+		{
+			nbl::video::IDescriptorPool::SDescriptorPoolSize poolSize;
+			poolSize.count = amount;
+			poolSize.type = type;
+			return logicalDevice->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxItemCount, 1u, &poolSize);
+		}
+	};
+
+	asset::SAssetBundle meshes_bundle;
+	asset::ICPUDescriptorSetLayout* cpuDescriptorSetLayout1 = nullptr;
+	const asset::CGLTFMetadata* glTFMeta = nullptr;
+	{
+		asset::IAssetLoader::SAssetLoadParams loadingParams;
+
+		meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/Avocado/glTF/Avocado.gltf", loadingParams);
+		auto contents = meshes_bundle.getContents();
+		{
+			bool status = !contents.empty();
+			assert(status);
+		}
+
+		auto firstCpuMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(contents.begin()[0]);
+		cpuDescriptorSetLayout1 = firstCpuMesh->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1);
+		glTFMeta = meshes_bundle.getMetadata()->selfCast<asset::CGLTFMetadata>();
+	}
 
 	/*
-		We can safely assume that all mesh buffers within mesh loaded from glTF has the same DS1 layout 
+		We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout 
 		used for camera-specific data, so we can create just one DS.
 	*/
 
-	auto cpuDescriptorSetLayout1 = mesh_raw->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1);
-	auto gpuDescriptorSet1Layout = driver->getGPUObjectsFromAssets(&cpuDescriptorSetLayout1, &cpuDescriptorSetLayout1 + 1)->front();
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuDescriptorSet1Layout;
+	{
+		auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuDescriptorSetLayout1, &cpuDescriptorSetLayout1 + 1, cpu2gpuParams);
+		if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+			assert(false);
 
-	auto gpuDescriptorSet1 = driver->createGPUDescriptorSet(std::move(gpuDescriptorSet1Layout));
+		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+		}
+
+		cpu2gpuWaitForFences();
+		gpuDescriptorSet1Layout = (*gpu_array)[0];
+	}
+
+	auto gpuubo = logicalDevice->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+	auto gpuUboDescriptorPool = createDescriptorPool(1u, EDT_UNIFORM_BUFFER);
+
+	auto gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), std::move(gpuDescriptorSet1Layout));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write;
 		write.dstSet = gpuDescriptorSet1.get();
@@ -93,7 +191,7 @@ int main()
 			info.buffer.size = sizeof(SBasicViewParameters);
 		}
 		write.info = &info;
-		driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+		logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
 	}
 
 	/*
@@ -110,84 +208,221 @@ int main()
 			for (size_t i = 0; i < cpuMesh->getMeshBuffers().size(); ++i)
 			{
 				auto& graphicsResources = graphicsDataMesh.resources.emplace_back();
-				auto* glTFMetaPushConstants = meta->getAssetSpecificMetadata(cpuMesh->getMeshBufferVector()[i]->getPipeline());
+				auto* glTFMetaPushConstants = glTFMeta->getAssetSpecificMetadata(cpuMesh->getMeshBufferVector()[i]->getPipeline());
 				graphicsResources.pipelineMetadata = glTFMetaPushConstants;
 			}
 		}
 
-		auto gpuMesh = driver->getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1)->front();
+		core::smart_refctd_ptr<video::IGPUMesh> gpuMesh;
+		{
+			auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get(), cpu2gpuParams);
+			if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+				assert(false);
+
+			cpu2gpuWaitForFences();
+
+			gpuMesh = (*gpu_array)[0];
+		}
+
+		using RENDERPASS_INDEPENDENT_PIPELINE_ADRESS = size_t;
+		std::map<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS, core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuPipelines;
 
 		for (size_t i = 0; i < gpuMesh->getMeshBuffers().size(); ++i)
 		{
 			auto* gpuMeshBuffer = graphicsDataMesh.resources[i].gpuMeshBuffer = (gpuMesh->getMeshBufferIterator() + i)->get();
-			graphicsDataMesh.resources[i].gpuPipeline = gpuMeshBuffer->getPipeline();
+			auto* gpuRenderpassIndependentPipeline = graphicsDataMesh.resources[i].gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
+
+			const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(gpuRenderpassIndependentPipeline);
+			const auto alreadyCreated = gpuPipelines.contains(adress);
+			{
+				if (!alreadyCreated)
+				{
+					nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+					graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuRenderpassIndependentPipeline));
+					graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
+
+					gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+				}
+
+				graphicsDataMesh.resources[i].gpuGraphicsPipeline = gpuPipelines[adress];
+			}	
 		}
 	}
 
-	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0,100.0f,0.001f);
+	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
-	camera->setPosition(core::vector3df(-0.5,0,0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(10000.0f);
+	core::vectorSIMDf cameraPosition(-0.5, 0, 0);
+	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 10000.0f);
+	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+	auto lastTime = std::chrono::system_clock::now();
 
-    sceneManager->setActiveCamera(camera);
+	constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+	bool frameDataFilled = false;
+	size_t frame_count = 0ull;
+	double time_sum = 0;
+	double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+	for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
+		dtList[i] = 0.0;
 
-	uint64_t lastFPSTime = 0;
-	while(device->run() && receiver.keepOpen())
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
+	logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+
+	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+
+	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
 	{
-		driver->beginScene(true, true, video::SColor(255,255,255,255) );
+		imageAcquire[i] = logicalDevice->createSemaphore();
+		renderFinished[i] = logicalDevice->createSemaphore();
+	}
 
-		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
-		camera->render();
+	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+	uint32_t acquiredNextFBO = {};
+	auto resourceIx = -1;
 
-		const auto viewProjection = camera->getConcatenatedMatrix();
+	while(windowCallback->isWindowOpen())
+	{
+		++resourceIx;
+		if (resourceIx >= FRAMES_IN_FLIGHT)
+			resourceIx = 0;
+
+		auto& commandBuffer = commandBuffers[resourceIx];
+		auto& fence = frameComplete[resourceIx];
+
+		if (fence)
+			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+		else
+			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
+		auto renderStart = std::chrono::system_clock::now();
+		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
+		lastTime = renderStart;
+		{ // Calculate Simple Moving Average for FrameTime
+			time_sum -= dtList[frame_count];
+			time_sum += renderDt;
+			dtList[frame_count] = renderDt;
+			frame_count++;
+			if (frame_count >= NBL_FRAMES_TO_AVERAGE)
+			{
+				frameDataFilled = true;
+				frame_count = 0;
+			}
+
+		}
+		const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
+
+		#ifdef NBL_MORE_LOGS
+				logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
+		#endif // NBL_MORE_LOGS
+
+		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
+		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+
+		inputSystem->getDefaultMouse(&mouse);
+		inputSystem->getDefaultKeyboard(&keyboard);
+
+		camera.beginInputProcessing(nextPresentationTimeStamp);
+		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+		camera.endInputProcessing(nextPresentationTimeStamp);
+
+		const auto& viewMatrix = camera.getViewMatrix();
+		const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
+
+		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+		commandBuffer->begin(0);
+
+		asset::SViewport viewport;
+		viewport.minDepth = 1.f;
+		viewport.maxDepth = 0.f;
+		viewport.x = 0u;
+		viewport.y = 0u;
+		viewport.width = WIN_W;
+		viewport.height = WIN_H;
+		commandBuffer->setViewport(0u, 1u, &viewport);
+
+		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
+		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+		{
+			nbl::asset::VkRect2D area;
+			area.offset = { 0,0 };
+			area.extent = { WIN_W, WIN_H };
+			asset::SClearValue clear[2] = {};
+			clear[0].color.float32[0] = 1.f;
+			clear[0].color.float32[1] = 1.f;
+			clear[0].color.float32[2] = 1.f;
+			clear[0].color.float32[3] = 1.f;
+			clear[1].depthStencil.depth = 0.f;
+
+			beginInfo.clearValueCount = 2u;
+			beginInfo.framebuffer = fbos[acquiredNextFBO];
+			beginInfo.renderpass = renderpass;
+			beginInfo.renderArea = area;
+			beginInfo.clearValues = clear;
+		}
+
+		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+
 		core::matrix3x4SIMD modelMatrix;
+		modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
 		modelMatrix.setRotation(quaternion(0, 0, 0));
 
-		auto mv = core::concatenateBFollowedByA(camera->getViewMatrix(), modelMatrix);
-		auto mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);
-		core::matrix3x4SIMD normalMat;
-		mv.getSub3x3InverseTranspose(normalMat);
+		core::matrix3x4SIMD modelViewMatrix = core::concatenateBFollowedByA(viewMatrix, modelMatrix);
+		core::matrix4SIMD modelViewProjectionMatrix = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
+
+		core::matrix3x4SIMD normalMatrix;
+		modelViewMatrix.getSub3x3InverseTranspose(normalMatrix);
 
 		/*
 			Camera data is shared between all meshes
 		*/
 
 		SBasicViewParameters uboData;
-		memcpy(uboData.MV, mv.pointer(), sizeof(mv));
-		memcpy(uboData.MVP, mvp.pointer(), sizeof(mvp));
-		memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
-		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, sizeof(uboData), &uboData);
+		memcpy(uboData.MV, modelViewMatrix.pointer(), sizeof(uboData.MV));
+		memcpy(uboData.MVP, modelViewProjectionMatrix.pointer(), sizeof(uboData.MVP));
+		memcpy(uboData.NormalMat, normalMatrix.pointer(), sizeof(uboData.NormalMat));
+		
+		commandBuffer->updateBuffer(gpuubo.get(), 0ull, sizeof(uboData), &uboData);
 
 		for (auto& gpuMeshData : graphicsData.meshes)
 		{
 			for (auto& graphicsResource : gpuMeshData.resources)
 			{
-				driver->pushConstants(graphicsResource.gpuPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(asset::CGLTFPipelineMetadata::SGLTFMaterialParameters), &graphicsResource.pipelineMetadata->m_materialParams);
-				driver->bindGraphicsPipeline(graphicsResource.gpuPipeline);
-				driver->bindDescriptorSets(video::EPBP_GRAPHICS, graphicsResource.gpuPipeline->getLayout(), 1u, 1u, &gpuDescriptorSet1.get(), nullptr);
+				const auto* gpuMeshBuffer = graphicsResource.gpuMeshBuffer;
+				auto gpuGraphicsPipeline = core::smart_refctd_ptr(graphicsResource.gpuGraphicsPipeline);
 
-				auto* gpuDescriptorSet3 = graphicsResource.gpuMeshBuffer->getAttachedDescriptorSet();
-				if(gpuDescriptorSet3)
-					driver->bindDescriptorSets(video::EPBP_GRAPHICS, graphicsResource.gpuPipeline->getLayout(), 3u, 1u, &gpuDescriptorSet3, nullptr);
+				const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
+				const video::IGPUDescriptorSet* gpuDescriptorSet3 = gpuMeshBuffer->getAttachedDescriptorSet();
 
-				driver->drawMeshBuffer(graphicsResource.gpuMeshBuffer);
+				commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
+				commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuDescriptorSet1.get(), nullptr);
+				
+				if (gpuDescriptorSet3)
+					commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuDescriptorSet3, nullptr);
+
+				static_assert(sizeof(asset::CGLTFPipelineMetadata::SGLTFMaterialParameters) <= video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
+				commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(asset::CGLTFPipelineMetadata::SGLTFMaterialParameters), &graphicsResource.pipelineMetadata->m_materialParams);
+
+				commandBuffer->drawMeshBuffer(gpuMeshBuffer);
 			}
 		}
-        
-		driver->endScene();
 
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time-lastFPSTime > 1000)
-		{
-			std::wostringstream str;
-			str << L"glTF Demo - IrrlichtBAW Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+		commandBuffer->endRenderPass();
+		commandBuffer->end();
 
-			device->setWindowCaption(str.str().c_str());
-			lastFPSTime = time;
-		}
+		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
 	}
+
+	const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
+	auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+	bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+	assert(status);
 
 	return 0;
 }
