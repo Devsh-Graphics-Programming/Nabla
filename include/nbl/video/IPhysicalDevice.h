@@ -139,25 +139,21 @@ public:
     // without a window
     virtual bool isSwapchainSupported() const
     {
-        assert(false); // Invalid code path
         return false;
     }
     
     virtual bool isRayTracingPipelineSupported() const
     {
-        assert(false); // Invalid code path
         return false;
     }
 
     virtual bool isAccelerationStructuresSupported() const
     {
-        assert(false); // Invalid code path
         return false;
     }
 
     virtual bool isRayQuerySupported() const
     {
-        assert(false); // Invalid code path
         return false;
     }
     
