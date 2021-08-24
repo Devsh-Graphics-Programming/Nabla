@@ -1,6 +1,6 @@
 #include "nbl/video/CVulkanQueue.h"
 
-#include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/CVulkanFence.h"
 #include "nbl/video/CVulkanSemaphore.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
@@ -14,7 +14,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         return false;
 
     // auto* vk = m_vkdev->getFunctionTable();
-    VkDevice vk_device = static_cast<const CVKLogicalDevice*>(m_originDevice)->getInternalObject();
+    VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getInternalObject();
 
     uint32_t waitSemCnt = 0u;
     uint32_t signalSemCnt = 0u;
@@ -127,7 +127,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
         if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
             return false;
 
-        vk_swapchains[i] = reinterpret_cast<CVKSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
+        vk_swapchains[i] = reinterpret_cast<CVulkanSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
     }
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };

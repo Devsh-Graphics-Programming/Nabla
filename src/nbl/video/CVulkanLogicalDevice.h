@@ -1,13 +1,13 @@
-#ifndef __NBL_C_VK_LOGICAL_DEVICE_H_INCLUDED__
-#define __NBL_C_VK_LOGICAL_DEVICE_H_INCLUDED__
+#ifndef __NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED__
+#define __NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED__
 
 #include <algorithm>
 
 #include "nbl/video/ILogicalDevice.h"
-// Todo(achal): I should probably consider putting some defintions in CVKLogicalDevice.cpp
+// Todo(achal): I should probably consider putting some defintions in CVulkanLogicalDevice.cpp
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanDeviceFunctionTable.h"
-#include "nbl/video/CVKSwapchain.h"
+#include "nbl/video/CVulkanSwapchain.h"
 #include "nbl/video/CVulkanQueue.h"
 #include "nbl/video/CVulkanRenderpass.h"
 #include "nbl/video/CVulkanImageView.h"
@@ -34,10 +34,10 @@
 namespace nbl::video
 {
 
-class CVKLogicalDevice final : public ILogicalDevice
+class CVulkanLogicalDevice final : public ILogicalDevice
 {
 public:
-    CVKLogicalDevice(IPhysicalDevice* physicalDevice, VkDevice vkdev,
+    CVulkanLogicalDevice(IPhysicalDevice* physicalDevice, VkDevice vkdev,
         const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& sys)
         : ILogicalDevice(physicalDevice, params), m_vkdev(vkdev), m_devf(vkdev)
     {
@@ -63,7 +63,7 @@ public:
         }
     }
             
-    ~CVKLogicalDevice()
+    ~CVulkanLogicalDevice()
     {
         // m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
         vkDestroyDevice(m_vkdev, nullptr);
@@ -128,12 +128,12 @@ public:
             creationParams.type = CVulkanImage::ET_2D;
 
             image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(creationParams),
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams),
                 vk_images[i++]);
         }
 
-        return core::make_smart_refctd_ptr<CVKSwapchain>(
-            core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(params),
+        return core::make_smart_refctd_ptr<CVulkanSwapchain>(
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
             std::move(images), vk_swapchain);
     }
     
@@ -147,7 +147,7 @@ public:
         if (vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanSemaphore>
-                (core::smart_refctd_ptr<CVKLogicalDevice>(this), semaphore);
+                (core::smart_refctd_ptr<CVulkanLogicalDevice>(this), semaphore);
         }
         else
         {
@@ -185,7 +185,7 @@ public:
         if (vkCreateFence(m_vkdev, &vk_createInfo, nullptr, &vk_fence) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanFence>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), flags, vk_fence);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, vk_fence);
         }
         else
         {
@@ -259,7 +259,7 @@ public:
         if (vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanCommandPool>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), flags, familyIndex, vk_commandPool);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, familyIndex, vk_commandPool);
         }
         else
         {
@@ -294,7 +294,7 @@ public:
         if (vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), vk_descriptorPool);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_descriptorPool);
         }
         else
         {
@@ -371,7 +371,7 @@ public:
             vkGetBufferMemoryRequirements(m_vkdev, vk_buffer, &bufferMemoryReqs.vulkanReqs);
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), bufferMemoryReqs, vk_buffer);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, vk_buffer);
         }
         else
         {
@@ -411,12 +411,12 @@ public:
         if (cpushader->containsGLSL())
         {
             return core::make_smart_refctd_ptr<CVulkanShader>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(clone),
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(clone),
                 IGPUShader::buffer_contains_glsl);
         }
         else
         {
-            return core::make_smart_refctd_ptr<CVulkanShader>(core::smart_refctd_ptr<CVKLogicalDevice>(this),
+            return core::make_smart_refctd_ptr<CVulkanShader>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
                 std::move(clone));
         }
     }
@@ -442,7 +442,7 @@ public:
         VkImage vk_image;
         if (vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<CVKLogicalDevice>(this),
+            return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
                 std::move(params), vk_image);
         }
         else
@@ -846,7 +846,7 @@ protected:
         if (vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanSpecializedShader>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), vk_shaderModule, shaderStage);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_shaderModule, shaderStage);
         }
         else
         {
@@ -873,7 +873,7 @@ protected:
         if (vkCreateBufferView(m_vkdev, &vk_createInfo, nullptr, &vk_bufferView) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanBufferView>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this),
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
                 core::smart_refctd_ptr<IGPUBuffer>(_underlying), _fmt, _offset,
                 _size, vk_bufferView);
         }
@@ -909,7 +909,7 @@ protected:
         VkImageView vk_imageView;
         if (vkCreateImageView(m_vkdev, &vk_createInfo, nullptr, &vk_imageView) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanImageView>(core::smart_refctd_ptr<CVKLogicalDevice>(this),
+            return core::make_smart_refctd_ptr<CVulkanImageView>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
                 std::move(params), vk_imageView);
         }
         else
@@ -940,7 +940,7 @@ protected:
         if (vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), std::move(layout),
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(layout),
                 core::smart_refctd_ptr<const CVulkanDescriptorPool>(vulkanDescriptorPool),
                 vk_descriptorSet);
         }
@@ -999,7 +999,7 @@ protected:
         if (vkCreateDescriptorSetLayout(m_vkdev, &vk_createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), _begin, _end, vk_dsLayout);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _begin, _end, vk_dsLayout);
         }
         else
         {
@@ -1050,7 +1050,7 @@ protected:
         if (vkCreatePipelineLayout(m_vkdev, &vk_createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(
-                core::smart_refctd_ptr<CVKLogicalDevice>(this), _pcRangesBegin, _pcRangesEnd,
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _pcRangesBegin, _pcRangesEnd,
                 std::move(layout0), std::move(layout1), std::move(layout2), std::move(layout3),
                 vk_pipelineLayout);
         }
@@ -1158,7 +1158,7 @@ protected:
                 const auto createInfo = createInfos.begin() + i;
 
                 output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
-                    core::smart_refctd_ptr<CVKLogicalDevice>(this),
+                    core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
                     core::smart_refctd_ptr(createInfo->layout),
                     core::smart_refctd_ptr(createInfo->shader), vk_pipelines[i]);
             }

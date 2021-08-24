@@ -1,6 +1,6 @@
 #include "nbl/video/CVulkanRenderpass.h"
 
-#include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 
 namespace nbl::video
 {
@@ -12,7 +12,7 @@ CVulkanRenderpass::~CVulkanRenderpass()
     if (originDevice->getAPIType() == EAT_VULKAN)
     {
         // auto* vk = m_vkdev->getFunctionTable();
-        VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
         // vk->vk.vkDestroyRenderPass(vkdev, m_renderpass, nullptr);
         vkDestroyRenderPass(vk_device, m_renderpass, nullptr);
     }

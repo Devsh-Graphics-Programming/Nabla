@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 
-class CVKSwapchain;
+class CVulkanSwapchain;
 
 class CVulkanForeignImage final : public CVulkanImage
 {
@@ -19,7 +19,7 @@ public:
 
 private:
     // circular dep
-    // core::smart_refctd_ptr<CVKSwapchain> m_swapchain; // the only foreigner we have now is swapchain
+    // core::smart_refctd_ptr<CVulkanSwapchain> m_swapchain; // the only foreigner we have now is swapchain
 };
 
 }
