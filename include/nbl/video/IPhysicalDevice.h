@@ -106,6 +106,15 @@ public:
 
     virtual IDebugCallback* getDebugCallback() = 0;
 
+    // Todo(achal): Make pure virtual
+    // This would probably always return true for OpenGL because theres no context
+    // without a window
+    virtual bool isSwapchainSupported() const
+    {
+        assert(!"Not implemented yet for OpenGL backend");
+        return false;
+    }
+
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
     {
         if (!validateLogicalDeviceCreation(params))
@@ -115,33 +124,6 @@ public:
     }
 
     virtual E_API_TYPE getAPIType() const = 0;
-
-    // Todo(achal): Not making them pure virtual only because the OpenGL backends doesn't have any implementation
-    // for them
-    virtual void getAvailableFormatsForSurface(const ISurface* surface, uint32_t& formatCount, ISurface::SFormat* formats) const
-    {
-        assert(false); // Invalid code path
-    }
-
-    virtual ISurface::E_PRESENT_MODE getAvailablePresentModesForSurface(const ISurface* surface) const
-    {
-        assert(false); // Invalid code path
-        return ISurface::EPM_UNKNOWN;
-    }
-
-    // This would probably always return true for OpenGL because theres no context
-    // without a window
-    virtual bool isSwapchainSupported() const
-    {
-        assert(false); // Invalid code path
-        return false;
-    }
-
-    virtual bool getSurfaceCapabilities(const ISurface* surface, ISurface::SCapabilities& capabilities) const
-    {
-        assert(false); // Invalid code path
-        return false;
-    }
 
 protected:
     IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :

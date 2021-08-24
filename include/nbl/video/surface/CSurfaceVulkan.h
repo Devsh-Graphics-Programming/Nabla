@@ -27,6 +27,12 @@ public:
 
     bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override;
 
+    void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override;
+    
+    ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override;
+    
+    bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override;
+
     inline VkSurfaceKHR getInternalObject() const { return m_vkSurfaceKHR; }
 
 // Todo(achal): Remove

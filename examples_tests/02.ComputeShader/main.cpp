@@ -141,7 +141,6 @@ struct alignas(256) UniformBufferObject
 
 int main()
 {
-
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
@@ -222,16 +221,17 @@ int main()
 		// Todo(achal): Abstract it out
 		// Check if the surface is adequate
 		{
+			// surface->getAvailableFormatsForPhysicalDevice()
 			uint32_t surfaceFormatCount;
-			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, nullptr);
+			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
 			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
-			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, surfaceFormats.data());
+			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, surfaceFormats.data());
 
 			video::ISurface::E_PRESENT_MODE availablePresentModes =
-				gpu->getAvailablePresentModesForSurface(surface.get());
+				surface->getAvailablePresentModesForPhysicalDevice(gpu);
 
 			video::ISurface::SCapabilities surfaceCapabilities = {};
-			if (!gpu->getSurfaceCapabilities(surface.get(), surfaceCapabilities))
+			if (!surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, surfaceCapabilities))
 				isGPUSuitable = false;
 
 			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
@@ -316,6 +316,7 @@ int main()
 	sc_params.imageSharingMode = imageSharingMode;
 	sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
 		asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
+	sc_params.oldSwapchain = nullptr;
 
 	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(
 		std::move(sc_params));

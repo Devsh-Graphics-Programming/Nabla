@@ -61,8 +61,26 @@ class ISurface : public core::IReferenceCounted
 
         inline E_API_TYPE getAPIType() const { return m_api->getAPIType(); }
 
-        // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
         virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
+
+        // Todo(achal): Not making them pure virtual only because the OpenGL backends doesn't have any implementation
+        // for them
+        virtual void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const
+        {
+            assert(false); // Invalid code path
+        }
+
+        virtual ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const
+        {
+            assert(false); // Invalid code path
+            return ISurface::EPM_UNKNOWN;
+        }
+
+        virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const
+        {
+            assert(false); // Invalid code path
+            return false;
+        }
 
         // used by some drivers
         virtual const void* getNativeWindowHandle() const = 0;
