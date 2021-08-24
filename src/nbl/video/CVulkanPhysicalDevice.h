@@ -2,7 +2,7 @@
 #define __NBL_C_VULKAN_PHYSICAL_DEVICE_H_INCLUDED__
 
 #include "nbl/video/IPhysicalDevice.h"
-#include "nbl/video/CVulkanLogicalDevice.h"
+#include "nbl/video/CVKLogicalDevice.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 #include "nbl/video/CVulkanCommon.h"
 
@@ -16,11 +16,26 @@ public:
         core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc)
         : IPhysicalDevice(std::move(sys), std::move(glslc)), m_vkPhysicalDevice(vk_physicalDevice)
     {
+        // Get Supported Extensions
+        {
+            uint32_t  count;
+            // Get Count First and Resize
+            VkResult res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, nullptr);
+            assert(VK_SUCCESS == res);
+            supportedExtensions.resize(count); 
+            // Now fill the Vector
+            res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, supportedExtensions.data());
+            assert(VK_SUCCESS == res);
+            supportedExtensions.resize(core::min(supportedExtensions.size(), size_t(count)));
+        }
+
         // Get physical device's limits
-        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES };
+        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, nullptr };
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &subgroupProperties };
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            deviceProperties.pNext = &subgroupProperties;
+            deviceProperties.pNext = &accelerationProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
                     
             // TODO fill m_properties
@@ -57,11 +72,16 @@ public:
             m_limits.subgroupSize = subgroupProperties.subgroupSize;
             m_limits.subgroupOpsShaderStages = subgroupProperties.supportedStages;
         }
-                
+        
         // Get physical device's features
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr };
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rayTracingPipelineFeatures };
+        VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &accelerationFeatures };
         {
-            VkPhysicalDeviceFeatures features;
-            vkGetPhysicalDeviceFeatures(m_vkPhysicalDevice, &features);
+            VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+            deviceFeatures.pNext = &rayQueryFeatures;
+            vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice, &deviceFeatures);
+            auto features = deviceFeatures.features;
                     
             m_features.robustBufferAccess = features.robustBufferAccess;
             m_features.imageCubeArray = features.imageCubeArray;
@@ -80,13 +100,27 @@ public:
             m_features.shaderSubgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
             m_features.shaderSubgroupQuadAllStages = ((subgroupProperties.supportedStages & asset::ISpecializedShader::E_SHADER_STAGE::ESS_ALL)
                                                         == asset::ISpecializedShader::E_SHADER_STAGE::ESS_ALL);
+            m_features.rayQuery = rayQueryFeatures.rayQuery;
+            m_features.accelerationStructure = accelerationFeatures.accelerationStructure;
+            m_features.accelerationStructureCaptureReplay = accelerationFeatures.accelerationStructureCaptureReplay;
+            m_features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
+            m_features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
+            m_features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
         }
-                
+        
+        requestDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME, false);
+        requestDeviceExtension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true); // requires vulkan 1.1
+        requestDeviceExtension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
+        requestDeviceExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
+        requestDeviceExtension<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true, &accelerationFeatures);
+        // requestDeviceExtension<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, true, &rayTracingPipelineFeatures);
+        // requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
+
         uint32_t qfamCount = 0u;
         vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, nullptr);
         core::vector<VkQueueFamilyProperties> qfamprops(qfamCount);
         vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, qfamprops.data());
-                
+
         m_qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(qfamCount);
         for (uint32_t i = 0u; i < qfamCount; ++i)
         {
@@ -221,38 +255,45 @@ public:
 
     bool isSwapchainSupported() const override
     {
-        constexpr uint32_t MAX_DEVICE_EXTENSIONS_COUNT = 250u;
-
-        uint32_t availableExtensionCount;
-        VkResult retval = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, NULL, &availableExtensionCount, NULL);
-
-        // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-            return false;
-
-        assert(availableExtensionCount <= MAX_DEVICE_EXTENSIONS_COUNT);
-
-        VkExtensionProperties availableExtensions[MAX_DEVICE_EXTENSIONS_COUNT];
-        retval = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, NULL, &availableExtensionCount, availableExtensions);
-
-        // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-            return false;
-
-        for (uint32_t i = 0u; i < availableExtensionCount; ++i)
-        {
-            if (strcmp(availableExtensions[i].extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
-                return true;
-        }
-
-        return false;
+        return isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
-            
+    
+    bool isRayTracingPipelineSupported() const override
+    {
+        return isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+    }
+
+    bool isAccelerationStructuresSupported() const override
+    {
+        return isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+    }
+
+    bool isRayQuerySupported() const override
+    {
+        return isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+    }
+
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {
+        // Filter Requested Extensions based on Availability and constructs chain for features
+        std::vector<std::string> filteredExtensions;
+        void* firstFeatureInChain;
+        getFilteredExtensions(filteredExtensions, firstFeatureInChain);
+        
+        // Get cstr's for vulkan input
+        std::vector<const char*> filteredExtensionNames;
+        for(const auto& it : filteredExtensions)
+            filteredExtensionNames.push_back(it.c_str());
+
+        VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+        vk_deviceFeatures2.pNext = firstFeatureInChain;
+        vk_deviceFeatures2.features = {};
+
+        // Create Device
         VkDeviceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // there is a super long list of available extensions to this structure
+        vk_createInfo.pNext = &vk_deviceFeatures2; // Vulkan >= 1.1 Device uses createInfo.pNext to use features
+        vk_createInfo.pEnabledFeatures = nullptr;
         vk_createInfo.flags = static_cast<VkDeviceCreateFlags>(0); // reserved for future use, by Vulkan
 
         vk_createInfo.queueCreateInfoCount = params.queueParamsCount;
@@ -276,20 +317,13 @@ protected:
         vk_createInfo.ppEnabledLayerNames = validationLayerName; // deprecated and ignored param
 
         // Todo(achal): Need to get this from the user based on if its a headless compute or some presentation worthy workload
-        const uint32_t deviceExtensionCount = 1u;
-        const char* deviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-                
-        vk_createInfo.enabledExtensionCount = deviceExtensionCount;
-        vk_createInfo.ppEnabledExtensionNames = deviceExtensions;
+        vk_createInfo.enabledExtensionCount = filteredExtensionNames.size();
+        vk_createInfo.ppEnabledExtensionNames = filteredExtensionNames.data();
         
-        // Todo(achal): Need to get this from the user, which features they want
-        VkPhysicalDeviceFeatures vk_deviceFeatures = {};        
-        vk_createInfo.pEnabledFeatures = &vk_deviceFeatures;        
-                
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(this, vk_device, params,
+            return core::make_smart_refctd_ptr<CVKLogicalDevice>(this, vk_device, params,
                 core::smart_refctd_ptr(m_system));
         }
         else
@@ -297,9 +331,102 @@ protected:
             return nullptr;
         }    
     }
-            
+
+    // Functions and Structs to work with extensions and add them 
+    struct DeviceExtensionRequest 
+    {
+        struct FeatureHeader
+        {
+            VkStructureType           sType;
+            void*                     pNext;
+        };
+
+        DeviceExtensionRequest(const char* extensionName, bool isOptional = false, std::vector<uint8_t>&& featureMemory = std::vector<uint8_t>())
+            : name(extensionName), optional(isOptional), featureMem(std::move(featureMemory))
+        { }
+
+        using byte = unsigned char; 
+
+        std::string             name;
+        bool                    optional = false;
+        std::vector<uint8_t>    featureMem = std::vector<uint8_t>(); // usefull when constructing features chain for vk_createInfo.pEnabledFeatures
+        // TODO(Better Container for featureMem?)
+    };
+
+    std::vector<VkExtensionProperties> getSupportedExtensions(VkPhysicalDevice physicalDevice)
+    {
+        return supportedExtensions;
+    }
+
+    bool isExtensionSupported(const char* name) const {
+        for (uint32_t i = 0u; i < supportedExtensions.size(); ++i)
+        {
+            if (strcmp(supportedExtensions[i].extensionName, name) == 0)
+                return true;
+        }
+        return false;
+    }
+
+    void requestDeviceExtension(const char* name, bool optional = false)
+    {
+        deviceExtensionRequests.emplace_back(name, optional, std::vector<uint8_t>());
+    }
+    
+    template<typename T>
+    void requestDeviceExtension(const char* name, bool optional = false, const T* featureStruct = nullptr)
+    {
+        std::vector<uint8_t>    featureMem;
+        auto ptr = reinterpret_cast<const uint8_t*>(featureStruct);
+        featureMem.insert(featureMem.end(),ptr,ptr+sizeof(T));
+        deviceExtensionRequests.emplace_back(name, optional, std::move(featureMem));
+    }
+
+    // Checks if Requested Extensions are Supported based on `is_optional` and `extensionName` and fills a chain for features
+    void getFilteredExtensions(std::vector<std::string>& filteredExtensions, void*& firstFeatureInChain)
+    {
+        std::vector<void*> featureStructPtrs;
+
+        for(uint32_t i = 0; i < deviceExtensionRequests.size(); ++i)
+        {
+            auto & request = deviceExtensionRequests[i];
+            bool isSupported = isExtensionSupported(request.name.c_str());
+
+            if(isSupported)
+            {
+                filteredExtensions.push_back(request.name);
+                if(!request.featureMem.empty()) {
+                    featureStructPtrs.push_back(request.featureMem.data());
+                }
+            }
+            else if(request.optional == false)
+            {
+                assert(false && "Device Extension is not supported by PhysicalDevice");
+            }
+        }
+        
+               
+        // Construct Chain for Device Features
+        // ExtensionHeader is just something for reinterpret_cast
+        struct ExtensionHeader 
+        {
+            VkStructureType sType;
+            void*           pNext;
+        };
+
+        for(uint32_t i = 0; i < featureStructPtrs.size(); i++)
+        {
+            ExtensionHeader* header  = reinterpret_cast<ExtensionHeader*>(featureStructPtrs[i]);
+            header->pNext = (i < featureStructPtrs.size() - 1) ? featureStructPtrs[i + 1] : nullptr;
+        }
+
+        firstFeatureInChain = featureStructPtrs[0];
+    }
+
 private:
     VkPhysicalDevice m_vkPhysicalDevice;
+
+    std::vector<DeviceExtensionRequest> deviceExtensionRequests;
+    std::vector<VkExtensionProperties> supportedExtensions;
 };
         
 }

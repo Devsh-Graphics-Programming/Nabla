@@ -71,6 +71,12 @@ public:
         // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
+        bool rayQuery = false;
+        bool accelerationStructure = false;
+        bool accelerationStructureCaptureReplay = false;
+        bool accelerationStructureIndirectBuild = false;
+        bool accelerationStructureHostCommands = false;
+        bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
     };
 
     enum E_QUEUE_FLAGS : uint32_t
@@ -136,12 +142,32 @@ public:
         assert(false); // Invalid code path
         return false;
     }
+    
+    virtual bool isRayTracingPipelineSupported() const
+    {
+        assert(false); // Invalid code path
+        return false;
+    }
 
+    virtual bool isAccelerationStructuresSupported() const
+    {
+        assert(false); // Invalid code path
+        return false;
+    }
+
+    virtual bool isRayQuerySupported() const
+    {
+        assert(false); // Invalid code path
+        return false;
+    }
+    
     virtual bool getSurfaceCapabilities(const ISurface* surface, ISurface::SCapabilities& capabilities) const
     {
         assert(false); // Invalid code path
         return false;
     }
+
+    virtual ~IPhysicalDevice() = 0 {}
 
 protected:
     IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
