@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "nbl/video/ILogicalDevice.h"
+
 // Todo(achal): I should probably consider putting some defintions in CVKLogicalDevice.cpp
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanDeviceFunctionTable.h"
@@ -31,6 +32,7 @@
 #include "nbl/video/CVulkanForeignImage.h"
 #include "nbl/video/CVulkanDeferredOperation.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
+#include "nbl/core/containers/CMemoryPool.h"
 
 namespace nbl::video
 {
@@ -38,9 +40,13 @@ namespace nbl::video
 class CVKLogicalDevice final : public ILogicalDevice
 {
 public:
+    using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, true, uint32_t>;
+
+public:
     CVKLogicalDevice(IPhysicalDevice* physicalDevice, VkDevice vkdev,
         const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& sys)
-        : ILogicalDevice(physicalDevice, params), m_vkdev(vkdev), m_devf(vkdev)
+        : ILogicalDevice(physicalDevice, params), m_vkdev(vkdev), m_devf(vkdev),
+          m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP * sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
     {
         // create actual queue objects
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
@@ -259,14 +265,19 @@ public:
         return nullptr;
     }
             
-    core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override {
-        VkDeferredOperationKHR vk_deferredOp;
+    core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
+    {
+        VkDeferredOperationKHR vk_deferredOp = VK_NULL_HANDLE;
         VkResult vk_res = vkCreateDeferredOperationKHR(m_vkdev, nullptr, &vk_deferredOp);
-        if(VK_SUCCESS == vk_res) {
-            return core::make_smart_refctd_ptr<CVulkanDeferredOperation>(core::smart_refctd_ptr<CVKLogicalDevice>(this), vk_deferredOp);
-        } else {
+        if(vk_res!=VK_SUCCESS)
             return nullptr;
-        }
+
+        void* memory = m_deferred_op_mempool.allocate(sizeof(CVulkanDeferredOperation),alignof(CVulkanDeferredOperation));
+        if (!memory)
+            return nullptr;
+
+        new (memory) CVulkanDeferredOperation(core::smart_refctd_ptr<CVKLogicalDevice>(this),vk_deferredOp);
+        return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
     }
 
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
@@ -768,6 +779,10 @@ public:
     CVulkanDeviceFunctionTable* getFunctionTable() { return &m_devf; }
 
     VkDevice getInternalObject() const { return m_vkdev; }
+        
+    inline memory_pool_mt_t & getMemoryPoolForDeferredOperations() {
+        return m_deferred_op_mempool;
+    }
 
 protected:
     bool createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
@@ -1214,10 +1229,14 @@ protected:
     {
         return false;
     }
-            
+
 private:
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
+    
+    constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
+    constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
+    memory_pool_mt_t m_deferred_op_mempool;
 };
 
 }

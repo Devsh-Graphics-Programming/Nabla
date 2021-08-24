@@ -217,19 +217,32 @@ using SimpleBlockBasedAllocatorST = SimpleBlockBasedAllocator<AddressAllocator, 
 template<class AddressAllocator, template<class> class DataAllocator, class RecursiveLockable=std::recursive_mutex, typename... Args>
 class SimpleBlockBasedAllocatorMT : protected SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>
 {
-    typedef SimpleBlockBasedAllocatorST<AddressAllocator, DataAllocator, Args...> Base;
+	using Base = SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>;
 	
-protected:
+	protected:
         RecursiveLockable lock;
-
-        virtual ~SimpleBlockBasedAllocatorMT() {}
 
 	public:
         using size_type = typename Base::size_type;
 		_NBL_STATIC_INLINE_CONSTEXPR size_type meta_alignment = 64u;
 		
-    public:
-		
+		SimpleBlockBasedAllocatorMT(size_type _blockSize, size_type _minBlockCount, size_type _maxBlockCount, Args&&... args) : Base(_blockSize,_minBlockCount,_maxBlockCount,std::forward<Args>(args)...), lock()
+		{
+		}
+
+		auto& operator=(SimpleBlockBasedAllocatorMT&& other)
+        {
+			std::swap(lock,other.lock);
+			return static_cast<SimpleBlockBasedAllocatorMT<AddressAllocator,DataAllocator,Args...>>(Base::operator=(other));
+        }
+
+		SimpleBlockBasedAllocatorMT(SimpleBlockBasedAllocatorMT<AddressAllocator, DataAllocator, Args...>&& other)
+		{
+			operator=(std::move(other));
+		}
+
+        virtual ~SimpleBlockBasedAllocatorMT() {}
+
         inline void		reset()
         {
 			lock.lock();
@@ -240,8 +253,9 @@ protected:
 		inline void*	allocate(size_type bytes, size_type alignment) noexcept
 		{
 			lock.lock();
-			Base::allocate(bytes, alignment);
+			auto ret = Base::allocate(bytes, alignment);
 			lock.unlock();
+			return ret;
 		}
 		inline void		deallocate(void* p, size_type bytes) noexcept
 		{
@@ -255,7 +269,15 @@ protected:
 		{
 			return lock;
 		}
-
+		
+		inline bool		operator!=(const SimpleBlockBasedAllocatorMT<AddressAllocator,DataAllocator>& other) const noexcept
+		{
+			return Base::operator!=(other) && other.lock == lock;
+		}
+		inline bool		operator==(const SimpleBlockBasedAllocatorMT<AddressAllocator,DataAllocator>& other) const noexcept
+		{
+			return Base::operator==(other) && other.lock == lock;
+		}
 };
 // no aliases
 
