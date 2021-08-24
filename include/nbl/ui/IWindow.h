@@ -200,6 +200,11 @@ protected:
 
     }
 
+    IWindow(core::smart_refctd_ptr<system::ISystem>&& system) : m_sys(std::move(system))
+    {
+
+    }
+
     virtual ~IWindow() = default;
 
     core::smart_refctd_ptr<IEventCallback> m_cb;

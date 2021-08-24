@@ -33,6 +33,8 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoad
     ,XFindContext
     ,XrmUniqueQuark
     ,XSaveContext
+    ,XResizeWindow
+    ,XMoveWindow
 );
 
 // TODO add more

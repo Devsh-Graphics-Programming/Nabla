@@ -17,7 +17,6 @@ class CWindowManagerX11;
 class CWindowX11 final : public IWindowX11
 {
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
-
 public:
 	explicit CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* dpy, native_handle_t win);
 	explicit CWindowX11(CWindowManagerX11* manager, Display* dpy, native_handle_t win);
