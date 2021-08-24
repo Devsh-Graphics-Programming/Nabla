@@ -13,12 +13,19 @@ class IPhysicalDevice;
 
 class IAPIConnection : public core::IReferenceCounted
 {
-    public:
-        virtual E_API_TYPE getAPIType() const = 0;
+public:
+    IAPIConnection(std::vector<std::unique_ptr<IPhysicalDevice>>&& physicalDevices)
+        : m_physicalDevices(std::move(physicalDevices))
+    {}
 
-        virtual core::SRange<IPhysicalDevice *const> getPhysicalDevices() const = 0;
+    virtual E_API_TYPE getAPIType() const = 0;
 
-        virtual IDebugCallback* getDebugCallback() const = 0;
+    virtual IDebugCallback* getDebugCallback() const = 0;
+
+    core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
+
+private:
+    std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
 };
 
 }

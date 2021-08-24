@@ -18,26 +18,12 @@ class COpenGL_Connection final : public IAPIConnection
             return API_TYPE;
         }
 
-        core::SRange<IPhysicalDevice *const> getPhysicalDevices() const override
-        {      
-            return core::SRange<IPhysicalDevice *const>(&m_pdevice, &m_pdevice + 1);
-        }
-
         IDebugCallback* getDebugCallback() const override;
 
-        ~COpenGL_Connection()
-        {
-            if (m_pdevice)
-                delete m_pdevice;
-        }
-
     private:
-        COpenGL_Connection(IPhysicalDevice* _pdevice) : m_pdevice(_pdevice) {}
-
-        // 1. Probably could make it a std::unique_ptr?
-        // 2. Probably could put it into IAPIConnection itself with
-        // a `count` value or dynamic_array?
-        IPhysicalDevice* m_pdevice = nullptr;
+        COpenGL_Connection(std::vector<std::unique_ptr<IPhysicalDevice>>&& physicalDevices)
+            : IAPIConnection(std::move(physicalDevices))
+        {}
 };
 
 using COpenGLConnection = COpenGL_Connection<EAT_OPENGL>;
