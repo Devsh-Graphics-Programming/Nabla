@@ -18,6 +18,51 @@ namespace system
 class IFileArchive : public core::IReferenceCounted
 {
 public:
+	//! An entry in a list of files, can be a folder or a file.
+	struct SFileListEntry
+	{
+		//! The name of the file
+		/** If this is a file or folder in the virtual filesystem and the archive
+		was created with the ignoreCase flag then the file name will be lower case. */
+		system::path name;
+
+		//! The name of the file including the path
+		/** If this is a file or folder in the virtual filesystem and the archive was
+		created with the ignoreDirs flag then it will be the same as Name. */
+		system::path fullName;
+
+		//! The size of the file in bytes
+		uint32_t size;
+
+		//! The ID of the file in an archive
+		/** This is used to link the FileList entry to extra info held about this
+		file in an archive, which can hold things like data offset and CRC. */
+		uint32_t ID;
+
+		//! FileOffset inside an archive
+		uint32_t offset;
+
+		//! True if this is a folder, false if not.
+		bool isDirectory;
+
+		//! The == operator is provided so that CFileList can slowly search the list!
+		inline bool operator ==(const struct SFileListEntry& other) const
+		{
+			if (isDirectory != other.isDirectory)
+				return false;
+
+			return core::strcmpi(fullName.string(), other.fullName.string()) == 0;
+		}
+
+		//! The < operator is provided so that CFileList can sort and quickly search the list.
+		inline bool operator <(const struct SFileListEntry& other) const
+		{
+			if (isDirectory != other.isDirectory)
+				return isDirectory;
+
+			return fullName < other.fullName;
+		}
+	};
 	struct SOpenFileParams
 	{
 		std::filesystem::path filename;
@@ -26,6 +71,25 @@ public:
 
 	//! Opens a file based on its name
 	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) = 0;
+protected:
+	virtual void addItem(const system::path& fullPath, uint32_t offset, uint32_t size, uint32_t id = 0)
+	{
+		SFileListEntry entry;
+		entry.ID = id ? id : m_files.size();
+		entry.offset = offset;
+		entry.size = size;
+		entry.name = fullPath;
+		entry.isDirectory = std::filesystem::is_directory(fullPath);
+
+		entry.fullName = entry.name;
+
+		core::deletePathFromFilename(entry.name);
+
+		//os::Printer::log(Path.c_str(), entry.FullName);
+
+		m_files.insert(std::lower_bound(m_files.begin(), m_files.end(), entry), entry);
+	}
+	core::vector<SFileListEntry> m_files;
 };
 
 
@@ -40,8 +104,6 @@ public:
 
 	//! Returns an array of string literals terminated by nullptr
 	virtual const char** getAssociatedFileExtensions() const = 0;
-
-	virtual bool isMountable() const = 0;
 
 	virtual bool mount(const IFile* file, const std::string_view& passphrase) = 0;
 	
