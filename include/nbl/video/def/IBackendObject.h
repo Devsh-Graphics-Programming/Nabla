@@ -24,9 +24,7 @@ inline bool IBackendObject::wasCreatedBy(const ILogicalDevice* device) const
     return m_originDevice.get()==device;
 }
 
-// protected
 inline const ILogicalDevice* IBackendObject::getOriginDevice() const { return m_originDevice.get(); }
-
 
 }
 

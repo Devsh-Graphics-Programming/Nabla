@@ -11,7 +11,7 @@
 namespace nbl::video
 {
 
-class IGPUQueue : public core::Interface, public core::Unmovable, public IBackendObject
+class IGPUQueue : public core::Interface, public core::Unmovable
 {
     public:
         enum E_CREATE_FLAGS : uint32_t
@@ -39,8 +39,8 @@ class IGPUQueue : public core::Interface, public core::Unmovable, public IBacken
         };
 
         //! `flags` takes bits from E_CREATE_FLAGS
-        IGPUQueue(core::smart_refctd_ptr<const ILogicalDevice>&& dev, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
-            : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
+        IGPUQueue(ILogicalDevice* originDevice, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
+            : m_originDevice(originDevice), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
         {
 
         }
@@ -57,6 +57,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable, public IBacken
         const uint32_t m_familyIndex;
         const E_CREATE_FLAGS m_flags;
         const float m_priority;
+        ILogicalDevice* m_originDevice;
 };
 
 inline bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)

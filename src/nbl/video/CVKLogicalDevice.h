@@ -57,12 +57,8 @@ public:
                 // m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                 vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                         
-                // Todo(achal): Kinda weird situation here by passing the same ILogicalDevice
-                // refctd_ptr to both CThreadSafeGPUQueueAdapter and CVulkanQueue separately
                 const uint32_t ix = offset + j;
-                (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(
-                    new CVulkanQueue(core::smart_refctd_ptr<CVKLogicalDevice>(this),
-                        q, famIx, flags, priority), core::smart_refctd_ptr<CVKLogicalDevice>(this));
+                (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, q, famIx, flags, priority));
             }
         }
     }

@@ -12,9 +12,9 @@ class ILogicalDevice;
 class CVulkanQueue final : public IGPUQueue
 {
 public:
-    CVulkanQueue(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, VkQueue vkq, uint32_t _famIx,
-    E_CREATE_FLAGS _flags, float _priority) : IGPUQueue(std::move(logicalDevice), _famIx,
-        _flags, _priority), m_vkQueue(vkq)
+    CVulkanQueue(ILogicalDevice* logicalDevice, VkQueue vkq, uint32_t _famIx,
+        E_CREATE_FLAGS _flags, float _priority)
+        : IGPUQueue(logicalDevice, _famIx, _flags, _priority), m_vkQueue(vkq)
     {}
 
     bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
