@@ -265,11 +265,11 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	state.inMipLevel = 0;
 	state.outMipLevel = 0;
 
-	if (!derivativeNormalFilter.execute(&state))
-		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
-
-
+	bool status = derivativeNormalFilter.execute(&state);
 	_NBL_ALIGNED_FREE(state.scratchMemory);
+
+	if(!status)
+		return nullptr;
 
 	return core::smart_refctd_ptr<ICPUImage>(state.outImage);
 }
@@ -291,9 +291,6 @@ core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::
 	imageViewInfo.subresourceRange.levelCount = imageViewInfo.image->getCreationParameters().mipLevels;
 
 	auto imageView = ICPUImageView::create(std::move(imageViewInfo));
-
-	if (!imageView.get())
-		os::Printer::log("Something went wrong while creating image view for derivative normal map!", ELL_ERROR);
 
 	return imageView;
 }
