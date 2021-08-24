@@ -199,7 +199,7 @@ public:
         if (!sc)
             return nullptr;
         // wait until swapchain's internal thread finish context creation
-        sc->waitForContextCreation();
+        sc->waitForInitComplete();
         // make master context (in logical device internal thread) again
         bindMasterContext();
 
@@ -296,8 +296,6 @@ public:
         for (uint32_t i = 0u; i < _count; ++i)
         {
             assert(_fences[i]);
-            auto* glfence = static_cast<COpenGLFence*>(_fences[i]);
-            assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
         }
 #endif
         SRequestWaitForFences params{ {_fences,_fences + _count},_waitAll,_timeout };

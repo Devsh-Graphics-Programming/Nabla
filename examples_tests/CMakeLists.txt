@@ -36,7 +36,7 @@ add_subdirectory(23.Autoexposure EXCLUDE_FROM_ALL)
 #add_subdirectory(24.BufferSubDataAlignTest EXCLUDE_FROM_ALL) # TODO: @Anastazluk or @Hazardu
 #add_subdirectory(25.Blur EXCLUDE_FROM_ALL)
 add_subdirectory(26.MultidrawIndirectVSCPUCull EXCLUDE_FROM_ALL)
-add_subdirectory(27.LoaderFixes EXCLUDE_FROM_ALL)
+add_subdirectory(27.PLYSTLDemo EXCLUDE_FROM_ALL)
 if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_OPTIX)
 	#add_subdirectory(28.OptiXPathTracing EXCLUDE_FROM_ALL)
 endif()
@@ -65,5 +65,6 @@ add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
 add_subdirectory(50.NewAPITest EXCLUDE_FROM_ALL)
 add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
-add_subdirectory(53.Transformations EXCLUDE_FROM_ALL)
+add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL) # todo change the number
+add_subdirectory(54.Transformations EXCLUDE_FROM_ALL)
 

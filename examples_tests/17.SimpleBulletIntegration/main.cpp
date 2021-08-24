@@ -6,13 +6,13 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
+#include "../common/Camera.hpp"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 #include "nbl/ext/Bullet/BulletUtility.h"
 #include "nbl/ext/Bullet/CPhysicsWorld.h"
-#include "Camera.hpp"
 
 using namespace nbl;
 using namespace core;
@@ -119,13 +119,14 @@ int main()
 {
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
-	constexpr uint32_t FBO_COUNT = 1u;
+	constexpr uint32_t FBO_COUNT = 2u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
 	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
 	auto system = std::move(initOutput.system);
 	auto window = std::move(initOutput.window);
+	auto windowCb = std::move(initOutput.windowCb);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
@@ -136,7 +137,7 @@ int main()
 	auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
-	auto fbo = std::move(initOutput.fbo[0]);
+	auto fbo = std::move(initOutput.fbo);
 	auto commandPool = std::move(initOutput.commandPool);
 	auto assetManager = std::move(initOutput.assetManager);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
@@ -478,8 +479,9 @@ int main()
 		renderFinished[i] = device->createSemaphore();
 	}
 
-	// render loop
+	// Render
 	constexpr size_t MaxFramesToAverage = 100ull;
+	bool frameDataFilled = false;
 	size_t frame_count = 0ull;
 	double time_sum = 0;
 	double dtList[MaxFramesToAverage] = {};
@@ -497,13 +499,20 @@ int main()
 	// polling for events!
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-
+	
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
-	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
-	{
-		// Timing
+	
+	auto resourceIx = -1;
 
+	while(windowCb->isWindowOpen())
+	{
+		resourceIx++;
+		if(resourceIx >= FRAMES_IN_FLIGHT) {
+			resourceIx = 0;
+		}
+
+		// Timing
 		auto renderStart = std::chrono::system_clock::now();
 		dt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart-lastTime).count();
 		lastTime = renderStart;
@@ -516,10 +525,11 @@ int main()
 			frame_count++;
 			if(frame_count >= MaxFramesToAverage) {
 				frame_count = 0;
+				frameDataFilled = true;
 			}
 		}
-		double averageFrameTime = time_sum / (double)MaxFramesToAverage;
-		// logger->log("dt = %f ------ averageFrameTime = %f",system::ILogger::ELL_INFO, dt, averageFrameTime);
+		double averageFrameTime = (frameDataFilled) ? (time_sum / (double)MaxFramesToAverage) : (time_sum / frame_count);
+		// logger->log("averageFrameTime = %f",system::ILogger::ELL_INFO, averageFrameTime);
 		
 		// Calculate Next Presentation Time Stamp
 		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
@@ -532,11 +542,11 @@ int main()
 
 		cam.beginInputProcessing(nextPresentationTimeStamp);
 		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { cam.mouseProcess(events); }, logger.get());
-		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { cam.keyboardProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void {
+			cam.keyboardProcess(events); 
+		}, logger.get());
 		cam.endInputProcessing(nextPresentationTimeStamp);
 
-		// Render
-		const auto resourceIx = i%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
@@ -551,8 +561,8 @@ int main()
 
 		{
 			asset::SViewport vp;
-			vp.minDepth = 0.f;
-			vp.maxDepth = 1.f;
+			vp.minDepth = 1.f;
+			vp.maxDepth = 0.f;
 			vp.x = 0u;
 			vp.y = 0u;
 			vp.width = WIN_W;
@@ -591,7 +601,7 @@ int main()
 			clearValues[1].depthStencil.stencil = 0.0f;
 
 			info.renderpass = renderpass;
-			info.framebuffer = fbo;
+			info.framebuffer = fbo[imgnum];
 			info.clearValueCount = 2u;
 			info.clearValues = clearValues;
 			info.renderArea.offset = { 0, 0 };

@@ -216,14 +216,14 @@ set(NBL_ASSET_SOURCES
 # Mesh loaders
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
 
 # Mesh writers
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -549,6 +549,20 @@ if (ANDROID)
 endif()
 
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
+set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
+
+write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+add_custom_command(
+	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" 
+	COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/include -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaHeader.cmake
+	DEPENDS ${NBL_ROOT_PATH}/include/nabla.h.in
+	COMMENT "Generating nabla.h"
+	VERBATIM
+)
+
+add_custom_target(generate_nabla_header DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
+add_dependencies(Nabla generate_nabla_header)
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)
@@ -582,18 +596,10 @@ set(NABLA_HEADERS_TO_INSTALL
 
 set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
 nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")

@@ -52,17 +52,99 @@ namespace nbl
 		using namespace IMF;
 		using namespace IMATH;
 
+		namespace impl
+		{
+			class nblIStream : public IMF::IStream
+			{
+				public:
+					nblIStream(system::IFile* _nblFile)
+						: IMF::IStream(getFileName(_nblFile).c_str()), nblFile(_nblFile) {}
+					virtual ~nblIStream() {}
+
+					//------------------------------------------------------
+					// Read from the stream:
+					//
+					// read(c,n) reads n bytes from the stream, and stores
+					// them in array c.  If the stream contains less than n
+					// bytes, or if an I/O error occurs, read(c,n) throws
+					// an exception.  If read(c,n) reads the last byte from
+					// the file it returns false, otherwise it returns true.
+					//------------------------------------------------------
+
+					virtual bool read(char c[/*n*/], int n) override
+					{
+						nblFile->read(future, c, fileOffset, n);
+						{
+							const auto bytesRead = future.get();
+							fileOffset += bytesRead;
+						}
+						return true;
+					}
+
+					//--------------------------------------------------------
+					// Get the current reading position, in bytes from the
+					// beginning of the file.  If the next call to read() will
+					// read the first byte in the file, tellg() returns 0.
+					//--------------------------------------------------------
+
+					virtual IMF::Int64 tellg() override
+					{
+						return static_cast<IMF::Int64>(fileOffset);
+					}
+
+					//-------------------------------------------
+					// Set the current reading position.
+					// After calling seekg(i), tellg() returns i.
+					//-------------------------------------------
+
+					virtual void seekg(IMF::Int64 pos) override
+					{
+						fileOffset = static_cast<decltype(fileOffset)>(pos);
+					}
+
+					//------------------------------------------------------
+					// Clear error conditions after an operation has failed.
+					//------------------------------------------------------
+
+					virtual void clear() override
+					{
+						/*
+							Probably we don't want to investigate in system::IFile
+							and change the stream error state flags, leaving this 
+							function empty
+						*/
+					}
+
+					void resetFileOffset()
+					{
+						fileOffset = 0u;
+					}
+
+				private:
+
+					const std::string getFileName(system::IFile* _nblFile)
+					{
+						std::filesystem::path filename, extension;
+						core::splitFilename(_nblFile->getFileName(), nullptr, &filename, &extension);
+						return filename.string() + extension.string();
+					}
+
+					system::future<size_t> future;
+					system::IFile* nblFile;
+					size_t fileOffset = {};
+			};
+		}
+
 		using suffixOfChannelBundle = std::string;
 		using channelName = std::string;	     									// sytnax if as follows
 		using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
 		class SContext;
-		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr);
-		bool readHeader(const char fileName[], SContext& ctx);
+		bool readVersionField(IMF::IStream* nblIStream, SContext& ctx, const system::logger_opt_ptr);
+		bool readHeader(IMF::IStream* nblIStream, SContext& ctx);
 		template<typename rgbaFormat>
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
 		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr logger);
-
 
 		//! A helpful struct for handling OpenEXR layout
 		/*
@@ -73,6 +155,7 @@ namespace nbl
 			- line offset table
 			- scan line blocks
 		*/
+
 		struct SContext
 		{
 			constexpr static uint32_t magicNumber = 20000630ul; // 0x76, 0x2f, 0x31, 0x01
@@ -216,22 +299,41 @@ namespace nbl
 				return false;
 		}
 
-
 		SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
-			std::string fileName = _file->getFileName().string();
-
 			SContext ctx;
-			InputFile file = fileName.c_str();
 
-			if (!readVersionField(_file, ctx, _params.logger))
-				return {};
+			IMF::IStream* nblIStream = _NBL_NEW(impl::nblIStream, _file); // TODO: THIS NEEDS TESTING
+			InputFile file(*nblIStream);
 
-			if (!readHeader(fileName.c_str(), ctx))
+			if (file.isComplete())
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
 				return {};
+			}
+
+			if (readVersionField(nblIStream, ctx, _params.logger))
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
+				return {};
+			}
+
+			if (readHeader(nblIStream, ctx))
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
+				return {};
+			}
+
+			_NBL_DELETE(nblIStream);
 
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
 			const auto channelsData = getChannels(file);
@@ -396,9 +498,13 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(system::IFile* _file, SContext& ctx, const system::logger_opt_ptr logger)
+		bool readVersionField(IMF::IStream* nblIStream, SContext& ctx, const system::logger_opt_ptr logger)
 		{
-			RgbaInputFile file(_file->getFileName().string().c_str());
+			RgbaInputFile file(*nblIStream);
+
+			if (!file.isComplete())
+				return false;
+
 			auto& versionField = ctx.versionField;
 			
 			versionField.mainDataRegisterField = file.version();
@@ -448,9 +554,13 @@ namespace nbl
 			return true;
 		}
 
-		bool readHeader(const char fileName[], SContext& ctx)
+		bool readHeader(IMF::IStream* nblIStream, SContext& ctx)
 		{
-			RgbaInputFile file(fileName);
+			RgbaInputFile file(*nblIStream);
+
+			if (!file.isComplete())
+				return false;
+
 			auto& attribs = ctx.attributes;
 			auto& versionField = ctx.versionField;
 
