@@ -14,10 +14,10 @@
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUPipelineCache.h"
-#include "nbl/video/IDeferredOperation.h"
 #include "nbl/video/EApiType.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/CPropertyPoolHandler.h"
+#include "nbl/video/IDeferredOperation.h"
 
 namespace nbl::video
 {
@@ -61,8 +61,17 @@ public:
         IDriverMemoryAllocation* memory;
         size_t offset;
     };
-    
-    inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice.get(); }
+
+    virtual ~ILogicalDevice()
+    {
+        if (m_queues && m_queues->empty())
+        {
+            for (uint32_t i = 0u; i < m_queues->size(); ++i)
+                delete (*m_queues)[i];
+        }
+    }
+
+    inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
     E_API_TYPE getAPIType() const;
 
@@ -76,7 +85,7 @@ public:
     inline CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
     {
         const uint32_t offset = (*m_offsets)[_familyIx];
-        return (*m_queues)[offset + _ix].get();
+        return (*m_queues)[offset + _ix];
     }
 
     inline StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer()
@@ -229,9 +238,6 @@ public:
     so effectively the memory is pre-bound at the time of creation.
     \return true on success, always false under OpenGL.*/
     virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
-
-    //! Creates DeferredOperation for Host Operations; Initial State is completed
-    virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
 
     //! Creates the buffer, allocates memory dedicated memory and binds it at once.
     inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
@@ -437,7 +443,6 @@ public:
             return nullptr;
         return createGPUImageView_impl(std::move(params));
     }
-
 
     core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
     {
@@ -766,6 +771,7 @@ public:
         waitForFences(1u,&fenceptr,false,9999999999ull);
     }
 
+    virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
     // Not implemented stuff:
     //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)
     //vkGetBufferMemoryRequirements // wonder how it works with dedicated memory XD
@@ -872,9 +878,10 @@ protected:
     virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
     virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
 
-    core::smart_refctd_ptr<IPhysicalDevice> m_physicalDevice;
+    core::smart_refctd_ptr<IAPIConnection> m_api;
+    IPhysicalDevice* m_physicalDevice;
 
-    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
+    using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;
     queues_array_t m_queues;
     using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
     q_offsets_array_t m_offsets;

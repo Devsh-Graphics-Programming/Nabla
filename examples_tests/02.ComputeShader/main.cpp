@@ -141,6 +141,7 @@ struct alignas(256) UniformBufferObject
 
 int main()
 {
+
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
@@ -184,7 +185,7 @@ int main()
 	VkExtent2D swapchainExtent;
 
 	// Todo(achal): Abstract this out
-	core::smart_refctd_ptr<video::IPhysicalDevice> gpu = nullptr;
+	video::IPhysicalDevice* gpu = nullptr;
 	for (size_t i = 0ull; i < gpus.size(); ++i)
 	{
 		gpu = gpus.begin()[i];
@@ -203,7 +204,7 @@ int main()
 				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
 					computeFamilyIndex = familyIndex;
 
-				if (surface->isSupported(gpu.get(), familyIndex))
+				if (surface->isSupported(gpu, familyIndex))
 					presentFamilyIndex = familyIndex;
 
 				if ((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))

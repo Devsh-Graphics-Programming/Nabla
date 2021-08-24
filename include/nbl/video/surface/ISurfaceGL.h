@@ -34,7 +34,7 @@ class CSurfaceGL final : public CSurface<Window>
             // GL/GLES backends have just 1 queue family and device
             assert(dev->getQueueFamilyProperties().size()==1u);
             assert(base_t::m_api->getPhysicalDevices().size()==1u);
-            return _queueFamIx==0u && dev==base_t::m_api->getPhysicalDevices().begin()->get();
+            return _queueFamIx==0u && dev==*base_t::m_api->getPhysicalDevices().begin();
         }
 
         inline const void* getNativeWindowHandle() const override
