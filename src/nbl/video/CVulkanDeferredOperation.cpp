@@ -1,6 +1,6 @@
 #include "CVulkanDeferredOperation.h"
 
-#include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 
 namespace nbl::video
 {
@@ -10,7 +10,7 @@ CVulkanDeferredOperation::~CVulkanDeferredOperation()
     if(VK_NULL_HANDLE != m_deferredOp)
     {
         const auto originDevice = getOriginDevice();
-        VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
         vkDestroyDeferredOperationKHR(vk_device, m_deferredOp, nullptr);
     }
 }
@@ -19,7 +19,7 @@ bool CVulkanDeferredOperation::join() {
     bool ret = false;
     if(VK_NULL_HANDLE != m_deferredOp) {
         const auto originDevice = getOriginDevice();
-        VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
         VkResult vk_res = vkDeferredOperationJoinKHR(vk_device, m_deferredOp);
         ret = (VK_SUCCESS == vk_res);
     }
@@ -31,7 +31,7 @@ uint32_t CVulkanDeferredOperation::getMaxConcurrency() {
     if(VK_NULL_HANDLE != m_deferredOp)
     {
         const auto originDevice = getOriginDevice();
-        VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
         ret = vkGetDeferredOperationMaxConcurrencyKHR(vk_device, m_deferredOp);
     }
     return ret;
@@ -42,7 +42,7 @@ IDeferredOperation::E_STATUS CVulkanDeferredOperation::getStatus() {
     if(VK_NULL_HANDLE != m_deferredOp) 
     {
         const auto originDevice = getOriginDevice();
-        VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
         VkResult vk_res = vkGetDeferredOperationResultKHR(vk_device, m_deferredOp);
         if(VK_SUCCESS == vk_res) 
             ret = E_STATUS::ES_COMPLETED;
@@ -78,7 +78,7 @@ IDeferredOperation::E_STATUS CVulkanDeferredOperation::joinAndWait() {
 void CVulkanDeferredOperation::operator delete(void* ptr) noexcept
 {
     CVulkanDeferredOperation* cvkdo = reinterpret_cast<CVulkanDeferredOperation*>(ptr);
-    auto vkDevice = static_cast<CVKLogicalDevice*>(const_cast<ILogicalDevice*>(cvkdo->getOriginDevice()));
+    auto vkDevice = static_cast<CVulkanLogicalDevice*>(const_cast<ILogicalDevice*>(cvkdo->getOriginDevice()));
     auto& mempool = vkDevice->getMemoryPoolForDeferredOperations();
     mempool.deallocate(ptr,sizeof(CVulkanDeferredOperation));
 }

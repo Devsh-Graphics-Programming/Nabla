@@ -1,26 +1,26 @@
-#include "nbl/video/CVKSwapchain.h"
+#include "nbl/video/CVulkanSwapchain.h"
 
-#include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanConnection.h"
 
 namespace nbl::video
 {
 
-CVKSwapchain::~CVKSwapchain()
+CVulkanSwapchain::~CVulkanSwapchain()
 {
     const auto originDevice = getOriginDevice();
 
     if (originDevice->getAPIType() == EAT_VULKAN)
     {
         // auto* vk = m_vkdev->getFunctionTable();
-        VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
         // vk->vk.vkDestroySwapchainKHR(m_device->getInternalObject(), m_swapchain, nullptr);
         vkDestroySwapchainKHR(vk_device, m_vkSwapchainKHR, nullptr);
     }
 }
 
-auto CVKSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) -> E_ACQUIRE_IMAGE_RESULT
+auto CVulkanSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) -> E_ACQUIRE_IMAGE_RESULT
 {
     // VkDevice dev = m_device->getInternalObject();
     // auto* vk = m_device->getFunctionTable();
@@ -29,7 +29,7 @@ auto CVKSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, 
     if (originDevice->getAPIType() != EAT_VULKAN)
         return EAIR_ERROR;
 
-    VkDevice vk_device = static_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+    VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
 
     VkSemaphore vk_semaphore = VK_NULL_HANDLE;
     if (semaphore && semaphore->getAPIType() == EAT_VULKAN)

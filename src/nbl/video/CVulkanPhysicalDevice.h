@@ -2,7 +2,7 @@
 #define __NBL_C_VULKAN_PHYSICAL_DEVICE_H_INCLUDED__
 
 #include "nbl/video/IPhysicalDevice.h"
-#include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 #include "nbl/video/CVulkanCommon.h"
 
@@ -289,7 +289,7 @@ protected:
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVKLogicalDevice>(this, vk_device, params,
+            return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(this, vk_device, params,
                 core::smart_refctd_ptr(m_system));
         }
         else

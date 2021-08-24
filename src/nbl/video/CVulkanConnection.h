@@ -14,8 +14,6 @@ namespace nbl::video
 
 class CVulkanConnection final : public IAPIConnection
 {
-    using physical_devs_array_t = core::smart_refctd_dynamic_array<IPhysicalDevice*>;
-
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
@@ -97,22 +95,20 @@ public:
             vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, vk_physicalDevices);
         }
 
-        physical_devs_array_t physicalDevices = core::make_refctd_dynamic_array<physical_devs_array_t>(physicalDeviceCount);
+        std::vector<std::unique_ptr<IPhysicalDevice>> physicalDevices;
+        physicalDevices.reserve(physicalDeviceCount);
         for (uint32_t i = 0u; i < physicalDeviceCount; ++i)
         {
-            (*physicalDevices)[i] = new CVulkanPhysicalDevice(vk_physicalDevices[i],
-                core::smart_refctd_ptr(sys), core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()));
+            physicalDevices.emplace_back(std::make_unique<CVulkanPhysicalDevice>(
+                vk_physicalDevices[i], core::smart_refctd_ptr(sys),
+                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get())));
         }
 
-        return core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance, physicalDevices, vk_debugMessenger);
+        return core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance,
+            std::move(physicalDevices), vk_debugMessenger);
     }
 
     VkInstance getInternalObject() const { return m_vkInstance; }
-
-    core::SRange<IPhysicalDevice *const> getPhysicalDevices() const override
-    {
-        return core::SRange<IPhysicalDevice *const>(m_physicalDevices->begin(), m_physicalDevices->end());
-    }
 
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
@@ -122,29 +118,21 @@ public:
 // Todo(achal): Remove
 // private:
 
-    CVulkanConnection(VkInstance instance, physical_devs_array_t physicalDevices,
+    CVulkanConnection(VkInstance instance,
+        std::vector<std::unique_ptr<IPhysicalDevice>>&& physicalDevices,
         VkDebugUtilsMessengerEXT debugUtilsMessenger = VK_NULL_HANDLE)
-        : m_vkInstance(instance), m_physicalDevices(physicalDevices),
+        : IAPIConnection(std::move(physicalDevices)), m_vkInstance(instance),
         m_vkDebugUtilsMessengerEXT(debugUtilsMessenger)
     {}
 
     ~CVulkanConnection()
     {
-        if (m_physicalDevices && !m_physicalDevices->empty())
-        {
-            for (uint32_t i = 0u; i < m_physicalDevices->size(); ++i)
-            {
-                delete (*m_physicalDevices)[i];
-            }
-        }
-
         vkDestroyDebugUtilsMessengerEXT(m_vkInstance, m_vkDebugUtilsMessengerEXT, nullptr);
         vkDestroyInstance(m_vkInstance, nullptr);
     }
 
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-    physical_devs_array_t m_physicalDevices = nullptr;
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL placeholderDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
         const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)

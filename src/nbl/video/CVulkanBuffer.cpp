@@ -1,6 +1,6 @@
 #include "CVulkanBuffer.h"
 
-#include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 
 namespace nbl::video
 {
@@ -10,7 +10,7 @@ CVulkanBuffer::~CVulkanBuffer()
     auto originDevice = getOriginDevice();
     if (originDevice->getAPIType() == EAT_VULKAN)
     {
-        VkDevice device = reinterpret_cast<const CVKLogicalDevice*>(originDevice)->getInternalObject();
+        VkDevice device = reinterpret_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
         vkDestroyBuffer(device, m_vkBuffer, nullptr);
     }
 }

@@ -268,6 +268,7 @@ set(NBL_VIDEO_SOURCES
 # Property Pools
 	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 
+	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
@@ -306,7 +307,7 @@ set(NABLA_SRCS_NORMAL
 	# Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
