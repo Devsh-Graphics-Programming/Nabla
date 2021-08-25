@@ -34,7 +34,7 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
 
             //VkCompositeAlphaFlagBitsKHR compositeAlpha;
             //VkBool32 clipped;
-            //VkSwapchainKHR oldSwapchain;
+            core::smart_refctd_ptr<ISwapchain> oldSwapchain;
         };
 
         enum E_ACQUIRE_IMAGE_RESULT

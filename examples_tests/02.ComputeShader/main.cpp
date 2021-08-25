@@ -141,7 +141,6 @@ struct alignas(256) UniformBufferObject
 
 int main()
 {
-
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
@@ -168,6 +167,28 @@ int main()
 	core::smart_refctd_ptr<video::CSurfaceVulkanWin32> surface =
 		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
 			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+
+#if 0
+	{
+		auto opengl_logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+		core::smart_refctd_ptr<video::COpenGLConnection> opengl =
+			video::COpenGLConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", video::COpenGLDebugCallback(core::smart_refctd_ptr(opengl_logger)));
+
+		core::smart_refctd_ptr<video::CSurfaceGLWin32> surface_opengl =
+			video::CSurfaceGLWin32::create(core::smart_refctd_ptr(opengl),
+				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+
+		while (surface_opengl->getReferenceCount() >= 0)
+			surface_opengl->drop();
+
+		while (opengl->getReferenceCount() >= 0)
+			opengl->drop();
+
+		// while (opengl_logger->getReferenceCount >= 0)
+		// 	opengl_logger->drop();
+		opengl_logger->drop();
+	}
+#endif
 
 	auto gpus = apiConnection->getPhysicalDevices();
 	assert(!gpus.empty());
@@ -204,7 +225,7 @@ int main()
 				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
 					computeFamilyIndex = familyIndex;
 
-				if (surface->isSupported(gpu, familyIndex))
+				if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
 					presentFamilyIndex = familyIndex;
 
 				if ((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))
@@ -223,15 +244,15 @@ int main()
 		// Check if the surface is adequate
 		{
 			uint32_t surfaceFormatCount;
-			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, nullptr);
+			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
 			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
-			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, surfaceFormats.data());
+			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, surfaceFormats.data());
 
 			video::ISurface::E_PRESENT_MODE availablePresentModes =
-				gpu->getAvailablePresentModesForSurface(surface.get());
+				surface->getAvailablePresentModesForPhysicalDevice(gpu);
 
 			video::ISurface::SCapabilities surfaceCapabilities = {};
-			if (!gpu->getSurfaceCapabilities(surface.get(), surfaceCapabilities))
+			if (!surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, surfaceCapabilities))
 				isGPUSuitable = false;
 
 			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
@@ -316,6 +337,7 @@ int main()
 	sc_params.imageSharingMode = imageSharingMode;
 	sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
 		asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
+	sc_params.oldSwapchain = nullptr;
 
 	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(
 		std::move(sc_params));
