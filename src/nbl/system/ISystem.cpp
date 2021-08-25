@@ -1,13 +1,10 @@
 #include "nbl/system/ISystem.h"
-#include "nbl/system/CSystemWin32.h"
+#include "nbl/system/CArchiveLoaderZip.h"
+
 namespace nbl::system
 {
-core::smart_refctd_ptr<ISystem> nbl::system::ISystem::create()
-{
-	core::smart_refctd_ptr<ISystem::ISystemCaller> caller = nullptr;
-#ifdef _NBL_PLATFORM_WINDOWS_
-	caller = core::make_smart_refctd_ptr<CSystemCallerWin32>();
-#endif
-	return core::make_smart_refctd_ptr<ISystem>(std::move(caller));
-}
+    ISystem::ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(this, std::move(caller))
+    {
+        addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>());
+    }
 }

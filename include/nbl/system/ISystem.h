@@ -152,17 +152,14 @@ private:
         }
     } m_loaders;
 
+    core::CMultiObjectCache<std::filesystem::path, core::smart_refctd_ptr<IFileArchive>, std::vector> m_cachedArchiveFiles;
     CAsyncQueue m_dispatcher;
 
 public:
     template <typename T>
     using future_t = CAsyncQueue::future_t<T>;
 
-    explicit ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(this, std::move(caller))
-    {
-        // add all possible archive loaders to m_loaders containers here
-        // @sadiuk see IAssetManager for reference
-    }
+    explicit ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller);
 
     uint32_t addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
     {
@@ -287,6 +284,20 @@ public:
         // @sadiuk implement in manner similar to IAssetManager::getAsset
 
         return nullptr;
+    }
+
+    void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias)
+    {
+        const auto& files = archive->getFiles();
+        for (auto& archFile : files)
+        {
+            assert(false); // TODO: cache path alias too
+            m_cachedArchiveFiles.insert(archFile.fullName, archive);
+        }
+    }
+    void unmount(const IFileArchive* archive, const system::path& pathAlias)
+    {
+
     }
 };
 

@@ -71,6 +71,8 @@ public:
 
 	//! Opens a file based on its name
 	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) = 0;
+
+	const core::vector<SFileListEntry>& getFiles() const { return m_files; }
 protected:
 	virtual void addItem(const system::path& fullPath, uint32_t offset, uint32_t size, uint32_t id = 0)
 	{
@@ -105,23 +107,19 @@ public:
 	//! Returns an array of string literals terminated by nullptr
 	virtual const char** getAssociatedFileExtensions() const = 0;
 
-	virtual bool mount(const IFile* file, const std::string_view& passphrase) = 0;
-	
-	virtual bool unmount(const IFile* file) = 0;
-
 	//! Creates an archive from the file
 	/** \param file File handle to use.
 	\return Pointer to newly created archive, or 0 upon error. */
-	core::smart_refctd_ptr<IFileArchive> createArchive(IFile* file) const
+	core::smart_refctd_ptr<IFileArchive> createArchive(core::smart_refctd_ptr<IFile>&& file) const
 	{
 		if (!(file->getFlags() & IFile::ECF_READ))
 			return nullptr;
 
-		return createArchive_impl(file);
+		return createArchive_impl(std::move(file));
 	}
 
 protected:
-	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(IFile* file) const = 0;
+	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<IFile>&& file) const = 0;
 };
 
 
