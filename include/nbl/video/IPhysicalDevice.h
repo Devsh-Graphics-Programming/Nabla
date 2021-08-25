@@ -116,13 +116,7 @@ public:
     virtual IDebugCallback* getDebugCallback() = 0;
 
     virtual bool isSwapchainSupported() const = 0;
-        
-    virtual bool isRayTracingPipelineSupported() const = 0;
 
-    virtual bool isAccelerationStructuresSupported() const = 0;
-
-    virtual bool isRayQuerySupported() const = 0;
-    
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
     {
         if (!validateLogicalDeviceCreation(params))

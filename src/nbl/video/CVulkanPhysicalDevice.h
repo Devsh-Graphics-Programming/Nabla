@@ -145,21 +145,6 @@ public:
     {
         return isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
-    
-    bool isRayTracingPipelineSupported() const override
-    {
-        return isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-    }
-
-    bool isAccelerationStructuresSupported() const override
-    {
-        return isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-    }
-
-    bool isRayQuerySupported() const override
-    {
-        return isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-    }
 
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
