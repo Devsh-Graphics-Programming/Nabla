@@ -77,6 +77,35 @@ class CWindowManagerX11 : public IWindowManager
         core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override;
         void destroyWindow(IWindow* wnd) override;
     private:
+        class CThreadHandler final : public system::IThreadHandler<CThreadHandler>
+        {
+            using base_t = system::IThreadHandler<CThreadHandler>;
+		    friend base_t;
+
+            public:
+                CThreadHandler(Display* dpy) : m_dpy(dpy)
+                {
+                    this->start();
+                }
+
+                void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowX11::E_CREATE_FLAGS _flags, CWindowX11::native_handle_t* wnd, const std::string_view& caption)
+                {
+                    // TODO
+                }
+
+                void destroyWindow(CWindowX11::native_handle_t window)
+                {
+                    // TODO
+                }
+
+            private:
+                void work(lock_t& lock) {} // TODO
+                void init();
+                bool wakeupPredicate() const { return true; }
+                bool continuePredicate() const { return true; }
+                Display* m_dpy;
+        };
+
         core::vector<XID> getConnectedMice() const;
         core::vector<XID> getConnectedKeyboards() const;
 

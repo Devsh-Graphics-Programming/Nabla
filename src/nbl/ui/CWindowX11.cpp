@@ -97,7 +97,7 @@ void CWindowX11::processEvent(XEvent event)
         case PropertyNotify:
         {
             // XPropertyEvent e = event.xproperty;
-            // if(e.atom == SDL_VideoData::_NET_WM_STATE)
+            // if(e.atom == _NET_WM_STATE)
             // {
                 // Atom* allStates;
                 // unsigned long itemCount, bytesAfter;
@@ -144,18 +144,18 @@ CWindowManagerX11::CWindowManagerX11()
     m_dpy = x11.pXOpenDisplay(nullptr);
 }
 
-// core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreationParams&& creationParams)
-// {
-//     int32_t x = creationParams.x;
-//     int32_t y = creationParams.y;
-//     uint32_t w = creationParams.width;
-//     uint32_t h = creationParams.height;
-//     CWindowX11::E_CREATE_FLAGS flags = creationParams.flags;
-//     const std::string_view& caption = creationParams.windowCaption;
-//     CWindowX11::native_handle_t* wnd;
+core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreationParams&& creationParams)
+{
+    int32_t x = creationParams.x;
+    int32_t y = creationParams.y;
+    uint32_t w = creationParams.width;
+    uint32_t h = creationParams.height;
+    CWindowX11::E_CREATE_FLAGS flags = creationParams.flags;
+    const std::string_view& caption = creationParams.windowCaption;
+    CWindowX11::native_handle_t wnd;
     
-//     return core::make_smart_refctd_ptr<IWindow>(this, m_dpy, wnd);
-// }
+    return core::make_smart_refctd_ptr<CWindowX11>(this, m_dpy, wnd);
+}
 
 void CWindowManagerX11::destroyWindow(IWindow* wnd)
 {
