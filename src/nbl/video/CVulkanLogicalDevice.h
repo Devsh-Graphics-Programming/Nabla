@@ -94,7 +94,7 @@ public:
         vk_createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // Todo(achal)     
         vk_createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Todo(achal)
         vk_createInfo.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
-        vk_createInfo.clipped = VK_TRUE; // Todo(achal)
+        vk_createInfo.clipped = VK_TRUE;
         vk_createInfo.oldSwapchain = VK_NULL_HANDLE; // Todo(achal)
 
         VkSwapchainKHR vk_swapchain;
@@ -294,7 +294,7 @@ public:
         if (vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_descriptorPool);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), maxSets, vk_descriptorPool);
         }
         else
         {
@@ -712,8 +712,10 @@ public:
     // API changes needed, this could also fail.
     void waitIdle() override
     {
+        VkResult retval = vkDeviceWaitIdle(m_vkdev);
+
         // Todo(achal): Handle errors
-        assert(vkDeviceWaitIdle(m_vkdev) == VK_SUCCESS);
+        assert(retval == VK_SUCCESS);
     }
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override

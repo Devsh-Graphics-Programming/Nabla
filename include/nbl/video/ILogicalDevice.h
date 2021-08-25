@@ -70,7 +70,16 @@ class ILogicalDevice : public core::IReferenceCounted
             size_t offset;
         };
 
-        inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice.get(); }
+        virtual ~ILogicalDevice()
+        {
+            if (m_queues && m_queues->empty())
+            {
+                for (uint32_t i = 0u; i < m_queues->size(); ++i)
+                    delete (*m_queues)[i];
+            }
+        }
+
+        inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
         E_API_TYPE getAPIType() const;
 
@@ -85,7 +94,7 @@ class ILogicalDevice : public core::IReferenceCounted
         inline CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
         {
             const uint32_t offset = (*m_offsets)[_familyIx];
-            return (*m_queues)[offset + _ix].get();
+            return (*m_queues)[offset + _ix];
         }
 
         virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
@@ -633,9 +642,10 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
         virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
 
-        core::smart_refctd_ptr<IPhysicalDevice> m_physicalDevice;
+        core::smart_refctd_ptr<IAPIConnection> m_api;
+        IPhysicalDevice* m_physicalDevice;
 
-        using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<CThreadSafeGPUQueueAdapter>>;
+        using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;
         queues_array_t m_queues;
         using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
         q_offsets_array_t m_offsets;
