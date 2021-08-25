@@ -9,14 +9,20 @@ using namespace nbl;
 using namespace ext;
 using namespace Bullet3;
 
-CPhysicsWorld::CPhysicsWorld() {
+core::smart_refctd_ptr<CPhysicsWorld> CPhysicsWorld::create()
+{
+    auto world = new CPhysicsWorld();
+    return core::smart_refctd_ptr<CPhysicsWorld>(world,core::dont_grab);
+}
 
+CPhysicsWorld::CPhysicsWorld()
+{
     m_collisionCfg = createbtObject<btDefaultCollisionConfiguration>();
     m_dispatcher = createbtObject<btCollisionDispatcher>(m_collisionCfg);
     m_overlappingPairCache = createbtObject<btDbvtBroadphase>();
     m_solver = createbtObject<btSequentialImpulseConstraintSolver>();
 
-    m_physicsWorld = createbtObject <btDiscreteDynamicsWorld>(
+    m_physicsWorld = createbtObject<btDiscreteDynamicsWorld>(
         m_dispatcher,
         m_overlappingPairCache,
         m_solver,
@@ -24,7 +30,8 @@ CPhysicsWorld::CPhysicsWorld() {
     );   
 }
 
-CPhysicsWorld::~CPhysicsWorld() {
+CPhysicsWorld::~CPhysicsWorld()
+{
     deletebtObject(m_collisionCfg);
     deletebtObject(m_dispatcher);
     deletebtObject(m_overlappingPairCache);
@@ -33,21 +40,12 @@ CPhysicsWorld::~CPhysicsWorld() {
 }
 
 
-btRigidBody *CPhysicsWorld::createRigidBody(RigidBodyData data) {
+btRigidBody *CPhysicsWorld::createRigidBody(RigidBodyData data)
+{
     btRigidBody *rigidBody = createbtObject<btRigidBody>(data.mass, nullptr, data.shape, tobtVec3(data.inertia));
     
     btTransform trans = convertMatrixSIMD(data.trans);
     rigidBody->setWorldTransform(trans);
 
     return rigidBody;
-}
-
-void CPhysicsWorld::deleteRigidBody(btRigidBody *body) {
-    deletebtObject(body);
-}
-
-
-
-btDiscreteDynamicsWorld *CPhysicsWorld::getWorld() {
-    return m_physicsWorld;
 }

@@ -6,21 +6,21 @@
 #ifndef __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+#include "nbl/core/alloc/LinearAddressAllocator.h"
+
 #include <iterator>
 
-#include "nbl/core/declarations.h"
+
 //#include "nbl/asset/asset.h"
 
-//#include "IDriverMemoryBacked.h"
-//#include "nbl/video/IGPUMesh.h"
-//#include "nbl_CLogger.h"
-#include "nbl/video/asset_traits.h"
-#include "nbl/core/alloc/LinearAddressAllocator.h"
-#include "nbl/video/IPhysicalDevice.h"
 
-namespace nbl
-{
-namespace video
+#include "nbl/video/asset_traits.h"
+#include "nbl/video/IGPUSemaphore.h"
+#include "nbl/video/ILogicalDevice.h"
+
+
+namespace nbl::video
 {
 
 namespace impl
@@ -105,6 +105,7 @@ class IGPUObjectFromAssetConverter
             };
 
             //! Required not null
+            IUtilities* utilities = nullptr;
             ILogicalDevice* device = nullptr;
             //! Required not null
             asset::IAssetManager* assetManager = nullptr;
@@ -440,7 +441,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
                 bufrng.size = cpubuffer->getSize();
                 bufrng.buffer = gpubuffer;
                 output->setBuffer(core::smart_refctd_ptr(gpubuffer));
-                _params.device->updateBufferRangeViaStagingBuffer(
+                _params.utilities->updateBufferRangeViaStagingBuffer(
                     cmdbuf.get(),fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpubuffer->getPointer(),
                     submit.waitSemaphoreCount,submit.pWaitSemaphores,submit.pWaitDstStageMask
                 );
@@ -818,7 +819,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             bufrng.offset = 0u;
             bufrng.size = buf->getSize();
 
-            _params.device->updateBufferRangeViaStagingBuffer(
+            _params.utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf_transfer.get(),fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
                 submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask
             );
@@ -1473,7 +1474,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto gpuImgViews = getGPUObjectsFromAssets<asset::ICPUImageView>(cpuImgViews.data(), cpuImgViews.data()+cpuImgViews.size(), _params);
     auto gpuSamplers = getGPUObjectsFromAssets<asset::ICPUSampler>(cpuSamplers.data(), cpuSamplers.data()+cpuSamplers.size(), _params);
     
-    auto dsPool = _params.device->createDescriptorPoolForDSLayouts(gpuLayouts->begin(), gpuLayouts->end());
+    auto dsPool = _params.device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&gpuLayouts->begin()->get(),&gpuLayouts->end()->get());
 
 	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes(maxWriteCount);
 	auto write_it = writes.begin();
@@ -1606,7 +1607,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAnimationLibrary** _b
 }
 
 
-}
 }//nbl::video
 
 #endif

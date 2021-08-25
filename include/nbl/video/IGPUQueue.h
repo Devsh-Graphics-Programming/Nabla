@@ -1,17 +1,17 @@
-#ifndef __IRR_I_GPU_QUEUE_H_INCLUDED__
-#define __IRR_I_GPU_QUEUE_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED__
+#define __NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED__
 
-
+#include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/video/IGPUSemaphore.h"
-#include "nbl/video/IGPUFence.h"
-#include "nbl/video/ISwapchain.h"
-
 
 namespace nbl::video
 {
 
-class IGPUQueue : public core::Interface, public core::Unmovable
+class IGPUFence;
+class IGPUSemaphore;
+class ISwapchain;
+
+class IGPUQueue : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

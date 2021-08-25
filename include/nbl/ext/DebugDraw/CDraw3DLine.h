@@ -24,7 +24,7 @@ struct S3DLineVertex
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
-class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmovable
+class CDraw3DLine : public core::IReferenceCounted
 {
     public:
 		static core::smart_refctd_ptr<CDraw3DLine> create(const core::smart_refctd_ptr<video::ILogicalDevice>& device)
@@ -120,7 +120,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 		// If @fence is not nullptr, you'll get a new fence assigned to @fence that you can wait for,
 		// If @fence is nullptr, the function will automatically manage fence waiting
-        void updateVertexBuffer(video::IGPUQueue* queue, core::smart_refctd_ptr<video::IGPUFence>* fence = nullptr);
+        void updateVertexBuffer(video::IUtilities* utilities, video::IGPUQueue* queue, core::smart_refctd_ptr<video::IGPUFence>* fence = nullptr);
     private:
 		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device);
 		virtual ~CDraw3DLine() {}

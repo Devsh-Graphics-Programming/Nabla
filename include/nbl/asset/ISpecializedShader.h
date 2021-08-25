@@ -5,11 +5,12 @@
 #ifndef __NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED__
 #define __NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED__
 
-#include <cstdint>
-
 #include "nbl/core/decl/Types.h"
 #include "nbl/core/SRange.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
+
+#include <cstdint>
+#include <filesystem>
 
 #include "nbl/asset/ICPUBuffer.h"
 

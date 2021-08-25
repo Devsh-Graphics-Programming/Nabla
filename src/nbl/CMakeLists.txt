@@ -266,9 +266,12 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
+	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorSetCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 

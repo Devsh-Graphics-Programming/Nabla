@@ -1,6 +1,6 @@
 #include "nbl/video/IGPUFence.h"
-
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 
 namespace nbl::video
 {

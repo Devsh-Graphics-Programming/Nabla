@@ -1,8 +1,8 @@
 #include "nbl/video/COpenGL_Connection.h"
 
-#include "nbl/video/CEGL.h"
 #include "nbl/video/COpenGLPhysicalDevice.h"
 #include "nbl/video/COpenGLESPhysicalDevice.h"
+#include "nbl/video/CEGL.h"
 
 
 namespace nbl::video
