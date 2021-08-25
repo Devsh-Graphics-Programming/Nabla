@@ -1,3 +1,6 @@
+#include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IOpenGL_LogicalDevice.h"
+
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLCommon.h"
 

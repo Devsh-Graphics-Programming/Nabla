@@ -1,4 +1,5 @@
 #include "nbl/video/debug/COpenGLDebugCallback.h"
+#include "nbl/video/COpenGLFunctionTable.h"
 
 using namespace nbl;
 using namespace nbl::video;

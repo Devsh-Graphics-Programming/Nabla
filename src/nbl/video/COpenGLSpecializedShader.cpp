@@ -3,13 +3,19 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 
+#include "nbl/core/xxHash256.h"
+
 #include <algorithm>
 
-#include "nbl/core/xxHash256.h"
+#include "nbl/system/ILogger.h"
+
 #include "nbl/asset/utils/spvUtils.h"
 
+#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
-#include "COpenGLSpecializedShader.h"
+#include "nbl/video/COpenGLSpecializedShader.h"
+
 #include "spirv_cross/spirv_parser.hpp"
 
 

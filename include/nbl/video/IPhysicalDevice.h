@@ -1,5 +1,5 @@
-#ifndef __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
-#define __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
+#define __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 
 #include "nbl/system/declarations.h"
 
@@ -9,8 +9,11 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/utils/IGLSLCompiler.h"
 
-#include "nbl/video/ILogicalDevice.h"
+#include "nbl/system/ISystem.h"
+
 #include "nbl/video/EApiType.h"
+#include "nbl/video/debug/IDebugCallback.h"
+#include "nbl/video/ILogicalDevice.h"
 
 namespace nbl::video
 {
@@ -131,42 +134,11 @@ public:
     virtual E_API_TYPE getAPIType() const = 0;
 
 protected:
-    IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-        m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
-    {
-
-    }
+    IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
 
     virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) = 0;
 
-    bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
-    {
-        using range_t = core::SRange<const ILogicalDevice::SQueueCreationParams>;
-        range_t qcis(params.queueCreateInfos, params.queueCreateInfos+params.queueParamsCount);
-
-        for (const auto& qci : qcis)
-        {
-            if (qci.familyIndex >= m_qfamProperties->size())
-                return false;
-
-            const auto& qfam = (*m_qfamProperties)[qci.familyIndex];
-            if (qci.count == 0u)
-                return false;
-            if (qci.count > qfam.queueCount)
-                return false;
-
-            for (uint32_t i = 0u; i < qci.count; ++i)
-            {
-                const float priority = qci.priorities[i];
-                if (priority < 0.f)
-                    return false;
-                if (priority > 1.f)
-                    return false;
-            }
-        }
-
-        return true;
-    }
+    bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
 
 
     core::smart_refctd_ptr<system::ISystem> m_system;
