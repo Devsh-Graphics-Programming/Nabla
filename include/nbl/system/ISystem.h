@@ -21,7 +21,7 @@ protected:
     virtual ~ISystemCaller() = default;
 
 public:  
-    virtual core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags) = 0;
+    virtual core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags) = 0;
 
     size_t read(IFile* file, void* buffer, size_t offset, size_t size)
     {
@@ -64,7 +64,7 @@ private:
         inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
 
         char filename[MAX_FILENAME_LENGTH] {};
-        IFile::E_CREATE_FLAGS flags;
+        std::underlying_type_t<IFile::E_CREATE_FLAGS> flags;
     };
     struct SRequestParams_READ : SRequestParamsBase<ERT_READ>
     {
@@ -176,7 +176,7 @@ public:
     }
 
 public:
-    bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, IFile::E_CREATE_FLAGS flags)
+    bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags)
     {
         SRequestParams_CREATE_FILE params;
         if (filename.string().size() >= sizeof(params.filename))

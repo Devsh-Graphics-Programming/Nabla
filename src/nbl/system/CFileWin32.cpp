@@ -7,8 +7,12 @@
 
 nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _flags), m_filename{ _filename }
 {
-	DWORD access = m_flags | ECF_READ_WRITE ? GENERIC_READ | GENERIC_WRITE :
-		(m_flags | ECF_READ ? GENERIC_READ : (m_flags | ECF_WRITE ? GENERIC_WRITE : 0));
+	SYSTEM_INFO info;
+	GetSystemInfo(&info);
+	m_allocGranularity = info.dwAllocationGranularity;
+
+	DWORD access = m_flags | ECF_READ_WRITE ? FILE_GENERIC_READ | FILE_GENERIC_WRITE :
+		(m_flags | ECF_READ ? FILE_GENERIC_READ : (m_flags | ECF_WRITE ? FILE_GENERIC_WRITE : 0));
 	const bool canOpenWhenOpened = false;
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	m_native = CreateFile(m_filename.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -20,6 +24,20 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	{
 		m_openedProperly = false;
 	}
+	if (m_flags & ECF_MAPPABLE)
+	{
+		DWORD access = (m_flags | ECF_READ_WRITE || m_flags | ECF_WRITE) ? PAGE_READWRITE :
+			(m_flags | ECF_READ ? PAGE_READONLY : 0);
+		m_openedProperly &= access != 0;
+		/*
+		TODO: should think of a better way to cope with the max size of a file mapping object (those two zeroes after `access`). 
+		For now it equals the size of a file so it'll work fine for archive reading, but if we try to
+		write outside those boungs, things will go bad.
+		*/
+		m_fileMappingObj = CreateFileMapping(m_native, nullptr, access, 0, 0, _filename.string().c_str()); 
+		m_openedProperly &= m_fileMappingObj != nullptr;
+	}
+	
 
 }
 
@@ -50,18 +68,40 @@ const void* nbl::system::CFileWin32::getMappedPointer() const
 
 size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t sizeToRead)
 {
-	seek(offset);
-	DWORD numOfBytesRead;
-	ReadFile(m_native, buffer, sizeToRead, &numOfBytesRead, nullptr);
-	return numOfBytesRead;
+	if (m_flags & ECF_MAPPABLE)
+	{
+		auto viewOffset = (offset / m_allocGranularity) * m_allocGranularity;
+		offset += offset % m_allocGranularity;
+		std::byte* fileView = (std::byte*)MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, HIWORD((DWORD)viewOffset), LOWORD((DWORD)viewOffset), sizeToRead);
+		std::copy<std::byte*>(fileView, (std::byte*)fileView + sizeToRead, (std::byte*)buffer);
+		return sizeToRead;
+	}
+	else
+	{
+		seek(offset);
+		DWORD numOfBytesRead;
+		ReadFile(m_native, buffer, sizeToRead, &numOfBytesRead, nullptr);
+		return numOfBytesRead;
+	}
 }
 
 size_t nbl::system::CFileWin32::write_impl(const void* buffer, size_t offset, size_t sizeToWrite)
 {
-	seek(offset);
-	DWORD numOfBytesWritten;
-	WriteFile(m_native, buffer, sizeToWrite, &numOfBytesWritten, nullptr);
-	return numOfBytesWritten;
+	if (m_flags & ECF_MAPPABLE)
+	{
+		auto viewOffset = (offset / m_allocGranularity) * m_allocGranularity;
+		offset += offset % m_allocGranularity;
+		std::byte* fileView = (std::byte*)MapViewOfFile(m_fileMappingObj, FILE_MAP_WRITE, HIWORD((DWORD)viewOffset), LOWORD((DWORD)viewOffset), sizeToWrite);
+		std::copy((std::byte*)buffer, (std::byte*)buffer + sizeToWrite, fileView);
+		return sizeToWrite;
+	}
+	else
+	{
+		seek(offset);
+		DWORD numOfBytesWritten;
+		WriteFile(m_native, buffer, sizeToWrite, &numOfBytesWritten, nullptr);
+		return numOfBytesWritten;
+	}
 }
 
 void nbl::system::CFileWin32::seek(size_t position)
