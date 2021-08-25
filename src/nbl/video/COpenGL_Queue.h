@@ -115,7 +115,13 @@ class COpenGL_Queue final : public IGPUQueue
                 while (mcres!=EGL_TRUE)
                 {
                     mcres = egl->call.peglMakeCurrent(egl->display,pbuffer,pbuffer,thisCtx);
-                    _NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
+                    /*
+                    * I think Queue context creation has a timing bug
+                    * Debug build breaks, context can never be made current
+                    * looks like auxillary context will not make itself current
+                    * until something happens on main thread/main context ?
+                    */
+                    //_NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
 
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));

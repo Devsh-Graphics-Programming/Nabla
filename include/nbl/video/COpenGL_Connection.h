@@ -1,6 +1,8 @@
 #ifndef __NBL_C_OPENGL__CONNECTION_H_INCLUDED__
 #define __NBL_C_OPENGL__CONNECTION_H_INCLUDED__
 
+#include "nbl/system/ISystem.h"
+
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/debug/COpenGLDebugCallback.h"
 

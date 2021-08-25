@@ -8,6 +8,7 @@
 #include "nbl/system/FuncPtrLoader.h"
 
 #if defined(_NBL_WINDOWS_API_)
+	#define WIN32_LEAN_AND_MEAN
 	#include <windows.h> 
 	#include <stdio.h> 
 #elif defined(_NBL_POSIX_API_)

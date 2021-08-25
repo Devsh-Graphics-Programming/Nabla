@@ -9,7 +9,6 @@
 #include <codecvt>
 #include <xlocbuf>
 
-#include <Windows.h>
 //#include <hidpi.h>
 #include <hidusage.h>
 
@@ -17,8 +16,9 @@
 
 namespace nbl::ui
 {
-	class CWindowManagerWin32 : public IWindowManager
-	{
+
+class CWindowManagerWin32 : public IWindowManager
+{
 	public:
 		CWindowManagerWin32() = default;
 		~CWindowManagerWin32() {};
@@ -322,7 +322,8 @@ namespace nbl::ui
 				return true;
 			}
 		} m_windowThreadManager;
-	};
+};
+
 }
 #endif
 #endif
