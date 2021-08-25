@@ -46,24 +46,6 @@ struct SViewport
     float minDepth, maxDepth;
 };
 
-#if 0
-struct VkOffset2D
-{
-    int32_t x;
-    int32_t y;
-};
-struct VkExtent2D
-{
-    uint32_t width;
-    uint32_t height;
-};
-struct VkRect2D
-{
-    VkOffset2D    offset;
-    VkExtent2D    extent;
-};
-#endif
-
 struct SMemoryBarrier
 {
     asset::E_ACCESS_FLAGS srcAccessMask;

@@ -472,6 +472,14 @@ public:
 		return static_cast<IDebugCallback*>(&m_dbgCb);
 	}
 
+	bool isSwapchainSupported() const override { return true; }
+	
+    bool isRayTracingPipelineSupported() const override { return false; }
+
+    bool isAccelerationStructuresSupported() const override { return false; }
+
+    bool isRayQuerySupported() const override { return false; }
+
 protected:
 	virtual ~IOpenGL_PhysicalDeviceBase()
 	{

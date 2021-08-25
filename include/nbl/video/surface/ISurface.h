@@ -37,11 +37,11 @@ class ISurface : public core::IReferenceCounted
         };
         enum E_PRESENT_MODE
         {
-            EPM_IMMEDIATE = 0,
-            EPM_MAILBOX = 1,
-            EPM_FIFO = 2,
-            EPM_FIFO_RELAXED = 3,
-            EPM_UNKNOWN = 4
+            EPM_IMMEDIATE = 1<<0,
+            EPM_MAILBOX = 1<<1,
+            EPM_FIFO = 1<<2,
+            EPM_FIFO_RELAXED = 1<<3,
+            EPM_UNKNOWN = 0
         };
 
         struct SCapabilities
@@ -61,8 +61,13 @@ class ISurface : public core::IReferenceCounted
 
         inline E_API_TYPE getAPIType() const { return m_api->getAPIType(); }
 
-        // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
-        virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
+        virtual bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
+
+        virtual void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const = 0;
+
+        virtual ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const = 0;
+
+        virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const = 0;
 
         // used by some drivers
         virtual const void* getNativeWindowHandle() const = 0;
