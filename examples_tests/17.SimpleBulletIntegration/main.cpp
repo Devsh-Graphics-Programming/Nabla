@@ -130,6 +130,7 @@ int main()
 	auto surface = std::move(initOutput.surface);
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
 	auto device = std::move(initOutput.logicalDevice);
+	auto utilities = std::move(initOutput.utilities);
 	auto queues = std::move(initOutput.queues);
 	auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
 	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
@@ -227,7 +228,7 @@ int main()
 	constexpr auto TransformPropertyID = 1u;
 	using instance_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
 	core::smart_refctd_ptr<instance_property_pool_t> propertyPool;
-	auto propertyPoolHandler = device->getDefaultPropertyPoolHandler();
+	auto propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
 	{
 		asset::SBufferRange<video::IGPUBuffer> blocks[2];
 		blocks[0] = { 0,colorBuffer->getSize(),colorBuffer };
@@ -289,7 +290,7 @@ int main()
 		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
 
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		propertyPoolHandler->addProperties(cmdbuf,fence.get(),requests.data(),requests.data()+requests.size(),logger.get());
+		propertyPoolHandler->addProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cmdbuf,fence.get(),requests.data(),requests.data()+requests.size(),logger.get());
  		cmdbuf->end();
 		
 		video::IGPUQueue::SSubmitInfo submit;
@@ -467,7 +468,6 @@ int main()
 
 	//
 	auto lastTime = std::chrono::system_clock::now();
-	constexpr uint32_t FRAME_COUNT = 500000u;
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
@@ -500,7 +500,7 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
-	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	while (true) // TODO: window closed check
 	{
 		// Timing
 
@@ -572,7 +572,7 @@ int main()
 			request.indices = {CInstancedMotionState::s_updateIndices.data(),CInstancedMotionState::s_updateIndices.data()+CInstancedMotionState::s_updateIndices.size()};
 			request.propertyID = TransformPropertyID;
 			request.data = CInstancedMotionState::s_updateData.data();
-			auto result = propertyPoolHandler->transferProperties(cb.get(),fence.get(),&request,&request+1u,logger.get());
+			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
 			assert(result.transferSuccess);
 			CInstancedMotionState::s_updateIndices.clear();
 			CInstancedMotionState::s_updateData.clear();

@@ -1,5 +1,5 @@
-#include "nbl/video/IPropertyPool.h"
-#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/utilities/CPropertyPoolHandler.h"
+#include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
@@ -48,19 +48,10 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
 
-//
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
-	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
-	const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd,
-	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
-)
-{
-	return addProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
-}
 CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 	IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
-	const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
+	const std::chrono::high_resolution_clock::time_point maxWaitPoint
 )
 {
 	bool success = true;
@@ -92,15 +83,6 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
 	return result;
 }
 
-//
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
-	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
-	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
-	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
-)
-{
-	return transferProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
-}
 CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 	IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger,

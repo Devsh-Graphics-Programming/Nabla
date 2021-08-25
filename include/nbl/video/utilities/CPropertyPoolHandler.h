@@ -8,7 +8,10 @@
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/video/IDescriptorSetCache.h"
+#include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/video/utilities/IDescriptorSetCache.h"
+#include "nbl/video/utilities/IPropertyPool.h"
 
 
 namespace nbl::video
@@ -128,12 +131,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		// while its possible to detect which allocation has failed, its not possible to know exactly what transfer failed
 		transfer_result_t addProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
-			IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd,
-			system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
-		);
-		transfer_result_t addProperties(
-			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(1500u)
+			IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
+			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
 		);
 
         //
@@ -153,12 +152,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		// fence must be not pending yet
 		[[nodiscard]] transfer_result_t transferProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
-			IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
-			system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
-		);
-		[[nodiscard]] transfer_result_t transferProperties(
-			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(500u)
+			IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,system::logger_opt_ptr logger,
+			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
 		);
 
     protected:

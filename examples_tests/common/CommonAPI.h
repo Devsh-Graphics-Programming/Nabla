@@ -299,6 +299,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues;
@@ -371,6 +372,8 @@ public:
 		dev_params.queueCreateInfos = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
+		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
+
 		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
 		if(graphicsQueueEnable)
 			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = queue;
@@ -393,6 +396,7 @@ public:
 
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
+		result.cpu2gpuParams.utilities = result.utilities.get();
 		result.cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
 		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
 		result.cpu2gpuParams.pipelineCache = nullptr;

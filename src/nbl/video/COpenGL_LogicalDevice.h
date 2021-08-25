@@ -111,8 +111,6 @@ public:
             if (_features->runningInRenderDoc)
                 (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
         }
-
-        deferredCommonInit();
     }
 
 

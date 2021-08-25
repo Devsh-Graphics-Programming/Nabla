@@ -1,11 +1,16 @@
 #ifndef __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
-#include <atomic>
-#include "nbl/video/COpenGLFeatureMap.h"
 #include "nbl/core/string/UniqueStringLiteralType.h"
+
+#include <atomic>
+
 #include "nbl/system/DynamicFunctionCaller.h"
+#include "nbl/system/ILogger.h"
+
 #include "nbl/video/CEGL.h"
+#include "nbl/video/COpenGLFeatureMap.h"
+
 
 #define GL_GLEXT_PROTOTYPES
 #include "GL/glcorearb.h"

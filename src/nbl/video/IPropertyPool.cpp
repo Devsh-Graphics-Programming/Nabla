@@ -1,4 +1,4 @@
-#include "nbl/video/IPropertyPool.h"
+#include "nbl/video/utilities/IPropertyPool.h"
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 

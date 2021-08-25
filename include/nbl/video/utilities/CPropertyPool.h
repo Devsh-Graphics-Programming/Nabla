@@ -5,7 +5,7 @@
 #ifndef __NBL_VIDEO_C_PROPERTY_POOL_H_INCLUDED__
 #define __NBL_VIDEO_C_PROPERTY_POOL_H_INCLUDED__
 
-#include "nbl/video/IPropertyPool.h"
+#include "nbl/video/utilities/IPropertyPool.h"
 
 
 namespace nbl::video
