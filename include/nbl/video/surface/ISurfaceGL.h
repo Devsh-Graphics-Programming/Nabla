@@ -28,13 +28,30 @@ class CSurfaceGL final : public CSurface<Window>
             return core::smart_refctd_ptr<this_t>(retval,core::dont_grab);
         }
 
-        bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
+        bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
         {
             const E_API_TYPE pdev_api = dev->getAPIType();
             // GL/GLES backends have just 1 queue family and device
             assert(dev->getQueueFamilyProperties().size()==1u);
             assert(base_t::m_api->getPhysicalDevices().size()==1u);
             return _queueFamIx==0u && dev==*base_t::m_api->getPhysicalDevices().begin();
+        }
+        
+        // Todo(achal)
+        void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override
+        {
+
+        }
+
+        ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override
+        {
+            return static_cast<ISurface::E_PRESENT_MODE>(ISurface::EPM_IMMEDIATE | ISurface::EPM_FIFO | ISurface::EPM_FIFO_RELAXED);
+        }
+
+        // Todo(achal)
+        bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
+        {
+            return false;
         }
 
         inline const void* getNativeWindowHandle() const override

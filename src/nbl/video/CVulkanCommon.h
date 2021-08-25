@@ -147,9 +147,7 @@ static inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPres
     case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
         return ISurface::EPM_FIFO_RELAXED;
     default:
-    {
-        return static_cast<ISurface::E_PRESENT_MODE>(0);
-    }
+        return ISurface::EPM_UNKNOWN;
     }
 }
 

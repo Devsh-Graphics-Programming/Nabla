@@ -47,7 +47,7 @@ CSurfaceVulkan<Window>::~CSurfaceVulkan()
 }
 
 template <typename Window>
-bool CSurfaceVulkan<Window>::isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
+bool CSurfaceVulkan<Window>::isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
 {
     if (dev->getAPIType() != EAT_VULKAN)
         return false;
@@ -112,11 +112,11 @@ ISurface::E_PRESENT_MODE CSurfaceVulkan<Window>::getAvailablePresentModesForPhys
 {
     constexpr uint32_t MAX_PRESENT_MODE_COUNT = 4u;
 
-    if (physicalDevice && physicalDevice->getAPIType() != EAT_VULKAN)
-        return ISurface::EPM_UNKNOWN;
+    ISurface::E_PRESENT_MODE result = ISurface::EPM_UNKNOWN;
 
-    // Todo(achal): not sure yet, how would I handle multiple platforms without making
-    // this function templated
+    if (physicalDevice && physicalDevice->getAPIType() != EAT_VULKAN)
+        return result;
+
     VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(physicalDevice)->getInternalObject();
 
     uint32_t count = 0u;
@@ -125,7 +125,7 @@ ISurface::E_PRESENT_MODE CSurfaceVulkan<Window>::getAvailablePresentModesForPhys
 
     // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-        return ISurface::EPM_UNKNOWN;
+        return result;
 
     assert(count <= MAX_PRESENT_MODE_COUNT);
 
@@ -135,9 +135,7 @@ ISurface::E_PRESENT_MODE CSurfaceVulkan<Window>::getAvailablePresentModesForPhys
 
     // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-        return ISurface::EPM_UNKNOWN;
-
-    ISurface::E_PRESENT_MODE result = static_cast<ISurface::E_PRESENT_MODE>(0);
+        return result;
 
     for (uint32_t i = 0u; i < count; ++i)
         result = static_cast<ISurface::E_PRESENT_MODE>(result | getPresentModeFromVkPresentModeKHR(vk_presentModes[i]));

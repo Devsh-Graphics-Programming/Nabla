@@ -168,6 +168,28 @@ int main()
 		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
 			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 
+#if 0
+	{
+		auto opengl_logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+		core::smart_refctd_ptr<video::COpenGLConnection> opengl =
+			video::COpenGLConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", video::COpenGLDebugCallback(core::smart_refctd_ptr(opengl_logger)));
+
+		core::smart_refctd_ptr<video::CSurfaceGLWin32> surface_opengl =
+			video::CSurfaceGLWin32::create(core::smart_refctd_ptr(opengl),
+				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+
+		while (surface_opengl->getReferenceCount() >= 0)
+			surface_opengl->drop();
+
+		while (opengl->getReferenceCount() >= 0)
+			opengl->drop();
+
+		// while (opengl_logger->getReferenceCount >= 0)
+		// 	opengl_logger->drop();
+		opengl_logger->drop();
+	}
+#endif
+
 	auto gpus = apiConnection->getPhysicalDevices();
 	assert(!gpus.empty());
 
@@ -203,7 +225,7 @@ int main()
 				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
 					computeFamilyIndex = familyIndex;
 
-				if (surface->isSupported(gpu, familyIndex))
+				if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
 					presentFamilyIndex = familyIndex;
 
 				if ((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))
@@ -221,7 +243,6 @@ int main()
 		// Todo(achal): Abstract it out
 		// Check if the surface is adequate
 		{
-			// surface->getAvailableFormatsForPhysicalDevice()
 			uint32_t surfaceFormatCount;
 			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
 			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);

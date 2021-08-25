@@ -106,14 +106,7 @@ public:
 
     virtual IDebugCallback* getDebugCallback() = 0;
 
-    // Todo(achal): Make pure virtual
-    // This would probably always return true for OpenGL because theres no context
-    // without a window
-    virtual bool isSwapchainSupported() const
-    {
-        assert(!"Not implemented yet for OpenGL backend");
-        return false;
-    }
+    virtual bool isSwapchainSupported() const = 0;
 
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
     {

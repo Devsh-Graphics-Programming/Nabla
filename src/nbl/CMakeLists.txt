@@ -305,7 +305,6 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp

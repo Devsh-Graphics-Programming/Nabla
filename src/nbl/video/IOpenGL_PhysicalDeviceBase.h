@@ -472,6 +472,8 @@ public:
 		return static_cast<IDebugCallback*>(&m_dbgCb);
 	}
 
+	bool isSwapchainSupported() const override { return true; }
+
 protected:
 	virtual ~IOpenGL_PhysicalDeviceBase()
 	{
