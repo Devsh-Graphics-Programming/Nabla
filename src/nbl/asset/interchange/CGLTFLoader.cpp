@@ -96,6 +96,13 @@ namespace nbl
 		
 		bool CGLTFLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{
+			/*
+				TODO: https://github.com/Devsh-Graphics-Programming/Nabla/pull/196#issuecomment-906426010
+			*/
+
+			// #define NBL_COMPILE_AFTER_SYSTEM_BUG_FIXED
+
+			#ifdef NBL_COMPILE_AFTER_SYSTEM_BUG_FIXED
 			simdjson::dom::parser parser;
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
@@ -112,6 +119,13 @@ namespace nbl
 					return true;
 
 			return false;
+			#else
+
+			if (_file->getFileName().string() == "missing_checkerboard_texture.png")
+				return false;
+			else
+				return true;
+			#endif // NBL_COMPILE_AFTER_SYSTEM_BUG_FIXED
 		}
 
 		asset::SAssetBundle CGLTFLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
