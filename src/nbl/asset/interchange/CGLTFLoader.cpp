@@ -100,15 +100,19 @@ namespace nbl
 				TODO: https://github.com/Devsh-Graphics-Programming/Nabla/pull/196#issuecomment-906426010
 			*/
 
-			// #define NBL_COMPILE_AFTER_SYSTEM_BUG_FIXED
+			#define NBL_COMPILE_WITH_SYSTEM_BUG // remove this after above fixed
 
-			#ifdef NBL_COMPILE_AFTER_SYSTEM_BUG_FIXED
+			#ifdef NBL_COMPILE_WITH_SYSTEM_BUG
+			if (_file->getFileName().string() == "missing_checkerboard_texture.png")
+				return false;
+			#endif // NBL_COMPILE_WITH_SYSTEM_BUG
+
 			simdjson::dom::parser parser;
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
 			{
 				system::future<size_t> future;
-				_file->read(future, jsonBuffer.get(), 0u, jsonBuffer->getSize());
+				_file->read(future, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
 				future.get();
 			}
 			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
@@ -119,13 +123,6 @@ namespace nbl
 					return true;
 
 			return false;
-			#else
-
-			if (_file->getFileName().string() == "missing_checkerboard_texture.png")
-				return false;
-			else
-				return true;
-			#endif // NBL_COMPILE_AFTER_SYSTEM_BUG_FIXED
 		}
 
 		asset::SAssetBundle CGLTFLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -133,14 +130,31 @@ namespace nbl
 			SGLTF glTF;
 			loadAndGetGLTF(glTF, _file);
 
-			SContext context(_params, _file, _override, _hierarchyLevel);
+			auto overrideAssetLoadParams = _params;
+
+			/*
+				TODO: https://github.com/Devsh-Graphics-Programming/Nabla/pull/196#issuecomment-906469117
+				it doesn't work
+			*/
+
+			const std::string relativeDirectory = _file->getFileName().parent_path().string() + "/";
+			//overrideAssetLoadParams.relativeDir = relativeDirectory.c_str();
+			SContext context(overrideAssetLoadParams, _file, _override, _hierarchyLevel);
+
+			auto getURIAbsolutePath = [&](std::string uri) -> std::string
+			{
+				return relativeDirectory + uri;
+			};
 
 			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
 
 			core::vector<core::smart_refctd_ptr<ICPUBuffer>> cpuBuffers;
 			for (auto& glTFBuffer : glTF.buffers)
 			{
-				auto buffer_bundle = assetManager->getAsset(glTFBuffer.uri.value(), context.loadContext.params);
+				auto buffer_bundle = assetManager->getAsset(getURIAbsolutePath(glTFBuffer.uri.value()), context.loadContext.params);
+				if (buffer_bundle.getContents().empty())
+					return {};
+
 				auto cpuBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
 				cpuBuffers.emplace_back() = core::smart_refctd_ptr<ICPUBuffer>(cpuBuffer);
 			}
@@ -153,7 +167,7 @@ namespace nbl
 
 					if (glTFImage.uri.has_value())
 					{
-						auto image_bundle = assetManager->getAsset(glTFImage.uri.value(), context.loadContext.params);
+						auto image_bundle = assetManager->getAsset(getURIAbsolutePath(glTFImage.uri.value()), context.loadContext.params);
 						if (image_bundle.getContents().empty())
 							return {};
 
