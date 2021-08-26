@@ -321,7 +321,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 CPropertyPoolHandler::download_future_t::~download_future_t()
 {
-	if (m_sizes)
+	if (m_allocCount && m_sizes)
 	{
 		const auto status = m_device->getFenceStatus(m_fence.get());
 		if (status==IGPUFence::ES_TIMEOUT||status==IGPUFence::ES_NOT_READY)
