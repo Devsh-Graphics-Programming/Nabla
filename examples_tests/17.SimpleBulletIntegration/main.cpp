@@ -18,62 +18,6 @@ using namespace nbl;
 using namespace core;
 using namespace ui;
 
-const char* vertexSource = R"===(
-#version 430 core
-layout(location = 0) in vec4 vPos;
-layout(location = 3) in vec3 vNormal;
-layout(location = 4) in vec4 vCol;
-
-layout(location = 5) in vec4 vWorldMatRow0;
-layout(location = 6) in vec4 vWorldMatRow1;
-layout(location = 7) in vec4 vWorldMatRow2;
-
-layout( push_constant, row_major ) uniform Block {
-	mat4 viewProj;
-} PushConstants;
-
-layout(location = 0) out vec3 Color;
-layout(location = 1) out vec3 Normal;
-
-void main()
-{
-	mat3x4 transposeWorldMat = mat3x4(vWorldMatRow0, vWorldMatRow1, vWorldMatRow2);
-	mat4x3 worldMat = transpose(transposeWorldMat);
-
-	vec4 worldPos = vec4(dot(vWorldMatRow0, vPos), dot(vWorldMatRow1, vPos), dot(vWorldMatRow2, vPos), 1);
-	vec4 pos = PushConstants.viewProj*worldPos;
-	gl_Position = pos;
-	Color = vCol.xyz;
-
-	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
-	Normal = inverseTransposeWorld * normalize(vNormal);
-}
-)===";
-
-const char* fragmentSource = R"===(
-#version 430 core
-
-layout(location = 0) in vec3 Color;
-layout(location = 1) in vec3 Normal;
-
-layout(location = 0) out vec4 pixelColor;
-
-void main()
-{
-	vec3 normal = normalize(Normal);
-
-	float ambient = 0.35;
-	float diffuse = 0.8;
-	float cos_theta_term = max(dot(normal,vec3(3.0,5.0,-4.0)),0.0);
-
-	float fresnel = 0.0; //not going to implement yet, not important
-	float specular = 0.0;///pow(max(dot(halfVector,normal),0.0),shininess);
-
-	const float sunPower = 3.14156*0.3;
-
-	pixelColor = vec4(Color, 1)*sunPower*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
-}
-)===";
 
 class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 {
@@ -115,7 +59,7 @@ core::vector<uint32_t> CInstancedMotionState::s_updateIndices;
 core::vector<core::matrix3x4SIMD> CInstancedMotionState::s_updateData;
 
 
-int main()
+int main(int argc, char** argv)
 {
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
@@ -229,12 +173,15 @@ int main()
 	using instance_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
 	core::smart_refctd_ptr<instance_property_pool_t> propertyPool;
 	auto propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
+	// set up
 	{
 		asset::SBufferRange<video::IGPUBuffer> blocks[2];
 		blocks[0] = { 0,colorBuffer->getSize(),colorBuffer };
 		blocks[1] = { 0,transformBuffer->getSize(),transformBuffer };
 		propertyPool = instance_property_pool_t::create(device.get(),blocks,MaxNumInstances);
-		
+	}
+	// fill
+	{
 		core::vector<core::vectorSIMDf> initialColor(MaxNumInstances);
 		core::vector<core::matrix3x4SIMD> instanceTransforms(MaxNumInstances);
 		for (auto i=0u; i<MaxNumInstances; i++)
@@ -304,6 +251,56 @@ int main()
 		}
 	}
 
+	video::IGPUObjectFromAssetConverter CPU2GPU;
+	// set up shader inputs
+	core::smart_refctd_ptr<asset::ICPUPipelineLayout> cpuLayout;
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> gpuLayout;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> globalDs;
+	{
+		//
+		constexpr auto GLOBAL_DS_COUNT = 2u;
+		{
+			asset::ICPUDescriptorSetLayout::SBinding bindings[GLOBAL_DS_COUNT];
+			for (auto i = 0u; i < GLOBAL_DS_COUNT; i++)
+			{
+				bindings[i].binding = i;
+				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].count = 1u;
+				bindings[i].stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+				bindings[i].samplers = nullptr;
+			}
+			auto dsLayout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+GLOBAL_DS_COUNT);
+		
+			asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+			cpuLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,std::move(dsLayout));
+		}
+		gpuLayout = CPU2GPU.getGPUObjectsFromAssets(&cpuLayout.get(),&cpuLayout.get()+1,cpu2gpuParams)->front();
+
+		{
+			auto globalDsLayout = gpuLayout->getDescriptorSetLayout(0u);
+			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&globalDsLayout,&globalDsLayout+1u);
+			globalDs = device->createGPUDescriptorSet(pool.get(),core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(globalDsLayout)); // TODO: change method signature to make it obvious we're taking shared ownership of a pool
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[GLOBAL_DS_COUNT];
+			video::IGPUDescriptorSet::SDescriptorInfo infos[GLOBAL_DS_COUNT];
+			for (auto i = 0u; i < GLOBAL_DS_COUNT; i++)
+			{
+				writes[i].dstSet = globalDs.get();
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].info = infos+i;
+
+				const auto& poolBuff = propertyPool->getPropertyMemoryBlock(i);
+				infos[i].desc = poolBuff.buffer;
+				infos[i].buffer.offset = poolBuff.offset;
+				infos[i].buffer.size = poolBuff.size;
+			}
+			device->updateDescriptorSets(GLOBAL_DS_COUNT,writes,0u,nullptr);
+		}
+	}
+
 
 	// weird fix -> do not read the next 6 lines (It doesn't affect the program logically) -> waiting for access_violation_repro branch to fix and merge
 	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
@@ -324,28 +321,34 @@ int main()
 	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
 	// Creating CPU Shaders 
-	auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
+	auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
-		auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
-		if (!unspec)
+		// TODO: Change IAssetLoader::SAssetLoadParams::relativeDir to `system::path`
+		//auto tmp = system::path(argv[0]).root_directory().string();
+
+		asset::IAssetLoader::SAssetLoadParams params{};
+		params.logger = logger.get();
+		//params.relativeDir = tmp.c_str();
+		auto spec = assetManager->getAsset(path,params).getContents();
+		if (spec.empty())
 			return nullptr;
 
-		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", stage, "");
-		return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspec), std::move(info));
+		return core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*spec.begin());
 	};
 
-	auto vs = createCPUSpecializedShaderFromSource(vertexSource,asset::ISpecializedShader::ESS_VERTEX);
-	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
+	auto vs = createCPUSpecializedShaderFromSource("../mesh.vert",asset::ISpecializedShader::ESS_VERTEX);
+	auto fs = createCPUSpecializedShaderFromSource("../mesh.frag", asset::ISpecializedShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 	
-	auto createMeshBufferFromGeomCreatorReturnType = [](
+	auto dummyPplnLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>();
+	auto createMeshBufferFromGeomCreatorReturnType = [&dummyPplnLayout](
 		asset::IGeometryCreator::return_type& _data,
 		asset::IAssetManager* _manager,
 		asset::ICPUSpecializedShader** _shadersBegin, asset::ICPUSpecializedShader** _shadersEnd)
 	{
 		//creating pipeline just to forward vtx and primitive params
 		auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
-			nullptr, _shadersBegin, _shadersEnd, 
+			core::smart_refctd_ptr(dummyPplnLayout), _shadersBegin, _shadersEnd,
 			_data.inputParams, 
 			asset::SBlendParams(),
 			_data.assemblyParams,
@@ -371,6 +374,7 @@ int main()
 	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, assetManager.get(), shaders, shaders+2);
+	dummyPplnLayout = nullptr;
 
 	// TODO: replace with an actual scenemanager
 	struct GPUObject
@@ -383,71 +387,39 @@ int main()
 		asset::ICPUMeshBuffer * cpuMesh, uint32_t numInstances, uint64_t rangeStart,
 		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
 	{
-		GPUObject ret = {};
-		
-		uint32_t xformBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT-1u;
-		uint32_t colorBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT-2u;
-
 		auto pipeline = cpuMesh->getPipeline();
-		{
-			// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
-			auto & rasterParams = pipeline->getRasterizationParams();
-			rasterParams.frontFaceIsCCW = 0;
-			rasterParams.faceCullingMode = faceCullingMode;
 
-			auto & vtxinputParams = pipeline->getVertexInputParams();
-			vtxinputParams.bindings[colorBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
-			vtxinputParams.bindings[colorBufferBinding].stride = sizeof(core::vectorSIMDf);
-			vtxinputParams.bindings[xformBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
-			vtxinputParams.bindings[xformBufferBinding].stride = sizeof(core::matrix3x4SIMD);
-			// Color
-			vtxinputParams.attributes[4].binding = colorBufferBinding;
-			vtxinputParams.attributes[4].relativeOffset = 0;
-			vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-			// World Row 0
-			vtxinputParams.attributes[5].binding = xformBufferBinding;
-			vtxinputParams.attributes[5].relativeOffset = 0;
-			vtxinputParams.attributes[5].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-			// World Row 1
-			vtxinputParams.attributes[6].binding = xformBufferBinding;
-			vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD);
-			vtxinputParams.attributes[6].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-			// World Row 2
-			vtxinputParams.attributes[7].binding = xformBufferBinding;
-			vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD)*2u;
-			vtxinputParams.attributes[7].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+		// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
+		auto rasterParams = pipeline->getRasterizationParams();
+		rasterParams.frontFaceIsCCW = 0;
+		rasterParams.faceCullingMode = faceCullingMode;
+		// for wireframe rendering
+		#if 0
+		pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
+		#endif
 
+		asset::ICPUSpecializedShader* cpuShaders[2] = {
+			pipeline->getShaderAtStage(asset::ISpecializedShader::ESS_VERTEX),
+			pipeline->getShaderAtStage(asset::ISpecializedShader::ESS_FRAGMENT)
+		};
+		cpuMesh->setPipeline(core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
+			core::smart_refctd_ptr(cpuLayout),&cpuShaders[0],&cpuShaders[0]+2,
+			pipeline->getVertexInputParams(),
+			pipeline->getBlendParams(),
+			pipeline->getPrimitiveAssemblyParams(),
+			rasterParams
+		));
 
-			vtxinputParams.enabledAttribFlags |= 0x1u << 4 | 0x1u << 5 | 0x1u << 6 | 0x1u << 7;
-			vtxinputParams.enabledBindingFlags |= (0x1u<<xformBufferBinding)|(0x1u<<colorBufferBinding);
-
-			// for wireframe rendering
-			#if 0
-			pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
-			#endif
-		}
-
-		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-		auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u);
-		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
-
-		video::IGPUObjectFromAssetConverter CPU2GPU;
-		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
+		GPUObject ret = {};
+		// get the mesh
 		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh,&cpuMesh+1,cpu2gpuParams)->front();
-	
-		asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
-		vtxInstanceBufBnd.offset = rangeStart*sizeof(core::vectorSIMDf);
-		vtxInstanceBufBnd.buffer = colorBuffer;
-		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd),colorBufferBinding);
-		vtxInstanceBufBnd.offset = rangeStart*sizeof(core::matrix3x4SIMD);
-		vtxInstanceBufBnd.buffer = transformBuffer;
-		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd),xformBufferBinding);
+		ret.gpuMesh->setBaseInstance(rangeStart);
 		ret.gpuMesh->setInstanceCount(numInstances);
 
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
 		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
 		gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
-		gp_params.renderpassIndependent = rpIndependentPipeline; // TODO: fix use gpuMesh->getPipeline instead
+		gp_params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(ret.gpuMesh->getPipeline());
 		gp_params.subpassIx = 0u;
 
 		ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr,std::move(gp_params));
@@ -500,7 +472,7 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
-	while (true) // TODO: window closed check
+	for (auto i=0u; true; i++)
 	{
 		// Timing
 
@@ -599,6 +571,7 @@ int main()
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
 		}
 		// draw
+		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,gpuLayout.get(),0u,1u,&globalDs.get());
 		{
 			auto viewProj = cam.getConcatenatedMatrix();
 

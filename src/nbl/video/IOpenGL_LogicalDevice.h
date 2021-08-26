@@ -708,15 +708,15 @@ protected:
 
             using GLPpln = COpenGLRenderpassIndependentPipeline;
 
-            IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+            const IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
             uint32_t shaderCount = 0u;
             for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
                 if (params.shaders[i])
                     shaders_array[shaderCount++] = params.shaders[i].get();
 
-            auto shaders = core::SRange<IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
-            auto vsIsPresent = [&shaders] {
-                return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
+            auto shaders = core::SRange<const IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
+            auto vsIsPresent = [&shaders]() -> bool {
+                return std::find_if(shaders.begin(), shaders.end(), [](const IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
             };
 
             asset::ISpecializedShader::E_SHADER_STAGE lastVertexLikeStage = asset::ISpecializedShader::ESS_VERTEX;
@@ -747,7 +747,7 @@ protected:
             COpenGLPipelineLayout* gllayout = static_cast<COpenGLPipelineLayout*>(layout.get());
             for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
             {
-                COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
+                const auto* glshdr = static_cast<const COpenGLSpecializedShader*>(*shdr);
 
                 auto stage = glshdr->getStage();
                 uint32_t ix = core::findLSB<uint32_t>(stage);

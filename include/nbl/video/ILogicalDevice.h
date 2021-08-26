@@ -458,7 +458,7 @@ class ILogicalDevice : public core::IReferenceCounted
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -619,7 +619,7 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
