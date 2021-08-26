@@ -153,8 +153,12 @@ core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreati
     CWindowX11::E_CREATE_FLAGS flags = creationParams.flags;
     const std::string_view& caption = creationParams.windowCaption;
     CWindowX11::native_handle_t wnd;
-    
-    return core::make_smart_refctd_ptr<CWindowX11>(this, m_dpy, wnd);
+
+    auto result = core::make_smart_refctd_ptr<CWindowX11>(this, m_dpy, wnd);
+
+    m_windows.insert(std::make_pair(wnd, result.get()));
+
+    return result;
 }
 
 void CWindowManagerX11::destroyWindow(IWindow* wnd)
@@ -207,6 +211,17 @@ core::vector<XID> CWindowManagerX11::getConnectedKeyboards() const
 CWindowX11::~CWindowX11()
 {
     m_manager->destroyWindow(this);
+}
+
+void CWindowManagerX11::CThreadHandler::work(lock_t& lock)
+{
+    XEvent event;
+	x11.pXNextEvent(m_dpy, &event);
+	Window* nativeWindow = &event.xany.window;
+    CWindowX11* currentWin = m_windows[*nativeWindow];
+
+    auto* eventCallback = currentWin->getEventCallback();
+    currentWin->processEvent(event);
 }
 
 }

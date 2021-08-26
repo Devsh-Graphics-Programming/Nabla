@@ -35,6 +35,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoad
     ,XSaveContext
     ,XResizeWindow
     ,XMoveWindow
+    ,XNextEvent
 );
 
 // TODO add more
@@ -80,7 +81,7 @@ class CWindowManagerX11 : public IWindowManager
         class CThreadHandler final : public system::IThreadHandler<CThreadHandler>
         {
             using base_t = system::IThreadHandler<CThreadHandler>;
-		    friend base_t;
+            friend base_t;
 
             public:
                 CThreadHandler(Display* dpy) : m_dpy(dpy)
@@ -88,28 +89,19 @@ class CWindowManagerX11 : public IWindowManager
                     this->start();
                 }
 
-                void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowX11::E_CREATE_FLAGS _flags, CWindowX11::native_handle_t* wnd, const std::string_view& caption)
-                {
-                    // TODO
-                }
-
-                void destroyWindow(CWindowX11::native_handle_t window)
-                {
-                    // TODO
-                }
-
             private:
-                void work(lock_t& lock) {} // TODO
+                void work(lock_t& lock);
                 void init();
                 bool wakeupPredicate() const { return true; }
                 bool continuePredicate() const { return true; }
+
                 Display* m_dpy;
         };
-
         core::vector<XID> getConnectedMice() const;
         core::vector<XID> getConnectedKeyboards() const;
-
-	    Display* m_dpy;   
+        
+        static std::map<Window, CWindowX11*> m_windows;
+        Display* m_dpy;
 };
 
 }
