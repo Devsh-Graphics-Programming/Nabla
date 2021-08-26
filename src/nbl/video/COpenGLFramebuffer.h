@@ -98,9 +98,9 @@ public:
         else return 0u;
         gl->extGlCreateFramebuffers(1u, &fbo);
         if (layer < 0)
-            gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), mip, textarget);
+            gl->extGlNamedFramebufferTexture(fbo, attpoint, glimg->getOpenGLName(), mip, textarget);
         else
-            gl->extGlNamedFramebufferTextureLayer(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), glimg->getOpenGLTarget(), mip, layer);
+            gl->extGlNamedFramebufferTextureLayer(fbo, attpoint, glimg->getOpenGLName(), glimg->getOpenGLTarget(), mip, layer);
 
         GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
         assert(status == GL_FRAMEBUFFER_COMPLETE);
