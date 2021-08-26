@@ -976,7 +976,7 @@ namespace nbl::video
 
                 const auto format = c.image->getCreationParameters().format;
 
-                const bool is_fp = asset::isFloatingPointFormat(format);
+                const bool is_fp = asset::isNormalizedFormat(format) || asset::isFloatingPointFormat(format);
                 bool is_int = false;
                 bool is_sint = false;
                 if (!is_fp && asset::isIntegerFormat(format))
@@ -984,6 +984,8 @@ namespace nbl::video
                     is_int = true;
                     is_sint = asset::isSignedFormat(format);
                 }
+
+                const auto state_backup = ctxlocal->backupAndFlushStateClear(gl, ctxid, true, false, false);
 
                 for (uint32_t i = 0u; i < c.rangeCount; ++i)
                 {
@@ -1013,6 +1015,8 @@ namespace nbl::video
                         }
                     }
                 }
+
+                ctxlocal->restoreStateAfterClear(state_backup);
             }
             break;
             case impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE:
@@ -1029,6 +1033,8 @@ namespace nbl::video
                     if (!is_stencil)
                         is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
                 }
+
+                const auto state_backup = ctxlocal->backupAndFlushStateClear(gl, ctxid, false, (is_depth | is_depth_stencil), (is_stencil | is_depth_stencil));
 
                 for (uint32_t i = 0u; i < c.rangeCount; ++i)
                 {
@@ -1056,6 +1062,8 @@ namespace nbl::video
                         }
                     }
                 }
+
+                ctxlocal->restoreStateAfterClear(state_backup);
             }
             break;
             case impl::ECT_CLEAR_ATTACHMENTS:
