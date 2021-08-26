@@ -5,14 +5,13 @@
 #ifndef __NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
-
 #include <type_traits>
 #include <functional>
  
+#include "nbl/core/pch_core.h"
 #include "nbl/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
-#include "CConvertFormatImageFilter.h"
+#include "nbl/asset/filters/CConvertFormatImageFilter.h"
 
 namespace nbl
 {
@@ -23,10 +22,9 @@ template<typename Swizzle, typename Dither>
 class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>
 {
 	public:
-		class CNormalMapToDerivativeStateBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>::state_type
+		class Cthis : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>::state_type
 		{
 			public:
-
 				using decodeType = float;
 				static inline constexpr size_t decodeTypeByteSize = sizeof(float);
 				static inline constexpr size_t forcedScratchChannelAmount = 2;
@@ -73,11 +71,11 @@ class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableF
 		CNormalMapToDerivativeFilterBase() {}
 		virtual ~CNormalMapToDerivativeFilterBase() {}
 
-		static inline bool validate(CNormalMapToDerivativeStateBase* state)
+		static inline bool validate(Cthis* state)
 		{
 			if (!state)
 				return false;
-
+			
 			if (!state->scratchMemory)
 				return false;
 
@@ -102,7 +100,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 	public:
 		virtual ~CNormalMapToDerivativeFilter() {}
 
-		class CStateBase : public CMatchedSizeInOutImageFilterCommon::state_type, public CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase
+		class CStateBase : public CMatchedSizeInOutImageFilterCommon::state_type, public CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis
 		{ 
 			public:
 				CStateBase() = default;
@@ -112,12 +110,12 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 
 				void setLayerScaleValuesOffset()
 				{
-					scaleValuesPointer = reinterpret_cast<float*>(scratchMemory) + (extent.width * extent.height * extent.depth * forcedScratchChannelAmount);
+					this->scaleValuesPointer = reinterpret_cast<float*>(this->scratchMemory) + (extent.width * extent.height * extent.depth * this->forcedScratchChannelAmount);
 				}
 
 				void resetLayerScaleValues()
 				{
-					memset(const_cast<float*>(scaleValuesPointer), 0, layerCount * forcedScratchChannelAmount * decodeTypeByteSize);
+					memset(const_cast<float*>(this->scaleValuesPointer), 0, layerCount * this->forcedScratchChannelAmount * this->decodeTypeByteSize);
 				}
 
 				friend class CNormalMapToDerivativeFilter;
@@ -160,7 +158,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 
 			state->setLayerScaleValuesOffset();
 			state->resetLayerScaleValues();
-
+			
 			const asset::E_FORMAT inFormat = state->inImage->getCreationParameters().format;
 			const asset::E_FORMAT outFormat = state->outImage->getCreationParameters().format;
 			const auto inTexelByteSize = asset::getTexelOrBlockBytesize(inFormat);
@@ -188,7 +186,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 
 			for (uint16_t w = 0u; w < copyLayerCount; ++w)
 			{
-				float* decodeAbsValuesOffset = state->scaleValuesPointer + (w * CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount);
+				float* decodeAbsValuesOffset = state->scaleValuesPointer + (w * CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::forcedScratchChannelAmount);
 
 				auto& xMaxDecodeAbsValue = *decodeAbsValuesOffset;
 				auto& yMaxDecodeAbsValue = *(decodeAbsValuesOffset + 1);
@@ -215,13 +213,13 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 								const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
 								float* data = reinterpret_cast<float*>(state->scratchMemory + offset);
 
-								auto& [xDecode, yDecode, zDecode] = std::make_tuple(*swizzledBuffer, *(swizzledBuffer + 1), *(swizzledBuffer + 2));
+								const auto [xDecode, yDecode, zDecode] = std::make_tuple(*swizzledBuffer, *(swizzledBuffer + 1), *(swizzledBuffer + 2));
 
-								*data = -xDecode / zDecode;
-								*(data + 1) = -yDecode / zDecode;
+								const auto& newComputedX = *data = -xDecode / zDecode;
+								const auto& newComputedY = *(data + 1) = -yDecode / zDecode;
 
-								auto absoluteX = core::abs(*data);
-								auto absoluteY = core::abs(*(data + 1));
+								auto absoluteX = core::abs(newComputedX);
+								auto absoluteY = core::abs(newComputedY);
 
 								if (xMaxDecodeAbsValue < absoluteX)
 									xMaxDecodeAbsValue = absoluteX;
@@ -235,15 +233,15 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 					CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->inOffset,state->extent };
 					CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, inFormat);
 
-					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
+					const auto& inRegions = state->inImage->getRegions(state->inMipLevel);
 					CBasicImageFilterCommon::executePerRegion(state->inImage, decodeAndDivide, inRegions.begin(), inRegions.end(), clipFunctor);
 				}
 
 				{
-					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*
+					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*
 					{
 						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(readBlockPos.x, readBlockPos.y, readBlockPos.z, 0), scratchByteStrides); // TODO
-						return reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+						return reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 					};
 
 					auto normalizeScratch = [&](bool isSigned)
@@ -254,13 +252,13 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 								{
 									const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(localCoord, scratchByteStrides);
-									auto* entryScratchAdress = reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+									auto* entryScratchAdress = reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 
 									if (isSigned)
-										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
+										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::forcedScratchChannelAmount; ++channel)
 											entryScratchAdress[channel] = entryScratchAdress[channel] / decodeAbsValuesOffset[channel];
 									else
-										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
+										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::forcedScratchChannelAmount; ++channel)
 											entryScratchAdress[channel] = entryScratchAdress[channel] * 0.5f / decodeAbsValuesOffset[channel] + 0.5f;
 								}
 					};
@@ -281,14 +279,14 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 							const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, scratchByteStrides);
 							auto* data = reinterpret_cast<uint8_t*>(state->scratchMemory) + offset;
 
-							impl::CSwizzleAndConvertImageFilterBase<false, false, Swizzle, IdentityDither>::onEncode(outFormat, state, outDataAdress, data, localOutPos, 0, 0, CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
+							impl::CSwizzleAndConvertImageFilterBase<false, false, Swizzle, IdentityDither>::onEncode(outFormat, state, outDataAdress, data, localOutPos, 0, 0, CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
 						};
 
 						IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u), state->outMipLevel, state->outBaseLayer, 1 };
 						CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->outOffset,state->extent };
 						CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, outFormat);
 
-						auto& outRegions = state->outImage->getRegions(state->outMipLevel);
+						const auto& outRegions = state->outImage->getRegions(state->outMipLevel);
 						CBasicImageFilterCommon::executePerRegion(state->outImage, encode, outRegions.begin(), outRegions.end(), clipFunctor);
 					}
 				}

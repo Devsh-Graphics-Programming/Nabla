@@ -9,9 +9,10 @@
 
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
+#include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/CGLTFPipelineMetadata.h"
+#include "nbl/asset/metadata/CGLTFPipelineMetadata.h"
 
 namespace nbl
 {
@@ -31,7 +32,7 @@ namespace nbl
 			public:
 				CGLTFLoader(asset::IAssetManager* _m_assetMgr);
 
-				bool isALoadableFileFormat(io::IReadFile* _file) const override;
+				bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 				const char** getAssociatedFileExtensions() const override
 				{
@@ -41,7 +42,7 @@ namespace nbl
 
 				uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-				asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+				asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 				_NBL_STATIC_INLINE std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
 				{
@@ -601,7 +602,7 @@ namespace nbl
 
 				struct SContext
 				{
-					SContext(const SAssetLoadParams& _params, io::IReadFile* _mainFile, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel) : loadContext(_params, _mainFile), loaderOverride(_override), hierarchyLevel(_hierarchyLevel) {}
+					SContext(const SAssetLoadParams& _params, system::IFile* _mainFile, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel) : loadContext(_params, _mainFile), loaderOverride(_override), hierarchyLevel(_hierarchyLevel) {}
 					~SContext() {}
 
 					SAssetLoadContext loadContext;
@@ -620,7 +621,7 @@ namespace nbl
 					SShaderDefinesCode extraShaderDefinesCode; // TODO IN FUTURE
 				};
 
-				void loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file);
+				void loadAndGetGLTF(SGLTF& glTF, system::IFile* _file);
 				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isDS3L = false);
 				core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
 

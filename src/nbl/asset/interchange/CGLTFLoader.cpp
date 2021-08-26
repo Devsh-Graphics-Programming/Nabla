@@ -8,10 +8,7 @@
 
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 #include "nbl/asset/metadata/CGLTFMetadata.h"
-#include "nbl/asset/CGLTFPipelineMetadata.h"
 #include "simdjson/singleheader/simdjson.h"
-#include <filesystem>
-#include "os.h"
 
 #define VERT_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_uv.vert"
 #define VERT_SHADER_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_color.vert"
@@ -67,7 +64,7 @@ namespace nbl
 		{
 			auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
 			{
-				auto shaderData = assetManager->getFileSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				auto shaderData = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
 				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderData), asset::ICPUShader::buffer_contains_glsl);
 
 				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
@@ -97,15 +94,15 @@ namespace nbl
 			IRenderpassIndependentPipelineLoader::initialize();
 		}
 		
-		bool CGLTFLoader::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CGLTFLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{
 			simdjson::dom::parser parser;
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
 			{
-				const auto beginPosition = _file->getPos();
-				_file->read(jsonBuffer->getPointer(), jsonBuffer->getSize());
-				_file->seek(beginPosition);
+				system::future<size_t> future;
+				_file->read(future, jsonBuffer.get(), 0u, jsonBuffer->getSize());
+				future.get();
 			}
 			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
 			simdjson::dom::element element;
@@ -117,12 +114,12 @@ namespace nbl
 			return false;
 		}
 
-		asset::SAssetBundle CGLTFLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		asset::SAssetBundle CGLTFLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			SGLTF glTF;
 			loadAndGetGLTF(glTF, _file);
-			std::string relativeDir = (assetManager->getFileSystem()->getFileDir(_file->getFileName()).c_str() + std::string("/"));
-			SContext context(SAssetLoadParams(0, nullptr, ECF_CACHE_EVERYTHING, relativeDir.c_str()), _file, _override, _hierarchyLevel);
+
+			SContext context(_params, _file, _override, _hierarchyLevel);
 
 			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
 
@@ -172,7 +169,7 @@ namespace nbl
 
 							default:
 							{
-								os::Printer::log("EXPECTED IMAGE ASSET TYPE!", ELL_ERROR);
+								context.loadContext.params.logger.log("EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_ERROR);
 								return {};
 							}
 						}
@@ -766,15 +763,15 @@ namespace nbl
 			return SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), cpuMeshes);
 		}
 
-		void CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file)
+		void CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, system::IFile* _file)
 		{
 			simdjson::dom::parser parser;
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
 			{
-				const auto beginPosition = _file->getPos();
-				_file->read(jsonBuffer->getPointer(), jsonBuffer->getSize());
-				_file->seek(beginPosition);
+				system::future<size_t> future;
+				_file->read(future, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
+				future.get();
 			}
 
 			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
@@ -783,40 +780,40 @@ namespace nbl
 			//std::filesystem::path filePath(_file->getFileName().c_str());
 			//const std::string rootAssetDirectory = std::filesystem::absolute(filePath.remove_filename()).u8string();
 
-			auto& extensionsUsed = tweets.at_key("extensionsUsed");
-			auto& extensionsRequired = tweets.at_key("extensionsRequired");
-			auto& accessors = tweets.at_key("accessors");
-			auto& animations = tweets.at_key("animations");
-			auto& asset = tweets.at_key("asset");
-			auto& buffers = tweets.at_key("buffers");
-			auto& bufferViews = tweets.at_key("bufferViews");
-			auto& cameras = tweets.at_key("cameras");
-			auto& images = tweets.at_key("images");
-			auto& materials = tweets.at_key("materials");
-			auto& meshes = tweets.at_key("meshes");
-			auto& nodes = tweets.at_key("nodes");
-			auto& samplers = tweets.at_key("samplers");
-			auto& scene = tweets.at_key("scene");
-			auto& scenes = tweets.at_key("scenes");
-			auto& skins = tweets.at_key("skins");
-			auto& textures = tweets.at_key("textures");
-			auto& extensions = tweets.at_key("extensions");
-			auto& extras = tweets.at_key("extras");
+			const auto& extensionsUsed = tweets.at_key("extensionsUsed");
+			const auto& extensionsRequired = tweets.at_key("extensionsRequired");
+			const auto& accessors = tweets.at_key("accessors");
+			const auto& animations = tweets.at_key("animations");
+			const auto& asset = tweets.at_key("asset");
+			const auto& buffers = tweets.at_key("buffers");
+			const auto& bufferViews = tweets.at_key("bufferViews");
+			const auto& cameras = tweets.at_key("cameras");
+			const auto& images = tweets.at_key("images");
+			const auto& materials = tweets.at_key("materials");
+			const auto& meshes = tweets.at_key("meshes");
+			const auto& nodes = tweets.at_key("nodes");
+			const auto& samplers = tweets.at_key("samplers");
+			const auto& scene = tweets.at_key("scene");
+			const auto& scenes = tweets.at_key("scenes");
+			const auto& skins = tweets.at_key("skins");
+			const auto& textures = tweets.at_key("textures");
+			const auto& extensions = tweets.at_key("extensions");
+			const auto& extras = tweets.at_key("extras");
 
 			if (buffers.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& jsonBuffers = buffers.get_array();
-				for (auto& jsonBuffer : jsonBuffers)
+				const auto& jsonBuffers = buffers.get_array();
+				for (const auto& jsonBuffer : jsonBuffers)
 				{
 					auto& glTFBuffer = glTF.buffers.emplace_back();
 
-					auto& uri = jsonBuffer.at_key("uri");
-					auto& name = jsonBuffer.at_key("name");
-					auto& extensions = jsonBuffer.at_key("extensions");
-					auto& extras = jsonBuffer.at_key("extras");
+					const auto& uri = jsonBuffer.at_key("uri");
+					const auto& name = jsonBuffer.at_key("name");
+					const auto& extensions = jsonBuffer.at_key("extensions");
+					const auto& extras = jsonBuffer.at_key("extras");
 
 					if (uri.error() != simdjson::error_code::NO_SUCH_FIELD)
-						glTFBuffer.uri = uri.get_string().value();
+						glTFBuffer.uri = uri.get_string().value().data();
 
 					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFBuffer.name = name.get_string().value();
@@ -825,19 +822,19 @@ namespace nbl
 
 			if (bufferViews.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& jsonBufferViews = bufferViews.get_array();
-				for (auto& jsonBufferView : jsonBufferViews)
+				const auto& jsonBufferViews = bufferViews.get_array();
+				for (const auto& jsonBufferView : jsonBufferViews)
 				{
 					auto& glTFBufferView = glTF.bufferViews.emplace_back();
 
-					auto& buffer = jsonBufferView.at_key("buffer");
-					auto& byteOffset = jsonBufferView.at_key("byteOffset");
-					auto& byteLength = jsonBufferView.at_key("byteLength");
-					auto& byteStride = jsonBufferView.at_key("byteStride");
-					auto& target = jsonBufferView.at_key("target");
-					auto& name = jsonBufferView.at_key("name");
-					auto& extensions = jsonBufferView.at_key("extensions");
-					auto& extras = jsonBufferView.at_key("extras");
+					const auto& buffer = jsonBufferView.at_key("buffer");
+					const auto& byteOffset = jsonBufferView.at_key("byteOffset");
+					const auto& byteLength = jsonBufferView.at_key("byteLength");
+					const auto& byteStride = jsonBufferView.at_key("byteStride");
+					const auto& target = jsonBufferView.at_key("target");
+					const auto& name = jsonBufferView.at_key("name");
+					const auto& extensions = jsonBufferView.at_key("extensions");
+					const auto& extras = jsonBufferView.at_key("extras");
 
 					if (buffer.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFBufferView.buffer = buffer.get_uint64().value();
@@ -861,17 +858,17 @@ namespace nbl
 
 			if (images.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& imagesData = images.get_array();
-				for (auto& image : imagesData)
+				const auto& imagesData = images.get_array();
+				for (const auto& image : imagesData)
 				{
 					auto& glTFImage = glTF.images.emplace_back();
 
-					auto& uri = image.at_key("uri");
-					auto& mimeType = image.at_key("mimeType");
-					auto& bufferViewId = image.at_key("bufferView");
-					auto& name = image.at_key("name");
-					auto& extensions = image.at_key("extensions");
-					auto& extras = image.at_key("extras");
+					const auto& uri = image.at_key("uri");
+					const auto& mimeType = image.at_key("mimeType");
+					const auto& bufferViewId = image.at_key("bufferView");
+					const auto& name = image.at_key("name");
+					const auto& extensions = image.at_key("extensions");
+					const auto& extras = image.at_key("extras");
 
 					if (uri.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFImage.uri = uri.get_string().value();
@@ -889,18 +886,18 @@ namespace nbl
 
 			if (samplers.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& samplersData = samplers.get_array();
-				for (auto& sampler : samplersData)
+				const auto& samplersData = samplers.get_array();
+				for (const auto& sampler : samplersData)
 				{
 					auto& glTFSampler = glTF.samplers.emplace_back();
 
-					auto& magFilter = sampler.at_key("magFilter");
-					auto& minFilter = sampler.at_key("minFilter");
-					auto& wrapS = sampler.at_key("wrapS");
-					auto& wrapT = sampler.at_key("wrapT");
-					auto& name = sampler.at_key("name");
-					auto& extensions = sampler.at_key("extensions");
-					auto& extras = sampler.at_key("extras");
+					const auto& magFilter = sampler.at_key("magFilter");
+					const auto& minFilter = sampler.at_key("minFilter");
+					const auto& wrapS = sampler.at_key("wrapS");
+					const auto& wrapT = sampler.at_key("wrapT");
+					const auto& name = sampler.at_key("name");
+					const auto& extensions = sampler.at_key("extensions");
+					const auto& extras = sampler.at_key("extras");
 
 					if (magFilter.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFSampler.magFilter = magFilter.get_uint64().value();
@@ -921,14 +918,14 @@ namespace nbl
 
 			if (textures.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& texturesData = textures.get_array();
-				for (auto& texture : texturesData)
+				const auto& texturesData = textures.get_array();
+				for (const auto& texture : texturesData)
 				{
 					auto& glTFTexture = glTF.textures.emplace_back();
 
-					auto& sampler = texture.at_key("sampler");
-					auto& source = texture.at_key("source");
-					auto& name = texture.at_key("name");
+					const auto& sampler = texture.at_key("sampler");
+					const auto& source = texture.at_key("source");
+					const auto& name = texture.at_key("name");
 
 					if (sampler.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFTexture.sampler = sampler.get_uint64().value();
@@ -943,20 +940,20 @@ namespace nbl
 
 			if (materials.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& materialsData = materials.get_array();
-				for (auto& material : materialsData)
+				const auto& materialsData = materials.get_array();
+				for (const auto& material : materialsData)
 				{
 					auto& glTFMaterial = glTF.materials.emplace_back();
 
-					auto& name = material.at_key("name");
-					auto& pbrMetallicRoughness = material.at_key("pbrMetallicRoughness");
-					auto& normalTexture = material.at_key("normalTexture");
-					auto& occlusionTexture = material.at_key("occlusionTexture");
-					auto& emissiveTexture = material.at_key("emissiveTexture");
-					auto& emissiveFactor = material.at_key("emissiveFactor");
-					auto& alphaMode = material.at_key("alphaMode");
-					auto& alphaCutoff = material.at_key("alphaCutoff");
-					auto& doubleSided = material.at_key("doubleSided");
+					const auto& name = material.at_key("name");
+					const auto& pbrMetallicRoughness = material.at_key("pbrMetallicRoughness");
+					const auto& normalTexture = material.at_key("normalTexture");
+					const auto& occlusionTexture = material.at_key("occlusionTexture");
+					const auto& emissiveTexture = material.at_key("emissiveTexture");
+					const auto& emissiveFactor = material.at_key("emissiveFactor");
+					const auto& alphaMode = material.at_key("alphaMode");
+					const auto& alphaCutoff = material.at_key("alphaCutoff");
+					const auto& doubleSided = material.at_key("doubleSided");
 
 					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFMaterial.name = name.get_string().value();
@@ -964,18 +961,18 @@ namespace nbl
 					if (pbrMetallicRoughness.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
 						auto& glTFMetalicRoughness = glTFMaterial.pbrMetallicRoughness.emplace();
-						auto& pbrMRData = pbrMetallicRoughness.get_object();
+						const auto& pbrMRData = pbrMetallicRoughness.get_object();
 
-						auto& baseColorFactor = pbrMRData.at_key("baseColorFactor");
-						auto& baseColorTexture = pbrMRData.at_key("baseColorTexture");
-						auto& metallicFactor = pbrMRData.at_key("metallicFactor");
-						auto& roughnessFactor = pbrMRData.at_key("roughnessFactor");
-						auto& metallicRoughnessTexture = pbrMRData.at_key("metallicRoughnessTexture");
+						const auto& baseColorFactor = pbrMRData.at_key("baseColorFactor");
+						const auto& baseColorTexture = pbrMRData.at_key("baseColorTexture");
+						const auto& metallicFactor = pbrMRData.at_key("metallicFactor");
+						const auto& roughnessFactor = pbrMRData.at_key("roughnessFactor");
+						const auto& metallicRoughnessTexture = pbrMRData.at_key("metallicRoughnessTexture");
 
 						if (baseColorFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
 							auto& glTFBaseColorFactor = glTFMetalicRoughness.baseColorFactor.emplace();
-							auto& bcfData = baseColorFactor.get_array();
+							const auto& bcfData = baseColorFactor.get_array();
 
 							for (uint32_t i = 0; i < bcfData.size(); ++i)
 								glTFBaseColorFactor[i] = bcfData.at(i).get_double();
@@ -984,10 +981,10 @@ namespace nbl
 						if (baseColorTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
 							auto& glTFBaseColorTexture = glTFMetalicRoughness.baseColorTexture.emplace();
-							auto& bctData = baseColorTexture.get_object();
+							const auto& bctData = baseColorTexture.get_object();
 
-							auto& index = bctData.at_key("index");
-							auto& texCoord = bctData.at_key("texCoord");
+							const auto& index = bctData.at_key("index");
+							const auto& texCoord = bctData.at_key("texCoord");
 
 							if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
 								glTFBaseColorTexture.index = index.get_uint64().value();
@@ -1005,10 +1002,10 @@ namespace nbl
 						if (metallicRoughnessTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
 							auto& glTFMetallicRoughnessTexture = glTFMetalicRoughness.metallicRoughnessTexture.emplace();
-							auto& mrtData = metallicRoughnessTexture.get_object();
+							const auto& mrtData = metallicRoughnessTexture.get_object();
 
-							auto& index = mrtData.at_key("index");
-							auto& texCoord = mrtData.at_key("texCoord");
+							const auto& index = mrtData.at_key("index");
+							const auto& texCoord = mrtData.at_key("texCoord");
 
 							if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
 								glTFMetallicRoughnessTexture.index = index.get_uint64().value();
@@ -1021,11 +1018,11 @@ namespace nbl
 					if (normalTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
 						auto& glTFNormalTexture = glTFMaterial.normalTexture.emplace();
-						auto& normalTextureData = normalTexture.get_object();
+						const const auto& normalTextureData = normalTexture.get_object();
 
-						auto& index = normalTextureData.at_key("index");
-						auto& texCoord = normalTextureData.at_key("texCoord");
-						auto& scale = normalTextureData.at_key("scale");
+						const auto& index = normalTextureData.at_key("index");
+						const auto& texCoord = normalTextureData.at_key("texCoord");
+						const auto& scale = normalTextureData.at_key("scale");
 
 						if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
 							glTFNormalTexture.index = index.get_uint64().value();
@@ -1040,11 +1037,11 @@ namespace nbl
 					if (occlusionTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
 						auto& glTFOcclusionTexture = glTFMaterial.occlusionTexture.emplace();
-						auto& occlusionTextureData = occlusionTexture.get_object();
+						const auto& occlusionTextureData = occlusionTexture.get_object();
 
-						auto& index = occlusionTextureData.at_key("index");
-						auto& texCoord = occlusionTextureData.at_key("texCoord");
-						auto& strength = occlusionTextureData.at_key("strength");
+						const auto& index = occlusionTextureData.at_key("index");
+						const auto& texCoord = occlusionTextureData.at_key("texCoord");
+						const auto& strength = occlusionTextureData.at_key("strength");
 
 						if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
 							glTFOcclusionTexture.index = index.get_uint64().value();
@@ -1059,10 +1056,10 @@ namespace nbl
 					if (emissiveTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
 						auto& glTFEmissiveTexture = glTFMaterial.emissiveTexture.emplace();
-						auto& emissiveTextureData = emissiveTexture.get_object();
+						const auto& emissiveTextureData = emissiveTexture.get_object();
 
-						auto& index = emissiveTextureData.at_key("index");
-						auto& texCoord = emissiveTextureData.at_key("texCoord");
+						const auto& index = emissiveTextureData.at_key("index");
+						const auto& texCoord = emissiveTextureData.at_key("texCoord");
 
 						if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
 							glTFEmissiveTexture.index = index.get_uint64().value();
@@ -1074,7 +1071,7 @@ namespace nbl
 					if (emissiveFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
 						auto& glTFEmissiveFactor = glTFMaterial.emissiveFactor.emplace();
-						auto& efData = emissiveFactor.get_array();
+						const auto& efData = emissiveFactor.get_array();
 
 						for (uint32_t i = 0; i < efData.size(); ++i)
 							glTFEmissiveFactor[i] = efData.at(i).value();
@@ -1103,34 +1100,34 @@ namespace nbl
 
 			if (animations.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& animationsData = animations.get_array();
-				for (auto& animation : animationsData)
+				const auto& animationsData = animations.get_array();
+				for (const auto& animation : animationsData)
 				{
 					auto& gltfAnimation = glTF.animations.emplace_back();
 
-					auto& channels = animation.at_key("channels");
-					auto& samplers = animation.at_key("samplers");
-					auto& name = animation.at_key("name");
+					const auto& channels = animation.at_key("channels");
+					const auto& samplers = animation.at_key("samplers");
+					const auto& name = animation.at_key("name");
 
 					if(channels.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
-						auto& channelsData = channels.get_array();
-						for (auto& channel : channelsData)
+						const auto& channelsData = channels.get_array();
+						for (const auto& channel : channelsData)
 						{
 							auto& gltfChannel = gltfAnimation.channels.emplace_back();
 
-							auto& sampler = channel.at_key("sampler");
-							auto& target = channel.at_key("target");
+							const auto& sampler = channel.at_key("sampler");
+							const auto& target = channel.at_key("target");
 
 							if (sampler.error() != simdjson::error_code::NO_SUCH_FIELD)
 								gltfChannel.sampler = sampler.get_uint64().value();	
 
 							if (target.error() != simdjson::error_code::NO_SUCH_FIELD)
 							{
-								auto& targetData = target.get_object();
+								const auto& targetData = target.get_object();
 
-								auto& node = targetData.at_key("node");
-								auto& path = targetData.at_key("path");
+								const auto& node = targetData.at_key("node");
+								const auto& path = targetData.at_key("path");
 
 								if (node.error() != simdjson::error_code::NO_SUCH_FIELD)
 									gltfChannel.target.node = node.get_uint64().value();
@@ -1160,14 +1157,14 @@ namespace nbl
 
 					if(samplers.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
-						auto& samplersData = samplers.get_array();
-						for (auto& sampler : samplersData)
+						const auto& samplersData = samplers.get_array();
+						for (const auto& sampler : samplersData)
 						{
 							auto& gltfSampler = gltfAnimation.samplers.emplace_back();
 
-							auto& gltfInput = sampler.at_key("input");
-							auto& gltfOutput = sampler.at_key("output");
-							auto& gltfInterpolation = sampler.at_key("interpolation");
+							const auto& gltfInput = sampler.at_key("input");
+							const auto& gltfOutput = sampler.at_key("output");
+							const auto& gltfInterpolation = sampler.at_key("interpolation");
 
 							if (gltfInput.error() != simdjson::error_code::NO_SUCH_FIELD)
 								gltfSampler.input = gltfInput.get_uint64().value();
@@ -1203,7 +1200,7 @@ namespace nbl
 
 			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
-				auto& nData = nodes.get_array();
+				const auto& nData = nodes.get_array();
 				for (size_t iteratorID = 0; iteratorID < nData.size(); ++iteratorID)
 				{
 					// TODO: fill the node and get down through the tree (mesh, primitives, attributes, buffer views, materials, etc) till the end.
@@ -1211,20 +1208,20 @@ namespace nbl
 					auto handleTheGLTFTree = [&]()
 					{
 						auto& glTFnode = glTF.nodes.emplace_back();
-						auto& jsonNode = nData.at(iteratorID);
+						const auto& jsonNode = nData.at(iteratorID);
 
-						auto& camera = jsonNode.at_key("camera");
-						auto& children = jsonNode.at_key("children");
-						auto& skin = jsonNode.at_key("skin");
-						auto& matrix = jsonNode.at_key("matrix");
-						auto& mesh = jsonNode.at_key("mesh");
-						auto& rotation = jsonNode.at_key("rotation");
-						auto& scale = jsonNode.at_key("scale");
-						auto& translation = jsonNode.at_key("translation");
-						auto& weights = jsonNode.at_key("weights");
-						auto& name = jsonNode.at_key("name");
-						auto& extensions = jsonNode.at_key("extensions");
-						auto& extras = jsonNode.at_key("extras");
+						const auto& camera = jsonNode.at_key("camera");
+						const auto& children = jsonNode.at_key("children");
+						const auto& skin = jsonNode.at_key("skin");
+						const auto& matrix = jsonNode.at_key("matrix");
+						const auto& mesh = jsonNode.at_key("mesh");
+						const auto& rotation = jsonNode.at_key("rotation");
+						const auto& scale = jsonNode.at_key("scale");
+						const auto& translation = jsonNode.at_key("translation");
+						const auto& weights = jsonNode.at_key("weights");
+						const auto& name = jsonNode.at_key("name");
+						const auto& extensions = jsonNode.at_key("extensions");
+						const auto& extras = jsonNode.at_key("extras");
 
 						if (camera.error() != simdjson::error_code::NO_SUCH_FIELD)
 							glTFnode.camera = camera.get_uint64().value();
@@ -1232,7 +1229,7 @@ namespace nbl
 						if (children.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
 							glTFnode.children.emplace();
-							for (auto& child : children)
+							for (const auto& child : children)
 								glTFnode.children.value().emplace_back() = child.get_uint64().value();
 						}
 
@@ -1241,7 +1238,7 @@ namespace nbl
 
 						if (matrix.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
-							auto& matrixArray = matrix.get_array();
+							const auto& matrixArray = matrix.get_array();
 							core::matrix4SIMD tmpMatrix;
 
 							for (uint32_t i = 0; i < matrixArray.size(); ++i)
@@ -1262,32 +1259,29 @@ namespace nbl
 
 							if (translation.error() != simdjson::error_code::NO_SUCH_FIELD)
 							{
-								auto& translationArray = translation.get_array();
-								for (auto& val : translationArray)
-								{
-									size_t index = &val - &(*translationArray.begin());
-									trs.translation[index] = val.get_double().value();
-								}
+								const auto& translationArray = translation.get_array();
+
+								size_t index = {};
+								for (const auto& val : translationArray)
+									trs.translation[index++] = val.get_double().value();
 							}
 
 							if (rotation.error() != simdjson::error_code::NO_SUCH_FIELD)
 							{
-								auto& rotationArray = rotation.get_array();
-								for (auto& val : rotationArray)
-								{
-									size_t index = &val - &(*rotationArray.begin());
-									trs.rotation[index] = val.get_double().value();
-								}
+								const auto& rotationArray = rotation.get_array();
+
+								size_t index = {};
+								for (const auto& val : rotationArray)
+									trs.rotation[index++] = val.get_double().value();
 							}
 
 							if (scale.error() != simdjson::error_code::NO_SUCH_FIELD)
 							{
-								auto& scaleArray = scale.get_array();
-								for (auto& val : scaleArray)
-								{
-									size_t index = &val - &(*scaleArray.begin());
-									trs.scale[index] = val.get_double().value();
-								}
+								const auto& scaleArray = scale.get_array();
+
+								size_t index = {};
+								for (const auto& val : scaleArray)
+									trs.scale[index++] = val.get_double().value();
 							}
 
 							core::quaternion quaterion = core::quaternion(trs.rotation.x, trs.rotation.y, trs.rotation.z, trs.rotation.w);
@@ -1304,37 +1298,37 @@ namespace nbl
 
 						if (glTFnode.validate())
 						{
-							auto& mData = meshes.get_array();
+							const auto& mData = meshes.get_array();
 							for (size_t iteratorID = 0; iteratorID < mData.size(); ++iteratorID)
 							{
-								auto& jsonMesh = meshes.get_array().at(iteratorID);
+								const auto& jsonMesh = meshes.get_array().at(iteratorID);
 
 								if (jsonMesh.error() != simdjson::error_code::NO_SUCH_FIELD)
 								{
 									auto& glTFMesh = glTFnode.glTFMesh;
 
-									auto& primitives = jsonMesh.at_key("primitives");
-									auto& weights = jsonMesh.at_key("weights");
-									auto& name = jsonMesh.at_key("name");
-									auto& extensions = jsonMesh.at_key("extensions");
-									auto& extras = jsonMesh.at_key("extras");
+									const auto& primitives = jsonMesh.at_key("primitives");
+									const auto& weights = jsonMesh.at_key("weights");
+									const auto& name = jsonMesh.at_key("name");
+									const auto& extensions = jsonMesh.at_key("extensions");
+									const auto& extras = jsonMesh.at_key("extras");
 
 									if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
 										return false;
 
-									auto& pData = primitives.get_array();
+									const auto& pData = primitives.get_array();
 									for (size_t iteratorID = 0; iteratorID < pData.size(); ++iteratorID)
 									{
 										auto& glTFPrimitive = glTFMesh.primitives.emplace_back();
-										auto& jsonPrimitive = pData.at(iteratorID);
+										const auto& jsonPrimitive = pData.at(iteratorID);
 
-										auto& attributes = jsonPrimitive.at_key("attributes");
-										auto& indices = jsonPrimitive.at_key("indices");
-										auto& material = jsonPrimitive.at_key("material");
-										auto& mode = jsonPrimitive.at_key("mode");
-										auto& targets = jsonPrimitive.at_key("targets");
-										auto& extensions = jsonPrimitive.at_key("extensions");
-										auto& extras = jsonPrimitive.at_key("extras");
+										const auto& attributes = jsonPrimitive.at_key("attributes");
+										const auto& indices = jsonPrimitive.at_key("indices");
+										const auto& material = jsonPrimitive.at_key("material");
+										const auto& mode = jsonPrimitive.at_key("mode");
+										const auto& targets = jsonPrimitive.at_key("targets");
+										const auto& extensions = jsonPrimitive.at_key("extensions");
+										const auto& extras = jsonPrimitive.at_key("extras");
 
 										if (indices.error() != simdjson::error_code::NO_SUCH_FIELD)
 											glTFPrimitive.indices = indices.get_uint64().value();
@@ -1348,7 +1342,7 @@ namespace nbl
 											glTFPrimitive.mode = 4;
 
 										if (targets.error() != simdjson::error_code::NO_SUCH_FIELD)
-											for (auto& [targetKey, targetID] : targets.get_object())
+											for (const auto& [targetKey, targetID] : targets.get_object())
 												glTFPrimitive.targets.emplace()[targetKey.data()] = targetID.get_uint64().value();
 
 										auto insertAccessorIntoGLTFCache = [&](const std::string_view& cacheKey, const uint32_t accessorID)
@@ -1393,24 +1387,24 @@ namespace nbl
 
 											};
 
-											auto& jsonAccessor = accessors.get_array().at(accessorID);
+											const auto& jsonAccessor = accessors.get_array().at(accessorID);
 
 											if (jsonAccessor.error() != simdjson::NO_SUCH_FIELD)
 											{
 												auto& glTFAccessor = glTFPrimitive.accessors[getAttributeIdPair()];
 
-												auto& bufferView = jsonAccessor.at_key("bufferView");
-												auto& byteOffset = jsonAccessor.at_key("byteOffset");
-												auto& componentType = jsonAccessor.at_key("componentType");
-												auto& normalized = jsonAccessor.at_key("normalized");
-												auto& count = jsonAccessor.at_key("count");
-												auto& type = jsonAccessor.at_key("type");
-												auto& max = jsonAccessor.at_key("max");
-												auto& min = jsonAccessor.at_key("min");
-												auto& sparse = jsonAccessor.at_key("sparse");
-												auto& name = jsonAccessor.at_key("name");
-												auto& extensions = jsonAccessor.at_key("extensions");
-												auto& extras = jsonAccessor.at_key("extras");
+												const auto& bufferView = jsonAccessor.at_key("bufferView");
+												const auto& byteOffset = jsonAccessor.at_key("byteOffset");
+												const auto& componentType = jsonAccessor.at_key("componentType");
+												const auto& normalized = jsonAccessor.at_key("normalized");
+												const auto& count = jsonAccessor.at_key("count");
+												const auto& type = jsonAccessor.at_key("type");
+												const auto& max = jsonAccessor.at_key("max");
+												const auto& min = jsonAccessor.at_key("min");
+												const auto& sparse = jsonAccessor.at_key("sparse");
+												const auto& name = jsonAccessor.at_key("name");
+												const auto& extensions = jsonAccessor.at_key("extensions");
+												const auto& extras = jsonAccessor.at_key("extras");
 
 												if (bufferView.error() != simdjson::error_code::NO_SUCH_FIELD)
 													glTFAccessor.bufferView = bufferView.get_uint64().value();
@@ -1457,7 +1451,7 @@ namespace nbl
 												if (max.error() != simdjson::error_code::NO_SUCH_FIELD)
 												{
 													glTFAccessor.max.emplace();
-													auto& maxArray = max.get_array();
+													const auto& maxArray = max.get_array();
 													for (uint32_t i = 0; i < maxArray.size(); ++i)
 														glTFAccessor.max.value().push_back(maxArray.at(i).get_double().value());
 												}
@@ -1465,7 +1459,7 @@ namespace nbl
 												if (min.error() != simdjson::error_code::NO_SUCH_FIELD)
 												{
 													glTFAccessor.min.emplace();
-													auto& minArray = min.get_array();
+													const auto& minArray = min.get_array();
 													for (uint32_t i = 0; i < minArray.size(); ++i)
 														glTFAccessor.min.value().push_back(minArray.at(i).get_double().value());
 												}
@@ -1492,7 +1486,7 @@ namespace nbl
 											if (glTFPrimitive.indices.has_value())
 												insertAccessorIntoGLTFCache("INDEX", glTFPrimitive.indices.value());
 
-											for (auto& [attributeKey, attributeID] : attributes.get_object())
+											for (const auto& [attributeKey, attributeID] : attributes.get_object())
 												insertAccessorIntoGLTFCache(attributeKey, attributeID.get_uint64().value());
 										}
 										else

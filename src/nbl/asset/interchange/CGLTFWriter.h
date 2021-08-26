@@ -9,6 +9,8 @@
 
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
 
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 
@@ -42,7 +44,7 @@ namespace nbl
 
 				uint32_t getForcedFlags() override { return asset::EWF_NONE; }
 
-				bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+				bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 		};
 	}
 }

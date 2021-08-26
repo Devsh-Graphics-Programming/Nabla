@@ -10,7 +10,7 @@ namespace nbl
 {
 	namespace asset
 	{
-		bool CGLTFWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+		bool CGLTFWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 		{
 			// TODO: implementation
 			return false;
