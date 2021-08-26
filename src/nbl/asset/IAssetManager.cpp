@@ -51,10 +51,6 @@
 #include "nbl/asset/interchange/CGLILoader.h"
 #endif
 
-#ifdef _NBL_COMPILE_WITH_BIN_LOADER_
-#include "nbl/asset/interchange/CBufferLoaderBIN.h"
-#endif
-
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
 #include "nbl/asset/interchange/CSTLMeshWriter.h"
 #endif
@@ -91,6 +87,7 @@
 #include "nbl/asset/interchange/CGLIWriter.h"
 #endif
 
+#include "nbl/asset/interchange/CBufferLoaderBIN.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 
@@ -172,9 +169,7 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
-#ifdef _NBL_COMPILE_WITH_BIN_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
-#endif
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
