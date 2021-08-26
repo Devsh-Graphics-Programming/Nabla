@@ -142,6 +142,8 @@ void CWindowX11::processEvent(XEvent event)
 CWindowManagerX11::CWindowManagerX11()
 {
     m_dpy = x11.pXOpenDisplay(nullptr);
+    m_windowThreadManager.m_dpy = m_dpy;
+    m_windowThreadManager.m_windowsPtr = &m_windows;
 }
 
 core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreationParams&& creationParams)
@@ -216,9 +218,9 @@ CWindowX11::~CWindowX11()
 void CWindowManagerX11::CThreadHandler::work(lock_t& lock)
 {
     XEvent event;
-	x11.pXNextEvent(m_dpy, &event);
-	Window* nativeWindow = &event.xany.window;
-    CWindowX11* currentWin = m_windows[*nativeWindow];
+    x11.pXNextEvent(m_dpy, &event);
+    Window* nativeWindow = &event.xany.window;
+    CWindowX11* currentWin = (*m_windowsPtr)[*nativeWindow];
 
     auto* eventCallback = currentWin->getEventCallback();
     currentWin->processEvent(event);

@@ -82,9 +82,10 @@ class CWindowManagerX11 : public IWindowManager
         {
             using base_t = system::IThreadHandler<CThreadHandler>;
             friend base_t;
+            friend CWindowManagerX11;
 
             public:
-                CThreadHandler(Display* dpy) : m_dpy(dpy)
+                CThreadHandler()
                 {
                     this->start();
                 }
@@ -95,13 +96,15 @@ class CWindowManagerX11 : public IWindowManager
                 bool wakeupPredicate() const { return true; }
                 bool continuePredicate() const { return true; }
 
+                std::map<Window, CWindowX11*> *m_windowsPtr;
                 Display* m_dpy;
-        };
+        } m_windowThreadManager;
+
+        std::map<Window, CWindowX11*> m_windows;
+        Display* m_dpy;
+
         core::vector<XID> getConnectedMice() const;
         core::vector<XID> getConnectedKeyboards() const;
-        
-        static std::map<Window, CWindowX11*> m_windows;
-        Display* m_dpy;
 };
 
 }
