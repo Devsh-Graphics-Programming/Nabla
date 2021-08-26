@@ -105,6 +105,7 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_COMMAND_BUFFER = 1ull<<20,						//!< asset::ICPUCommandBuffer
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
+			ET_ACCELERATION_STRUCTURE = 1ull<<23,				//!< asset::ICPUAccelerationStructure
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 

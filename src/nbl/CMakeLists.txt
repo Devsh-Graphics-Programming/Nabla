@@ -329,6 +329,8 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp
+	
 
 
 	#opengl

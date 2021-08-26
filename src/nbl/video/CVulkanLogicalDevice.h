@@ -30,6 +30,7 @@
 #include "nbl/video/CVulkanBufferView.h"
 #include "nbl/video/CVulkanForeignImage.h"
 #include "nbl/video/CVulkanDeferredOperation.h"
+#include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 #include "nbl/core/containers/CMemoryPool.h"
 
@@ -530,6 +531,11 @@ public:
         uint32_t bufferViewOffset = 0u;
         VkBufferView vk_bufferViews[MAX_DESCRIPTOR_WRITE_COUNT * MAX_DESCRIPTOR_ARRAY_COUNT];
 
+        VkWriteDescriptorSetAccelerationStructureKHR vk_writeDescriptorSetAS[MAX_DESCRIPTOR_WRITE_COUNT];
+        
+        uint32_t accelerationStructuresOffset = 0u;
+        VkAccelerationStructureKHR vk_accelerationStructures[MAX_DESCRIPTOR_WRITE_COUNT * MAX_DESCRIPTOR_ARRAY_COUNT];
+
         for (uint32_t i = 0u; i < descriptorWriteCount; ++i)
         {
             vk_writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -605,6 +611,27 @@ public:
 
                     vk_writeDescriptorSets[i].pTexelBufferView = vk_bufferViews + bufferViewOffset;
                     bufferViewOffset += pDescriptorWrites[i].count;
+                } break;
+                
+                case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                {
+                    // Get WriteAS
+                    auto & writeAS = vk_writeDescriptorSetAS[i];
+                    
+                    // Fill Write AS
+                    for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
+                    {
+                        VkAccelerationStructureKHR vk_accelerationStructure = static_cast<const CVulkanAccelerationStructure*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
+                        vk_accelerationStructures[j + accelerationStructuresOffset] = vk_accelerationStructure;
+                    }
+                    
+                    writeAS.accelerationStructureCount = pDescriptorWrites[i].count;
+                    writeAS.pAccelerationStructures = &vk_accelerationStructures[accelerationStructuresOffset];
+
+                    // Give Write AS to writeDescriptor.pNext
+                    vk_writeDescriptorSets[i].pNext = &writeAS;
+
+                    accelerationStructuresOffset += pDescriptorWrites[i].count;
                 } break;
             }
         }
