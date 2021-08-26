@@ -53,7 +53,7 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "glTF", nbl::asset::EF_D32_SFLOAT);
 	auto window = std::move(initOutput.window);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
@@ -110,6 +110,8 @@ int main()
 			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
 			if (waitStatus == video::IGPUFence::ES_ERROR)
 				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
 		}
 
 		waitStatus = video::IGPUFence::ES_NOT_READY;
@@ -118,6 +120,8 @@ int main()
 			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
 			if (waitStatus == video::IGPUFence::ES_ERROR)
 				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
 		}
 	};
 
@@ -161,22 +165,17 @@ int main()
 		if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
 			assert(false);
 
-		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-		while (waitStatus != video::IGPUFence::ES_SUCCESS)
-		{
-			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
-			if (waitStatus == video::IGPUFence::ES_ERROR)
-				assert(false);
-		}
-
 		cpu2gpuWaitForFences();
 		gpuDescriptorSet1Layout = (*gpu_array)[0];
 	}
 
-	auto gpuubo = logicalDevice->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+	auto uboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
+	uboMemoryReqs.vulkanReqs.size = sizeof(SBasicViewParameters);
+
+	auto gpuubo = logicalDevice->createGPUBufferOnDedMem(uboMemoryReqs, true);
 	auto gpuUboDescriptorPool = createDescriptorPool(1u, EDT_UNIFORM_BUFFER);
 
-	auto gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), std::move(gpuDescriptorSet1Layout));
+	auto gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet write;
 		write.dstSet = gpuDescriptorSet1.get();
@@ -215,7 +214,7 @@ int main()
 
 		core::smart_refctd_ptr<video::IGPUMesh> gpuMesh;
 		{
-			auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get(), cpu2gpuParams);
+			auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1, cpu2gpuParams);
 			if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
 				assert(false);
 
@@ -254,7 +253,7 @@ int main()
 
 	core::vectorSIMDf cameraPosition(-0.5, 0, 0);
 	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 10000.0f);
-	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.04f, 1.f);
 	auto lastTime = std::chrono::system_clock::now();
 
 	constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
@@ -382,8 +381,8 @@ int main()
 		*/
 
 		SBasicViewParameters uboData;
-		memcpy(uboData.MV, modelViewMatrix.pointer(), sizeof(uboData.MV));
 		memcpy(uboData.MVP, modelViewProjectionMatrix.pointer(), sizeof(uboData.MVP));
+		memcpy(uboData.MV, modelViewMatrix.pointer(), sizeof(uboData.MV));
 		memcpy(uboData.NormalMat, normalMatrix.pointer(), sizeof(uboData.NormalMat));
 		
 		commandBuffer->updateBuffer(gpuubo.get(), 0ull, sizeof(uboData), &uboData);
@@ -395,7 +394,7 @@ int main()
 				const auto* gpuMeshBuffer = graphicsResource.gpuMeshBuffer;
 				auto gpuGraphicsPipeline = core::smart_refctd_ptr(graphicsResource.gpuGraphicsPipeline);
 
-				const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
+				const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = graphicsResource.gpuRenderpassIndependentPipeline;
 				const video::IGPUDescriptorSet* gpuDescriptorSet3 = gpuMeshBuffer->getAttachedDescriptorSet();
 
 				commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
