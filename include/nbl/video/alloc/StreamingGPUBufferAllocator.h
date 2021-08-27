@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class ILogicalDevice;
+//class ILogicalDevice;
 
 class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
 {

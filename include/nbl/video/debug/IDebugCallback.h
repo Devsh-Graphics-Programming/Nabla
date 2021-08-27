@@ -1,10 +1,11 @@
 #ifndef __NBL_VIDEO_I_DEBUG_CALLBACK_H_INCLUDED__
 #define __NBL_VIDEO_I_DEBUG_CALLBACK_H_INCLUDED__
 
-
 #include "nbl/core/declarations.h"
+
 #include <cstdint>
 
+#include "nbl/system/ILogger.h"
 
 namespace nbl::video
 {

@@ -19,7 +19,8 @@ using namespace system;
 namespace asset
 {
 
-static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_5;
+// static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_5;
+static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_3;
 
 IGLSLCompiler::IGLSLCompiler(system::ISystem* _s) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s)
 {

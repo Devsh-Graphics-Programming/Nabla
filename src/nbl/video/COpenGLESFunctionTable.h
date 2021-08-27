@@ -10,8 +10,7 @@
 #undef GL_KHR_debug
 #include "GLES3/gl2ext.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 /**
@@ -619,7 +618,6 @@ public:
 	}
 };
 
-}
 }
 
 #undef GL_GLEXT_PROTOTYPES

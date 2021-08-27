@@ -2,16 +2,19 @@
 #define __NBL_I_GPU_COMMAND_BUFFER_H_INCLUDED__
 
 #include "nbl/asset/ICommandBuffer.h"
-
+/*
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
-#include "nbl/video/IGPUComputePipeline.h"
-#include "nbl/video/IGPUEvent.h"
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUPipelineLayout.h"
+*/
+#include "nbl/video/IGPUEvent.h"
+#include "nbl/video/IGPUComputePipeline.h"
+#include "nbl/video/IGPUFramebuffer.h"
+#include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/IGPUCommandPool.h"
 
 namespace nbl::video
@@ -64,7 +67,7 @@ public:
             IGPUEvent,
             IGPUCommandBuffer
         >::begin(_flags);
-        if (m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT==0u)
+        if ((m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT)==0u)
         {
             assert(m_state != ES_INITIAL);
         }

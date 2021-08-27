@@ -310,6 +310,7 @@ public:
 		nbl::core::smart_refctd_ptr<CommonAPIEventCallback> windowCb;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues;
@@ -380,6 +381,8 @@ public:
 		q_params.priorities = &priority;
 		dev_params.queueCreateInfos = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
+
+		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
 
 		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
 		if(graphicsQueueEnable)

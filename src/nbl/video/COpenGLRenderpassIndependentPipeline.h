@@ -8,16 +8,16 @@
 
 #include "nbl/video/IGPURenderpassIndependentPipeline.h"
 
+#include <string_view> // for hash
+#include <array>
+
+
 #include "COpenGLSpecializedShader.h"
 #include "IOpenGLPipeline.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "IOpenGL_FunctionTable.h"
-
-
-#include <string_view> // for hash
-#include <array>
 
 namespace nbl::video
 {

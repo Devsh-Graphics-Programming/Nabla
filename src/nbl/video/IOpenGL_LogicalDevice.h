@@ -11,6 +11,8 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/debug/COpenGLDebugCallback.h"
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/CEGL.h"
