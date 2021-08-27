@@ -143,7 +143,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				data = nullptr;
 			}
 
-			bool download;
+			bool download; // TODO: could change it so that if `data==nullptr` its a download
 			IPropertyPool* pool;
 			core::SRange<const uint32_t> indices;
 			uint32_t propertyID;
