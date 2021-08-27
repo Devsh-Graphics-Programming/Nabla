@@ -79,7 +79,6 @@ class CWindowManagerX11 : public IWindowManager
         core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override;
         void destroyWindow(IWindow* wnd) override;
     protected:
-        template<typename Key, typename Val>
         struct MultithreadedMap
         {
             public:
@@ -91,27 +90,23 @@ class CWindowManagerX11 : public IWindowManager
 
                 mutable system::SReadWriteSpinLock m_lock;
 
-                std::map<Key, Val> m_map;
+                std::map<Window, CWindowX11*> m_map;
 
-                inline void insert(const Key& _key, const Val& _val)
+                inline void insert(const Window& _key, CWindowX11* _val)
                 {
-                    auto lk = lock_write();
+                    auto lk = system::write_lock_guard<>(m_lock);
                     m_map.insert(std::make_pair(_key, _val));
                 }
 
-                inline Val* read(const Key& _object)
+                inline CWindowX11* read(const Window& _object)
                 {
-                    auto lk = lock_read();
+                    auto lk = system::read_lock_guard<>(m_lock);
                     auto r = m_map.find(_object);
                     if (r == m_map.end())
                         return nullptr;
 
-                    return &(r->second);
+                    return r->second;
                 }
-
-            protected:
-                auto lock_read() const { return system::read_lock_guard<>(m_lock); }
-                auto lock_write() const { return system::write_lock_guard<>(m_lock); }
         };
     private:
         class CThreadHandler final : public system::IThreadHandler<CThreadHandler>
@@ -132,12 +127,12 @@ class CWindowManagerX11 : public IWindowManager
                 bool wakeupPredicate() const { return true; }
                 bool continuePredicate() const { return true; }
 
-                MultithreadedMap<Window, CWindowX11*> *m_windowsMapPtr;
+                MultithreadedMap* m_windowsMapPtr;
 
                 Display* m_dpy;
         } m_windowThreadManager;
 
-        MultithreadedMap<Window, CWindowX11*> m_windowsMap;
+        MultithreadedMap m_windowsMap;
         Display* m_dpy;
 
         core::vector<XID> getConnectedMice() const;
