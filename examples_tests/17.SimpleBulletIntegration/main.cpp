@@ -233,7 +233,6 @@ int main(int argc, char** argv)
 		}
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
-			transfers[i].download = false;
 			transfers[i].pool = objectPool.get();
 			transfers[i].indices = {scratchObjectIDs.data(),scratchObjectIDs.data()+count};
 		}
@@ -563,7 +562,6 @@ int main(int argc, char** argv)
 			// Update Physics (TODO: fixed timestep)
 			world->getWorld()->stepSimulation(dt);
 			video::CPropertyPoolHandler::TransferRequest request;
-			request.download = false;
 			request.pool = objectPool.get();
 			request.indices = {CInstancedMotionState::s_updateIndices.data(),CInstancedMotionState::s_updateIndices.data()+CInstancedMotionState::s_updateIndices.size()};
 			request.propertyID = TransformPropertyID;
