@@ -405,16 +405,23 @@ int main(int argc, char** argv)
 	// TODO: replace with an actual scenemanager
 	struct GPUObject
 	{
+		const video::IPropertyPool* pool;
 		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
 	};
 	// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
-	auto createGPUObject = [&](
-		asset::ICPUMeshBuffer * cpuMesh, uint32_t numInstances, uint64_t rangeStart,
-		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
+	auto createGPUObject = [&](const video::IPropertyPool* pool, asset::ICPUMeshBuffer* cpuMesh, asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
 	{
 		auto pipeline = cpuMesh->getPipeline();
-
+		//
+		auto vtxinputParams = pipeline->getVertexInputParams();
+		vtxinputParams.bindings[15].inputRate = asset::EVIR_PER_INSTANCE;
+		vtxinputParams.bindings[15].stride = sizeof(uint32_t);
+		vtxinputParams.attributes[15].binding = 15;
+		vtxinputParams.attributes[15].relativeOffset = 0;
+		vtxinputParams.attributes[15].format = asset::E_FORMAT::EF_R32_UINT;
+		vtxinputParams.enabledAttribFlags |= 0x1u<<15;
+		vtxinputParams.enabledBindingFlags |= 0x1u<<15;
 		// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
 		auto rasterParams = pipeline->getRasterizationParams();
 		rasterParams.frontFaceIsCCW = 0;
@@ -430,34 +437,36 @@ int main(int argc, char** argv)
 		};
 		cpuMesh->setPipeline(core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
 			core::smart_refctd_ptr(cpuLayout),&cpuShaders[0],&cpuShaders[0]+2,
-			pipeline->getVertexInputParams(),
+			vtxinputParams,
 			pipeline->getBlendParams(),
 			pipeline->getPrimitiveAssemblyParams(),
 			rasterParams
 		));
 
 		GPUObject ret = {};
+		ret.pool = pool;
 		// get the mesh
 		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh,&cpuMesh+1,cpu2gpuParams)->front();
-		ret.gpuMesh->setBaseInstance(rangeStart);
-		ret.gpuMesh->setInstanceCount(numInstances);
-
+		asset::SBufferBinding<video::IGPUBuffer> instanceRedirectBufBnd;
+		instanceRedirectBufBnd.offset = 0u;
+		instanceRedirectBufBnd.buffer = pool->getPropertyMemoryBlock(0u).buffer;
+		ret.gpuMesh->setVertexBufferBinding(std::move(instanceRedirectBufBnd),15u);
+		//
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
 		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
 		gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
 		gp_params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(ret.gpuMesh->getPipeline());
 		gp_params.subpassIx = 0u;
-
 		ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr,std::move(gp_params));
 
 		return ret;
 	};
 
 	core::vector<GPUObject> gpuObjects = {
-		createGPUObject(cpuMeshCube.get(),cubes->getAllocated(), 0u),
-		createGPUObject(cpuMeshCylinder.get(),cylinders->getAllocated(), 20u, asset::EFCM_NONE),
-		createGPUObject(cpuMeshSphere.get(),spheres->getAllocated(), 40u),
-		createGPUObject(cpuMeshCone.get(),cones->getAllocated(), 60u, asset::EFCM_NONE)
+		createGPUObject(cubes.get(),cpuMeshCube.get()),
+		createGPUObject(cylinders.get(),cpuMeshCylinder.get(),asset::EFCM_NONE),
+		createGPUObject(spheres.get(),cpuMeshSphere.get()),
+		createGPUObject(cones.get(),cpuMeshCone.get(),asset::EFCM_NONE)
 	};
 
 
@@ -604,6 +613,7 @@ int main(int argc, char** argv)
 
 				cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
 				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
+				gpuObject.gpuMesh->setInstanceCount(gpuObject.pool->getAllocated());
 				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 			}
 		}
