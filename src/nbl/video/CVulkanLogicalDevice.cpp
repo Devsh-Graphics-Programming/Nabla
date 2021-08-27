@@ -6,8 +6,14 @@ namespace nbl::video
 
 core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(m_physicalDevice);
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
     auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructure) // TODO(Erfan): (instead somehow get "Enabled" features) -> Better Conditional
+    {
+        assert(false && "device acceleration structures is not enabled.");
+        return nullptr;
+    }
+
     VkAccelerationStructureKHR vk_as = VK_NULL_HANDLE;
     VkAccelerationStructureCreateInfoKHR vasci = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
     vasci.createFlags = static_cast<VkAccelerationStructureCreateFlagBitsKHR>(params.flags);
