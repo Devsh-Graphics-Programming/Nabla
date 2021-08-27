@@ -78,50 +78,64 @@ class IPropertyPool : public core::IReferenceCounted
             return true;
         }
 
-        // TODO: return how to copy the tail around
-        inline void freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
+        // WARNING: For contiguous pools, YOU FIRST NEED TO REMOVE THE PROPERTIES via the CPropertyPoolHandler!
+        // This function does not move the properties' contents, for contiguous pools it means you loose the tail!
+        inline uint32_t deallocateProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* dst, uint32_t* src)
         {
-            uint32_t head = getAllocated();
-
+            const uint32_t oldHead = getAllocated();
             constexpr uint32_t unit = 1u;
             for (auto it=indicesBegin; it!=indicesEnd; it++)
             {
-                auto& index = *it;
-                if (index==invalid_index)
+                if (*it==invalid_index)
                     continue;
-
-                indexAllocator.free_addr(index,unit);
-                if (isContiguous())
+                indexAllocator.free_addr(*it,unit);
+            }
+            const uint32_t head = getAllocated();
+            const uint32_t removedCount = oldHead-head;
+            if (isContiguous())
+            {
+                assert(dst && src);
+                auto dstIt = dst;
+                for (auto it=indicesBegin; it!=indicesEnd; it++)
                 {
-                    assert(head!=0u);
-
-                    auto& addr = m_indexToAddr[index];
-                    auto& lastIx = m_addrToIndex[--head];
-                    assert(addr!=invalid_index&&lastIx!=invalid_index);
-                    m_indexToAddr[lastIx] = addr;
-                    m_addrToIndex[addr] = lastIx;
-                    lastIx = invalid_index;
+                    if (*it==invalid_index)
+                        continue;
+                    auto& addr = m_indexToAddr[*it];
+                    if (addr<head) // overwrite if address in live range
+                        *(dstIt++) = addr;
+                    else // mark as dead if outside
+                        m_addrToIndex[addr] = invalid_index; // 50%
+                    // index doesn't map to any address anymore
                     addr = invalid_index;
                 }
+                dstIt = dst;
+                auto srcIt = src;
+                for (auto a=oldHead; a<head; a++)
+                {
+                    auto& index = m_addrToIndex[a];
+                    if (index==invalid_index)
+                        continue;
+                    // if not dead we need to move
+                    *(srcIt++) = a;
+                    m_addrToIndex[*dstIt] = index;
+                    m_indexToAddr[index] = *(dstIt++);
+                    index = invalid_index;
+                }
+                // then we just do equivalent of
+                //for (auto i=0u; i<(srcIt-src); i++)
+                    //data[dst[i]] = data[src[i]];
             }
-            /* TODO: figure out how to schedule a copy
-            for (auto addr=head; addr<oldHead; addr++)
-            {
-                auto changedIx = m_addrToIndex[addr];
-                auto newAddr = m_indexToAddr[changedIx];
-                data[newAddr] = data[addr];
-            }
-            */
+            return removedCount;
         }
 
         //
-        inline uint32_t indexToAddress(const uint32_t index)
+        inline uint32_t indexToAddress(const uint32_t index) const
         {
             if (isContiguous())
                 return m_indexToAddr[index];
             return index;
         }
-        inline uint32_t addressToIndex(const uint32_t addr)
+        inline uint32_t addressToIndex(const uint32_t addr) const
         {
             if (isContiguous())
                 return m_addrToIndex[addr];
@@ -131,10 +145,7 @@ class IPropertyPool : public core::IReferenceCounted
         //
         inline void freeAllProperties()
         {
-            // a little trick to reset the arrays to invalid values if we're going to check them with asserts
-            bool clearBimap = false;
-            assert(clearBimap=isContiguous());
-            if (clearBimap)
+            if (isContiguous())
             {
                 std::fill_n(m_indexToAddr,getCapacity(),invalid_index);
                 std::fill_n(m_addrToIndex,getAllocated(),invalid_index);
