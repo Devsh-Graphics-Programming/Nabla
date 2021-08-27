@@ -21,6 +21,7 @@
 #include "nbl/video/IGPUQueue.h"
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/IDeferredOperation.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
 
 // TODO: undo the circular ref
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
@@ -331,6 +332,13 @@ class ILogicalDevice : public core::IReferenceCounted
             return createGPUImageView_impl(std::move(params));
         }
 
+        core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        {
+            if (!params.bufferRange.buffer->wasCreatedBy(this))
+                return nullptr;
+            return createGPUAccelerationStructure_impl(std::move(params));
+        }
+
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
         {
             if (!pool->wasCreatedBy(this))
@@ -612,6 +620,7 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
+        virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
             const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,

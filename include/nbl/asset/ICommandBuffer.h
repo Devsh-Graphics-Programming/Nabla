@@ -94,7 +94,8 @@ template <
     typename DescSetType,
     typename PipelineLayoutType,
     typename EventType,
-    typename CommandBufferType
+    typename CommandBufferType,
+    typename AcclerationStructureType
 >
 class ICommandBuffer
 {
@@ -110,6 +111,7 @@ protected:
     using pipeline_layout_t = PipelineLayoutType;
     using event_t = EventType;
     using cmdbuf_t = CommandBufferType;
+    using accstruct_t = AcclerationStructureType;
 
 public:
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
@@ -292,6 +294,8 @@ public:
     }
 
     virtual bool regenerateMipmaps(image_view_t* imgview) = 0;
+
+
 
 protected:
     ICommandBuffer(E_LEVEL lvl) : m_level(lvl) {}

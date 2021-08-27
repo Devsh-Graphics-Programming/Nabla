@@ -12,6 +12,7 @@
 #include "nbl/asset/ICPUEvent.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
+#include "nbl/asset/ICPUAccelerationStructure.h"
 
 namespace nbl {
 namespace asset
@@ -30,7 +31,8 @@ class ICPUCommandBuffer final :
         ICPUDescriptorSet,
         ICPUPipelineLayout,
         ICPUEvent,
-        ICPUCommandBuffer
+        ICPUCommandBuffer,
+        ICPUAccelerationStructure
     >
 {
 public:

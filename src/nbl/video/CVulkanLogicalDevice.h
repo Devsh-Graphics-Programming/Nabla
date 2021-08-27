@@ -624,7 +624,7 @@ public:
                         VkAccelerationStructureKHR vk_accelerationStructure = static_cast<const CVulkanAccelerationStructure*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
                         vk_accelerationStructures[j + accelerationStructuresOffset] = vk_accelerationStructure;
                     }
-                    
+
                     writeAS.accelerationStructureCount = pDescriptorWrites[i].count;
                     writeAS.pAccelerationStructures = &vk_accelerationStructures[accelerationStructuresOffset];
 
@@ -1060,6 +1060,8 @@ protected:
             return nullptr;
         }
     }
+    
+    core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
 
     core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
         const asset::SPushConstantRange* const _pcRangesEnd = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0 = nullptr,
@@ -1247,7 +1249,7 @@ protected:
     {
         return false;
     }
-
+    
 private:
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet

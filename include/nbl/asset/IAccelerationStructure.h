@@ -8,70 +8,101 @@
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/asset/IBuffer.h"
+#include "nbl/asset/format/EFormat.h"
+
+#define uint uint32_t
+#include "nbl/builtin/glsl/utils/acceleration_structures.glsl"
+#undef uint
 
 namespace nbl::asset
 {
-template<class BufferType>
+template<typename AddressType>
 class IAccelerationStructure : public IDescriptor
 {
-    public:
-        enum E_TYPE : uint32_t
-        {
-            ET_TOP_LEVEL = 0,
-            ET_BOTTOM_LEVEL = 1,
-            ET_GENERIC = 2,
-        };
-        
-        enum E_CREATE_FLAGS : uint32_t
-        {
-            ECF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT   = 0x1u << 0u,
-            ECF_MOTION_BIT_NV                       = 0x1u << 1u, // (erfan): extension, for later ?
-        };
+	public:
+		enum E_TYPE : uint32_t
+		{
+			ET_TOP_LEVEL = 0,
+			ET_BOTTOM_LEVEL = 1,
+			ET_GENERIC = 2,
+		};
+		
+		enum E_CREATE_FLAGS : uint32_t
+		{
+			ECF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT	= 0x1u << 0u,
+			ECF_MOTION_BIT_NV						= 0x1u << 1u, // Provided by VK_NV_ray_tracing_motion_blur
+		};
 
-        struct SCreationParams
-        {
-            E_CREATE_FLAGS  flags;
-            E_TYPE          type;
-            SBufferRange<BufferType> bufferRange;
-            bool operator==(const SCreationParams& rhs) const
-            {
-                return flags == rhs.flags && type == rhs.type;
-            }
-            bool operator!=(const SCreationParams& rhs) const
-            {
-				return !operator==(rhs);
-            }
-        };
+		using BuildRangeInfo = nbl_glsl_BuildRangeInfo;
 
-        inline const auto& getCreationParameters() const
-        {
-            return params;
-        }
+		enum E_BUILD_FLAGS
+		{
+			EBF_ALLOW_UPDATE_BIT = 0x1u << 0u,
+			EBF_ALLOW_COMPACTION_BIT = 0x1u << 1u,
+			EBF_PREFER_FAST_TRACE_BIT = 0x1u << 2u,
+			EBF_PREFER_FAST_BUILD_BIT = 0x1u << 3u,
+			EBF_LOW_MEMORY_BIT = 0x1u << 4u,
+			EBF_MOTION_BIT_NV = 0x1u << 5u, // Provided by VK_NV_ray_tracing_motion_blur
+		};
 
-        //!
-        inline static bool validateCreationParameters(const SCreationParams& _params)
-        {
-            if(!_params.bufferRange.isValid()) {
-                return false;
-            }
-            return true;
-        }
+		enum E_BUILD_MODE
+		{
+			EBM_BUILD = 0,
+			EBM_UPDATE = 1,
+		};
 
-        //!
-        E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
+		struct GeometryData
+		{
+			union
+			{
+				struct Triangles {
+					E_FORMAT		vertexFormat;
+					AddressType		vertexData;
+					VkDeviceSize	vertexStride;
+					uint32_t		maxVertex;
+					VkIndexType		indexType;
+					AddressType		indexData;
+					AddressType		transformData;
+				} triangles;
+				struct AABBs {
+					AddressType		data;
+					size_t			stride;
+				} aabbs;
+				struct Instances {
+					AddressType		data;
+				} instances;
+			};
+		};
 
-    protected:
-        IAccelerationStructure() :	params{ static_cast<E_CREATE_FLAGS>(0u), static_cast<E_TYPE>(0u), SBufferRange<BufferType>{} }
-        {
-        }
-        IAccelerationStructure(SCreationParams&& _params) : params(std::move(_params)) {}
+		struct Geometry
+		{
+			enum E_TYPE
+			{
+				ET_TRIANGLES = 0,
+				ET_AABBS = 1,
+				ET_INSTANCES = 2,
+			};
+			enum E_FLAGS {
+				EF_OPAQUE_BIT							= 0x1u << 0u,
+				EF_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u << 1u,
+			};
+			E_TYPE			type;
+			E_FLAGS			flags;
+			GeometryData	data;
+		};
 
-        virtual ~IAccelerationStructure()
-        {}
+		//!
+		E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
 
-        SCreationParams params;
+	protected:
+		IAccelerationStructure() 
+		{
+		}
 
-    private:
+		virtual ~IAccelerationStructure()
+		{}
+
+	private:
 };
 } // end namespace nbl::asset
 

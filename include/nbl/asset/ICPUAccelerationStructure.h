@@ -14,9 +14,35 @@ namespace nbl
 namespace asset
 {
 
-class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUBuffer>, public IAsset
+class ICPUAccelerationStructure final : public IAccelerationStructure<SBufferBinding<ICPUBuffer>>, public IAsset
 {
-	using Base = IAccelerationStructure<ICPUBuffer>;
+	using Base = IAccelerationStructure;
+
+	public:
+		struct SCreationParams
+		{
+			E_CREATE_FLAGS							flags;
+			IAccelerationStructure::E_TYPE			type;
+			bool operator==(const SCreationParams& rhs) const
+			{
+				return flags == rhs.flags && type == rhs.type;
+			}
+			bool operator!=(const SCreationParams& rhs) const
+			{
+				return !operator==(rhs);
+			}
+		};
+
+		inline const auto& getCreationParameters() const
+		{
+			return params;
+		}
+
+		//!
+		inline static bool validateCreationParameters(const SCreationParams& _params)
+		{
+			return true;
+		}
 
 	public:
 		static core::smart_refctd_ptr<ICPUAccelerationStructure> create(SCreationParams&& params)
@@ -27,7 +53,9 @@ class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUBuffer
 			return core::make_smart_refctd_ptr<ICPUAccelerationStructure>(std::move(params));
 		}
 
-		ICPUAccelerationStructure(SCreationParams&& _params) : Base(std::move(_params)) {}
+		ICPUAccelerationStructure(SCreationParams&& _params) 
+			: params(std::move(_params))
+		{}
 
 		//!
 		size_t conservativeSizeEstimate() const override
@@ -35,10 +63,10 @@ class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUBuffer
 			return sizeof(SCreationParams);
 		}
 
-        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
-        {
+		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+		{
 			return nullptr; //TODO
-        }
+		}
 
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
@@ -82,6 +110,9 @@ class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUBuffer
 		}
 
 		virtual ~ICPUAccelerationStructure() = default;
+
+	private:
+		SCreationParams params;
 };
 
 }

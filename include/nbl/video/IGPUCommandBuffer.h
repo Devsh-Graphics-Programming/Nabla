@@ -16,6 +16,7 @@
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/IGPUCommandPool.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
 
 namespace nbl::video
 {
@@ -33,7 +34,8 @@ class IGPUCommandBuffer :
         IGPUDescriptorSet,
         IGPUPipelineLayout,
         IGPUEvent,
-        IGPUCommandBuffer
+        IGPUCommandBuffer,
+        IGPUAccelerationStructure
     >,
     public IBackendObject
 {
@@ -48,25 +50,14 @@ class IGPUCommandBuffer :
         IGPUDescriptorSet,
         IGPUPipelineLayout,
         IGPUEvent,
-        IGPUCommandBuffer
+        IGPUCommandBuffer,
+        IGPUAccelerationStructure
     >;
 
 public:
     virtual void begin(uint32_t _flags) override
     {
-        asset::ICommandBuffer<
-            IGPUBuffer,
-            IGPUImage,
-            IGPUImageView,
-            IGPURenderpass,
-            IGPUFramebuffer,
-            IGPUGraphicsPipeline,
-            IGPUComputePipeline,
-            IGPUDescriptorSet,
-            IGPUPipelineLayout,
-            IGPUEvent,
-            IGPUCommandBuffer
-        >::begin(_flags);
+        base_t::begin(_flags);
         if ((m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT)==0u)
         {
             assert(m_state != ES_INITIAL);
