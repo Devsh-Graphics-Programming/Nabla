@@ -143,7 +143,7 @@ CWindowManagerX11::CWindowManagerX11()
 {
     m_dpy = x11.pXOpenDisplay(nullptr);
     m_windowThreadManager.m_dpy = m_dpy;
-    m_windowThreadManager.m_windowsPtr = &m_windows;
+    m_windowThreadManager.m_windowsMapPtr = &m_windowsMap;
 }
 
 core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreationParams&& creationParams)
@@ -158,7 +158,7 @@ core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreati
 
     auto result = core::make_smart_refctd_ptr<CWindowX11>(this, m_dpy, wnd);
 
-    m_windows.insert(std::make_pair(wnd, result.get()));
+    m_windowsMap.insert(wnd, result.get());
 
     return result;
 }
@@ -220,7 +220,7 @@ void CWindowManagerX11::CThreadHandler::work(lock_t& lock)
     XEvent event;
     x11.pXNextEvent(m_dpy, &event);
     Window* nativeWindow = &event.xany.window;
-    CWindowX11* currentWin = (*m_windowsPtr)[*nativeWindow];
+    CWindowX11* currentWin = m_windowsMapPtr->read(*nativeWindow);
 
     auto* eventCallback = currentWin->getEventCallback();
     currentWin->processEvent(event);

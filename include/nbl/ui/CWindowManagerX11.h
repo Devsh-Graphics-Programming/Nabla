@@ -8,6 +8,7 @@
 #include <X11/Xresource.h>
 #include <X11/extensions/XInput.h>
 #include <X11/extensions/xf86vmode.h>
+#include "nbl/system/SReadWriteSpinLock.h"
 #include <string>
 
 namespace nbl::ui
@@ -69,6 +70,38 @@ static Xinput xinput("Xinput");
 static Xrandr xrandr("Xrandr");
 static Xxf86vm xxf86vm("Xxf86vm");
 
+template<typename Key, typename Val>
+struct MultithreadedMap
+{
+    public:
+        MultithreadedMap() = default;
+        MultithreadedMap(const MultithreadedMap&) = delete;
+        MultithreadedMap(MultithreadedMap&&) = delete;
+        MultithreadedMap& operator=(const MultithreadedMap&) = delete;
+        MultithreadedMap& operator=(MultithreadedMap&&) = delete;
+
+        mutable system::SReadWriteSpinLock m_lock;
+
+        std::map<Key, Val> m_map;
+
+        inline void insert(const Key& _key, const Val& _val)
+        {
+            auto lk = lock_write();
+            m_map.insert(std::make_pair(_key, _val));
+        }
+
+        inline Val& read(const Key& _object)
+        {
+            auto lk = lock_read();
+            Val& r = m_map[_object];
+            return r;
+        }
+
+    protected:
+        auto lock_read() const { return system::read_lock_guard<>(m_lock); }
+        auto lock_write() const { return system::write_lock_guard<>(m_lock); }
+};
+
 class CWindowManagerX11 : public IWindowManager
 {
     public:
@@ -96,11 +129,12 @@ class CWindowManagerX11 : public IWindowManager
                 bool wakeupPredicate() const { return true; }
                 bool continuePredicate() const { return true; }
 
-                std::map<Window, CWindowX11*> *m_windowsPtr;
+                MultithreadedMap<Window, CWindowX11*> *m_windowsMapPtr;
+
                 Display* m_dpy;
         } m_windowThreadManager;
 
-        std::map<Window, CWindowX11*> m_windows;
+        MultithreadedMap<Window, CWindowX11*> m_windowsMap;
         Display* m_dpy;
 
         core::vector<XID> getConnectedMice() const;
