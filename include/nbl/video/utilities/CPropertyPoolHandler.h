@@ -100,6 +100,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 				bool wait();
 
+				// downRequestIndex is an index into packed list of download only requests.
+				// If you had transfer requests [u,u,d,u,d,d] then `downRequestIndex=1` maps to the 5th request
 				const void* getData(const uint32_t downRequestIndex);
 		};
 		struct transfer_result_t
@@ -172,8 +174,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		struct IndexUploadRange
 		{
-			IndexUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
+			IndexUploadRange() : contiguousPool(nullptr), source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
 
+			IPropertyPool* contiguousPool;
 			core::SRange<const uint32_t> source;
 			uint32_t destOff;
 		};

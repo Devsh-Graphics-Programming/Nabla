@@ -131,6 +131,14 @@ class IPropertyPool : public core::IReferenceCounted
         //
         inline void freeAllProperties()
         {
+            // a little trick to reset the arrays to invalid values if we're going to check them with asserts
+            bool clearBimap = false;
+            assert(clearBimap=isContiguous());
+            if (clearBimap)
+            {
+                std::fill_n(m_indexToAddr,getCapacity(),invalid_index);
+                std::fill_n(m_addrToIndex,getAllocated(),invalid_index);
+            }
             indexAllocator.reset();
         }
         

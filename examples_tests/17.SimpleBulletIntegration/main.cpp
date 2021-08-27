@@ -118,7 +118,7 @@ int main(int argc, char** argv)
 	
 	// set up
 	auto propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
-	auto createPropertyPoolWithMemory = [device](auto& retval, uint32_t capacity) -> void
+	auto createPropertyPoolWithMemory = [device](auto& retval, uint32_t capacity, bool contiguous=false) -> void
 	{
 		using pool_type = std::remove_reference_t<decltype(retval)>::pointee;
 		asset::SBufferRange<video::IGPUBuffer> blocks[pool_type::PropertyCount];
@@ -129,16 +129,16 @@ int main(int argc, char** argv)
 			block.size = pool_type::PropertySizes[i]*capacity;
 			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(block.size);
 		}
-		retval = pool_type::create(device.get(),blocks,capacity);
+		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};
 
 	// Instance Redirects
 	using instance_redirect_property_pool_t = video::CPropertyPool<core::allocator,uint32_t>;
 	core::smart_refctd_ptr<instance_redirect_property_pool_t> cubes,cylinders,spheres,cones;
-	createPropertyPoolWithMemory(cubes,20u);
-	createPropertyPoolWithMemory(cylinders,20u);
-	createPropertyPoolWithMemory(spheres,20u);
-	createPropertyPoolWithMemory(cones,10u);
+	createPropertyPoolWithMemory(cubes,20u,true);
+	createPropertyPoolWithMemory(cylinders,20u,true);
+	createPropertyPoolWithMemory(spheres,20u,true);
+	createPropertyPoolWithMemory(cones,10u,true);
 	// global object data pool
 	const uint32_t MaxSingleType = core::max(core::max(cubes->getCapacity(),cylinders->getCapacity()),core::max(spheres->getCapacity(),cones->getCapacity()));
 	const uint32_t MaxNumObjects = cubes->getCapacity()+cylinders->getCapacity()+spheres->getCapacity()+cones->getCapacity();

@@ -122,9 +122,14 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			uint32_t* const downAddresses = m_tmpAddresses+upAllocations;
 			uint32_t* const downSizes = m_tmpSizes+upAllocations;
 
-			uint32_t maxElements = 0u;
+			uint32_t maxDWORDs = 0u;
 			uint32_t slabCount = 0u;
-			auto RangeComparator = [](auto lhs, auto rhs)->bool{return lhs.source.begin()<rhs.source.begin();};
+			auto SlabComparator = [](auto lhs, auto rhs) -> bool
+			{
+				if (lhs.contiguousPool==rhs.contiguousPool)
+					return lhs.source.begin()<rhs.source.begin();
+				return lhs.contiguousPool<rhs.contiguousPool;
+			};
 			// figure out the sizes to allocate
 			{
 				m_tmpSizes[0u] = sizeof(nbl_glsl_property_pool_transfer_t)*m_maxPropertiesPerPass;
@@ -136,39 +141,42 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					const auto& request = localRequests[i];
 					const auto propSize = request.pool->getPropertySize(request.propertyID);
 					const auto elementsByteSize = request.indices.size()*propSize;
-					maxElements = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxElements);
+					maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
 
 					if (request.isDownload())
 						*(downSizesIt++) = elementsByteSize;
 					else
 						*(upSizesIt++) = elementsByteSize;
 
+					// if pool is not contiguous, it wont have index redirects, so we dont care about it
+					m_tmpIndexRanges[i].contiguousPool = request.pool->isContiguous() ? request.pool:nullptr;
 					m_tmpIndexRanges[i].source = request.indices;
 					m_tmpIndexRanges[i].destOff = 0u;
 				}
 
-				// find slabs (reduce index duplication)
+				// find slabs = contiguous or repeated ranges of indices (reduce index duplication)
 				{
-					std::sort(m_tmpIndexRanges,m_tmpIndexRanges+propertiesThisPass,RangeComparator);
+					std::sort(m_tmpIndexRanges,m_tmpIndexRanges+propertiesThisPass,SlabComparator);
 
 					uint32_t indexOffset = 0u;
 					auto oit = m_tmpIndexRanges;
 					for (auto i=1u; i<propertiesThisPass; i++)
 					{
-						const auto& inRange = m_tmpIndexRanges[i].source;
+						const auto& inRange = m_tmpIndexRanges[i];
 
 						// check for discontinuity
-						auto& outRange = oit->source;
-						if (inRange.begin()>outRange.end())
+						auto& outRange = *oit;
+						// if two requests have different contiguous pools, they'll have different redirects, so cant merge duplicate index data ranges
+						if (inRange.contiguousPool!=outRange.contiguousPool || inRange.source.begin()>outRange.source.end())
 						{
-							indexOffset += outRange.size();
+							indexOffset += outRange.source.size();
 							// begin a new slab
 							oit++;
-							*oit = m_tmpIndexRanges[i];
+							*oit = inRange;
 							oit->destOff = indexOffset;
 						}
 						else
-							reinterpret_cast<const uint32_t**>(&outRange)[1] = inRange.end();
+							outRange.source = {outRange.source.begin(),inRange.source.end()};
 					}
 					// note the size of the last slab
 					indexOffset += oit->source.size();
@@ -219,12 +227,13 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					{
 						// find the slab
 						IndexUploadRange dummy;
+						dummy.contiguousPool = request.pool->isContiguous() ? request.pool:nullptr;
 						dummy.source = originalRange;
 						dummy.destOff = 0xdeadbeefu;
-						auto aboveOrEqual = std::lower_bound(m_tmpIndexRanges,m_tmpIndexRanges+slabCount,dummy,RangeComparator);
+						auto aboveOrEqual = std::lower_bound(m_tmpIndexRanges,m_tmpIndexRanges+slabCount,dummy,SlabComparator);
 						auto containing = aboveOrEqual->source.begin()!=originalRange.begin() ? (aboveOrEqual-1):aboveOrEqual;
 						//
-						assert(containing->source.begin()<=originalRange.begin() && originalRange.end()<=containing->source.end());
+						assert((containing->contiguousPool==request.pool||!request.pool->isContiguous()) && containing->source.begin()<=originalRange.begin() && originalRange.end()<=containing->source.end());
 						transfer.indexOffset = containing->destOff+(originalRange.begin()-containing->source.begin());
 					}
 				}
@@ -232,9 +241,16 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				// write the indices
 				for (auto i=0u; i<slabCount; i++)
 				{
-					const auto& indices = m_tmpIndexRanges[i].source;
-					const auto indexCount = indices.size();
-					std::copy_n(indices.begin(),indexCount,indexBufferPtr);
+					const auto& range = m_tmpIndexRanges[i];
+					const auto* indices = range.source.begin();
+					const auto indexCount = range.source.size();
+					if (range.contiguousPool)
+					{
+						for (auto j=0u; j<indexCount; j++)
+							indexBufferPtr[j] = range.contiguousPool->indexToAddress(indices[j]);
+					}
+					else
+						std::copy_n(indices,indexCount,indexBufferPtr);
 					indexBufferPtr += indexCount;
 				}
 	
@@ -286,7 +302,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			auto set = m_dsCache->getSet(setIx);
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
 			// dispatch
-			const auto xWorkgroups = (maxElements-1u)/IdealWorkGroupSize+1u;
+			const auto xWorkgroups = (maxDWORDs-1u)/IdealWorkGroupSize+1u;
 			//if (xWorkgroups>m_device->getPhysicalDevice()->getLimits().maxDispatchSize[0])
 				// TODO: log error
 			cmdbuf->dispatch(xWorkgroups,propertiesThisPass,1u);

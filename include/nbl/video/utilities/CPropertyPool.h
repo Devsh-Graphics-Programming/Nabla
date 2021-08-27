@@ -43,7 +43,7 @@ class CPropertyPool final : public IPropertyPool
 		{
             if (!capacity)
                 capacity = calcApproximateCapacity(_memoryBlocks);
-			const auto reservedSize = getReservedSize(capacity);
+			const auto reservedSize = getReservedSize(capacity,contiguous);
 			auto reserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,reservedSize);
 			if (!reserved)
 				return nullptr;
