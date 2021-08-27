@@ -78,9 +78,9 @@ class IPropertyPool : public core::IReferenceCounted
             return true;
         }
 
-        // WARNING: For contiguous pools, YOU FIRST NEED TO REMOVE THE PROPERTIES via the CPropertyPoolHandler!
-        // This function does not move the properties' contents, for contiguous pools it means you loose the tail!
-        inline uint32_t deallocateProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* dst, uint32_t* src)
+        // WARNING: For contiguous pools, YOU NEED TO ISSUE A TransferRequest WITH `tailMoveDest` BEFORE YOU ALLOCATE OR FREE ANY MORE PROPS!
+        // This function does not move the properties' contents, for contiguous pools it means you WILL loose the tail's data otherwise!
+        inline uint32_t freeProperties(uint32_t* indicesBegin, uint32_t* indicesEnd, uint32_t* &tailMoveDest)
         {
             const uint32_t oldHead = getAllocated();
             constexpr uint32_t unit = 1u;
@@ -94,38 +94,48 @@ class IPropertyPool : public core::IReferenceCounted
             const uint32_t removedCount = oldHead-head;
             if (isContiguous())
             {
-                assert(dst && src);
-                auto dstIt = dst;
+                if (!tailMoveDest)
+                {
+                    assert(false);
+                    __debugbreak();
+                    exit(0xdeadbeefu);
+                }
+                auto gapIt = indicesBegin; // reuse as temporary storage
                 for (auto it=indicesBegin; it!=indicesEnd; it++)
                 {
                     if (*it==invalid_index)
                         continue;
                     auto& addr = m_indexToAddr[*it];
                     if (addr<head) // overwrite if address in live range
-                        *(dstIt++) = addr;
+                        *(gapIt++) = addr;
                     else // mark as dead if outside
-                        m_addrToIndex[addr] = invalid_index; // 50%
+                        m_addrToIndex[addr] = invalid_index;
                     // index doesn't map to any address anymore
                     addr = invalid_index;
                 }
-                dstIt = dst;
-                auto srcIt = src;
+                gapIt = indicesBegin; // rewind the list of gaps
                 for (auto a=oldHead; a<head; a++)
                 {
                     auto& index = m_addrToIndex[a];
+                    *(tailMoveDest++) = index; // think about whether to add a direct address feeding path to TransferRequest
                     if (index==invalid_index)
                         continue;
                     // if not dead we need to move
-                    *(srcIt++) = a;
-                    m_addrToIndex[*dstIt] = index;
-                    m_indexToAddr[index] = *(dstIt++);
+                    m_addrToIndex[*gapIt] = index;
+                    m_indexToAddr[index] = *(gapIt++);
                     index = invalid_index;
                 }
                 // then we just do equivalent of
                 //for (auto i=0u; i<(srcIt-src); i++)
                     //data[dst[i]] = data[src[i]];
             }
+            std::fill(indicesBegin,indicesEnd,invalid_index); // only in debug, or?
             return removedCount;
+        }
+        inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
+        {
+            uint32_t* dummy = nullptr;
+            return freeProperties(const_cast<uint32_t*>(indicesBegin),const_cast<uint32_t*>(indicesEnd),dummy);
         }
 
         //

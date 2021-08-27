@@ -104,6 +104,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				// If you had transfer requests [u,u,d,u,d,d] then `downRequestIndex=1` maps to the 5th request
 				const void* getData(const uint32_t downRequestIndex);
 		};
+
 		struct transfer_result_t
 		{
 			transfer_result_t(download_future_t&& _download, bool _transferSuccess) : download(std::move(_download)), transferSuccess(_transferSuccess) {}
@@ -119,6 +120,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			bool transferSuccess;
 		};
 
+
 		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
 		struct AllocationRequest
 		{
@@ -129,6 +131,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			core::SRange<uint32_t> outIndices;
 			const void* const* data; 
 		};
+
 		// returns false if an allocation or part of a transfer has failed
 		// while its possible to detect which allocation has failed, its not possible to know exactly what transfer failed
 		transfer_result_t addProperties(
@@ -137,22 +140,21 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
 		);
 
+
         //
 		struct TransferRequest
 		{
-			TransferRequest() : pool(nullptr), indices{nullptr,nullptr}, propertyID(0xdeadbeefu)
-			{
-				data = nullptr;
-			}
+			TransferRequest() : pool(nullptr), indices{nullptr,nullptr}, data(nullptr), propertyID(0xdeadbeefu) {}
 
 			inline bool isDownload() const {return !data;}
 
-			IPropertyPool* pool;
+			const IPropertyPool* pool;
 			core::SRange<const uint32_t> indices;
-			uint32_t propertyID;
 			const void* data;
+			uint32_t propertyID;
 		};
-		// fence must be not pending yet
+
+		// Fence must be not pending yet
 		[[nodiscard]] transfer_result_t transferProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 			IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,system::logger_opt_ptr logger,
@@ -176,7 +178,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		{
 			IndexUploadRange() : contiguousPool(nullptr), source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
 
-			IPropertyPool* contiguousPool;
+			const IPropertyPool* contiguousPool;
 			core::SRange<const uint32_t> source;
 			uint32_t destOff;
 		};
