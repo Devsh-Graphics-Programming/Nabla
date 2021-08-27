@@ -7,6 +7,7 @@
 #define __NBL_I_FILE_ARCHIVE_H_INCLUDED__
 
 #include "nbl/system/IFile.h"
+#include "nbl/system/CFileView.h"
 
 namespace nbl
 {
@@ -17,7 +18,10 @@ namespace system
 //! The FileArchive manages archives and provides access to files inside them.
 class IFileArchive : public core::IReferenceCounted
 {
+protected:
+	core::smart_refctd_ptr<IFile> m_file;
 public:
+	IFileArchive(core::smart_refctd_ptr<IFile>&& file) : m_file(std::move(file)) {}
 	//! An entry in a list of files, can be a folder or a file.
 	struct SFileListEntry
 	{
@@ -72,16 +76,17 @@ public:
 	//! Opens a file based on its name
 	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) = 0;
 
-	const core::vector<SFileListEntry>& getFiles() const { return m_files; }
+	const core::vector<SFileListEntry>& getArchivedFiles() const { return m_files; }
+	IFile* asFile() { return m_file.get(); }
 protected:
-	virtual void addItem(const system::path& fullPath, uint32_t offset, uint32_t size, uint32_t id = 0)
+	virtual void addItem(const system::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id = 0)
 	{
 		SFileListEntry entry;
 		entry.ID = id ? id : m_files.size();
 		entry.offset = offset;
 		entry.size = size;
 		entry.name = fullPath;
-		entry.isDirectory = std::filesystem::is_directory(fullPath);
+		entry.isDirectory = isDirectory;
 
 		entry.fullName = entry.name;
 

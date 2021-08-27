@@ -125,12 +125,11 @@ struct SZipFileEntry
 class CFileArchiveZip : public IFileArchive 
 {
 private:
-	core::smart_refctd_ptr<system::IFile> m_file;
 	bool m_isGZip;
 	core::vector<SZipFileEntry> m_fileInfo;
 	size_t m_readOffset = 0;
 public:
-	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, bool isGZip) : m_file(std::move(file)), m_isGZip(isGZip)
+	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, bool isGZip) : IFileArchive(std::move(file)), m_isGZip(isGZip)
 	{
 		if (m_file.get())
 		{
@@ -143,6 +142,8 @@ public:
 	}
 	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) override
 	{
+		auto found = std::find_if(m_files.begin(), m_files.end(), [&params](const SFileListEntry& entry) { return params.filename == entry.fullName; });
+		assert(false);
 		return nullptr;
 	}
 private:

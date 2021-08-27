@@ -51,8 +51,6 @@ class CBuiltinIncluder : public IIncluder
 
             const std::string relativePath = std::filesystem::relative(_path, system::path(IIncludeHandler::BUILTIN_PREFIX)).generic_string();
             system::path path = _path.parent_path().string();
-            //auto p = path.make_preferred();
-            //path.se
             std::string res;
             while (path.generic_string() + '/' != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
             {

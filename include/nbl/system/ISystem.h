@@ -152,7 +152,8 @@ private:
         }
     } m_loaders;
 
-    core::CMultiObjectCache<std::filesystem::path, core::smart_refctd_ptr<IFileArchive>, std::vector> m_cachedArchiveFiles;
+    core::CMultiObjectCache<system::path, core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
+    core::CMultiObjectCache<system::path, system::path> m_cachedPathAliases;
     CAsyncQueue m_dispatcher;
 
 public:
@@ -175,6 +176,11 @@ public:
 public:
     bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags)
     {
+        if (flags & IFile::ECF_READ)
+        {
+            auto a = getFileFromArchive(filename);
+            if (a.get() != nullptr) return true;
+        }
         SRequestParams_CREATE_FILE params;
         if (filename.string().size() >= sizeof(params.filename))
             return false;
@@ -214,6 +220,8 @@ private:
     // @sadiuk add more methods taken from IFileSystem and IOSOperator
     // and implement via m_dispatcher and ISystemCaller if needed
     // (any system calls should take place in ISystemCaller which is called by CAsyncQueue and nothing else)
+
+    core::smart_refctd_ptr<IFile> getFileFromArchive(const system::path& path);
 
 public:
     inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
@@ -266,7 +274,7 @@ public:
     }
 
     //! Warning: blocking call
-    core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename)
+    core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename, const std::string_view& password = "")
     {
         future_t<core::smart_refctd_ptr<IFile>> future;
         if (!createFile(future, filename, IFile::ECF_READ))
@@ -274,25 +282,28 @@ public:
 
         auto file = std::move(future.get());
 
-        return createFileArchive(file.get());
+        return createFileArchive(std::move(file), password);
     }
-    core::smart_refctd_ptr<IFileArchive> createFileArchive(IFile* file)
+    core::smart_refctd_ptr<IFileArchive> createFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password = "")
     {
         if (file->getFlags() & IFile::ECF_READ == 0)
             return nullptr;
 
-        // @sadiuk implement in manner similar to IAssetManager::getAsset
-
+        auto ext = system::extension_wo_dot(file->getFileName());
+        auto loaders = m_loaders.perFileExt.findRange(ext);
+        for (auto& loader : loaders)
+        {
+            return loader.second->createArchive(std::move(file));
+        }
         return nullptr;
     }
 
-    void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias)
+    void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias = "")
     {
-        const auto& files = archive->getFiles();
-        for (auto& archFile : files)
+        m_cachedArchiveFiles.insert(archive->asFile()->getFileName(), std::move(archive));
+        if (!pathAlias.empty())
         {
-            assert(false); // TODO: cache path alias too
-            m_cachedArchiveFiles.insert(archFile.fullName, archive);
+            m_cachedPathAliases.insert(pathAlias, archive->asFile()->getFileName());
         }
     }
     void unmount(const IFileArchive* archive, const system::path& pathAlias)

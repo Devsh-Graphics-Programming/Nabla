@@ -97,7 +97,7 @@ namespace nbl::system
 				m_readOffset += 4;
 			}
 
-			addItem(zipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, 0);
+			addItem(zipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, false, 0);
 			m_fileInfo.push_back(entry);
 		}
 		return false;
@@ -233,6 +233,12 @@ namespace nbl::system
 			while (scanCentralDirectoryHeader()) {}
 			return false;
 		}
+		entry.Offset = m_readOffset;
+		// move forward length of data
+		m_readOffset += entry.header.DataDescriptor.CompressedSize;
+
+		addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, *ZipFileName.string().rbegin() == '/', m_fileInfo.size());
+		m_fileInfo.push_back(entry);
 	}
 
 	bool CFileArchiveZip::scanCentralDirectoryHeader()

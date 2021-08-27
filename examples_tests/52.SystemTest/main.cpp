@@ -302,6 +302,14 @@ int main(int argc, char** argv)
 		}
 	};
 	
+	auto arch = system->createFileArchive("test.zip");
+	system->mount(std::move(arch), "arch");
+	{
+		system::future<smart_refctd_ptr<IFile>> fut;
+		system->createFile(fut, "arch/test/test1.zip/test1/file.txt", IFile::ECF_READ);
+		auto file = fut.get();
+	}
+
 	IAssetLoader::SAssetLoadParams lp;
 	lp.workingDirectory = mediaWD;
 	//PNG loader test
@@ -370,7 +378,6 @@ int main(int argc, char** argv)
 		wp.workingDirectory = CWD;
 		assetManager->writeAsset("TGAWriteSuccessful.tga", wp);
 	}
-
 	while (true)
 	{
 		input->getDefaultMouse(&mouse);
