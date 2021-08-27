@@ -44,6 +44,8 @@ struct SBufferRange
 	size_t offset = 0ull;
 	size_t size = 0ull;
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+	inline bool operator==(const SBufferRange<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && size==rhs.size; }
+	inline bool operator!=(const SBufferRange<BufferType>& rhs) const { return !operator==(rhs); }
 };
 
 }
