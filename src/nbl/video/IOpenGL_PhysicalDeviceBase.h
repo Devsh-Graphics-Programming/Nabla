@@ -34,7 +34,7 @@ protected:
 		EGLint major;
 		EGLint minor;
 	};
-#if 0
+#if 1
 	static void print_cfg(const egl::CEGL* _egl, EGLConfig cfg)
 	{
 		auto getAttrib = [&] (EGLint a) -> EGLint
@@ -101,7 +101,7 @@ protected:
 		res.major = 0;
 		res.minor = 0;
 
-#if 0
+#if 1
 		EGLConfig cfgs[1024];
 		EGLint cfgs_count;
 		_egl->call.peglGetConfigs(_egl->display, cfgs, 1024, &cfgs_count);

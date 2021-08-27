@@ -72,7 +72,7 @@ class ILogicalDevice : public core::IReferenceCounted
 
         virtual ~ILogicalDevice()
         {
-            if (m_queues && m_queues->empty())
+            if (m_queues && !m_queues->empty())
             {
                 for (uint32_t i = 0u; i < m_queues->size(); ++i)
                     delete (*m_queues)[i];
