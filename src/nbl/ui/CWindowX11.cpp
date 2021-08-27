@@ -220,7 +220,7 @@ void CWindowManagerX11::CThreadHandler::work(lock_t& lock)
     XEvent event;
     x11.pXNextEvent(m_dpy, &event);
     Window* nativeWindow = &event.xany.window;
-    CWindowX11* currentWin = m_windowsMapPtr->read(*nativeWindow);
+    CWindowX11* currentWin = *(m_windowsMapPtr->read(*nativeWindow));
 
     auto* eventCallback = currentWin->getEventCallback();
     currentWin->processEvent(event);
