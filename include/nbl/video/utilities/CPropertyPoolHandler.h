@@ -138,12 +138,13 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         //
 		struct TransferRequest
 		{
-			TransferRequest() : download(false), pool(nullptr), indices{nullptr,nullptr}, propertyID(0xdeadbeefu)
+			TransferRequest() : pool(nullptr), indices{nullptr,nullptr}, propertyID(0xdeadbeefu)
 			{
 				data = nullptr;
 			}
 
-			bool download;
+			inline bool isDownload() const {return !data;}
+
 			IPropertyPool* pool;
 			core::SRange<const uint32_t> indices;
 			uint32_t propertyID;

@@ -22,9 +22,11 @@ class CPropertyPool final : public IPropertyPool
             return (sizeof(Properties) + ...);
         }
 
-        static inline constexpr auto PropertyCount = sizeof...(Properties);
-
 	public:
+        static inline constexpr auto PropertyCount = sizeof...(Properties);
+        static inline constexpr std::array<size_t,PropertyCount> PropertySizes = {sizeof(Properties)...};
+
+        //
         static inline uint32_t calcApproximateCapacity(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks)
         {
             size_t capacity = ~0ull;
@@ -87,8 +89,6 @@ class CPropertyPool final : public IPropertyPool
         allocator<uint8_t> alloc;
         asset::SBufferRange<IGPUBuffer> m_memoryBlocks[PropertyCount];
 		void* reserved;
-
-        static inline constexpr std::array<size_t,PropertyCount> PropertySizes = {sizeof(Properties)...};
 };
 
 

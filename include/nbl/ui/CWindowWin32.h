@@ -98,10 +98,12 @@ private:
 		*   from it (the handle to it will be nullptr).
 		**/
 		auto ch = m_mouseEventChannels.find(deviceHandle);
-		if (ch == m_mouseEventChannels.end())
+		// windows is a special boy
+		if (ch==m_mouseEventChannels.end())
 		{
 			auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-			addMouseEventChannel(deviceHandle, std::move(channel));
+			if (addMouseEventChannel(deviceHandle,std::move(channel)))
+				m_cb->onMouseConnected(this,std::move(channel));
 		}
 		return m_mouseEventChannels.find(deviceHandle)->second.get();
 	}

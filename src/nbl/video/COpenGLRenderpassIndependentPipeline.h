@@ -29,16 +29,16 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         COpenGLRenderpassIndependentPipeline(
             core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& _dev, IOpenGL_FunctionTable* _gl,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+            const IGPUSpecializedShader*const * _shadersBegin, const IGPUSpecializedShader*const * _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
             const asset::SRasterizationParams& _rasterParams,
             uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[SHADER_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
         ) : IGPURenderpassIndependentPipeline(
-            core::smart_refctd_ptr<ILogicalDevice>(_dev),
-            std::move(_layout), _shadersBegin, _shadersEnd,
-            _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+                core::smart_refctd_ptr<ILogicalDevice>(_dev), std::move(_layout),
+                const_cast<IGPUSpecializedShader*const *>(_shadersBegin), const_cast<IGPUSpecializedShader*const *>(_shadersEnd),
+                _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
             ),
             IOpenGLPipeline(_dev.get(), _gl, _ctxCount, _ctxID, _GLnames, _binaries),
             m_stagePresenceMask(0u)

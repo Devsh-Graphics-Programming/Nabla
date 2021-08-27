@@ -622,7 +622,7 @@ protected:
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-        IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+        IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
         const asset::SVertexInputParams& _vertexInputParams,
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -640,7 +640,7 @@ protected:
         for (auto* s = _shaders; s != _shadersEnd; ++s)
         {
             uint32_t ix = core::findLSB<uint32_t>((*s)->getStage());
-            params.shaders[ix] = core::smart_refctd_ptr<IGPUSpecializedShader>(*s);
+            params.shaders[ix] = core::smart_refctd_ptr<const IGPUSpecializedShader>(*s);
         }
 
         SRequestRenderpassIndependentPipelineCreate req_params;
