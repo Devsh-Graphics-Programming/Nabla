@@ -190,7 +190,9 @@ int main()
 			gpuds1layout = (*gpu_array)[0];
 		}
 
-		auto gpuubo = logicalDevice->createDeviceLocalGPUBufferOnDedMem(uboDS1ByteSize);
+		auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
+		ubomemreq.vulkanReqs.size = uboDS1ByteSize;
+		auto gpuubo = logicalDevice->createGPUBufferOnDedMem(ubomemreq, true);
 		auto gpuds1 = logicalDevice->createGPUDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;
