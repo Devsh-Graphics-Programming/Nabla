@@ -98,12 +98,15 @@ class CWindowManagerX11 : public IWindowManager
                     m_map.insert(std::make_pair(_key, _val));
                 }
 
-                inline CWindowX11* read(const Window& _object)
+                inline CWindowX11* find(const Window& _object)
                 {
                     auto lk = system::read_lock_guard<>(m_lock);
                     auto r = m_map.find(_object);
                     if (r == m_map.end())
+                    {
+                        assert(0);
                         return nullptr;
+                    }
 
                     return r->second;
                 }
