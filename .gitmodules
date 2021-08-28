@@ -17,10 +17,6 @@
 [submodule "3rdparty/lz4"]
 	path = 3rdparty/lz4
 	url = https://github.com/lz4/lz4.git
-[submodule "3rdparty/spirv_cross"]
-	path = 3rdparty/spirv_cross
-	url = https://github.com/devshgraphicsprogramming/SPIRV-Cross.git
-	branch = nabla
 [submodule "3rdparty/zlib"]
 	path = 3rdparty/zlib
 	url = https://github.com/madler/zlib.git
