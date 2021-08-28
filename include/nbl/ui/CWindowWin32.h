@@ -111,15 +111,13 @@ private:
 	IKeyboardEventChannel* getKeyboardEventChannel(HANDLE deviceHandle)
 	{
 		auto ch = m_keyboardEventChannels.find(deviceHandle);
-
-		// windooze is a special boy
-		if (ch == m_keyboardEventChannels.end())
+		// anydesk makes windows a special boy
+		if (ch==m_keyboardEventChannels.end())
 		{
 			auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
 			if (addKeyboardEventChannel(deviceHandle, std::move(channel)))
 				m_cb->onKeyboardConnected(this, std::move(channel));
 		}
-
 		return m_keyboardEventChannels.find(deviceHandle)->second.get();
 	}
 	

@@ -264,12 +264,12 @@ add_library(bzip2 OBJECT
 )
 
 add_library(spirv_cross OBJECT
-	spirv_cross/spirv_cfg.cpp
-	spirv_cross/spirv_cross.cpp
-	spirv_cross/spirv_glsl.cpp
-	spirv_cross/spirv_reflect.cpp
-	spirv_cross/spirv_parser.cpp
-	spirv_cross/spirv_cross_parsed_ir.cpp
+	nbl_spirv_cross/spirv_cfg.cpp
+	nbl_spirv_cross/spirv_cross.cpp
+	nbl_spirv_cross/spirv_glsl.cpp
+	nbl_spirv_cross/spirv_reflect.cpp
+	nbl_spirv_cross/spirv_parser.cpp
+	nbl_spirv_cross/spirv_cross_parsed_ir.cpp
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
