@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifdef _NBL_COMPILE_WITH_PLY_WRITER_
-
 #include "CPLYMeshWriter.h"
+
+#ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
