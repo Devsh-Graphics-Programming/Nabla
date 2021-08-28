@@ -50,6 +50,7 @@ int main()
 	auto inputSystem = std::move(initOutput.inputSystem);
 	auto system = std::move(initOutput.system);
 	auto windowCallback = std::move(initOutput.windowCb);
+	auto utilities = std::move(initOutput.utilities);
 
 	auto createDescriptorPool = [&](const uint32_t count, asset::E_DESCRIPTOR_TYPE type)
 	{
@@ -84,6 +85,7 @@ int main()
 		cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
 		cpu2gpuParams.pipelineCache = nullptr;
 		cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+		cpu2gpuParams.utilities = utilities.get();
 
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
