@@ -139,17 +139,27 @@ class IPropertyPool : public core::IReferenceCounted
         }
 
         //
-        inline uint32_t indexToAddress(const uint32_t index) const
+        template<typename ConstIterator, typename Iterator>
+        inline void indicesToAddresses(ConstIterator begin, ConstIterator end, Iterator dst) const
         {
             if (isContiguous())
-                return m_indexToAddr[index];
-            return index;
+            {
+                for (auto it=begin; it!=end; it++)
+                    *(dst++) = m_indexToAddr[*it];
+            }
+            else if (begin!=dst)
+                std::copy(begin,end,dst);
         }
-        inline uint32_t addressToIndex(const uint32_t addr) const
+        template<typename ConstIterator, typename Iterator>
+        inline void addressesToIndices(ConstIterator begin, ConstIterator end, Iterator dst) const
         {
             if (isContiguous())
-                return m_addrToIndex[addr];
-            return addr;
+            {
+                for (auto it=begin; it!=end; it++)
+                    *(dst++) = m_addrToIndex[*it];
+            }
+            else if (begin!=dst)
+                std::copy(begin,end,dst);
         }
 
         //

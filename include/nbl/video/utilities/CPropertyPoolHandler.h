@@ -144,12 +144,12 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         //
 		struct TransferRequest
 		{
-			TransferRequest() : pool(nullptr), indices{nullptr,nullptr}, data(nullptr), propertyID(0xdeadbeefu) {}
+			TransferRequest() : pool(nullptr), addresses{nullptr,nullptr}, data(nullptr), propertyID(0xdeadbeefu) {}
 
 			inline bool isDownload() const {return !data;}
 
 			const IPropertyPool* pool;
-			core::SRange<const uint32_t> indices;
+			core::SRange<const uint32_t> addresses;
 			const void* data;
 			uint32_t propertyID;
 		};
@@ -176,9 +176,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		struct IndexUploadRange
 		{
-			IndexUploadRange() : contiguousPool(nullptr), source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
+			IndexUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
 
-			const IPropertyPool* contiguousPool;
 			core::SRange<const uint32_t> source;
 			uint32_t destOff;
 		};

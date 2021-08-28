@@ -45,17 +45,17 @@ class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 			// TODO: protect agains simulation "substeps" somehow (redundant update sets)
 			m_cachedMat = worldTrans;
 
-			s_updateIndices.push_back(m_objectID);
+			s_updateAddresses.push_back(m_objectID);
 			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat*m_correctionMatrix));
 		}
 
-		static core::vector<uint32_t> s_updateIndices;
+		static core::vector<uint32_t> s_updateAddresses;
 		static core::vector<core::matrix3x4SIMD> s_updateData;
 	protected:
 		btTransform m_cachedMat;
 		uint32_t m_objectID,m_instanceID;
 };
-core::vector<uint32_t> CInstancedMotionState::s_updateIndices;
+core::vector<uint32_t> CInstancedMotionState::s_updateAddresses;
 core::vector<core::matrix3x4SIMD> CInstancedMotionState::s_updateData;
 
 
@@ -234,12 +234,13 @@ int main(int argc, char** argv)
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
 			transfers[i].pool = objectPool.get();
-			transfers[i].indices = {scratchObjectIDs.data(),scratchObjectIDs.data()+count};
+			transfers[i].addresses = {scratchObjectIDs.data(),scratchObjectIDs.data()+count};
 		}
 		transfers[0].data = initialColor.data();
 		transfers[1].data = instanceTransforms.data();
 		transfers[2].pool = pool;
-		transfers[2].indices = {scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count};
+		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
+		transfers[2].addresses = {scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count};
 		transfers[2].data = scratchObjectIDs.data();
 		// set up the transfer/update
 		propertyPoolHandler->transferProperties(
@@ -572,13 +573,13 @@ int main(int argc, char** argv)
 			world->getWorld()->stepSimulation(dt);
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.pool = objectPool.get();
-			request.indices = {CInstancedMotionState::s_updateIndices.data(),CInstancedMotionState::s_updateIndices.data()+CInstancedMotionState::s_updateIndices.size()};
+			request.addresses = {CInstancedMotionState::s_updateAddresses.data(),CInstancedMotionState::s_updateAddresses.data()+CInstancedMotionState::s_updateAddresses.size()};
 			request.propertyID = TransformPropertyID;
 			request.data = CInstancedMotionState::s_updateData.data();
 			// TODO: why does the very first update set matrices to identity?
 			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
 			assert(result.transferSuccess);
-			CInstancedMotionState::s_updateIndices.clear();
+			CInstancedMotionState::s_updateAddresses.clear();
 			CInstancedMotionState::s_updateData.clear();
 		}
 		// renderpass
