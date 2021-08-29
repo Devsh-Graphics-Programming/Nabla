@@ -23,6 +23,16 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		template<typename AddressType>
 		struct BuildGeometryInfo
 		{
+			BuildGeometryInfo() 
+				: type(static_cast<Base::E_TYPE>(0u))
+				, buildFlags(static_cast<E_BUILD_FLAGS>(0u))
+				, buildMode(static_cast<E_BUILD_MODE>(0u))
+				, srcAS(nullptr)
+				, dstAS(nullptr)
+				, geometries(core::SRange<Geometry<AddressType>>(nullptr, nullptr))
+				, scratchAddr({})
+			{}
+			~BuildGeometryInfo() = default;
 			Base::E_TYPE	type; // TODO: Can deduce from creationParams.type?
 			E_BUILD_FLAGS	buildFlags;
 			E_BUILD_MODE	buildMode;

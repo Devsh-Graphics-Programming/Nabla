@@ -33,7 +33,6 @@ class IAccelerationStructure : public IDescriptor
 		};
 
 		using BuildRangeInfo = nbl_glsl_BuildRangeInfo;
-
 		enum E_BUILD_FLAGS
 		{
 			EBF_ALLOW_UPDATE_BIT = 0x1u << 0u,
@@ -71,6 +70,7 @@ class IAccelerationStructure : public IDescriptor
 		template<typename AddressType>
 		struct GeometryData
 		{
+			~GeometryData() = delete; // because of compiler warning : destructor was implicitly defined as deleted
 			union
 			{
 				struct Triangles {
@@ -95,6 +95,11 @@ class IAccelerationStructure : public IDescriptor
 		template<typename AddressType>
 		struct Geometry
 		{
+			Geometry()
+				: type(static_cast<E_GEOM_TYPE>(0u))
+				, flags(static_cast<E_GEOM_FLAGS>(0u))
+			{};
+			~Geometry() = delete; // because of compiler warning : destructor was implicitly defined as deleted
 			E_GEOM_TYPE					type;
 			E_GEOM_FLAGS				flags;
 			GeometryData<AddressType>	data;

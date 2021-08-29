@@ -68,7 +68,7 @@ public:
 
     IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
     
-    virtual bool buildAccelerationStructures(core::SRange<accstruct_t::DeviceBuildGeometryInfo> pInfos, accstruct_t::BuildRangeInfo * const * ppBuildRangeInfos);
+    // virtual bool buildAccelerationStructures(core::SRange<accstruct_t::DeviceBuildGeometryInfo> pInfos, accstruct_t::BuildRangeInfo * const * ppBuildRangeInfos);
 
 protected:
     IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)
