@@ -8,23 +8,32 @@
 
 #include "nbl/asset/IAccelerationStructure.h"
 #include "nbl/asset/ICPUBuffer.h"
-#include "nbl/asset/ICPUAccelerationStructure.h"
 #include "nbl/video/IGPUBuffer.h"
 
 namespace nbl::video
 {
-class IGPUAccelerationStructure : public asset::IAccelerationStructure<asset::SBufferBinding<IGPUBuffer>>, public IBackendObject
+class IGPUAccelerationStructure : public asset::IAccelerationStructure, public IBackendObject
 {
-	using Base = asset::IAccelerationStructure<asset::SBufferBinding<IGPUBuffer>>;
+	using Base = asset::IAccelerationStructure;
 	public:
 		
 		using DeviceAddressType = asset::SBufferBinding<IGPUBuffer>;
 		using HostAddressType = asset::SBufferBinding<asset::ICPUBuffer>;
 
+		template<typename AddressType>
 		struct BuildGeometryInfo
 		{
 			Base::E_TYPE	type; // TODO: Can deduce from creationParams.type?
+			E_BUILD_FLAGS	buildFlags;
+			E_BUILD_MODE	buildMode;
+			IGPUAccelerationStructure * srcAS;
+			IGPUAccelerationStructure * dstAS;
+			core::SRange<Geometry<AddressType>> geometries;
+			AddressType		scratchAddr;
 		};
+
+		using HostBuildGeometryInfo = BuildGeometryInfo<HostAddressType>;
+		using DeviceBuildGeometryInfo = BuildGeometryInfo<DeviceAddressType>;
 
 		struct SCreationParams
 		{
@@ -55,8 +64,9 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure<asset::SB
 			return true;
 		}
 
-	public:
-		// const SCreationParams& getCreationParameters() const { return params; }
+		// Function used for getting the reference to give 'Instance' as a parameter
+		virtual uint64_t getReferenceForDeviceOperations() const = 0;
+		virtual uint64_t getReferenceForHostOperations() const = 0;
 
 	protected:
 		IGPUAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) 

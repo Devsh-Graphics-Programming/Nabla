@@ -20,9 +20,19 @@ public:
 	{}
 
 	~CVulkanAccelerationStructure();
+	
+	uint64_t getReferenceForDeviceOperations() const override;
+	uint64_t getReferenceForHostOperations() const override;
 
 	inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
-
+	
+public:
+	static VkAccelerationStructureTypeKHR getVkASTypeFromASType(IAccelerationStructure::E_TYPE in) {
+		return static_cast<VkAccelerationStructureTypeKHR>(in);
+	}
+	static VkAccelerationStructureCreateFlagsKHR getVkASCreateFlagsFromASCreateFlags(IAccelerationStructure::E_CREATE_FLAGS in) {
+		return static_cast<VkAccelerationStructureCreateFlagsKHR>(in);
+	}
 private:
 	VkAccelerationStructureKHR m_vkAccelerationStructure;
 };

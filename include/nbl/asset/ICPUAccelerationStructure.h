@@ -14,15 +14,15 @@ namespace nbl
 namespace asset
 {
 
-class ICPUAccelerationStructure final : public IAccelerationStructure<SBufferBinding<ICPUBuffer>>, public IAsset
+class ICPUAccelerationStructure final : public IAccelerationStructure, public IAsset
 {
 	using Base = IAccelerationStructure;
 
 	public:
 		struct SCreationParams
 		{
-			E_CREATE_FLAGS							flags;
-			IAccelerationStructure::E_TYPE			type;
+			E_CREATE_FLAGS	flags;
+			Base::E_TYPE	type;
 			bool operator==(const SCreationParams& rhs) const
 			{
 				return flags == rhs.flags && type == rhs.type;

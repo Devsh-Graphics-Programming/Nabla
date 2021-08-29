@@ -9,14 +9,14 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/format/EFormat.h"
-
+#include "aabbox3d.h"
+#include "matrix4x3.h"
 #define uint uint32_t
 #include "nbl/builtin/glsl/utils/acceleration_structures.glsl"
 #undef uint
 
 namespace nbl::asset
 {
-template<typename AddressType>
 class IAccelerationStructure : public IDescriptor
 {
 	public:
@@ -26,7 +26,6 @@ class IAccelerationStructure : public IDescriptor
 			ET_BOTTOM_LEVEL = 1,
 			ET_GENERIC = 2,
 		};
-		
 		enum E_CREATE_FLAGS : uint32_t
 		{
 			ECF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT	= 0x1u << 0u,
@@ -44,13 +43,32 @@ class IAccelerationStructure : public IDescriptor
 			EBF_LOW_MEMORY_BIT = 0x1u << 4u,
 			EBF_MOTION_BIT_NV = 0x1u << 5u, // Provided by VK_NV_ray_tracing_motion_blur
 		};
-
 		enum E_BUILD_MODE
 		{
 			EBM_BUILD = 0,
 			EBM_UPDATE = 1,
 		};
+		
+		enum E_GEOM_TYPE
+		{
+			EGT_TRIANGLES = 0,
+			EGT_AABBS = 1,
+			EGT_INSTANCES = 2,
+		};
+		enum E_GEOM_FLAGS {
+			EGF_OPAQUE_BIT							= 0x1u << 0u,
+			EGF_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u << 1u,
+		};
+		enum E_INSTANCE_FLAGS
+		{
+			EIF_TRIANGLE_FACING_CULL_DISABLE_BIT	= 0x1u << 0u,
+			EIF_TRIANGLE_FLIP_FACING_BIT			= 0x1u << 1u,
+			EIF_FORCE_OPAQUE_BIT					= 0x1u << 2u,
+			EIF_FORCE_NO_OPAQUE_BIT					= 0x1u << 3u,
+			EIF_TRIANGLE_FRONT_COUNTERCLOCKWISE_BIT_KHR = EIF_TRIANGLE_FLIP_FACING_BIT,
+		};
 
+		template<typename AddressType>
 		struct GeometryData
 		{
 			union
@@ -58,9 +76,9 @@ class IAccelerationStructure : public IDescriptor
 				struct Triangles {
 					E_FORMAT		vertexFormat;
 					AddressType		vertexData;
-					VkDeviceSize	vertexStride;
+					uint64_t		vertexStride;
 					uint32_t		maxVertex;
-					VkIndexType		indexType;
+					E_INDEX_TYPE	indexType;
 					AddressType		indexData;
 					AddressType		transformData;
 				} triangles;
@@ -73,22 +91,26 @@ class IAccelerationStructure : public IDescriptor
 				} instances;
 			};
 		};
-
+		
+		template<typename AddressType>
 		struct Geometry
 		{
-			enum E_TYPE
-			{
-				ET_TRIANGLES = 0,
-				ET_AABBS = 1,
-				ET_INSTANCES = 2,
-			};
-			enum E_FLAGS {
-				EF_OPAQUE_BIT							= 0x1u << 0u,
-				EF_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u << 1u,
-			};
-			E_TYPE			type;
-			E_FLAGS			flags;
-			GeometryData	data;
+			E_GEOM_TYPE					type;
+			E_GEOM_FLAGS				flags;
+			GeometryData<AddressType>	data;
+		};
+
+		// For Filling the Instances/AABBs Buffer
+		using aabbPosition = core::aabbox3d<float>;
+
+		struct Instance
+		{
+			core::matrix3x4SIMD				mat; // equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
+			uint32_t						instanceCustomIndex:24;
+			uint32_t						mask:8;
+			uint32_t						instanceShaderBindingTableRecordOffset:24;
+			E_INSTANCE_FLAGS				flags:8;
+			uint64_t						accelerationStructureReference; // retrieve via `getReference` functions in IGPUAccelerationStructrue
 		};
 
 		//!
