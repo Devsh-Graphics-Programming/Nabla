@@ -117,6 +117,14 @@ class IAccelerationStructure : public IDescriptor
 			E_INSTANCE_FLAGS				flags:8;
 			uint64_t						accelerationStructureReference; // retrieve via `getReference` functions in IGPUAccelerationStructrue
 		};
+		
+		enum E_COPY_MODE 
+		{
+			ECM_CLONE = 0,
+			ECM_COMPACT = 1,
+			ECM_SERIALIZE = 2,
+			ECM_DESERIALIZE = 3,
+		};
 
 		//!
 		E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }

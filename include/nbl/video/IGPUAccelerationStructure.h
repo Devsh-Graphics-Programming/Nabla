@@ -17,6 +17,21 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 	using Base = asset::IAccelerationStructure;
 	public:
 		
+		struct SCreationParams
+		{
+			E_CREATE_FLAGS					flags;
+			Base::E_TYPE					type;
+			asset::SBufferRange<IGPUBuffer> bufferRange;
+			bool operator==(const SCreationParams& rhs) const
+			{
+				return flags == rhs.flags && type == rhs.type && bufferRange == rhs.bufferRange;
+			}
+			bool operator!=(const SCreationParams& rhs) const
+			{
+				return !operator==(rhs);
+			}
+		};
+		
 		using DeviceAddressType = asset::SBufferBinding<IGPUBuffer>;
 		using HostAddressType = asset::SBufferBinding<asset::ICPUBuffer>;
 
@@ -45,19 +60,27 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		using HostBuildGeometryInfo = BuildGeometryInfo<HostAddressType>;
 		using DeviceBuildGeometryInfo = BuildGeometryInfo<DeviceAddressType>;
 
-		struct SCreationParams
+		struct CopyInfo
 		{
-			E_CREATE_FLAGS					flags;
-			Base::E_TYPE					type;
-			asset::SBufferRange<IGPUBuffer> bufferRange;
-			bool operator==(const SCreationParams& rhs) const
-			{
-				return flags == rhs.flags && type == rhs.type && bufferRange == rhs.bufferRange;
-			}
-			bool operator!=(const SCreationParams& rhs) const
-			{
-				return !operator==(rhs);
-			}
+			IGPUAccelerationStructure * src;
+			IGPUAccelerationStructure * dst;
+			E_COPY_MODE copyMode;
+		};
+		
+		template<typename AddressType>
+		struct CopyToMemoryInfo
+		{
+			IGPUAccelerationStructure * src;
+			AddressType dst;
+			E_COPY_MODE copyMode;
+		};
+		
+		template<typename AddressType>
+		struct CopyFromMemoryInfo
+		{
+			AddressType src;
+			IGPUAccelerationStructure * dst;
+			E_COPY_MODE copyMode;
 		};
 
 		inline const auto& getCreationParameters() const

@@ -100,6 +100,35 @@ public:
 		}
 		return ret;
 	}
+	
+	static inline VkCopyAccelerationStructureInfoKHR  getVkASCopyInfo(VkDevice vk_device, const CopyInfo& info)
+	{
+		VkCopyAccelerationStructureInfoKHR ret = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR, nullptr};
+		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
+		ret.src = static_cast<CVulkanAccelerationStructure *>(info.src)->getInternalObject();
+		ret.dst = static_cast<CVulkanAccelerationStructure *>(info.dst)->getInternalObject();
+		return ret;
+	}
+	
+	template<typename AddressType>
+	static VkCopyAccelerationStructureToMemoryInfoKHR getVkASCopyToMemoryInfo(VkDevice vk_device, const CopyToMemoryInfo<AddressType> & info)
+	{
+		VkCopyAccelerationStructureToMemoryInfoKHR ret = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR, nullptr};
+		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
+		ret.src = static_cast<CVulkanAccelerationStructure *>(info.src)->getInternalObject();
+		ret.dst = getVkDeviceOrHostAddress(vk_device, info.dst);
+		return ret;
+	}
+	
+	template<typename AddressType>
+	static VkCopyMemoryToAccelerationStructureInfoKHR getVkASCopyFromMemoryInfo(VkDevice vk_device, const CopyFromMemoryInfo<AddressType> & info)
+	{
+		VkCopyMemoryToAccelerationStructureInfoKHR  ret = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR, nullptr};
+		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
+		ret.src = getVkDeviceOrHostAddress(vk_device, info.src);
+		ret.dst = static_cast<CVulkanAccelerationStructure *>(info.dst)->getInternalObject();
+		return ret;
+	}
 
 	static inline VkAccelerationStructureTypeKHR getVkASTypeFromASType(IAccelerationStructure::E_TYPE in) {
 		return static_cast<VkAccelerationStructureTypeKHR>(in);
@@ -119,6 +148,10 @@ public:
 	static inline VkBuildAccelerationStructureModeKHR getVkASBuildModeFromASBuildMode(IAccelerationStructure::E_BUILD_MODE in) {
 		return static_cast<VkBuildAccelerationStructureModeKHR>(in);
 	}
+	static inline VkCopyAccelerationStructureModeKHR getVkASCopyModeFromASCopyMode(IAccelerationStructure::E_COPY_MODE in) {
+		return static_cast<VkCopyAccelerationStructureModeKHR>(in);
+	}
+
 
 
 private:
