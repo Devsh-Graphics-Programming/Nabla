@@ -7,6 +7,7 @@ struct nbl_glsl_property_pool_transfer_t
     int elementCount;
     int indexOffset;
 };
-#define _NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE 12
+#define _NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE_ 12
+#define _NBL_BUILTIN_PROPERTY_POOL_INVALID_ 0xdeadbeef
 
 #endif

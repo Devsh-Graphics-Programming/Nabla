@@ -2,11 +2,13 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
-#include "nbl/builtin/glsl/property_pool/transfer.glsl"
-static_assert(_NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE==sizeof(nbl_glsl_property_pool_transfer_t));
-
 using namespace nbl;
 using namespace video;
+
+#include "nbl/builtin/glsl/property_pool/transfer.glsl"
+static_assert(_NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE_==sizeof(nbl_glsl_property_pool_transfer_t));
+static_assert(_NBL_BUILTIN_PROPERTY_POOL_INVALID_==IPropertyPool::invalid);
+
 
 //
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
@@ -20,8 +22,8 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+1u;
 	{
-		m_tmpIndexRanges = reinterpret_cast<IndexUploadRange*>(malloc((sizeof(IndexUploadRange)+sizeof(nbl_glsl_property_pool_transfer_t))*maxStreamingAllocations));
-		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpIndexRanges+maxStreamingAllocations);
+		m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(nbl_glsl_property_pool_transfer_t))*maxStreamingAllocations));
+		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpAddressRanges+maxStreamingAllocations);
 		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
 		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
 		std::fill_n(m_alignments,maxStreamingAllocations,m_device->getPhysicalDevice()->getLimits().SSBOAlignment);
@@ -168,39 +170,39 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					else
 						*(upSizesIt++) = elementsByteSize;
 
-					m_tmpIndexRanges[i].source = request.addresses;
-					m_tmpIndexRanges[i].destOff = 0u;
+					m_tmpAddressRanges[i].source = request.addresses;
+					m_tmpAddressRanges[i].destOff = 0u;
 				}
 
 				// find slabs = contiguous or repeated ranges of redirection addresses (reduce duplication)
 				{
-					std::sort(m_tmpIndexRanges,m_tmpIndexRanges+propertiesThisPass,SlabComparator);
+					std::sort(m_tmpAddressRanges,m_tmpAddressRanges+propertiesThisPass,SlabComparator);
 
-					uint32_t indexOffset = 0u;
-					auto oit = m_tmpIndexRanges;
+					uint32_t addressOffset = 0u;
+					auto oit = m_tmpAddressRanges;
 					for (auto i=1u; i<propertiesThisPass; i++)
 					{
-						const auto& inRange = m_tmpIndexRanges[i];
+						const auto& inRange = m_tmpAddressRanges[i];
 
 						// check for discontinuity
 						auto& outRange = *oit;
-						// if two requests have different contiguous pools, they'll have different redirects, so cant merge duplicate index data ranges
+						// if two requests have different contiguous pools, they'll have different redirects, so cant merge duplicate address ranges
 						if (inRange.source.begin()>outRange.source.end())
 						{
-							indexOffset += outRange.source.size();
+							addressOffset += outRange.source.size();
 							// begin a new slab
 							oit++;
 							*oit = inRange;
-							oit->destOff = indexOffset;
+							oit->destOff = addressOffset;
 						}
 						else
 							outRange.source = {outRange.source.begin(),inRange.source.end()};
 					}
 					// note the size of the last slab
-					indexOffset += oit->source.size();
-					slabCount = std::distance(m_tmpIndexRanges,++oit);
+					addressOffset += oit->source.size();
+					slabCount = std::distance(m_tmpAddressRanges,++oit);
 
-					m_tmpSizes[0u] += indexOffset*sizeof(uint32_t);
+					m_tmpSizes[0u] += addressOffset*sizeof(uint32_t);
 				}
 			}
 			// allocate address list and upload/allocate data
@@ -230,13 +232,13 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				flushRanges[0].memory = upBuff->getBuffer()->getBoundMemory();
 				flushRanges[0].range = {m_tmpAddresses[0],m_tmpSizes[0]};
 
-				uint32_t* indexBufferPtr = reinterpret_cast<uint32_t*>(upBuffPtr+m_tmpAddresses[0u]);
+				uint32_t* addressBufferPtr = reinterpret_cast<uint32_t*>(upBuffPtr+m_tmpAddresses[0u]);
 				// write header
 				for (uint32_t i=0; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
 
-					auto& transfer = reinterpret_cast<nbl_glsl_property_pool_transfer_t*>(indexBufferPtr)[i];
+					auto& transfer = reinterpret_cast<nbl_glsl_property_pool_transfer_t*>(addressBufferPtr)[i];
 					transfer.propertyDWORDsize_upDownFlag = request.pool->getPropertySize(request.propertyID)/sizeof(uint32_t);
 					if (request.isDownload())
 						transfer.propertyDWORDsize_upDownFlag = -transfer.propertyDWORDsize_upDownFlag;
@@ -244,23 +246,23 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					transfer.elementCount = originalRange.size();
 					{
 						// find the slab
-						IndexUploadRange dummy;
+						AddressUploadRange dummy;
 						dummy.source = originalRange;
 						dummy.destOff = 0xdeadbeefu;
-						auto aboveOrEqual = std::lower_bound(m_tmpIndexRanges,m_tmpIndexRanges+slabCount,dummy,SlabComparator);
+						auto aboveOrEqual = std::lower_bound(m_tmpAddressRanges,m_tmpAddressRanges+slabCount,dummy,SlabComparator);
 						auto containing = aboveOrEqual->source.begin()!=originalRange.begin() ? (aboveOrEqual-1):aboveOrEqual;
 						//
 						assert(containing->source.begin()<=originalRange.begin() && originalRange.end()<=containing->source.end());
 						transfer.indexOffset = containing->destOff+(originalRange.begin()-containing->source.begin());
 					}
 				}
-				indexBufferPtr += (sizeof(nbl_glsl_property_pool_transfer_t)/sizeof(uint32_t))*m_maxPropertiesPerPass;
+				addressBufferPtr += (sizeof(nbl_glsl_property_pool_transfer_t)/sizeof(uint32_t))*m_maxPropertiesPerPass;
 				// write the addresses
 				for (auto i=0u; i<slabCount; i++)
 				{
-					const auto& range = m_tmpIndexRanges[i];
-					std::copy(range.source.begin(),range.source.end(),indexBufferPtr);
-					indexBufferPtr += range.source.size();
+					const auto& range = m_tmpAddressRanges[i];
+					std::copy(range.source.begin(),range.source.end(),addressBufferPtr);
+					addressBufferPtr += range.source.size();
 				}
 	
 				// upload
@@ -319,7 +321,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			// deferred release resources
 			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<IGPUFence>(fence),setIx);
 			// dont drop the cmdbuffer until the transfer is complete
-			auto cmdbuffs = reinterpret_cast<const IGPUCommandBuffer**>(m_tmpIndexRanges);
+			auto cmdbuffs = reinterpret_cast<const IGPUCommandBuffer**>(m_tmpAddressRanges);
 			cmdbuffs[0] = cmdbuf;
 			std::fill_n(cmdbuffs+1u,upAllocations-1u,nullptr);
 			upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes,core::smart_refctd_ptr<IGPUFence>(fence),cmdbuffs);

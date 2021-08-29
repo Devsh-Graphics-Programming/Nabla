@@ -215,10 +215,10 @@ int main(int argc, char** argv)
 		initialColor.resize(count);
 		instanceTransforms.resize(count);
 		// allocate the object data
-		std::fill_n(scratchObjectIDs.data(),count,object_property_pool_t::invalid_index);
+		std::fill_n(scratchObjectIDs.data(),count,object_property_pool_t::invalid);
 		objectPool->allocateProperties(scratchObjectIDs.data(),scratchObjectIDs.data()+count);
 		// now the redirects
-		std::fill_n(scratchInstanceRedirects.data(),count,instance_redirect_property_pool_t::invalid_index);
+		std::fill_n(scratchInstanceRedirects.data(),count,instance_redirect_property_pool_t::invalid);
 		pool->allocateProperties(scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count);
 		// fill with data
 		for (auto i=0u; i<count; i++)

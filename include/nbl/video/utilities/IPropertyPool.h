@@ -21,7 +21,7 @@ class IPropertyPool : public core::IReferenceCounted
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto invalid_index = PropertyAddressAllocator::invalid_address;
+        _NBL_STATIC_INLINE_CONSTEXPR auto invalid = PropertyAddressAllocator::invalid_address;
 
 		//
         virtual const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const =0;
@@ -52,7 +52,7 @@ class IPropertyPool : public core::IReferenceCounted
             return indexAllocator.get_total_size();
         }
 
-        // allocate, indices need to be pre-initialized to `invalid_index`
+        // allocate, indices need to be pre-initialized to `invalid`
         inline bool allocateProperties(uint32_t* outIndicesBegin, uint32_t* outIndicesEnd)
         {
             constexpr uint32_t unit = 1u;
@@ -60,17 +60,17 @@ class IPropertyPool : public core::IReferenceCounted
             for (auto it=outIndicesBegin; it!=outIndicesEnd; it++)
             {
                 auto& index = *it;
-                if (index!=invalid_index)
+                if (index!=invalid)
                     continue;
 
                 index = indexAllocator.alloc_addr(unit,unit);
-                if (index==invalid_index)
+                if (index==invalid)
                     return false;
                 
                 if (isContiguous())
                 {
-                    assert(m_indexToAddr[index]==invalid_index);
-                    assert(m_addrToIndex[head]==invalid_index);
+                    assert(m_indexToAddr[index]==invalid);
+                    assert(m_addrToIndex[head]==invalid);
                     m_indexToAddr[index] = head;
                     m_addrToIndex[head++] = index;
                 }
@@ -86,7 +86,7 @@ class IPropertyPool : public core::IReferenceCounted
             constexpr uint32_t unit = 1u;
             for (auto it=indicesBegin; it!=indicesEnd; it++)
             {
-                if (*it==invalid_index)
+                if (*it==invalid)
                     continue;
                 indexAllocator.free_addr(*it,unit);
             }
@@ -103,33 +103,33 @@ class IPropertyPool : public core::IReferenceCounted
                 auto gapIt = indicesBegin; // reuse as temporary storage
                 for (auto it=indicesBegin; it!=indicesEnd; it++)
                 {
-                    if (*it==invalid_index)
+                    if (*it==invalid)
                         continue;
                     auto& addr = m_indexToAddr[*it];
                     if (addr<head) // overwrite if address in live range
                         *(gapIt++) = addr;
                     else // mark as dead if outside
-                        m_addrToIndex[addr] = invalid_index;
+                        m_addrToIndex[addr] = invalid;
                     // index doesn't map to any address anymore
-                    addr = invalid_index;
+                    addr = invalid;
                 }
                 gapIt = indicesBegin; // rewind the list of gaps
                 for (auto a=oldHead; a<head; a++)
                 {
                     auto& index = m_addrToIndex[a];
                     *(tailMoveDest++) = index; // think about whether to add a direct address feeding path to TransferRequest
-                    if (index==invalid_index)
+                    if (index==invalid)
                         continue;
                     // if not dead we need to move
                     m_addrToIndex[*gapIt] = index;
                     m_indexToAddr[index] = *(gapIt++);
-                    index = invalid_index;
+                    index = invalid;
                 }
                 // then we just do equivalent of
                 //for (auto i=0u; i<(srcIt-src); i++)
                     //data[dst[i]] = data[src[i]];
             }
-            std::fill(indicesBegin,indicesEnd,invalid_index); // only in debug, or?
+            std::fill(indicesBegin,indicesEnd,invalid); // only in debug, or?
             return removedCount;
         }
         inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
@@ -167,8 +167,8 @@ class IPropertyPool : public core::IReferenceCounted
         {
             if (isContiguous())
             {
-                std::fill_n(m_indexToAddr,getCapacity(),invalid_index);
-                std::fill_n(m_addrToIndex,getAllocated(),invalid_index);
+                std::fill_n(m_indexToAddr,getCapacity(),invalid);
+                std::fill_n(m_addrToIndex,getAllocated(),invalid);
             }
             indexAllocator.reset();
         }

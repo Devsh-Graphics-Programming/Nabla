@@ -121,7 +121,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		};
 
 
-		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
+		// allocate and upload properties, indices need to be pre-initialized to `IPropertyPool::invalid`
 		struct AllocationRequest
 		{
 			AllocationRequest() : pool(nullptr), outIndices{nullptr,nullptr}, data(nullptr) {}
@@ -164,7 +164,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
     protected:
 		~CPropertyPoolHandler()
 		{
-			free(m_tmpIndexRanges);
+			free(m_tmpAddressRanges);
 			// pipelines drop themselves automatically
 		}
 
@@ -174,14 +174,14 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
-		struct IndexUploadRange
+		struct AddressUploadRange
 		{
-			IndexUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
+			AddressUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
 
 			core::SRange<const uint32_t> source;
 			uint32_t destOff;
 		};
-        IndexUploadRange* m_tmpIndexRanges;
+        AddressUploadRange* m_tmpAddressRanges;
 		uint32_t* m_tmpAddresses,* m_tmpSizes,* m_alignments;
 		uint8_t m_maxPropertiesPerPass;
 
