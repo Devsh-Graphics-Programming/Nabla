@@ -377,7 +377,10 @@ int main()
 			const auto* pipelineMetadata = std::get<const asset::IRenderpassIndependentPipelineMetadata*>(drawData);
 
 			core::matrix3x4SIMD modelMatrix;
-			modelMatrix.setTranslation(nbl::core::vectorSIMDf(index * 5, 0, 0, 0));
+			
+			if(index == 1)
+				modelMatrix.setScale(core::vectorSIMDf(10, 10, 10));
+			modelMatrix.setTranslation(nbl::core::vectorSIMDf(index * 150, 0, 0, 0));
 
 			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
 
@@ -434,9 +437,9 @@ int main()
 		*/
 
 		renderMesh(gpuPipelinesPly, plyDrawData, 0);
-		renderMesh(gpuPipelinesStl, stlDrawData, 20);
+		renderMesh(gpuPipelinesStl, stlDrawData, 1);
 
-		commandBuffer->endRenderPass();
+		commandBuffer->endRenderPass(); 
 		commandBuffer->end();
 
 		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
