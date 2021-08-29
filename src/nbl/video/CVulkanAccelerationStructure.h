@@ -30,20 +30,11 @@ public:
 	
 public:
 	
-	static inline VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeomInfoFromBuildGeomInfo(
-		VkDevice vk_device,
-		const BuildGeometryInfo<DeviceAddressType> & buildGeomInfo,
-		VkAccelerationStructureGeometryKHR * inoutGeomArray) 
-	{
-		// TODO
-		uint32_t geomCount = buildGeomInfo.geometries.size();
-		const Geometry<DeviceAddressType>* geoms = buildGeomInfo.geometries.begin();
-		for(uint32_t g = 0; g < geomCount; ++g) {
-			auto & geom = geoms[g];
-			VkAccelerationStructureGeometryKHR vk_geom = getVkASGeometry(vk_device, geom);
-			inoutGeomArray[g] = vk_geom;
-		}
-	}
+	template<typename AddressType>
+	static VkDeviceOrHostAddressKHR getVkDeviceOrHostAddress(VkDevice vk_device, const AddressType & addr);
+	
+	template<typename AddressType>
+	static VkDeviceOrHostAddressConstKHR getVkDeviceOrHostConstAddress(VkDevice vk_device, const AddressType & addr);
 
 	template<typename AddressType>
 	static VkAccelerationStructureGeometryKHR getVkASGeometry(VkDevice vk_device, const Geometry<AddressType> & geometry)
@@ -56,35 +47,59 @@ public:
 			const auto & triangles = geometry.data.triangles;
 			ret.geometry.triangles = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR, nullptr};
 			ret.geometry.triangles.vertexFormat = getVkFormatFromFormat(triangles.vertexFormat);
-			ret.geometry.triangles.vertexData = getVkDeviceOrHostConstAddr(vk_device, triangles.vertexData);
+			ret.geometry.triangles.vertexData = getVkDeviceOrHostConstAddress(vk_device, triangles.vertexData);
 			ret.geometry.triangles.vertexStride = static_cast<VkDeviceSize>(triangles.vertexStride);
 			ret.geometry.triangles.maxVertex = triangles.maxVertex;
 			ret.geometry.triangles.indexType = static_cast<VkIndexType>(triangles.indexType); // (Erfan): Converter?
-			ret.geometry.triangles.indexData = getVkDeviceOrHostConstAddr(vk_device, triangles.indexData);
-			ret.geometry.triangles.transformData = getVkDeviceOrHostConstAddr(vk_device, triangles.transformData);
+			ret.geometry.triangles.indexData = getVkDeviceOrHostConstAddress(vk_device, triangles.indexData);
+			ret.geometry.triangles.transformData = getVkDeviceOrHostConstAddress(vk_device, triangles.transformData);
 		}
 		else if(E_GEOM_TYPE::EGT_AABBS == geometry.type)
 		{
 			const auto & aabbs = geometry.data.aabbs;
 			ret.geometry.aabbs = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR, nullptr};
-			ret.geometry.aabbs.data = getVkDeviceOrHostConstAddr(vk_device, aabbs.data);
+			ret.geometry.aabbs.data = getVkDeviceOrHostConstAddress(vk_device, aabbs.data);
 			ret.geometry.aabbs.stride = static_cast<VkDeviceSize>(aabbs.stride);
 		}
 		else if(E_GEOM_TYPE::EGT_INSTANCES == geometry.type)
 		{
 			const auto & instances = geometry.data.instances;
 			ret.geometry.instances = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR, nullptr};
-			ret.geometry.instances.data = getVkDeviceOrHostConstAddr(vk_device, instances.data);
+			ret.geometry.instances.data = getVkDeviceOrHostConstAddress(vk_device, instances.data);
 			ret.geometry.instances.arrayOfPointers = VK_FALSE; // (Erfan): Something to expose?
 		}
 		return ret;
 	}
 
 	template<typename AddressType>
-	static VkDeviceOrHostAddressKHR getVkDeviceOrHostAddr(VkDevice vk_device, const AddressType & addr);
-	
-	template<typename AddressType>
-	static VkDeviceOrHostAddressConstKHR getVkDeviceOrHostConstAddr(VkDevice vk_device, const AddressType & addr);
+	static VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeomInfoFromBuildGeomInfo(
+		VkDevice vk_device,
+		const BuildGeometryInfo<AddressType> & buildGeomInfo,
+		VkAccelerationStructureGeometryKHR * inoutGeomArray) 
+	{
+		VkAccelerationStructureBuildGeometryInfoKHR ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR, nullptr};
+		if(inoutGeomArray != nullptr)
+		{
+			uint32_t geomCount = buildGeomInfo.geometries.size();
+			const Geometry<AddressType>* geoms = buildGeomInfo.geometries.begin();
+			for(uint32_t g = 0; g < geomCount; ++g) {
+				auto & geom = geoms[g];
+				VkAccelerationStructureGeometryKHR vk_geom = getVkASGeometry<AddressType>(vk_device, geom);
+				inoutGeomArray[g] = vk_geom;
+			}
+
+			ret.type = getVkASTypeFromASType(buildGeomInfo.type);
+			ret.flags = getVkASBuildFlagsFromASBuildFlags(buildGeomInfo.buildFlags);
+			ret.mode = getVkASBuildModeFromASBuildMode(buildGeomInfo.buildMode);
+			ret.srcAccelerationStructure = static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.srcAS)->getInternalObject();
+			ret.dstAccelerationStructure = static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.dstAS)->getInternalObject();
+			ret.geometryCount = geomCount;
+			ret.pGeometries = inoutGeomArray;
+			ret.ppGeometries = nullptr;
+			ret.scratchData = getVkDeviceOrHostAddress(vk_device, buildGeomInfo.scratchAddr);
+		}
+		return ret;
+	}
 
 	static inline VkAccelerationStructureTypeKHR getVkASTypeFromASType(IAccelerationStructure::E_TYPE in) {
 		return static_cast<VkAccelerationStructureTypeKHR>(in);
