@@ -24,7 +24,7 @@ using namespace core;
 	Uncomment for writing assets
 */
 
-// #define WRITE_ASSETS
+#define WRITE_ASSETS
 
 int main()
 {
@@ -50,6 +50,7 @@ int main()
 	auto inputSystem = std::move(initOutput.inputSystem);
 	auto system = std::move(initOutput.system);
 	auto windowCallback = std::move(initOutput.windowCb);
+	auto utilities = std::move(initOutput.utilities);
 
 	auto createDescriptorPool = [&](const uint32_t count, asset::E_DESCRIPTOR_TYPE type)
 	{
@@ -84,6 +85,7 @@ int main()
 		cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
 		cpu2gpuParams.pipelineCache = nullptr;
 		cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+		cpu2gpuParams.utilities = utilities.get();
 
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
@@ -105,7 +107,7 @@ int main()
         return std::make_pair(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0]), meshes_bundle.getMetadata());
     };
 
-	auto cpuBundlePLYData = loadAndGetCpuMesh("../../media/ply/Industrial_compressor.ply");
+	auto cpuBundlePLYData = loadAndGetCpuMesh("../../media/ply/Spanner-ply.ply");
 	auto cpuBundleSTLData = loadAndGetCpuMesh("../../media/extrusionLogo_TEST_fixed.stl");
 
     core::smart_refctd_ptr<asset::ICPUMesh> cpuMeshPly = cpuBundlePLYData.first;
@@ -116,14 +118,14 @@ int main()
 
 	#ifdef WRITE_ASSETS
 	{
-		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshStl.get());
-		bool status = assetManager->writeAsset("extrusionLogo_TEST_fixedTest.stl", wp);
+		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshPly.get());
+		bool status = assetManager->writeAsset("Spanner_ply.ply", wp);
 		assert(status);
 	}
 
 	{
-		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshPly.get());
-		bool status = assetManager->writeAsset("IndustrialWriteTest.ply", wp);
+		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshStl.get());
+		bool status = assetManager->writeAsset("extrusionLogo_TEST_fixedTest.stl", wp);
 		assert(status);
 	}
 	#endif // WRITE_ASSETS
@@ -188,7 +190,9 @@ int main()
 			gpuds1layout = (*gpu_array)[0];
 		}
 
-		auto gpuubo = logicalDevice->createDeviceLocalGPUBufferOnDedMem(uboDS1ByteSize);
+		auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
+		ubomemreq.vulkanReqs.size = uboDS1ByteSize;
+		auto gpuubo = logicalDevice->createGPUBufferOnDedMem(ubomemreq, true);
 		auto gpuds1 = logicalDevice->createGPUDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;
@@ -345,7 +349,7 @@ int main()
 
 		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 		{
-			nbl::asset::VkRect2D area;
+			VkRect2D area;
 			area.offset = { 0,0 };
 			area.extent = { WIN_W, WIN_H };
 			asset::SClearValue clear[2] = {};
@@ -373,7 +377,10 @@ int main()
 			const auto* pipelineMetadata = std::get<const asset::IRenderpassIndependentPipelineMetadata*>(drawData);
 
 			core::matrix3x4SIMD modelMatrix;
-			modelMatrix.setTranslation(nbl::core::vectorSIMDf(index * 5, 0, 0, 0));
+			
+			if(index == 1)
+				modelMatrix.setScale(core::vectorSIMDf(10, 10, 10));
+			modelMatrix.setTranslation(nbl::core::vectorSIMDf(index * 150, 0, 0, 0));
 
 			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
 
@@ -430,9 +437,9 @@ int main()
 		*/
 
 		renderMesh(gpuPipelinesPly, plyDrawData, 0);
-		renderMesh(gpuPipelinesStl, stlDrawData, 20);
+		renderMesh(gpuPipelinesStl, stlDrawData, 1);
 
-		commandBuffer->endRenderPass();
+		commandBuffer->endRenderPass(); 
 		commandBuffer->end();
 
 		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());

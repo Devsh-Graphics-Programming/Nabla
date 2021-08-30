@@ -275,6 +275,8 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 
+	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
@@ -311,16 +313,27 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
-	#${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSpecializedShader.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineLayout.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanComputePipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
+
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
@@ -358,6 +371,10 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
+
+macro(nbl_target_link_vulkan _trgt) # we don't want to link against library directly
+	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
+endmacro()
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
@@ -494,6 +511,9 @@ endif()
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Nabla openssl_build)
+if(DEFINED ENV{VULKAN_SDK})
+	nbl_target_link_vulkan(Nabla)
+endif()
 nbl_target_link_openssl(Nabla)
 #nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
@@ -510,7 +530,7 @@ nbl_target_link_spirv_tools(Nabla)
 if (NBL_COMPILE_WITH_SDL2)
 	nbl_target_link_SDL2(Nabla)
 endif()
-#nbl_target_link_volk(Nabla)
+nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 nbl_target_link_simdjson(Nabla)
 

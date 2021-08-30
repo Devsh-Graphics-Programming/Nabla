@@ -19,13 +19,13 @@ public:
 
     enum E_LOAD_OP : uint8_t
     {
-        ELO_LOAD,
+        ELO_LOAD = 0,
         ELO_CLEAR,
         ELO_DONT_CARE
     };
     enum E_STORE_OP : uint8_t
     {
-        ESO_STORE,
+        ESO_STORE = 0,
         ESO_DONT_CARE
     };
     enum E_SUBPASS_DESCRIPTION_FLAGS
@@ -56,6 +56,7 @@ public:
             };
 
             E_SUBPASS_DESCRIPTION_FLAGS flags = ESDF_NONE;
+            E_PIPELINE_BIND_POINT pipelineBindPoint;
             const SAttachmentRef* depthStencilAttachment;
             uint32_t inputAttachmentCount;
             const SAttachmentRef* inputAttachments;
@@ -139,8 +140,13 @@ public:
                 sb._array = refs+refOffset;\
                 refOffset += sb._count;
 
+                // Todo(achal): It is probably wise to do the existence check on colorAttachements
+                // as well since it could be NULL according to the Vulkan spec
                 _COPY_ATTACHMENT_REFS(colorAttachments, colorAttachmentCount);
-                _COPY_ATTACHMENT_REFS(inputAttachments, inputAttachmentCount);
+                if (sb.inputAttachments)
+                {
+                    _COPY_ATTACHMENT_REFS(inputAttachments, inputAttachmentCount);
+                }
                 if (sb.resolveAttachments)
                 {
                     _COPY_ATTACHMENT_REFS(resolveAttachments, colorAttachmentCount);

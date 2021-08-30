@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifdef _NBL_COMPILE_WITH_PLY_WRITER_
-
 #include "CPLYMeshWriter.h"
+
+#ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
@@ -211,9 +211,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         faceCount = 0u;
     header += "end_header\n";
 
-    system::future<size_t> future;
-    file->write(future, header.c_str(), context.fileOffset, header.size());
     {
+        system::future<size_t> future;
+        file->write(future, header.c_str(), context.fileOffset, header.size());
         const auto bytesWritten = future.get();
         context.fileOffset += bytesWritten;
     }
@@ -233,7 +233,6 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
 
 	bool flipVectors = (!(context.writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)) ? true : false;
-    system::future<size_t> future;
 
     auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
@@ -279,14 +278,16 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
         uint32_t* ind = (uint32_t*)indices;
         for (size_t i = 0u; i < _fcCount; ++i)
         {
-            context.writeContext.outputFile->write(future, &listSize, context.fileOffset, sizeof(listSize));
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, &listSize, context.fileOffset, sizeof(listSize));
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
 
-            context.writeContext.outputFile->write(future, ind, context.fileOffset, listSize * 4);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, ind, context.fileOffset, listSize * 4);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
@@ -299,14 +300,16 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
         uint16_t* ind = (uint16_t*)indices;
         for (size_t i = 0u; i < _fcCount; ++i)
         {
-            context.writeContext.outputFile->write(future, &listSize, context.fileOffset, sizeof(listSize));
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, &listSize, context.fileOffset, sizeof(listSize));
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
 
-            context.writeContext.outputFile->write(future, ind, context.fileOffset, listSize * 2);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, ind, context.fileOffset, listSize * 2);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
@@ -321,7 +324,6 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
 
 void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const
 {
-    system::future<size_t> future;
     auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
     auto writefunc = [&context, &mbCopy, this](uint32_t _vaid, size_t _ix, size_t _cpa)
@@ -376,14 +378,13 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
             writefunc(3, i, 3u);
         }
 
-        context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
         {
+            system::future<size_t> future;
+            context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
             const auto bytesWritten = future.get();
             context.fileOffset += bytesWritten;
         }
     }
-    mbCopy->drop();
-    mbCopy = nullptr;
 
     const char* listSize = "3 ";
     void* indices = _indices;
@@ -406,16 +407,18 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
         uint32_t* ind = (uint32_t*)indices;
         for (size_t i = 0u; i < _fcCount; ++i)
         {
-            context.writeContext.outputFile->write(future, listSize, context.fileOffset, 2);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, listSize, context.fileOffset, 2);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
 
             writeVectorAsText(context, ind, 3);
 
-            context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
@@ -428,16 +431,18 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
         uint16_t* ind = (uint16_t*)indices;
         for (size_t i = 0u; i < _fcCount; ++i)
         {
-            context.writeContext.outputFile->write(future, listSize, context.fileOffset, 2);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, listSize, context.fileOffset, 2);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
 
             writeVectorAsText(context, ind, 3);
 
-            context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
@@ -455,7 +460,6 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
     uint32_t ui[4];
     core::vectorSIMDf f;
     asset::E_FORMAT t = _mbuf->getAttribFormat(_vaid);
-    system::future<size_t> future;
 
     if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
     {
@@ -470,8 +474,9 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
             for (uint32_t k = 0u; k < _cpa; ++k)
                 a[k] = ui[k];
 
-            context.writeContext.outputFile->write(future, a, context.fileOffset, _cpa);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, a, context.fileOffset, _cpa);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
@@ -482,16 +487,18 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
             for (uint32_t k = 0u; k < _cpa; ++k)
                 a[k] = ui[k];
 
-            context.writeContext.outputFile->write(future, a, context.fileOffset, 2 * _cpa);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, a, context.fileOffset, 2 * _cpa);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
         }
         else if (bytesPerCh == 4u)
         {
-            context.writeContext.outputFile->write(future, ui, context.fileOffset, 4 * _cpa);
             {
+                system::future<size_t> future;
+                context.writeContext.outputFile->write(future, ui, context.fileOffset, 4 * _cpa);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
@@ -503,8 +510,9 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
         if (flipAttribute)
             f[0] = -f[0];
 
-        context.writeContext.outputFile->write(future, f.pointer, context.fileOffset, 4 * _cpa);
         {
+            system::future<size_t> future;
+            context.writeContext.outputFile->write(future, f.pointer, context.fileOffset, 4 * _cpa);
             const auto bytesWritten = future.get();
             context.fileOffset += bytesWritten;
         }

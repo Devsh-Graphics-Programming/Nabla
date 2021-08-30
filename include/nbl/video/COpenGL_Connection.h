@@ -1,6 +1,8 @@
 #ifndef __NBL_C_OPENGL__CONNECTION_H_INCLUDED__
 #define __NBL_C_OPENGL__CONNECTION_H_INCLUDED__
 
+#include "nbl/system/ISystem.h"
+
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/debug/COpenGLDebugCallback.h"
 
@@ -18,17 +20,12 @@ class COpenGL_Connection final : public IAPIConnection
             return API_TYPE;
         }
 
-        core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const override
-        {          
-            return {&m_pdevice,&m_pdevice+1};
-        }
-
         IDebugCallback* getDebugCallback() const override;
 
     private:
-        COpenGL_Connection(core::smart_refctd_ptr<IPhysicalDevice>&& _pdevice) : m_pdevice(std::move(_pdevice)) {}
-
-        core::smart_refctd_ptr<IPhysicalDevice> m_pdevice;
+        COpenGL_Connection(std::vector<std::unique_ptr<IPhysicalDevice>>&& physicalDevices)
+            : IAPIConnection(std::move(physicalDevices))
+        {}
 };
 
 using COpenGLConnection = COpenGL_Connection<EAT_OPENGL>;

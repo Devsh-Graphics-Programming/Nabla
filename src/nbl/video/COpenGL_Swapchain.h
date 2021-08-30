@@ -127,7 +127,7 @@ protected:
         COpenGLDebugCallback* _dbgCb
     ) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)),
         m_threadHandler(
-            _egl,dev.get(),m_params.surface->getNativeWindowHandle(),{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
+            _egl,dev.get(),m_params.surface->getNativeWindowHandle(),m_params.presentMode,{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
         )
     {
         m_images = std::move(images);
@@ -144,6 +144,7 @@ private:
         CThreadHandler(const egl::CEGL* _egl,
             IOpenGL_LogicalDevice* dev,
             const void* _window,
+            ISurface::E_PRESENT_MODE presentMode,
             core::SRange<core::smart_refctd_ptr<IGPUImage>> _images,
             const COpenGLFeatureMap* _features,
             EGLContext _ctx,
@@ -151,6 +152,7 @@ private:
             COpenGLDebugCallback* _dbgCb
         ) : m_device(dev),
             egl(_egl),
+            m_presentMode(presentMode),
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
             features(_features),
             images(_images),
@@ -210,6 +212,21 @@ private:
 
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
             assert(mcres == EGL_TRUE);
+
+            m_ctxCreatedCvar.notify_one();
+
+            switch (m_presentMode)
+            {
+            case ISurface::EPM_IMMEDIATE:
+                egl->call.peglSwapInterval(egl->display, 0);
+                break;
+            case ISurface::EPM_FIFO:
+                egl->call.peglSwapInterval(egl->display, 1);
+                break;
+            case ISurface::EPM_FIFO_RELAXED:
+                egl->call.peglSwapInterval(egl->display, -1);
+                break;
+            }
 
             const uint32_t fboCount = images.size();
             new (state_ptr) SThreadHandlerInternalState(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
@@ -291,6 +308,7 @@ private:
 		const egl::CEGL* egl;
 		EGLContext thisCtx;
 		EGLSurface surface;
+        ISurface::E_PRESENT_MODE m_presentMode;
 		const COpenGLFeatureMap* features;
         core::SRange<core::smart_refctd_ptr<IGPUImage>> images;
         GLuint fbos[MaxImages]{};

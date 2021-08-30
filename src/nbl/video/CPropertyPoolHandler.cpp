@@ -1,5 +1,5 @@
-#include "nbl/video/IPropertyPool.h"
-#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/utilities/CPropertyPoolHandler.h"
+#include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
@@ -48,19 +48,10 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
 
-//
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
-	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
-	const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd,
-	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
-)
-{
-	return addProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
-}
 CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 	IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
-	const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
+	const std::chrono::high_resolution_clock::time_point maxWaitPoint
 )
 {
 	bool success = true;
@@ -80,7 +71,6 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
 	for (auto it=requestsBegin; it!=requestsEnd; it++)
 	for (auto i=0u; i<it->pool->getPropertyCount(); i++)
 	{
-		oit->download = false;
 		oit->pool = it->pool;
 		oit->indices = { it->outIndices.begin(),it->outIndices.end() };
 		oit->propertyID = i;
@@ -92,15 +82,6 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
 	return result;
 }
 
-//
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
-	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
-	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
-	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point maxWaitPoint
-)
-{
-	return transferProperties(m_device->getDefaultUpStreamingBuffer(),m_device->getDefaultDownStreamingBuffer(),cmdbuf,fence,requestsBegin,requestsEnd,logger,maxWaitPoint);
-}
 CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 	IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger,
@@ -131,7 +112,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			uint32_t downAllocations = 0u;
 			for (uint32_t i=0u; i<propertiesThisPass; i++)
 			{
-				if (localRequests[i].download)
+				if (localRequests[i].isDownload())
 					downAllocations++;
 				else
 					upAllocations++;
@@ -157,7 +138,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					const auto elementsByteSize = request.indices.size()*propSize;
 					maxElements = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxElements);
 
-					if (request.download)
+					if (request.isDownload())
 						*(downSizesIt++) = elementsByteSize;
 					else
 						*(upSizesIt++) = elementsByteSize;
@@ -231,7 +212,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 					auto& transfer = reinterpret_cast<nbl_glsl_property_pool_transfer_t*>(indexBufferPtr)[i];
 					transfer.propertyDWORDsize_upDownFlag = request.pool->getPropertySize(request.propertyID)/sizeof(uint32_t);
-					if (request.download)
+					if (request.isDownload())
 						transfer.propertyDWORDsize_upDownFlag = -transfer.propertyDWORDsize_upDownFlag;
 					const auto& originalRange = request.indices;
 					transfer.elementCount = originalRange.size();
@@ -263,7 +244,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				for (uint32_t i=0u; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
-					if (request.download)
+					if (request.isDownload())
 						continue;
 
 					const auto addr = *(upAddrIt++);
@@ -339,7 +320,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 CPropertyPoolHandler::download_future_t::~download_future_t()
 {
-	if (m_sizes)
+	if (m_allocCount && m_sizes)
 	{
 		const auto status = m_device->getFenceStatus(m_fence.get());
 		if (status==IGPUFence::ES_TIMEOUT||status==IGPUFence::ES_NOT_READY)
@@ -407,13 +388,12 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	for (uint32_t i=0u; i<propertyCount; i++)
 	{
 		const auto& request = requests[i];
-		const bool download = request.download;
 			
 		const auto* pool = request.pool;
 		const auto& propMemBlock = pool->getPropertyMemoryBlock(request.propertyID);
 		const uint32_t transferPropertySize = request.indices.size()*pool->getPropertySize(request.propertyID);
 
-		if (download)
+		if (request.isDownload())
 		{
 			inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
 			inDescInfo[i].buffer = {propMemBlock.offset,propMemBlock.size};

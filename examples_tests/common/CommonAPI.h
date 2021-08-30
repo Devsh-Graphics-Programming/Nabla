@@ -310,8 +310,9 @@ public:
 		nbl::core::smart_refctd_ptr<CommonAPIEventCallback> windowCb;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
-		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
+		nbl::video::IPhysicalDevice* physicalDevice;
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
@@ -368,7 +369,10 @@ public:
 		};
 
 		const auto familyIndex = getFamilyIndex();
-		assert(result.surface->isSupported(gpu.get(), familyIndex));
+		{
+			const bool status = result.surface->isSupportedForPhysicalDevice(gpu, familyIndex);
+			assert(status);
+		}
 
 		video::ILogicalDevice::SCreationParams dev_params;
 		dev_params.queueParamsCount = 1u;
@@ -380,6 +384,8 @@ public:
 		q_params.priorities = &priority;
 		dev_params.queueCreateInfos = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
+
+		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
 
 		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
 		if(graphicsQueueEnable)
@@ -397,7 +403,7 @@ public:
 
 		result.commandPool = result.logicalDevice->createCommandPool(familyIndex,IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
-		result.physicalDevice = std::move(gpu);
+		result.physicalDevice = gpu;
 
 		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
 
@@ -620,7 +626,7 @@ public:
 		return std::pair(image, image_view);
 	}
 
-	static int getQueueFamilyIndex(const nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice>& gpu, uint32_t requiredQueueFlags)
+	static int getQueueFamilyIndex(const nbl::video::IPhysicalDevice* gpu, uint32_t requiredQueueFlags)
 	{
 		auto props = gpu->getQueueFamilyProperties();
 		int currentIndex = 0;

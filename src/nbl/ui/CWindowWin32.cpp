@@ -222,7 +222,7 @@ namespace nbl::ui
 			UINT size;
 			UINT headerSize;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-			core::vector<std::byte> data(size);
+			core::vector<std::byte> data(size); // TODO: preallocate some upper bound, dont want an alloc here!
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data.data(), &size, sizeof(RAWINPUTHEADER));
 			rawInput = reinterpret_cast<RAWINPUT*>(data.data());
 			HANDLE device = rawInput->header.hDevice;

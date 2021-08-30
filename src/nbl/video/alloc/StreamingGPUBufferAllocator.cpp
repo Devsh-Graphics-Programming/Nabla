@@ -1,6 +1,7 @@
 #include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
 
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 
 namespace nbl::video
 {

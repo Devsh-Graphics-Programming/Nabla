@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifdef _NBL_COMPILE_WITH_STL_WRITER_
-
 #include "CSTLMeshWriter.h"
+
+#ifdef _NBL_COMPILE_WITH_STL_WRITER_
 
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
@@ -136,34 +136,37 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
 		if (!(context->params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
 			flipVectors();
 
-		system::future<size_t> future;
-
-		file->write(future, &normal, *fileOffset, 12);
 		{
+			system::future<size_t> future;
+			file->write(future, &normal, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
-		file->write(future, &vertex1, *fileOffset, 12);
 		{
+			system::future<size_t> future;
+			file->write(future, &vertex1, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
-		file->write(future, &vertex2, *fileOffset, 12);
 		{
+			system::future<size_t> future;
+			file->write(future, &vertex2, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
-		file->write(future, &vertex3, *fileOffset, 12);
 		{
+			system::future<size_t> future;
+			file->write(future, &vertex3, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
-		file->write(future, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
 		{
+			system::future<size_t> future;
+			file->write(future, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
@@ -177,9 +180,9 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
     const char headerTxt[] = "Irrlicht-baw Engine";
     constexpr size_t HEADER_SIZE = 80u;
 
-	system::future<size_t> future;
-	context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt));
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt));
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
@@ -189,6 +192,7 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 
 	if (sizeleft < 0)
 	{
+		system::future<size_t> future;
 		context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, HEADER_SIZE - sizeof(headerTxt));
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -197,14 +201,16 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 	{
 		const char buf[80] = {0};
 
-		context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 		{
+			system::future<size_t> future;
+			context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 			const auto bytesWritten = future.get();
 			context->fileOffset += bytesWritten;
 		}
-		
-		context->writeContext.outputFile->write(future, buf, context->fileOffset, sizeleft);
+
 		{
+			system::future<size_t> future;
+			context->writeContext.outputFile->write(future, buf, context->fileOffset, sizeleft);
 			const auto bytesWritten = future.get();
 			context->fileOffset += bytesWritten;
 		}
@@ -213,13 +219,12 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 	uint32_t facenum = 0;
 	for (auto& mb : mesh->getMeshBuffers())
 		facenum += mb->getIndexCount()/3;
-
-	context->writeContext.outputFile->write(future, &facenum, context->fileOffset, sizeof(facenum));
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, &facenum, context->fileOffset, sizeof(facenum));
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
-
 	// write mesh buffers
 
 	for (auto& buffer : mesh->getMeshBuffers())
@@ -244,30 +249,34 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
 
-	system::future<size_t> future;
-
-	context->writeContext.outputFile->write(future, "solid ", context->fileOffset, 6);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "solid ", context->fileOffset, 6);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
+
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
 
-	context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, "\n", context->fileOffset, 1);
+
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "\n", context->fileOffset, 1);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
@@ -319,28 +328,32 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
                 );
             }
         }
-		
-		context->writeContext.outputFile->write(future, "\n", context->fileOffset, 1);
+
 		{
+			system::future<size_t> future;
+			context->writeContext.outputFile->write(future, "\n", context->fileOffset, 1);
 			const auto bytesWritten = future.get();
 			context->fileOffset += bytesWritten;
 		}
 	}
 
-	context->writeContext.outputFile->write(future, "endsolid ", context->fileOffset, 9);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "endsolid ", context->fileOffset, 9);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
@@ -377,79 +390,88 @@ void CSTLMeshWriter::writeFaceText(
 	
 	if (!(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
 		flipVectors();
-
-	system::future<size_t> future;
-
-	context->writeContext.outputFile->write(future, "facet normal ", context->fileOffset, 13);
+	
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "facet normal ", context->fileOffset, 13);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	getVectorAsStringLine(normal, tmp);
 
-	context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, "  outer loop\n", context->fileOffset, 13);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "  outer loop\n", context->fileOffset, 13);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	getVectorAsStringLine(vertex1, tmp);
 
-	context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	getVectorAsStringLine(vertex2, tmp);
 
-	context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	getVectorAsStringLine(vertex3, tmp);
 
-	context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, "  endloop\n", context->fileOffset, 10);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "  endloop\n", context->fileOffset, 10);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
-	context->writeContext.outputFile->write(future, "endfacet\n", context->fileOffset, 9);
 	{
+		system::future<size_t> future;
+		context->writeContext.outputFile->write(future, "endfacet\n", context->fileOffset, 9);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}

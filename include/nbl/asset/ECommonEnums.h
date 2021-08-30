@@ -32,7 +32,7 @@ enum E_SUBPASS_CONTENTS : uint32_t
 
 enum E_PIPELINE_BIND_POINT : uint32_t
 {
-    EPBP_GRAPHICS,
+    EPBP_GRAPHICS = 0,
     EPBP_COMPUTE,
 
     EPBP_COUNT
