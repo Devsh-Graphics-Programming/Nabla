@@ -24,7 +24,7 @@ using namespace core;
 	Uncomment for writing assets
 */
 
-// #define WRITE_ASSETS
+#define WRITE_ASSETS
 
 int main()
 {
