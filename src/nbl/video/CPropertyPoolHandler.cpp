@@ -50,61 +50,6 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
 
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(
-	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
-	IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
-	const std::chrono::high_resolution_clock::time_point maxWaitPoint
-)
-{
-	bool success = true;
-
-	uint32_t transferCount = 0u;
-	core::map<const uint32_t*,uint32_t*> index2Addr; // TODO: make it an option to provide scratch memory for this
-	for (auto it=requestsBegin; it!=requestsEnd; it++)
-	{
-		auto* indicesBegin = it->outIndices.begin();
-		const bool allocSuccess = it->pool->allocateProperties(indicesBegin,it->outIndices.end());
-		if (!allocSuccess)
-			logger.log("CPropertyPoolHandler: Failed to allocate %d properties from pool %p, part of request %d!",system::ILogger::ELL_WARNING,it->outIndices.size(),it->pool,it-requestsBegin);
-		success = allocSuccess&&success;
-		if (it->pool->isContiguous())
-		{
-			auto found = index2Addr.find(indicesBegin);
-			if (found==index2Addr.end())
-			{
-				auto addressesBegin = new uint32_t[it->outIndices.size()];
-				it->pool->indicesToAddresses(indicesBegin,it->outIndices.end(),addressesBegin);
-				index2Addr.emplace_hint(found,indicesBegin,addressesBegin);
-			}
-		}
-		transferCount += it->pool->getPropertyCount();
-	}
-
-	core::vector<TransferRequest> transferRequests(transferCount); // TODO: make it an option to provide scratch memory for this
-	auto oit = transferRequests.begin();
-	for (auto it=requestsBegin; it!=requestsEnd; it++)
-	for (auto i=0u; i<it->pool->getPropertyCount(); i++)
-	{
-		oit->pool = it->pool;
-		if (it->pool->isContiguous())
-		{
-			auto addressesBegin = index2Addr[it->outIndices.begin()];
-			oit->addresses = {addressesBegin,addressesBegin+it->outIndices.size()};
-		}
-		else
-			oit->addresses = {it->outIndices.begin(),it->outIndices.end()};
-		oit->propertyID = i;
-		oit->data = it->data[i];
-		oit++;
-	}
-	transfer_result_t result = transferProperties(upBuff,downBuff,cmdbuf,fence,transferRequests.data(),transferRequests.data()+transferCount,logger,maxWaitPoint);
-	result.transferSuccess = result.transferSuccess&&success;
-
-	for (auto& mapping : index2Addr)
-		delete[] mapping.second;
-
-	return result;
-}
 
 CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
@@ -136,7 +81,11 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			uint32_t downAllocations = 0u;
 			for (uint32_t i=0u; i<propertiesThisPass; i++)
 			{
-				if (localRequests[i].isDownload())
+				const auto& request = localRequests[i];
+				if (request.device2device)
+					continue;
+
+				if (request.isDownload())
 					downAllocations++;
 				else
 					upAllocations++;
@@ -164,12 +113,13 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					const auto propSize = request.pool->getPropertySize(request.propertyID);
 					const auto elementsByteSize = request.addresses.size()*propSize;
 					maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
-
-					if (request.isDownload())
-						*(downSizesIt++) = elementsByteSize;
-					else
-						*(upSizesIt++) = elementsByteSize;
-
+					if (!request.device2device)
+					{
+						if (request.isDownload())
+							*(downSizesIt++) = elementsByteSize;
+						else
+							*(upSizesIt++) = elementsByteSize;
+					}
 					m_tmpAddressRanges[i].source = request.addresses;
 					m_tmpAddressRanges[i].destOff = 0u;
 				}
@@ -268,20 +218,21 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				// upload
 				auto flushRangesIt = flushRanges+1u;
 				auto upAddrIt = m_tmpAddresses+1u;
+				uint32_t* upSizesIt = upSizes;
 				for (uint32_t i=0u; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
-					if (request.isDownload())
+					if (request.device2device || request.isDownload())
 						continue;
 
 					const auto addr = *(upAddrIt++);
 				
 					*flushRangesIt = flushRanges[0];
-					(flushRangesIt++)->range = {addr,upSizes[i]};
+					(flushRangesIt++)->range = {addr,*(upSizesIt++)};
 
 					assert(addr!=invalid_address);
 					const size_t propSize = request.pool->getPropertySize(request.propertyID);
-					memcpy(upBuffPtr+addr,request.data,request.addresses.size()*propSize);
+					memcpy(upBuffPtr+addr,request.source,request.addresses.size()*propSize);
 				}
 
 				// flush if needed
@@ -379,10 +330,10 @@ bool CPropertyPoolHandler::download_future_t::wait()
 	return result==IGPUFence::ES_SUCCESS;
 }
 
-const void* CPropertyPoolHandler::download_future_t::getData(const uint32_t downRequestIndex)
+const void* CPropertyPoolHandler::download_future_t::getData(const uint32_t hostDownRequestIndex)
 {
-	if (downRequestIndex<m_allocCount)
-		return reinterpret_cast<uint8_t*>(m_downBuff->getBufferPointer())+m_addresses[downRequestIndex];
+	if (hostDownRequestIndex<m_allocCount)
+		return reinterpret_cast<uint8_t*>(m_downBuff->getBufferPointer())+m_addresses[hostDownRequestIndex];
 	return nullptr;
 }
 
@@ -411,7 +362,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	infos[0].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
 	infos[0].buffer = { *(uploadAddresses++),firstSSBOSize };
 	auto* inDescInfo = infos+1;
-	auto* outDescInfo = infos+1+maxPropertiesPerPass;
+	auto* outDescInfo = infos+1+propertyCount;
 	for (uint32_t i=0u; i<propertyCount; i++)
 	{
 		const auto& request = requests[i];
@@ -425,28 +376,33 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 			inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
 			inDescInfo[i].buffer = {propMemBlock.offset,propMemBlock.size};
 
-			outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
-			outDescInfo[i].buffer = { *(downloadAddresses++),transferPropertySize };
+			if (request.device2device)
+			{
+				outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(request.buffer);
+				outDescInfo[i].buffer = { request.offset,transferPropertySize };
+			}
+			else
+			{
+				outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
+				outDescInfo[i].buffer = { *(downloadAddresses++),transferPropertySize };
+			}
 		}
 		else
 		{
-			inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-			inDescInfo[i].buffer = { *(uploadAddresses++),transferPropertySize };
+			if (request.device2device)
+			{
+				inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(request.buffer);
+				inDescInfo[i].buffer = { request.offset,transferPropertySize };
+			}
+			else
+			{
+				inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+				inDescInfo[i].buffer = { *(uploadAddresses++),transferPropertySize };
+			}
 					
 			outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
 			outDescInfo[i].buffer = {propMemBlock.offset,propMemBlock.size};
 		}
-	}
-	{
-		auto assignBuf = [](auto& info, auto streamBuff) -> void
-		{
-			info.desc = core::smart_refctd_ptr<IGPUBuffer>(streamBuff);
-			info.buffer = {0u,streamBuff->getSize()};
-		};
-		for (auto i=propertyCount; i<maxPropertiesPerPass; i++)
-			assignBuf(inDescInfo[i],upBuff);
-		for (auto i=propertyCount; i<maxPropertiesPerPass; i++)
-			assignBuf(outDescInfo[i],downBuff);
 	}
 	IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
 	for (auto i=0u; i<3u; i++)
@@ -454,7 +410,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 		writes[i].dstSet = set;
 		writes[i].binding = i;
 		writes[i].arrayElement = 0u;
-		writes[i].count = i ? maxPropertiesPerPass:1u;
+		writes[i].count = i ? propertyCount:1u;
 		writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 		writes[i].info = i ? (writes[i-1u].info+writes[i-1u].count):infos;
 	}

@@ -41,7 +41,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         //
 		inline const IGPUDescriptorSetLayout* getCanonicalLayout() const { return m_dsCache->getCanonicalLayout(); }
 		
-		//
+		// This class only deals with the completion of Property Pool to Host Memory transfer requests.
+		// For Pool to Device Memory you need to use Events/Sempahores and Memory Dependencies in
+		// the commandbuffer given as the argument to `transferProperties` and/or its execution submission.
 		class download_future_t : public core::Uncopyable
 		{
 				friend class CPropertyPoolHandler;
@@ -100,11 +102,57 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 				bool wait();
 
-				// downRequestIndex is an index into packed list of download only requests.
-				// If you had transfer requests [u,u,d,u,d,d] then `downRequestIndex=1` maps to the 5th request
-				const void* getData(const uint32_t downRequestIndex);
+				// downRequestIndex is an index into packed list of download-to-host only requests.
+				// If you had transfer requests [upHost,upDevice,dDevice,uHost,dHost,dHost],
+				// then `hostDownRequestIndex=1` maps to the 6th request
+				const void* getData(const uint32_t hostDownRequestIndex);
 		};
 
+        //
+		struct TransferRequest
+		{
+			TransferRequest() : pool(nullptr), addresses{nullptr,nullptr}, propertyID(0xdeadbeefu), download(false)
+			{
+				device2device = 0u;
+				source = nullptr;
+			}
+			~TransferRequest() {}
+
+			inline bool isDownload() const
+			{
+				if (download)
+				{
+					// cpu source shouldn't be set if not doing a gpu side transfer
+					assert(device2device || !source);
+					return true;
+				}
+				// cpu source should be set if not doing a gpu side transfer
+				assert(device2device || source);
+				return false;
+			}
+
+			const IPropertyPool* pool;
+			core::SRange<const uint32_t> addresses;
+			union
+			{
+				// device
+				struct
+				{
+					IGPUBuffer* buffer; // must be null for a host transfer
+					uint64_t offset;
+				};
+				// host
+				struct
+				{
+					uint64_t device2device;
+					const void* source;
+				};
+			};
+			uint32_t propertyID;
+			bool download;
+		};
+
+		//
 		struct transfer_result_t
 		{
 			transfer_result_t(download_future_t&& _download, bool _transferSuccess) : download(std::move(_download)), transferSuccess(_transferSuccess) {}
@@ -120,41 +168,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			bool transferSuccess;
 		};
 
-
-		// allocate and upload properties, indices need to be pre-initialized to `IPropertyPool::invalid`
-		struct AllocationRequest
-		{
-			AllocationRequest() : pool(nullptr), outIndices{nullptr,nullptr}, data(nullptr) {}
-			AllocationRequest(IPropertyPool* _pool, core::SRange<uint32_t> _outIndices, const void* const* _data) : pool(_pool), outIndices(_outIndices), data(_data) {}
-
-			IPropertyPool* pool;
-			core::SRange<uint32_t> outIndices;
-			const void* const* data; 
-		};
-
-		// returns false if an allocation or part of a transfer has failed
-		// while its possible to detect which allocation has failed, its not possible to know exactly what transfer failed
-		transfer_result_t addProperties(
-			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
-			IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
-		);
-
-
-        //
-		struct TransferRequest
-		{
-			TransferRequest() : pool(nullptr), addresses{nullptr,nullptr}, data(nullptr), propertyID(0xdeadbeefu) {}
-
-			inline bool isDownload() const {return !data;}
-
-			const IPropertyPool* pool;
-			core::SRange<const uint32_t> addresses;
-			const void* data;
-			uint32_t propertyID;
-		};
-
-		// Fence must be not pending yet
+		// Fence must be not pending yet, `cmdbuf` must be already in recording state.
 		[[nodiscard]] transfer_result_t transferProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 			IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,system::logger_opt_ptr logger,
