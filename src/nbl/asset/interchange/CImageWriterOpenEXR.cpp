@@ -184,10 +184,12 @@ namespace asset
 			);
 		}
 
-		IMF::OStream* nblOStream = _NBL_NEW(impl::nblOStream, _file); // TODO: THIS NEEDS TESTING
-		OutputFile file(*nblOStream, header);
-		file.setFrameBuffer(frameBuffer);
-		file.writePixels(height);
+		IMF::OStream* nblOStream = _NBL_NEW(impl::nblOStream, _file);
+		{ // brackets are needed because of OutputFile's destructor
+			OutputFile file(*nblOStream, header);
+			file.setFrameBuffer(frameBuffer);
+			file.writePixels(height);
+		}
 
 		for (auto channelPixelsPtr : pixelsArrayIlm)
 			_NBL_DELETE_ARRAY(channelPixelsPtr, width * height);

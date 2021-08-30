@@ -331,8 +331,6 @@ namespace nbl
 				return {};
 			}
 
-			_NBL_DELETE(nblIStream);
-
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
 			const auto channelsData = getChannels(file);
 			auto meta = core::make_smart_refctd_ptr<COpenEXRMetadata>(channelsData.size());
@@ -404,6 +402,7 @@ namespace nbl
 				}
 			}	
 
+			_NBL_DELETE(nblIStream);
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
