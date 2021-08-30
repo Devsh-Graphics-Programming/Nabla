@@ -24,7 +24,6 @@ SOFTWARE.
 
 #include "nbl/asset/IAssetManager.h"
 
-
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
@@ -73,11 +72,11 @@ namespace nbl
 
 					virtual bool read(char c[/*n*/], int n) override
 					{
+						system::future<size_t> future;
 						nblFile->read(future, c, fileOffset, n);
-						{
-							const auto bytesRead = future.get();
-							fileOffset += bytesRead;
-						}
+						const auto bytesRead = future.get();
+						fileOffset += bytesRead;
+						
 						return true;
 					}
 
@@ -129,7 +128,6 @@ namespace nbl
 						return filename.string() + extension.string();
 					}
 
-					system::future<size_t> future;
 					system::IFile* nblFile;
 					size_t fileOffset = {};
 			};
@@ -333,8 +331,6 @@ namespace nbl
 				return {};
 			}
 
-			_NBL_DELETE(nblIStream);
-
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
 			const auto channelsData = getChannels(file);
 			auto meta = core::make_smart_refctd_ptr<COpenEXRMetadata>(channelsData.size());
@@ -406,6 +402,7 @@ namespace nbl
 				}
 			}	
 
+			_NBL_DELETE(nblIStream);
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 

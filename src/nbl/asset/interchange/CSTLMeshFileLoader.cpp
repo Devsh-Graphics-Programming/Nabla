@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifdef _NBL_COMPILE_WITH_STL_LOADER_
-
 #include "CSTLMeshFileLoader.h"
+
+#ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
@@ -169,8 +169,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (_file->getSize() < 80)
 			return {};
 
-		constexpr size_t headerOffset = 80; //! skip header
-		context.fileOffset += headerOffset;
+		constexpr size_t headerOffset = 80; 
+		context.fileOffset = headerOffset; //! skip header
 
 		uint32_t vertexCount = 0u;
 
@@ -335,8 +335,9 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 		uint32_t triangleCount;
 
 		constexpr size_t readOffset = 80;
-		_file->read(future, &triangleCount, readOffset, sizeof(triangleCount));
-		future.get();
+		system::future<size_t> future2;
+		_file->read(future2, &triangleCount, readOffset, sizeof(triangleCount));
+		future2.get();
 
 		constexpr size_t STL_TRI_SZ = 50u;
 		return _file->getSize() == (STL_TRI_SZ * triangleCount + 84u);
@@ -346,24 +347,28 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 //! Read 3d vector of floats
 void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const
 {
-	system::future<size_t> future;
-
 	if (binary)
 	{
-		context->inner.mainFile->read(future, &vec.X, context->fileOffset, sizeof(vec.X));
 		{
+			system::future<size_t> future;
+			context->inner.mainFile->read(future, &vec.X, context->fileOffset, 4);
+
+			const auto bytesRead = future.get();
+			context->fileOffset += bytesRead;
+		}
+		
+		{
+			system::future<size_t> future;
+			context->inner.mainFile->read(future, &vec.Y, context->fileOffset, 4);
+			
 			const auto bytesRead = future.get();
 			context->fileOffset += bytesRead;
 		}
 
-		context->inner.mainFile->read(future, &vec.Y, context->fileOffset, sizeof(vec.Y));
 		{
-			const auto bytesRead = future.get();
-			context->fileOffset += bytesRead;
-		}
-
-		context->inner.mainFile->read(future, &vec.Z, context->fileOffset, sizeof(vec.Z));
-		{
+			system::future<size_t> future;
+			context->inner.mainFile->read(future, &vec.Z, context->fileOffset, 4);
+			
 			const auto bytesRead = future.get();
 			context->fileOffset += bytesRead;
 		}
@@ -388,11 +393,11 @@ const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::stri
 {
 	goNextWord(context);
 	char c;
+	token = "";
 
-	system::future<size_t> future;
-
-	while (context->fileOffset < context->inner.mainFile->getSize())
+	while (context->fileOffset != context->inner.mainFile->getSize())
 	{
+		system::future<size_t> future;
 		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
 		const auto bytesRead = future.get();
 		context->fileOffset += bytesRead;
@@ -400,7 +405,7 @@ const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::stri
 		// found it, so leave
 		if (core::isspace(c))
 			break;
-		token.append(&c);
+		token += c;
 	}
 	return token;
 }
@@ -409,16 +414,19 @@ const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::stri
 void CSTLMeshFileLoader::goNextWord(SContext* context) const
 {
 	uint8_t c;
-	while (context->fileOffset < context->inner.mainFile->getSize()) // TODO: check it
+	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
 		system::future<size_t> future;
 		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
 		const auto bytesRead = future.get();
+		context->fileOffset += bytesRead;
 
-		if (core::isspace(c))
-			context->fileOffset += bytesRead;
-		else
-			break; // found it, so leave
+		// found it, so leave
+		if (!core::isspace(c))
+		{
+			context->fileOffset -= bytesRead;
+			break;
+		}
 	}
 }
 
@@ -427,11 +435,14 @@ void CSTLMeshFileLoader::goNextLine(SContext* context) const
 {
 	uint8_t c;
 	// look for newline characters
-	while (context->fileOffset < context->inner.mainFile->getSize()) // TODO: check it
+	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
 		system::future<size_t> future;
 		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
-		future.get();
+		{
+			const auto bytesRead = future.get();
+			context->fileOffset += bytesRead;
+		}
 
 		// found it, so leave
 		if (c == '\n' || c == '\r')

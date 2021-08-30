@@ -153,6 +153,9 @@ int main()
 	constexpr uint32_t NumSolarSystemObjects = 11;
 	constexpr uint32_t NumInstances = NumSolarSystemObjects;
 	
+	// GPU data pool
+	//auto propertyPool = video::CPropertyPool<core::allocator,InstanceData,SolarSystemObject>::create(device.get(),blocks,NumSolarSystemObjects);
+
 	// SolarSystemObject and InstanceData have 1-to-1 relationship
 	core::vector<InstanceData> instancesData;
 	core::vector<SolarSystemObject> solarSystemObjectsData;

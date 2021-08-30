@@ -15,6 +15,8 @@ namespace nbl::video
 class ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
     public:
+        using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;
+
         struct SCreationParams
         {
             core::smart_refctd_ptr<ISurface> surface;
@@ -26,12 +28,13 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             uint32_t arrayLayers = 1u;
             core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
 
-            //VkImageUsageFlags imageUsage;
-            //VkSharingMode imageSharingMode;
-            //VkSurfaceTransformFlagBitsKHR preTransform;
+            asset::IImage::E_USAGE_FLAGS imageUsage;
+            asset::E_SHARING_MODE imageSharingMode;
+            // ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
+
             //VkCompositeAlphaFlagBitsKHR compositeAlpha;
             //VkBool32 clipped;
-            //VkSwapchainKHR oldSwapchain;
+            core::smart_refctd_ptr<ISwapchain> oldSwapchain;
         };
 
         enum E_ACQUIRE_IMAGE_RESULT
@@ -51,13 +54,18 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
 
         virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
 
+        // Only present for backwards compatibility with OpenGL backend
         ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), m_params(std::move(params)) {}
+
+        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params,
+            images_array_t&& images)
+            : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))
+        {}
 
     protected:
         virtual ~ISwapchain() = default;
 
         SCreationParams m_params;
-        using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;
         images_array_t m_images;
 };
 

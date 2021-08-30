@@ -31,12 +31,16 @@ class CGLSLLoader final : public asset::IAssetLoader
 				system::future<size_t> future;
 				_file->read(future, tmp, readPos, sizeof tmp);
 				size_t count = future.get();
+				
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
 				readPos += count;
 				auto found = std::find(tmp,end,'#');
 				if (found==end || found==tmp)
+				{
+					readPos += sizeof tmp;
 					continue;
+				}
 				readPos += found - end;
 			}
 

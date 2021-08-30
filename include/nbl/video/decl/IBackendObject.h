@@ -22,9 +22,10 @@ class IBackendObject
 
         bool wasCreatedBy(const ILogicalDevice* device) const;
 
+        const ILogicalDevice* getOriginDevice() const;
+
     protected:
         virtual ~IBackendObject();
-        const ILogicalDevice* getOriginDevice() const;
 
     private:
         const core::smart_refctd_ptr<const ILogicalDevice> m_originDevice;

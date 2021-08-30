@@ -1,4 +1,5 @@
 #include "nbl/video/debug/COpenGLDebugCallback.h"
+#include "nbl/video/COpenGLFunctionTable.h"
 
 using namespace nbl;
 using namespace nbl::video;
@@ -24,11 +25,13 @@ void COpenGLDebugCallback::defaultCallback(GLenum _source, GLenum _type, GLuint 
     switch (_type)
     {
         case GL_DEBUG_TYPE_ERROR:
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: [[fallthrough]];
+            [[fallthrough]];
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
             level |= system::ILogger::ELL_ERROR;
             break;
         case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
-        case GL_DEBUG_TYPE_PORTABILITY: [[fallthrough]];
+            [[fallthrough]];
+        case GL_DEBUG_TYPE_PORTABILITY:
             level |= system::ILogger::ELL_WARNING;
             break;
         case GL_DEBUG_TYPE_PERFORMANCE:

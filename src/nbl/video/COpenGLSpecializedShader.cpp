@@ -16,7 +16,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 
-#include "spirv_cross/spirv_parser.hpp"
+#include "nbl_spirv_cross/spirv_parser.hpp"
 
 
 namespace nbl::video

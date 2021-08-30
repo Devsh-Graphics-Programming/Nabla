@@ -9,6 +9,9 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
 #include <type_traits>
 
 namespace nbl::asset
@@ -41,21 +44,6 @@ struct SViewport
     float x, y;
     float width, height;
     float minDepth, maxDepth;
-};
-struct VkOffset2D
-{
-    int32_t x;
-    int32_t y;
-};
-struct VkExtent2D
-{
-    uint32_t width;
-    uint32_t height;
-};
-struct VkRect2D
-{
-    VkOffset2D    offset;
-    VkExtent2D    extent;
 };
 
 struct SMemoryBarrier
@@ -149,7 +137,7 @@ public:
 
     enum E_LEVEL : uint32_t
     {
-        EL_PRIMARY,
+        EL_PRIMARY = 0u,
         EL_SECONDARY
     };
 

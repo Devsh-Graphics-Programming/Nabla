@@ -6,7 +6,7 @@
 #define __NBL_ASSET_C_SPV_UTILS_H_INCLUDED__
 
 #include "nbl/asset/ISpecializedShader.h"
-#include "spirv_cross/spirv_cross.hpp"
+#include "nbl_spirv_cross/spirv_cross.hpp"
 
 namespace nbl
 {
