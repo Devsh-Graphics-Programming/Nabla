@@ -130,7 +130,7 @@ private:
 	size_t m_readOffset = 0;
 	std::string m_password = ""; // TODO password
 public:
-	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, core::smart_refctd_ptr<ISystem>&& system, bool isGZip, system::logger_opt_smart_ptr&& logger = nullptr) :
+	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, core::smart_refctd_ptr<ISystem>&& system, bool isGZip, const std::string_view& password, system::logger_opt_smart_ptr&& logger = nullptr) :
 		IFileArchive(std::move(file), std::move(system), std::move(logger)), m_isGZip(isGZip)
 	{
 		if (m_file.get())
@@ -172,7 +172,7 @@ public:
 	}
 
 private:
-	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file) const override
+	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const override
 	{
 		core::smart_refctd_ptr<IFileArchive> archive = nullptr;
 		if (file.get())
@@ -185,7 +185,7 @@ private:
 			}
 			bool isGZip = (sig == 0x8b1f);
 
-			archive = core::make_smart_refctd_ptr<CFileArchiveZip>(std::move(file), core::smart_refctd_ptr<ISystem>(m_system), isGZip);
+			archive = core::make_smart_refctd_ptr<CFileArchiveZip>(std::move(file), core::smart_refctd_ptr<ISystem>(m_system), isGZip, password);
 		}
 		return archive;
 	}

@@ -127,16 +127,16 @@ public:
 	//! Creates an archive from the file
 	/** \param file File handle to use.
 	\return Pointer to newly created archive, or 0 upon error. */
-	core::smart_refctd_ptr<IFileArchive> createArchive(core::smart_refctd_ptr<IFile>&& file) const
+	core::smart_refctd_ptr<IFileArchive> createArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password = "") const
 	{
 		if (!(file->getFlags() & IFile::ECF_READ))
 			return nullptr;
 
-		return createArchive_impl(std::move(file));
+		return createArchive_impl(std::move(file), password);
 	}
 
 protected:
-	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<IFile>&& file) const = 0;
+	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password) const = 0;
 };
 
 

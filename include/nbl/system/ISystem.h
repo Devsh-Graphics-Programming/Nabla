@@ -315,7 +315,7 @@ public:
         auto loaders = m_loaders.perFileExt.findRange(ext);
         for (auto& loader : loaders)
         {
-            return loader.second->createArchive(std::move(file));
+            return loader.second->createArchive(std::move(file), password);
         }
         return nullptr;
     }
