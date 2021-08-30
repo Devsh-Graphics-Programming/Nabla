@@ -185,7 +185,7 @@ namespace asset
 		}
 
 		IMF::OStream* nblOStream = _NBL_NEW(impl::nblOStream, _file); // TODO: THIS NEEDS TESTING
-		OutputFile file(nblOStream, header);
+		OutputFile file(*nblOStream, header);
 		file.setFrameBuffer(frameBuffer);
 		file.writePixels(height);
 
