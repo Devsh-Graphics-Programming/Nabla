@@ -22,7 +22,7 @@ namespace nbl::system
 
         
         bool isPathAlias = !std::filesystem::exists(path);
-        while (!path.empty()) // going up the directory tree
+        while (!path.empty() && path.parent_path() != path) // going up the directory tree
         {
             system::path realPath = path;
             if (isPathAlias)
@@ -42,17 +42,7 @@ namespace nbl::system
                 auto files = archive.second->getArchivedFiles();
                 auto requiredFile = std::find_if(files.begin(), files.end(), [&relative](const IFileArchive::SFileListEntry& entry) { return entry.fullName == relative; });
                 if (requiredFile != files.end()) return archive.second->readFile({ relative, "" }); //TODO password
-                auto nestedArchivePath = relative.parent_path();
-                while (!nestedArchivePath.empty())
-                {
-                    auto arch = std::find_if(files.begin(), files.end(), [&nestedArchivePath](const IFileArchive::SFileListEntry& entry) { return entry.fullName == nestedArchivePath; });
-                    if (arch != files.end())
-                    {
-                        // TODO: still not sure how to cope with nested archives
-                        assert(false);
-                    }
-                    nestedArchivePath = nestedArchivePath.parent_path();
-                }
+                else return nullptr;
             }
             path = path.parent_path();
         }

@@ -244,7 +244,7 @@ int main(int argc, char** argv)
 	auto* cursorControl = window->getCursorControl();
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-	system->createFile(future, "testFile.txt", nbl::system::IFile::ECF_READ_WRITE | IFile::ECF_MAPPABLE);
+	system->createFile(future, CWD.generic_string() + "testFile.txt", nbl::system::IFile::ECF_READ_WRITE | IFile::ECF_MAPPABLE);
 	auto file = future.get();
 	std::string fileData = "Test file data!";
 
@@ -302,15 +302,13 @@ int main(int argc, char** argv)
 		}
 	};
 	
-	auto arch = system->createFileArchive("test.zip");
-	auto arch1 = system->createFileArchive("file.zip");
+	auto arch = system->createFileArchive(CWD.generic_string() + "test.zip");
 	system->mount(std::move(arch), "arch");
+	auto arch1 = system->createFileArchive("arch/test/test1.zip");
 	system->mount(std::move(arch1), "arch1");
 	{
 		system::future<smart_refctd_ptr<IFile>> fut;
-		//system->createFile(fut, "arch/test/test1.zip/test1/file.txt", IFile::ECF_READ);
-		//system->createFile(fut, "arch/test/test1.zip", IFile::ECF_READ);
-		system->createFile(fut, "arch1/file.txt", IFile::ECF_READ);
+		system->createFile(fut, "arch1/test1/file.txt", IFile::ECF_READ);
 		auto file = fut.get();
 		
 		std::string str(10, '\0');

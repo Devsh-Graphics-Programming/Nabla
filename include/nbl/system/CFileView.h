@@ -38,7 +38,7 @@ protected:
 		{
 			return 0u;
 		}
-		memcpy(buffer, m_buffer, sizeToRead);
+		memcpy(buffer, m_buffer + offset, sizeToRead);
 		return sizeToRead;
 	}
 
@@ -85,7 +85,7 @@ protected:
 		{
 			return 0u;
 		}
-		memcpy(buffer, m_buffer, sizeToRead);
+		memcpy(buffer, m_buffer + offset, sizeToRead);
 		return sizeToRead;
 	}
 
