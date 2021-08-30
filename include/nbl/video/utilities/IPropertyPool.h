@@ -79,8 +79,9 @@ class IPropertyPool : public core::IReferenceCounted
         }
 
         // WARNING: For contiguous pools, YOU NEED TO ISSUE A TransferRequest WITH `tailMoveDest` BEFORE YOU ALLOCATE OR FREE ANY MORE PROPS!
-        // This function does not move the properties' contents, for contiguous pools it means you WILL loose the tail's data otherwise!
-        inline uint32_t freeProperties(uint32_t* indicesBegin, uint32_t* indicesEnd, uint32_t* &tailMoveDest)
+        // This function does not move the properties' contents, for contiguous pools it means you WILL loose the tail's data if you dont do this!
+        // `scratch` needs to be at least as long as `indicesEnd-indicesBegin`
+        [[nodiscard]] inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* tailMoveDestAddr, uint32_t* scratch)
         {
             const uint32_t oldHead = getAllocated();
             constexpr uint32_t unit = 1u;
@@ -92,20 +93,22 @@ class IPropertyPool : public core::IReferenceCounted
             }
             const uint32_t head = getAllocated();
             const uint32_t removedCount = oldHead-head;
-            if (isContiguous())
+            // no point trying to move anything if we've freed nothing or everything
+            if (isContiguous() && head!=oldHead && head!=0u)
             {
-                if (!tailMoveDest)
+                if (!tailMoveDestAddr)
                 {
                     assert(false);
                     __debugbreak();
                     exit(0xdeadbeefu);
                 }
-                auto gapIt = indicesBegin; // reuse as temporary storage
+                auto gapIt = scratch;
                 for (auto it=indicesBegin; it!=indicesEnd; it++)
                 {
-                    if (*it==invalid)
+                    const auto index = *it;
+                    if (index==invalid)
                         continue;
-                    auto& addr = m_indexToAddr[*it];
+                    auto& addr = m_indexToAddr[index];
                     if (addr<head) // overwrite if address in live range
                         *(gapIt++) = addr;
                     else // mark as dead if outside
@@ -113,29 +116,29 @@ class IPropertyPool : public core::IReferenceCounted
                     // index doesn't map to any address anymore
                     addr = invalid;
                 }
-                gapIt = indicesBegin; // rewind the list of gaps
-                for (auto a=oldHead; a<head; a++)
+                gapIt = scratch; // rewind
+                for (auto a=head; a<oldHead; a++,tailMoveDestAddr++)
                 {
                     auto& index = m_addrToIndex[a];
-                    *(tailMoveDest++) = index; // think about whether to add a direct address feeding path to TransferRequest
+                    // marked as dead by previous pass
                     if (index==invalid)
+                    {
+                        *tailMoveDestAddr = invalid;
                         continue;
+                    }
                     // if not dead we need to move
-                    m_addrToIndex[*gapIt] = index;
-                    m_indexToAddr[index] = *(gapIt++);
+                    const auto freeAddr = *(gapIt++);
+                    *tailMoveDestAddr = freeAddr;
+                    m_addrToIndex[freeAddr] = index;
+                    m_indexToAddr[index] = freeAddr;
                     index = invalid;
                 }
-                // then we just do equivalent of
-                //for (auto i=0u; i<(srcIt-src); i++)
-                    //data[dst[i]] = data[src[i]];
             }
-            std::fill(indicesBegin,indicesEnd,invalid); // only in debug, or?
             return removedCount;
         }
         inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
         {
-            uint32_t* dummy = nullptr;
-            return freeProperties(const_cast<uint32_t*>(indicesBegin),const_cast<uint32_t*>(indicesEnd),dummy);
+            return freeProperties(indicesBegin,indicesEnd,nullptr,nullptr);
         }
 
         //

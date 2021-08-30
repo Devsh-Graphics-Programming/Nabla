@@ -175,6 +175,25 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
 		);
 
+		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
+		static inline bool freeProperties(IPropertyPool* pool, TransferRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* tailMoveDestAddr, uint32_t* scratch)
+		{
+			const auto oldHead = pool->getAllocated();
+			const auto deletedCount = pool->freeProperties(indicesBegin,indicesEnd,tailMoveDestAddr,scratch);
+			if (!pool->isContiguous() || deletedCount==0u || pool->getAllocated()==0u)
+				return false;
+			for (auto i=0u; i<pool->getPropertyCount(); i++)
+			{
+				requests[i].pool = pool;
+				requests[i].addresses = {tailMoveDestAddr,tailMoveDestAddr+deletedCount};
+				requests[i].buffer = pool->getPropertyMemoryBlock(i).buffer.get();
+				requests[i].offset = pool->getPropertyMemoryBlock(i).offset+oldHead-deletedCount;
+				requests[i].propertyID = i;
+				requests[i].download = false;
+			}
+			return true;
+		}
+
     protected:
 		~CPropertyPoolHandler()
 		{

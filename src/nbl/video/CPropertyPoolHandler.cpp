@@ -252,7 +252,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			}
 
 			// update desc sets
-			auto setIx = m_dsCache->acquireSet(this,upBuff->getBuffer(),downBuff->getBuffer(),localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
+			auto setIx = m_dsCache->acquireSet(this,upBuff->getBuffer(),downBuff ? downBuff->getBuffer():nullptr,localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
 			if (!(retval=setIx!=IDescriptorSetCache::invalid_index))
 			{
 				logger.log("CPropertyPoolHandler: Failed to acquire descriptor set!",system::ILogger::ELL_ERROR);

@@ -25,35 +25,40 @@ class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 		btTransform m_correctionMatrix;
 
 		inline CInstancedMotionState() {}
-		inline CInstancedMotionState(uint32_t objectID, uint32_t instanceID, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
-			: ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat)), m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)), m_objectID(objectID), m_instanceID(instanceID)
+		inline CInstancedMotionState(const void* instancePool, uint32_t objectID, uint32_t instanceID, core::matrix3x4SIMD const& start_mat, core::matrix3x4SIMD const& correction_mat)
+			: ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat)), m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)), m_instancePool(instancePool), m_objectID(objectID), m_instanceID(instanceID)
 		{
-			m_cachedMat = m_startWorldTrans*m_correctionMatrix.inverse();
+			m_cachedMat = m_startWorldTrans * m_correctionMatrix.inverse();
 		}
 
 		inline ~CInstancedMotionState()
 		{
 		}
 
-		inline virtual void getWorldTransform(btTransform &worldTrans) const override
+		inline virtual void getWorldTransform(btTransform& worldTrans) const override
 		{
 			worldTrans = m_cachedMat;
 		}
 
-		inline virtual void setWorldTransform(const btTransform &worldTrans) override
+		inline virtual void setWorldTransform(const btTransform& worldTrans) override
 		{
 			// TODO: protect agains simulation "substeps" somehow (redundant update sets)
 			m_cachedMat = worldTrans;
 
 			s_updateAddresses.push_back(m_objectID);
-			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat*m_correctionMatrix));
+			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat * m_correctionMatrix));
 		}
+
+		inline auto getInstancePool() const {return m_instancePool;}
+		inline auto getObjectID() const {return m_objectID;}
+		inline auto getInstanceID() const {return m_instanceID;}
 
 		static core::vector<uint32_t> s_updateAddresses;
 		static core::vector<core::matrix3x4SIMD> s_updateData;
 	protected:
 		btTransform m_cachedMat;
 		uint32_t m_objectID,m_instanceID;
+		const void* m_instancePool;
 };
 core::vector<uint32_t> CInstancedMotionState::s_updateAddresses;
 core::vector<core::matrix3x4SIMD> CInstancedMotionState::s_updateData;
@@ -109,7 +114,7 @@ int main(int argc, char** argv)
 		baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
 
 		basePlateRigidBodyData.mass = 0.0f;
-		basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
+		basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(64,1,64));
 		basePlateRigidBodyData.trans = baseplateMat;
 
 		basePlateBody = world->createRigidBody(basePlateRigidBodyData);
@@ -202,7 +207,7 @@ int main(int argc, char** argv)
 	transfers[2].propertyID = 0;
 	// add a shape
 	auto addShapes = [&](
-		core::smart_refctd_ptr<video::IGPUFence>&& fence,
+		video::IGPUFence* fence,
 		video::IGPUCommandBuffer* cmdbuf,
 		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData,
 		instance_redirect_property_pool_t* pool, const uint32_t count,
@@ -229,40 +234,72 @@ int main(int argc, char** argv)
 			// TODO: seems like `rigidBodyData.trans` is redundant to some matrices in the MotionStateBase
 			const auto objectID = scratchObjectIDs[i];
 			auto& body = bodies[objectID] = world->createRigidBody(rigidBodyData);
-			world->bindRigidBody<CInstancedMotionState>(body,objectID,scratchInstanceRedirects[i],rigidBodyData.trans,correction_mat);
+			world->bindRigidBody<CInstancedMotionState>(body,pool,objectID,scratchInstanceRedirects[i],rigidBodyData.trans,correction_mat);
 		}
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
 			transfers[i].pool = objectPool.get();
 			transfers[i].addresses = {scratchObjectIDs.data(),scratchObjectIDs.data()+count};
+			transfers[i].device2device = false;
+			transfers[i].download = false;
 		}
-		transfers[0].data = initialColor.data();
-		transfers[1].data = instanceTransforms.data();
+		transfers[0].source = initialColor.data();
+		transfers[1].source = instanceTransforms.data();
 		transfers[2].pool = pool;
 		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
 		transfers[2].addresses = {scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count};
-		transfers[2].data = scratchObjectIDs.data();
+		transfers[2].source = scratchObjectIDs.data();
 		// set up the transfer/update
 		propertyPoolHandler->transferProperties(
 			utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),
-			cmdbuf,fence.get(),transfers.data(),transfers.data()+transfers.size(),logger.get()
+			cmdbuf,fence,transfers.data(),transfers.data()+transfers.size(),logger.get()
 		);
 	};
-	auto addCubes = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCubes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,cubeRigidBodyData,cubes.get(),count);
 	};
-	auto addCylinders = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCylinders = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,cylinderRigidBodyData,cylinders.get(),count,core::matrix3x4SIMD().setRotation(core::quaternion(core::PI<float>()/2.f,0.f,0.f)));
 	};
-	auto addSpheres = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addSpheres = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,sphereRigidBodyData,spheres.get(),count);
 	};
-	auto addCones = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCones = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,coneRigidBodyData,cones.get(),count,core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f,-0.5f,0.f)));
+	};
+	//
+	auto deleteShapes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, uint32_t* objectsToDelete, uint32_t* instanceRedirectsToDelete, const uint32_t count)
+	{
+		objectPool->freeProperties(objectsToDelete,objectsToDelete+count);
+		// a bit of reuse
+		uint32_t* addressScratch = instanceRedirectsToDelete;
+		uint32_t* scratch = objectsToDelete;
+		const bool needTransfer = video::CPropertyPoolHandler::freeProperties(pool,transfers.data()+2u,instanceRedirectsToDelete,instanceRedirectsToDelete+count,addressScratch,scratch);
+		if (needTransfer)
+			propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,cmdbuf,fence,transfers.data()+2,transfers.data()+3,logger.get());
+	};
+	auto deleteBasedOnPhysicsPredicate = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, auto pred)
+	{
+		core::vector<uint32_t> objects,instances;
+		for (auto& body : bodies)
+		{
+			if (!body)
+				continue;
+			auto* motionState = static_cast<CInstancedMotionState*>(body->getMotionState());
+			if (motionState->getInstancePool()!=pool || !pred(motionState))
+				continue;
+
+			objects.emplace_back(motionState->getObjectID());
+			instances.emplace_back(motionState->getInstanceID());
+			world->unbindRigidBody(body);
+			world->deleteRigidBody(body);
+			body = nullptr;
+		}
+		deleteShapes(fence,cmdbuf,pool,objects.data(),instances.data(),objects.size());
 	};
 
 	// setup scene
@@ -271,10 +308,10 @@ int main(int argc, char** argv)
 		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
 
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		addCubes(core::smart_refctd_ptr(fence),cmdbuf,20u);
-		addCylinders(core::smart_refctd_ptr(fence),cmdbuf,20u);
-		addSpheres(core::smart_refctd_ptr(fence),cmdbuf,20u);
-		addCones(core::smart_refctd_ptr(fence),cmdbuf,10u);
+		//addCubes(fence.get(),cmdbuf,20u);
+		//addCylinders(fence.get(),cmdbuf,20u);
+		addSpheres(fence.get(),cmdbuf,20u);
+		//addCones(fence.get(),cmdbuf,10u);
 		cmdbuf->end();
 		
 		video::IGPUQueue::SSubmitInfo submit;
@@ -495,7 +532,7 @@ int main(int argc, char** argv)
 	double dt = 0;
 
 	// Camera 
-	core::vectorSIMDf cameraPosition(0, 5, -10);
+	core::vectorSIMDf cameraPosition(0, 10, -150);
 	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
 	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), proj);
 	
@@ -571,16 +608,50 @@ int main(int argc, char** argv)
 		{
 			// Update Physics (TODO: fixed timestep)
 			world->getWorld()->stepSimulation(dt);
+
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.pool = objectPool.get();
 			request.addresses = {CInstancedMotionState::s_updateAddresses.data(),CInstancedMotionState::s_updateAddresses.data()+CInstancedMotionState::s_updateAddresses.size()};
+			request.device2device = false;
+			request.source = CInstancedMotionState::s_updateData.data();
 			request.propertyID = TransformPropertyID;
-			request.data = CInstancedMotionState::s_updateData.data();
+			request.download = false;
 			// TODO: why does the very first update set matrices to identity?
 			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
 			assert(result.transferSuccess);
+			// ensure dependency from transfer to any following transfers
+			{
+				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				memBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				cb->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
+					1u,&memBarrier,0u,nullptr,0u,nullptr
+				);
+			}
 			CInstancedMotionState::s_updateAddresses.clear();
 			CInstancedMotionState::s_updateData.clear();
+
+			auto falledFromMap = [](CInstancedMotionState* motionState) -> bool
+			{
+				btTransform tform;
+				motionState->getWorldTransform(tform);
+				return tform.getOrigin().getY()<-128.f;
+			};
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cones.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cubes.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),spheres.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cylinders.get(),falledFromMap);
+			// ensure dependency from transfer to any following transfers and vertex shaders
+			{
+				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				memBarrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
+				cb->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
+					1u,&memBarrier,0u,nullptr,0u,nullptr
+				);
+			}			
 		}
 		// renderpass
 		{
@@ -630,12 +701,11 @@ int main(int argc, char** argv)
 	world->deleteRigidBody(basePlateBody);
 	world->deletebtObject(basePlateRigidBodyData.shape);
 	
-	for (auto body : bodies)
-	if (body)
-	{
-		world->unbindRigidBody(body);
-		world->deleteRigidBody(body);
-	}
+	auto alwaysTrue = [](auto dummy) -> bool {return true;};
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cylinders.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,spheres.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cones.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cubes.get(),alwaysTrue);
 
 	world->deletebtObject(cubeRigidBodyData.shape);
 	world->deletebtObject(cylinderRigidBodyData.shape);
