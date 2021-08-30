@@ -385,8 +385,6 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
             context.fileOffset += bytesWritten;
         }
     }
-    mbCopy->drop();
-    mbCopy = nullptr;
 
     const char* listSize = "3 ";
     void* indices = _indices;

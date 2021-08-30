@@ -107,7 +107,7 @@ int main()
         return std::make_pair(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0]), meshes_bundle.getMetadata());
     };
 
-	auto cpuBundlePLYData = loadAndGetCpuMesh("../../media/ply/Industrial_compressor.ply");
+	auto cpuBundlePLYData = loadAndGetCpuMesh("../../media/ply/Spanner-ply.ply");
 	auto cpuBundleSTLData = loadAndGetCpuMesh("../../media/extrusionLogo_TEST_fixed.stl");
 
     core::smart_refctd_ptr<asset::ICPUMesh> cpuMeshPly = cpuBundlePLYData.first;
@@ -118,14 +118,14 @@ int main()
 
 	#ifdef WRITE_ASSETS
 	{
-		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshStl.get());
-		bool status = assetManager->writeAsset("extrusionLogo_TEST_fixedTest.stl", wp);
+		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshPly.get());
+		bool status = assetManager->writeAsset("Spanner_ply.ply", wp);
 		assert(status);
 	}
 
 	{
-		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshPly.get());
-		bool status = assetManager->writeAsset("IndustrialWriteTest.ply", wp);
+		asset::IAssetWriter::SAssetWriteParams wp(cpuMeshStl.get());
+		bool status = assetManager->writeAsset("extrusionLogo_TEST_fixedTest.stl", wp);
 		assert(status);
 	}
 	#endif // WRITE_ASSETS
