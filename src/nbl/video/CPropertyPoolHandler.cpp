@@ -400,7 +400,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 			else
 			{
 				outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
-				outDescInfo[i].buffer = { *(downloadAddresses++),transferPropertySize };
+				outDescInfo[i].buffer = { *(downloadAddresses++),video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer };
 			}
 		}
 		else
@@ -408,7 +408,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 			if (request.device2device)
 			{
 				inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(request.buffer);
-				inDescInfo[i].buffer = { request.offset,transferPropertySize };
+				inDescInfo[i].buffer = { request.offset,video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer };
 			}
 			else
 			{

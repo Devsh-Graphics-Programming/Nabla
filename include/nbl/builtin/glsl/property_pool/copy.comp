@@ -14,11 +14,11 @@ nbl_glsl_property_pool_transfer_t getTransferData(in uint propID)
     return nbl_glsl_property_pool_transfer_t(transferData[base+0u],transferData[base+1u],transferData[base+2u],transferData[base+3u]);
 }
 
-layout(set=0,binding=1) readonly restrict buffer InData
+layout(set=0,binding=1) readonly buffer InData
 {
     uint data[];
 } inBuff[_NBL_BUILTIN_MAX_PROPERTIES_PER_COPY_];
-layout(set=0,binding=2) writeonly restrict buffer OutData
+layout(set=0,binding=2) writeonly buffer OutData
 {
     uint data[];
 } outBuff[_NBL_BUILTIN_MAX_PROPERTIES_PER_COPY_];
