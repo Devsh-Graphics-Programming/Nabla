@@ -60,7 +60,6 @@ int main(int argc, char * argv[])
 		status = meta = image_bundle.getMetadata()->selfCast<const COpenEXRMetadata>();
 		assert(status);
 	}
-	
 
 	uint32_t i = 0u;
 	for (auto asset : contents)

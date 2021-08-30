@@ -47,10 +47,75 @@ namespace asset
 	using namespace IMF;
 	using namespace IMATH;
 
+	namespace impl
+	{
+		class nblOStream : public IMF::OStream
+		{
+			public:
+				nblOStream(system::IFile* _nblFile)
+					: IMF::OStream(getFileName(_nblFile).c_str()), nblFile(_nblFile) {}
+				virtual ~nblOStream() {}
+
+				//----------------------------------------------------------
+				// Write to the stream:
+				//
+				// write(c,n) takes n bytes from array c, and stores them
+				// in the stream.  If an I/O error occurs, write(c,n) throws
+				// an exception.
+				//----------------------------------------------------------
+
+				virtual void write(const char c[/*n*/], int n) override
+				{
+					system::future<size_t> future;
+					nblFile->write(future, c, fileOffset, n);
+					const auto bytesWritten = future.get();
+					fileOffset += bytesWritten;
+				}
+
+				//---------------------------------------------------------
+				// Get the current writing position, in bytes from the
+				// beginning of the file.  If the next call to write() will
+				// start writing at the beginning of the file, tellp()
+				// returns 0.
+				//---------------------------------------------------------
+
+				virtual IMF::Int64 tellp() override
+				{
+					return static_cast<IMF::Int64>(fileOffset);
+				}
+
+				//-------------------------------------------
+				// Set the current writing position.
+				// After calling seekp(i), tellp() returns i.
+				//-------------------------------------------
+
+				virtual void seekp(IMF::Int64 pos) override
+				{
+					fileOffset = static_cast<decltype(fileOffset)>(pos);
+				}
+
+				void resetFileOffset()
+				{
+					fileOffset = 0u;
+				}
+
+			private:
+				const std::string getFileName(system::IFile* _nblFile)
+				{
+					std::filesystem::path filename, extension;
+					core::splitFilename(_nblFile->getFileName(), nullptr, &filename, &extension);
+					return filename.string() + extension.string();
+				}
+
+				system::IFile* nblFile;
+				size_t fileOffset = {};
+		};
+	}
+
 	constexpr uint8_t availableChannels = 4;
 
 	template<typename ilmType>
-	bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, const char* fileName)
+	bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, system::IFile* _file)
 	{
 		const auto& creationParams = image->getCreationParameters();
 		auto getIlmType = [&creationParams]()
@@ -119,12 +184,14 @@ namespace asset
 			);
 		}
 
-		OutputFile file(fileName, header);
+		IMF::OStream* nblOStream = _NBL_NEW(impl::nblOStream, _file); // TODO: THIS NEEDS TESTING
+		OutputFile file(nblOStream, header);
 		file.setFrameBuffer(frameBuffer);
 		file.writePixels(height);
 
 		for (auto channelPixelsPtr : pixelsArrayIlm)
 			_NBL_DELETE_ARRAY(channelPixelsPtr, width * height);
+		_NBL_DELETE(nblOStream);
 
 		return true;
 	}
@@ -159,11 +226,11 @@ namespace asset
 		std::array<uint32_t*, availableChannels> uint32_tPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
 
 		if (params.format == EF_R16G16B16A16_SFLOAT)
-			createAndWriteImage(halfPixelMapArray, image, file->getFileName().string().c_str());
+			createAndWriteImage(halfPixelMapArray, image, file);
 		else if (params.format == EF_R32G32B32A32_SFLOAT)
-			createAndWriteImage(fullFloatPixelMapArray, image, file->getFileName().string().c_str());
+			createAndWriteImage(fullFloatPixelMapArray, image, file);
 		else if (params.format == EF_R32G32B32A32_UINT)
-			createAndWriteImage(uint32_tPixelMapArray, image, file->getFileName().string().c_str());
+			createAndWriteImage(uint32_tPixelMapArray, image, file);
 
 		return true;
 	}
