@@ -14,6 +14,7 @@
 #include "nbl/ext/Bullet/CPhysicsWorld.h"
 #include "Camera.hpp"
 
+
 using namespace nbl;
 using namespace core;
 using namespace ui;
@@ -202,8 +203,13 @@ int main(int argc, char** argv)
 	core::vector<core::vectorSIMDf> initialColor;
 	core::vector<core::matrix3x4SIMD> instanceTransforms;
 	std::array<video::CPropertyPoolHandler::TransferRequest,object_property_pool_t::PropertyCount+1> transfers;
-	transfers[0].propertyID = 0;
-	transfers[1].propertyID = 1;
+	for (auto i=0u; i<transfers.size(); i++)
+	{
+		transfers[i].propertyID = i;
+		transfers[i].device2device = false;
+		transfers[i].srcAddresses = nullptr;
+		transfers[i].download = false;
+	}
 	transfers[2].propertyID = 0;
 	// add a shape
 	auto addShapes = [&](
@@ -239,15 +245,18 @@ int main(int argc, char** argv)
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
 			transfers[i].pool = objectPool.get();
-			transfers[i].addresses = {scratchObjectIDs.data(),scratchObjectIDs.data()+count};
-			transfers[i].device2device = false;
-			transfers[i].download = false;
+			transfers[i].elementCount = count;
+			transfers[i].dstAddresses = scratchObjectIDs.data();
 		}
 		transfers[0].source = initialColor.data();
 		transfers[1].source = instanceTransforms.data();
+		//
 		transfers[2].pool = pool;
 		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
-		transfers[2].addresses = {scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count};
+		transfers[2].elementCount = count;
+		transfers[2].srcAddresses = nullptr;
+		transfers[2].dstAddresses = scratchInstanceRedirects.data();
+		transfers[2].device2device = false;
 		transfers[2].source = scratchObjectIDs.data();
 		// set up the transfer/update
 		propertyPoolHandler->transferProperties(
@@ -272,19 +281,22 @@ int main(int argc, char** argv)
 		addShapes(std::move(fence),cmdbuf,coneRigidBodyData,cones.get(),count,core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f,-0.5f,0.f)));
 	};
 	//
-	auto deleteShapes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, uint32_t* objectsToDelete, uint32_t* instanceRedirectsToDelete, const uint32_t count)
+	auto deleteShapes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, const uint32_t* objectsToDelete, const uint32_t* instanceRedirectsToDelete, const uint32_t count)
 	{
 		objectPool->freeProperties(objectsToDelete,objectsToDelete+count);
 		// a bit of reuse
-		uint32_t* addressScratch = instanceRedirectsToDelete;
-		uint32_t* scratch = objectsToDelete;
-		const bool needTransfer = video::CPropertyPoolHandler::freeProperties(pool,transfers.data()+2u,instanceRedirectsToDelete,instanceRedirectsToDelete+count,addressScratch,scratch);
+		scratchObjectIDs.resize(count);
+		scratchInstanceRedirects.resize(count);
+		uint32_t* srcAddrScratch = scratchObjectIDs.data();
+		uint32_t* dstAddrScratch = scratchInstanceRedirects.data();
+		//
+		const bool needTransfer = video::CPropertyPoolHandler::freeProperties(pool,transfers.data()+2u,instanceRedirectsToDelete,instanceRedirectsToDelete+count,srcAddrScratch,dstAddrScratch);
 		if (needTransfer)
 			propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,cmdbuf,fence,transfers.data()+2,transfers.data()+3,logger.get());
 	};
 	auto deleteBasedOnPhysicsPredicate = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, auto pred)
 	{
-		core::vector<uint32_t> objects,instances;
+		core::vector<uint32_t> objects, instances;
 		for (auto& body : bodies)
 		{
 			if (!body)
@@ -308,10 +320,10 @@ int main(int argc, char** argv)
 		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
 
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		//addCubes(fence.get(),cmdbuf,20u);
-		//addCylinders(fence.get(),cmdbuf,20u);
+		addCubes(fence.get(),cmdbuf,20u);
+		addCylinders(fence.get(),cmdbuf,20u);
 		addSpheres(fence.get(),cmdbuf,20u);
-		//addCones(fence.get(),cmdbuf,10u);
+		addCones(fence.get(),cmdbuf,10u);
 		cmdbuf->end();
 		
 		video::IGPUQueue::SSubmitInfo submit;
@@ -532,7 +544,7 @@ int main(int argc, char** argv)
 	double dt = 0;
 
 	// Camera 
-	core::vectorSIMDf cameraPosition(0, 10, -150);
+	core::vectorSIMDf cameraPosition(0, 5, -10);
 	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
 	Camera cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), proj);
 	
@@ -611,10 +623,12 @@ int main(int argc, char** argv)
 
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.pool = objectPool.get();
-			request.addresses = {CInstancedMotionState::s_updateAddresses.data(),CInstancedMotionState::s_updateAddresses.data()+CInstancedMotionState::s_updateAddresses.size()};
+			request.propertyID = TransformPropertyID;
+			request.elementCount = CInstancedMotionState::s_updateAddresses.size();
+			request.srcAddresses = nullptr;
+			request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
 			request.device2device = false;
 			request.source = CInstancedMotionState::s_updateData.data();
-			request.propertyID = TransformPropertyID;
 			request.download = false;
 			// TODO: why does the very first update set matrices to identity?
 			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
