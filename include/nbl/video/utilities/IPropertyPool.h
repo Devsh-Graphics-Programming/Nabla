@@ -80,8 +80,8 @@ class IPropertyPool : public core::IReferenceCounted
 
         // WARNING: For contiguous pools, YOU NEED TO ISSUE A TransferRequest WITH `tailMoveDest` BEFORE YOU ALLOCATE OR FREE ANY MORE PROPS!
         // This function does not move the properties' contents, for contiguous pools it means you WILL loose the tail's data if you dont do this!
-        // `scratch` needs to be at least as long as `indicesEnd-indicesBegin`
-        [[nodiscard]] inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* tailMoveDestAddr, uint32_t* scratch)
+        // Returns how many elements need to be transferred from the tail to fill the gaps after deallocation in a contiguous pool.
+        [[nodiscard]] inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
         {
             const uint32_t oldHead = getAllocated();
             constexpr uint32_t unit = 1u;
@@ -96,13 +96,13 @@ class IPropertyPool : public core::IReferenceCounted
             // no point trying to move anything if we've freed nothing or everything
             if (isContiguous() && head!=oldHead && head!=0u)
             {
-                if (!tailMoveDestAddr)
+                if (!srcAddresses || !dstAddresses)
                 {
                     assert(false);
                     __debugbreak();
                     exit(0xdeadbeefu);
                 }
-                auto gapIt = scratch;
+                auto gapIt = dstAddresses;
                 for (auto it=indicesBegin; it!=indicesEnd; it++)
                 {
                     const auto index = *it;
@@ -116,25 +116,23 @@ class IPropertyPool : public core::IReferenceCounted
                     // index doesn't map to any address anymore
                     addr = invalid;
                 }
-                gapIt = scratch; // rewind
-                for (auto a=head; a<oldHead; a++,tailMoveDestAddr++)
+                gapIt = dstAddresses; // rewind
+                for (auto a=head; a<oldHead; a++)
                 {
                     auto& index = m_addrToIndex[a];
                     // marked as dead by previous pass
                     if (index==invalid)
-                    {
-                        *tailMoveDestAddr = invalid;
                         continue;
-                    }
                     // if not dead we need to move
+                    *(srcAddresses++) = a;
                     const auto freeAddr = *(gapIt++);
-                    *tailMoveDestAddr = freeAddr;
                     m_addrToIndex[freeAddr] = index;
                     m_indexToAddr[index] = freeAddr;
                     index = invalid;
                 }
+                return (gapIt-dstAddresses);
             }
-            return removedCount;
+            return 0u;
         }
         inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
         {

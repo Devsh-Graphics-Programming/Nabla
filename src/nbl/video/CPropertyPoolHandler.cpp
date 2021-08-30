@@ -22,7 +22,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+1u;
 	{
-		m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(nbl_glsl_property_pool_transfer_t))*maxStreamingAllocations));
+		m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
 		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpAddressRanges+maxStreamingAllocations);
 		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
 		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
@@ -105,14 +105,16 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			{
 				m_tmpSizes[0u] = sizeof(nbl_glsl_property_pool_transfer_t)*m_maxPropertiesPerPass;
 
+				uint32_t addressListCount = 0u;
 				uint32_t* upSizesIt = upSizes;
 				uint32_t* downSizesIt = downSizes;
 				for (uint32_t i=0; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
 					const auto propSize = request.pool->getPropertySize(request.propertyID);
-					const auto elementsByteSize = request.addresses.size()*propSize;
+					const auto elementsByteSize = request.elementCount*propSize;
 					maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
+					//
 					if (!request.device2device)
 					{
 						if (request.isDownload())
@@ -120,17 +122,26 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 						else
 							*(upSizesIt++) = elementsByteSize;
 					}
-					m_tmpAddressRanges[i].source = request.addresses;
-					m_tmpAddressRanges[i].destOff = 0u;
+					//
+					if (request.srcAddresses)
+					{
+						m_tmpAddressRanges[addressListCount].source = {request.srcAddresses,request.srcAddresses+request.elementCount};
+						m_tmpAddressRanges[addressListCount++].destOff = 0u;
+					}
+					if (request.dstAddresses)
+					{
+						m_tmpAddressRanges[addressListCount].source = {request.dstAddresses,request.dstAddresses+request.elementCount};
+						m_tmpAddressRanges[addressListCount++].destOff = 0u;
+					}
 				}
 
 				// find slabs = contiguous or repeated ranges of redirection addresses (reduce duplication)
 				{
-					std::sort(m_tmpAddressRanges,m_tmpAddressRanges+propertiesThisPass,SlabComparator);
+					std::sort(m_tmpAddressRanges,m_tmpAddressRanges+addressListCount,SlabComparator);
 
 					uint32_t addressOffset = 0u;
 					auto oit = m_tmpAddressRanges;
-					for (auto i=1u; i<propertiesThisPass; i++)
+					for (auto i=1u; i<addressListCount; i++)
 					{
 						const auto& inRange = m_tmpAddressRanges[i];
 
@@ -184,6 +195,20 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 				uint32_t* addressBufferPtr = reinterpret_cast<uint32_t*>(upBuffPtr+m_tmpAddresses[0u]);
 				// write header
+				auto remapAddressList = [&](const uint32_t* originalRange) -> uint32_t
+				{
+					if (!originalRange)
+						return IPropertyPool::invalid;
+
+					// find the slab
+					AddressUploadRange dummy;
+					dummy.source = {originalRange,nullptr};
+					dummy.destOff = 0xdeadbeefu;
+					auto aboveOrEqual = std::lower_bound(m_tmpAddressRanges,m_tmpAddressRanges+slabCount,dummy,SlabComparator);
+					auto containing = aboveOrEqual->source.begin()!=originalRange ? (aboveOrEqual-1):aboveOrEqual;
+					//
+					return containing->destOff+(originalRange-containing->source.begin());
+				};
 				for (uint32_t i=0; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
@@ -192,19 +217,10 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					transfer.propertyDWORDsize_upDownFlag = request.pool->getPropertySize(request.propertyID)/sizeof(uint32_t);
 					if (request.isDownload())
 						transfer.propertyDWORDsize_upDownFlag = -transfer.propertyDWORDsize_upDownFlag;
-					const auto& originalRange = request.addresses;
-					transfer.elementCount = originalRange.size();
-					{
-						// find the slab
-						AddressUploadRange dummy;
-						dummy.source = originalRange;
-						dummy.destOff = 0xdeadbeefu;
-						auto aboveOrEqual = std::lower_bound(m_tmpAddressRanges,m_tmpAddressRanges+slabCount,dummy,SlabComparator);
-						auto containing = aboveOrEqual->source.begin()!=originalRange.begin() ? (aboveOrEqual-1):aboveOrEqual;
-						//
-						assert(containing->source.begin()<=originalRange.begin() && originalRange.end()<=containing->source.end());
-						transfer.indexOffset = containing->destOff+(originalRange.begin()-containing->source.begin());
-					}
+					transfer.elementCount = request.elementCount;
+					//
+					transfer.srcIndexOffset = remapAddressList(request.srcAddresses);
+					transfer.dstIndexOffset = remapAddressList(request.dstAddresses);
 				}
 				addressBufferPtr += (sizeof(nbl_glsl_property_pool_transfer_t)/sizeof(uint32_t))*m_maxPropertiesPerPass;
 				// write the addresses
@@ -232,7 +248,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 					assert(addr!=invalid_address);
 					const size_t propSize = request.pool->getPropertySize(request.propertyID);
-					memcpy(upBuffPtr+addr,request.source,request.addresses.size()*propSize);
+					memcpy(upBuffPtr+addr,request.source,request.elementCount*propSize);
 				}
 
 				// flush if needed
@@ -369,7 +385,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 			
 		const auto* pool = request.pool;
 		const auto& propMemBlock = pool->getPropertyMemoryBlock(request.propertyID);
-		const uint32_t transferPropertySize = request.addresses.size()*pool->getPropertySize(request.propertyID);
+		const uint32_t transferPropertySize = request.elementCount*pool->getPropertySize(request.propertyID);
 
 		if (request.isDownload())
 		{

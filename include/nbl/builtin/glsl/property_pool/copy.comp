@@ -10,8 +10,8 @@ layout(set=0,binding=0) readonly restrict buffer Addresses
 };
 nbl_glsl_property_pool_transfer_t getTransferData(in uint propID)
 {
-    const uint base = propID*3u;
-    return nbl_glsl_property_pool_transfer_t(transferData[base+0u],transferData[base+1u],transferData[base+2u]);
+    const uint base = propID*(_NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE_/4);
+    return nbl_glsl_property_pool_transfer_t(transferData[base+0u],transferData[base+1u],transferData[base+2u],transferData[base+3u]);
 }
 
 layout(set=0,binding=1) readonly restrict buffer InData
@@ -37,12 +37,10 @@ void main()
     if (index>=transfer.elementCount)
         return;
         
-    const uint address = addresses[index+transfer.indexOffset];
+    const uint srcAddress = transfer.srcIndexOffset!=_NBL_BUILTIN_PROPERTY_POOL_INVALID_ ? addresses[index+transfer.srcIndexOffset]:index;
+    const uint dstAddress = transfer.dstIndexOffset!=_NBL_BUILTIN_PROPERTY_POOL_INVALID_ ? addresses[index+transfer.dstIndexOffset]:index;
 	// its equivalent to `addresses[index]*propDWORDs+gl_GlobalInvocationID.x%propDWORDs`
-	const uint redir = (address-index)*propDWORDs+gl_GlobalInvocationID.x;
-
-    const uint inIndex = download ? redir:gl_GlobalInvocationID.x;
-    const uint outIndex = download ? gl_GlobalInvocationID.x:redir;
-    if (address!=_NBL_BUILTIN_PROPERTY_POOL_INVALID_)
-    	outBuff[propID].data[outIndex] = inBuff[propID].data[inIndex];
+	const uint srcDWORD = (srcAddress-index)*propDWORDs+gl_GlobalInvocationID.x;
+	const uint dstDWORD = (dstAddress-index)*propDWORDs+gl_GlobalInvocationID.x;
+    outBuff[propID].data[dstDWORD] = inBuff[propID].data[srcDWORD];
 }

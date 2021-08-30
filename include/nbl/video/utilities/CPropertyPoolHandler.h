@@ -111,7 +111,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         //
 		struct TransferRequest
 		{
-			TransferRequest() : pool(nullptr), addresses{nullptr,nullptr}, propertyID(0xdeadbeefu), download(false)
+			TransferRequest() : pool(nullptr), propertyID(0xdeadbeefu), elementCount(0u), srcAddresses(nullptr), dstAddresses(nullptr), download(false)
 			{
 				device2device = 0u;
 				source = nullptr;
@@ -132,7 +132,11 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			}
 
 			const IPropertyPool* pool;
-			core::SRange<const uint32_t> addresses;
+			uint32_t propertyID;
+			uint32_t elementCount;
+			// can be null, if null treated like an implicit {0,1,2,3,...} iota view
+			const uint32_t* srcAddresses;
+			const uint32_t* dstAddresses;
 			union
 			{
 				// device
@@ -148,7 +152,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 					const void* source;
 				};
 			};
-			uint32_t propertyID;
 			bool download;
 		};
 
@@ -176,22 +179,26 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		);
 
 		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
-		static inline bool freeProperties(IPropertyPool* pool, TransferRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* tailMoveDestAddr, uint32_t* scratch)
+		static inline bool freeProperties(IPropertyPool* pool, TransferRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
 		{
 			const auto oldHead = pool->getAllocated();
-			const auto deletedCount = pool->freeProperties(indicesBegin,indicesEnd,tailMoveDestAddr,scratch);
-			if (!pool->isContiguous() || deletedCount==0u || pool->getAllocated()==0u)
-				return false;
-			for (auto i=0u; i<pool->getPropertyCount(); i++)
+			const auto transferCount = pool->freeProperties(indicesBegin,indicesEnd,srcAddresses,dstAddresses);
+			if (transferCount)
 			{
-				requests[i].pool = pool;
-				requests[i].addresses = {tailMoveDestAddr,tailMoveDestAddr+deletedCount};
-				requests[i].buffer = pool->getPropertyMemoryBlock(i).buffer.get();
-				requests[i].offset = pool->getPropertyMemoryBlock(i).offset+oldHead-deletedCount;
-				requests[i].propertyID = i;
-				requests[i].download = false;
+				for (auto i=0u; i<pool->getPropertyCount(); i++)
+				{
+					requests[i].pool = pool;
+					requests[i].propertyID = i;
+					requests[i].elementCount = transferCount;
+					requests[i].srcAddresses = srcAddresses;
+					requests[i].dstAddresses = dstAddresses;
+					requests[i].buffer = pool->getPropertyMemoryBlock(i).buffer.get();
+					requests[i].offset = pool->getPropertyMemoryBlock(i).offset;
+					requests[i].download = false;
+				}
+				return true;
 			}
-			return true;
+			return false;
 		}
 
     protected:
