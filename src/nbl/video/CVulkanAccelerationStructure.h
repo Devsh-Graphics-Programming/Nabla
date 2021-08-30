@@ -31,13 +31,13 @@ public:
 public:
 	
 	template<typename AddressType>
-	static VkDeviceOrHostAddressKHR getVkDeviceOrHostAddress(VkDevice vk_device, const AddressType & addr);
+	static VkDeviceOrHostAddressKHR getVkDeviceOrHostAddress(VkDevice vk_device, const AddressType& addr);
 	
 	template<typename AddressType>
-	static VkDeviceOrHostAddressConstKHR getVkDeviceOrHostConstAddress(VkDevice vk_device, const AddressType & addr);
+	static VkDeviceOrHostAddressConstKHR getVkDeviceOrHostConstAddress(VkDevice vk_device, const AddressType& addr);
 
 	template<typename AddressType>
-	static VkAccelerationStructureGeometryKHR getVkASGeometry(VkDevice vk_device, const Geometry<AddressType> & geometry)
+	static VkAccelerationStructureGeometryKHR getVkASGeometry(VkDevice vk_device, const Geometry<AddressType>& geometry)
 	{
 		VkAccelerationStructureGeometryKHR ret = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR, nullptr};
 		ret.geometryType = getVkGeometryTypeFromGeomType(geometry.type);
@@ -74,8 +74,8 @@ public:
 	template<typename AddressType>
 	static VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeomInfoFromBuildGeomInfo(
 		VkDevice vk_device,
-		const BuildGeometryInfo<AddressType> & buildGeomInfo,
-		VkAccelerationStructureGeometryKHR * inoutGeomArray) 
+		const BuildGeometryInfo<AddressType>& buildGeomInfo,
+		VkAccelerationStructureGeometryKHR* inoutGeomArray) 
 	{
 		VkAccelerationStructureBuildGeometryInfoKHR ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR, nullptr};
 		if(inoutGeomArray != nullptr)
@@ -111,7 +111,7 @@ public:
 	}
 	
 	template<typename AddressType>
-	static VkCopyAccelerationStructureToMemoryInfoKHR getVkASCopyToMemoryInfo(VkDevice vk_device, const CopyToMemoryInfo<AddressType> & info)
+	static VkCopyAccelerationStructureToMemoryInfoKHR getVkASCopyToMemoryInfo(VkDevice vk_device, const CopyToMemoryInfo<AddressType>& info)
 	{
 		VkCopyAccelerationStructureToMemoryInfoKHR ret = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR, nullptr};
 		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
@@ -121,11 +121,11 @@ public:
 	}
 	
 	template<typename AddressType>
-	static VkCopyMemoryToAccelerationStructureInfoKHR getVkASCopyFromMemoryInfo(VkDevice vk_device, const CopyFromMemoryInfo<AddressType> & info)
+	static VkCopyMemoryToAccelerationStructureInfoKHR getVkASCopyFromMemoryInfo(VkDevice vk_device, const CopyFromMemoryInfo<AddressType>& info)
 	{
 		VkCopyMemoryToAccelerationStructureInfoKHR  ret = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR, nullptr};
 		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
-		ret.src = getVkDeviceOrHostAddress(vk_device, info.src);
+		ret.src = getVkDeviceOrHostConstAddress(vk_device, info.src);
 		ret.dst = static_cast<CVulkanAccelerationStructure *>(info.dst)->getInternalObject();
 		return ret;
 	}

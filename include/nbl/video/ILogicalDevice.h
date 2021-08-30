@@ -576,6 +576,39 @@ class ILogicalDevice : public core::IReferenceCounted
         //vkGetPipelineCacheData //as pipeline cache method?? (why not)
         //vkMergePipelineCaches //as pipeline cache method (why not)
         //vkCreateQueryPool //????
+        
+        virtual bool buildAccelerationStructures(
+            core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+            const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
+            IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+        {
+            return false;
+        }
+
+        virtual bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
+        {
+            return false;
+        }
+    
+        virtual bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        {
+            return false;
+        }
+
+        virtual bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        {
+            return false;
+        }
+
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pInfos, const uint32_t* pMaxPrimitiveCounts)
+        {
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
+
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pInfos, const uint32_t* pMaxPrimitiveCounts)
+        {
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
 
     protected:
         ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params) : m_physicalDevice(physicalDevice)

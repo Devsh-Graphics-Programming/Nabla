@@ -60,6 +60,13 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		using HostBuildGeometryInfo = BuildGeometryInfo<HostAddressType>;
 		using DeviceBuildGeometryInfo = BuildGeometryInfo<DeviceAddressType>;
 
+		struct BuildSizes
+		{
+			uint64_t accelerationStructureSize;
+			uint64_t updateScratchSize;
+			uint64_t buildScratchSize;
+		};
+
 		struct CopyInfo
 		{
 			IGPUAccelerationStructure * src;
@@ -74,6 +81,9 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 			AddressType dst;
 			E_COPY_MODE copyMode;
 		};
+		using DeviceCopyToMemoryInfo = CopyToMemoryInfo<DeviceAddressType>;
+		using HostCopyToMemoryInfo = CopyToMemoryInfo<HostAddressType>;
+
 		
 		template<typename AddressType>
 		struct CopyFromMemoryInfo
@@ -82,6 +92,8 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 			IGPUAccelerationStructure * dst;
 			E_COPY_MODE copyMode;
 		};
+		using DeviceCopyFromMemoryInfo = CopyFromMemoryInfo<DeviceAddressType>;
+		using HostCopyFromMemoryInfo = CopyFromMemoryInfo<HostAddressType>;
 
 		inline const auto& getCreationParameters() const
 		{

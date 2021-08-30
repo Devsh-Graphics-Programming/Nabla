@@ -794,6 +794,21 @@ public:
         vkUnmapMemory(m_vkdev, vk_deviceMemory);
     }
 
+    bool buildAccelerationStructures(
+        core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+        const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
+        IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;
+
+    bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
+    
+    bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;
+
+    bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
+
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pPartialInfos, const uint32_t* pMaxPrimitiveCounts) override;
+
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pPartialInfos, const uint32_t* pMaxPrimitiveCounts) override;
+
     CVulkanDeviceFunctionTable* getFunctionTable() { return &m_devf; }
 
     VkDevice getInternalObject() const { return m_vkdev; }
@@ -1250,6 +1265,42 @@ protected:
         return false;
     }
     
+    template<typename AddressType>
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pPartialInfos, const uint32_t* pMaxPrimitiveCounts) 
+    {
+        VkAccelerationStructureBuildSizesInfoKHR vk_ret = {};
+
+        if(pMaxPrimitiveCounts == nullptr) {
+            assert(false);
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
+
+        static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
+                
+        VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {};
+
+        // TODO: Use better container when ready for these stack allocated memories.
+        uint32_t geometryArrayOffset = 0u;
+        VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount] = {};
+
+        {
+            uint32_t geomCount = pPartialInfos.geometries.size();
+
+            assert(geomCount > 0);
+            assert(geomCount <= MaxGeometryPerBuildInfoCount);
+
+            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, pPartialInfos, &vk_geometries[geometryArrayOffset]);
+            geometryArrayOffset += geomCount;
+        }
+
+        vkGetAccelerationStructureBuildSizesKHR(m_vkdev, buildType, &vk_buildGeomsInfo, pMaxPrimitiveCounts, &vk_ret);
+
+        IGPUAccelerationStructure::BuildSizes ret = {};
+        ret.accelerationStructureSize = vk_ret.accelerationStructureSize;
+        ret.updateScratchSize = vk_ret.updateScratchSize;
+        ret.buildScratchSize = vk_ret.buildScratchSize;
+    }
+
 private:
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet

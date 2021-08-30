@@ -2,9 +2,9 @@
 #define __NBL_C_VULKAN_COMMAND_BUFFER_H_INCLUDED__
 
 #include "nbl/video/IGPUCommandBuffer.h"
-
 // Todo(achal): I think I a lot of them could be made forward declarations if I introduce
 // a CVulkanCommandBuffer.cpp
+#include "nbl/video/CVulkanCommandPool.h"
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanComputePipeline.h"
@@ -414,6 +414,20 @@ public:
     {
         return false;
     }
+    
+    bool buildAccelerationStructures(const core::SRange<accstruct_t::DeviceBuildGeometryInfo>& pInfos, accstruct_t::BuildRangeInfo* const* ppBuildRangeInfos) override;
+    
+    bool buildAccelerationStructuresIndirect(
+        const core::SRange<accstruct_t::DeviceBuildGeometryInfo>& pInfos, 
+        const core::SRange<accstruct_t::DeviceAddressType>& pIndirectDeviceAddresses,
+        const uint32_t* pIndirectStrides,
+        const uint32_t* const* ppMaxPrimitiveCounts) override;
+
+    bool copyAccelerationStructure(const accstruct_t::CopyInfo& copyInfo) override;
+    
+    bool copyAccelerationStructureToMemory(const accstruct_t::DeviceCopyToMemoryInfo& copyInfo) override;
+
+    bool copyAccelerationStructureFromMemory(const accstruct_t::DeviceCopyFromMemoryInfo& copyInfo) override;
 
     VkCommandBuffer getInternalObject() const { return m_cmdbuf; }
 

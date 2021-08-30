@@ -319,6 +319,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSpecializedShader.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandBuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp
