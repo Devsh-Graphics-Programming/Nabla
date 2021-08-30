@@ -3,9 +3,18 @@
 
 namespace nbl::system
 {
+    core::smart_refctd_ptr<IFile> ISystemCaller::createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags)
+    {
+        if (flags & IFile::ECF_READ)
+        {
+            auto a = sys->getFileFromArchive(filename);
+            if (a.get() != nullptr) return a;
+        }
+        return createFile_impl(std::move(sys), filename, flags);
+    }
     ISystem::ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(this, std::move(caller))
     {
-        addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>());
+        addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(core::smart_refctd_ptr<ISystem>(this), nullptr));
     }
     core::smart_refctd_ptr<IFile> ISystem::getFileFromArchive(const system::path& _path)
     {

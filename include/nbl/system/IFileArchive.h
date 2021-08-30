@@ -20,8 +20,13 @@ class IFileArchive : public core::IReferenceCounted
 {
 protected:
 	core::smart_refctd_ptr<IFile> m_file;
+	system::logger_opt_smart_ptr m_logger;
+
+	// TODO: This one is only required here because CFileView needs ISystem, must be removed when that's fixed
+	core::smart_refctd_ptr<ISystem> m_system;
 public:
-	IFileArchive(core::smart_refctd_ptr<IFile>&& file) : m_file(std::move(file)) {}
+	IFileArchive(core::smart_refctd_ptr<IFile>&& file, core::smart_refctd_ptr<ISystem>&& system, system::logger_opt_smart_ptr&& logger) :
+		m_file(std::move(file)), m_system(std::move(system)), m_logger(std::move(logger)) {}
 	//! An entry in a list of files, can be a folder or a file.
 	struct SFileListEntry
 	{
@@ -102,7 +107,14 @@ protected:
 
 class IArchiveLoader : public core::IReferenceCounted
 {
+protected:
+	system::logger_opt_smart_ptr m_logger;
+
+	// TODO: This one is only required here because CFileView needs ISystem, must be removed when that's fixed
+	core::smart_refctd_ptr<ISystem> m_system; 
 public:
+	IArchiveLoader(core::smart_refctd_ptr<ISystem>&& system, system::logger_opt_smart_ptr&& logger) :
+		m_logger(std::move(logger)), m_system(std::move(system)) {}
 	//! Check if the file might be loaded by this class
 	/** This check may look into the file.
 	\param file File handle to check.

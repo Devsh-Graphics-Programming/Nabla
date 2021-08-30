@@ -303,11 +303,21 @@ int main(int argc, char** argv)
 	};
 	
 	auto arch = system->createFileArchive("test.zip");
+	auto arch1 = system->createFileArchive("file.zip");
 	system->mount(std::move(arch), "arch");
+	system->mount(std::move(arch1), "arch1");
 	{
 		system::future<smart_refctd_ptr<IFile>> fut;
-		system->createFile(fut, "arch/test/test1.zip/test1/file.txt", IFile::ECF_READ);
+		//system->createFile(fut, "arch/test/test1.zip/test1/file.txt", IFile::ECF_READ);
+		//system->createFile(fut, "arch/test/test1.zip", IFile::ECF_READ);
+		system->createFile(fut, "arch1/file.txt", IFile::ECF_READ);
 		auto file = fut.get();
+		
+		std::string str(10, '\0');
+		system::future<size_t> readFut;
+		file->read(readFut, str.data(), 0, 5);
+		readFut.get();
+		std::cout << str;
 	}
 
 	IAssetLoader::SAssetLoadParams lp;

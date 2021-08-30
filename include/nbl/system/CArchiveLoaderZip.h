@@ -128,8 +128,10 @@ private:
 	bool m_isGZip;
 	core::vector<SZipFileEntry> m_fileInfo;
 	size_t m_readOffset = 0;
+	std::string m_password = ""; // TODO password
 public:
-	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, bool isGZip) : IFileArchive(std::move(file)), m_isGZip(isGZip)
+	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, core::smart_refctd_ptr<ISystem>&& system, bool isGZip, system::logger_opt_smart_ptr&& logger = nullptr) :
+		IFileArchive(std::move(file), std::move(system), std::move(logger)), m_isGZip(isGZip)
 	{
 		if (m_file.get())
 		{
@@ -140,12 +142,7 @@ public:
 				while (scanZipHeader()) {}
 		}
 	}
-	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) override
-	{
-		auto found = std::find_if(m_files.begin(), m_files.end(), [&params](const SFileListEntry& entry) { return params.filename == entry.fullName; });
-		assert(false);
-		return nullptr;
-	}
+	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) override;
 private:
 	// TODO: make scanning functions take and return file read offset to make stuff thread-safe
 	bool scanGZipHeader();
@@ -156,6 +153,7 @@ private:
 class CArchiveLoaderZip : public IArchiveLoader
 {
 public:
+	CArchiveLoaderZip(core::smart_refctd_ptr<ISystem>&& system, system::logger_opt_smart_ptr&& logger) : IArchiveLoader(std::move(system), std::move(logger)) {}
 	virtual bool isALoadableFileFormat(IFile* file) const override
 	{
 		SZIPFileHeader header;
@@ -177,7 +175,7 @@ private:
 	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file) const override
 	{
 		core::smart_refctd_ptr<IFileArchive> archive = nullptr;
-		if (file)
+		if (file.get())
 		{
 			uint16_t sig;
 			{
@@ -187,7 +185,7 @@ private:
 			}
 			bool isGZip = (sig == 0x8b1f);
 
-			archive = core::make_smart_refctd_ptr<CFileArchiveZip>(std::move(file), isGZip);
+			archive = core::make_smart_refctd_ptr<CFileArchiveZip>(std::move(file), core::smart_refctd_ptr<ISystem>(m_system), isGZip);
 		}
 		return archive;
 	}

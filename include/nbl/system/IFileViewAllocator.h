@@ -27,7 +27,19 @@ namespace nbl::system
 			free(data);
 			return true;
 		}
+	};
 
+	class CNullAllocator : public IFileViewAllocator
+	{
+	public:
+		void* alloc(size_t size) override
+		{
+			return nullptr;
+		}
+		bool dealloc(void* data) override
+		{
+			return true;
+		}
 	};
 }
 #endif

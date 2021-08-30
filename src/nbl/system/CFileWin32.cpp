@@ -44,6 +44,7 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 nbl::system::CFileWin32::~CFileWin32()
 {
 	CloseHandle(m_native);
+	CloseHandle(m_fileMappingObj);
 }
 
 size_t nbl::system::CFileWin32::getSize() const
@@ -58,12 +59,12 @@ const std::filesystem::path& nbl::system::CFileWin32::getFileName() const
 
 void* nbl::system::CFileWin32::getMappedPointer()
 {
-	return nullptr;
+	return MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, 0, 0, m_size);
 }
 
 const void* nbl::system::CFileWin32::getMappedPointer() const
 {
-	return nullptr;
+	return MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, 0, 0, m_size);;
 }
 
 size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t sizeToRead)
@@ -71,9 +72,9 @@ size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t si
 	if (m_flags & ECF_MAPPABLE)
 	{
 		auto viewOffset = (offset / m_allocGranularity) * m_allocGranularity;
-		offset += offset % m_allocGranularity;
+		offset = offset % m_allocGranularity;
 		std::byte* fileView = (std::byte*)MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, HIWORD((DWORD)viewOffset), LOWORD((DWORD)viewOffset), sizeToRead);
-		std::copy<std::byte*>(fileView, (std::byte*)fileView + sizeToRead, (std::byte*)buffer);
+		std::copy<std::byte*>(fileView + offset, (std::byte*)fileView + offset + sizeToRead, (std::byte*)buffer);
 		return sizeToRead;
 	}
 	else

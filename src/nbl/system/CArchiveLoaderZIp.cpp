@@ -1,4 +1,9 @@
 #include "nbl/system/CArchiveLoaderZip.h"
+#include "nbl/system/CFileViewVirtualAllocatorWin32.h"
+#include <aesGladman/fileenc.h>
+#include <zconf.h>
+#include <zlib/zlib.h>
+#include <bzip2/bzlib.h>
 
 namespace nbl::system
 {
@@ -264,5 +269,400 @@ namespace nbl::system
 		m_fileInfo.back().header.DataDescriptor.CRC32 = entry.CRC32;
 		m_files.back().size = entry.UncompressedSize;
 		return true;
+	}
+
+	core::smart_refctd_ptr<IFile> CFileArchiveZip::readFile(const SOpenFileParams& params)
+	{
+		auto found = std::find_if(m_files.begin(), m_files.end(), [&params](const SFileListEntry& entry) { return params.filename == entry.fullName; });
+
+		const SZipFileEntry& e = m_fileInfo[found->ID];
+		wchar_t buf[64];
+		int16_t actualCompressionMethod = e.header.CompressionMethod;
+		//TODO: CFileView factory
+		// CFileViewVirtualAllocatorWin32
+		core::smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>> decrypted = nullptr;
+		uint8_t* decryptedBuf = 0;
+		uint32_t decryptedSize = e.header.DataDescriptor.CompressedSize;
+#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
+		if ((e.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (e.header.CompressionMethod == 99))
+		{
+			uint8_t salt[16] = { 0 };
+			const uint16_t saltSize = (((e.header.Sig & 0x00ff0000) >> 16) + 1) * 4;
+			{
+				m_readOffset = e.Offset;
+				system::future<size_t> fut;
+				m_file->read(fut, salt, m_readOffset, saltSize);
+				fut.get();
+				m_readOffset += saltSize;
+			}
+			char pwVerification[2];
+			char pwVerificationFile[2];
+			{
+				system::future<size_t> fut;
+				m_file->read(fut, pwVerification, m_readOffset, 2);
+				fut.get();
+				m_readOffset += 2;
+			}
+			fcrypt_ctx zctx; // the encryption context
+			int rc = fcrypt_init(
+				(e.header.Sig & 0x00ff0000) >> 16,
+				(const unsigned char*)m_password.c_str(), // the password
+				m_password.size(), // number of bytes in password
+				salt, // the salt
+				(unsigned char*)pwVerificationFile, // on return contains password verifier
+				&zctx); // encryption context
+			if (strncmp(pwVerificationFile, pwVerification, 2))
+			{
+				m_logger.log("Wrong password", ILogger::ELL_ERROR);
+				return 0;
+			}
+			decryptedSize = e.header.DataDescriptor.CompressedSize - saltSize - 12;
+			decryptedBuf = new uint8_t[decryptedSize];
+			uint32_t c = 0;
+			while ((c + 32768) <= decryptedSize)
+			{
+				{
+					system::future<size_t> fut;
+					m_file->read(fut, decryptedBuf + c, m_readOffset, 32768);
+					fut.get();
+					m_readOffset += 32768;
+				}
+				fcrypt_decrypt(
+					decryptedBuf + c, // pointer to the data to decrypt
+					32768,   // how many bytes to decrypt
+					&zctx); // decryption context
+				c += 32768;
+			}
+			{
+				system::future<size_t> fut;
+				m_file->read(fut, decryptedBuf + c, m_readOffset, decryptedSize - c);
+				fut.get();
+				m_readOffset += decryptedSize - c;
+			}
+			fcrypt_decrypt(
+				decryptedBuf + c, // pointer to the data to decrypt
+				decryptedSize - c,   // how many bytes to decrypt
+				&zctx); // decryption context
+
+			char fileMAC[10];
+			char resMAC[10];
+			rc = fcrypt_end(
+				(unsigned char*)resMAC, // on return contains the authentication code
+				&zctx); // encryption context
+			if (rc != 10)
+			{
+				m_logger.log("Error on encryption closing", ILogger::ELL_ERROR);
+				delete[] decryptedBuf;
+				return 0;
+			}
+			{
+				system::future<size_t> fut;
+				m_file->read(fut, fileMAC, m_readOffset, 10);
+				m_readOffset += 10;
+				fut.get();
+			}
+			if (strncmp(fileMAC, resMAC, 10))
+			{
+				m_logger.log("Error on encryption check", ILogger::ELL_ERROR);
+				delete[] decryptedBuf;
+				return 0;
+			}
+			decrypted = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);//new io::CMemoryReadFile(decryptedBuf, decryptedSize, found->FullName);
+			{
+				system::future<size_t> fut;
+				decrypted->write(fut, decryptedBuf, 0, decryptedSize);
+				fut.get();
+			}
+			actualCompressionMethod = (e.header.Sig & 0xffff);
+#if 0
+			if ((e.header.Sig & 0xff000000) == 0x01000000)
+			{
+			}
+			else if ((e.header.Sig & 0xff000000) == 0x02000000)
+			{
+			}
+			else
+			{
+				m_logger.log("Unknown encryption method", ILogger::ELL_ERROR);
+				return 0;
+			}
+#endif
+		}
+#endif
+		switch (actualCompressionMethod)
+		{
+		case 0: // no compression
+		{
+			delete[] decryptedBuf;
+			if (decrypted)
+				return decrypted;
+			else
+			{
+				uint8_t* buff = (uint8_t*)m_file->getMappedPointer() + e.Offset;
+				auto a = core::make_smart_refctd_ptr<CFileView<CNullAllocator>>(
+					core::smart_refctd_ptr<ISystem>(m_system),
+					found->fullName, 
+					IFile::ECF_READ_WRITE, 
+					buff, 
+					decryptedSize);
+				return a;
+			}
+		}
+		case 8:
+		{
+#ifdef _NBL_COMPILE_WITH_ZLIB_
+
+			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
+			char* pBuf = new char[uncompressedSize];
+			if (!pBuf)
+			{
+				delete[] decryptedBuf;
+				if (decrypted)
+					decrypted->drop();
+				return 0;
+			}
+
+			uint8_t* pcData = decryptedBuf;
+			if (!pcData)
+			{
+				pcData = new uint8_t[decryptedSize];
+				if (!pcData)
+				{
+					delete[] decryptedBuf;
+					delete[] pBuf;
+					return 0;
+				}
+
+				//memset(pcData, 0, decryptedSize);
+				m_readOffset = e.Offset;
+				{
+					system::future<size_t> fut;
+					m_file->read(fut, pcData, m_readOffset, decryptedSize);
+					fut.get();
+					m_readOffset += decryptedSize;
+				}
+			}
+
+			// Setup the inflate stream.
+			z_stream stream;
+			int32_t err;
+
+			stream.next_in = (Bytef*)pcData;
+			stream.avail_in = (uInt)decryptedSize;
+			stream.next_out = (Bytef*)pBuf;
+			stream.avail_out = uncompressedSize;
+			stream.zalloc = (alloc_func)0;
+			stream.zfree = (free_func)0;
+
+			// Perform inflation. wbits < 0 indicates no zlib header inside the data.
+			err = inflateInit2(&stream, -MAX_WBITS);
+			if (err == Z_OK)
+			{
+				err = inflate(&stream, Z_FINISH);
+				inflateEnd(&stream);
+				if (err == Z_STREAM_END)
+					err = Z_OK;
+				err = Z_OK;
+				inflateEnd(&stream);
+			}
+
+			if (decrypted)
+				decrypted->drop();
+			else
+				delete[] pcData;
+
+			delete[] decryptedBuf;
+			if (err != Z_OK)
+			{
+				delete[] pBuf;
+				return 0;
+			}
+			else
+			{
+				auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(
+					core::smart_refctd_ptr<ISystem>(m_system),
+					found->fullName, 
+					IFile::ECF_READ_WRITE, 
+					uncompressedSize);
+				{
+					system::future<size_t> fut;
+					ret->write(fut, pBuf, 0, uncompressedSize);
+					fut.get();
+				}
+				delete[] pBuf;
+				return ret;
+			}
+
+#else
+			return 0; // zlib not compiled, we cannot decompress the data.
+#endif
+		}
+		case 12:
+		{
+#ifdef _NBL_COMPILE_WITH_BZIP2_
+
+			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
+			char* pBuf = new char[uncompressedSize];
+			if (!pBuf)
+			{
+				m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+				delete[] decryptedBuf;
+				if (decrypted)
+					decrypted->drop();
+				return 0;
+			}
+
+			uint8_t* pcData = decryptedBuf;
+			if (!pcData)
+			{
+				pcData = new uint8_t[decryptedSize];
+				if (!pcData)
+				{
+					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+					delete[] pBuf;
+					delete[] decryptedBuf;
+					return 0;
+				}
+
+				{
+					m_readOffset = e.Offset;
+					system::future<size_t> fut;
+					m_file->read(fut, pcData, m_readOffset, decryptedSize);
+					m_readOffset += decryptedSize;
+					fut.get();
+				}
+			}
+
+			bz_stream bz_ctx = { 0 };
+			/* use BZIP2's default memory allocation
+			bz_ctx->bzalloc = NULL;
+			bz_ctx->bzfree  = NULL;
+			bz_ctx->opaque  = NULL;
+			*/
+			int err = BZ2_bzDecompressInit(&bz_ctx, 0, 0); /* decompression */
+			if (err != BZ_OK)
+			{
+				m_logger.log("bzip2 decompression failed. File cannot be read.", ILogger::ELL_ERROR);
+				delete[] decryptedBuf;
+				return 0;
+			}
+			bz_ctx.next_in = (char*)pcData;
+			bz_ctx.avail_in = decryptedSize;
+			/* pass all input to decompressor */
+			bz_ctx.next_out = pBuf;
+			bz_ctx.avail_out = uncompressedSize;
+			err = BZ2_bzDecompress(&bz_ctx);
+			err = BZ2_bzDecompressEnd(&bz_ctx);
+
+			if (decrypted)
+				decrypted->drop();
+			else
+				delete[] pcData;
+
+			if (err != BZ_OK)
+			{
+				m_logger.log("Error decompressing %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+				delete[] pBuf;
+				delete[] decryptedBuf;
+				return 0;
+			}
+			else
+			{
+				auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize);
+				{
+					system::future<size_t> fut;
+					decrypted->write(fut, pBuf, 0, uncompressedSize);
+					fut.get();
+				}
+				delete[] pBuf;
+				return ret;
+			}
+
+#else
+			delete[] decryptedBuf;
+			m_logger.log("bzip2 decompression not supported. File cannot be read.", ILogger::ELL_ERROR);
+			return 0;
+#endif
+		}
+		case 14:
+		{
+#ifdef _NBL_COMPILE_WITH_LZMA_
+
+			uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
+			char* pBuf = new char[uncompressedSize];
+			if (!pBuf)
+			{
+				m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->FullName.c_str());
+				delete[] decryptedBuf;
+				if (decrypted)
+					decrypted->drop();
+				return 0;
+			}
+
+			uint8_t* pcData = decryptedBuf;
+			if (!pcData)
+			{
+				pcData = new uint8_t[decryptedSize];
+				if (!pcData)
+				{
+					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->FullName.string().c_str());
+					delete[] pBuf;
+					return 0;
+				}
+
+				//memset(pcData, 0, decryptedSize);
+				File->seek(e.Offset);
+				m_readOffset = e.Offset;
+				{
+					system::future<size_t> fut;
+					m_file->read(fut, pcData, m_readOffset, decryptedSize);
+					m_readOffset += decryptedSize;
+					fut.get();
+				}
+			}
+
+			ELzmaStatus status;
+			SizeT tmpDstSize = uncompressedSize;
+			SizeT tmpSrcSize = decryptedSize;
+
+			unsigned int propSize = (pcData[3] << 8) + pcData[2];
+			int err = LzmaDecode((Byte*)pBuf, &tmpDstSize,
+				pcData + 4 + propSize, &tmpSrcSize,
+				pcData + 4, propSize,
+				e.header.GeneralBitFlag & 0x1 ? LZMA_FINISH_END : LZMA_FINISH_ANY, &status,
+				&lzmaAlloc);
+			uncompressedSize = tmpDstSize; // may be different to expected value
+
+			if (decrypted)
+				decrypted->drop();
+			else
+				delete[] pcData;
+
+			delete[] decryptedBuf;
+			if (err != SZ_OK)
+			{
+				m_logger.log("Error decompressing %s", ELL_ERROR, found->FullName.string().c_str());
+				delete[] pBuf;
+				return 0;
+			}
+			else
+				return io::createMemoryReadFile(pBuf, uncompressedSize, found->FullName, true);
+
+#else
+			delete[] decryptedBuf;
+			m_logger.log("lzma decompression not supported. File cannot be read.", ILogger::ELL_ERROR);
+			return 0;
+#endif
+		}
+		case 99:
+			// If we come here with an encrypted file, decryption support is missing
+			m_logger.log("Decryption support not enabled. File cannot be read.", ILogger::ELL_ERROR);
+			delete[] decryptedBuf;
+			return 0;
+		default:
+			m_logger.log("file has unsupported compression method. %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+			delete[] decryptedBuf;
+			return 0;
+		};
 	}
 }
