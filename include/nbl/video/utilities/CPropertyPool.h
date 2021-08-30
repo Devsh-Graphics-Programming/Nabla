@@ -36,14 +36,14 @@ class CPropertyPool final : public IPropertyPool
                 if (bufcap<capacity)
                     capacity = bufcap;
             }
-            return core::min<size_t>(IPropertyPool::invalid_index,capacity);
+            return core::min<size_t>(IPropertyPool::invalid,capacity);
         }
 
 		static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, uint32_t capacity=0u, const bool contiguous=false, allocator<uint8_t>&& alloc = allocator<uint8_t>())
 		{
             if (!capacity)
                 capacity = calcApproximateCapacity(_memoryBlocks);
-			const auto reservedSize = getReservedSize(capacity);
+			const auto reservedSize = getReservedSize(capacity,contiguous);
 			auto reserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,reservedSize);
 			if (!reserved)
 				return nullptr;

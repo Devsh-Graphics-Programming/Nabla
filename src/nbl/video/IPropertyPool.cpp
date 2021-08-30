@@ -23,8 +23,8 @@ IPropertyPool::IPropertyPool(uint32_t capacity, void* reserved, bool contiguous)
         m_indexToAddr = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(reserved)+getReservedSize(capacity));
         m_addrToIndex = m_indexToAddr+capacity;
 
-        std::fill_n(m_indexToAddr,capacity,invalid_index);
-        std::fill_n(m_addrToIndex,capacity,invalid_index);
+        std::fill_n(m_indexToAddr,capacity,invalid);
+        std::fill_n(m_addrToIndex,capacity,invalid);
     }
 }
 

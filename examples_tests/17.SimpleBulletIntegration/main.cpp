@@ -14,6 +14,7 @@
 #include "nbl/ext/Bullet/BulletUtility.h"
 #include "nbl/ext/Bullet/CPhysicsWorld.h"
 
+
 using namespace nbl;
 using namespace core;
 using namespace ui;
@@ -25,37 +26,42 @@ class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 		btTransform m_correctionMatrix;
 
 		inline CInstancedMotionState() {}
-		inline CInstancedMotionState(uint32_t objectID, uint32_t instanceID, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
-			: ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat)), m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)), m_objectID(objectID), m_instanceID(instanceID)
+		inline CInstancedMotionState(const void* instancePool, uint32_t objectID, uint32_t instanceID, core::matrix3x4SIMD const& start_mat, core::matrix3x4SIMD const& correction_mat)
+			: ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat)), m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)), m_instancePool(instancePool), m_objectID(objectID), m_instanceID(instanceID)
 		{
-			m_cachedMat = m_startWorldTrans*m_correctionMatrix.inverse();
+			m_cachedMat = m_startWorldTrans * m_correctionMatrix.inverse();
 		}
 
 		inline ~CInstancedMotionState()
 		{
 		}
 
-		inline virtual void getWorldTransform(btTransform &worldTrans) const override
+		inline virtual void getWorldTransform(btTransform& worldTrans) const override
 		{
 			worldTrans = m_cachedMat;
 		}
 
-		inline virtual void setWorldTransform(const btTransform &worldTrans) override
+		inline virtual void setWorldTransform(const btTransform& worldTrans) override
 		{
 			// TODO: protect agains simulation "substeps" somehow (redundant update sets)
 			m_cachedMat = worldTrans;
 
-			s_updateIndices.push_back(m_objectID);
-			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat*m_correctionMatrix));
+			s_updateAddresses.push_back(m_objectID);
+			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat * m_correctionMatrix));
 		}
 
-		static core::vector<uint32_t> s_updateIndices;
+		inline auto getInstancePool() const {return m_instancePool;}
+		inline auto getObjectID() const {return m_objectID;}
+		inline auto getInstanceID() const {return m_instanceID;}
+
+		static core::vector<uint32_t> s_updateAddresses;
 		static core::vector<core::matrix3x4SIMD> s_updateData;
 	protected:
 		btTransform m_cachedMat;
 		uint32_t m_objectID,m_instanceID;
+		const void* m_instancePool;
 };
-core::vector<uint32_t> CInstancedMotionState::s_updateIndices;
+core::vector<uint32_t> CInstancedMotionState::s_updateAddresses;
 core::vector<core::matrix3x4SIMD> CInstancedMotionState::s_updateData;
 
 
@@ -110,7 +116,7 @@ int main(int argc, char** argv)
 		baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
 
 		basePlateRigidBodyData.mass = 0.0f;
-		basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
+		basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(64,1,64));
 		basePlateRigidBodyData.trans = baseplateMat;
 
 		basePlateBody = world->createRigidBody(basePlateRigidBodyData);
@@ -119,7 +125,7 @@ int main(int argc, char** argv)
 	
 	// set up
 	auto propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
-	auto createPropertyPoolWithMemory = [device](auto& retval, uint32_t capacity) -> void
+	auto createPropertyPoolWithMemory = [device](auto& retval, uint32_t capacity, bool contiguous=false) -> void
 	{
 		using pool_type = std::remove_reference_t<decltype(retval)>::pointee;
 		asset::SBufferRange<video::IGPUBuffer> blocks[pool_type::PropertyCount];
@@ -130,16 +136,16 @@ int main(int argc, char** argv)
 			block.size = pool_type::PropertySizes[i]*capacity;
 			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(block.size);
 		}
-		retval = pool_type::create(device.get(),blocks,capacity);
+		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};
 
 	// Instance Redirects
 	using instance_redirect_property_pool_t = video::CPropertyPool<core::allocator,uint32_t>;
 	core::smart_refctd_ptr<instance_redirect_property_pool_t> cubes,cylinders,spheres,cones;
-	createPropertyPoolWithMemory(cubes,20u);
-	createPropertyPoolWithMemory(cylinders,20u);
-	createPropertyPoolWithMemory(spheres,20u);
-	createPropertyPoolWithMemory(cones,10u);
+	createPropertyPoolWithMemory(cubes,20u,true);
+	createPropertyPoolWithMemory(cylinders,20u,true);
+	createPropertyPoolWithMemory(spheres,20u,true);
+	createPropertyPoolWithMemory(cones,10u,true);
 	// global object data pool
 	const uint32_t MaxSingleType = core::max(core::max(cubes->getCapacity(),cylinders->getCapacity()),core::max(spheres->getCapacity(),cones->getCapacity()));
 	const uint32_t MaxNumObjects = cubes->getCapacity()+cylinders->getCapacity()+spheres->getCapacity()+cones->getCapacity();
@@ -198,12 +204,17 @@ int main(int argc, char** argv)
 	core::vector<core::vectorSIMDf> initialColor;
 	core::vector<core::matrix3x4SIMD> instanceTransforms;
 	std::array<video::CPropertyPoolHandler::TransferRequest,object_property_pool_t::PropertyCount+1> transfers;
-	transfers[0].propertyID = 0;
-	transfers[1].propertyID = 1;
+	for (auto i=0u; i<transfers.size(); i++)
+	{
+		transfers[i].propertyID = i;
+		transfers[i].device2device = false;
+		transfers[i].srcAddresses = nullptr;
+		transfers[i].download = false;
+	}
 	transfers[2].propertyID = 0;
 	// add a shape
 	auto addShapes = [&](
-		core::smart_refctd_ptr<video::IGPUFence>&& fence,
+		video::IGPUFence* fence,
 		video::IGPUCommandBuffer* cmdbuf,
 		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData,
 		instance_redirect_property_pool_t* pool, const uint32_t count,
@@ -216,10 +227,10 @@ int main(int argc, char** argv)
 		initialColor.resize(count);
 		instanceTransforms.resize(count);
 		// allocate the object data
-		std::fill_n(scratchObjectIDs.data(),count,object_property_pool_t::invalid_index);
+		std::fill_n(scratchObjectIDs.data(),count,object_property_pool_t::invalid);
 		objectPool->allocateProperties(scratchObjectIDs.data(),scratchObjectIDs.data()+count);
 		// now the redirects
-		std::fill_n(scratchInstanceRedirects.data(),count,instance_redirect_property_pool_t::invalid_index);
+		std::fill_n(scratchInstanceRedirects.data(),count,instance_redirect_property_pool_t::invalid);
 		pool->allocateProperties(scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count);
 		// fill with data
 		for (auto i=0u; i<count; i++)
@@ -230,39 +241,78 @@ int main(int argc, char** argv)
 			// TODO: seems like `rigidBodyData.trans` is redundant to some matrices in the MotionStateBase
 			const auto objectID = scratchObjectIDs[i];
 			auto& body = bodies[objectID] = world->createRigidBody(rigidBodyData);
-			world->bindRigidBody<CInstancedMotionState>(body,objectID,scratchInstanceRedirects[i],rigidBodyData.trans,correction_mat);
+			world->bindRigidBody<CInstancedMotionState>(body,pool,objectID,scratchInstanceRedirects[i],rigidBodyData.trans,correction_mat);
 		}
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
 			transfers[i].pool = objectPool.get();
-			transfers[i].indices = {scratchObjectIDs.data(),scratchObjectIDs.data()+count};
+			transfers[i].elementCount = count;
+			transfers[i].dstAddresses = scratchObjectIDs.data();
 		}
-		transfers[0].data = initialColor.data();
-		transfers[1].data = instanceTransforms.data();
+		transfers[0].source = initialColor.data();
+		transfers[1].source = instanceTransforms.data();
+		//
 		transfers[2].pool = pool;
-		transfers[2].indices = {scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count};
-		transfers[2].data = scratchObjectIDs.data();
+		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
+		transfers[2].elementCount = count;
+		transfers[2].srcAddresses = nullptr;
+		transfers[2].dstAddresses = scratchInstanceRedirects.data();
+		transfers[2].device2device = false;
+		transfers[2].source = scratchObjectIDs.data();
 		// set up the transfer/update
 		propertyPoolHandler->transferProperties(
 			utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),
-			cmdbuf,fence.get(),transfers.data(),transfers.data()+transfers.size(),logger.get()
+			cmdbuf,fence,transfers.data(),transfers.data()+transfers.size(),logger.get()
 		);
 	};
-	auto addCubes = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCubes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,cubeRigidBodyData,cubes.get(),count);
 	};
-	auto addCylinders = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCylinders = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,cylinderRigidBodyData,cylinders.get(),count,core::matrix3x4SIMD().setRotation(core::quaternion(core::PI<float>()/2.f,0.f,0.f)));
 	};
-	auto addSpheres = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addSpheres = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,sphereRigidBodyData,spheres.get(),count);
 	};
-	auto addCones = [&](core::smart_refctd_ptr<video::IGPUFence>&& fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCones = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
 	{
 		addShapes(std::move(fence),cmdbuf,coneRigidBodyData,cones.get(),count,core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f,-0.5f,0.f)));
+	};
+	//
+	auto deleteShapes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, const uint32_t* objectsToDelete, const uint32_t* instanceRedirectsToDelete, const uint32_t count)
+	{
+		objectPool->freeProperties(objectsToDelete,objectsToDelete+count);
+		// a bit of reuse
+		scratchObjectIDs.resize(count);
+		scratchInstanceRedirects.resize(count);
+		uint32_t* srcAddrScratch = scratchObjectIDs.data();
+		uint32_t* dstAddrScratch = scratchInstanceRedirects.data();
+		//
+		const bool needTransfer = video::CPropertyPoolHandler::freeProperties(pool,transfers.data()+2u,instanceRedirectsToDelete,instanceRedirectsToDelete+count,srcAddrScratch,dstAddrScratch);
+		if (needTransfer)
+			propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,cmdbuf,fence,transfers.data()+2,transfers.data()+3,logger.get());
+	};
+	auto deleteBasedOnPhysicsPredicate = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, auto pred)
+	{
+		core::vector<uint32_t> objects, instances;
+		for (auto& body : bodies)
+		{
+			if (!body)
+				continue;
+			auto* motionState = static_cast<CInstancedMotionState*>(body->getMotionState());
+			if (motionState->getInstancePool()!=pool || !pred(motionState))
+				continue;
+
+			objects.emplace_back(motionState->getObjectID());
+			instances.emplace_back(motionState->getInstanceID());
+			world->unbindRigidBody(body);
+			world->deleteRigidBody(body);
+			body = nullptr;
+		}
+		deleteShapes(fence,cmdbuf,pool,objects.data(),instances.data(),objects.size());
 	};
 
 	// setup scene
@@ -271,10 +321,10 @@ int main(int argc, char** argv)
 		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
 
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		addCubes(core::smart_refctd_ptr(fence),cmdbuf,20u);
-		addCylinders(core::smart_refctd_ptr(fence),cmdbuf,20u);
-		addSpheres(core::smart_refctd_ptr(fence),cmdbuf,20u);
-		addCones(core::smart_refctd_ptr(fence),cmdbuf,10u);
+		addCubes(fence.get(),cmdbuf,20u);
+		addCylinders(fence.get(),cmdbuf,20u);
+		addSpheres(fence.get(),cmdbuf,20u);
+		addCones(fence.get(),cmdbuf,10u);
 		cmdbuf->end();
 		
 		video::IGPUQueue::SSubmitInfo submit;
@@ -580,16 +630,52 @@ int main(int argc, char** argv)
 		{
 			// Update Physics (TODO: fixed timestep)
 			world->getWorld()->stepSimulation(dt);
+
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.pool = objectPool.get();
-			request.indices = {CInstancedMotionState::s_updateIndices.data(),CInstancedMotionState::s_updateIndices.data()+CInstancedMotionState::s_updateIndices.size()};
 			request.propertyID = TransformPropertyID;
-			request.data = CInstancedMotionState::s_updateData.data();
+			request.elementCount = CInstancedMotionState::s_updateAddresses.size();
+			request.srcAddresses = nullptr;
+			request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
+			request.device2device = false;
+			request.source = CInstancedMotionState::s_updateData.data();
+			request.download = false;
 			// TODO: why does the very first update set matrices to identity?
 			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
 			assert(result.transferSuccess);
-			CInstancedMotionState::s_updateIndices.clear();
+			// ensure dependency from transfer to any following transfers
+			{
+				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				memBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				cb->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
+					1u,&memBarrier,0u,nullptr,0u,nullptr
+				);
+			}
+			CInstancedMotionState::s_updateAddresses.clear();
 			CInstancedMotionState::s_updateData.clear();
+
+			auto falledFromMap = [](CInstancedMotionState* motionState) -> bool
+			{
+				btTransform tform;
+				motionState->getWorldTransform(tform);
+				return tform.getOrigin().getY()<-128.f;
+			};
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cones.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cubes.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),spheres.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cylinders.get(),falledFromMap);
+			// ensure dependency from transfer to any following transfers and vertex shaders
+			{
+				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				memBarrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
+				cb->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
+					1u,&memBarrier,0u,nullptr,0u,nullptr
+				);
+			}			
 		}
 		// renderpass
 		{
@@ -639,12 +725,11 @@ int main(int argc, char** argv)
 	world->deleteRigidBody(basePlateBody);
 	world->deletebtObject(basePlateRigidBodyData.shape);
 	
-	for (auto body : bodies)
-	if (body)
-	{
-		world->unbindRigidBody(body);
-		world->deleteRigidBody(body);
-	}
+	auto alwaysTrue = [](auto dummy) -> bool {return true;};
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cylinders.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,spheres.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cones.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cubes.get(),alwaysTrue);
 
 	world->deletebtObject(cubeRigidBodyData.shape);
 	world->deletebtObject(cylinderRigidBodyData.shape);

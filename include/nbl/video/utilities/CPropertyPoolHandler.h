@@ -41,7 +41,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         //
 		inline const IGPUDescriptorSetLayout* getCanonicalLayout() const { return m_dsCache->getCanonicalLayout(); }
 		
-		//
+		// This class only deals with the completion of Property Pool to Host Memory transfer requests.
+		// For Pool to Device Memory you need to use Events/Sempahores and Memory Dependencies in
+		// the commandbuffer given as the argument to `transferProperties` and/or its execution submission.
 		class download_future_t : public core::Uncopyable
 		{
 				friend class CPropertyPoolHandler;
@@ -100,8 +102,60 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 				bool wait();
 
-				const void* getData(const uint32_t downRequestIndex);
+				// downRequestIndex is an index into packed list of download-to-host only requests.
+				// If you had transfer requests [upHost,upDevice,dDevice,uHost,dHost,dHost],
+				// then `hostDownRequestIndex=1` maps to the 6th request
+				const void* getData(const uint32_t hostDownRequestIndex);
 		};
+
+        //
+		struct TransferRequest
+		{
+			TransferRequest() : pool(nullptr), propertyID(0xdeadbeefu), elementCount(0u), srcAddresses(nullptr), dstAddresses(nullptr), download(false)
+			{
+				device2device = 0u;
+				source = nullptr;
+			}
+			~TransferRequest() {}
+
+			inline bool isDownload() const
+			{
+				if (download)
+				{
+					// cpu source shouldn't be set if not doing a gpu side transfer
+					assert(device2device || !source);
+					return true;
+				}
+				// cpu source should be set if not doing a gpu side transfer
+				assert(device2device || source);
+				return false;
+			}
+
+			const IPropertyPool* pool;
+			uint32_t propertyID;
+			uint32_t elementCount;
+			// can be null, if null treated like an implicit {0,1,2,3,...} iota view
+			const uint32_t* srcAddresses;
+			const uint32_t* dstAddresses;
+			union
+			{
+				// device
+				struct
+				{
+					IGPUBuffer* buffer; // must be null for a host transfer
+					uint64_t offset;
+				};
+				// host
+				struct
+				{
+					uint64_t device2device;
+					const void* source;
+				};
+			};
+			bool download;
+		};
+
+		//
 		struct transfer_result_t
 		{
 			transfer_result_t(download_future_t&& _download, bool _transferSuccess) : download(std::move(_download)), transferSuccess(_transferSuccess) {}
@@ -117,50 +171,40 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			bool transferSuccess;
 		};
 
-		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
-		struct AllocationRequest
-		{
-			AllocationRequest() : pool(nullptr), outIndices{nullptr,nullptr}, data(nullptr) {}
-			AllocationRequest(IPropertyPool* _pool, core::SRange<uint32_t> _outIndices, const void* const* _data) : pool(_pool), outIndices(_outIndices), data(_data) {}
-
-			IPropertyPool* pool;
-			core::SRange<uint32_t> outIndices;
-			const void* const* data; 
-		};
-		// returns false if an allocation or part of a transfer has failed
-		// while its possible to detect which allocation has failed, its not possible to know exactly what transfer failed
-		transfer_result_t addProperties(
-			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
-			IGPUFence* const fence, const AllocationRequest* const requestsBegin, const AllocationRequest* const requestsEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(1500u)
-		);
-
-        //
-		struct TransferRequest
-		{
-			TransferRequest() : pool(nullptr), indices{nullptr,nullptr}, propertyID(0xdeadbeefu)
-			{
-				data = nullptr;
-			}
-
-			inline bool isDownload() const {return !data;}
-
-			IPropertyPool* pool;
-			core::SRange<const uint32_t> indices;
-			uint32_t propertyID;
-			const void* data;
-		};
-		// fence must be not pending yet
+		// Fence must be not pending yet, `cmdbuf` must be already in recording state.
 		[[nodiscard]] transfer_result_t transferProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
 			IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,system::logger_opt_ptr logger,
 			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
 		);
 
+		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
+		static inline bool freeProperties(IPropertyPool* pool, TransferRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
+		{
+			const auto oldHead = pool->getAllocated();
+			const auto transferCount = pool->freeProperties(indicesBegin,indicesEnd,srcAddresses,dstAddresses);
+			if (transferCount)
+			{
+				for (auto i=0u; i<pool->getPropertyCount(); i++)
+				{
+					requests[i].pool = pool;
+					requests[i].propertyID = i;
+					requests[i].elementCount = transferCount;
+					requests[i].srcAddresses = srcAddresses;
+					requests[i].dstAddresses = dstAddresses;
+					requests[i].buffer = pool->getPropertyMemoryBlock(i).buffer.get();
+					requests[i].offset = pool->getPropertyMemoryBlock(i).offset;
+					requests[i].download = false;
+				}
+				return true;
+			}
+			return false;
+		}
+
     protected:
 		~CPropertyPoolHandler()
 		{
-			free(m_tmpIndexRanges);
+			free(m_tmpAddressRanges);
 			// pipelines drop themselves automatically
 		}
 
@@ -170,14 +214,14 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
-		struct IndexUploadRange
+		struct AddressUploadRange
 		{
-			IndexUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
+			AddressUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
 
 			core::SRange<const uint32_t> source;
 			uint32_t destOff;
 		};
-        IndexUploadRange* m_tmpIndexRanges;
+        AddressUploadRange* m_tmpAddressRanges;
 		uint32_t* m_tmpAddresses,* m_tmpSizes,* m_alignments;
 		uint8_t m_maxPropertiesPerPass;
 
