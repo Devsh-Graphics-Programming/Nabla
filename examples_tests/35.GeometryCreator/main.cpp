@@ -105,44 +105,41 @@ int main()
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
 	auto windowCallback = std::move(initOutput.windowCb);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto utilities = std::move(initOutput.utilities);
+
+	auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuTransferFence;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuTransferSemaphore;
-
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuComputeFence;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuComputeSemaphore;
-
-	auto updateCpu2GpuSignalizatorsWithPureObjects = [&]() -> void //! reset the state by creating new gpu objects after cpu2gpu conversion
 	{
-		gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-		gpuTransferSemaphore = logicalDevice->createSemaphore();
-
-		gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-		gpuComputeSemaphore = logicalDevice->createSemaphore();
-	};
-
-	{
-		updateCpu2GpuSignalizatorsWithPureObjects();
-
-		cpu2gpuParams.assetManager = assetManager.get();
-		cpu2gpuParams.device = logicalDevice.get();
-		cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
-		cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
-		cpu2gpuParams.pipelineCache = nullptr;
-		cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
-
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queues[decltype(initOutput)::EQT_COMPUTE];
 	}
 
+	auto cpu2gpuWaitForFences = [&]() -> void
+	{
+		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
+		}
+
+		waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
+		}
+	};
+	
 	auto geometryCreator = assetManager->getGeometryCreator();
 	auto cubeGeometry = geometryCreator->createCubeMesh(vector3df(2,2,2));
 	auto sphereGeometry = geometryCreator->createSphereMesh(2, 16, 16);
@@ -214,7 +211,7 @@ int main()
 			if (!gpubuffers || gpubuffers->size() < 1u)
 				assert(false);
 
-			updateCpu2GpuSignalizatorsWithPureObjects();
+			cpu2gpuWaitForFences();
 		}
 
 		asset::SBufferBinding<video::IGPUBuffer> bindings[MAX_DATA_BUFFERS];
@@ -369,7 +366,7 @@ int main()
 
 		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 		{
-			nbl::asset::VkRect2D area;
+			VkRect2D area;
 			area.offset = { 0,0 };
 			area.extent = { WIN_W, WIN_H };
 			asset::SClearValue clear[2] = {};
