@@ -95,6 +95,9 @@ class ITransformTree : public virtual core::IReferenceCounted
 		inline const auto* getNodePropertyPool() const {return m_nodeStorage.get();}
 
 		//
+		inline const auto* getNodePropertyDescriptorSet() const {return m_transformHierarchyDS.get();}
+
+		//
 		inline const asset::SBufferRange<video::IGPUBuffer>& getGlobalTransformationBufferRange() const
 		{
 			return m_nodeStorage->getPropertyMemoryBlock(global_transform_prop_ix);
@@ -151,6 +154,10 @@ class ITransformTree : public virtual core::IReferenceCounted
 		{
 			// everything drops itself automatically
 		}
+
+		friend class ITransformTreeManager;
+		//
+		inline auto* getNodePropertyPool() { return m_nodeStorage.get(); }
 
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
