@@ -127,27 +127,26 @@ class CFileArchiveZip : public IFileArchive
 private:
 	bool m_isGZip;
 	core::vector<SZipFileEntry> m_fileInfo;
-	size_t m_readOffset = 0;
 	std::string m_password = ""; // TODO password
 public:
 	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, core::smart_refctd_ptr<ISystem>&& system, bool isGZip, const std::string_view& password, system::logger_opt_smart_ptr&& logger = nullptr) :
 		IFileArchive(std::move(file), std::move(system), std::move(logger)), m_isGZip(isGZip)
 	{
+		size_t offset = 0;
 		if (m_file.get())
 		{
 			// load file entries
 			if (m_isGZip)
-				while (scanGZipHeader()) {}
+				while (scanGZipHeader(offset)) {}
 			else
-				while (scanZipHeader()) {}
+				while (scanZipHeader(offset)) {}
 		}
 	}
 	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) override;
 private:
-	// TODO: make scanning functions take and return file read offset to make stuff thread-safe
-	bool scanGZipHeader();
-	bool scanZipHeader(bool ignoreGPBits = false); 
-	bool scanCentralDirectoryHeader();
+	bool scanGZipHeader(size_t& offset);
+	bool scanZipHeader(size_t& offset, bool ignoreGPBits = false);
+	bool scanCentralDirectoryHeader(size_t& offset);
 };
 
 class CArchiveLoaderZip : public IArchiveLoader

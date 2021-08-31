@@ -7,7 +7,7 @@
 
 namespace nbl::system
 {
-	bool CFileArchiveZip::scanGZipHeader()
+	bool CFileArchiveZip::scanGZipHeader(size_t& offset)
 	{
 		SZipFileEntry entry;
 		entry.Offset = 0;
@@ -15,9 +15,9 @@ namespace nbl::system
 
 		SGZIPMemberHeader header;
 		system::future<size_t> headerFuture;
-		m_file->read(headerFuture, &header, m_readOffset, sizeof(SGZIPMemberHeader));
+		m_file->read(headerFuture, &header, offset, sizeof(SGZIPMemberHeader));
 		headerFuture.get();
-		m_readOffset += sizeof(SGZIPMemberHeader);
+		offset += sizeof(SGZIPMemberHeader);
 		if (headerFuture.get() == sizeof(SGZIPMemberHeader))
 		{
 			// check header value
@@ -30,9 +30,9 @@ namespace nbl::system
 				uint16_t dataLen;
 
 				system::future<size_t> lenFuture;
-				m_file->read(lenFuture, &dataLen, m_readOffset, 2);
+				m_file->read(lenFuture, &dataLen, offset, 2);
 				lenFuture.get();
-				m_readOffset += 2;
+				offset += 2;
 			}
 			std::filesystem::path zipFileName = "";
 			if (header.flags & EGZF_FILE_NAME)
@@ -40,14 +40,14 @@ namespace nbl::system
 				char c;
 				{
 					system::future<size_t> fut;
-					m_file->read(fut, &c, m_readOffset++, 1);
+					m_file->read(fut, &c, offset++, 1);
 					fut.get();
 				}
 				while (c)
 				{
 					zipFileName += c;
 					system::future<size_t> fut;
-					m_file->read(fut, &c, m_readOffset++, 1);
+					m_file->read(fut, &c, offset++, 1);
 					fut.get();
 				}
 			}
@@ -73,33 +73,33 @@ namespace nbl::system
 				while (c)
 				{
 					system::future<size_t> fut;
-					m_file->read(fut, &c, m_readOffset++, 1);
+					m_file->read(fut, &c, offset++, 1);
 					fut.get();
 				}
 			}
 			if (header.flags & EGZF_CRC16)
-				m_readOffset += 2;
+				offset += 2;
 
-			entry.Offset = m_readOffset;
+			entry.Offset = offset;
 			entry.header.FilenameLength = zipFileName.native().length();
 			entry.header.CompressionMethod = header.compressionMethod;
-			entry.header.DataDescriptor.CompressedSize = (m_file->getSize() - 8) - m_readOffset;
+			entry.header.DataDescriptor.CompressedSize = (m_file->getSize() - 8) - offset;
 
-			m_readOffset += entry.header.DataDescriptor.CompressedSize;
+			offset += entry.header.DataDescriptor.CompressedSize;
 
 			// read CRC
 			{
 				system::future<size_t> fut;
-				m_file->read(fut, &entry.header.DataDescriptor.CRC32, m_readOffset, 4);
+				m_file->read(fut, &entry.header.DataDescriptor.CRC32, offset, 4);
 				fut.get();
-				m_readOffset += 4;
+				offset += 4;
 			}
 			// read uncompressed size
 			{
 				system::future<size_t> fut;
-				m_file->read(fut, &entry.header.DataDescriptor.UncompressedSize, m_readOffset, 4);
+				m_file->read(fut, &entry.header.DataDescriptor.UncompressedSize, offset, 4);
 				fut.get();
-				m_readOffset += 4;
+				offset += 4;
 			}
 
 			addItem(zipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, false, 0);
@@ -108,7 +108,7 @@ namespace nbl::system
 		return false;
 	}
 
-	bool CFileArchiveZip::scanZipHeader(bool ignoreGPBits)
+	bool CFileArchiveZip::scanZipHeader(size_t& offset, bool ignoreGPBits)
 	{
 		std::filesystem::path ZipFileName = "";
 		SZipFileEntry entry;
@@ -117,9 +117,9 @@ namespace nbl::system
 
 		{
 			system::future<size_t> fut;
-			m_file->read(fut, &entry.header, m_readOffset, sizeof(SZIPFileHeader));
+			m_file->read(fut, &entry.header, offset, sizeof(SZIPFileHeader));
 			fut.get();
-			m_readOffset += sizeof(SZIPFileHeader);
+			offset += sizeof(SZIPFileHeader);
 		}
 
 		if (entry.header.Sig != 0x04034b50)
@@ -130,9 +130,9 @@ namespace nbl::system
 			char* tmp = new char[entry.header.FilenameLength + 2];
 			{
 				system::future<size_t> fut;
-				m_file->read(fut, tmp, m_readOffset, entry.header.FilenameLength);
+				m_file->read(fut, tmp, offset, entry.header.FilenameLength);
 				fut.get();
-				m_readOffset += entry.header.FilenameLength;
+				offset += entry.header.FilenameLength;
 			}
 			tmp[entry.header.FilenameLength] = 0;
 			ZipFileName = tmp;
@@ -149,9 +149,9 @@ namespace nbl::system
 			{
 				{
 					system::future<size_t> fut;
-					m_file->read(fut, &extraHeader, m_readOffset, sizeof(extraHeader));
+					m_file->read(fut, &extraHeader, offset, sizeof(extraHeader));
 					fut.get();
-					m_readOffset += sizeof(extraHeader);
+					offset += sizeof(extraHeader);
 				}
 				restSize -= sizeof(extraHeader);
 				if (extraHeader.ID == (int16_t)0x9901)
@@ -159,9 +159,9 @@ namespace nbl::system
 					SZipFileAESExtraData data;
 					{
 						system::future<size_t> fut;
-						m_file->read(fut, &data, m_readOffset, sizeof(data));
+						m_file->read(fut, &data, offset, sizeof(data));
 						fut.get();
-						m_readOffset += sizeof(data);
+						offset += sizeof(data);
 					}
 
 					restSize -= sizeof(data);
@@ -173,7 +173,7 @@ namespace nbl::system
 							((data.Version & 0xff) << 24) |
 							(data.EncryptionStrength << 16) |
 							(data.CompressionMode);
-						m_readOffset += restSize;
+						offset += restSize;
 						break;
 					}
 				}
@@ -183,7 +183,7 @@ namespace nbl::system
 		else
 #endif
 			if (entry.header.ExtraFieldLength)
-				m_readOffset += entry.header.ExtraFieldLength;
+				offset += entry.header.ExtraFieldLength;
 
 		// if bit 3 was set, use CentralDirectory for setup
 		if (!ignoreGPBits && entry.header.GeneralBitFlag & ZIP_INFO_IN_DATA_DESCRIPTOR)
@@ -192,19 +192,19 @@ namespace nbl::system
 			m_fileInfo.clear();
 			m_files.clear();
 			// First place where the end record could be stored
-			m_readOffset = m_file->getSize() - 22;
+			offset = m_file->getSize() - 22;
 			const char endID[] = { 0x50, 0x4b, 0x05, 0x06, 0x0 };
 			char tmp[5] = { '\0' };
 			bool found = false;
 			// search for the end record ID
-			while (!found && m_readOffset > 0)
+			while (!found && offset > 0)
 			{
 				int seek = 8;
 				{
 					system::future<size_t> fut;
-					m_file->read(fut, tmp, m_readOffset, 4);
+					m_file->read(fut, tmp, offset, 4);
 					fut.get();
-					m_readOffset += 4;
+					offset += 4;
 				}
 				switch (tmp[0])
 				{
@@ -225,45 +225,45 @@ namespace nbl::system
 					seek = 7;
 					break;
 				}
-				m_readOffset -= seek;
+				offset -= seek;
 			}
 			{
 				system::future<size_t> fut;
-				m_file->read(fut, &dirEnd, m_readOffset, sizeof(dirEnd));
+				m_file->read(fut, &dirEnd, offset, sizeof(dirEnd));
 				fut.get();
-				m_readOffset += sizeof(dirEnd);
+				offset += sizeof(dirEnd);
 			}
 			m_fileInfo.reserve(dirEnd.TotalEntries);
-			m_readOffset = dirEnd.Offset;
-			while (scanCentralDirectoryHeader()) {}
+			offset = dirEnd.Offset;
+			while (scanCentralDirectoryHeader(offset)) {}
 			return false;
 		}
-		entry.Offset = m_readOffset;
+		entry.Offset = offset;
 		// move forward length of data
-		m_readOffset += entry.header.DataDescriptor.CompressedSize;
+		offset += entry.header.DataDescriptor.CompressedSize;
 
 		addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, *ZipFileName.string().rbegin() == '/', m_fileInfo.size());
 		m_fileInfo.push_back(entry);
 	}
 
-	bool CFileArchiveZip::scanCentralDirectoryHeader()
+	bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
 	{
 		std::filesystem::path ZipFileName = "";
 		SZIPFileCentralDirFileHeader entry;
 		{
 			system::future<size_t> fut;
-			m_file->read(fut, &entry, m_readOffset, sizeof(SZIPFileCentralDirFileHeader));
+			m_file->read(fut, &entry, offset, sizeof(SZIPFileCentralDirFileHeader));
 			fut.get();
-			m_readOffset += sizeof(SZIPFileCentralDirFileHeader);
+			offset += sizeof(SZIPFileCentralDirFileHeader);
 		}
 
 		if (entry.Sig != 0x02014b50)
 			return false; // central dir headers end here.
 
-		const long pos = m_readOffset;
-		m_readOffset = entry.RelativeOffsetOfLocalHeader;
-		scanZipHeader(true);
-		m_readOffset = pos + entry.FilenameLength + entry.ExtraFieldLength + entry.FileCommentLength;
+		const long pos = offset;
+		offset = entry.RelativeOffsetOfLocalHeader;
+		scanZipHeader(offset, true);
+		offset = pos + entry.FilenameLength + entry.ExtraFieldLength + entry.FileCommentLength;
 		m_fileInfo.back().header.DataDescriptor.CompressedSize = entry.CompressedSize;
 		m_fileInfo.back().header.DataDescriptor.UncompressedSize = entry.UncompressedSize;
 		m_fileInfo.back().header.DataDescriptor.CRC32 = entry.CRC32;
@@ -273,6 +273,7 @@ namespace nbl::system
 
 	core::smart_refctd_ptr<IFile> CFileArchiveZip::readFile(const SOpenFileParams& params)
 	{
+		size_t readOffset;
 		auto found = std::find_if(m_files.begin(), m_files.end(), [&params](const SFileListEntry& entry) { return params.filename == entry.fullName; });
 
 		const SZipFileEntry& e = m_fileInfo[found->ID];
@@ -289,15 +290,15 @@ namespace nbl::system
 			uint8_t salt[16] = { 0 };
 			const uint16_t saltSize = (((e.header.Sig & 0x00ff0000) >> 16) + 1) * 4;
 			{
-				m_readOffset = e.Offset;
-				read_blocking(m_file.get(), salt, m_readOffset, saltSize);
-				m_readOffset += saltSize;
+				readOffset = e.Offset;
+				read_blocking(m_file.get(), salt, readOffset, saltSize);
+				readOffset += saltSize;
 			}
 			char pwVerification[2];
 			char pwVerificationFile[2];
 			{
-				read_blocking(m_file.get(), pwVerification, m_readOffset, 2);
-				m_readOffset += 2;
+				read_blocking(m_file.get(), pwVerification, readOffset, 2);
+				readOffset += 2;
 			}
 			fcrypt_ctx zctx; // the encryption context
 			int rc = fcrypt_init(
@@ -318,8 +319,8 @@ namespace nbl::system
 			while ((c + 32768) <= decryptedSize)
 			{
 				{
-					read_blocking(m_file.get(), decryptedBuf + c, m_readOffset, 32768);
-					m_readOffset += 32768;
+					read_blocking(m_file.get(), decryptedBuf + c, readOffset, 32768);
+					readOffset += 32768;
 				}
 				fcrypt_decrypt(
 					decryptedBuf + c, // pointer to the data to decrypt
@@ -328,8 +329,8 @@ namespace nbl::system
 				c += 32768;
 			}
 			{
-				read_blocking(m_file.get(), decryptedBuf + c, m_readOffset, decryptedSize - c);
-				m_readOffset += decryptedSize - c;
+				read_blocking(m_file.get(), decryptedBuf + c, readOffset, decryptedSize - c);
+				readOffset += decryptedSize - c;
 			}
 			fcrypt_decrypt(
 				decryptedBuf + c, // pointer to the data to decrypt
@@ -348,8 +349,8 @@ namespace nbl::system
 				return 0;
 			}
 			{
-				read_blocking(m_file.get(), fileMAC, m_readOffset, 10);
-				m_readOffset += 10;
+				read_blocking(m_file.get(), fileMAC, readOffset, 10);
+				readOffset += 10;
 			}
 			if (strncmp(fileMAC, resMAC, 10))
 			{
@@ -422,10 +423,10 @@ namespace nbl::system
 				}
 
 				//memset(pcData, 0, decryptedSize);
-				m_readOffset = e.Offset;
+				readOffset = e.Offset;
 				{
-					read_blocking(m_file.get(), pcData, m_readOffset, decryptedSize);
-					m_readOffset += decryptedSize;
+					read_blocking(m_file.get(), pcData, readOffset, decryptedSize);
+					readOffset += decryptedSize;
 				}
 			}
 
@@ -509,9 +510,9 @@ namespace nbl::system
 				}
 
 				{
-					m_readOffset = e.Offset;
-					read_blocking(m_file.get(), pcData, m_readOffset, decryptedSize);
-					m_readOffset += decryptedSize;
+					readOffset = e.Offset;
+					read_blocking(m_file.get(), pcData, readOffset, decryptedSize);
+					readOffset += decryptedSize;
 				}
 			}
 
@@ -591,10 +592,10 @@ namespace nbl::system
 				}
 
 				//memset(pcData, 0, decryptedSize);
-				m_readOffset = e.Offset;
+				readOffset = e.Offset;
 				{
-					read_blocking(m_file.get(), pcData, m_readOffset, decryptedSize);
-					m_readOffset += decryptedSize;
+					read_blocking(m_file.get(), pcData, readOffset, decryptedSize);
+					readOffset += decryptedSize;
 				}
 			}
 
