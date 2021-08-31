@@ -21,13 +21,13 @@ namespace core
 template<typename _size_type>
 class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type>
 {
+        using Base = PoolAddressAllocator<_size_type>;
     protected:
-        inline _size_type* begin() { return &getFreeStack(Base::freeStackCtr); }
+        inline _size_type* begin() { return &Base::getFreeStack(Base::freeStackCtr); }
         inline _size_type& getIteratorOffset(_size_type i) {return reinterpret_cast<_size_type*>(Base::reservedSpace)[Base::blockCount+i];}
         inline const _size_type& getIteratorOffset(_size_type i) const {return reinterpret_cast<const _size_type*>(Base::reservedSpace)[Base::blockCount+i];}
 
     private:
-        using Base = PoolAddressAllocator<_size_type>;
 
         void copySupplementaryState(const IteratablePoolAddressAllocator& other, _size_type newBuffSz)
         {
@@ -97,8 +97,8 @@ class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
         // gets a range of all the allocated addresses
-        inline const _size_type* begin() const {return &getFreeStack(Base::freeStackCtr);}
-        inline const _size_type* end() const {return &getFreeStack(Base::blockCount);}
+        inline const _size_type* begin() const {return &Base::getFreeStack(Base::freeStackCtr);}
+        inline const _size_type* end() const {return &Base::getFreeStack(Base::blockCount);}
 
 
         inline _size_type        safe_shrink_size(_size_type sizeBound, _size_type newBuffAlignmentWeCanGuarantee=1u) noexcept
