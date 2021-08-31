@@ -408,7 +408,7 @@ int main(int argc, char** argv)
 		//params.relativeDir = tmp.c_str();
 		auto spec = assetManager->getAsset(path,params).getContents();
 		if (spec.empty())
-			return nullptr;
+			assert(false);
 
 		return core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*spec.begin());
 	};
@@ -681,7 +681,7 @@ int main(int argc, char** argv)
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
-			asset::VkRect2D area;
+			VkRect2D area;
 			clearValues[0].color.float32[0] = 0.1f;
 			clearValues[0].color.float32[1] = 0.1f;
 			clearValues[0].color.float32[2] = 0.1f;
