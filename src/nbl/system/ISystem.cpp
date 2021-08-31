@@ -1,5 +1,6 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/CArchiveLoaderZip.h"
+#include "nbl/system/CArchiveLoaderTar.h"
 
 namespace nbl::system
 {
@@ -15,6 +16,7 @@ namespace nbl::system
     ISystem::ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(this, std::move(caller))
     {
         addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(core::smart_refctd_ptr<ISystem>(this), nullptr));
+        addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(core::smart_refctd_ptr<ISystem>(this), nullptr));
     }
     core::smart_refctd_ptr<IFile> ISystem::getFileFromArchive(const system::path& _path)
     {

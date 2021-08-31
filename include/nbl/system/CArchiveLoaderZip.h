@@ -130,7 +130,7 @@ private:
 	std::string m_password = ""; // TODO password
 public:
 	CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, core::smart_refctd_ptr<ISystem>&& system, bool isGZip, const std::string_view& password, system::logger_opt_smart_ptr&& logger = nullptr) :
-		IFileArchive(std::move(file), std::move(system), std::move(logger)), m_isGZip(isGZip)
+		IFileArchive(std::move(file), std::move(system), std::move(logger)), m_isGZip(isGZip), m_password(password)
 	{
 		size_t offset = 0;
 		if (m_file.get())
