@@ -35,7 +35,7 @@ class CGLSLLoader final : public asset::IAssetLoader
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
 				readPos += count;
-				auto found = std::find(tmp,end,'#');
+				auto found = std::find(tmp,end,'#'); // this is wrong and may lead to errors, you may encounter "version " in the reading buffer and you get in a trouble
 				if (found==end || found==tmp)
 				{
 					readPos += sizeof tmp;
