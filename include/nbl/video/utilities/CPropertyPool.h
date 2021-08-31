@@ -47,7 +47,7 @@ class CPropertyPool final : public IPropertyPool
             {
                 blocks[i].offset = 0ull;
                 blocks[i].size = capacity*PropertySizes[i];
-                blocks[i].buffer = device->createDeviceLocalGPUBufferOnDedMem(buffer[i].size);
+                blocks[i].buffer = device->createDeviceLocalGPUBufferOnDedMem(blocks[i].size);
             }
             return create(device,blocks,capacity,contiguous,allocator<uint8_t>());
         }

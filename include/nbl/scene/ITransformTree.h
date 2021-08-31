@@ -50,8 +50,42 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!pool)
 				return nullptr;
 
-			auto dsp = device->createGPUDescriptorPool();
-			auto ds = device->createGPUDescriptorSet(dsp.get());
+			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,property_pool_t::PropertyCount};
+			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,1u,1u,&size);
+			if (!dsp)
+				return nullptr;
+
+			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[property_pool_t::PropertyCount];
+			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
+			{
+				writes[i].binding = bindings[i].binding = i;
+				writes[i].descriptorType = bindings[i].type = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
+				writes[i].count = bindings[i].count = 1u;
+				bindings[i].stageFlags = asset::ISpecializedShader::ESS_ALL;
+				bindings[i].samplers = nullptr;
+			}
+			auto layout = device->createGPUDescriptorSetLayout(bindings,bindings+property_pool_t::PropertyCount);
+			if (!layout)
+				return nullptr;
+
+			auto ds = device->createGPUDescriptorSet(dsp.get(),std::move(layout));
+			if (!ds)
+				return nullptr;
+
+			video::IGPUDescriptorSet::SDescriptorInfo infos[property_pool_t::PropertyCount];
+			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
+			{
+				writes[i].dstSet = ds.get();
+				writes[i].arrayElement = 0u;
+				writes[i].info = infos+i;
+
+				const auto& block = pool->getPropertyMemoryBlock(i);
+				infos[i].desc = block.buffer;
+				infos[i].buffer.offset = block.offset;
+				infos[i].buffer.size = block.size;
+			}
+			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 
 			auto* tt = new ITransformTree(std::move(pool),std::move(ds));
 			return core::smart_refctd_ptr<ITransformTree>(tt,core::dont_grab);

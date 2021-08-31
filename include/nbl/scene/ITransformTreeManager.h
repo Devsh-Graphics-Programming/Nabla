@@ -79,11 +79,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::ILogicalDevice* device)
+        static inline core::smart_refctd_ptr<ITransformTreeManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& device)
         {
 			// TODO: create the pipelines
 
-			auto* ttm = new ITransformTreeManager(device);
+			auto* ttm = new ITransformTreeManager(std::move(device));
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
         }
 
