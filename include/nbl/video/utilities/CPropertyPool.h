@@ -39,6 +39,19 @@ class CPropertyPool final : public IPropertyPool
             return core::min<size_t>(IPropertyPool::invalid,capacity);
         }
 
+        // easy dont care creation
+        static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
+        {
+            asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
+            for (auto i=0u; i<PropertyCount; i++)
+            {
+                blocks[i].offset = 0ull;
+                blocks[i].size = capacity*PropertySizes[i];
+                blocks[i].buffer = device->createDeviceLocalGPUBufferOnDedMem(buffer[i].size);
+            }
+            return create(device,blocks,capacity,contiguous,allocator<uint8_t>());
+        }
+        // you can either construct the pool with explicit capacity or have it deduced from the memory blocks you pass
 		static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, uint32_t capacity=0u, const bool contiguous=false, allocator<uint8_t>&& alloc = allocator<uint8_t>())
 		{
             if (!capacity)

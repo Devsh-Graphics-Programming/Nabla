@@ -6,11 +6,12 @@
 #define __NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
-#include "nbl/video/video.h"
 
-namespace nbl
-{
-namespace scene
+#include "nbl/video/declarations.h"
+
+#include "nbl/scene/ITransformTree.h"
+
+namespace nbl::scene
 {
 
 // TODO: split into ITT and ITTM because no need for multiple pipeline copies for multiple TTs
@@ -18,7 +19,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 {
 	public:
 		using node_t = uint32_t;
-		_NBL_STATIC_INLINE_CONSTEXPR node_t invalid_node = video::IPropertyPool::invalid_index;
+		_NBL_STATIC_INLINE_CONSTEXPR node_t invalid_node = video::IPropertyPool::invalid;
 
 		using timestamp_t = video::IGPUAnimationLibrary::timestamp_t;
 		// two timestamp values are reserved for initialization
@@ -78,39 +79,13 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IVideoDriver* _driver, asset::SBufferRange<video::IGPUBuffer>&& memoryBlock, core::allocator<uint8_t>&& alloc = core::allocator<uint8_t>())
-		{
-			const auto reservedSize = video::IPropertyPool::getReservedSize(property_pool_t::calcApproximateCapacity(memoryBlock.size));
-			auto reserved = std::allocator_traits<core::allocator<uint8_t>>::allocate(alloc,reservedSize);
-			if (!reserved)
-				return nullptr;
-
-			auto retval = create(_driver,std::move(memoryBlock),reserved,std::move(alloc));
-			if (!retval)
-				std::allocator_traits<core::allocator<uint8_t>>::deallocate(alloc,reserved,reservedSize);
-
-			return retval;
-		}
-		// if this method fails to create the pool, the callee must free the reserved memory themselves, also the reserved pointer must be compatible with the allocator so it can free it
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IVideoDriver* _driver, asset::SBufferRange<video::IGPUBuffer>&& memoryBlock, void* reserved, core::allocator<uint8_t>&& alloc=core::allocator<uint8_t>())
+        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::ILogicalDevice* device)
         {
-			auto _nodeStorage = property_pool_t::create(std::move(memoryBlock),reserved,std::move(alloc));
-			if (!_nodeStorage)
-				return nullptr;
+			// TODO: create the pipelines
 
-			auto* ttm = new ITransformTreeManager(_driver,std::move(_nodeStorage));
+			auto* ttm = new ITransformTreeManager(device);
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
         }
-		
-		//
-		inline const auto* getNodePropertyPool() const {return m_nodeStorage.get();}
-
-		//
-		inline asset::SBufferRange<video::IGPUBuffer> getGlobalTransformationBufferRange() const
-		{
-			asset::SBufferRange<video::IGPUBuffer> retval = {m_nodeStorage->getPropertyOffset(global_transform_prop_ix),m_nodeStorage->getCapacity()*sizeof(global_transform_t),m_nodeStorage->getMemoryBlock().buffer};
-			return retval;
-		}
 
 		// need to at least initialize with the parent node property with the recompute and update timestamps at 0xfffffffeu and 0xffffffffu respectively 
 		// but a function with optional relative transform would be nice
@@ -135,17 +110,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		}
 		// TODO: utilities for adding root nodes, adding skeleton node instances, etc.
 		// should we just do it ourselves with a shader? (set correct timestamps so global gets recomputed)
-#endif
 
 		//
 		inline void removeNodes(const node_t* begin, const node_t* end)
 		{
 			m_nodeStorage->freeProperties(begin,end);
-		}
-		//
-		inline void clearNodes()
-		{
-			m_nodeStorage->freeAllProperties();
 		}
 
 		// TODO: make all these functions take a pipeline barrier type (future new API) with default being a full barrier
@@ -167,22 +136,10 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			soleUpdateOrFusedRecompute_impl(m_updateAndRecomputePipeline.get(),std::forward<Args>(args)...);
 		}
-
-		//
-		auto transferGlobalTransforms(const node_t* begin, const node_t* end, const asset::SBufferBinding<video::IGPUBuffer>& outputBuffer, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
-		{
-			video::CPropertyPoolHandler::TransferRequest request;
-			request.download = true;
-			request.pool = m_nodeStorage.get();
-			request.indices = {begin,end};
-			request.propertyID = 3u;
-			//m_nodeStorage->transferProperties();
-			assert(false); // TODO: Need a transfer to GPU mem
-		}
-		//auto downloadGlobalTransforms()
+#endif
 
 	protected:
-		ITransformTreeManager(video::IVideoDriver* _driver, core::smart_refctd_ptr<property_pool_t>&& _nodeStorage) : m_driver(_driver), m_nodeStorage(std::move(_nodeStorage))
+		ITransformTreeManager(core::smart_refctd_ptr<video::ILogicalDevice>&& _device) : m_device(_device)
 		{
 			// TODO: the ComputePipeline for update,recompute and combined update&recompute
 		}
@@ -190,7 +147,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			// everything drops itself automatically
 		}
-
+#if 0
 		void soleUpdateOrFusedRecompute_impl(
 			const video::IGPUComputePipeline* pipeline,
 			const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirectParameters,
@@ -207,21 +164,13 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			m_driver->dispatchIndirect(dispatchIndirectParameters.buffer.get(),dispatchIndirectParameters.offset);
 			// TODO: pipeline barrier for UBO, SSBO and TBO and if pipeline==m_updatePipeline then COMMAND_BIT too
 		}
-
-		video::IVideoDriver* m_driver;
-		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
+#endif
+		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
-		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requsts > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
-		/** Ideal O(1) insertion and erasure
-		* Add: new nodes using pool allocator, add the node_t references to the back of the contiguous array (increment atomic) and record where the reference is (offset into contiguous) as an additional property of the node
-		* Remove: lookup the contiguous offset property for the removed node, decremenet contiguous array size atomic and save the return value as the reference to be swapped, swap the erased reference with the one to be swapped, dereference the swapped reference and update its pointer to contiguous 
-		**/
 };
 
-
-} // end namespace scene
-} // end namespace nbl
+} // end namespace nbl::scene
 
 #endif
 
