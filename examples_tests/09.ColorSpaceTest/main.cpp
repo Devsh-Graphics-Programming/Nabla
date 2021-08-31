@@ -353,7 +353,7 @@ int main()
 
 			nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 			{
-				nbl::asset::VkRect2D area;
+				VkRect2D area;
 				area.offset = { 0,0 };
 				area.extent = { NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT };
 				nbl::asset::SClearValue clear;
