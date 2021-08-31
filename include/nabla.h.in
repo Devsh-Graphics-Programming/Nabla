@@ -69,7 +69,6 @@
 #include "splines.h"
 
 #include "SColor.h"
-#include "SCollisionEngine.h"
 #include "SViewFrustum.h"
 
 #endif // __NABLA_H_INCLUDED__
