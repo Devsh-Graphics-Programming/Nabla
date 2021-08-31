@@ -180,6 +180,8 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderVirtualDirectory.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
 )
 set(NBL_UI_SOURCES
