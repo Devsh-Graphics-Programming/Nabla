@@ -16,6 +16,7 @@ class future;
 class IFile : public core::IReferenceCounted
 {
 	friend class ISystemCaller;
+	friend class IFileArchive;
 	public:
 		enum E_CREATE_FLAGS : uint32_t
 		{

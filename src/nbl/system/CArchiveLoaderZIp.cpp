@@ -290,17 +290,13 @@ namespace nbl::system
 			const uint16_t saltSize = (((e.header.Sig & 0x00ff0000) >> 16) + 1) * 4;
 			{
 				m_readOffset = e.Offset;
-				system::future<size_t> fut;
-				m_file->read(fut, salt, m_readOffset, saltSize);
-				fut.get();
+				read_blocking(m_file.get(), salt, m_readOffset, saltSize);
 				m_readOffset += saltSize;
 			}
 			char pwVerification[2];
 			char pwVerificationFile[2];
 			{
-				system::future<size_t> fut;
-				m_file->read(fut, pwVerification, m_readOffset, 2);
-				fut.get();
+				read_blocking(m_file.get(), pwVerification, m_readOffset, 2);
 				m_readOffset += 2;
 			}
 			fcrypt_ctx zctx; // the encryption context
@@ -322,9 +318,7 @@ namespace nbl::system
 			while ((c + 32768) <= decryptedSize)
 			{
 				{
-					system::future<size_t> fut;
-					m_file->read(fut, decryptedBuf + c, m_readOffset, 32768);
-					fut.get();
+					read_blocking(m_file.get(), decryptedBuf + c, m_readOffset, 32768);
 					m_readOffset += 32768;
 				}
 				fcrypt_decrypt(
@@ -334,9 +328,7 @@ namespace nbl::system
 				c += 32768;
 			}
 			{
-				system::future<size_t> fut;
-				m_file->read(fut, decryptedBuf + c, m_readOffset, decryptedSize - c);
-				fut.get();
+				read_blocking(m_file.get(), decryptedBuf + c, m_readOffset, decryptedSize - c);
 				m_readOffset += decryptedSize - c;
 			}
 			fcrypt_decrypt(
@@ -356,10 +348,8 @@ namespace nbl::system
 				return 0;
 			}
 			{
-				system::future<size_t> fut;
-				m_file->read(fut, fileMAC, m_readOffset, 10);
+				read_blocking(m_file.get(), fileMAC, m_readOffset, 10);
 				m_readOffset += 10;
-				fut.get();
 			}
 			if (strncmp(fileMAC, resMAC, 10))
 			{
@@ -369,9 +359,7 @@ namespace nbl::system
 			}
 			decrypted = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);//new io::CMemoryReadFile(decryptedBuf, decryptedSize, found->FullName);
 			{
-				system::future<size_t> fut;
-				decrypted->write(fut, decryptedBuf, 0, decryptedSize);
-				fut.get();
+				write_blocking(decrypted.get(), decryptedBuf, 0, decryptedSize);
 			}
 			actualCompressionMethod = (e.header.Sig & 0xffff);
 #if 0
@@ -436,9 +424,7 @@ namespace nbl::system
 				//memset(pcData, 0, decryptedSize);
 				m_readOffset = e.Offset;
 				{
-					system::future<size_t> fut;
-					m_file->read(fut, pcData, m_readOffset, decryptedSize);
-					fut.get();
+					read_blocking(m_file.get(), pcData, m_readOffset, decryptedSize);
 					m_readOffset += decryptedSize;
 				}
 			}
@@ -485,9 +471,7 @@ namespace nbl::system
 					IFile::ECF_READ_WRITE, 
 					uncompressedSize);
 				{
-					system::future<size_t> fut;
-					ret->write(fut, pBuf, 0, uncompressedSize);
-					fut.get();
+					write_blocking(ret.get(), pBuf, 0, uncompressedSize);
 				}
 				delete[] pBuf;
 				return ret;
@@ -526,10 +510,8 @@ namespace nbl::system
 
 				{
 					m_readOffset = e.Offset;
-					system::future<size_t> fut;
-					m_file->read(fut, pcData, m_readOffset, decryptedSize);
+					read_blocking(m_file.get(), pcData, m_readOffset, decryptedSize);
 					m_readOffset += decryptedSize;
-					fut.get();
 				}
 			}
 
@@ -570,9 +552,7 @@ namespace nbl::system
 			{
 				auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize);
 				{
-					system::future<size_t> fut;
-					decrypted->write(fut, pBuf, 0, uncompressedSize);
-					fut.get();
+					write_blocking(decrypted.get(), pBuf, 0, uncompressedSize);
 				}
 				delete[] pBuf;
 				return ret;
@@ -611,13 +591,10 @@ namespace nbl::system
 				}
 
 				//memset(pcData, 0, decryptedSize);
-				File->seek(e.Offset);
 				m_readOffset = e.Offset;
 				{
-					system::future<size_t> fut;
-					m_file->read(fut, pcData, m_readOffset, decryptedSize);
+					read_blocking(m_file.get(), pcData, m_readOffset, decryptedSize);
 					m_readOffset += decryptedSize;
-					fut.get();
 				}
 			}
 

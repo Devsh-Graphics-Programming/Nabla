@@ -101,6 +101,14 @@ protected:
 
 		m_files.insert(std::lower_bound(m_files.begin(), m_files.end(), entry), entry);
 	}
+	size_t read_blocking(system::IFile* file, void* buffer, size_t offset, size_t size)
+	{
+		return file->read_impl(buffer, offset, size);
+	}
+	size_t write_blocking(system::IFile* file, void* buffer, size_t offset, size_t size)
+	{
+		return file->write_impl(buffer, offset, size);
+	}
 	core::vector<SFileListEntry> m_files;
 };
 
