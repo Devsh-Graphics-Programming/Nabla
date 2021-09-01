@@ -308,7 +308,6 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
@@ -330,10 +329,9 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp
-	
-	
 
 
 	#opengl

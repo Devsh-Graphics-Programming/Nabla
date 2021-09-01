@@ -169,6 +169,9 @@ public:
 
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
     {
+        if ((params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
+            return nullptr;
+
         IGPUImage::SCreationParams imgci;
         imgci.arrayLayers = params.arrayLayers;
         imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
