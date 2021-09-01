@@ -5,7 +5,6 @@
 #ifndef _NBL_VIDEO_UTILITIES_C_DUMB_PRESENTATION_ORACLE_H_INCLUDED_
 #define _NBL_VIDEO_UTILITIES_C_DUMB_PRESENTATION_ORACLE_H_INCLUDED_
 
-#include <nabla.h>
 #include "nbl/video/IPresentationOracle.h"
 
 namespace nbl
