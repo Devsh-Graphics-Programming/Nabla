@@ -107,6 +107,7 @@ int main()
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
+	auto utilities = std::move(initOutput.utilities);
 
 	nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
@@ -146,8 +147,15 @@ int main()
 
 	auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 	{
-		auto cpuComputeSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShader, {}).getContents().begin()[0]);
+		asset::IAssetLoader::SAssetLoadParams params{};
+		params.logger = logger.get();
+		//params.relativeDir = tmp.c_str();
+		auto spec = assetManager->getAsset(pathToShader,params).getContents();
+		
+		if (spec.empty())
+			assert(false);
 
+		auto cpuComputeSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*spec.begin());
 
 		ISpecializedShader::SInfo info = cpuComputeSpecializedShader->getSpecializationInfo();
 		info.m_backingBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ShaderParameters));
@@ -217,7 +225,7 @@ int main()
 		{
 			out[i*MaxDimensions+dim] = sampler.sample(dim,i);
 		}
-		auto gpuSequenceBuffer = device->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
+		auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
 		gpuSequenceBufferView = device->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
 
@@ -244,11 +252,11 @@ int main()
 			for (auto& pixel : random)
 				pixel = rng.nextSample();
 		}
-		auto buffer = device->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
+		auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
 
 		IGPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-		viewParams.image = device->createFilledDeviceLocalGPUImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
+		viewParams.image = utilities->createFilledDeviceLocalGPUImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
 		viewParams.viewType = IGPUImageView::ET_2D;
 		viewParams.format = EF_R32G32_UINT;
 		viewParams.subresourceRange.levelCount = 1u;
@@ -436,7 +444,7 @@ int main()
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
-			asset::VkRect2D area;
+			VkRect2D area;
 			clearValues[0].color.float32[0] = 0.1f;
 			clearValues[0].color.float32[1] = 0.1f;
 			clearValues[0].color.float32[2] = 0.1f;
@@ -469,7 +477,7 @@ int main()
 			range.buffer = gpuubo;
 			range.offset = 0ull;
 			range.size = sizeof(uboData);
-			device->updateBufferRangeViaStagingBuffer(graphicsQueue, range, &uboData);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, range, &uboData);
 		}
 
 		// cube envmap handle
