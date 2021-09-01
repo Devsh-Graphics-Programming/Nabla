@@ -15,6 +15,9 @@
 #include "nbl/video/debug/IDebugCallback.h"
 #include "nbl/video/ILogicalDevice.h"
 
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
+
 namespace nbl::video
 {
 
@@ -76,6 +79,14 @@ public:
         bool shaderSubgroupQuadAllStages = false;
     };
 
+    struct SMemoryProperties
+    {
+        uint32_t        memoryTypeCount;
+        VkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
+        uint32_t        memoryHeapCount;
+        VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
+    };
+
     enum E_QUEUE_FLAGS : uint32_t
     {
         EQF_GRAPHICS_BIT = 0x01,
@@ -94,6 +105,7 @@ public:
 
     const SLimits& getLimits() const { return m_limits; }
     const SFeatures& getFeatures() const { return m_features; }
+    const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
 
     auto getQueueFamilyProperties() const 
     {
@@ -134,6 +146,7 @@ protected:
 
     SLimits m_limits;
     SFeatures m_features;
+    SMemoryProperties m_memoryProperties;
     using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
     qfam_props_array_t m_qfamProperties;
 };

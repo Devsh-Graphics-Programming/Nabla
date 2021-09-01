@@ -334,41 +334,37 @@ public:
         return true;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs,
-        const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams) override
     {
-        // Todo(achal): I would probably need to create an IGPUBuffer::SCreationParams
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
         vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0); // Nabla doesn't support any of these flags
-        vk_createInfo.size = initialMreqs.vulkanReqs.size;
-        vk_createInfo.usage = initialMreqs.vulkanBufferUsageFlags;
-        vk_createInfo.sharingMode = static_cast<VkSharingMode>(initialMreqs.sharingMode); 
-
-        if (initialMreqs.queueFamilyIndices)
-        {
-            vk_createInfo.queueFamilyIndexCount = initialMreqs.queueFamilyIndices->size();
-            vk_createInfo.pQueueFamilyIndices = initialMreqs.queueFamilyIndices->data();
-        }
+        vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
+        vk_createInfo.usage = static_cast<VkBufferUsageFlags>(creationParams.usage);
+        vk_createInfo.sharingMode = static_cast<VkSharingMode>(creationParams.sharingMode); 
+        vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
+        vk_createInfo.pQueueFamilyIndices = creationParams.queuueFamilyIndices;
 
         VkBuffer vk_buffer;
         if (vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
         {
+            VkBufferMemoryRequirementsInfo2 vk_memoryRequirementsInfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2 };
+            vk_memoryRequirementsInfo.pNext = nullptr; // pNext must be NULL
+            vk_memoryRequirementsInfo.buffer = vk_buffer;
+
+            VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
+            VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+            vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
+            vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
+
             IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
-
-            // These are only temporary
-            bufferMemoryReqs.vulkanBufferUsageFlags = initialMreqs.vulkanBufferUsageFlags;
-            bufferMemoryReqs.sharingMode = initialMreqs.sharingMode;
-            bufferMemoryReqs.queueFamilyIndices = initialMreqs.queueFamilyIndices;
-
-            // Not sure if I'd actually need these
-            bufferMemoryReqs.memoryHeapLocation = initialMreqs.memoryHeapLocation;
-            bufferMemoryReqs.mappingCapability = initialMreqs.mappingCapability;
-            bufferMemoryReqs.prefersDedicatedAllocation = initialMreqs.prefersDedicatedAllocation;
-            bufferMemoryReqs.requiresDedicatedAllocation = initialMreqs.requiresDedicatedAllocation;
-
-            vkGetBufferMemoryRequirements(m_vkdev, vk_buffer, &bufferMemoryReqs.vulkanReqs);
+            bufferMemoryReqs.vulkanReqs.alignment = vk_memoryRequirements.memoryRequirements.alignment;
+            bufferMemoryReqs.vulkanReqs.size = vk_memoryRequirements.memoryRequirements.size;
+            bufferMemoryReqs.vulkanReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
+            bufferMemoryReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+            bufferMemoryReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+            bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
+            bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, vk_buffer);
@@ -381,6 +377,7 @@ public:
 
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
     {
+#if 0
         core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(initialMreqs, false);
 
         if (!gpuBuffer)
@@ -401,6 +398,8 @@ public:
         bindBufferMemory(1u, &bindBufferInfo);
 
         return gpuBuffer;
+#endif
+        return nullptr;
     }
         
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
@@ -616,63 +615,7 @@ public:
     }
 
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
-    {
-        // Todo(achal): Remove this, and integrate it with
-        // IDriverMemoryBacked::SDriverMemoryRequirements if possible. Probably we can cache this
-        // in a struct of 5 uint32_t's (deviceLocal, spillover, upstreaming,
-        // downstreaming, cpuSizeGPUVisible) per CVulkanPhysicalDevice and just access
-        // the relevant index in here.
-#if 0
-        uint32_t memoryTypeIndex = ~0u;
-        {
-            if (m_physicalDevice->getAPIType() != EAT_VULKAN)
-                return nullptr;
-
-            VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(m_physicalDevice.get())->getInternalObject();
-
-            VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
-            vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
-
-            // Todo(achal): I need to take into account getDeviceLocalGPUMemoryReqs, probably
-            const uint32_t supportedMemoryTypes = additionalReqs.vulkanReqs.memoryTypeBits;
-            IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDeviceLocalGPUMemoryReqs();
-
-            const VkMemoryPropertyFlags desiredMemoryProperties =
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-            for (uint32_t i = 0u; i < vk_physicalDeviceMemoryProperties.memoryTypeCount; ++i)
-            {
-                const bool isMemoryTypeSupportedForResource = (supportedMemoryTypes & (1 << i));
-
-                const bool doesMemoryHaveDesirableProperites =
-                    (vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags
-                        & desiredMemoryProperties) == desiredMemoryProperties;
-                if (isMemoryTypeSupportedForResource && doesMemoryHaveDesirableProperites)
-                {
-                    memoryTypeIndex = i;
-                    break;
-                }
-            }
-        }
-        assert(memoryTypeIndex != ~0u);
-#endif
-
-        VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-        vk_allocateInfo.pNext = nullptr; // No extensions for now
-        vk_allocateInfo.allocationSize = additionalReqs.vulkanReqs.size;
-        vk_allocateInfo.memoryTypeIndex = 2u; // Todo(achal): LOL?!
-
-        VkDeviceMemory vk_deviceMemory;
-        if (vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
     //! If cannot or don't want to use device local memory, then this memory can be used
     /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
@@ -702,7 +645,6 @@ public:
     {
         return nullptr;
     }
-
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {

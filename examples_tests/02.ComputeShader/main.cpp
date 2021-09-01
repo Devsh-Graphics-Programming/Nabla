@@ -273,6 +273,7 @@ int main()
 	}
 	assert((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
 
+
 	video::ILogicalDevice::SCreationParams deviceCreationParams;
 	if (computeFamilyIndex == presentFamilyIndex)
 	{
@@ -419,28 +420,33 @@ int main()
 	}
 
 	core::smart_refctd_ptr<video::IGPUBuffer> ubos[MAX_SWAPCHAIN_IMAGE_COUNT];
-
-	// Kinda janky to pass buffer size like this, I think, because we're overriding
-	// these values at the end of createGPUBuffer anyway (by the values obtained from
-	// vkGetBufferMemoryRequirements)
-	video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements = {};
-	memoryRequirements.vulkanReqs.size = sizeof(UniformBufferObject);
-	memoryRequirements.vulkanBufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	memoryRequirements.sharingMode = asset::ESM_EXCLUSIVE;
-	memoryRequirements.queueFamilyIndices = nullptr;
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
-		ubos[i] = device->createGPUBuffer(memoryRequirements);
+	{
+		video::IGPUBuffer::SCreationParams creationParams = {};
+		creationParams.size = sizeof(UniformBufferObject);
+		creationParams.usage = video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT;
+		creationParams.sharingMode = asset::ESM_EXCLUSIVE;
+		creationParams.queueFamilyIndexCount = 0u;
+		creationParams.queuueFamilyIndices = nullptr;
+		for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+			ubos[i] = device->createGPUBuffer(creationParams);
+	}
 
 	// Allocate memory for GPU buffer
 	core::smart_refctd_ptr<video::IDriverMemoryAllocation> ubosMemory[MAX_SWAPCHAIN_IMAGE_COUNT];
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
-		// THIS IS ONLY USED FOR DETERMINING THE SIZE OF ALLOCATION FOR NOW
-		// Again kinda janky to pass size of allocation this way
 		video::IDriverMemoryBacked::SDriverMemoryRequirements additionalMemReqs = {};
-		additionalMemReqs.vulkanReqs.size = sizeof(UniformBufferObject);
+		additionalMemReqs.vulkanReqs.alignment = ubos[i]->getMemoryReqs().vulkanReqs.alignment;
+		additionalMemReqs.vulkanReqs.size = ubos[i]->getMemoryReqs().vulkanReqs.size;
 		additionalMemReqs.vulkanReqs.memoryTypeBits = ubos[i]->getMemoryReqs().vulkanReqs.memoryTypeBits;
+		additionalMemReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+		additionalMemReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ
+			| video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
+		additionalMemReqs.prefersDedicatedAllocation = ubos[i]->getMemoryReqs().prefersDedicatedAllocation;
+		additionalMemReqs.requiresDedicatedAllocation = ubos[i]->getMemoryReqs().requiresDedicatedAllocation;
 
+		// Todo(achal): Use a function which is supposed to give you mappable memory
+		// Todo(achal): Revert back to allocateDeviceLocalMemory when staging works
 		ubosMemory[i] = device->allocateDeviceLocalMemory(additionalMemReqs);
 	}
 

@@ -81,6 +81,13 @@ public:
             m_features.shaderSubgroupQuadAllStages = ((subgroupProperties.supportedStages & asset::ISpecializedShader::E_SHADER_STAGE::ESS_ALL)
                                                         == asset::ISpecializedShader::E_SHADER_STAGE::ESS_ALL);
         }
+
+        // Get physical device's memory properties
+        {
+            VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
+            vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
+            memcpy(&m_memoryProperties, &vk_physicalDeviceMemoryProperties, sizeof(VkPhysicalDeviceMemoryProperties));
+        }
                 
         uint32_t qfamCount = 0u;
         vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, nullptr);
