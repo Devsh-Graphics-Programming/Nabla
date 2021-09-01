@@ -4,11 +4,28 @@
 
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
+#include <iostream>
+#include <cstdio>
 
 #include "../common/CommonAPI.h"
 
 using namespace nbl;
 using namespace core;
+
+constexpr uint16_t MAX_TEST_RGB_VALUES = 32u;
+
+#include "nbl/nblpack.h"
+struct alignas(16) SShaderStorageBufferObject
+{
+    core::vector3df_SIMD rgb[MAX_TEST_RGB_VALUES]; //! buffer generated and filled on cpp side
+
+    uint64_t rgb_cpp_encoded[MAX_TEST_RGB_VALUES];
+    core::vector3df_SIMD rgb_cpp_decoded[MAX_TEST_RGB_VALUES];
+
+    uint64_t rgb_glsl_encoded[MAX_TEST_RGB_VALUES];
+    core::vector3df_SIMD rgb_glsl_decoded[MAX_TEST_RGB_VALUES];
+} PACK_STRUCT;
+#include "nbl/nblunpack.h"
 
 int main()
 {
@@ -70,21 +87,41 @@ int main()
         }
     };
 
-    /*
-        TODO: add rand test
-    */
+    auto getRandomRGB = [&]()
+    {
+        //! (-2^64,-FLT_MIN] U {0} U [FLT_MIN,2^64)
+        //! is a valid range for testing
 
-    float test[3] = { 1.34562, -1.045672, 1.977933 };
-    auto encoded = rgb32f_to_rgb18e7s3(test);
-    auto decoded = rgb18e7s3_to_rgb32f(encoded);
+        static std::default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());
+        static std::uniform_real_distribution<float> distribution_range1(-std::pow(2, 64) + 1, -FLT_MIN);
+        static std::uniform_real_distribution<float> distribution_range2(FLT_MIN, std::pow(2, 64));
+        
+        auto getRandomValue = [&]()
+        {
+            static const int32_t shift = static_cast<int32_t>(std::log2(RAND_MAX));
+            const bool randomBool = (rand() >> shift) & 1;
 
-    std::cout << "r: " << decoded.x << " g: " << decoded.y << " b: " << decoded.z;
+            return randomBool ? distribution_range1(generator) : distribution_range2(generator);
+        };
+      
+        return core::vector3df_SIMD(getRandomValue(), getRandomValue(), getRandomValue());
+    };
 
-    /*
-        TODO:
+    SShaderStorageBufferObject ssbo;
 
-        utility test
-    */
+    for (size_t i = 0; i < MAX_TEST_RGB_VALUES; ++i)
+    {
+        const auto& rgb = ssbo.rgb[i] = getRandomRGB();
+        const auto& encoded = ssbo.rgb_cpp_encoded[i] = rgb32f_to_rgb18e7s3(rgb.x, rgb.y, rgb.z);
+        const auto& decoded = ssbo.rgb_cpp_decoded[i] = [&]()
+        {
+            const auto& rgb32f = rgb18e7s3_to_rgb32f(encoded);
+            return core::vector3df_SIMD(rgb32f.x, rgb32f.y, rgb32f.z);
+        }(); 
+
+        std::cout << "references: " << rgb.x << " " << rgb.y << " " << rgb.z << "\n"
+            << "cpp decoded: " << decoded.x << " " << decoded.y << " " << decoded.z << "\n\n";
+    }
 
 	return 0;
 }
