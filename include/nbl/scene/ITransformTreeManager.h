@@ -17,9 +17,12 @@ namespace nbl::scene
 
 //
 #define uint uint32_t
+#define int int32_t
 #define uvec4 core::vectorSIMDu32
 #include "nbl/builtin/glsl/transform_tree/relative_transform_modification.glsl"
+#include "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
 #undef uvec4
+#undef int
 #undef uint
 
 class ITransformTreeManager : public virtual core::IReferenceCounted
@@ -127,7 +130,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			tree->getNodePropertyPool()->freeProperties(begin,end);
 		}
 
-		// TODO: make all these functions take a pipeline barrier type (future new API) with default being a full barrier
+		//
+		using ModificationRequestRange = nbl_glsl_transform_tree_modification_request_range_t;
 		struct ParamsBase
 		{
 			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
@@ -154,20 +158,29 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::EPSF_ALL_COMMANDS_BIT;
 				asset::E_ACCESS_FLAGS dstAccessMask = asset::EAF_ALL_ACCESSES_BIT_DEVSH;
 			} finalBarrier = {};
-			asset::SBufferBinding<video::IGPUBuffer> nodeIDBuffer; // first uint in the buffer tells us how many requests we have
 		};
 		struct LocalTransformUpdateParams : ParamsBase
 		{
-			video::IGPUFence fence; // for signalling when to drop a temporary descriptor set
-			asset::SBufferBinding<video::IGPUBuffer> modificationRequestBuffer;
-			asset::SBufferBinding<video::IGPUBuffer> modificationRequestTimestampBuffer;
-			bool duplicateNodeReferences = true; // whether the list of updates could contain multiple updates to the same node
+			// for signalling when to drop a temporary descriptor set
+			video::IGPUFence fence;
+			// first uint in the buffer tells us how many ModificationRequestRanges we have
+			// second uint in the buffer tells us how many total requests we have
+			// rest is filled wtih ModificationRequestRange
+			asset::SBufferBinding<video::IGPUBuffer> requestRanges;
+			// this one is filled with RelativeTransformModificationRequest
+			asset::SBufferBinding<video::IGPUBuffer> modificationRequests;
+			asset::SBufferBinding<video::IGPUBuffer> modificationRequestTimestamps;
 		};
 		inline void updateLocalTransforms(const LocalTransformUpdateParams& params)
 		{
 			soleUpdateOrFusedRecompute_impl(m_updatePipeline.get(),params);
 		}
 		//
+		struct GlobalTransformUpdateParams : ParamsBase
+		{
+			// first uint in the buffer tells us how many nodes to update we have
+			asset::SBufferBinding<video::IGPUBuffer> nodeIDs;
+		};
 		void recomputeGlobalTransforms(const ParamsBase& params)
 		{
 			auto* cmdbuf = params.cmdbuf;
@@ -176,9 +189,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_recomputePipeline->getLayout(),0u,1u,descSets);
 			lastDispatch(m_recomputePipeline.get(),params);
 		}
+
 		//
 		inline void updateAndRecomputeTransforms(const LocalTransformUpdateParams& params)
 		{
+			assert(false); // TODO: after BaW, for now just use `updateLocalTransforms` and `recomputeGlobalTransforms` in order
 			soleUpdateOrFusedRecompute_impl(m_updateAndRecomputePipeline.get(),params);
 		}
 
@@ -196,16 +211,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		void soleUpdateOrFusedRecompute_impl(const video::IGPUComputePipeline* pipeline, const LocalTransformUpdateParams& params)
 		{
 			auto* cmdbuf = params.cmdbuf;
-			if (params.duplicateNodeReferences)
-			{
-				// TODO: first a dispatch to stable sort the SoA requests according to nodeID
-				// could histogram the nodes first (maybe sort the nodes by amount of references)
-				// prefix sum/scan and get my premade offsets for contiguous sublists
-				// scatter and local sort my requests
-				// process all nodes' requests easily with 1 invocation : 1 node
-				assert(false);
-			}
-			// TODO: get a descriptor set to populate with our input buffers (plus indirect dispatch buffer + nodeIDBuffer if pipeline==m_updateAndRecomputePipeline)
+			// TODO: get a descriptor set to populate with our input buffers
 			assert(false);
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> tempDS;
 			// TOOD: do what CPropertyPoolHandler does and fill tempDS from some sort of reclaimable cache
