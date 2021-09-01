@@ -37,10 +37,19 @@ class CSurfaceGL final : public CSurface<Window>
             return _queueFamIx==0u && dev==*base_t::m_api->getPhysicalDevices().begin();
         }
         
-        // Todo(achal)
         void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override
         {
+            // Todo(achal): Need to properly map asset::E_FORMAT which would also dictate
+            // formatCount
+            formatCount = 1u;
 
+            if (!formats)
+                return;
+
+            formats[0].format = asset::EF_R8G8B8A8_SRGB;
+
+            // formats[0].colorSpace.eotf = ;
+            // formats[0].colorSpace.primary = ;
         }
 
         ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override

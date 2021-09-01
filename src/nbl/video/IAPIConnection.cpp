@@ -7,10 +7,11 @@ namespace nbl::video
 
 core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
 {
-    IPhysicalDevice* const begin = m_physicalDevices[0].get();
-    IPhysicalDevice* const end = begin + m_physicalDevices.size();
+    static_assert(sizeof(std::unique_ptr<IPhysicalDevice>) == sizeof(void*));
 
-    return core::SRange<IPhysicalDevice* const>(&begin, &end);
+    return core::SRange<IPhysicalDevice* const>(
+        reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data()),
+        reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data()) + m_physicalDevices.size());
 }
 
 }

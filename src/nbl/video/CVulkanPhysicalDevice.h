@@ -107,7 +107,7 @@ public:
             m_features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
             m_features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
         }
-        
+                
         requestDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME, false);
         requestDeviceExtension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true); // requires vulkan 1.1
         requestDeviceExtension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
@@ -116,6 +116,14 @@ public:
         // requestDeviceExtension<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, true, &rayTracingPipelineFeatures);
         // requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
 
+
+        // Get physical device's memory properties
+        {
+            VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
+            vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
+            memcpy(&m_memoryProperties, &vk_physicalDeviceMemoryProperties, sizeof(VkPhysicalDeviceMemoryProperties));
+        }
+                
         uint32_t qfamCount = 0u;
         vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, nullptr);
         core::vector<VkQueueFamilyProperties> qfamprops(qfamCount);

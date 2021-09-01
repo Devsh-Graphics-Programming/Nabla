@@ -72,7 +72,7 @@ class ILogicalDevice : public core::IReferenceCounted
 
         virtual ~ILogicalDevice()
         {
-            if (m_queues && m_queues->empty())
+            if (m_queues && !m_queues->empty())
             {
                 for (uint32_t i = 0u; i < m_queues->size(); ++i)
                     delete (*m_queues)[i];
@@ -150,6 +150,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -161,6 +162,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -172,6 +174,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -183,6 +186,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -232,7 +236,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,

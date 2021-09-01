@@ -161,6 +161,7 @@ int main()
 	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
 	auto window = winManager->createWindow(std::move(params));
 
+#if 1
 	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
 		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", true);
 
@@ -169,6 +170,7 @@ int main()
 			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 
 #if 0
+	// Todo(achal): Pending bug investigation
 	{
 		auto opengl_logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
 		core::smart_refctd_ptr<video::COpenGLConnection> opengl =
@@ -177,16 +179,6 @@ int main()
 		core::smart_refctd_ptr<video::CSurfaceGLWin32> surface_opengl =
 			video::CSurfaceGLWin32::create(core::smart_refctd_ptr(opengl),
 				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
-
-		while (surface_opengl->getReferenceCount() >= 0)
-			surface_opengl->drop();
-
-		while (opengl->getReferenceCount() >= 0)
-			opengl->drop();
-
-		// while (opengl_logger->getReferenceCount >= 0)
-		// 	opengl_logger->drop();
-		opengl_logger->drop();
 	}
 #endif
 
@@ -280,6 +272,7 @@ int main()
 			break;
 	}
 	assert((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
+
 
 	video::ILogicalDevice::SCreationParams deviceCreationParams;
 	if (computeFamilyIndex == presentFamilyIndex)
@@ -427,29 +420,35 @@ int main()
 	}
 
 	core::smart_refctd_ptr<video::IGPUBuffer> ubos[MAX_SWAPCHAIN_IMAGE_COUNT];
-
-	// Kinda janky to pass buffer size like this, I think, because we're overriding
-	// these values at the end of createGPUBuffer anyway (by the values obtained from
-	// vkGetBufferMemoryRequirements)
-	video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements = {};
-	memoryRequirements.vulkanReqs.size = sizeof(UniformBufferObject);
-	memoryRequirements.vulkanBufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	memoryRequirements.sharingMode = asset::ESM_EXCLUSIVE;
-	memoryRequirements.queueFamilyIndices = nullptr;
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
-		ubos[i] = device->createGPUBuffer(memoryRequirements);
+	{
+		video::IGPUBuffer::SCreationParams creationParams = {};
+		creationParams.size = sizeof(UniformBufferObject);
+		creationParams.usage = video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT;
+		creationParams.sharingMode = asset::ESM_EXCLUSIVE;
+		creationParams.queueFamilyIndexCount = 0u;
+		creationParams.queuueFamilyIndices = nullptr;
+		for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+			ubos[i] = device->createGPUBuffer(creationParams);
+	}
 
 	// Allocate memory for GPU buffer
 	core::smart_refctd_ptr<video::IDriverMemoryAllocation> ubosMemory[MAX_SWAPCHAIN_IMAGE_COUNT];
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
-		// THIS IS ONLY USED FOR DETERMINING THE SIZE OF ALLOCATION FOR NOW
-		// Again kinda janky to pass size of allocation this way
 		video::IDriverMemoryBacked::SDriverMemoryRequirements additionalMemReqs = {};
-		additionalMemReqs.vulkanReqs.size = sizeof(UniformBufferObject);
+		additionalMemReqs.vulkanReqs.alignment = ubos[i]->getMemoryReqs().vulkanReqs.alignment;
+		additionalMemReqs.vulkanReqs.size = ubos[i]->getMemoryReqs().vulkanReqs.size;
 		additionalMemReqs.vulkanReqs.memoryTypeBits = ubos[i]->getMemoryReqs().vulkanReqs.memoryTypeBits;
+		additionalMemReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+		additionalMemReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ
+			| video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
+		additionalMemReqs.prefersDedicatedAllocation = ubos[i]->getMemoryReqs().prefersDedicatedAllocation;
+		additionalMemReqs.requiresDedicatedAllocation = ubos[i]->getMemoryReqs().requiresDedicatedAllocation;
 
 		ubosMemory[i] = device->allocateDeviceLocalMemory(additionalMemReqs);
+
+		if (ubos[i]->getAPIType() == video::EAT_VULKAN)
+			static_cast<video::CVulkanBuffer*>(ubos[i].get())->setMemoryAndOffset(core::smart_refctd_ptr(ubosMemory[i]), 0ull);
 	}
 
 	video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfos[MAX_SWAPCHAIN_IMAGE_COUNT];
@@ -457,7 +456,7 @@ int main()
 	{
 		bindBufferInfos[i].buffer = ubos[i].get();
 		bindBufferInfos[i].memory = ubosMemory[i].get();
-		bindBufferInfos[i].offset = 0ull;
+		bindBufferInfos[i].offset = ubos[i]->getBoundMemoryOffset();
 	}
 	device->bindBufferMemory(swapchainImageCount, bindBufferInfos);
 
@@ -594,7 +593,9 @@ int main()
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
 	
 	uint32_t currentFrameIndex = 0u;
-	while (!windowShouldClose_Global)
+	// while (!windowShouldClose_Global)
+	// for (uint32_t i = 0u; i < 1000u; ++i)
+	do
 	{
 		video::IGPUSemaphore* acquireSemaphore_frame = acquireSemaphores[currentFrameIndex].get();
 		video::IGPUSemaphore* releaseSemaphore_frame = releaseSemaphores[currentFrameIndex].get();
@@ -635,10 +636,18 @@ int main()
 		presentQueue->present(presentInfo);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
-	}
+	} while (!windowShouldClose_Global);
+
 	device->waitIdle();
 
+
+	return 0;
+#endif
+}
+
 #if 0
+int main()
+{
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -701,7 +710,7 @@ int main()
 		write[1].binding = 1u;
 		info[1].desc = outImgView;
 		info[1].image.imageLayout = asset::EIL_GENERAL;
-		write[1].info = info+1;
+		write[1].info = info + 1;
 		device->updateDescriptorSets(2u, write, 0u, nullptr);
 	}
 
@@ -793,7 +802,7 @@ int main()
 		b.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
 		cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_TRANSFER_BIT, 0, 0u, nullptr, 0u, nullptr, 1, &b);
 		cb->copyImage(outImg.get(), nbl::asset::E_IMAGE_LAYOUT::EIL_UNDEFINED, sc_images.begin()[i].get(), nbl::asset::E_IMAGE_LAYOUT::EIL_UNDEFINED, 1, &region);
-		
+
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::SClearValue clear;
 		asset::VkRect2D area;
@@ -833,7 +842,5 @@ int main()
 
 	device->waitIdle();
 
-#endif
-
-	return 0;
 }
+#endif
