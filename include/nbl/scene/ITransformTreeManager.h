@@ -89,7 +89,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		// creation
         static inline core::smart_refctd_ptr<ITransformTreeManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& device)
         {
-			// TODO: create the pipelines for alloc,update,recompute and combined update&recompute in the constructor
+			// TODO: create the pipelines for update,recompute and combined update&recompute in the constructor
 
 			auto* ttm = new ITransformTreeManager(std::move(device));
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
@@ -103,8 +103,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUFence* fence;
 			ITransformTree* tree;
 			core::SRange<node_t> outNodes;
-			const parent_t*	parents;
-			// if null we don't set the relativeTransforms
+			// if null we set these properties to defaults
+			const parent_t*	parents = nullptr;
 			const relative_transform_t*	relativeTransforms = nullptr;
 		};
 		inline bool addNodes(const AllocationRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
@@ -118,10 +118,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			pool->allocateProperties(request.outNodes.begin(),request.outNodes.end());
 			// TODO: Need to run a `CPropertyPoolHandler`-like transfer compute shader to transfer `parent`, intiailize timestamps, and transfer/initialize relativeTransforms
 			// need to at least initialize with the parent node property with the recompute and update timestamps at 0xfffffffeu and 0xffffffffu respectively
+			// TODO: Better idea, extend `CPropertyPoolHandler` with a "fill mode" (instead of sourcing data from rising indices, fill with the very first property
 			assert(false);
 			return true;
 		}
-		// TODO: utilities for adding root nodes, adding skeleton node instances, etc.
+		// TODO: utility for adding skeleton node instances, etc.
 		 
 		//
 		inline void removeNodes(ITransformTree* tree, const node_t* begin, const node_t* end)
@@ -266,7 +267,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		}
 
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-		core::smart_refctd_ptr<video::IGPUComputePipeline> m_allocatePipeline,m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
+		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
 };
 
 } // end namespace nbl::scene
