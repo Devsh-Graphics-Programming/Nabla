@@ -70,7 +70,11 @@ int main()
         }
     };
 
-    float test[3] = { 1.34562, 1.045672, 1.977933 };
+    /*
+        TODO: add rand test
+    */
+
+    float test[3] = { 1.34562, -1.045672, 1.977933 };
     auto encoded = rgb32f_to_rgb18e7s3(test);
     auto decoded = rgb18e7s3_to_rgb32f(encoded);
 

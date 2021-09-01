@@ -566,12 +566,12 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	};
 
 	auto clamp_rgb18e7s3 = [=](float x) -> float {
-		return std::max(0.f, std::min(x, MAX_RGB19E7));
+		return std::max(0.f, std::min(x, MAX_RGB18E7S3));
 	};
 
-	const bool wasRInputPositive = _rgb[0] > 0;
-	const bool wasGInputPositive = _rgb[0] > 0;
-	const bool wasBInputPositive = _rgb[0] > 0;
+	const bool isRInputNegative = _rgb[0] < 0;
+	const bool isGInputNegative = _rgb[1] < 0;
+	const bool isBInputNegative = _rgb[2] < 0;
 
 	const float r = clamp_rgb18e7s3(abs(_rgb[0]));
 	const float g = clamp_rgb18e7s3(abs(_rgb[1]));
@@ -580,29 +580,29 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	auto f32_exp = [](float x) -> int32_t { return ((reinterpret_cast<int32_t&>(x) >> 23) & 0xff) - 127; };
 
 	const float maxrgb = std::max({ r,g,b });
-	int32_t exp_shared = std::max(-static_cast<int32_t>(RGB19E7_EXP_BIAS) - 1, f32_exp(maxrgb)) + 1 + RGB19E7_EXP_BIAS;
-	assert(exp_shared <= static_cast<int32_t>(RGB19E7_MAX_VALID_BIASED_EXP));
+	int32_t exp_shared = std::max(-static_cast<int32_t>(RGB18E7S3_EXP_BIAS) - 1, f32_exp(maxrgb)) + 1 + RGB18E7S3_EXP_BIAS;
+	assert(exp_shared <= static_cast<int32_t>(RGB18E7S3_MAX_VALID_BIASED_EXP));
 	assert(exp_shared >= 0);
 
-	double denom = std::pow(2.0, static_cast<int32_t>(exp_shared - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS)); // TODO: use fast exp2 and compute reciprocal instead, also use floats not doubles
+	double denom = std::pow(2.0, static_cast<int32_t>(exp_shared - RGB18E7S3_EXP_BIAS - RGB18E7S3_MANTISSA_BITS)); // TODO: use fast exp2 and compute reciprocal instead, also use floats not doubles
 
 	const uint32_t maxm = static_cast<uint32_t>(maxrgb / denom + 0.5);
-	if (maxm == MAX_RGB19E7_MANTISSA + 1u)
+	if (maxm == MAX_RGB18E7S3_MANTISSA + 1u)
 	{
 		denom *= 2.0;
 		++exp_shared;
-		assert(exp_shared <= static_cast<int32_t>(RGB19E7_MAX_VALID_BIASED_EXP));
+		assert(exp_shared <= static_cast<int32_t>(RGB18E7S3_MAX_VALID_BIASED_EXP));
 	}
 	else
-		assert(maxm <= MAX_RGB19E7_MANTISSA);
+		assert(maxm <= MAX_RGB18E7S3_MANTISSA);
 
 	int32_t rm = r / denom + 0.5;
 	int32_t gm = g / denom + 0.5;
 	int32_t bm = b / denom + 0.5;
 
-	assert(rm <= static_cast<int32_t>(MAX_RGB19E7_MANTISSA));
-	assert(gm <= static_cast<int32_t>(MAX_RGB19E7_MANTISSA));
-	assert(bm <= static_cast<int32_t>(MAX_RGB19E7_MANTISSA));
+	assert(rm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
+	assert(gm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
+	assert(bm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
 	assert(rm >= 0);
 	assert(gm >= 0);
 	assert(bm >= 0);
@@ -610,11 +610,11 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	const uint8_t signMask = [&]()
 	{
 		uint8_t mask = {};
-		if (wasRInputPositive)
+		if (isRInputNegative)
 			mask |= 1u << 0u;
-		if (wasGInputPositive)
+		if (isGInputNegative)
 			mask |= 1u << 1u;
-		if (wasBInputPositive)
+		if (isBInputNegative)
 			mask |= 1u << 2u;
 
 		return mask;
@@ -660,17 +660,21 @@ inline rgb32f rgb18e7s3_to_rgb32f(uint64_t _rgb18e7s3)
 	float scale = static_cast<float>(std::exp2(exp));
 	const uint8_t signMask = u.field.s;
 
+	const bool isEncodedRNegative = signMask & (1u << 0u);
+	const bool isEncodedGNegative = signMask & (1u << 1u);
+	const bool isEncodedBNegative = signMask & (1u << 2u);
+
 	rgb32f rgb;
 	rgb.x = u.field.r * scale;
-	if (signMask & (1u << 0))
+	if (isEncodedRNegative)
 		rgb.x *= -1.f;
 
 	rgb.y = u.field.g * scale;
-	if (signMask & (1u << 1u))
+	if (isEncodedGNegative)
 		rgb.y *= -1.f;
 
 	rgb.z = u.field.b * scale;
-	if (signMask & (1u << 2u))
+	if (isEncodedBNegative)
 		rgb.z *= -1.f;
 
 	return rgb;
