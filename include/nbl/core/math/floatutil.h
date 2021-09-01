@@ -641,6 +641,41 @@ inline uint64_t rgb32f_to_rgb18e7s3(float r, float g, float b)
 	return rgb32f_to_rgb18e7s3(rgb);
 }
 
+inline rgb32f rgb18e7s3_to_rgb32f(uint64_t _rgb18e7s3)
+{
+	union rgb18e7s3 {
+		uint64_t u64;
+		struct field {
+			uint64_t r : 18;
+			uint64_t g : 18;
+			uint64_t b : 18;
+			uint64_t e : 7;
+			uint64_t s : 3;
+		} field;
+	};
+
+	rgb18e7s3 u;
+	u.u64 = _rgb18e7s3;
+	int32_t exp = u.field.e - RGB18E7S3_EXP_BIAS - RGB18E7S3_MANTISSA_BITS;
+	float scale = static_cast<float>(std::exp2(exp));
+	const uint8_t signMask = u.field.s;
+
+	rgb32f rgb;
+	rgb.x = u.field.r * scale;
+	if (signMask & (1u << 0))
+		rgb.x *= -1.f;
+
+	rgb.y = u.field.g * scale;
+	if (signMask & (1u << 1u))
+		rgb.y *= -1.f;
+
+	rgb.z = u.field.b * scale;
+	if (signMask & (1u << 2u))
+		rgb.z *= -1.f;
+
+	return rgb;
+}
+
 NBL_FORCE_INLINE float nextafter32(float x, float y)
 {
 	return std::nextafterf(x, y);
