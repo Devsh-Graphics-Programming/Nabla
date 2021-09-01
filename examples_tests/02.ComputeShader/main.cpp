@@ -445,9 +445,10 @@ int main()
 		additionalMemReqs.prefersDedicatedAllocation = ubos[i]->getMemoryReqs().prefersDedicatedAllocation;
 		additionalMemReqs.requiresDedicatedAllocation = ubos[i]->getMemoryReqs().requiresDedicatedAllocation;
 
-		// Todo(achal): Use a function which is supposed to give you mappable memory
-		// Todo(achal): Revert back to allocateDeviceLocalMemory when staging works
 		ubosMemory[i] = device->allocateDeviceLocalMemory(additionalMemReqs);
+
+		if (ubos[i]->getAPIType() == video::EAT_VULKAN)
+			static_cast<video::CVulkanBuffer*>(ubos[i].get())->setMemoryAndOffset(core::smart_refctd_ptr(ubosMemory[i]), 0ull);
 	}
 
 	video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfos[MAX_SWAPCHAIN_IMAGE_COUNT];
@@ -455,7 +456,7 @@ int main()
 	{
 		bindBufferInfos[i].buffer = ubos[i].get();
 		bindBufferInfos[i].memory = ubosMemory[i].get();
-		bindBufferInfos[i].offset = 0ull;
+		bindBufferInfos[i].offset = ubos[i]->getBoundMemoryOffset();
 	}
 	device->bindBufferMemory(swapchainImageCount, bindBufferInfos);
 

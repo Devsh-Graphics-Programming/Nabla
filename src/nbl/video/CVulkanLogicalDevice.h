@@ -617,34 +617,17 @@ public:
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(
         const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
-    //! If cannot or don't want to use device local memory, then this memory can be used
-    /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateSpilloverMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
-    {
-        return nullptr;
-    }
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
-    //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateUpStreamingMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
-    {
-        return nullptr;
-    }
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
-    //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDownStreamingMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
-    {
-        return nullptr;
-    }
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
-    //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override
-    {
-        return nullptr;
-    }
+        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
@@ -1139,6 +1122,10 @@ protected:
     }
             
 private:
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+        VkMemoryPropertyFlags desiredMemoryProperties);
+
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
 };
