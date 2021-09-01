@@ -102,7 +102,7 @@ namespace nbl::system
 				offset += 4;
 			}
 
-			addItem(zipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, false, 0);
+			addItem(zipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, false, getAllocatorType(entry.header.CompressionMethod), 0);
 			m_fileInfo.push_back(entry);
 		}
 		return false;
@@ -242,7 +242,7 @@ namespace nbl::system
 		// move forward length of data
 		offset += entry.header.DataDescriptor.CompressedSize;
 
-		addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, *ZipFileName.string().rbegin() == '/', m_fileInfo.size());
+		addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, *ZipFileName.string().rbegin() == '/', getAllocatorType(entry.header.CompressionMethod), m_fileInfo.size());
 		m_fileInfo.push_back(entry);
 	}
 
@@ -271,7 +271,7 @@ namespace nbl::system
 		return true;
 	}
 
-	core::smart_refctd_ptr<IFile> CFileArchiveZip::readFile(const SOpenFileParams& params)
+	core::smart_refctd_ptr<IFile> CFileArchiveZip::readFile_impl(const SOpenFileParams& params)
 	{
 		size_t readOffset;
 		auto found = std::find_if(m_files.begin(), m_files.end(), [&params](const SFileListEntry& entry) { return params.filename == entry.fullName; });

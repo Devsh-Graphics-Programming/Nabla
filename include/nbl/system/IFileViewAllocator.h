@@ -1,8 +1,6 @@
 #ifndef __NBL_SYSTEM_I_FILE_ALLOCATOR_H_INCLUDED__
 #define __NBL_SYSTEM_I_FILE_ALLOCATOR_H_INCLUDED__
 
-#include <nabla.h>
-
 #include <cstdint>
 #include <cstdlib>
 

@@ -53,8 +53,9 @@ namespace nbl::system
 			{
 				populateFileList();
 			}
+			setFlagsVectorSize(m_files.size());
 		}
-		virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) override;
+		virtual core::smart_refctd_ptr<IFile> readFile_impl(const SOpenFileParams& params) override;
 	private:
 		uint32_t populateFileList();
 	};

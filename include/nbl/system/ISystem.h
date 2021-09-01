@@ -296,7 +296,7 @@ public:
     }
 
     //! Warning: blocking call
-    core::smart_refctd_ptr<IFileArchive> createFileArchive(const std::filesystem::path& filename, const std::string_view& password = "")
+    core::smart_refctd_ptr<IFileArchive> openFileArchive(const std::filesystem::path& filename, const std::string_view& password = "")
     {
         future_t<core::smart_refctd_ptr<IFile>> future;
         if (!createFile(future, filename, IFile::ECF_READ | IFile::ECF_MAPPABLE))
@@ -304,9 +304,9 @@ public:
 
         auto file = std::move(future.get());
 
-        return createFileArchive(std::move(file), password);
+        return openFileArchive(std::move(file), password);
     }
-    core::smart_refctd_ptr<IFileArchive> createFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password = "")
+    core::smart_refctd_ptr<IFileArchive> openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password = "")
     {
         if (file->getFlags() & IFile::ECF_READ == 0)
             return nullptr;
@@ -315,7 +315,9 @@ public:
         auto loaders = m_loaders.perFileExt.findRange(ext);
         for (auto& loader : loaders)
         {
-            return loader.second->createArchive(std::move(file), password);
+            auto arch = loader.second->createArchive(std::move(file), password);
+            if (arch.get() == nullptr) continue;
+            return arch;
         }
         return nullptr;
     }

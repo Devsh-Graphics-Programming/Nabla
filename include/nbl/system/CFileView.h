@@ -8,9 +8,14 @@ namespace nbl::system
 template<typename allocator_t>
 class CFileView : public IFile
 {
+protected:
 	allocator_t allocator;
 	size_t m_size;
 public:
+	CFileView(CFileView<allocator_t>&& other) : IFile(std::move(other.m_system), other.m_flags), m_size(other.m_size), m_name(other.m_name), m_buffer(other.m_buffer) 
+	{
+		other.m_buffer = nullptr;
+	}
 	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags, size_t fileSize) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize)
 	{
 		m_buffer = (std::byte*)allocator.alloc(fileSize);
@@ -51,7 +56,7 @@ protected:
 		memcpy(m_buffer + offset, buffer, sizeToWrite);
 		return sizeToWrite;
 	}
-private:
+protected:
 	std::filesystem::path m_name;
 	std::byte* m_buffer;
 };
@@ -62,6 +67,10 @@ class CFileView<CNullAllocator> : public IFile
 {
 	size_t m_size;
 public:
+	CFileView(CFileView<CNullAllocator>&& other) : IFile(std::move(other.m_system), other.m_flags), m_size(other.m_size), m_name(other.m_name), m_buffer(other.m_buffer)
+	{
+		other.m_buffer = nullptr;
+	}
 	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) : IFile(std::move(sys), _flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize), m_buffer((std::byte*)buffer)
 	{
 	}

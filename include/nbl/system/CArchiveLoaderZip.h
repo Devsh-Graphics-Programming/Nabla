@@ -140,13 +140,23 @@ public:
 				while (scanGZipHeader(offset)) {}
 			else
 				while (scanZipHeader(offset)) {}
+			
+			setFlagsVectorSize(m_files.size());
 		}
 	}
-	virtual core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params) override;
+	virtual core::smart_refctd_ptr<IFile> readFile_impl(const SOpenFileParams& params) override;
 private:
 	bool scanGZipHeader(size_t& offset);
 	bool scanZipHeader(size_t& offset, bool ignoreGPBits = false);
 	bool scanCentralDirectoryHeader(size_t& offset);
+	E_ALLOCATOR_TYPE getAllocatorType(uint32_t compressionType)
+	{
+		switch (compressionType)
+		{
+		case 0: return EAT_NULL;
+		default: return EAT_VIRTUAL_ALLOC;
+		}
+	}
 };
 
 class CArchiveLoaderZip : public IArchiveLoader

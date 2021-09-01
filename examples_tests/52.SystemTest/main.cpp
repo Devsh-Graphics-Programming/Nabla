@@ -302,20 +302,26 @@ int main(int argc, char** argv)
 		}
 	};
 	
-	auto arch = system->createFileArchive(CWD.generic_string() + "test.zip");
+	auto tarArch = system->openFileArchive(CWD.generic_string() + "file.tar");
+	system->mount(std::move(tarArch), "tarArch");
+	auto arch = system->openFileArchive(CWD.generic_string() + "test.zip");
 	system->mount(std::move(arch), "arch");
-	auto arch1 = system->createFileArchive("arch/test/test1.zip");
+	auto arch1 = system->openFileArchive("arch/test/test1.zip");
 	system->mount(std::move(arch1), "arch1");
 	{
 		system::future<smart_refctd_ptr<IFile>> fut;
-		system->createFile(fut, "arch1/test1/file.txt", IFile::ECF_READ);
+		system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
 		auto file = fut.get();
-		
-		std::string str(10, '\0');
+		{
+			system::future<smart_refctd_ptr<IFile>> fut;
+			system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
+			file = fut.get();
+		}
+		std::string str(5, '\0');
 		system::future<size_t> readFut;
 		file->read(readFut, str.data(), 0, 5);
 		readFut.get();
-		std::cout << str;
+		std::cout << str << std::endl;
 	}
 
 	IAssetLoader::SAssetLoadParams lp;

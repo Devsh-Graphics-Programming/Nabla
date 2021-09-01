@@ -43,7 +43,10 @@ namespace nbl::system
                 auto relative = std::filesystem::relative(_path, path);
                 auto files = archive.second->getArchivedFiles();
                 auto requiredFile = std::find_if(files.begin(), files.end(), [&relative](const IFileArchive::SFileListEntry& entry) { return entry.fullName == relative; });
-                if (requiredFile != files.end()) return archive.second->readFile({ relative, "" }); //TODO password
+                if (requiredFile != files.end())
+                {
+                    return archive.second->readFile({ relative, ""});
+                }
                 else return nullptr;
             }
             path = path.parent_path();

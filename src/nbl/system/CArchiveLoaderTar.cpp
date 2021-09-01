@@ -2,7 +2,7 @@
 
 namespace nbl::system
 {
-	core::smart_refctd_ptr<IFile> CFileArchiveTar::readFile(const SOpenFileParams& params)
+	core::smart_refctd_ptr<IFile> CFileArchiveTar::readFile_impl(const SOpenFileParams& params)
 	{
 		auto found = std::find_if(m_files.begin(), m_files.end(), [&params](const SFileListEntry& entry) { return params.filename == entry.fullName; });
 
@@ -79,7 +79,7 @@ namespace nbl::system
 				pos = offset + (size / 512) * 512 + ((size % 512) ? 512 : 0);
 
 				// add file to list
-				addItem(fullPath, offset, size, false);
+				addItem(fullPath, offset, size, false, EAT_NULL);
 			}
 			else
 			{
