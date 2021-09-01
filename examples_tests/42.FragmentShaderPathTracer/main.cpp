@@ -8,6 +8,81 @@
 #include "../common/CommonAPI.h"
 #include "../common/Camera.hpp"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "nbl/video/IPresentationOracle.h"
+
+class PresentationOracle : public video::IPresentationOracle 
+{
+public:
+		PresentationOracle()
+		{
+			reset();
+		}
+
+		~PresentationOracle() {
+		}
+
+		inline void reportBeginFrameRecord() override
+		{
+			lastTime = std::chrono::system_clock::now();
+		}
+
+		inline void reportEndFrameRecord()
+		{
+			auto renderStart = std::chrono::system_clock::now();
+			dt = std::chrono::duration_cast<std::chrono::microseconds>(renderStart-lastTime).count();
+			
+			// Calculate Simple Moving Average for FrameTime
+			{
+				timeSum -= dtList[frameCount];
+				timeSum += dt;
+				dtList[frameCount] = dt;
+				frameCount++;
+				if(frameCount >= MaxFramesToAverage) {
+					frameCount = 0;
+					frameDataFilled = true;
+				}
+			}
+			double averageFrameTime = (frameDataFilled) ? (timeSum / (double)MaxFramesToAverage) : (timeSum / frameCount);
+			auto averageFrameTimeDuration = std::chrono::duration<double, std::micro>(averageFrameTime);
+			auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+			nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+		}
+
+		inline std::chrono::microseconds getNextPresentationTimeStamp() const {return nextPresentationTimeStamp;}
+
+		inline double getDeltaTimeInMicroSeconds() const {return dt;}
+		inline double getDeltaTimeInMiliSeconds() const {return dt / 1000.0;}
+
+		inline void acquireNextImage(video::ISwapchain* swapchain, uint64_t timeout, video::IGPUSemaphore* acquireSemaphore, video::IGPUFence* fence, uint32_t& imageNumber) override
+		{
+		}
+
+		inline void present(video::ILogicalDevice* device, nbl::video::ISwapchain* swapchain, nbl::video::IGPUQueue* queue, nbl::video::IGPUSemaphore* renderFinishedSemaphore, uint32_t imageNumber)
+		{
+		}
+private:
+	
+	void reset()
+	{
+		frameCount = 0ull;
+		frameDataFilled = false;
+		timeSum = 0.0;
+		for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
+			dtList[i] = 0.0;
+		}
+		dt = 0.0;
+	}
+
+	static constexpr size_t MaxFramesToAverage = 100ull;
+
+	bool frameDataFilled = false;
+	size_t frameCount = 0ull;
+	double timeSum = 0.0;
+	double dtList[MaxFramesToAverage] = {};
+	double dt = 0.0;
+	std::chrono::system_clock::time_point lastTime;
+	std::chrono::microseconds nextPresentationTimeStamp;
+};
 
 using namespace nbl;
 using namespace core;
@@ -179,7 +254,7 @@ int main()
 	E_LIGHT_GEOMETRY lightGeom = ELG_SPHERE;
 	constexpr const char* shaderPaths[] = {"../litBySphere.comp","../litByTriangle.comp","../litByRectangle.comp"};
 	auto gpuComputePipeline = createGpuResources(shaderPaths[lightGeom]);
-	
+
 	DispatchInfo_t dispatchInfo = getDispatchInfo(WIN_W, WIN_H);
 
 	auto createGPUImageView = [&](std::string pathToOpenEXRHDRIImage)
@@ -188,7 +263,7 @@ int main()
 		IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
 		auto cpuTexture = assetManager->getAsset(pathToTexture, lp);
 		auto cpuTextureContents = cpuTexture.getContents();
-
+		assert(!cpuTextureContents.empty());
 		auto asset = *cpuTextureContents.begin();
 
 		ICPUImageView::SCreationParams viewParams;
@@ -343,9 +418,8 @@ int main()
 		device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
-	auto lastTime = std::chrono::system_clock::now();
+
 	constexpr uint32_t FRAME_COUNT = 500000u;
-	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
@@ -355,18 +429,10 @@ int main()
 		imageAcquire[i] = device->createSemaphore();
 		renderFinished[i] = device->createSemaphore();
 	}
-
-	// Render
-	constexpr size_t MaxFramesToAverage = 100ull;
-	bool frameDataFilled = false;
-	size_t frame_count = 0ull;
-	double time_sum = 0;
-	double dtList[MaxFramesToAverage] = {};
-	for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
-		dtList[i] = 0.0;
-	}
-
-	double dt = 0;
+	
+	PresentationOracle oracle;
+	oracle.reportBeginFrameRecord();
+	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	
 	// polling for events!
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
@@ -380,30 +446,11 @@ int main()
 			resourceIx = 0;
 		}
 		
-		// Timing
-		auto renderStart = std::chrono::system_clock::now();
-		dt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart-lastTime).count();
-		lastTime = renderStart;
-		
-		// Calculate Simple Moving Average for FrameTime
-		{
-			time_sum -= dtList[frame_count];
-			time_sum += dt;
-			dtList[frame_count] = dt;
-			frame_count++;
-			if(frame_count >= MaxFramesToAverage) {
-				frame_count = 0;
-				frameDataFilled = true;
-			}
-		}
-		double averageFrameTime = (frameDataFilled) ? (time_sum / (double)MaxFramesToAverage) : (time_sum / frame_count);
-		// logger->log("averageFrameTime = %f",system::ILogger::ELL_INFO, averageFrameTime);
-		
-		// Calculate Next Presentation Time Stamp
-		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
-		
+		oracle.reportEndFrameRecord();
+		double dt = oracle.getDeltaTimeInMiliSeconds();
+		auto nextPresentationTimeStamp = oracle.getNextPresentationTimeStamp();
+		oracle.reportBeginFrameRecord();
+
 		// Input 
 		inputSystem->getDefaultMouse(&mouse);
 		inputSystem->getDefaultKeyboard(&keyboard);
