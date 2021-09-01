@@ -240,7 +240,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 	    inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
 	    {
             assert(!isImmutable_debug());
-		    m_pipeline = std::move(pipeline);
+            base_t::setPipeline(std::move(pipeline));
 	    }
 
         //

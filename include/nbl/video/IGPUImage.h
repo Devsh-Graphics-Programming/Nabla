@@ -5,17 +5,17 @@
 #ifndef __NBL_VIDEO_GPU_IMAGE_H_INCLUDED__
 #define __NBL_VIDEO_GPU_IMAGE_H_INCLUDED__
 
+
 #include "dimension2d.h"
 #include "IDriverMemoryBacked.h"
 
 #include "nbl/asset/IImage.h"
 
-#include "IGPUBuffer.h"
-#include "nbl/video/IBackendObject.h"
+#include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/decl/IBackendObject.h"
 
-namespace nbl
-{
-namespace video
+
+namespace nbl::video
 {
 
 class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>, public IBackendObject
@@ -54,15 +54,14 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
         _NBL_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
-		IGPUImage(ILogicalDevice* dev, SCreationParams&& _params) : IBackendObject(dev)
+		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) : IBackendObject(std::move(dev))
         {
 			params = std::move(_params);
         }
 };
 
 
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::video
 
 #endif
 

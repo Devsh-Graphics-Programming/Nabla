@@ -17,7 +17,7 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
 
-#include "spirv_cross/spirv_glsl.hpp"
+#include "nbl_spirv_cross/spirv_glsl.hpp"
 
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
@@ -101,7 +101,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			return true;
 		}
 
-		COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
+		COpenGLSpecializedShader(core::smart_refctd_ptr<ILogicalDevice>&& dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 

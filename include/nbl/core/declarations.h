@@ -68,5 +68,6 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/SRAIIBasedExiter.h"
 #include "nbl/core/SRange.h"
+#include "nbl/core/Byteswap.h"
 
 #endif

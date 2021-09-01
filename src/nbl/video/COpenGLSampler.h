@@ -10,9 +10,7 @@
 #include <algorithm>
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class COpenGLSampler : public IGPUSampler
@@ -64,7 +62,7 @@ class COpenGLSampler : public IGPUSampler
 		~COpenGLSampler();
 
 	public:
-		COpenGLSampler(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, const asset::ISampler::SParams& _params) : IGPUSampler(dev, _params)
+		COpenGLSampler(core::smart_refctd_ptr<ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, const asset::ISampler::SParams& _params) : IGPUSampler(std::move(dev),_params)
 		{
 			gl->extGlCreateSamplers(1, &m_GLname);//TODO before we were using GlGenSamplers for some reason..
 
@@ -123,7 +121,6 @@ class COpenGLSampler : public IGPUSampler
 		GLuint m_GLname;
 };
 
-}
 }
 #endif
 

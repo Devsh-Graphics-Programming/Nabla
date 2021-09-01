@@ -5,22 +5,21 @@
 #ifndef __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 #define __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
+
 #include "nbl/video/IGPURenderpassIndependentPipeline.h"
-
-#include "COpenGLSpecializedShader.h"
-
-#include "nbl/video/IOpenGLPipeline.h"
-
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-
-#include "nbl/video/IOpenGL_FunctionTable.h"
 
 #include <string_view> // for hash
 #include <array>
 
-namespace nbl
-{
-namespace video
+
+#include "COpenGLSpecializedShader.h"
+#include "IOpenGLPipeline.h"
+
+#ifdef _NBL_COMPILE_WITH_OPENGL_
+
+#include "IOpenGL_FunctionTable.h"
+
+namespace nbl::video
 {
 
 class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndependentPipeline, public IOpenGLPipeline<IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT>
@@ -28,20 +27,20 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
     public:
         //! _binaries' elements are getting move()'d!
         COpenGLRenderpassIndependentPipeline(
-            ILogicalDevice* device, IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* _gl,
+            core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& _dev, IOpenGL_FunctionTable* _gl,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+            const IGPUSpecializedShader*const * _shadersBegin, const IGPUSpecializedShader*const * _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
             const asset::SRasterizationParams& _rasterParams,
             uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[SHADER_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
         ) : IGPURenderpassIndependentPipeline(
-            device,
-            std::move(_layout), _shadersBegin, _shadersEnd,
-            _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+                core::smart_refctd_ptr<ILogicalDevice>(_dev), std::move(_layout),
+                const_cast<IGPUSpecializedShader*const *>(_shadersBegin), const_cast<IGPUSpecializedShader*const *>(_shadersEnd),
+                _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
             ),
-            IOpenGLPipeline(_dev, _gl, _ctxCount, _ctxID, _GLnames, _binaries),
+            IOpenGLPipeline(_dev.get(), _gl, _ctxCount, _ctxID, _GLnames, _binaries),
             m_stagePresenceMask(0u)
         {
             static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
@@ -287,7 +286,6 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         mutable uint32_t m_lastUpdateStamp[SHADER_STAGE_COUNT];
 };
 
-}
 }
 #endif
 

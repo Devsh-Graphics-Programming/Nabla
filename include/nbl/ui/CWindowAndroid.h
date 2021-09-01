@@ -5,8 +5,7 @@
 
 #ifdef _NBL_PLATFORM_ANDROID_
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 class CWindowAndroid : public IWindowAndroid
@@ -18,13 +17,12 @@ public:
         m_height = ANativeWindow_getHeight(anw);
     }
 
-    native_handle_t getNativeHandle() const override { return m_native; }
+    const native_handle_t& getNativeHandle() const override { return m_native; }
 
 private:
     native_handle_t m_native;
 };
 
-}
 }
 
 #endif //_NBL_PLATFORM_ANDROID_

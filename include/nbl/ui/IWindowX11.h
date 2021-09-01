@@ -7,8 +7,7 @@
 
 #include <X11/Xlib.h>
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 class IWindowX11 : public IWindow
@@ -21,11 +20,10 @@ public:
 
     using native_handle_t = Window;
 
-    virtual native_handle_t getNativeHandle() const = 0;
+    virtual const native_handle_t& getNativeHandle() const = 0;
     virtual Display* getDisplay() const = 0;
 };
 
-}
 }
 
 #endif

@@ -2,15 +2,18 @@
 #define __NBL_I_WINDOW_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
+
+#include <type_traits>
+
 #include "nbl/system/ISystem.h"
+
 #include "nbl/ui/IClipboardManager.h"
 #include "nbl/ui/IInputEventChannel.h"
-#include <type_traits>
-#include <nbl/ui/ICursorControl.h>
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
+
+class ICursorControl;
 
 class IWindow : public core::IReferenceCounted
 {
@@ -210,7 +213,6 @@ protected:
     std::underlying_type_t<E_CREATE_FLAGS> m_flags = 0u;
 };
 
-}
 }
 
 

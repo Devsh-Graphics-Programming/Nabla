@@ -1,6 +1,10 @@
 #ifndef __NBL_C_OPENGL__LOGICAL_DEVICE_H_INCLUDED__
 #define __NBL_C_OPENGL__LOGICAL_DEVICE_H_INCLUDED__
 
+#include "nbl/system/ILogger.h"
+
+#include <chrono>
+
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
 #include "nbl/video/COpenGLFramebuffer.h"
@@ -9,10 +13,6 @@
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLEvent.h"
 #include "nbl/video/COpenGLSemaphore.h"
-#include "nbl/video/debug/debug.h"
-#include "nbl/system/ILogger.h"
-
-#include <chrono>
 
 namespace nbl::video
 {
@@ -54,9 +54,14 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(const egl::CEGL* _egl, IPhysicalDevice* physicalDevice, FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params, SDebugCallback* _dbgCb, core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, system::logger_opt_smart_ptr&& logger) :
-        IOpenGL_LogicalDevice(_egl, physicalDevice, params, std::move(s), std::move(glslc), std::move(logger)),
-        m_threadHandler(this, _egl, _features, getTotalQueueCount(params), createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config), _dbgCb, system::logger_opt_smart_ptr(m_logger)),
+    COpenGL_LogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
+        IOpenGL_LogicalDevice(physicalDevice,params,_egl),
+        m_threadHandler(
+            this,_egl,_features,
+            getTotalQueueCount(params),
+            createWindowlessGLContext(FunctionTableType::EGL_API_TYPE,_egl,major,minor,config),
+            static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback())
+        ),
         m_glfeatures(_features),
         m_config(config),
         m_gl_ver(major, minor)
@@ -81,7 +86,14 @@ public:
 
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<CThreadSafeGPUQueueAdapter>(core::make_smart_refctd_ptr<QueueType>(this, this, _egl, _features, ctxid, glctx.ctx, glctx.pbuffer, famIx, flags, priority, _dbgCb, system::logger_opt_smart_ptr(m_logger)), this);
+                
+                (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter
+                (
+                    this,
+                    new QueueType(this, _egl, m_glfeatures, ctxid, glctx.ctx,
+                        glctx.pbuffer, famIx, flags, priority,
+                        static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback()))
+                );
             }
         }
 
@@ -103,9 +115,6 @@ public:
             if (_features->runningInRenderDoc)
                 (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
         }
-
-        initDefaultDownloadBuffer();
-        initDefaultUploadBuffer();
     }
 
 
@@ -148,14 +157,14 @@ public:
         auto source = cpushader->getSPVorGLSL();
         auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
         if (cpushader->containsGLSL())
-            return core::make_smart_refctd_ptr<COpenGLShader>(this, std::move(clone), IGPUShader::buffer_contains_glsl);
+            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), IGPUShader::buffer_contains_glsl);
         else
-            return core::make_smart_refctd_ptr<COpenGLShader>(this, std::move(clone));
+            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone));
     }
 
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override final
     {
-        return core::make_smart_refctd_ptr<COpenGLRenderpass>(this, params);
+        return core::make_smart_refctd_ptr<COpenGLRenderpass>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), params);
     }
 
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
@@ -188,7 +197,7 @@ public:
         // master context must not be current while creating a context with whom it will be sharing
         unbindMasterContext();
         EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, master_ctx);
-        auto sc = SwapchainType::create(std::move(params), this, m_egl, std::move(images), m_glfeatures, ctx, fbconfig, m_dbgCb, system::logger_opt_smart_ptr(m_logger));
+        auto sc = SwapchainType::create(std::move(params),core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),m_egl,std::move(images),m_glfeatures,ctx,fbconfig,static_cast<COpenGLDebugCallback*>(m_physicalDevice->getDebugCallback()));
         if (!sc)
             return nullptr;
         // wait until swapchain's internal thread finish context creation
@@ -201,12 +210,12 @@ public:
 
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
-        return core::make_smart_refctd_ptr<COpenGLCommandPool>(this, flags, _familyIx);
+        return core::make_smart_refctd_ptr<COpenGLCommandPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), flags, _familyIx);
     }
 
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
     {
-        return core::make_smart_refctd_ptr<IDescriptorPool>(this);
+        return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
 
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
@@ -223,12 +232,12 @@ public:
 
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
     {
-        return core::make_smart_refctd_ptr<COpenGLSemaphore>(this);
+        return core::make_smart_refctd_ptr<COpenGLSemaphore>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this));
     }
 
     core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override
     {
-        return core::make_smart_refctd_ptr<COpenGLEvent>(this, flags);
+        return core::make_smart_refctd_ptr<COpenGLEvent>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), flags);
     }
     IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override
     {
@@ -261,7 +270,7 @@ public:
 
             return retval;
         }
-        return core::make_smart_refctd_ptr<COpenGLFence>(this);
+        return core::make_smart_refctd_ptr<COpenGLFence>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this));
     }
 
     IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override final
@@ -289,8 +298,6 @@ public:
         for (uint32_t i = 0u; i < _count; ++i)
         {
             assert(_fences[i]);
-            auto* glfence = static_cast<COpenGLFence*>(_fences[i]);
-            assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
         }
 #endif
         SRequestWaitForFences params{ {_fences,_fences + _count},_waitAll,_timeout };
@@ -373,6 +380,7 @@ public:
 
     void waitIdle() override
     {
+        // TODO: I think glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
         SRequestWaitIdle params;
         auto& req = m_threadHandler.request(std::move(params));
         m_threadHandler.template waitForRequestCompletion<SRequestWaitIdle>(req);
@@ -434,10 +442,12 @@ protected:
         m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
 
+    inline system::logger_opt_ptr getLogger() const {return m_physicalDevice->getDebugCallback()->getLogger();}
+
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
-            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(this, _level, _cmdPool, system::logger_opt_smart_ptr(system::logger_opt_smart_ptr(m_logger)));
+            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), _level, _cmdPool, core::smart_refctd_ptr<system::ILogger>(getLogger().get()));
         return true;
     }
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override final
@@ -451,7 +461,7 @@ protected:
         if (params.renderpass->getCreationParameters().subpassCount != 1u)
             return nullptr;
 
-        return core::make_smart_refctd_ptr<COpenGLFramebuffer>(this, std::move(params));
+        return core::make_smart_refctd_ptr<COpenGLFramebuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(params));
     }
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
     {
@@ -467,17 +477,20 @@ protected:
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
             std::string glsl(begin, end);
             COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
-            auto glslShader_woIncludes = m_GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str());
+            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str());
             //{
                 //auto fl = fopen("shader.glsl", "w");
                 //fwrite(glsl.c_str(), 1, glsl.size(), fl);
                 //fclose(fl);
             //}
-            spirv = m_GLSLCompiler->compileSPIRVFromGLSL(
+            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
-                _specInfo.m_filePathHint.string().c_str()
+                _specInfo.m_filePathHint.string().c_str(),
+                true,
+                nullptr,
+                getLogger()
             );
 
             if (!spirv)
@@ -489,7 +502,7 @@ protected:
         }
 
         if (_spvopt)                                                      
-            spirv = _spvopt->optimize(spirv.get(), m_logger.getOptRawPtr());
+            spirv = _spvopt->optimize(spirv.get(),getLogger());
 
         if (!spirv)
             return nullptr;
@@ -497,24 +510,24 @@ protected:
         core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv));
 
         asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint.string() };
-        asset::CShaderIntrospector introspector(m_GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
+        asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
         const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
         if (!introspection)
         {
             _NBL_DEBUG_BREAK_IF(true);
-            m_logger.log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", system::ILogger::ELL_ERROR);
+            getLogger().log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", system::ILogger::ELL_ERROR);
             return nullptr;
         }
 
         core::vector<COpenGLSpecializedShader::SUniform> uniformList;
-        if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList, introspection, m_logger.getRaw()))
+        if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection,getLogger().get()))
         {
             _NBL_DEBUG_BREAK_IF(true);
-            m_logger.log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", system::ILogger::ELL_ERROR);
+            getLogger().log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", system::ILogger::ELL_ERROR);
             return nullptr;
         }
 
-        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this, m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
+        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
     }
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
     {
@@ -552,11 +565,11 @@ protected:
     core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override final
     {
         // ignoring descriptor pool
-        return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(this, std::move(layout));
+        return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(layout));
     }
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override final
     {
-        return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(this, _begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
+        return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), _begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
     }
     core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
         const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
@@ -565,7 +578,7 @@ protected:
     ) override final
     {
         return core::make_smart_refctd_ptr<COpenGLPipelineLayout>(
-            this,
+            core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),
             _pcRangesBegin, _pcRangesEnd,
             std::move(_layout0), std::move(_layout1),
             std::move(_layout2), std::move(_layout3)
@@ -609,7 +622,7 @@ protected:
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-        IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+        IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
         const asset::SVertexInputParams& _vertexInputParams,
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -627,7 +640,7 @@ protected:
         for (auto* s = _shaders; s != _shadersEnd; ++s)
         {
             uint32_t ix = core::findLSB<uint32_t>((*s)->getStage());
-            params.shaders[ix] = core::smart_refctd_ptr<IGPUSpecializedShader>(*s);
+            params.shaders[ix] = core::smart_refctd_ptr<const IGPUSpecializedShader>(*s);
         }
 
         SRequestRenderpassIndependentPipelineCreate req_params;
@@ -656,7 +669,7 @@ protected:
     }
     core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override final
     {
-        return core::make_smart_refctd_ptr<IGPUGraphicsPipeline>(this, std::move(params)); // theres no COpenGLGraphicsPipeline (no need for such)
+        return core::make_smart_refctd_ptr<IGPUGraphicsPipeline>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(params)); // theres no COpenGLGraphicsPipeline (no need for such)
     }
     bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override final
     {
@@ -671,12 +684,23 @@ protected:
 
 private:
     CThreadHandler<FunctionTableType> m_threadHandler;
-    FeaturesType* m_glfeatures;
+    const FeaturesType* m_glfeatures;
     EGLConfig m_config;
     std::pair<EGLint, EGLint> m_gl_ver;
 
-    SDebugCallback* m_dbgCb;
+    COpenGLDebugCallback* m_dbgCb;
 };
+
+}
+
+
+#include "nbl/video/COpenGL_Queue.h"
+
+namespace nbl::video
+{
+
+using COpenGLLogicalDevice = COpenGL_LogicalDevice<COpenGLQueue,COpenGLSwapchain>;
+using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue,COpenGLESSwapchain>;
 
 }
 

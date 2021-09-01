@@ -4,28 +4,31 @@
 #include <volk.h>
 #include "nbl/video/IGPUQueue.h"
 
-namespace nbl{
-namespace video
+namespace nbl::video
 {
 
-class CVKLogicalDevice;
+class ILogicalDevice;
 
 class CVulkanQueue final : public IGPUQueue
 {
 public:
-    CVulkanQueue(CVKLogicalDevice* vkdev, VkQueue vkq, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority);
+    CVulkanQueue(ILogicalDevice* logicalDevice, VkQueue vkq, uint32_t _famIx,
+        E_CREATE_FLAGS _flags, float _priority)
+        : IGPUQueue(logicalDevice, _famIx, _flags, _priority), m_vkQueue(vkq)
+    {}
 
-    void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
+    bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
 
-    inline VkQueue getInternalObject() const { return m_vkqueue; }
+    // This API needs to change, we need more granularity than just saying if presentation
+    // failed or succeeded
+    bool present(const SPresentInfo& info) override;
+
+    inline VkQueue getInternalObject() const { return m_vkQueue; }
 
 private:
-    CVKLogicalDevice* m_vkdevice;
-    VkQueue m_vkqueue;
+    VkQueue m_vkQueue;
 };
 
 }
-}
-
 
 #endif

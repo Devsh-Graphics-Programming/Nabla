@@ -5,11 +5,13 @@
 #ifndef __NBL_I_GPU_BUFFER_H_INCLUDED__
 #define __NBL_I_GPU_BUFFER_H_INCLUDED__
 
+
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
 
-#include "nbl/video/IBackendObject.h"
+#include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IDriverMemoryBacked.h"
+
 
 namespace nbl::video
 {
@@ -21,8 +23,7 @@ performed by the GPU and not wholly by the driver, so look for them in IGPUComma
 class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBackendObject
 {
     protected:
-        // TODO: ILogicalDevice backward smartpointer link
-        IGPUBuffer(ILogicalDevice* dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs), IBackendObject(dev) {}
+        IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)) {}
 
     public:
         //! Get usable buffer byte size.

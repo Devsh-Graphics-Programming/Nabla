@@ -83,6 +83,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
   "nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl"
   "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
+  # property pool
+  "nbl/builtin/glsl/property_pool/transfer.glsl"
+  "nbl/builtin/glsl/property_pool/copy.comp"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"
   # sampling
