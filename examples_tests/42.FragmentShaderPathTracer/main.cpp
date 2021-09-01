@@ -8,81 +8,7 @@
 #include "../common/CommonAPI.h"
 #include "../common/Camera.hpp"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
-#include "nbl/video/IPresentationOracle.h"
-
-class PresentationOracle : public video::IPresentationOracle 
-{
-public:
-		PresentationOracle()
-		{
-			reset();
-		}
-
-		~PresentationOracle() {
-		}
-
-		inline void reportBeginFrameRecord() override
-		{
-			lastTime = std::chrono::system_clock::now();
-		}
-
-		inline void reportEndFrameRecord()
-		{
-			auto renderStart = std::chrono::system_clock::now();
-			dt = std::chrono::duration_cast<std::chrono::microseconds>(renderStart-lastTime).count();
-			
-			// Calculate Simple Moving Average for FrameTime
-			{
-				timeSum -= dtList[frameCount];
-				timeSum += dt;
-				dtList[frameCount] = dt;
-				frameCount++;
-				if(frameCount >= MaxFramesToAverage) {
-					frameCount = 0;
-					frameDataFilled = true;
-				}
-			}
-			double averageFrameTime = (frameDataFilled) ? (timeSum / (double)MaxFramesToAverage) : (timeSum / frameCount);
-			auto averageFrameTimeDuration = std::chrono::duration<double, std::micro>(averageFrameTime);
-			auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-			nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
-		}
-
-		inline std::chrono::microseconds getNextPresentationTimeStamp() const {return nextPresentationTimeStamp;}
-
-		inline double getDeltaTimeInMicroSeconds() const {return dt;}
-		inline double getDeltaTimeInMiliSeconds() const {return dt / 1000.0;}
-
-		inline void acquireNextImage(video::ISwapchain* swapchain, uint64_t timeout, video::IGPUSemaphore* acquireSemaphore, video::IGPUFence* fence, uint32_t& imageNumber) override
-		{
-		}
-
-		inline void present(video::ILogicalDevice* device, nbl::video::ISwapchain* swapchain, nbl::video::IGPUQueue* queue, nbl::video::IGPUSemaphore* renderFinishedSemaphore, uint32_t imageNumber)
-		{
-		}
-private:
-	
-	void reset()
-	{
-		frameCount = 0ull;
-		frameDataFilled = false;
-		timeSum = 0.0;
-		for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
-			dtList[i] = 0.0;
-		}
-		dt = 0.0;
-	}
-
-	static constexpr size_t MaxFramesToAverage = 100ull;
-
-	bool frameDataFilled = false;
-	size_t frameCount = 0ull;
-	double timeSum = 0.0;
-	double dtList[MaxFramesToAverage] = {};
-	double dt = 0.0;
-	std::chrono::system_clock::time_point lastTime;
-	std::chrono::microseconds nextPresentationTimeStamp;
-};
+#include "nbl/video/utilities/CDumbPresentationOracle.h"
 
 using namespace nbl;
 using namespace core;
@@ -430,7 +356,7 @@ int main()
 		renderFinished[i] = device->createSemaphore();
 	}
 	
-	PresentationOracle oracle;
+	CDumbPresentationOracle oracle;
 	oracle.reportBeginFrameRecord();
 	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	
@@ -447,7 +373,7 @@ int main()
 		}
 		
 		oracle.reportEndFrameRecord();
-		double dt = oracle.getDeltaTimeInMiliSeconds();
+		double dt = oracle.getDeltaTimeInMicroSeconds() / 1000.0;
 		auto nextPresentationTimeStamp = oracle.getNextPresentationTimeStamp();
 		oracle.reportBeginFrameRecord();
 
