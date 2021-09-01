@@ -21,6 +21,8 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoad
     ,XGetVisualInfo
     ,XCreateColormap
     ,XCreateWindow
+    ,XDestroyWindow
+    ,XCreateSimpleWindow
     ,XMapRaised
     ,XInternAtom
     ,XSetWMProtocols
@@ -37,6 +39,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoad
     ,XResizeWindow
     ,XMoveWindow
     ,XNextEvent
+    ,XMapWindow
 );
 
 // TODO add more
@@ -119,9 +122,9 @@ class CWindowManagerX11 : public IWindowManager
             friend CWindowManagerX11;
 
             public:
-                CThreadHandler()
+                CThreadHandler(Display* dpy)
                 {
-                    this->start();
+                    m_dpy = dpy;
                 }
 
             private:
@@ -131,13 +134,12 @@ class CWindowManagerX11 : public IWindowManager
                 bool continuePredicate() const { return true; }
 
                 MultithreadedMap* m_windowsMapPtr;
-
+                XEvent m_event;
                 Display* m_dpy;
         } m_windowThreadManager;
 
         MultithreadedMap m_windowsMap;
         Display* m_dpy;
-
         core::vector<XID> getConnectedMice() const;
         core::vector<XID> getConnectedKeyboards() const;
 };

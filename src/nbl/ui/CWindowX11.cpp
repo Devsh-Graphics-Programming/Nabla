@@ -28,27 +28,12 @@ int CWindowX11::printXErrorCallback(Display *Display, XErrorEvent *event)
     return 0;
 }
 
-CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* dpy, native_handle_t win) : IWindowX11(std::move(sys)), m_dpy(dpy), m_native(win)
+CWindowManagerX11::CWindowManagerX11() : m_windowThreadManager(m_dpy)
 {
-    Window tmp;
-    int x, y;
-    unsigned int w, h, border, bits;
-
-    x11.pXGetGeometry(m_dpy, win, &tmp, &x, &y, &w, &h, &border, &bits);
-
-    m_width = w;
-    m_height = h;
-
-    m_x = x;
-    m_y = y;
-
-    // TODO m_flags
+    m_dpy = x11.pXOpenDisplay((char *)0);
+    m_windowThreadManager.m_windowsMapPtr = &m_windowsMap;
+    m_windowThreadManager.start();
 }
-
-// CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowX11(std::move(sys), _w, _h, _flags), m_dpy(NULL), m_native(NULL)
-// {
-
-// }
 
 void CWindowX11::processEvent(XEvent event)
 {
@@ -139,13 +124,6 @@ void CWindowX11::processEvent(XEvent event)
     }
 }
 
-CWindowManagerX11::CWindowManagerX11()
-{
-    m_dpy = x11.pXOpenDisplay(nullptr);
-    m_windowThreadManager.m_dpy = m_dpy;
-    m_windowThreadManager.m_windowsMapPtr = &m_windowsMap;
-}
-
 core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreationParams&& creationParams)
 {
     int32_t x = creationParams.x;
@@ -154,9 +132,18 @@ core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreati
     uint32_t h = creationParams.height;
     CWindowX11::E_CREATE_FLAGS flags = creationParams.flags;
     const std::string_view& caption = creationParams.windowCaption;
-    CWindowX11::native_handle_t wnd;
 
-    auto result = core::make_smart_refctd_ptr<CWindowX11>(this, m_dpy, wnd);
+    unsigned long black, white;
+    int screen = DefaultScreen(m_dpy);
+    black=BlackPixel(m_dpy,screen);
+    white=WhitePixel(m_dpy, screen);
+
+    unsigned int border_width = 5;
+    auto system = creationParams.system;
+
+    CWindowX11::native_handle_t wnd = x11.pXCreateSimpleWindow(m_dpy, DefaultRootWindow(m_dpy), x, y, w, h, border_width, white, black);
+    x11.pXMapWindow(m_dpy, wnd);
+    auto result = core::make_smart_refctd_ptr<CWindowX11>(system, this, m_dpy, wnd);
 
     m_windowsMap.insert(wnd, result.get());
 
@@ -165,7 +152,6 @@ core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreati
 
 void CWindowManagerX11::destroyWindow(IWindow* wnd)
 {
-
 }
 
 core::vector<XID> CWindowManagerX11::getConnectedMice() const
@@ -205,25 +191,43 @@ core::vector<XID> CWindowManagerX11::getConnectedKeyboards() const
     return result;
 }
 
-// CWindowX11::CWindowX11(CWindowManagerX11* manager, Display* dpy, native_handle_t win) : m_manager(manager), m_dpy(dpy), m_native(win)
-// {
+CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>& sys, CWindowManagerX11* manager, Display* dpy, native_handle_t win) : IWindowX11(std::move(sys)), m_manager(std::move(manager)), m_dpy(dpy), m_native(win)
+{
+    Window tmp;
+    int x, y;
+    unsigned int w, h, border, bits;
 
-// }
+    x11.pXGetGeometry(m_dpy, win, &tmp, &x, &y, &w, &h, &border, &bits);
+}
 
 CWindowX11::~CWindowX11()
 {
-    m_manager->destroyWindow(this);
+    x11.pXDestroyWindow(m_dpy, m_native);
+}
+
+void CWindowManagerX11::CThreadHandler::init()
+{
+    m_dpy = x11.pXOpenDisplay((char *)0);
 }
 
 void CWindowManagerX11::CThreadHandler::work(lock_t& lock)
 {
-    XEvent event;
-    x11.pXNextEvent(m_dpy, &event);
-    Window* nativeWindow = &event.xany.window;
+    x11.pXNextEvent(m_dpy, &m_event);
+    Window* nativeWindow = &m_event.xany.window;
     CWindowX11* currentWin = m_windowsMapPtr->find(*nativeWindow);
 
     auto* eventCallback = currentWin->getEventCallback();
-    currentWin->processEvent(event);
+    currentWin->processEvent(m_event);
+}
+
+IClipboardManager* CWindowX11::getClipboardManager()
+{
+    return nullptr;
+}
+
+ICursorControl* CWindowX11::getCursorControl()
+{
+    return nullptr;
 }
 
 }
