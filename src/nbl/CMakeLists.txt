@@ -220,14 +220,14 @@ set(NBL_ASSET_SOURCES
 # Mesh loaders
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
 
 # Mesh writers
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -270,10 +270,12 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
+	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorSetCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
-	
-	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
+
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
@@ -310,16 +312,27 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
-	#${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSpecializedShader.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineLayout.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanComputePipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
+
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
@@ -336,10 +349,9 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLESConnection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLDebug.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
@@ -358,6 +370,10 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
+
+macro(nbl_target_link_vulkan _trgt) # we don't want to link against library directly
+	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
+endmacro()
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
@@ -484,6 +500,9 @@ endif()
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Nabla openssl_build)
+if(DEFINED ENV{VULKAN_SDK})
+	nbl_target_link_vulkan(Nabla)
+endif()
 nbl_target_link_openssl(Nabla)
 #nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
@@ -500,7 +519,7 @@ nbl_target_link_spirv_tools(Nabla)
 if (NBL_COMPILE_WITH_SDL2)
 	nbl_target_link_SDL2(Nabla)
 endif()
-#nbl_target_link_volk(Nabla)
+nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
@@ -554,6 +573,20 @@ if (ANDROID)
 endif()
 
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
+set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
+
+write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+add_custom_command(
+	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" 
+	COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/include -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaHeader.cmake
+	DEPENDS ${NBL_ROOT_PATH}/include/nabla.h.in
+	COMMENT "Generating nabla.h"
+	VERBATIM
+)
+
+add_custom_target(generate_nabla_header DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
+add_dependencies(Nabla generate_nabla_header)
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)
@@ -587,18 +620,10 @@ set(NABLA_HEADERS_TO_INSTALL
 
 set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
 nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")

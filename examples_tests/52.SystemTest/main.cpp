@@ -123,7 +123,9 @@ class InputSystem : public IReferenceCounted
 class WindowEventCallback : public IWindow::IEventCallback
 {
 public:
-	WindowEventCallback(core::smart_refctd_ptr<InputSystem>&& inputSystem, system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)) {}
+	WindowEventCallback(core::smart_refctd_ptr<InputSystem>&& inputSystem, system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false) {}
+
+	bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
 
 private:
 	bool onWindowShown_impl() override 
@@ -175,6 +177,7 @@ private:
 	bool onWindowClosed_impl() override
 	{
 		m_logger.log("Window closed");
+		m_gotWindowClosedMsg = true;
 		return true;
 	}
 
@@ -202,6 +205,7 @@ private:
 private:
 	core::smart_refctd_ptr<InputSystem> m_inputSystem;
 	system::logger_opt_smart_ptr m_logger;
+	bool m_gotWindowClosedMsg;
 };
 
 int main(int argc, char** argv)
@@ -374,25 +378,7 @@ int main(int argc, char** argv)
 
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
-	//TGA loader test
-	{
-		auto asset = assetManager->getAsset("color_space_test/R8.tga", lp);
-		assert(!asset.getContents().empty());
-		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
-		core::smart_refctd_ptr<ICPUImageView> imageView;
-		ICPUImageView::SCreationParams imgViewParams;
-		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-		imgViewParams.format = E_FORMAT::EF_R8G8B8_SRGB;
-		imgViewParams.image = core::smart_refctd_ptr<ICPUImage>(cpuImage);
-		imgViewParams.viewType = ICPUImageView::ET_2D;
-		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
-		imageView = ICPUImageView::create(std::move(imgViewParams));
-
-		IAssetWriter::SAssetWriteParams wp(imageView.get());
-		wp.workingDirectory = CWD;
-		assetManager->writeAsset("TGAWriteSuccessful.tga", wp);
-	}
-	while (true)
+	while (windowCb->isWindowOpen())
 	{
 		input->getDefaultMouse(&mouse);
 		input->getDefaultKeyboard(&keyboard);

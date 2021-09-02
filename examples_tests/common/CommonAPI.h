@@ -1,14 +1,10 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#if defined(_NBL_PLATFORM_WINDOWS_)
-#include <nbl/ui/CWindowManagerWin32.h>
-#include <nbl/system/ISystem.h>
-#include <nbl/system/CStdoutLogger.h>
-#include <nbl/system/CFileLogger.h>
-#include <nbl/system/CColoredStdoutLoggerWin32.h>
-#include <nbl/system/CSystemWin32.h>
 
-#endif
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#endif // TODO more platforms
+// TODO: make these include themselves via `nabla.h`
 
 class CommonAPI
 {
@@ -164,7 +160,7 @@ public:
 
 									auto oldEvent = *(channelEvents.end() - rewindBack);
 
-									// Which oldEvent of channels are earlier?
+									// Which oldEvent of channels are most recent.
 									if(oldEvent.timeStamp > maxEventTimeStamp) {
 										maxEventTimeStamp = oldEvent.timeStamp;
 										newDefaultIdx = chIdx;
@@ -200,7 +196,9 @@ public:
 	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
 	{
 	public:
-		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)) {}
+		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false){}
+		
+		bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
 
 	private:
 		bool onWindowShown_impl() override
@@ -249,6 +247,13 @@ public:
 		{
 			m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
 		}
+		
+		bool onWindowClosed_impl() override
+		{
+			m_logger.log("Window closed");
+			m_gotWindowClosedMsg = true;
+			return true;
+		}
 
 		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
 		{
@@ -274,6 +279,7 @@ public:
 	private:
 		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem;
 		nbl::system::logger_opt_smart_ptr m_logger;
+		bool m_gotWindowClosedMsg;
 	};
 
 	static nbl::core::smart_refctd_ptr<nbl::system::ISystem> createSystem()
@@ -299,12 +305,14 @@ public:
 			EQT_TRANSFER_DOWN,
 			EQT_COUNT
 		};
-
+		
 		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
+		nbl::core::smart_refctd_ptr<CommonAPIEventCallback> windowCb;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
-		nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice> physicalDevice;
+		nbl::video::IPhysicalDevice* physicalDevice;
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
@@ -315,7 +323,6 @@ public:
 		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 		nbl::core::smart_refctd_ptr<nbl::system::CColoredStdoutLoggerWin32> logger;
 		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
-
 	};
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
 	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
@@ -329,24 +336,23 @@ public:
 		result.system = createSystem();
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
+		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
 
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
-		windowsCreationParams.x = 0;
-		windowsCreationParams.y = 0;
+		windowsCreationParams.x = 64u;
+		windowsCreationParams.y = 64u;
 		windowsCreationParams.system = core::smart_refctd_ptr(result.system);
 		windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
 		windowsCreationParams.windowCaption = app_name.data();
-		windowsCreationParams.callback = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
+		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
-
-		auto dbgcb = new video::SDebugCallback();
-		dbgcb->callback = &defaultDebugCallback;
-		dbgcb->userData = nullptr;
-		result.apiConnection = video::IAPIConnection::create(nbl::core::smart_refctd_ptr(result.system), api_type, 0, app_name.data(), dbgcb);
-		result.surface = result.apiConnection->createSurface(result.window.get());
+		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
+		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+		result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+		result.apiConnection = _apiConnection;
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
@@ -363,7 +369,10 @@ public:
 		};
 
 		const auto familyIndex = getFamilyIndex();
-		assert(result.surface->isSupported(gpu.get(), familyIndex));
+		{
+			const bool status = result.surface->isSupportedForPhysicalDevice(gpu, familyIndex);
+			assert(status);
+		}
 
 		video::ILogicalDevice::SCreationParams dev_params;
 		dev_params.queueParamsCount = 1u;
@@ -375,6 +384,8 @@ public:
 		q_params.priorities = &priority;
 		dev_params.queueCreateInfos = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
+
+		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
 
 		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
 		if(graphicsQueueEnable)
@@ -392,19 +403,21 @@ public:
 
 		result.commandPool = result.logicalDevice->createCommandPool(familyIndex,IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
-		result.physicalDevice = std::move(gpu);
+		result.physicalDevice = gpu;
 
 		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
-
+		
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
-		result.cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
+		result.cpu2gpuParams.finalQueueFamIx = familyIndex;
 		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
 		result.cpu2gpuParams.pipelineCache = nullptr;
 		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue; // the queue is capable of transfering
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;  // the queue is capable of computing
+		result.cpu2gpuParams.utilities = result.utilities.get();
 
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_COMPUTE];
+	
 		return result;
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,
@@ -624,7 +637,7 @@ public:
 		return std::pair(image, image_view);
 	}
 
-	static int getQueueFamilyIndex(const nbl::core::smart_refctd_ptr<nbl::video::IPhysicalDevice>& gpu, uint32_t requiredQueueFlags)
+	static int getQueueFamilyIndex(const nbl::video::IPhysicalDevice* gpu, uint32_t requiredQueueFlags)
 	{
 		auto props = gpu->getQueueFamilyProperties();
 		int currentIndex = 0;
@@ -637,22 +650,5 @@ public:
 			++currentIndex;
 		}
 		return -1;
-	}
-	static void defaultDebugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
-	{
-		using namespace nbl;
-		const char* sev = nullptr;
-		switch (severity)
-		{
-		case video::EDMS_VERBOSE:
-			sev = "verbose"; break;
-		case video::EDMS_INFO:
-			sev = "info"; break;
-		case video::EDMS_WARNING:
-			sev = "warning"; break;
-		case video::EDMS_ERROR:
-			sev = "error"; break;
-		}
-		std::cout << "OpenGL " << sev << ": " << msg << std::endl;
 	}
 };

@@ -3,6 +3,7 @@
 #include <nbl/ui/CCursorControlWin32.h>
 
 #ifdef _NBL_PLATFORM_WINDOWS_
+#include <winternl.h>
 #include <hidusage.h>
 #include <hidpi.h>
 #include <codecvt>
@@ -18,6 +19,11 @@ namespace nbl::ui
 		addAlreadyConnectedInputDevices();
 		// do this last, we dont want the "WndProc" to be called concurrently to anything in the constructor
 		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+	}
+
+	void CWindowWin32::setCaption(const std::string_view& caption)
+	{
+		SetWindowText(m_native, caption.data());
 	}
 
 	CWindowWin32::~CWindowWin32()
@@ -216,7 +222,7 @@ namespace nbl::ui
 			UINT size;
 			UINT headerSize;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-			core::vector<std::byte> data(size);
+			core::vector<std::byte> data(size); // TODO: preallocate some upper bound, dont want an alloc here!
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data.data(), &size, sizeof(RAWINPUTHEADER));
 			rawInput = reinterpret_cast<RAWINPUT*>(data.data());
 			HANDLE device = rawInput->header.hDevice;

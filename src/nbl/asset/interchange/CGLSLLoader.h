@@ -29,14 +29,18 @@ class CGLSLLoader final : public asset::IAssetLoader
 			while (readPos+sizeof(tmp)<filesize)
 			{
 				system::future<size_t> future;
-				_file->read(future, tmp, 0, sizeof tmp);
-				future.get();
+				_file->read(future, tmp, readPos, sizeof tmp);
+				size_t count = future.get();
+				
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
-
-				auto found = std::find(tmp,end,'#');
+				readPos += count;
+				auto found = std::find(tmp,end,'#'); // this is wrong and may lead to errors, you may encounter "version " in the reading buffer and you get in a trouble
 				if (found==end || found==tmp)
+				{
+					readPos += sizeof tmp;
 					continue;
+				}
 				readPos += found - end;
 			}
 

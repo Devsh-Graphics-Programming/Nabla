@@ -5,8 +5,7 @@
 
 #ifdef _NBL_PLATFORM_ANDROID_
 
-namespace nbl {
-namespace ui
+namespace nbl::ui
 {
 
 class CWindowAndroid : public IWindowAndroid
@@ -21,12 +20,12 @@ public:
     native_handle_t getNativeHandle() const override { return m_native; }
     virtual IClipboardManager* getClipboardManager() { return nullptr; }
     virtual ICursorControl* getCursorControl() { return nullptr; }
+
 private:
     native_handle_t m_native;
 };
 
 }
-} 
 
 #endif //_NBL_PLATFORM_ANDROID_
 

@@ -6,16 +6,16 @@
 #define __NBL_VIDEO_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
 
 #include "nbl/video/IGPUDescriptorSet.h"
+
 #include "nbl/macros.h"
+
 #include "COpenGLBuffer.h"
 #include "COpenGLBufferView.h"
 #include "COpenGLImage.h"
 #include "COpenGLImageView.h"
-#include "nbl/video/COpenGLSampler.h"
+#include "COpenGLSampler.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>
@@ -49,7 +49,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		};
 
 	public:
-		COpenGLDescriptorSet(ILogicalDevice* dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(dev, std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get())
+		COpenGLDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(std::move(dev), std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get())
 		{
 			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
 			uint32_t uboCount = 0u;//includes dynamics
@@ -352,7 +352,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		core::smart_refctd_dynamic_array<uint32_t> m_dynOffsetIxs;
 };
 
-}
 }
 
 #endif

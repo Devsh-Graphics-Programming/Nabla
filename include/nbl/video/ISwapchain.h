@@ -1,68 +1,74 @@
 #ifndef __NBL_I_SWAPCHAIN_H_INCLUDED__
 #define __NBL_I_SWAPCHAIN_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IGPUFence.h"
-#include "nbl/video/IGPUImage.h"
-#include "nbl/video/IBackendObject.h"
 
-namespace nbl {
-namespace video
+
+namespace nbl::video
 {
 
+// TODO: decouple swapchain from queue some more (make presentation a method of swapchain), then we can have fake UE5, Unity, Qt6 swapchains
 class ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
-public:
-    struct SCreationParams
-    {
-        core::smart_refctd_ptr<ISurface> surface;
-        uint32_t minImageCount;
-        ISurface::SFormat surfaceFormat;
-        ISurface::E_PRESENT_MODE presentMode;
-        uint32_t width;
-        uint32_t height;
-        uint32_t arrayLayers = 1u;
-        core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
+    public:
+        using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;
 
-        //VkImageUsageFlags imageUsage;
-        //VkSharingMode imageSharingMode;
-        //VkSurfaceTransformFlagBitsKHR preTransform;
-        //VkCompositeAlphaFlagBitsKHR compositeAlpha;
-        //VkBool32 clipped;
-        //VkSwapchainKHR oldSwapchain;
-    };
+        struct SCreationParams
+        {
+            core::smart_refctd_ptr<ISurface> surface;
+            uint32_t minImageCount;
+            ISurface::SFormat surfaceFormat;
+            ISurface::E_PRESENT_MODE presentMode;
+            uint32_t width;
+            uint32_t height;
+            uint32_t arrayLayers = 1u;
+            core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
 
-    enum E_ACQUIRE_IMAGE_RESULT
-    {
-        EAIR_SUCCESS,
-        EAIR_TIMEOUT,
-        EAIR_NOT_READY,
-        EAIR_SUBOPTIMAL,
-        EAIR_ERROR
-    };
+            asset::IImage::E_USAGE_FLAGS imageUsage;
+            asset::E_SHARING_MODE imageSharingMode;
+            // ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
 
-    uint32_t getImageCount() const { return m_images->size(); }
-    core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
-    {
-        return { m_images->begin(), m_images->end() };
-    }
+            //VkCompositeAlphaFlagBitsKHR compositeAlpha;
+            //VkBool32 clipped;
+            core::smart_refctd_ptr<ISwapchain> oldSwapchain;
+        };
 
-    virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
+        enum E_ACQUIRE_IMAGE_RESULT
+        {
+            EAIR_SUCCESS,
+            EAIR_TIMEOUT,
+            EAIR_NOT_READY,
+            EAIR_SUBOPTIMAL,
+            EAIR_ERROR
+        };
 
-    ISwapchain(ILogicalDevice* dev, SCreationParams&& params) : IBackendObject(dev), m_params(std::move(params)) {}
+        uint32_t getImageCount() const { return m_images->size(); }
+        core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
+        {
+            return { m_images->begin(), m_images->end() };
+        }
 
-protected:
-    virtual ~ISwapchain() = default;
+        virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
 
-    SCreationParams m_params;
-    using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;
-    images_array_t m_images;
+        // Only present for backwards compatibility with OpenGL backend
+        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), m_params(std::move(params)) {}
+
+        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params,
+            images_array_t&& images)
+            : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))
+        {}
+
+    protected:
+        virtual ~ISwapchain() = default;
+
+        SCreationParams m_params;
+        images_array_t m_images;
 };
 
-}
 }
 
 #endif

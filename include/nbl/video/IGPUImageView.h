@@ -5,16 +5,13 @@
 #ifndef __NBL_VIDEO_I_GPU_TEXTURE_VIEW_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_TEXTURE_VIEW_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
 
 #include "nbl/asset/IImageView.h"
 
 #include "nbl/video/IGPUImage.h"
-#include "nbl/video/IBackendObject.h"
 
-namespace nbl
-{
-namespace video
+
+namespace nbl::video
 {
 
 class IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
@@ -23,11 +20,10 @@ class IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
         const SCreationParams& getCreationParameters() const { return params; }
 
 	protected:
-		IGPUImageView(ILogicalDevice* dev, SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)), IBackendObject(dev) {}
+		IGPUImageView(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)), IBackendObject(std::move(dev)) {}
 		virtual ~IGPUImageView() = default;
 };
 
-}
 }
 
 #endif

@@ -1,35 +1,38 @@
 #ifndef __NBL_I_GPU_FENCE_H_INCLUDED__
 #define __NBL_I_GPU_FENCE_H_INCLUDED__
 
+
 #include "nbl/core/declarations.h"
 
-#include "nbl/video/IBackendObject.h"
+#include "nbl/video/decl/IBackendObject.h"
+
 
 namespace nbl::video
 {
 
 class IGPUFence : public core::IReferenceCounted, public IBackendObject
 {
-public:
-    enum E_CREATE_FLAGS : uint32_t
-    {
-        ECF_SIGNALED_BIT = 0x01u
-    };
-    enum E_STATUS
-    {
-        ES_SUCCESS,
-        ES_TIMEOUT,
-        ES_NOT_READY,
-        ES_ERROR
-    };
+    public:
+        enum E_CREATE_FLAGS : uint32_t
+        {
+            ECF_SIGNALED_BIT = 0x01u
+        };
+        enum E_STATUS
+        {
+            ES_SUCCESS,
+            ES_TIMEOUT,
+            ES_NOT_READY,
+            ES_ERROR
+        };
 
-    IGPUFence(ILogicalDevice* dev, E_CREATE_FLAGS flags) : IBackendObject(dev)
-    {
-    }
+        IGPUFence(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_CREATE_FLAGS flags) : IBackendObject(std::move(dev))
+        {
+        }
 
-protected:
-    virtual ~IGPUFence() = default;
+    protected:
+        virtual ~IGPUFence() = default;
 };
+
 
 class GPUEventWrapper : public core::Uncopyable
 {

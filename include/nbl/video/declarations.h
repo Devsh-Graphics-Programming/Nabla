@@ -10,31 +10,25 @@
 #include "nbl/asset/asset.h"
 #include "nbl/ui/declarations.h"
 
+// core objects
+#include "nbl/video/IAPIConnection.h"
+#include "nbl/video/IPhysicalDevice.h"
+//#include "nbl/video/asset_traits.h"
+
 // alloc
 #include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
 #include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
-// properties
-#include "nbl/video/CPropertyPool.h"
-#include "nbl/video/CPropertyPoolHandler.h"
+// utilities
+#include "nbl/video/utilities/CPropertyPool.h"
+#include "nbl/video/utilities/IUtilities.h"
+#include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
 
-// think about foler name for those
-#include "nbl/video/IAPIConnection.h"
-#include "nbl/video/IPhysicalDevice.h"
-#include "nbl/video/ILogicalDevice.h"
-#include "nbl/video/asset_traits.h"
-#include "nbl/video/IGPUShader.h"
-#include "nbl/video/IGPUSpecializedShader.h"
-#include "nbl/video/IGPUMeshBuffer.h"
-#include "nbl/video/IGPUMesh.h"
-#include "nbl/video/IGPUQueue.h"
-#include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/video/IGPUGraphicsPipeline.h"
-#include "nbl/video/IGPUComputePipeline.h"
-#include "nbl/video/IGPUFramebuffer.h"
-#include "nbl/video/IGPURenderpass.h"
-#include "nbl/video/IGPUObjectFromAssetConverter.h"
+
+// platform and API specific stuff
+#include "nbl/video/COpenGL_Connection.h"
+#include "nbl/video/surface/ISurfaceGL.h"
 
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"

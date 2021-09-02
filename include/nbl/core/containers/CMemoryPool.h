@@ -45,7 +45,7 @@ public:
     template <typename T, typename... FuncArgs>
     T* emplace(FuncArgs&&... args)
     {
-        return emplace_n(1u, std::forward<FuncArgs>(args)...);
+        return emplace_n<T, FuncArgs...>(1u, std::forward<FuncArgs>(args)...);
     }
     template <typename T>
     void free_n(void* _ptr, uint32_t n)
@@ -64,7 +64,7 @@ public:
     template <typename T>
     void free(void* ptr)
     {
-        return free_n(ptr, 1u);
+        return free_n<T>(ptr, 1u);
     }
 
 private:

@@ -22,6 +22,8 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 
+#include "nbl/system/ISystem.h"
+
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 
@@ -226,7 +228,7 @@ bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::IS
 	if (properlyStatus)
 	{
 		system::future<size_t> future;
-		file->read(future, memory.data(), 0, memory.size());
+		file->write(future, memory.data(), 0, memory.size());
 		future.get();
 		return true;
 	}

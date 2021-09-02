@@ -6,6 +6,8 @@
 #ifndef __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
@@ -182,6 +184,7 @@ private:
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
 		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
+		size_t fileOffset = {};
     };
 
 	bool allocateBuffer(SContext& _ctx);

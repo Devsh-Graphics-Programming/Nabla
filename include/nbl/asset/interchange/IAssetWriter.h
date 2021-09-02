@@ -6,6 +6,8 @@
 #define __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 
 #include "nbl/system/IFile.h"
+#include "nbl/system/ILogger.h"
+
 #include "nbl/asset/IAsset.h"
 
 namespace nbl

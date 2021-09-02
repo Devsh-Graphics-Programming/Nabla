@@ -12,4 +12,4 @@
 ../../media/color_space_test/R8_2.png
 
 ; TGA, 8-bit grayscale (+RLE)
-../../media/color_space_test/R8.tga
+;../../media/color_space_test/R8.tga
