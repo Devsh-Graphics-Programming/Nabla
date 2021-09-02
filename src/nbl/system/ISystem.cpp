@@ -45,9 +45,9 @@ namespace nbl::system
                 auto requiredFile = std::find_if(files.begin(), files.end(), [&relative](const IFileArchive::SFileListEntry& entry) { return entry.fullName == relative; });
                 if (requiredFile != files.end())
                 {
-                    return archive.second->readFile({ relative, ""});
+                    auto f =  archive.second->readFile({ relative, "" });
+                    if (f.get()) return f;
                 }
-                else return nullptr;
             }
             path = path.parent_path();
         }

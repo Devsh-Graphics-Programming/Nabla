@@ -79,7 +79,7 @@ namespace nbl::system
 				pos = offset + (size / 512) * 512 + ((size % 512) ? 512 : 0);
 
 				// add file to list
-				addItem(fullPath, offset, size, false, EAT_NULL);
+				addItem(fullPath, offset, size, EAT_NULL);
 			}
 			else
 			{
