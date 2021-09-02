@@ -5,12 +5,13 @@
 #ifndef __NBL_ASSET_I_CPU_PIPELINE_CACHE_H_INCLUDED__
 #define __NBL_ASSET_I_CPU_PIPELINE_CACHE_H_INCLUDED__
 
+#include "nbl/core/decl/Types.h"
+
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUDescriptorSetLayout.h"
 #include "nbl/asset/ISpecializedShader.h"
-#include "nbl/core/Types.h"
 
-namespace nbl { namespace asset
+namespace nbl::asset
 {
 
 class ICPUPipelineCache final : public IAsset
@@ -150,6 +151,6 @@ private:
 	entries_map_t m_cache;
 };
 
-}}
+}
 
 #endif

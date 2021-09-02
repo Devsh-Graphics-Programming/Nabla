@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 #define __NBL_CORE_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 

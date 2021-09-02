@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/alloc/aligned_allocator.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"

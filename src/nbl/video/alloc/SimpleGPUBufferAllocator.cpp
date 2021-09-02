@@ -2,6 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
 

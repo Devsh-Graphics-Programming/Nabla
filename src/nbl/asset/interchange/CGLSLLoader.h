@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include <nbl/system/ISystem.h>
 
 namespace nbl
 {
@@ -18,26 +19,30 @@ namespace asset
 class CGLSLLoader final : public asset::IAssetLoader
 {
 	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override
+		CGLSLLoader() = default;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
 			char tmp[10] = { 0 };
 			char* end = tmp+sizeof(tmp);
 			auto filesize = _file->getSize();
-			while (_file->getPos()+sizeof(tmp)<filesize)
+			size_t readPos = 0;
+			while (readPos+sizeof(tmp)<filesize)
 			{
-				_file->read(tmp,sizeof(tmp));
+				system::future<size_t> future;
+				_file->read(future, tmp, readPos, sizeof tmp);
+				size_t count = future.get();
+				
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
-
-				auto found = std::find(tmp,end,'#');
+				readPos += count;
+				auto found = std::find(tmp,end,'#'); // this is wrong and may lead to errors, you may encounter "version " in the reading buffer and you get in a trouble
 				if (found==end || found==tmp)
+				{
+					readPos += sizeof tmp;
 					continue;
-
-				_file->seek(_file->getPos()+found-end);
+				}
+				readPos += found - end;
 			}
-			_file->seek(prevPos);
 
 			return false;
 		}
@@ -50,7 +55,7 @@ class CGLSLLoader final : public asset::IAssetLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SPECIALIZED_SHADER; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
 } // namespace asset

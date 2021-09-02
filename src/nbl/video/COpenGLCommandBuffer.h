@@ -1,9 +1,11 @@
 #ifndef __NBL_C_OPENGL_COMMAND_BUFFER_H_INCLUDED__
 #define __NBL_C_OPENGL_COMMAND_BUFFER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+
 #include <variant>
+
 #include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/core/Types.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/IGPUMeshBuffer.h"
@@ -213,7 +215,7 @@ namespace impl
     {
         uint32_t firstScissor;
         uint32_t scissorCount;
-        const asset::VkRect2D* scissors;
+        VkRect2D* scissors;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_DEPTH_BOUNDS)
     {
@@ -406,6 +408,7 @@ protected:
 
     template <impl::E_COMMAND_TYPE ECT>
     using SCmd = impl::SCmd<ECT>;
+    system::logger_opt_smart_ptr m_logger;
 
     //NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
 #define _NBL_SCMD_TYPE_FOR_ECT(ECT) SCmd<impl::ECT>,
@@ -432,7 +435,7 @@ protected:
 
     static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid);
 
-    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo);
+    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
 
     static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
 
@@ -511,7 +514,7 @@ public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
 
 
-    COpenGLCommandBuffer(ILogicalDevice* dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : IGPUCommandBuffer(dev, lvl, _cmdpool) {}
+    COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger) : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)) {}
 
     inline void begin(uint32_t _flags) override final
     {
@@ -523,8 +526,9 @@ public:
 
     bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
-        if (!this->isCompatibleDevicewise(buffer))
-            return false;
+        if(buffer)
+            if (!this->isCompatibleDevicewise(buffer))
+                return false;
 
         SCmd<impl::ECT_BIND_INDEX_BUFFER> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
@@ -573,6 +577,54 @@ public:
         cmd.stride = stride;
         pushCommand(std::move(cmd));
         return true;
+    }
+
+    inline bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
+    {
+        if (meshBuffer && !meshBuffer->getInstanceCount())
+            return false;
+
+        const auto* pipeline = meshBuffer->getPipeline();
+        const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
+        auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
+        auto indexBufferBinding = meshBuffer->getIndexBufferBinding();
+        const auto indexType = meshBuffer->getIndexType();
+
+        const nbl::video::IGPUBuffer* gpuBufferBindings[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                gpuBufferBindings[i] = vertexBufferBindings[i].buffer.get();
+        }
+
+        size_t bufferBindingsOffsets[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                bufferBindingsOffsets[i] = vertexBufferBindings[i].offset;
+        }
+
+        bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
+        bindIndexBuffer(indexBufferBinding.buffer.get(), indexBufferBinding.offset, indexType);
+
+        const bool isIndexed = indexType != nbl::asset::EIT_UNKNOWN;
+        
+        const size_t instanceCount = meshBuffer->getInstanceCount();
+        const size_t firstInstance = meshBuffer->getBaseInstance();
+        const size_t firstVertex = meshBuffer->getBaseVertex();
+
+        if (isIndexed)
+        {
+            const size_t& indexCount = meshBuffer->getIndexCount();
+            const size_t firstIndex = 0; // I don't think we have utility telling us this one
+            const size_t& vertexOffset = firstVertex;
+
+            return drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+        else
+        {
+            const size_t& vertexCount = meshBuffer->getIndexCount();
+       
+            return draw(vertexCount, instanceCount, firstVertex, firstInstance);
+        }
     }
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
@@ -745,8 +797,9 @@ public:
     bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t*const *const pBuffers, const size_t* pOffsets) override
     {
         for (uint32_t i = 0u; i < bindingCount; ++i)
-            if (!this->isCompatibleDevicewise(pBuffers[i]))
-                return false;
+            if(pBuffers[i])
+                if (!this->isCompatibleDevicewise(pBuffers[i]))
+                    return false;
         SCmd<impl::ECT_BIND_VERTEX_BUFFERS> cmd;
         cmd.first = firstBinding;
         cmd.count = bindingCount;
@@ -760,12 +813,12 @@ public:
         return true;
     }
 
-    bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const asset::VkRect2D* pScissors) override
+    bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override
     {
         SCmd<impl::ECT_SET_SCISSORS> cmd;
         cmd.firstScissor = firstScissor;
         cmd.scissorCount = scissorCount;
-        auto* scissors = getGLCommandPool()->emplace_n<asset::VkRect2D>(scissorCount, pScissors[0]);
+        auto* scissors = getGLCommandPool()->emplace_n<VkRect2D>(scissorCount, pScissors[0]);
         if (!scissors)
             return false;
         for (uint32_t i = 0u; i < scissorCount; ++i)

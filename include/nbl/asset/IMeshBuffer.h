@@ -5,6 +5,8 @@
 #ifndef __NBL_ASSET_I_MESH_BUFFER_H_INCLUDED__
 #define __NBL_ASSET_I_MESH_BUFFER_H_INCLUDED__
 
+#include "aabbox3d.h"
+
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ECommonEnums.h"
 #include <algorithm>
@@ -265,6 +267,11 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         inline const PipelineType* getPipeline() const
         {
             return m_pipeline.get();
+        }
+        //!
+        inline void setPipeline(core::smart_refctd_ptr<PipelineType>&& _pipeline)
+        {
+            m_pipeline = std::move(_pipeline);
         }
 
 	    //! Get type of index data which is stored in this meshbuffer.

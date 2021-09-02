@@ -8,17 +8,11 @@
 #include "IDriverMemoryAllocation.h"
 #include <algorithm>
 
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
 namespace nbl::video
 {
-
-// TODO: get rid of double defs
-typedef uint64_t VkDeviceSize;
-//placeholder until we configure Vulkan SDK
-typedef struct VkMemoryRequirements {
-    VkDeviceSize    size;
-    VkDeviceSize    alignment; /// Used and valid only in Vulkan
-    uint32_t        memoryTypeBits; /// Used and valid only in Vulkan
-} VkMemoryRequirements; //depr
 
 //! Interface from which resources backed by IDriverMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
 class IDriverMemoryBacked : public virtual core::IReferenceCounted
@@ -27,6 +21,15 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
         struct SDriverMemoryRequirements
         {
             VkMemoryRequirements vulkanReqs;
+
+            // Todo(achal): It makes little sense to put this here. I'd much
+            // rather keep it in something like IGPUBuffer::SCreationParams (which doesn't exist yet)
+            // Also I should make something like a IBuffer::E_USAGE_FLAGS for vulkanBufferUsageFlags
+            VkBufferUsageFlags vulkanBufferUsageFlags;
+            asset::E_SHARING_MODE sharingMode;
+            core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices = nullptr;
+
+
             uint32_t memoryHeapLocation             : 2; //IDriverMemoryAllocation::E_SOURCE_MEMORY_TYPE
             uint32_t mappingCapability              : 4; //IDriverMemoryAllocation::E_MAPPING_CAPABILITY_FLAGS
             uint32_t prefersDedicatedAllocation     : 1; /// Used and valid only in Vulkan
@@ -95,6 +98,7 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
 
         SDriverMemoryRequirements cachedMemoryReqs;
         // TODO: backward link to the IDriverMemoryAllocation
+        core::smart_refctd_ptr<IDriverMemoryAllocation> m_backedMemory;
 };
 
 } // end namespace nbl::video

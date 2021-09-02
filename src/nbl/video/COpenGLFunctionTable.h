@@ -250,8 +250,9 @@ public:
 	GL4_sync gl4Sync;
 	GL4debug gl4Debug;
 
-    COpenGLFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
-		IOpenGL_FunctionTable(_egl, _features),
+
+    COpenGLFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features, system::logger_opt_smart_ptr&& logger) :
+		IOpenGL_FunctionTable(_egl,_features, std::move(logger)),
 		gl4Framebuffer(_egl),
 		gl4Buffer(_egl),
 		gl4Texture(_egl),
@@ -402,7 +403,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -479,7 +480,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -532,7 +533,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -610,7 +611,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -1289,7 +1290,7 @@ public:
 			glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
 			break;
 		default:
-			os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+			m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 			return;
 		}
 		glTexture.pglBindTexture(target, texture);
@@ -1322,7 +1323,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -1330,6 +1331,7 @@ public:
 			glTexture.pglBindTexture(target, bound);
 		}
 	}
+
 	void extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
 	{
 		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
@@ -1443,7 +1445,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -1472,7 +1474,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -1525,7 +1527,7 @@ public:
 				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
 				break;
 			default:
-				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				m_logger.log("DevSH would like to ask you what are you doing!!??\n", system::ILogger::ELL_ERROR);
 				return;
 			}
 			glTexture.pglBindTexture(target, texture);
@@ -1703,7 +1705,7 @@ public:
 			gl4Sync.pglTextureBarrierNV();
 #ifdef _NBL_DEBUG
 		else
-			os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n", ELL_ERROR);
+			m_logger.log("EDF_TEXTURE_BARRIER Not Available!\n", system::ILogger::ELL_ERROR);
 #endif // _NBL_DEBUG
 	}
 	void extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)

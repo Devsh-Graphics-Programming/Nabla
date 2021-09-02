@@ -1,29 +1,33 @@
 #ifndef __NBL_I_OPENGL__LOGICAL_DEVICE_H_INCLUDED__
 #define __NBL_I_OPENGL__LOGICAL_DEVICE_H_INCLUDED__
 
+#include "nbl/system/IAsyncQueueDispatcher.h"
+#include "nbl/system/ILogger.h"
+
 #include <variant>
 
-#include "nbl/video/ILogicalDevice.h"
-#include "nbl/video/IOpenGL_FunctionTable.h"
-#include "nbl/video/CEGL.h"
-#include "nbl/system/IAsyncQueueDispatcher.h"
-#include "nbl/video/COpenGLComputePipeline.h"
-#include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
+
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/ISwapchain.h"
-#include "nbl/video/IGPUShader.h"
-#include "nbl/asset/utils/ISPIRVOptimizer.h"
-#include "COpenGLBuffer.h"
+#include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/debug/COpenGLDebugCallback.h"
+
+#include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/video/CEGL.h"
+#include "nbl/video/COpenGLComputePipeline.h"
+#include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
+#include "nbl/video/COpenGLBuffer.h"
 #include "nbl/video/COpenGLBufferView.h"
 #include "nbl/video/COpenGLImage.h"
 #include "nbl/video/COpenGLImageView.h"
 #include "nbl/video/COpenGLFramebuffer.h"
-#include "COpenGLSync.h"
-#include "COpenGLSpecializedShader.h"
+#include "nbl/video/COpenGLSync.h"
+#include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLSampler.h"
 #include "nbl/video/COpenGLPipelineCache.h"
 #include "nbl/video/COpenGLFence.h"
-#include "nbl/video/COpenGLDebug.h"
 
 #ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
@@ -49,7 +53,7 @@ namespace impl
         };
         */
 
-        enum E_REQUEST_TYPE
+        enum E_REQUEST_TYPE : uint8_t
         {
             // GL pipelines and vaos are kept, created and destroyed in COpenGL_Queue internal thread
             ERT_BUFFER_DESTROY,
@@ -87,7 +91,9 @@ namespace impl
 
             ERT_CTX_MAKE_CURRENT,
 
-            ERT_WAIT_IDLE
+            ERT_WAIT_IDLE,
+
+            ERT_INVALID
         };
 
         constexpr static inline bool isDestroyRequest(E_REQUEST_TYPE rt)
@@ -393,8 +399,25 @@ protected:
             SRequestWaitIdle
         >;
 
-        E_REQUEST_TYPE type;
+        // lock when overwriting the request
+        void reset()
+        {
+            if (isDestroyRequest(type))
+            {
+                uint32_t expected = ES_READY;
+                while (!state.compare_exchange_strong(expected,ES_RECORDING))
+                {
+                    state.wait(expected);
+                    expected = ES_READY;
+                }
+                assert(expected==ES_READY);
+            }
+            else
+                system::impl::IAsyncQueueDispatcherBase::request_base_t::reset();
+        }
+
         params_variant_t params_variant;
+        E_REQUEST_TYPE type = ERT_INVALID;
 
         // cast to `RequestParams::retval_t*`
         void* pretval;
@@ -406,9 +429,13 @@ protected:
         using base_t = system::IAsyncQueueDispatcher<CThreadHandler<FunctionTableType>, SRequest, 256u, FunctionTableType>;
         friend base_t;
         using FeaturesType = typename FunctionTableType::features_t;
-
     public:
-        CThreadHandler(IOpenGL_LogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _qcount, const SGLContext& glctx, SDebugCallback* _dbgCb) :
+        CThreadHandler(IOpenGL_LogicalDevice* dev,
+            const egl::CEGL* _egl,
+            const FeaturesType* _features,
+            uint32_t _qcount,
+            const SGLContext& glctx,
+            const COpenGLDebugCallback* _dbgCb) :
             m_queueCount(_qcount),
             egl(_egl),
             thisCtx(glctx.ctx), pbuffer(glctx.pbuffer),
@@ -436,10 +463,12 @@ protected:
         template <typename RequestParams>
         void waitForRequestCompletion(SRequest& req)
         {
-            auto lk = req.wait();
+            req.wait_ready();
 
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
             std::get<RequestParams>(req.params_variant) = RequestParams{};
+
+            req.discard_storage();
         }
 
         void init(FunctionTableType* state_ptr)
@@ -449,10 +478,15 @@ protected:
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            new (state_ptr) FunctionTableType(egl, features);
+            new (state_ptr) FunctionTableType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
             auto* gl = state_ptr;
+
+            #ifdef _NBL_DEBUG
+            gl->glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+            // TODO: debug message control (to exclude callback spam)
+            #endif
             if (m_dbgCb)
-                gl->extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
+                gl->extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
         }
 
         // RequestParams must be one of request parameter structs
@@ -513,35 +547,35 @@ protected:
             {
                 auto& p = std::get<SRequestBufferCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(device, &gl, p.mreqs, p.canModifySubdata);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.canModifySubdata);
             }
                 break;
             case ERT_BUFFER_VIEW_CREATE:
             {
                 auto& p = std::get<SRequestBufferViewCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBufferView>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBufferView>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBufferView>(device, &gl, std::move(p.buffer), p.format, p.offset, p.size);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBufferView>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.buffer), p.format, p.offset, p.size);
             }
                 break;
             case ERT_IMAGE_CREATE:
             {
                 auto& p = std::get<SRequestImageCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(device, &gl, std::move(p.params));
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:
             {
                 auto& p = std::get<SRequestImageViewCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImageView>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImageView>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImageView>(device, &gl, std::move(p.params));
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImageView>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
             }
                 break;
             case ERT_SAMPLER_CREATE:
             {
                 auto& p = std::get<SRequestSamplerCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUSampler>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLSampler>(device, &gl, p.params);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLSampler>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.params);
             }
                 break;
             case ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE:
@@ -565,9 +599,11 @@ protected:
                 auto& p = std::get<SRequestFenceCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUFence>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUFence>*>(req.pretval);
                 if (p.flags & IGPUFence::ECF_SIGNALED_BIT)
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device, device, &gl);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl);
                 else
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(device);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device));
+                // only fence create should flush, nothing else needs to do flush or wait idle
+                gl.glGeneral.pglFlush();
             }
                 break;
 
@@ -576,11 +612,15 @@ protected:
                 auto& p = std::get<SRequestFlushMappedMemoryRanges>(req.params_variant);
                 for (auto mrng : p.memoryRanges)
                     gl.extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(mrng.memory)->getOpenGLName(), mrng.offset, mrng.length);
+                // section 5.3 of OpenGL 4.6 spec "Changes to mapped buffer data followed by a command such as Unmap-Buffer or FlushMappedBufferRange."
+                gl.glGeneral.pglFlush(); // see TODO at the end
             }
                 break;
             case ERT_INVALIDATE_MAPPED_MEMORY_RANGES:
             {
                 gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+                // too scarred to test without it (does it fall under section 5.3 ?)
+                gl.glGeneral.pglFlush(); // see TODO at the end
             }
                 break;
             case ERT_MAP_BUFFER_RANGE:
@@ -589,6 +629,8 @@ protected:
 
                 void** pretval = reinterpret_cast<void**>(req.pretval);
                 pretval[0] = gl.extGlMapNamedBufferRange(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName(), p.offset, p.size, p.flags);
+                // section 5.3 of OpenGL 4.6 spec "Changes to mapped buffer data followed by a command such as Unmap-Buffer or FlushMappedBufferRange."
+                gl.glGeneral.pglFlush(); // see TODO at the end
             }
                 break;
             case ERT_UNMAP_BUFFER:
@@ -635,11 +677,16 @@ protected:
             default: 
                 break;
             }
-            gl.glGeneral.pglFlush();
-            // created GL object must be in fact ready when request gets reported as ready
-            // @matt - needed?
+            // Nvidia's OpenGL nastily gaslights the user with plain wrong errors, i.e. about invalid offsets and sizes when doing buffer2buffer copies
+            // there's nothing in the spec saying that I must flush after creating a buffer with ARB_buffer_storage on another context/thread in the sharelist
+            // but all this undocumented goodness has finally reared its head
+            // TODO: OpenGL spec is worse and looser than Vulkan, because we use DSA this affects us, if we didnt it wouldn't.
+            // Anyway any creation, mapping, flushing (and maybe even invalidation call) would need to be wrapped up into an opaque API future,
+            // which is always ready on Vulkan, but on OpenGL its packaged together with a GLsync (or a faux fence+semaphore).
+            // Flushing is a particular PITA because its a not a thing that synchronises with the CPU.
+            // One could also want object creation to optionally only sync with a queue submission and not CPU (so a semaphore).
             if (isCreationRequest(req.type))
-                gl.glGeneral.pglFinish();
+                gl.glGeneral.pglFlush(); // see TODO above
         }
 
         void exit(FunctionTableType* gl)
@@ -659,15 +706,15 @@ protected:
 
             using GLPpln = COpenGLRenderpassIndependentPipeline;
 
-            IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+            const IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
             uint32_t shaderCount = 0u;
             for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
                 if (params.shaders[i])
                     shaders_array[shaderCount++] = params.shaders[i].get();
 
-            auto shaders = core::SRange<IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
-            auto vsIsPresent = [&shaders] {
-                return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
+            auto shaders = core::SRange<const IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
+            auto vsIsPresent = [&shaders]() -> bool {
+                return std::find_if(shaders.begin(), shaders.end(), [](const IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
             };
 
             asset::ISpecializedShader::E_SHADER_STAGE lastVertexLikeStage = asset::ISpecializedShader::ESS_VERTEX;
@@ -698,7 +745,7 @@ protected:
             COpenGLPipelineLayout* gllayout = static_cast<COpenGLPipelineLayout*>(layout.get());
             for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
             {
-                COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
+                const auto* glshdr = static_cast<const COpenGLSpecializedShader*>(*shdr);
 
                 auto stage = glshdr->getStage();
                 uint32_t ix = core::findLSB<uint32_t>(stage);
@@ -728,7 +775,7 @@ protected:
             }
 
             return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
-                device, device, &gl,
+                core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl,
                 std::move(layout),
                 shaders.begin(), shaders.end(),
                 params.vertexInput, params.blend, params.primitiveAssembly, params.rasterization,
@@ -771,7 +818,7 @@ protected:
                 }
             }
 
-            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(device, device, &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
+            return core::make_smart_refctd_ptr<COpenGLComputePipeline>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
         IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, const std::chrono::steady_clock::time_point& timeoutPoint)
         {
@@ -846,10 +893,10 @@ protected:
         const egl::CEGL* egl;
         EGLContext thisCtx;
         EGLSurface pbuffer;
-        FeaturesType* features;
+        const FeaturesType* features;
 
         IOpenGL_LogicalDevice* device;
-        SDebugCallback* m_dbgCb;
+        const COpenGLDebugCallback* m_dbgCb;
     };
 
 protected:
@@ -857,10 +904,8 @@ protected:
     core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
-    IOpenGL_LogicalDevice(const egl::CEGL* _egl, E_API_TYPE api_type, const SCreationParams& params, core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) : ILogicalDevice(api_type, params, std::move(fs), std::move(glslc)), m_egl(_egl)
-    {
-
-    }
+    IOpenGL_LogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl)
+        : ILogicalDevice(physicalDevice,params), m_egl(_egl) {}
 
     const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
     {

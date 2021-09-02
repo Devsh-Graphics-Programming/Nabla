@@ -1,7 +1,6 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef __NBL_VIDEO_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
 
@@ -9,10 +8,9 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/video/COpenGLImage.h"
 
+
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class COpenGLImageView final : public IGPUImageView
@@ -23,7 +21,6 @@ class COpenGLImageView final : public IGPUImageView
 		GLuint name;
 		GLenum target;
 		GLenum internalFormat;
-
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR GLenum ViewTypeToGLenumTarget[IGPUImageView::ET_COUNT] = {
 			IOpenGL_FunctionTable::TEXTURE_1D,GL_TEXTURE_2D,GL_TEXTURE_3D,GL_TEXTURE_CUBE_MAP,IOpenGL_FunctionTable::TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_CUBE_MAP_ARRAY
@@ -37,7 +34,8 @@ class COpenGLImageView final : public IGPUImageView
 			return target;
 		}
 
-		COpenGLImageView(ILogicalDevice* dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) : IGPUImageView(dev, std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
+		COpenGLImageView(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, SCreationParams&& _params) :
+			IGPUImageView(std::move(dev), std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
 			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
@@ -71,7 +69,6 @@ class COpenGLImageView final : public IGPUImageView
 		inline GLenum getInternalFormat() const { return internalFormat; }
 };
 
-}
 }
 #endif
 

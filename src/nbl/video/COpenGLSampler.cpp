@@ -2,8 +2,7 @@
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 COpenGLSampler::~COpenGLSampler()
@@ -12,5 +11,4 @@ COpenGLSampler::~COpenGLSampler()
     device->destroySampler(m_GLname);
 }
 
-}
 }

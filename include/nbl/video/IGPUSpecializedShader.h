@@ -5,13 +5,13 @@
 #ifndef __NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
-#include "nbl/asset/ISpecializedShader.h"
-#include "nbl/video/IBackendObject.h"
 
-namespace nbl
-{
-namespace video
+#include "nbl/asset/ISpecializedShader.h"
+
+#include "nbl/video/decl/IBackendObject.h"
+
+
+namespace nbl::video
 {
 
 //! GPU Version of Specialized Shader
@@ -22,7 +22,7 @@ namespace video
 class IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendObject
 {
 	public:
-		IGPUSpecializedShader(ILogicalDevice* dev, asset::ISpecializedShader::E_SHADER_STAGE _stage) : IBackendObject(dev), m_stage(_stage) {}
+		IGPUSpecializedShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, asset::ISpecializedShader::E_SHADER_STAGE _stage) : IBackendObject(std::move(dev)), m_stage(_stage) {}
 
 		asset::ISpecializedShader::E_SHADER_STAGE getStage() const { return m_stage; }
 
@@ -32,7 +32,6 @@ class IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendO
 		const asset::ISpecializedShader::E_SHADER_STAGE m_stage;
 };
 
-}
 }
 
 #endif

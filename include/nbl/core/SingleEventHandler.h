@@ -6,11 +6,9 @@
 #define __NBL_CORE_CORE_SINGLE_EVENT_HANDLER_H__
 
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 // TODO: actually implement and test
@@ -182,7 +180,6 @@ class FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
 };
 #endif
 
-}
 }
 
 #endif

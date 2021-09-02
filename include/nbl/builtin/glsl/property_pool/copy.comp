@@ -1,0 +1,47 @@
+#version 440 core
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+#include "nbl/builtin/glsl/property_pool/transfer.glsl"
+
+layout(set=0,binding=0) readonly restrict buffer Addresses
+{
+    int transferData[NBL_BUILTIN_MAX_PROPERTIES_PER_COPY*NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE/4];
+    uint addresses[];
+};
+nbl_glsl_property_pool_transfer_t getTransferData(in uint propID)
+{
+    const uint base = propID*(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE/4);
+    return nbl_glsl_property_pool_transfer_t(transferData[base+0u],transferData[base+1u],transferData[base+2u],transferData[base+3u]);
+}
+
+layout(set=0,binding=1) readonly buffer InData
+{
+    uint data[];
+} inBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_COPY];
+layout(set=0,binding=2) writeonly buffer OutData
+{
+    uint data[];
+} outBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_COPY];
+
+
+
+void main()
+{
+    const uint propID = gl_WorkGroupID.y;
+    const nbl_glsl_property_pool_transfer_t transfer = getTransferData(propID);
+
+  const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
+	const uint propDWORDs = uint(bitfieldExtract(transfer.propertyDWORDsize_flags,0,flagsBitOffset));
+
+    const uint index = gl_GlobalInvocationID.x/propDWORDs;
+    if (index>=transfer.elementCount)
+        return;
+
+    const uint srcIndex = bool(transfer.propertyDWORDsize_flags&(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL<<flagsBitOffset)) ? 0u:index;
+    const uint srcAddress = transfer.srcIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[srcIndex+transfer.srcIndexOffset]:srcIndex;
+    const uint dstAddress = transfer.dstIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[index+transfer.dstIndexOffset]:index;
+	// its equivalent to `addresses[index]*propDWORDs+gl_GlobalInvocationID.x%propDWORDs`
+	const uint srcDWORD = (srcAddress-srcIndex)*propDWORDs+gl_GlobalInvocationID.x;
+	const uint dstDWORD = (dstAddress-index)*propDWORDs+gl_GlobalInvocationID.x;
+    outBuff[propID].data[dstDWORD] = inBuff[propID].data[srcDWORD];
+}

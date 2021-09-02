@@ -1,21 +1,24 @@
-#ifndef __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
-#define __NBL_I_PHYSICAL_DEVICE_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
+#define __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+#include "nbl/system/declarations.h"
 
-#include "nbl/video/ILogicalDevice.h"
-#include "nbl/asset/IImage.h" //for VkExtent3D only
-#include "nbl/asset/ISpecializedShader.h"
-#include "nbl/video/EApiType.h"
-#include "IFileSystem.h"
-#include "nbl/asset/utils/IGLSLCompiler.h"
 #include <type_traits>
 
-namespace nbl {
-namespace video
+#include "nbl/asset/IImage.h" //for VkExtent3D only
+#include "nbl/asset/ISpecializedShader.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
+
+#include "nbl/system/ISystem.h"
+
+#include "nbl/video/EApiType.h"
+#include "nbl/video/debug/IDebugCallback.h"
+#include "nbl/video/ILogicalDevice.h"
+
+namespace nbl::video
 {
 
-class IPhysicalDevice : public core::IReferenceCounted
+class IPhysicalDevice : public core::Interface, public core::Unmovable
 {
 public:
     struct SLimits
@@ -91,12 +94,6 @@ public:
         asset::VkExtent3D minImageTransferGranularity;
     };
 
-    IPhysicalDevice(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-        m_fs(std::move(fs)), m_GLSLCompiler(std::move(glslc))
-    {
-
-    }
-
     const SLimits& getLimits() const { return m_limits; }
     const SFeatures& getFeatures() const { return m_features; }
 
@@ -109,6 +106,13 @@ public:
         );
     }
 
+    inline system::ISystem* getSystem() const {return m_system.get();}
+    inline asset::IGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
+
+    virtual IDebugCallback* getDebugCallback() = 0;
+
+    virtual bool isSwapchainSupported() const = 0;
+
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
     {
         if (!validateLogicalDeviceCreation(params))
@@ -120,40 +124,14 @@ public:
     virtual E_API_TYPE getAPIType() const = 0;
 
 protected:
+    IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
+
     virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) = 0;
 
-    bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
-    {
-        using range_t = core::SRange<const ILogicalDevice::SQueueCreationParams>;
-        range_t qcis(params.queueCreateInfos, params.queueCreateInfos+params.queueParamsCount);
+    bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
 
-        for (const auto& qci : qcis)
-        {
-            if (qci.familyIndex >= m_qfamProperties->size())
-                return false;
 
-            const auto& qfam = (*m_qfamProperties)[qci.familyIndex];
-            if (qci.count == 0u)
-                return false;
-            if (qci.count > qfam.queueCount)
-                return false;
-
-            for (uint32_t i = 0u; i < qci.count; ++i)
-            {
-                const float priority = qci.priorities[i];
-                if (priority < 0.f)
-                    return false;
-                if (priority > 1.f)
-                    return false;
-            }
-        }
-
-        return true;
-    }
-
-    virtual ~IPhysicalDevice() = default;
-
-    core::smart_refctd_ptr<io::IFileSystem> m_fs;
+    core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
     SLimits m_limits;
@@ -162,7 +140,6 @@ protected:
     qfam_props_array_t m_qfamProperties;
 };
 
-}
 }
 
 #endif

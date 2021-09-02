@@ -467,8 +467,9 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 		endif()
 	endforeach()
 	
-	file(READ "${NBL_ROOT_PATH}/cmake/import/nabla.h.in" NBL_NABLA_IMPORT_HEADER_CODE)
-	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h.in" "${WRAPPER_CODE}")
-	file(APPEND "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h.in" "${NBL_NABLA_IMPORT_HEADER_CODE}")
-	configure_file("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h.in" "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h")
+	set(${NBL_REFERENCE_RETURN_VARIABLE} "${WRAPPER_CODE}")
+endmacro()
+
+macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
+	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()

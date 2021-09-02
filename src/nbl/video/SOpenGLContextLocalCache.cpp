@@ -1,7 +1,11 @@
+#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/ILogicalDevice.h"
+
 #include "nbl/video/SOpenGLContextLocalCache.h"
 
-namespace nbl {
-namespace video
+#include "nbl/video/IOpenGL_LogicalDevice.h"
+
+namespace nbl::video
 {
 
 void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline, uint32_t ctxid)
@@ -816,5 +820,4 @@ GLuint SOpenGLContextLocalCache::createGraphicsPipeline(IOpenGL_FunctionTable* g
     return GLpipeline;
 }
 
-}
 }

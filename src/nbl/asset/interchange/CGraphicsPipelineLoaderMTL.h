@@ -39,11 +39,11 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
         };
 
 	public:
-        CGraphicsPipelineLoaderMTL(IAssetManager* _am);
+        CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys);
 
         void initialize() override;
 
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -53,17 +53,20 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) override;
 
     private:
         core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> makePipelineFromMtl(SContext& ctx, const SMtl& _mtl, bool hasUV);
-        core::vector<SMtl> readMaterials(io::IReadFile* _file) const;
+        core::vector<SMtl> readMaterials(system::IFile* _file, const system::logger_opt_ptr logger) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
 
         using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT>;
         using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
         image_views_set_t loadImages(const std::string& relDir, const SMtl& _mtl, SContext& _ctx);
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout, SContext& _ctx);
+    private:
+        core::smart_refctd_ptr<system::ISystem> m_system;
+
 };
 
 }

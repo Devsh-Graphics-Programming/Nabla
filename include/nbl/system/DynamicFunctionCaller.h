@@ -5,14 +5,10 @@
 #ifndef __NBL_SYSTEM_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
 #define __NBL_SYSTEM_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
 
-
-#include "nbl/core/core.h"
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
-namespace nbl
-{
-namespace system
+namespace nbl::system
 {
 
 template<class FuncPtrLoaderT=DefaultFuncPtrLoader>
@@ -40,7 +36,6 @@ class DynamicFunctionCallerBase : public core::Unmovable
 		}
 };
 
-}
 }
 
 

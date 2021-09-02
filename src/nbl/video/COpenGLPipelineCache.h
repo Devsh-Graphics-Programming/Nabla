@@ -8,8 +8,8 @@
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
-#include "nbl/core/Types.h"
-#include "spirv_cross/spirv_parser.hpp"
+#include "nbl/core/decl/Types.h"
+#include "nbl_spirv_cross/spirv_parser.hpp"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include <array>
 

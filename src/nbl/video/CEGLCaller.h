@@ -1,13 +1,11 @@
 #ifndef __NBL_C_EGL_CALLER_H_INCLUDED__
 #define __NBL_C_EGL_CALLER_H_INCLUDED__
 
-#include <EGL/egl.h>
+#include "EGL/egl.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
-namespace nbl {
-namespace video {
-namespace egl
+namespace nbl::video::egl
 {
 
 class CEGLCaller final
@@ -98,8 +96,6 @@ public:
     NBL_IMPL_DECLARE_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
 };
 
-}
-}
 }
 
 #endif

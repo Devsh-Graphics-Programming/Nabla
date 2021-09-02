@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #include "CTarReader.h"
 
 #ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
@@ -28,7 +28,7 @@ CArchiveLoaderTAR::CArchiveLoaderTAR(io::IFileSystem* fs)
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CArchiveLoaderTAR::isALoadableFileFormat(const io::path& filename) const
+bool CArchiveLoaderTAR::isALoadableFileFormat(const std::filesystem::path& filename) const
 {
 	return core::hasFileExtension(filename, "tar");
 }
@@ -42,7 +42,7 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) cons
 //! Creates an archive from the filename
 /** \param file File handle to check.
 \return Pointer to newly created archive, or 0 upon error. */
-IFileArchive* CArchiveLoaderTAR::createArchive(const io::path& filename) const
+IFileArchive* CArchiveLoaderTAR::createArchive(const std::filesystem::path& filename) const
 {
 	IFileArchive *archive = 0;
 	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
@@ -124,7 +124,7 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 /*
 	TAR Archive
 */
-CTarReader::CTarReader(IReadFile* file) : CFileList(file ? file->getFileName() : io::path("")), File(file)
+CTarReader::CTarReader(IReadFile* file) : CFileList(file ? file->getFileName() : std::filesystem::path("")), File(file)
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CTarReader");
@@ -169,7 +169,7 @@ uint32_t CTarReader::populateFileList()
 		// only add standard files for now
 		if (fHead.Link == ETLI_REGULAR_FILE || ETLI_REGULAR_FILE_OLD)
 		{
-			io::path fullPath = "";
+			std::string fullPath = "";
 			fullPath.reserve(255);
 
 			// USTAR archives have a filename prefix
@@ -178,7 +178,7 @@ uint32_t CTarReader::populateFileList()
 			{
 				char* np = fHead.FileNamePrefix;
 				while(*np && (np - fHead.FileNamePrefix) < 155)
-					fullPath.append(*np);
+					fullPath += *np;
 				np++;
 			}
 
@@ -186,17 +186,17 @@ uint32_t CTarReader::populateFileList()
 			char* np = fHead.FileName;
 			while(*np && (np - fHead.FileName) < 100)
 			{
-				fullPath.append(*np);
+				fullPath += *np;
 				np++;
 			}
 
 			// get size
-			core::stringc sSize = "";
+			std::string sSize = "";
 			sSize.reserve(12);
 			np = fHead.Size;
 			while(*np && (np - fHead.Size) < 12)
 			{
-				sSize.append(*np);
+				sSize += *np;
 				np++;
 			}
 
@@ -227,7 +227,7 @@ uint32_t CTarReader::populateFileList()
 }
 
 //! opens a file by file name
-IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
+IReadFile* CTarReader::createAndOpenFile(const std::filesystem::path& filename)
 {
     auto it = findFile(Files.begin(),Files.end(),filename,false);
 	if (it!=Files.end())
@@ -239,3 +239,4 @@ IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 } // end namespace nbl
 
 #endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#endif

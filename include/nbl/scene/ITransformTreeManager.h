@@ -5,223 +5,302 @@
 #ifndef __NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED__
 #define __NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED__
 
-#include "nbl/core/core.h"
-#include "nbl/video/video.h"
+#include "nbl/core/declarations.h"
+#include "nbl/video/declarations.h"
 
-namespace nbl
-{
-namespace scene
+#include "nbl/core/definitions.h"
+
+#include "nbl/scene/ITransformTree.h"
+
+namespace nbl::scene
 {
 
-// TODO: split into ITT and ITTM because no need for multiple pipeline copies for multiple TTs
+//
+#define uint uint32_t
+#define int int32_t
+#define uvec4 core::vectorSIMDu32
+#include "nbl/builtin/glsl/transform_tree/relative_transform_modification.glsl"
+#include "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
+#undef uvec4
+#undef int
+#undef uint
+
 class ITransformTreeManager : public virtual core::IReferenceCounted
 {
 	public:
-		using node_t = uint32_t;
-		_NBL_STATIC_INLINE_CONSTEXPR node_t invalid_node = video::IPropertyPool::invalid_index;
-
-		using timestamp_t = video::IGPUAnimationLibrary::timestamp_t;
-		// two timestamp values are reserved for initialization
-		_NBL_STATIC_INLINE_CONSTEXPR timestamp_t min_timestamp = 0u;
-		_NBL_STATIC_INLINE_CONSTEXPR timestamp_t max_timestamp = 0xfffffffdu;
-
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t parent_prop_ix = 0u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t global_transform_prop_ix = 3u;
-	private:
-		using parent_t = node_t;
-		using relative_transform_t = core::matrix3x4SIMD;
-		using modified_stamp_t = timestamp_t;
-		using global_transform_t = core::matrix3x4SIMD;
-		using recomputed_stamp_t = timestamp_t;
-
-	public:
-		using property_pool_t = video::CPropertyPool<core::allocator,
-			parent_t,
-			relative_transform_t,modified_stamp_t,
-			global_transform_t,recomputed_stamp_t
-		>;
-
-		struct RelativeTransformModificationRequest
+		struct RelativeTransformModificationRequest : nbl_glsl_transform_tree_relative_transform_modification_t
 		{
 			public:
 				enum E_TYPE : uint32_t
 				{
-					ET_OVERWRITE=0u, // exchange the value `This(vertex)`
-					ET_CONCATENATE_AFTER=1u, // apply transform after `This(Previous(vertex))`
-					ET_CONCATENATE_BEFORE=2u, // apply transform before `Previous(This(vertex))`
-					ET_WEIGHTED_ACCUMULATE=3u, // add to existing value `(Previous+This)(vertex)`
-					ET_COUNT
+					ET_OVERWRITE=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_OVERWRITE_, // exchange the value, `This(vertex)`
+					ET_CONCATENATE_AFTER=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_CONCATENATE_AFTER_, // apply transform after, `This(Previous(vertex))`
+					ET_CONCATENATE_BEFORE=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_CONCATENATE_BEFORE_, // apply transform before, `Previous(This(vertex))`
+					ET_WEIGHTED_ACCUMULATE=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_WEIGHTED_ACCUMULATE_, // add to existing value, `(Previous+This)(vertex)`
+					ET_COUNT=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_COUNT_
 				};
-				RelativeTransformModificationRequest(const E_TYPE type, const core::matrix3x4SIMD& _weightedModification) : storage(_weightedModification)
+				RelativeTransformModificationRequest(const E_TYPE type, const core::matrix3x4SIMD& _preweightedModification)
 				{
 					constexpr uint32_t log2ET_COUNT = 2u;
 					static_assert(ET_COUNT<=(0x1u<<log2ET_COUNT),"Need to rewrite the type encoding routine!");
-					
-					uint32_t typeBits[log2ET_COUNT];
-					for (uint32_t i=0u; i<log2ET_COUNT; i++)
-						typeBits[i] = (type>>i)&0x1u;
+				
+					//
+					*reinterpret_cast<core::matrix3x4SIMD*>(data) = _preweightedModification;
 
 					// stuff the bits into x and z components of scale (without a rotation) 
-					reinterpret_cast<uint32_t&>(storage.rows[0].x) |= typeBits[0];
-					reinterpret_cast<uint32_t&>(storage.rows[2].z) |= typeBits[1];
+					// clear then bitwise-or
+					data[0][0] &= 0xfffffffeu;
+					data[0][0] |= type&0x1u;
+					data[2][2] &= 0xfffffffeu;
+					data[2][2] |= (type>>1u)&0x1u;
 				}
 				RelativeTransformModificationRequest(const E_TYPE type, const core::matrix3x4SIMD& _modification, const float weight) : RelativeTransformModificationRequest(type,_modification*weight) {}
 
 				inline E_TYPE getType() const
 				{
-					uint32_t retval = reinterpret_cast<const uint32_t&>(storage.rows[0].x)&0x1u;
-					retval |= (reinterpret_cast<const uint32_t&>(storage.rows[2].z)&0x1u)<<1u;
-					return static_cast<E_TYPE>(retval);
+					return static_cast<E_TYPE>(nbl_glsl_transform_tree_relative_transform_modification_t_getType(*this));
 				}
-			private:
-				core::matrix3x4SIMD storage;
 		};
 
 		// creation
-		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IVideoDriver* _driver, asset::SBufferRange<video::IGPUBuffer>&& memoryBlock, core::allocator<uint8_t>&& alloc = core::allocator<uint8_t>())
-		{
-			const auto reservedSize = video::IPropertyPool::getReservedSize(property_pool_t::calcApproximateCapacity(memoryBlock.size));
-			auto reserved = std::allocator_traits<core::allocator<uint8_t>>::allocate(alloc,reservedSize);
-			if (!reserved)
-				return nullptr;
-
-			auto retval = create(_driver,std::move(memoryBlock),reserved,std::move(alloc));
-			if (!retval)
-				std::allocator_traits<core::allocator<uint8_t>>::deallocate(alloc,reserved,reservedSize);
-
-			return retval;
-		}
-		// if this method fails to create the pool, the callee must free the reserved memory themselves, also the reserved pointer must be compatible with the allocator so it can free it
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IVideoDriver* _driver, asset::SBufferRange<video::IGPUBuffer>&& memoryBlock, void* reserved, core::allocator<uint8_t>&& alloc=core::allocator<uint8_t>())
+        static inline core::smart_refctd_ptr<ITransformTreeManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& device)
         {
-			auto _nodeStorage = property_pool_t::create(std::move(memoryBlock),reserved,std::move(alloc));
-			if (!_nodeStorage)
+			// TODO: create the shaders for update,recompute (See how CPropertyPoolHandler does it)
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> updateRelativeSpec;
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> recomputeGlobalSpec;
+			if (!updateRelativeSpec || !recomputeGlobalSpec)
 				return nullptr;
 
-			auto* ttm = new ITransformTreeManager(_driver,std::move(_nodeStorage));
+			// TODO: create the descriptor set 1 layouts for update,recompute
+			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> updateDsLayout;
+			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> recomputeDsLayout;
+
+			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
+			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
+			auto poolLayout = ITransformTree::createDescriptorSetLayout(device.get(),stageAccessFlags);
+			
+			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),std::move(updateDsLayout));
+			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),std::move(recomputeDsLayout));
+
+			auto updateRelativePpln = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),std::move(updateRelativeSpec));
+			auto recomputeGlobalPpln = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),std::move(recomputeGlobalSpec));
+			if (!updateRelativePpln || !recomputeGlobalPpln)
+				return nullptr;
+
+			// TODO: after BaW
+			core::smart_refctd_ptr<video::IGPUComputePipeline> updateAndRecomputePpln;
+
+			auto* ttm = new ITransformTreeManager(std::move(device),std::move(updateRelativePpln),std::move(recomputeGlobalPpln),std::move(updateAndRecomputePpln));
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
         }
-		
-		//
-		inline const auto* getNodePropertyPool() const {return m_nodeStorage.get();}
 
-		//
-		inline asset::SBufferRange<video::IGPUBuffer> getGlobalTransformationBufferRange() const
-		{
-			asset::SBufferRange<video::IGPUBuffer> retval = {m_nodeStorage->getPropertyOffset(global_transform_prop_ix),m_nodeStorage->getCapacity()*sizeof(global_transform_t),m_nodeStorage->getMemoryBlock().buffer};
-			return retval;
-		}
-
-		// need to at least initialize with the parent node property with the recompute and update timestamps at 0xfffffffeu and 0xffffffffu respectively 
-		// but a function with optional relative transform would be nice
-		// need our own compute shader to initialize the properties ;(
-#if 0
-		//
 		struct AllocationRequest
 		{
-			core::SRange<node_t> outNodes;
-			const parent_t*	parents;
-			const relative_transform_t*	relativeTransforms;
-			// what to do about timestamps?
+			video::CPropertyPoolHandler* poolHandler;
+			video::StreamingTransientDataBufferMT<>* upBuff;
+			// must be in recording state
+			video::IGPUCommandBuffer* cmdbuf;
+			video::IGPUFence* fence;
+			ITransformTree* tree;
+			core::SRange<ITransformTree::node_t> outNodes;
+			// if null we set these properties to defaults (no parent and identity transform)
+			const ITransformTree::parent_t* parents = nullptr;
+			const ITransformTree::relative_transform_t* relativeTransforms = nullptr;
+			system::logger_opt_ptr logger = nullptr;
 		};
-		template<typename ParentNodeIt>
-		inline void addNodes(CPropertyPoolHandler* propertyPoolHandler, node_t* nodesBegin, node_t* nodesEnd, ParentNodeIt parentsBegin, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
+		inline bool addNodes(const AllocationRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
 		{
-			if (std::distance(nodesBegin,nodesEnd)>m_nodeStorage->getFree())
-				return;
+			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
+				return false;
 
-			m_nodeStorage->allocateProperties(nodesBegin,nodesEnd);
-			assert(false); // TODO
+			auto* pool = request.tree->getNodePropertyPool();
+			if (request.outNodes.size()>pool->getFree())
+				return false;
+
+			pool->allocateProperties(request.outNodes.begin(),request.outNodes.end());
+			const core::matrix3x4SIMD IdentityTransform;
+
+			constexpr auto TransferCount = 4u;
+			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
+			for (auto i=0u; i<TransferCount; i++)
+			{
+				transfers[i].pool = pool;
+				transfers[i].elementCount = request.outNodes.size();
+				transfers[i].srcAddresses = nullptr;
+				transfers[i].dstAddresses = request.outNodes.begin();
+				transfers[i].device2device = false;
+			}
+			transfers[0].propertyID = ITransformTree::parent_prop_ix;
+			transfers[0].flags = request.parents ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[0].source = request.parents ? request.parents:&ITransformTree::invalid_node;
+			transfers[1].propertyID = ITransformTree::relative_transform_prop_ix;
+			transfers[1].flags = request.relativeTransforms ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[1].source = request.relativeTransforms ? request.relativeTransforms:&IdentityTransform;
+			transfers[2].propertyID = ITransformTree::modified_stamp_prop_ix;
+			transfers[2].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[2].source = &ITransformTree::initial_modified_timestamp;
+			transfers[3].propertyID = ITransformTree::recomputed_stamp_prop_ix;
+			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
+			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;
 		}
-		// TODO: utilities for adding root nodes, adding skeleton node instances, etc.
-		// should we just do it ourselves with a shader? (set correct timestamps so global gets recomputed)
-#endif
+		// TODO: utility for adding skeleton node instances, etc.
+		 
+		//
+		inline void removeNodes(ITransformTree* tree, const ITransformTree::node_t* begin, const ITransformTree::node_t* end)
+		{
+			// If we start wanting a contiguous range to be maintained, this will need to change
+			tree->getNodePropertyPool()->freeProperties(begin,end);
+		}
 
 		//
-		inline void removeNodes(const node_t* begin, const node_t* end)
+		using ModificationRequestRange = nbl_glsl_transform_tree_modification_request_range_t;
+		struct ParamsBase
 		{
-			m_nodeStorage->freeProperties(begin,end);
+			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
+			ITransformTree* tree;
+			union
+			{
+				struct
+				{
+					video::IGPUBuffer* buffer;
+					uint64_t offset;
+				} dispatchIndirect;
+				struct
+				{
+					private:
+						uint64_t dummy;
+					public:
+						uint32_t nodeCount;
+				} dispatchDirect;
+			};
+			struct BarrierParams
+			{
+				uint32_t srcQueueFamilyIndex;
+				uint32_t dstQueueFamilyIndex;
+				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::EPSF_ALL_COMMANDS_BIT;
+				asset::E_ACCESS_FLAGS dstAccessMask = asset::EAF_ALL_ACCESSES_BIT_DEVSH;
+			} finalBarrier = {};
+		};
+		struct LocalTransformUpdateParams : ParamsBase
+		{
+			// for signalling when to drop a temporary descriptor set
+			video::IGPUFence fence;
+			// first uint in the buffer tells us how many ModificationRequestRanges we have
+			// second uint in the buffer tells us how many total requests we have
+			// rest is filled wtih ModificationRequestRange
+			asset::SBufferBinding<video::IGPUBuffer> requestRanges;
+			// this one is filled with RelativeTransformModificationRequest
+			asset::SBufferBinding<video::IGPUBuffer> modificationRequests;
+			asset::SBufferBinding<video::IGPUBuffer> modificationRequestTimestamps;
+		};
+		inline void updateLocalTransforms(const LocalTransformUpdateParams& params)
+		{
+			soleUpdateOrFusedRecompute_impl(m_updatePipeline.get(),params);
 		}
 		//
-		inline void clearNodes()
+		struct GlobalTransformUpdateParams : ParamsBase
 		{
-			m_nodeStorage->freeAllProperties();
+			// first uint in the buffer tells us how many nodes to update we have
+			asset::SBufferBinding<video::IGPUBuffer> nodeIDs;
+		};
+		void recomputeGlobalTransforms(const ParamsBase& params)
+		{
+			auto* cmdbuf = params.cmdbuf;
+			cmdbuf->bindComputePipeline(m_recomputePipeline.get());
+			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet() };
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_recomputePipeline->getLayout(),0u,1u,descSets);
+			lastDispatch(m_recomputePipeline.get(),params);
 		}
 
-		// TODO: make all these functions take a pipeline barrier type (future new API) with default being a full barrier
-		template<typename... Args>
-		inline void updateLocalTransforms(Args&&... args)
-		{
-			soleUpdateOrFusedRecompute_impl(m_updatePipeline.get(),std::forward<Args>(args)...);
-		}
 		//
-		void recomputeGlobalTransforms(const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirectParameters,const asset::SBufferBinding<video::IGPUBuffer>& nodeIDBuffer)
+		inline void updateAndRecomputeTransforms(const LocalTransformUpdateParams& params)
 		{
-			// TODO: do it properly
-			auto out = getGlobalTransformationBufferRange();
-			m_driver->copyBuffer(m_nodeStorage->getMemoryBlock().buffer.get(),out.buffer.get(),m_nodeStorage->getPropertyOffset(1u),out.offset,out.size);
-		}
-		//
-		template<typename... Args>
-		inline void updateAndRecomputeTransforms(Args&&... args)
-		{
-			soleUpdateOrFusedRecompute_impl(m_updateAndRecomputePipeline.get(),std::forward<Args>(args)...);
+			// TODO: after BaW, for now just use `updateLocalTransforms` and `recomputeGlobalTransforms` in order
+			assert(false);
+			soleUpdateOrFusedRecompute_impl(m_updateAndRecomputePipeline.get(),params);
 		}
 
-		//
-		auto transferGlobalTransforms(const node_t* begin, const node_t* end, const asset::SBufferBinding<video::IGPUBuffer>& outputBuffer, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
-		{
-			video::CPropertyPoolHandler::TransferRequest request;
-			request.download = true;
-			request.pool = m_nodeStorage.get();
-			request.indices = {begin,end};
-			request.propertyID = 3u;
-			//m_nodeStorage->transferProperties();
-			assert(false); // TODO: Need a transfer to GPU mem
-		}
-		//auto downloadGlobalTransforms()
-
+		static inline constexpr uint32_t WorkgroupSize = 256u;
 	protected:
-		ITransformTreeManager(video::IVideoDriver* _driver, core::smart_refctd_ptr<property_pool_t>&& _nodeStorage) : m_driver(_driver), m_nodeStorage(std::move(_nodeStorage))
+		ITransformTreeManager(
+			core::smart_refctd_ptr<video::ILogicalDevice>&& _device,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updatePipeline,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _recomputePipeline,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updateAndRecomputePipeline
+		) : m_device(std::move(_device)),
+			m_updatePipeline(std::move(_updatePipeline)),
+			m_recomputePipeline(std::move(_recomputePipeline)),
+			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline))
 		{
-			// TODO: the ComputePipeline for update,recompute and combined update&recompute
 		}
 		~ITransformTreeManager()
 		{
 			// everything drops itself automatically
 		}
 
-		void soleUpdateOrFusedRecompute_impl(
-			const video::IGPUComputePipeline* pipeline,
-			const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirectParameters,
-			const asset::SBufferBinding<video::IGPUBuffer>& nodeIDBuffer, // first uint in the nodeIDBuffer is used to denote how many requests we have
-			const asset::SBufferBinding<video::IGPUBuffer>& modificationRequestBuffer,
-			const asset::SBufferBinding<video::IGPUBuffer>& modificationRequestTimestampBuffer
-		)
+		void soleUpdateOrFusedRecompute_impl(const video::IGPUComputePipeline* pipeline, const LocalTransformUpdateParams& params)
 		{
-			// TODO: first a dispatch to sort the modification requests and timestamps according to node frequency
-			m_driver->bindComputePipeline(pipeline);
-			assert(false); // TODO: get a descriptor set to populate with our input buffers (plus indirect dispatch buffer + nodeIDBuffer if pipeline==m_updateAndRecomputePipeline)
-			const video::IGPUDescriptorSet* descSets[] = { m_transformHierarchyDS.get(),nullptr };
-			m_driver->bindDescriptorSets(video::EPBP_COMPUTE,pipeline->getLayout(),0u,2u,descSets,nullptr);
-			m_driver->dispatchIndirect(dispatchIndirectParameters.buffer.get(),dispatchIndirectParameters.offset);
-			// TODO: pipeline barrier for UBO, SSBO and TBO and if pipeline==m_updatePipeline then COMMAND_BIT too
+			auto* cmdbuf = params.cmdbuf;
+			// TODO: get a descriptor set to populate with our input buffers
+			assert(false);
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> tempDS;
+			// TOOD: do what CPropertyPoolHandler does and fill tempDS from some sort of reclaimable cache
+			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(),tempDS.get() };
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,2u,descSets,nullptr);
+
+			lastDispatch(pipeline,params);
+
+			// TODO: put the tempDS on the deferred free list of IDescriptorSetCache
 		}
 
-		video::IVideoDriver* m_driver;
-		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
+		void lastDispatch(const video::IGPUComputePipeline* pipeline, const ParamsBase& params)
+		{
+			auto* cmdbuf = params.cmdbuf;
+			cmdbuf->bindComputePipeline(pipeline);
+			if (params.dispatchIndirect.buffer)
+				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
+			else
+				cmdbuf->dispatch((params.dispatchDirect.nodeCount-1u)/WorkgroupSize+1u,1u,1u); // TODO: @Przemog would really like that dispatch factorization function
+
+			// we always add our own stage and access flags, simply to have up to date data available for the next time we run the shader
+			uint32_t barrierCount = 0u;
+			video::IGPUCommandBuffer::SBufferMemoryBarrier bufferBarriers[ITransformTree::property_pool_t::PropertyCount-1u];
+			auto setUpBarrier = [&](uint32_t prop_ix)
+			{
+				auto& bufBarrier = bufferBarriers[barrierCount++];
+				bufBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				bufBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(params.finalBarrier.dstAccessMask|asset::EAF_SHADER_READ_BIT|asset::EAF_SHADER_WRITE_BIT);
+				bufBarrier.srcQueueFamilyIndex = params.finalBarrier.srcQueueFamilyIndex;
+				bufBarrier.dstQueueFamilyIndex = params.finalBarrier.dstQueueFamilyIndex;
+				const auto& block = params.tree->getNodePropertyPool()->getPropertyMemoryBlock(prop_ix);
+				bufBarrier.buffer = block.buffer;
+				bufBarrier.offset = block.offset;
+				bufBarrier.size = block.size;
+			};
+			// update is being done
+			if (pipeline!=m_recomputePipeline.get())
+			{
+				setUpBarrier(ITransformTree::relative_transform_prop_ix);
+				setUpBarrier(ITransformTree::modified_stamp_prop_ix);
+			}
+			// recomputation is being done
+			if (pipeline!=m_updatePipeline.get())
+			{
+				setUpBarrier(ITransformTree::global_transform_prop_ix);
+				setUpBarrier(ITransformTree::recomputed_stamp_prop_ix);
+			}
+			cmdbuf->pipelineBarrier(
+				asset::EPSF_COMPUTE_SHADER_BIT,params.finalBarrier.dstStages|asset::EPSF_COMPUTE_SHADER_BIT,
+				asset::EDF_NONE,0u,nullptr,4u,bufferBarriers,0u,nullptr
+			);
+		}
+
+		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
-		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requsts > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
-		/** Ideal O(1) insertion and erasure
-		* Add: new nodes using pool allocator, add the node_t references to the back of the contiguous array (increment atomic) and record where the reference is (offset into contiguous) as an additional property of the node
-		* Remove: lookup the contiguous offset property for the removed node, decremenet contiguous array size atomic and save the return value as the reference to be swapped, swap the erased reference with the one to be swapped, dereference the swapped reference and update its pointer to contiguous 
-		**/
 };
 
-
-} // end namespace scene
-} // end namespace nbl
+} // end namespace nbl::scene
 
 #endif
 

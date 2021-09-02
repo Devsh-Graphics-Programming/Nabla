@@ -1,14 +1,15 @@
 #ifndef __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 #define __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 
-#include <regex>
 #include "nbl/video/IPhysicalDevice.h"
+#include <regex>
+
 #include "nbl/video/COpenGLFeatureMap.h"
 
 #include "nbl/video/CEGL.h"
 
 
-#include "nbl/video/COpenGLDebug.h"
+#include "nbl/video/debug/COpenGLDebugCallback.h"
 #ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
 #endif
@@ -19,7 +20,8 @@ namespace nbl::video
 template <typename LogicalDeviceType>
 class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
 {
-    static inline constexpr EGLint EGL_API_TYPE = LogicalDeviceType::FunctionTableType::EGL_API_TYPE;
+    using function_table_t = LogicalDeviceType::FunctionTableType;
+    static inline constexpr EGLint EGL_API_TYPE = function_table_t::EGL_API_TYPE;
     static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
 
 	static inline constexpr uint32_t MaxQueues = 8u;
@@ -32,7 +34,7 @@ protected:
 		EGLint major;
 		EGLint minor;
 	};
-#if 0
+#if 1
 	static void print_cfg(const egl::CEGL* _egl, EGLConfig cfg)
 	{
 		auto getAttrib = [&] (EGLint a) -> EGLint
@@ -61,7 +63,7 @@ protected:
 		printf("\n");
 	}
 #endif
-	static SInitResult createContext(const egl::CEGL* _egl, EGLenum api_type, const std::pair<EGLint, EGLint>& bestApiVer, EGLint minMinorVer)
+	static SInitResult createContext(const egl::CEGL* _egl, EGLenum api_type, const std::pair<EGLint,EGLint>& bestApiVer, EGLint minMinorVer)
 	{
 		// TODO those params should be somehow sourced externally
 		const EGLint
@@ -99,7 +101,7 @@ protected:
 		res.major = 0;
 		res.minor = 0;
 
-#if 0
+#if 1
 		EGLConfig cfgs[1024];
 		EGLint cfgs_count;
 		_egl->call.peglGetConfigs(_egl->display, cfgs, 1024, &cfgs_count);
@@ -158,21 +160,19 @@ protected:
 	}
 
 public:
-    IOpenGL_PhysicalDeviceBase(core::smart_refctd_ptr<io::IFileSystem>&& fs, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, 
-		const egl::CEGL* _egl, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor, SDebugCallback* dbgCb) :
-		IPhysicalDevice(std::move(fs), std::move(glslc)),
-        m_egl(_egl), m_config(_config), m_gl_major(_major), m_gl_minor(_minor), m_dbgCb(dbgCb)
+    IOpenGL_PhysicalDeviceBase(core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
+		: IPhysicalDevice(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(s.get())), m_egl(std::move(_egl)), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
     {
         // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
-        qprops.queueFlags = EQF_GRAPHICS_BIT | EQF_COMPUTE_BIT | EQF_TRANSFER_BIT;
+        qprops.queueFlags = EQF_GRAPHICS_BIT|EQF_COMPUTE_BIT|EQF_TRANSFER_BIT;
         qprops.queueCount = MaxQueues;
-        qprops.timestampValidBits = 64u; // ??? TODO
-        qprops.minImageTransferGranularity = { 1u,1u,1u }; // ??? TODO
+        qprops.timestampValidBits = 30u; // ??? TODO: glGetQueryiv(GL_TIMESTAMP,GL_QUERY_COUNTER_BITS,&qprops.timestampValidBits)
+        qprops.minImageTransferGranularity = { 1u,1u,1u };
 
         m_qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(1u, qprops);
 
-		_egl->call.peglBindAPI(EGL_API_TYPE);
+		m_egl.call.peglBindAPI(EGL_API_TYPE);
 
 		const EGLint pbuffer_attributes[] = {
 			EGL_WIDTH,  1,
@@ -180,41 +180,39 @@ public:
 
 			EGL_NONE
 		};
-		EGLSurface pbuf = _egl->call.peglCreatePbufferSurface(_egl->display, m_config, pbuffer_attributes);
+		EGLSurface pbuf = m_egl.call.peglCreatePbufferSurface(m_egl.display, m_config, pbuffer_attributes);
 
-		_egl->call.peglMakeCurrent(_egl->display, pbuf, pbuf, ctx);
+		m_egl.call.peglMakeCurrent(m_egl.display, pbuf, pbuf, ctx);
 
-		auto GetString = reinterpret_cast<decltype(glGetString)*>(_egl->call.peglGetProcAddress("glGetString"));
-		auto GetStringi = reinterpret_cast<PFNGLGETSTRINGIPROC>(_egl->call.peglGetProcAddress("glGetStringi"));
-		auto GetIntegerv = reinterpret_cast<decltype(glGetIntegerv)*>(_egl->call.peglGetProcAddress("glGetIntegerv"));
-		auto GetInteger64v = reinterpret_cast<PFNGLGETINTEGER64VPROC>(_egl->call.peglGetProcAddress("glGetInteger64v"));
-		auto GetIntegeri_v = reinterpret_cast<PFNGLGETINTEGERI_VPROC>(_egl->call.peglGetProcAddress("glGetIntegeri_v"));
-		auto GetFloatv = reinterpret_cast<decltype(glGetFloatv)*>(_egl->call.peglGetProcAddress("glGetFloatv"));
-		auto GetBooleanv = reinterpret_cast<decltype(glGetBooleanv)*>(_egl->call.peglGetProcAddress("glGetBooleanv"));
+		auto GetString = reinterpret_cast<decltype(glGetString)*>(m_egl.call.peglGetProcAddress("glGetString"));
+		auto GetStringi = reinterpret_cast<PFNGLGETSTRINGIPROC>(m_egl.call.peglGetProcAddress("glGetStringi"));
+		auto GetIntegerv = reinterpret_cast<decltype(glGetIntegerv)*>(m_egl.call.peglGetProcAddress("glGetIntegerv"));
+		auto GetInteger64v = reinterpret_cast<PFNGLGETINTEGER64VPROC>(m_egl.call.peglGetProcAddress("glGetInteger64v"));
+		auto GetIntegeri_v = reinterpret_cast<PFNGLGETINTEGERI_VPROC>(m_egl.call.peglGetProcAddress("glGetIntegeri_v"));
+		auto GetFloatv = reinterpret_cast<decltype(glGetFloatv)*>(m_egl.call.peglGetProcAddress("glGetFloatv"));
+		auto GetBooleanv = reinterpret_cast<decltype(glGetBooleanv)*>(m_egl.call.peglGetProcAddress("glGetBooleanv"));
 
-#ifdef _NBL_DEBUG
-		if (dbgCb)
+		if (m_dbgCb.getLogger() && m_dbgCb.m_callback)
 		{
 			if constexpr (IsGLES)
 			{
-				PFNGLDEBUGMESSAGECALLBACKPROC DebugMessageCallback = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallback"));
-				PFNGLDEBUGMESSAGECALLBACKKHRPROC DebugMessageCallbackKHR = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKKHRPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallbackKHR"));
+				PFNGLDEBUGMESSAGECALLBACKPROC DebugMessageCallback = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKPROC>(m_egl.call.peglGetProcAddress("glDebugMessageCallback"));
+				PFNGLDEBUGMESSAGECALLBACKKHRPROC DebugMessageCallbackKHR = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKKHRPROC>(m_egl.call.peglGetProcAddress("glDebugMessageCallbackKHR"));
 				if (DebugMessageCallback)
-					DebugMessageCallback(&opengl_debug_callback, dbgCb);
+					DebugMessageCallback(m_dbgCb.m_callback,&m_dbgCb);
 				else if (DebugMessageCallbackKHR)
-					DebugMessageCallbackKHR(&opengl_debug_callback, dbgCb);
+					DebugMessageCallbackKHR(m_dbgCb.m_callback,&m_dbgCb);
 			}
 			else
 			{
-				PFNGLDEBUGMESSAGECALLBACKPROC DebugMessageCallback = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallback"));
-				PFNGLDEBUGMESSAGECALLBACKARBPROC DebugMessageCallbackARB = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKARBPROC>(_egl->call.peglGetProcAddress("glDebugMessageCallbackARB"));
+				PFNGLDEBUGMESSAGECALLBACKPROC DebugMessageCallback = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKPROC>(m_egl.call.peglGetProcAddress("glDebugMessageCallback"));
+				PFNGLDEBUGMESSAGECALLBACKARBPROC DebugMessageCallbackARB = reinterpret_cast<PFNGLDEBUGMESSAGECALLBACKARBPROC>(m_egl.call.peglGetProcAddress("glDebugMessageCallbackARB"));
 				if (DebugMessageCallback)
-					DebugMessageCallback(&opengl_debug_callback, dbgCb);
+					DebugMessageCallback(m_dbgCb.m_callback,&m_dbgCb);
 				else if (DebugMessageCallbackARB)
-					DebugMessageCallbackARB(&opengl_debug_callback, dbgCb);
+					DebugMessageCallbackARB(m_dbgCb.m_callback,&m_dbgCb);
 			}
 		}
-#endif
 
 		// initialize features
 		std::string vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
@@ -313,7 +311,7 @@ public:
 		if constexpr (!IsGLES)
 			GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &m_glfeatures.minMemoryMapAlignment);
 		else
-			m_glfeatures.minMemoryMapAlignment = 0;
+			m_glfeatures.minMemoryMapAlignment = 0; // TODO: probably wise to set it to 4
 
 		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, m_glfeatures.MaxComputeWGSize);
 		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, m_glfeatures.MaxComputeWGSize + 1);
@@ -354,15 +352,15 @@ public:
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
 		bool runningInRenderDoc = false;
-#ifdef _NBL_PLATFORM_WINDOWS_
-		if (GetModuleHandleA("renderdoc.dll"))
-#elif defined(_NBL_PLATFORM_ANDROID_)
-		if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
-#elif defined(_NBL_PLATFORM_LINUX_)
-		if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
-#else
-		if (false)
-#endif
+		#ifdef _NBL_PLATFORM_WINDOWS_
+			if (GetModuleHandleA("renderdoc.dll"))
+		#elif defined(_NBL_PLATFORM_ANDROID_)
+			if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
+		#elif defined(_NBL_PLATFORM_LINUX_)
+			if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
+		#else
+			if (false)
+		#endif
 			runningInRenderDoc = true;
 		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
 
@@ -372,9 +370,10 @@ public:
 			m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
-			m_features.robustBufferAccess = false;
+			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
 			m_features.vertexAttributeDouble = !IsGLES;
 
+			// TODO: handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
@@ -468,21 +467,31 @@ public:
 
 
 		// we dont need this any more
-		_egl->call.peglMakeCurrent(_egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-		_egl->call.peglDestroyContext(_egl->display, ctx);
-		_egl->call.peglDestroySurface(_egl->display, pbuf);
+		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+		m_egl.call.peglDestroyContext(m_egl.display, ctx);
+		m_egl.call.peglDestroySurface(m_egl.display, pbuf);
     }
 
-protected:
-    virtual ~IOpenGL_PhysicalDeviceBase() = default;
+	IDebugCallback* getDebugCallback()
+	{
+		return static_cast<IDebugCallback*>(&m_dbgCb);
+	}
 
-    const egl::CEGL* m_egl;
+	bool isSwapchainSupported() const override { return true; }
+
+protected:
+	virtual ~IOpenGL_PhysicalDeviceBase()
+	{
+		m_egl.deinitialize();
+	}
+
+    egl::CEGL m_egl;
+	COpenGLDebugCallback m_dbgCb;
+
     EGLConfig m_config;
     EGLint m_gl_major, m_gl_minor;
 
 	COpenGLFeatureMap m_glfeatures;
-
-	SDebugCallback* m_dbgCb;
 };
 
 }

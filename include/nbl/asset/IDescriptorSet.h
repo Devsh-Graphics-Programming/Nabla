@@ -8,7 +8,7 @@
 #include <algorithm>
 
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IDescriptor.h"
@@ -44,6 +44,8 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                 {
                     size_t offset;
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+
+					static constexpr inline size_t WholeBuffer = ~0ull;
                 };
                 struct SImageInfo
                 {

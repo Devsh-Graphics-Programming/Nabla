@@ -26,13 +26,13 @@ class CBuiltinIncluder : public IIncluder
         static void loaderDrop(IBuiltinIncludeLoader* _ldr) { _ldr->drop(); }
 
     public:
-        CBuiltinIncluder(io::IFileSystem* fs) : m_default(core::make_smart_refctd_ptr<IGLSLEmbeddedIncludeLoader>(fs)), m_loaders(&loaderGrab, &loaderDrop)
+        CBuiltinIncluder(system::ISystem* s) : m_default(core::make_smart_refctd_ptr<IGLSLEmbeddedIncludeLoader>(s)), m_loaders(&loaderGrab, &loaderDrop)
         {
             m_searchDirectories.emplace_back("/");
         }
 
         //! No-op, cannot add search dirs to includer of builtins
-        void addSearchDirectory(const std::string& _searchDir) override {}
+        void addSearchDirectory(const system::path& _searchDir) override {}
 
         void addBuiltinLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _loader)
         {
@@ -44,27 +44,25 @@ class CBuiltinIncluder : public IIncluder
         }
 
     protected:
-        std::string getInclude_internal(const std::string& _path) const override
+        std::string getInclude_internal(const system::path& _path) const override
         {
             if (!IIncludeHandler::isBuiltinPath(_path))
                 return {};
 
-            const std::string relativePath = _path.substr(strlen(IIncludeHandler::BUILTIN_PREFIX), std::string::npos); // builtin loaders take path relative to PREFIX
-            std::string path = _path.substr(0, _path.find_last_of('/')+1);
-
+            const std::string relativePath = std::filesystem::relative(_path, system::path(IIncludeHandler::BUILTIN_PREFIX)).generic_string();
+            system::path path = _path.parent_path().string();
             std::string res;
-            while (path != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
+            while (path.generic_string() + '/' != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
             {
-                auto capableLoadersRng = m_loaders.findRange(path);
+                auto capableLoadersRng = m_loaders.findRange(path.generic_string() + '/');
                 for (auto& loader : capableLoadersRng)
                 {
                     if (!(res = loader.second->getBuiltinInclude(relativePath)).empty())
                         return res;
                 }
-                if (path.size()==0ull)
+                if (path.string().size()==0ull)
                     break;
-                path.back() = 'x'; // get rid of trailing slash...
-                path.erase(path.find_last_of('/')+1, std::string::npos); // ...and find the one before
+                path = path.parent_path();
             }
             return m_default->getBuiltinInclude(relativePath);
         }

@@ -3,14 +3,20 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 
+#include "nbl/core/xxHash256.h"
+
 #include <algorithm>
 
-#include "nbl/core/xxHash256.h"
+#include "nbl/system/ILogger.h"
+
 #include "nbl/asset/utils/spvUtils.h"
 
+#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
-#include "COpenGLSpecializedShader.h"
-#include "spirv_cross/spirv_parser.hpp"
+#include "nbl/video/COpenGLSpecializedShader.h"
+
+#include "nbl_spirv_cross/spirv_parser.hpp"
 
 
 namespace nbl::video
@@ -138,11 +144,12 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 using namespace nbl;
 using namespace nbl::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t _SLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
-	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(dev, _specInfo.shaderStage),
+COpenGLSpecializedShader::COpenGLSpecializedShader(core::smart_refctd_ptr<ILogicalDevice>&& dev, uint32_t _SLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
+	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(std::move(dev),_specInfo.shaderStage),
     m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
 	m_specInfo(_specInfo),//TODO make it move()
 	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))
+
 {
 	m_options.version = _SLversion;
 	//vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
@@ -154,7 +161,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(ILogicalDevice* dev, uint32_t
 	m_uniformsList = uniformList;
 }
 
-auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger) const -> std::pair<GLuint, SProgramBinary>
 {
 	spirv_cross::ParsedIR parsed;
 	if (_parsedSpirv)
@@ -188,7 +195,7 @@ auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipC
 	GLchar logbuf[1u<<12]; //4k
 	gl->glShader.pglGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
 	if (logbuf[0])
-		os::Printer::log(logbuf, ELL_ERROR);
+		logger.log(logbuf, system::ILogger::ELL_ERROR);
 
 	if (m_locations.empty())
 		gatherUniformLocations(gl, GLname);

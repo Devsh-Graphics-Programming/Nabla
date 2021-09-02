@@ -4,11 +4,13 @@
 // See the original file in irrlicht source for authors
 
 
-#include "nbl_os.h"
-
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+#include "nbl/system/ISystem.h"
 
+using namespace nbl;
+using namespace system;
+using namespace core;
 
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 
@@ -18,61 +20,76 @@
 #   include "libpng/png.h"
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
-#include "CReadFile.h"
+#include "nbl/system/IFile.h"
 
 namespace nbl
 {
 namespace asset
 {
 
+
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
+
+void updateFilePos(png_structp png_pt, size_t new_file_pos)
+{
+	auto ptr = (CImageLoaderPng::SContext*)png_get_user_chunk_ptr(png_pt);
+	ptr->file_pos = new_file_pos;
+	png_set_read_user_chunk_fn(png_pt, ptr, nullptr);
+}
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG fatal error", msg, ELL_ERROR);
+	auto ctx = (CImageLoaderPng::SContext*)png_get_user_chunk_ptr(png_ptr);
+	ctx->logger.log("PNG fatal error %s", system::ILogger::ELL_ERROR, msg);
 	longjmp(png_jmpbuf(png_ptr), 1);
 }
 
 // PNG function for warning handling
 static void png_cpexcept_warn(png_structp png_ptr, png_const_charp msg)
 {
-	os::Printer::log("PNG warning", msg, ELL_WARNING);
+	auto ctx = (CImageLoaderPng::SContext*)png_get_user_chunk_ptr(png_ptr);
+	ctx->logger.log("PNG warning %s", system::ILogger::ELL_WARNING, msg);
 }
 
 // PNG function for file reading
-void PNGAPI user_read_data_fcn(png_structp png_ptr, png_bytep data, png_size_t length)
+void PNGAPI user_read_data_fcn(png_structp png_pt, png_bytep data, png_size_t length)
 {
 	png_size_t check;
 
-	// changed by zola {
-	io::IReadFile* file=(io::IReadFile*)png_get_io_ptr(png_ptr);
-	check=(png_size_t) file->read((void*)data,(uint32_t)length);
-	// }
+	auto* userData = (CImageLoaderPng::SContext*)png_get_user_chunk_ptr(png_pt);
+	size_t file_pos = userData->file_pos;
+
+	system::IFile* file=(system::IFile*)png_get_io_ptr(png_pt);
+
+	system::future<size_t> future;
+	file->read(future, data, file_pos, length);
+	check = future.get();
+	file_pos += length;
+	updateFilePos(png_pt, file_pos);
 
 	if (check != length)
-		png_error(png_ptr, "Read Error");
+		png_error(png_pt, "Read Error");
 }
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
+bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)
 		return false;
 
-    const size_t prevPos = _file->getPos();
 
 	png_byte buffer[8];
+
+	system::future<size_t> future;
+	_file->read(future, buffer, 0, 8);
 	// Read the first few bytes of the PNG _file
-    if (_file->read(buffer, 8) != 8)
+    if (future.get() != 8)
     {
-        _file->seek(prevPos);
         return false;
     }
-
-    _file->seek(prevPos);
 	// Check if it really is a PNG _file
 	return !png_sig_cmp(buffer, 0, 8);
 #else
@@ -82,7 +99,7 @@ bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
 
 
 // load in the image data
-asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)
@@ -96,16 +113,19 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 
 	png_byte buffer[8];
 	// Read the first few bytes of the PNG _file
-	if( _file->read(buffer, 8) != 8 )
+
+	system::future<size_t> future;
+	_file->read(future, buffer, 0, sizeof buffer);
+	if(future.get() != 8 )
 	{
-		os::Printer::log("LOAD PNG: can't read _file\n", _file->getFileName().c_str(), ELL_ERROR);
+		_params.logger.log("LOAD PNG: can't read _file\n", system::ILogger::ELL_ERROR, _file->getFileName().string());
         return {};
 	}
 
 	// Check if it really is a PNG _file
 	if( png_sig_cmp(buffer, 0, 8) )
 	{
-		os::Printer::log("LOAD PNG: not really a png\n", _file->getFileName().c_str(), ELL_ERROR);
+		_params.logger.log("LOAD PNG: not really a png\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
         return {};
 	}
 
@@ -114,7 +134,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
 	if (!png_ptr)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
+		_params.logger.log("LOAD PNG: Internal PNG create read struct failure\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
         return {};
 	}
 
@@ -122,7 +142,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if (!info_ptr)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
+		_params.logger.log("LOAD PNG: Internal PNG create info struct failure\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
         return {};
 	}
@@ -135,8 +155,9 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 			_NBL_DELETE_ARRAY(RowPointers, Height);
         return {};
 	}
+	SContext usrData(_params.logger);
+	png_set_read_user_chunk_fn(png_ptr, &usrData, nullptr);
 
-	// changed by zola so we don't need to have public FILE pointers
 	png_set_read_fn(png_ptr, _file, user_read_data_fcn);
 
 	png_set_sig_bytes(png_ptr, 8); // Tell png that we read the signature
@@ -235,7 +256,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 			break;
 		default:
 			{
-				os::Printer::log("Unsupported PNG colorspace (only RGB/RGBA/8-bit grayscale), operation aborted.", ELL_ERROR);
+				_params.logger.log("Unsupported PNG colorspace (only RGB/RGBA/8-bit grayscale), operation aborted.", system::ILogger::ELL_ERROR);
                 return {};
 			}
 	}
@@ -244,7 +265,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
     RowPointers = _NBL_NEW_ARRAY(png_bytep, Height);
 	if (!RowPointers)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().c_str(), ELL_ERROR);
+		_params.logger.log("LOAD PNG: Internal PNG create row pointers failure\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
         return {};
 	}
@@ -313,7 +334,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 
 	if (!image)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
+		_params.logger.log("LOAD PNG: Internal PNG create image struct failure\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		return {};
 	}
@@ -321,7 +342,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 	if (imgInfo.format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
 
     return SAssetBundle(nullptr,{image});
 }

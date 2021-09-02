@@ -7,8 +7,8 @@
 #include "nbl/asset/utils/CShaderIntrospector.h"
 #include "nbl/asset/utils/spvUtils.h"
 
-#include "spirv_cross/spirv_parser.hpp"
-#include "spirv_cross/spirv_cross.hpp"
+#include "nbl_spirv_cross/spirv_parser.hpp"
+#include "nbl_spirv_cross/spirv_cross.hpp"
 
 namespace nbl
 {
@@ -89,12 +89,12 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
         auto end = begin+_shader->getSPVorGLSL()->getSize();
         std::string glsl(begin,end);
         ICPUShader::insertGLSLExtensionsDefines(glsl, _params.GLSLextensions.get());
-        auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _params.stage, _params.filePathHint.c_str());
+        auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _params.stage, _params.filePathHint.string().c_str());
         auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
             reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
             _params.stage,
             _params.entryPoint.c_str(),
-            _params.filePathHint.c_str()
+            _params.filePathHint.string().c_str()
         );
         if (!spvShader)
             return nullptr;

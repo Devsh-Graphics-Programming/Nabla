@@ -7,7 +7,6 @@
 #include "../../examples_tests/common/CommonAPI.h" // Temporary
 using namespace nbl;
 using namespace video;
-using namespace scene;
 using namespace asset;
 using namespace ext;
 using namespace DebugDraw;
@@ -79,7 +78,7 @@ void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, vid
 	cb->draw(m_lines.size() * 2, 1u, 0u, 0u);
 }
 
-void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, core::smart_refctd_ptr<IGPUFence>* fence)
+void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, core::smart_refctd_ptr<IGPUFence>* fence)
 {
 	size_t buffSize = m_linesBuffer.get() != nullptr ? m_linesBuffer->getSize() : 0;
 	size_t minimalBuffSize = m_lines.size() * sizeof(std::pair<S3DLineVertex, S3DLineVertex>);
@@ -93,11 +92,11 @@ void CDraw3DLine::updateVertexBuffer(IGPUQueue* queue, core::smart_refctd_ptr<IG
 	range.size = minimalBuffSize;
 	if (!fence)
 	{
-		m_device->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
+		utilities->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
 	}
 	else
 	{
 		*fence = m_device->createFence(IGPUFence::ECF_SIGNALED_BIT);
-		m_device->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
+		utilities->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
 	}
 }

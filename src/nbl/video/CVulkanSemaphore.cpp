@@ -1,30 +1,21 @@
 #include "nbl/video/CVulkanSemaphore.h"
 
-#include "nbl/video/CVKLogicalDevice.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
-
-CVulkanSemaphore::CVulkanSemaphore(CVKLogicalDevice* _vkdev) : m_vkdev(_vkdev)
-{
-    auto* vk = m_vkdev->getFunctionTable();
-    auto vkdev = m_vkdev->getInternalObject();
-
-    VkSemaphoreCreateInfo ci;
-    ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    ci.pNext = nullptr;
-    ci.flags = static_cast<VkSemaphoreCreateFlags>(0);
-    vk->vk.vkCreateSemaphore(vkdev, &ci, nullptr, &m_semaphore);
-}
 
 CVulkanSemaphore::~CVulkanSemaphore()
 {
-    auto* vk = m_vkdev->getFunctionTable();
-    auto vkdev = m_vkdev->getInternalObject();
+    const auto originDevice = getOriginDevice();
 
-    vk->vk.vkDestroySemaphore(vkdev, m_semaphore, nullptr);
+    if (originDevice->getAPIType() == EAT_VULKAN)
+    {
+        // auto* vk = m_vkdev->getFunctionTable();
+        VkDevice device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
+        // vk->vk.vkDestroySemaphore(vkdev, m_semaphore, nullptr);
+        vkDestroySemaphore(device, m_semaphore, nullptr);
+    }
 }
 
-}
 }

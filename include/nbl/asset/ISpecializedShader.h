@@ -5,12 +5,12 @@
 #ifndef __NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED__
 #define __NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED__
 
-#include <cstdint>
-
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/SRange.h"
-#include "nbl/core/Types.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
+
+#include <cstdint>
+#include <filesystem>
 
 #include "nbl/asset/ICPUBuffer.h"
 
@@ -106,7 +106,7 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 
 				SInfo() = default;
 				//! _entries must be sorted!
-				SInfo(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss, const std::string& _filePathHint="????") :
+				SInfo(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss, const std::filesystem::path& _filePathHint = "????") :
 					entryPoint{_entryPoint}, shaderStage{_ss}, m_filePathHint(_filePathHint)
 				{
 					setEntries(std::move(_entries),std::move(_backingBuff));
@@ -172,7 +172,7 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 				E_SHADER_STAGE shaderStage;									//!< A stage of the unspecialized shader passed to specialized one such as vertex, fragment, geometry shader and more.
 				core::smart_refctd_dynamic_array<SMapEntry> m_entries;		//!< A specialization map entry
 				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;			//!< A buffer containing the actual constant values to specialize with
-				std::string m_filePathHint;								    //!< Only used to resolve `#include` directives in GLSL (not SPIR-V) shaders
+				std::filesystem::path m_filePathHint;								    //!< Only used to resolve `#include` directives in GLSL (not SPIR-V) shaders
 				//
 				core::refctd_dynamic_array<SMapEntry>* getEntries() {return m_entries.get();}
 				const core::refctd_dynamic_array<SMapEntry>* getEntries() const {return m_entries.get();}

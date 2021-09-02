@@ -25,7 +25,7 @@ namespace impl
         mutable system::SReadWriteSpinLock m_lock;
 
     protected:
-        auto lock_read() const  { return system::read_lock_guard<>(m_lock); }
+        auto lock_read() const { return system::read_lock_guard<>(m_lock); }
         auto lock_write() const { return system::write_lock_guard<>(m_lock); }
     };
 

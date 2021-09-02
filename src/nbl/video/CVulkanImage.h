@@ -5,49 +5,37 @@
 #ifndef __NBL_VIDEO_C_VULKAN_IMAGE_H_INCLUDED__
 #define __NBL_VIDEO_C_VULKAN_IMAGE_H_INCLUDED__
 
-#include <volk.h>
 #include "nbl/video/IGPUImage.h"
 
-namespace nbl
-{
-namespace video
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
+
+namespace nbl::video
 {
 
-class CVKLogicalDevice;
+class ILogicalDevice;
 
-class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
+class CVulkanImage : public IGPUImage
 {
+	public:
+		// CVulkanImage(ILogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
+		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
+			IGPUImage(std::move(_vkdev), std::move(_params)), m_vkImage(_vkimg)
+		{}
+
+		inline VkImage getInternalObject() const { return m_vkImage; }
+
+		// Todo(achal)
+		inline IDriverMemoryAllocation* getBoundMemory() override { return nullptr; }
+		inline const IDriverMemoryAllocation* getBoundMemory() const override { return nullptr; }
+		inline size_t getBoundMemoryOffset() const override { return 0ull; }
+
 	protected:
 		virtual ~CVulkanImage();
 
-	private:
-		CVKLogicalDevice* m_vkdevice;
-		VkImage m_vkimg;
-
-	public:
-		//! constructor
-		CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
-		CVulkanImage(CVKLogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
-			IGPUImage(std::move(_params)), m_vkdevice(_vkdev), m_vkimg(_vkimg)
-		{
-
-		}
-
-		inline VkImage getInternalObject() const { return m_vkimg; }
-
-		// TODO below
-		inline size_t getAllocationSize() const override { return this->getImageDataSizeInBytes(); }
-		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }
-		inline const IDriverMemoryAllocation* getBoundMemory() const override { return this; }
-		inline size_t getBoundMemoryOffset() const override { return 0ull; }
-
-		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
-		inline void unmapMemory() override {}
-		inline bool isDedicated() const override { return true; }
+		VkImage m_vkImage;
 };
 
-
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::video
 
 #endif

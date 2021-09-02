@@ -37,6 +37,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! Similar to VkMappedMemoryRange but no pNext
         struct MappedMemoryRange
         {
+            MappedMemoryRange() : memory(nullptr), range(0u,0u) {}
             MappedMemoryRange(IDriverMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range(off,len) {}
 
             IDriverMemoryAllocation* memory;

@@ -25,11 +25,12 @@
 #ifndef __NBL_ASSET_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
 #define __NBL_ASSET_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
 
+#include "nbl/core/decl/Types.h"
+
 #include <cstdint>
 #include <cstring>
-#include "nbl/core/Types.h"
 
-namespace nbl { namespace asset
+namespace nbl::asset
 {
 
 class NBL_FORCE_EBO CForsythVertexCacheOptimizer
@@ -96,6 +97,6 @@ private:
 	static float score(const VertData &vertexData);
 };
 
-}}
+}
 
 #endif

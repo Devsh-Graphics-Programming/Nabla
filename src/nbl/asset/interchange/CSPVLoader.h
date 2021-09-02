@@ -7,24 +7,22 @@
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class CSPVLoader final : public asset::IAssetLoader
 {
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
 	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override
+		CSPVLoader() = default;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const override
 		{
 			uint32_t magicNumber = 0u;
 
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
-			_file->read(&magicNumber,sizeof(uint32_t));
-			_file->seek(prevPos);
-
+			
+			system::future<size_t> future;
+			_file->read(future, &magicNumber, 0, sizeof magicNumber);
+			future.get();
 			return magicNumber==SPV_MAGIC_NUMBER;
 		}
 
@@ -36,11 +34,10 @@ class CSPVLoader final : public asset::IAssetLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SHADER; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // namespace asset
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif
 

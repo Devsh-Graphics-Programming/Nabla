@@ -16,8 +16,6 @@
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/containers/CMemoryPool.h"
-#include "nbl/video/debug/debug.h"
-#include "nbl/video/COpenGLDebug.h"
 
 #define DEBUGGING_BAW
 
@@ -28,8 +26,7 @@ extern RENDERDOC_API_1_1_2* g_rdoc_api;
 extern volatile bool g_rdoc_start_capture;
 #endif
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 template <typename FunctionTableType_>
@@ -44,7 +41,7 @@ class COpenGL_Queue final : public IGPUQueue
 
         struct ThreadInternalStateType
         {
-            ThreadInternalStateType(const egl::CEGL* egl, FeaturesType* features) : gl(egl, features), ctxlocal(&gl) {}
+            ThreadInternalStateType(const egl::CEGL* egl, const FeaturesType* features, system::logger_opt_smart_ptr&& logger) : gl(egl,features,std::move(logger)), ctxlocal(&gl) {}
 
             FunctionTableType gl;
             SOpenGLContextLocalCache ctxlocal;
@@ -94,7 +91,7 @@ class COpenGL_Queue final : public IGPUQueue
             using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>;
             friend base_t;
 
-            CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, SDebugCallback* _dbgCb) :
+            CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, const FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, COpenGLDebugCallback* _dbgCb) :
                 egl(_egl),
                 m_device(dev),
                 thisCtx(_ctx), pbuffer(_pbuf),
@@ -108,10 +105,12 @@ class COpenGL_Queue final : public IGPUQueue
             template <typename RequestParams>
             void waitForRequestCompletion(SRequest& req)
             {
-                auto lk = req.wait();
+                req.wait_ready();
 
                 // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
                 std::get<RequestParams>(req.params) = RequestParams{};
+
+                req.discard_storage();
             }
 
             void init(ThreadInternalStateType* state_ptr)
@@ -122,15 +121,25 @@ class COpenGL_Queue final : public IGPUQueue
                 while (mcres!=EGL_TRUE)
                 {
                     mcres = egl->call.peglMakeCurrent(egl->display,pbuffer,pbuffer,thisCtx);
-                    _NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
+                    /*
+                    * I think Queue context creation has a timing bug
+                    * Debug build breaks, context can never be made current
+                    * looks like auxillary context will not make itself current
+                    * until something happens on main thread/main context ?
+                    */
+                    //_NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
 
-                new (state_ptr) ThreadInternalStateType(egl, features);
+                new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
-
+                
+                #ifdef _NBL_DEBUG
+                gl.glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+                // TODO: debug message control (to exclude callback spam)
+                #endif
                 if (m_dbgCb)
-                    gl.extGlDebugMessageCallback(&opengl_debug_callback, m_dbgCb);
+                    gl.extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
 
                 // defaults once set and not tracked by engine (should never change)
                 gl.glGeneral.pglEnable(GL_FRAMEBUFFER_SRGB);
@@ -213,6 +222,8 @@ class COpenGL_Queue final : public IGPUQueue
                     {
                         submit.syncToInit->init(m_device, &gl);
                     }
+                    else // need to flush, otherwise OpenGL goes gaslighting the user with wrong error messages
+                        gl.glGeneral.pglFlush();
 
 #ifdef DEBUGGING_BAW
                     if (g_rdoc_api && rdc_capturing)
@@ -252,15 +263,25 @@ class COpenGL_Queue final : public IGPUQueue
             IOpenGL_LogicalDevice* m_device;
             EGLContext thisCtx;
             EGLSurface pbuffer;
-            FeaturesType* features;
+            const FeaturesType* features;
             uint32_t m_ctxid;
-            SDebugCallback* m_dbgCb;
+            COpenGLDebugCallback* m_dbgCb;
         };
 
     public:
-        COpenGL_Queue(IOpenGL_LogicalDevice* gldev, ILogicalDevice* dev, const egl::CEGL* _egl, FeaturesType* _features, uint32_t _ctxid, EGLContext _ctx, EGLSurface _surface, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority, SDebugCallback* _dbgCb) :
-            IGPUQueue(dev, _famIx, _flags, _priority),
-            threadHandler(_egl, gldev, _features, _ctx, _surface, _ctxid, _dbgCb),
+        COpenGL_Queue(
+            IOpenGL_LogicalDevice* gldev,
+            const egl::CEGL* _egl,
+            const FeaturesType* _features,
+            uint32_t _ctxid,
+            EGLContext _ctx,
+            EGLSurface _surface,
+            uint32_t _famIx,
+            E_CREATE_FLAGS _flags,
+            float _priority,
+            COpenGLDebugCallback* _dbgCb
+        ) : IGPUQueue(gldev,_famIx,_flags,_priority),
+            threadHandler(_egl,gldev,_features,_ctx,_surface,_ctxid,_dbgCb),
             m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {
@@ -316,6 +337,7 @@ class COpenGL_Queue final : public IGPUQueue
                 params.syncToInit = sync;
 
                 auto& req = threadHandler.request(std::move(params));
+                // TODO: why do we even wait for the submit to finish, can't we just throw all the data over to the queue?
                 threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
@@ -339,11 +361,16 @@ class COpenGL_Queue final : public IGPUQueue
         bool present(const SPresentInfo& info) override
         {
             for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
-                if (!this->isCompatibleDevicewise(info.waitSemaphores[i]))
+            {
+                if (m_originDevice != info.waitSemaphores[i]->getOriginDevice())
                     return false;
+            }
+
             for (uint32_t i = 0u; i < info.swapchainCount; ++i)
-                if (!this->isCompatibleDevicewise(info.swapchains[i]))
+            {
+                if (m_originDevice != info.swapchains[i]->getOriginDevice())
                     return false;
+            }
 
             using swapchain_t = COpenGL_Swapchain<FunctionTableType_>;
             bool retval = true;
@@ -386,6 +413,18 @@ class COpenGL_Queue final : public IGPUQueue
         uint32_t m_ctxid;
 };
 
-}}
+}
+
+
+#include "nbl/video/COpenGLFunctionTable.h"
+#include "nbl/video/COpenGLESFunctionTable.h"
+
+namespace nbl::video
+{
+
+using COpenGLQueue = COpenGL_Queue<COpenGLFunctionTable>;
+using COpenGLESQueue = COpenGL_Queue<COpenGLESFunctionTable>;
+
+}
 
 #endif

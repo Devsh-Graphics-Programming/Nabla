@@ -6,7 +6,7 @@
 #define __NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED__
 
 #include "nbl/macros.h"
-#include "nbl/core/Types.h"//for core::allocator
+#include "nbl/core/decl/Types.h" //for core::allocator
 
 namespace nbl
 {
@@ -180,7 +180,7 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		// no arrays
 		static void operator delete[](void* ptr, std::align_val_t al) = delete;
 		static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
-#if __cplusplus >= 201704L // change later when c++20 is standardised
+#if 0 // TODO: change later when c++20 is standardised
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t) = delete;
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::align_val_t al) = delete;
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz) = delete;

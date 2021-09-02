@@ -5,11 +5,10 @@
 #ifndef __NBL_CORE_XXHASH256_H_INCLUDED__
 #define __NBL_CORE_XXHASH256_H_INCLUDED__
 
+#include <cstdint>
 #include <cstring>
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 /*
@@ -134,7 +133,6 @@ inline void XXHash_256(const void* input, size_t len, uint64_t* out)
 }
 
 
-}
 }
 
 #endif

@@ -6,7 +6,7 @@
 #define __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
 
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
 namespace nbl::core
 {

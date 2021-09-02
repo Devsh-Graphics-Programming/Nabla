@@ -1,4 +1,5 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -30,7 +31,7 @@ macro(FindLibraryAndSONAME _LIB)
       #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
     #endif()
 
-    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}")
+    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}") 
     set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
   endif()
 endmacro()
@@ -99,14 +100,14 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) # It affects with BAW source leading to linker errors, TODO
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" ON)
-option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF)
+option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
+option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -161,11 +162,6 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-set(NABLA_HEADERS_PUBLIC
-#	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_os.h"
-	"${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h" 
-)
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
@@ -174,34 +170,26 @@ set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
-# Core Memory
-	${NBL_ROOT_PATH}/src/nbl/core/memory/CLeakDebugger.cpp
 )
 set(NBL_SYSTEM_SOURCES
-# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
-	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowX11.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -232,14 +220,14 @@ set(NBL_ASSET_SOURCES
 # Mesh loaders
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
 
 # Mesh writers
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -282,16 +270,18 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
-	#${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
-	
-	${NBL_ROOT_PATH}/src/nbl/video/IBackendObject.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorSetCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IPropertyPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 
 # Junk to refactor
 #${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
 #${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
 #	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES
@@ -313,14 +303,6 @@ set(NABLA_SRCS_COMMON
 	${NBL_SCENE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
 	${NBL_UI_SOURCES}
-
-# Junk to refactor
-#	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceLinux.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceConsole.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceStub.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceWin32.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/Irrlicht.cpp
 )
 
 if (NBL_EMBED_BUILTIN_RESOURCES)
@@ -330,22 +312,30 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
-	#${NBL_ROOT_PATH}/src/nbl/video/ISurfaceVK.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSpecializedShader.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineLayout.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanComputePipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
+
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLDriver.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
 	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
@@ -359,10 +349,9 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLESConnection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLDebug.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
@@ -381,6 +370,10 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
+
+macro(nbl_target_link_vulkan _trgt) # we don't want to link against library directly
+	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
+endmacro()
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
@@ -401,7 +394,7 @@ macro(nbl_target_include_parallel_hashmap _trgt)
 endmacro()
 
 macro(nbl_target_link_openssl _trgt)
-	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 		target_link_libraries(${_trgt} INTERFACE
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		)
@@ -507,6 +500,9 @@ endif()
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Nabla openssl_build)
+if(DEFINED ENV{VULKAN_SDK})
+	nbl_target_link_vulkan(Nabla)
+endif()
 nbl_target_link_openssl(Nabla)
 #nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
@@ -523,7 +519,7 @@ nbl_target_link_spirv_tools(Nabla)
 if (NBL_COMPILE_WITH_SDL2)
 	nbl_target_link_SDL2(Nabla)
 endif()
-#nbl_target_link_volk(Nabla)
+nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
@@ -538,7 +534,7 @@ if (UNIX)
 endif()
 
 target_include_directories(Nabla PUBLIC 
-	${CMAKE_CURRENT_BINARY_DIR}/build/import
+	${CMAKE_CURRENT_BINARY_DIR}/include
 	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
@@ -554,7 +550,7 @@ target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
 		${X11_INCLUDE_DIR} 
-		${X11_Xrandr_INCLUDE_PATH} 
+		X11_Xrandr_INCLUDE_PATH
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
@@ -577,6 +573,20 @@ if (ANDROID)
 endif()
 
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
+set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
+
+write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+add_custom_command(
+	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" 
+	COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/include -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaHeader.cmake
+	DEPENDS ${NBL_ROOT_PATH}/include/nabla.h.in
+	COMMENT "Generating nabla.h"
+	VERBATIM
+)
+
+add_custom_target(generate_nabla_header DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
+add_dependencies(Nabla generate_nabla_header)
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)
@@ -610,26 +620,13 @@ set(NABLA_HEADERS_TO_INSTALL
 
 set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_CLogger.h
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
-nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/build/import/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/build/import")
-# TODO, change to nbl_install_headers
-install(FILES "${NBL_ROOT_PATH_BINARY}/include/nbl/config/Release/BuildConfigOptions.h" DESTINATION include/nbl/config CONFIGURATIONS Release)
-install(FILES "${NBL_ROOT_PATH_BINARY}/include/nbl/config/Debug/BuildConfigOptions.h" DESTINATION debug/include/nbl/config CONFIGURATIONS Debug)
-install(FILES "${NBL_ROOT_PATH_BINARY}/include/nbl/config/RelWithDebInfo/BuildConfigOptions.h" DESTINATION relwithdebinfo/include/nbl/config CONFIGURATIONS RelWithDebInfo)
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)
@@ -661,7 +658,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 nbl_install_lib(png_static)
 
-if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 	install(FILES
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		DESTINATION lib

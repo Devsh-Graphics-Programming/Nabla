@@ -5,9 +5,8 @@
 #ifndef __NBL_CORE_GLSL_FUNCTIONS_TCC_INCLUDED__
 #define __NBL_CORE_GLSL_FUNCTIONS_TCC_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/declarations.h"
 
-#include "nbl/core/math/glslFunctions.h"
 #include "nbl/core/math/floatutil.tcc"
 #include "matrix4SIMD.h"
 

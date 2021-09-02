@@ -47,7 +47,7 @@ private:
     }
 
 public:
-    COpenGLFramebuffer(IOpenGL_LogicalDevice* dev, SCreationParams&& params);
+    COpenGLFramebuffer(core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev, SCreationParams&& params);
 
     ~COpenGLFramebuffer();
 

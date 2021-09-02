@@ -10,7 +10,7 @@
 
 #include "nbl/macros.h"
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/ISpecializedShader.h"
@@ -493,7 +493,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 
 		IRenderpassIndependentPipeline(
 			core::smart_refctd_ptr<LayoutType>&& _layout,
-			SpecShaderType** _shadersBegin, SpecShaderType** _shadersEnd, 
+			SpecShaderType*const * _shadersBegin, SpecShaderType*const * _shadersEnd, 
 			const SVertexInputParams& _vertexInputParams,
 			const SBlendParams& _blendParams,
 			const SPrimitiveAssemblyParams& _primAsmParams,
@@ -504,7 +504,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 			m_rasterParams(_rasterParams),
 			m_vertexInputParams(_vertexInputParams)
 		{
-			auto shaders = core::SRange<SpecShaderType*>(_shadersBegin, _shadersEnd);
+			auto shaders = core::SRange<SpecShaderType* const>(_shadersBegin, _shadersEnd);
 			for (auto shdr : shaders)
 			{
 				const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
