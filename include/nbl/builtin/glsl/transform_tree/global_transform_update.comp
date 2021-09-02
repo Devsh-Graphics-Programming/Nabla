@@ -7,6 +7,8 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #include "nbl/builtin/glsl/transform_tree/global_transform_update_descriptor_set.glsl"
 
+#include "nbl/builtin/glsl/utils/transform.glsl"
+
 // there isn't any lock so there's no mutual exclusion here, we can, and we will end up doing duplicate work
 void nbl_glsl_transform_tree_globalTransformUpdate_impl(in uint nodeID, in mat4x3 updatedTransform, in uint expectedTimestamp)
 {
@@ -36,10 +38,12 @@ void nbl_glsl_transform_tree_globalTransformUpdate_child(inout mat4x3 accumulate
         return;
     }
     //
-    accumulatedTransform = accumulatedTransform*nodeRelativeTransforms.data[nodeID];
+    accumulatedTransform = nbl_glsl_pseudoMul4x3with4x3(accumulatedTransform,nodeRelativeTransforms.data[nodeID]);
     nbl_glsl_transform_tree_globalTransformUpdate_impl(nodeID,accumulatedTransform,expectedTimestamp);
 }
 
+
+#include "nbl/builtin/glsl/property_pool/transfer.glsl"
 
 // TODO: move and find a way to verify the depths in the TransformTree
 #define NBL_GLSL_TRANSFORM_TREE_MAX_DEPTH 13
@@ -54,7 +58,7 @@ void main()
     uint stack[NBL_GLSL_TRANSFORM_TREE_MAX_DEPTH-1];
 
     uint rootNode = nodesToUpdate.data[gl_GlobalInvocationID.x];
-    for (uint parent=nodeParents.data[rootNode]; parent!=NBL_GLSL_PROPERTY_POOL_INVALID; rootNode=parent)
+    for (uint parent=nodeParents.data[rootNode]; parent!=NBL_BUILTIN_PROPERTY_POOL_INVALID; rootNode=parent)
         stack[stackPtr++] = rootNode;
     
     //

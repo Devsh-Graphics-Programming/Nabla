@@ -122,7 +122,7 @@ int main(int argc, char** argv)
 		basePlateBody = world->createRigidBody(basePlateRigidBodyData);
 		world->bindRigidBody(basePlateBody);
 	}
-	
+ 
 	// set up
 	auto propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
 	auto createPropertyPoolWithMemory = [device](auto& retval, uint32_t capacity, bool contiguous=false) -> void
@@ -152,6 +152,10 @@ int main(int argc, char** argv)
 	constexpr auto TransformPropertyID = 1u;
 	using object_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
 	core::smart_refctd_ptr<object_property_pool_t> objectPool; createPropertyPoolWithMemory(objectPool,MaxNumObjects);
+	
+	// TODO: start using the TransformTree
+	auto tt = scene::ITransformTree::create(device.get(),MaxNumObjects);
+	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	// Physics
 	core::vector<btRigidBody*> bodies(MaxNumObjects,nullptr);

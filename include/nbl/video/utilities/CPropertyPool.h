@@ -40,7 +40,7 @@ class CPropertyPool final : public IPropertyPool
         }
 
         // easy dont care creation
-        static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
+        static inline core::smart_refctd_ptr<this_t> create(ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
             for (auto i=0u; i<PropertyCount; i++)
