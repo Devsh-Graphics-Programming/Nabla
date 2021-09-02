@@ -5,7 +5,7 @@
 
 namespace nbl::video
 {
-    bool CVulkanCommandBuffer::buildAccelerationStructures(const core::SRange<accstruct_t::DeviceBuildGeometryInfo>& pInfos, accstruct_t::BuildRangeInfo* const* ppBuildRangeInfos)
+    bool CVulkanCommandBuffer::buildAccelerationStructures(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
     {
         bool ret = false;
         const auto originDevice = getOriginDevice();
@@ -25,7 +25,7 @@ namespace nbl::video
                 uint32_t geometryArrayOffset = 0u;
                 VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
 
-                accstruct_t::DeviceBuildGeometryInfo* infos = pInfos.begin();
+                IGPUAccelerationStructure::DeviceBuildGeometryInfo* infos = pInfos.begin();
                 for(uint32_t i = 0; i < infoCount; ++i)
                 {
                     uint32_t geomCount = infos[i].geometries.size();
@@ -37,7 +37,7 @@ namespace nbl::video
                     geometryArrayOffset += geomCount; 
                 }
                 
-                static_assert(sizeof(accstruct_t::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
+                static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
                 auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
                 vkCmdBuildAccelerationStructuresKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, buildRangeInfos);
                 ret = true;
@@ -47,8 +47,8 @@ namespace nbl::video
     }
     
     bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect(
-        const core::SRange<accstruct_t::DeviceBuildGeometryInfo>& pInfos, 
-        const core::SRange<accstruct_t::DeviceAddressType>& pIndirectDeviceAddresses,
+        const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, 
+        const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
         const uint32_t* pIndirectStrides,
         const uint32_t* const* ppMaxPrimitiveCounts)
     {
@@ -73,8 +73,8 @@ namespace nbl::video
                 uint32_t geometryArrayOffset = 0u;
                 VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
 
-                accstruct_t::DeviceBuildGeometryInfo* infos = pInfos.begin();
-                accstruct_t::DeviceAddressType* indirectDeviceAddresses = pIndirectDeviceAddresses.begin();
+                IGPUAccelerationStructure::DeviceBuildGeometryInfo* infos = pInfos.begin();
+                IGPUAccelerationStructure::DeviceAddressType* indirectDeviceAddresses = pIndirectDeviceAddresses.begin();
                 for(uint32_t i = 0; i < infoCount; ++i)
                 {
                     uint32_t geomCount = infos[i].geometries.size();
@@ -85,7 +85,7 @@ namespace nbl::video
                     vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(vk_device, infos[i], &vk_geometries[geometryArrayOffset]);
                     geometryArrayOffset += geomCount;
 
-                    auto addr = CVulkanAccelerationStructure::getVkDeviceOrHostAddress<accstruct_t::DeviceAddressType>(vk_device, indirectDeviceAddresses[i]);
+                    auto addr = CVulkanAccelerationStructure::getVkDeviceOrHostAddress<IGPUAccelerationStructure::DeviceAddressType>(vk_device, indirectDeviceAddresses[i]);
                     vk_indirectDeviceAddresses[i] = addr.deviceAddress;
                 }
                 
@@ -96,7 +96,7 @@ namespace nbl::video
         return ret;
     }
 
-    bool CVulkanCommandBuffer::copyAccelerationStructure(const accstruct_t::CopyInfo& copyInfo)
+    bool CVulkanCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
     {
         bool ret = false;
         const auto originDevice = getOriginDevice();
@@ -116,7 +116,7 @@ namespace nbl::video
         return ret;
     }
     
-    bool CVulkanCommandBuffer::copyAccelerationStructureToMemory(const accstruct_t::DeviceCopyToMemoryInfo& copyInfo)
+    bool CVulkanCommandBuffer::copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
     {
         bool ret = false;
         const auto originDevice = getOriginDevice();
@@ -136,7 +136,7 @@ namespace nbl::video
         return ret;
     }
 
-    bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory(const accstruct_t::DeviceCopyFromMemoryInfo& copyInfo)
+    bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
     {
         bool ret = false;
         const auto originDevice = getOriginDevice();

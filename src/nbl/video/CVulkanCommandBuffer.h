@@ -415,19 +415,19 @@ public:
         return false;
     }
     
-    bool buildAccelerationStructures(const core::SRange<accstruct_t::DeviceBuildGeometryInfo>& pInfos, accstruct_t::BuildRangeInfo* const* ppBuildRangeInfos) override;
+    bool buildAccelerationStructures(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;
     
     bool buildAccelerationStructuresIndirect(
-        const core::SRange<accstruct_t::DeviceBuildGeometryInfo>& pInfos, 
-        const core::SRange<accstruct_t::DeviceAddressType>& pIndirectDeviceAddresses,
+        const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, 
+        const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
         const uint32_t* pIndirectStrides,
         const uint32_t* const* ppMaxPrimitiveCounts) override;
 
-    bool copyAccelerationStructure(const accstruct_t::CopyInfo& copyInfo) override;
+    bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
     
-    bool copyAccelerationStructureToMemory(const accstruct_t::DeviceCopyToMemoryInfo& copyInfo) override;
+    bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
 
-    bool copyAccelerationStructureFromMemory(const accstruct_t::DeviceCopyFromMemoryInfo& copyInfo) override;
+    bool copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override;
 
     VkCommandBuffer getInternalObject() const { return m_cmdbuf; }
 

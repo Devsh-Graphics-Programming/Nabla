@@ -31,8 +31,7 @@ class ICPUCommandBuffer final :
         ICPUDescriptorSet,
         ICPUPipelineLayout,
         ICPUEvent,
-        ICPUCommandBuffer,
-        ICPUAccelerationStructure
+        ICPUCommandBuffer
     >
 {
 public:

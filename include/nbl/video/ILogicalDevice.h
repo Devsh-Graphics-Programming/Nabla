@@ -22,6 +22,7 @@
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/IDeferredOperation.h"
 #include "nbl/video/IGPUAccelerationStructure.h"
+#include "nbl/video/IQueryPool.h"
 
 // TODO: undo the circular ref
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
