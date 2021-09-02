@@ -28,30 +28,6 @@ namespace nbl::scene
 class ITransformTreeManager : public virtual core::IReferenceCounted
 {
 	public:
-		using node_t = uint32_t;
-		_NBL_STATIC_INLINE_CONSTEXPR node_t invalid_node = video::IPropertyPool::invalid;
-
-		using timestamp_t = video::IGPUAnimationLibrary::timestamp_t;
-		// two timestamp values are reserved for initialization
-		_NBL_STATIC_INLINE_CONSTEXPR timestamp_t min_timestamp = 0u;
-		_NBL_STATIC_INLINE_CONSTEXPR timestamp_t max_timestamp = 0xfffffffdu;
-
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t parent_prop_ix = 0u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t global_transform_prop_ix = 3u;
-	private:
-		using parent_t = node_t;
-		using relative_transform_t = core::matrix3x4SIMD;
-		using modified_stamp_t = timestamp_t;
-		using global_transform_t = core::matrix3x4SIMD;
-		using recomputed_stamp_t = timestamp_t;
-
-	public:
-		using property_pool_t = video::CPropertyPool<core::allocator,
-			parent_t,
-			relative_transform_t,modified_stamp_t,
-			global_transform_t,recomputed_stamp_t
-		>;
-
 		struct RelativeTransformModificationRequest : nbl_glsl_transform_tree_relative_transform_modification_t
 		{
 			public:
@@ -89,43 +65,89 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		// creation
         static inline core::smart_refctd_ptr<ITransformTreeManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& device)
         {
-			// TODO: create the pipelines for update,recompute and combined update&recompute in the constructor
+			// TODO: create the shaders for update,recompute (See how CPropertyPoolHandler does it)
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> updateRelativeSpec;
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> recomputeGlobalSpec;
+			if (!updateRelativeSpec || !recomputeGlobalSpec)
+				return nullptr;
 
-			auto* ttm = new ITransformTreeManager(std::move(device));
+			// TODO: create the descriptor set 1 layouts for update,recompute
+			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> updateDsLayout;
+			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> recomputeDsLayout;
+
+			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
+			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
+			auto poolLayout = ITransformTree::createDescriptorSetLayout(device.get(),stageAccessFlags);
+			
+			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),std::move(updateDsLayout));
+			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),std::move(recomputeDsLayout));
+
+			auto updateRelativePpln = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),std::move(updateRelativeSpec));
+			auto recomputeGlobalPpln = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),std::move(recomputeGlobalSpec));
+			if (!updateRelativePpln || !recomputeGlobalPpln)
+				return nullptr;
+
+			// TODO: after BaW
+			core::smart_refctd_ptr<video::IGPUComputePipeline> updateAndRecomputePpln;
+
+			auto* ttm = new ITransformTreeManager(std::move(device),std::move(updateRelativePpln),std::move(recomputeGlobalPpln),std::move(updateAndRecomputePpln));
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
         }
 
 		struct AllocationRequest
 		{
+			video::CPropertyPoolHandler* poolHandler;
 			video::StreamingTransientDataBufferMT<>* upBuff;
 			// must be in recording state
 			video::IGPUCommandBuffer* cmdbuf;
 			video::IGPUFence* fence;
 			ITransformTree* tree;
-			core::SRange<node_t> outNodes;
-			// if null we set these properties to defaults
-			const parent_t*	parents = nullptr;
-			const relative_transform_t*	relativeTransforms = nullptr;
+			core::SRange<ITransformTree::node_t> outNodes;
+			// if null we set these properties to defaults (no parent and identity transform)
+			const ITransformTree::parent_t* parents = nullptr;
+			const ITransformTree::relative_transform_t* relativeTransforms = nullptr;
+			system::logger_opt_ptr logger = nullptr;
 		};
 		inline bool addNodes(const AllocationRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
 		{
-			if (!request.tree)
+			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
 				return false;
+
 			auto* pool = request.tree->getNodePropertyPool();
 			if (request.outNodes.size()>pool->getFree())
 				return false;
 
 			pool->allocateProperties(request.outNodes.begin(),request.outNodes.end());
-			// TODO: Need to run a `CPropertyPoolHandler`-like transfer compute shader to transfer `parent`, intiailize timestamps, and transfer/initialize relativeTransforms
-			// need to at least initialize with the parent node property with the recompute and update timestamps at 0xfffffffeu and 0xffffffffu respectively
-			// TODO: Better idea, extend `CPropertyPoolHandler` with a "fill mode" (instead of sourcing data from rising indices, fill with the very first property
-			assert(false);
-			return true;
+			const core::matrix3x4SIMD IdentityTransform;
+
+			constexpr auto TransferCount = 4u;
+			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
+			for (auto i=0u; i<TransferCount; i++)
+			{
+				transfers[i].pool = pool;
+				transfers[i].elementCount = request.outNodes.size();
+				transfers[i].srcAddresses = nullptr;
+				transfers[i].dstAddresses = request.outNodes.begin();
+				transfers[i].device2device = false;
+			}
+			transfers[0].propertyID = ITransformTree::parent_prop_ix;
+			transfers[0].flags = request.parents ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[0].source = request.parents ? request.parents:&ITransformTree::invalid_node;
+			transfers[1].propertyID = ITransformTree::relative_transform_prop_ix;
+			transfers[1].flags = request.relativeTransforms ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[1].source = request.relativeTransforms ? request.relativeTransforms:&IdentityTransform;
+			transfers[2].propertyID = ITransformTree::modified_stamp_prop_ix;
+			transfers[2].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[2].source = &ITransformTree::initial_modified_timestamp;
+			transfers[3].propertyID = ITransformTree::recomputed_stamp_prop_ix;
+			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
+			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;
 		}
 		// TODO: utility for adding skeleton node instances, etc.
 		 
 		//
-		inline void removeNodes(ITransformTree* tree, const node_t* begin, const node_t* end)
+		inline void removeNodes(ITransformTree* tree, const ITransformTree::node_t* begin, const ITransformTree::node_t* end)
 		{
 			// If we start wanting a contiguous range to be maintained, this will need to change
 			tree->getNodePropertyPool()->freeProperties(begin,end);
@@ -194,15 +216,23 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		//
 		inline void updateAndRecomputeTransforms(const LocalTransformUpdateParams& params)
 		{
-			assert(false); // TODO: after BaW, for now just use `updateLocalTransforms` and `recomputeGlobalTransforms` in order
+			// TODO: after BaW, for now just use `updateLocalTransforms` and `recomputeGlobalTransforms` in order
+			assert(false);
 			soleUpdateOrFusedRecompute_impl(m_updateAndRecomputePipeline.get(),params);
 		}
 
 		static inline constexpr uint32_t WorkgroupSize = 256u;
 	protected:
-		ITransformTreeManager(core::smart_refctd_ptr<video::ILogicalDevice>&& _device) : m_device(_device)
+		ITransformTreeManager(
+			core::smart_refctd_ptr<video::ILogicalDevice>&& _device,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updatePipeline,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _recomputePipeline,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updateAndRecomputePipeline
+		) : m_device(std::move(_device)),
+			m_updatePipeline(std::move(_updatePipeline)),
+			m_recomputePipeline(std::move(_recomputePipeline)),
+			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline))
 		{
-			// TODO: take the ComputePipelines for alloc,update,recompute and combined update&recompute in the constructor
 		}
 		~ITransformTreeManager()
 		{

@@ -23,6 +23,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 		// two timestamp values are reserved for initialization
 		static inline constexpr timestamp_t min_timestamp = 0u;
 		static inline constexpr timestamp_t max_timestamp = 0xfffffffdu;
+		static inline constexpr timestamp_t initial_modified_timestamp = 0xffffffffu;
+		static inline constexpr timestamp_t initial_recomputed_timestamp = 0xfffffffeu;
 		
 		using parent_t = node_t;
 		using relative_transform_t = core::matrix3x4SIMD;
@@ -41,10 +43,24 @@ class ITransformTree : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t global_transform_prop_ix = 3u;
 		static inline constexpr uint32_t recomputed_stamp_prop_ix = 4u;
 
+		// useful for everyone
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
+			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
+			{
+				bindings[i].binding = i;
+				bindings[i].type = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
+				bindings[i].count = 1u;
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::ISpecializedShader::ESS_ALL;
+				bindings[i].samplers = nullptr;
+			}
+			return device->createGPUDescriptorSetLayout(bindings,bindings+property_pool_t::PropertyCount);
+		}
 
 		// the creation is the same as that of a `video::CPropertyPool`
 		template<typename... Args>
-		static inline core::smart_refctd_ptr<ITransformTree> create(const video::ILogicalDevice* device, Args... args)
+		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, Args... args)
 		{
 			auto pool = property_pool_t::create(device,std::forward<Args>(args)...);
 			if (!pool)
@@ -55,17 +71,14 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!dsp)
 				return nullptr;
 
-			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[property_pool_t::PropertyCount];
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 			{
-				writes[i].binding = bindings[i].binding = i;
-				writes[i].descriptorType = bindings[i].type = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
-				writes[i].count = bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::ISpecializedShader::ESS_ALL;
-				bindings[i].samplers = nullptr;
+				writes[i].binding = i;
+				writes[i].descriptorType = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
+				writes[i].count = 1u;
 			}
-			auto layout = device->createGPUDescriptorSetLayout(bindings,bindings+property_pool_t::PropertyCount);
+			auto layout = createDescriptorSetLayout(device);
 			if (!layout)
 				return nullptr;
 
