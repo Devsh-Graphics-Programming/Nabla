@@ -122,14 +122,10 @@ class CWindowManagerX11 : public IWindowManager
             friend CWindowManagerX11;
 
             public:
-                CThreadHandler(Display* dpy)
-                {
-                    m_dpy = dpy;
-                }
-
+                CThreadHandler() {}
             private:
                 void work(lock_t& lock);
-                void init();
+                void init() {};
                 bool wakeupPredicate() const { return true; }
                 bool continuePredicate() const { return true; }
 
@@ -139,7 +135,7 @@ class CWindowManagerX11 : public IWindowManager
         } m_windowThreadManager;
 
         MultithreadedMap m_windowsMap;
-        Display* m_dpy;
+        Display* m_managerDpy;
         core::vector<XID> getConnectedMice() const;
         core::vector<XID> getConnectedKeyboards() const;
 };
