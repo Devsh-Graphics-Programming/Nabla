@@ -54,6 +54,8 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 
     if (bin_res.GetCompilationStatus() != shaderc_compilation_status_success) {
         os::Printer::log(bin_res.GetErrorMessage(), ELL_ERROR);
+        // tmp, Printer doesnt work on my branch so i have to printf to see shader build errors
+        printf("%s\n", bin_res.GetErrorMessage().c_str());
         return nullptr;
     }
 
@@ -240,6 +242,8 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
         os::Printer::log(res.GetErrorMessage(), ELL_ERROR);
+        // tmp, Printer doesnt work on my branch so i have to printf to see shader build errors
+        printf("%s\n", res.GetErrorMessage().c_str());
         return nullptr;
     }
 
