@@ -446,9 +446,6 @@ int main()
 		additionalMemReqs.requiresDedicatedAllocation = ubos[i]->getMemoryReqs().requiresDedicatedAllocation;
 
 		ubosMemory[i] = device->allocateDeviceLocalMemory(additionalMemReqs);
-
-		if (ubos[i]->getAPIType() == video::EAT_VULKAN)
-			static_cast<video::CVulkanBuffer*>(ubos[i].get())->setMemoryAndOffset(core::smart_refctd_ptr(ubosMemory[i]), 0ull);
 	}
 
 	video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfos[MAX_SWAPCHAIN_IMAGE_COUNT];
@@ -456,13 +453,12 @@ int main()
 	{
 		bindBufferInfos[i].buffer = ubos[i].get();
 		bindBufferInfos[i].memory = ubosMemory[i].get();
-		bindBufferInfos[i].offset = ubos[i]->getBoundMemoryOffset();
+		bindBufferInfos[i].offset = 0ull;
 	}
 	device->bindBufferMemory(swapchainImageCount, bindBufferInfos);
 
 	// Fill up ubos with dummy data
-	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer,
-	// infact device local memory shouldn't be host mapped
+	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer
 	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{

@@ -13,7 +13,7 @@ class CVulkanMemoryAllocation : public IDriverMemoryAllocation
 {
 public:
     CVulkanMemoryAllocation(ILogicalDevice* dev, VkDeviceMemory deviceMemoryHandle)
-        : IDriverMemoryAllocation(), m_originDevice(dev), m_deviceMemoryHandle(deviceMemoryHandle)
+        : IDriverMemoryAllocation(dev), m_deviceMemoryHandle(deviceMemoryHandle)
     {}
 
     ~CVulkanMemoryAllocation();
@@ -29,7 +29,6 @@ public:
 
 private:
     VkDeviceMemory m_deviceMemoryHandle;
-    ILogicalDevice* m_originDevice; // IDriverMemoryAllocation doesn't inherit from IBackendObject ???
 };
 
 }

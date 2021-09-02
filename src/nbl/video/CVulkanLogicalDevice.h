@@ -320,21 +320,31 @@ public:
 
     bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override
     {
+        bool anyFailed = false;
         for (uint32_t i = 0u; i < bindInfoCount; ++i)
         {
-            if ((pBindInfos[i].buffer->getAPIType() != EAT_VULKAN) /*|| (pBindInfos[i].memory->getAPIType() != EAT_VULKAN)*/)
+            const auto& bindInfo = pBindInfos[i];
+            
+            if ((bindInfo.buffer->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
 
-            VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pBindInfos[i].buffer)->getInternalObject();
+            CVulkanBuffer* vulkanBuffer = static_cast<CVulkanBuffer*>(bindInfo.buffer);
+            vulkanBuffer->setMemoryAndOffset(
+                core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
+
+            VkBuffer vk_buffer = vulkanBuffer->getInternalObject();
             VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
             if (vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
-                return false;
-        }
+            {
+                // Todo(achal): Log which one failed
+                anyFailed = true;
+            }
+        }   
 
-        return true;
+        return !anyFailed;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const bool canModifySubData = false) override
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
@@ -367,7 +377,7 @@ public:
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, vk_buffer);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, canModifySubData, vk_buffer);
         }
         else
         {
@@ -645,8 +655,8 @@ public:
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override
     {
-        // if (memory.memory->getAPIType() != EAT_VULKAN)
-        //     return nullptr;
+        if (memory.memory->getAPIType() != EAT_VULKAN)
+            return nullptr;
 
         VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
         VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(memory.memory)->getInternalObject();
@@ -664,8 +674,8 @@ public:
 
     void unmapMemory(IDriverMemoryAllocation* memory) override
     {
-        // if (memory.memory->getAPIType() != EAT_VULKAN)
-        //     return;
+        if (memory->getAPIType() != EAT_VULKAN)
+            return;
 
         VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(memory)->getInternalObject();
         vkUnmapMemory(m_vkdev, vk_deviceMemory);
@@ -1122,9 +1132,7 @@ protected:
     }
             
 private:
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-        VkMemoryPropertyFlags desiredMemoryProperties);
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs);
 
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
