@@ -191,6 +191,12 @@ public:
         return true;
     }
 
+    bool isArchiveAlias(const system::path& path)
+    {
+        auto p = path;
+        if (*p.string().rbegin() == '/') p = p.string().substr(0, p.string().size() - 1);
+        return !m_cachedPathAliases.findRange(p).empty();
+    }
 private:
     // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
     bool readFile(future<size_t>& future, IFile* file, void* buffer, size_t offset, size_t size)

@@ -76,7 +76,13 @@ size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t si
 	{
 		auto viewOffset = (offset / m_allocGranularity) * m_allocGranularity;
 		offset = offset % m_allocGranularity;
-		std::byte* fileView = (std::byte*)MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, HIWORD((DWORD)viewOffset), LOWORD((DWORD)viewOffset), offset + sizeToRead);
+		DWORD l = LODWORD(viewOffset), h = HIDWORD(viewOffset);
+		std::byte* fileView = (std::byte*)MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, h, l, offset + sizeToRead);
+		if (fileView == nullptr)
+		{
+			assert(false);
+			return 0;
+		}
 		std::copy<std::byte*>(fileView + offset, (std::byte*)fileView + offset + sizeToRead, (std::byte*)buffer);
 		return sizeToRead;
 	}

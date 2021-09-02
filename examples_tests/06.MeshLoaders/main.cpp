@@ -47,7 +47,6 @@ int main(int argc, char** argv)
     auto system = std::move(initOutput.system);
     auto windowCallback = std::move(initOutput.windowCb);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-    auto logger = std::move(initOutput.logger);
     auto utilities = std::move(initOutput.utilities);
 
     auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -107,11 +106,13 @@ int main(int argc, char** argv)
 
             TODO: come back to addFileArchive
         */
-
+        system::path archPath = CWD.generic_string() + "../../media/sponza.zip";
+        auto arch = system->openFileArchive(archPath);
+        system->mount(std::move(arch), "arch");
         asset::IAssetLoader::SAssetLoadParams loadParams;
         loadParams.workingDirectory = CWD;
         loadParams.logger = logger.get();
-        auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
+        auto meshes_bundle = assetManager->getAsset("arch/sponza.obj", loadParams);
         assert(!meshes_bundle.getContents().empty());
 
         metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
