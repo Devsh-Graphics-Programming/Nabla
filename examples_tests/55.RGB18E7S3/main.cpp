@@ -106,7 +106,7 @@ int main()
       
         return core::vector3df_SIMD(getRandomValue(), getRandomValue(), getRandomValue());
     };
-
+    
     SShaderStorageBufferObject ssbo;
 
     for (size_t i = 0; i < MAX_TEST_RGB_VALUES; ++i)

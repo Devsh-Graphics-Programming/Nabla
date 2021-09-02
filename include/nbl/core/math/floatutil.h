@@ -606,7 +606,7 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	assert(rm >= 0);
 	assert(gm >= 0);
 	assert(bm >= 0);
-
+	
 	const uint8_t signMask = [&]()
 	{
 		uint8_t mask = {};
@@ -641,6 +641,8 @@ inline uint64_t rgb32f_to_rgb18e7s3(float r, float g, float b)
 	return rgb32f_to_rgb18e7s3(rgb);
 }
 
+uint32_t& floatBitsToUint(float& _f);
+
 inline rgb32f rgb18e7s3_to_rgb32f(uint64_t _rgb18e7s3)
 {
 	union rgb18e7s3 {
@@ -667,15 +669,15 @@ inline rgb32f rgb18e7s3_to_rgb32f(uint64_t _rgb18e7s3)
 	rgb32f rgb;
 	rgb.x = u.field.r * scale;
 	if (isEncodedRNegative)
-		rgb.x *= -1.f;
+		floatBitsToUint(rgb.x) ^= 0x80000000u;
 
 	rgb.y = u.field.g * scale;
 	if (isEncodedGNegative)
-		rgb.y *= -1.f;
+		floatBitsToUint(rgb.y) ^= 0x80000000u;
 
 	rgb.z = u.field.b * scale;
 	if (isEncodedBNegative)
-		rgb.z *= -1.f;
+		floatBitsToUint(rgb.z) ^= 0x80000000u;
 
 	return rgb;
 }
