@@ -5,10 +5,6 @@
 using namespace nbl;
 using namespace video;
 
-#include "nbl/builtin/glsl/property_pool/transfer.glsl"
-static_assert(_NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE_==sizeof(nbl_glsl_property_pool_transfer_t));
-static_assert(_NBL_BUILTIN_PROPERTY_POOL_INVALID_==IPropertyPool::invalid);
-
 
 //
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
@@ -29,7 +25,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		std::fill_n(m_alignments,maxStreamingAllocations,m_device->getPhysicalDevice()->getLimits().SSBOAlignment);
 	}
 
-	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_BUILTIN_MAX_PROPERTIES_PER_COPY_ %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass));
+	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_COPY %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass));
 	auto specshader = m_device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
 	
 	IGPUDescriptorSetLayout::SBinding bindings[3];
@@ -120,12 +116,12 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 						if (request.isDownload())
 							*(downSizesIt++) = elementsByteSize;
 						else
-							*(upSizesIt++) = elementsByteSize;
+							*(upSizesIt++) = request.getSourceElementCount()*propSize;
 					}
 					//
 					if (request.srcAddresses)
 					{
-						m_tmpAddressRanges[addressListCount].source = {request.srcAddresses,request.srcAddresses+request.elementCount};
+						m_tmpAddressRanges[addressListCount].source = {request.srcAddresses,request.srcAddresses+request.getSourceElementCount()};
 						m_tmpAddressRanges[addressListCount++].destOff = 0u;
 					}
 					if (request.dstAddresses)
@@ -214,9 +210,8 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					const auto& request = localRequests[i];
 
 					auto& transfer = reinterpret_cast<nbl_glsl_property_pool_transfer_t*>(addressBufferPtr)[i];
-					transfer.propertyDWORDsize_upDownFlag = request.pool->getPropertySize(request.propertyID)/sizeof(uint32_t);
-					if (request.isDownload())
-						transfer.propertyDWORDsize_upDownFlag = -transfer.propertyDWORDsize_upDownFlag;
+					transfer.propertyDWORDsize_flags = request.pool->getPropertySize(request.propertyID)/sizeof(uint32_t);
+					transfer.propertyDWORDsize_flags |= uint32_t(request.flags)<<(32-TransferRequest::EF_BIT_COUNT);
 					transfer.elementCount = request.elementCount;
 					//
 					transfer.srcIndexOffset = remapAddressList(request.srcAddresses);
@@ -248,7 +243,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 					assert(addr!=invalid_address);
 					const size_t propSize = request.pool->getPropertySize(request.propertyID);
-					memcpy(upBuffPtr+addr,request.source,request.elementCount*propSize);
+					memcpy(upBuffPtr+addr,request.source,request.getSourceElementCount()*propSize);
 				}
 
 				// flush if needed

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_VIDEO_C_PROPERTY_POOL_HANDLER_H_INCLUDED__
-#define __NBL_VIDEO_C_PROPERTY_POOL_HANDLER_H_INCLUDED__
+#ifndef _NBL_VIDEO_C_PROPERTY_POOL_HANDLER_H_INCLUDED_
+#define _NBL_VIDEO_C_PROPERTY_POOL_HANDLER_H_INCLUDED_
 
 
 #include "nbl/asset/asset.h"
@@ -17,7 +17,9 @@
 namespace nbl::video
 {
 
-class IPropertyPool;
+#include "nbl/builtin/glsl/property_pool/transfer.glsl"
+static_assert(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE==sizeof(nbl_glsl_property_pool_transfer_t));
+static_assert(NBL_BUILTIN_PROPERTY_POOL_INVALID==IPropertyPool::invalid);
 
 // property pool factory is externally synchronized
 class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
@@ -26,7 +28,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		//
 		CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device);
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto MinimumPropertyAlignment = alignof(uint32_t);
+        static inline constexpr auto MinimumPropertyAlignment = alignof(uint32_t);
 
 		//
 		inline ILogicalDevice* getDevice() {return m_device.get();}
@@ -111,16 +113,28 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
         //
 		struct TransferRequest
 		{
-			TransferRequest() : pool(nullptr), propertyID(0xdeadbeefu), elementCount(0u), srcAddresses(nullptr), dstAddresses(nullptr), download(false)
+			//
+			enum E_FLAG : uint16_t
+			{
+				EF_NONE=0,
+				EF_DOWNLOAD=NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_DOWNLOAD,
+				// this flag will make the `srcAddresses ? srcAddresses[0]:0` be used as the source address for all reads, effectively "filling" with uniform value
+				EF_FILL=NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL,
+				EF_BIT_COUNT=NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT
+			};
+
+			//
+			TransferRequest() : pool(nullptr), flags(EF_NONE), propertyID(0xdeadbeefu), elementCount(0u), srcAddresses(nullptr), dstAddresses(nullptr)
 			{
 				device2device = 0u;
 				source = nullptr;
 			}
 			~TransferRequest() {}
 
+			//
 			inline bool isDownload() const
 			{
-				if (download)
+				if (flags&EF_DOWNLOAD)
 				{
 					// cpu source shouldn't be set if not doing a gpu side transfer
 					assert(device2device || !source);
@@ -131,8 +145,18 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				return false;
 			}
 
+			//
+			inline uint32_t getSourceElementCount() const
+			{
+				if (flags&EF_FILL)
+					return 1u;
+				return elementCount;
+			}
+
+			//
 			const IPropertyPool* pool;
-			uint32_t propertyID;
+			E_FLAG flags;
+			uint16_t propertyID;
 			uint32_t elementCount;
 			// can be null, if null treated like an implicit {0,1,2,3,...} iota view
 			const uint32_t* srcAddresses;
@@ -152,7 +176,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 					const void* source;
 				};
 			};
-			bool download;
 		};
 
 		//
@@ -188,13 +211,13 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				for (auto i=0u; i<pool->getPropertyCount(); i++)
 				{
 					requests[i].pool = pool;
+					requests[i].flags = TransferRequest::EF_NONE;
 					requests[i].propertyID = i;
 					requests[i].elementCount = transferCount;
 					requests[i].srcAddresses = srcAddresses;
 					requests[i].dstAddresses = dstAddresses;
 					requests[i].buffer = pool->getPropertyMemoryBlock(i).buffer.get();
 					requests[i].offset = pool->getPropertyMemoryBlock(i).offset;
-					requests[i].download = false;
 				}
 				return true;
 			}
