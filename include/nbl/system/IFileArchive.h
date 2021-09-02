@@ -25,12 +25,18 @@ public:
 	CInnerArchiveFile(CFileView<T>* arch, std::atomic_flag* _flag) : CFileView<T>(std::move(*arch)), alive(_flag)
 	{
 		alive->test_and_set();
-		alive->notify_one();
 	}
-	~CInnerArchiveFile()
+	~CInnerArchiveFile() = default;
+
+	static void operator delete(void* ptr) noexcept
 	{
-		alive->clear();
-		alive->notify_one();
+		static_cast<CInnerArchiveFile*>(ptr)->alive->clear();
+		static_cast<CInnerArchiveFile*>(ptr)->alive->notify_one();
+	}
+	static void  operator delete[](void* ptr) noexcept
+	{
+		assert(false);
+		return nullptr;
 	}
 };
 
@@ -57,6 +63,7 @@ public:
 	~IFileArchive() 
 	{ 
 		_NBL_ALIGNED_FREE(m_filesBuffer);
+		_NBL_ALIGNED_FREE(m_fileFlags);
 	}
 	//! An entry in a list of files, can be a folder or a file.
 	struct SFileListEntry
