@@ -46,6 +46,10 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 
 nbl::system::CFileWin32::~CFileWin32()
 {
+	for (void* view : m_openedFileViews)
+	{
+		UnmapViewOfFile(view);
+	}
 	CloseHandle(m_native);
 	CloseHandle(m_fileMappingObj);
 }
@@ -62,12 +66,16 @@ const std::filesystem::path& nbl::system::CFileWin32::getFileName() const
 
 void* nbl::system::CFileWin32::getMappedPointer()
 {
-	return MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, 0, 0, m_size);
+	void* view = MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, 0, 0, m_size);
+	m_openedFileViews.push_back(view);
+	return view;
 }
 
 const void* nbl::system::CFileWin32::getMappedPointer() const
 {
-	return MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, 0, 0, m_size);;
+	void* view = MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, 0, 0, m_size);
+	m_openedFileViews.push_back(view);
+	return view;
 }
 
 size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t sizeToRead)
@@ -78,6 +86,7 @@ size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t si
 		offset = offset % m_allocGranularity;
 		DWORD l = LODWORD(viewOffset), h = HIDWORD(viewOffset);
 		std::byte* fileView = (std::byte*)MapViewOfFile(m_fileMappingObj, FILE_MAP_READ, h, l, offset + sizeToRead);
+		m_openedFileViews.push_back(fileView);
 		if (fileView == nullptr)
 		{
 			assert(false);
