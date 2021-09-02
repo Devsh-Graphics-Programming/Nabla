@@ -1,13 +1,12 @@
+#include "nbl/ui/CCursorControlWin32.h"
+
 #ifdef _NBL_PLATFORM_WINDOWS_
 
 #include <Windows.h>
 
-#include "nbl/ui/CCursorControlWin32.h"
-
 
 namespace nbl::ui
 {
-
 
 void CCursorControlWin32::setVisible(bool visible)
 {
