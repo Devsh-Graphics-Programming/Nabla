@@ -14,6 +14,7 @@ using namespace core;
 
 _NBL_STATIC_INLINE_CONSTEXPR size_t WORK_GROUP_SIZE = 32;				                 //! work-items per work-group
 _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_TEST_RGB_VALUES = WORK_GROUP_SIZE * 1;           //! total number of rgb values to test
+_NBL_STATIC_INLINE_CONSTEXPR size_t FRAMES_IN_FLIGHT = 3u;          
 
 enum E_SSBO
 {
@@ -112,6 +113,7 @@ int main()
         if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
             assert(false);
 
+        cpu2gpuWaitForFences();
         gpuComputeShader = (*gpu_array)[0];
     }
 
@@ -136,7 +138,7 @@ int main()
     };
 
     auto cpuSSBOBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(SShaderStorageBufferObject));
-    auto ssbo = reinterpret_cast<SShaderStorageBufferObject*>(cpuSSBOBuffer->getPointer());
+    auto* ssbo = reinterpret_cast<SShaderStorageBufferObject*>(cpuSSBOBuffer->getPointer());
     {
         for (size_t i = 0; i < MAX_TEST_RGB_VALUES; ++i)
         {
@@ -152,7 +154,7 @@ int main()
 
     core::smart_refctd_ptr<video::IGPUBuffer> gpuSSBOBuffer;
     {
-        auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1, cpu2gpuParams);
+        auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1, cpu2gpuParams); // pending?
         if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
             assert(false);
 
@@ -205,11 +207,13 @@ int main()
     auto gpuCPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
     auto gpuComputePipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
 
-    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
+    core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
+    logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+    auto gpuFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+    for(size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
     {
-        auto gpuFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+        auto& commandBuffer = commandBuffers[i];
 
-        logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, &commandBuffer);
         commandBuffer->begin(0);
 
         commandBuffer->bindComputePipeline(gpuComputePipeline.get());
@@ -221,16 +225,17 @@ int main()
         commandBuffer->dispatch(groupCountX, 1, 1);
 
         CommonAPI::Submit(logicalDevice.get(), nullptr, commandBuffer.get(), queues[decltype(initOutput)::EQT_COMPUTE], nullptr, nullptr, gpuFence.get());
+    }
+
+    {
+        video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
+        while (waitStatus != video::IGPUFence::ES_SUCCESS)
         {
-            video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-            while (waitStatus != video::IGPUFence::ES_SUCCESS)
-            {
-                waitStatus = logicalDevice->waitForFences(1u, &gpuFence.get(), false, 99999999999ull);
-                if (waitStatus == video::IGPUFence::ES_ERROR)
-                    assert(false);
-                else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                    break;
-            }
+            waitStatus = logicalDevice->waitForFences(1u, &gpuFence.get(), false, 99999999999ull);
+            if (waitStatus == video::IGPUFence::ES_ERROR)
+                assert(false);
+            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+                break;
         }
     }
 
