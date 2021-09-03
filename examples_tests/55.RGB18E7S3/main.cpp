@@ -223,8 +223,21 @@ int main()
         _NBL_STATIC_INLINE_CONSTEXPR size_t groupCountX = MAX_TEST_RGB_VALUES / WORK_GROUP_SIZE;
 
         commandBuffer->dispatch(groupCountX, 1, 1);
+        commandBuffer->end();
 
-        CommonAPI::Submit(logicalDevice.get(), nullptr, commandBuffer.get(), queues[decltype(initOutput)::EQT_COMPUTE], nullptr, nullptr, gpuFence.get());
+        video::IGPUQueue::SSubmitInfo submit;
+        {
+            submit.commandBufferCount = 1u;
+            submit.commandBuffers = &commandBuffer.get();
+            submit.signalSemaphoreCount = {};
+            submit.pSignalSemaphores = nullptr;
+            asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+            submit.waitSemaphoreCount = {};
+            submit.pWaitSemaphores = nullptr;
+            submit.pWaitDstStageMask = &dstWait;
+
+            queues[decltype(initOutput)::EQT_COMPUTE]->submit(1u, &submit, gpuFence.get());
+        }
     }
 
     {
