@@ -459,16 +459,28 @@ int main()
 
 	// Fill up ubos with dummy data
 	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer
+	// core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
+
+	asset::SBufferRange<video::IGPUBuffer> bufferRanges[3] = {};
+	for (uint32_t i = 0u; i < 3u; ++i)
+	{
+		bufferRanges[i].size = ubos[i]->getSize();
+		bufferRanges[i].offset = 0ull;
+		bufferRanges[i].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(ubos[i]);
+	}
+
 	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
+		// utils->updateBufferRangeViaStagingBuffer(computeQueue, bufferRanges[i], &uboData_cpu[i]);
+
 		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(ubosMemory[i].get(),
 			0ull, sizeof(UniformBufferObject));
 		void* mappedMemoryAddress = device->mapMemory(mappedMemoryRange);
 		assert(mappedMemoryAddress);
-
+		
 		memcpy(mappedMemoryAddress, &uboData_cpu[i], sizeof(UniformBufferObject));
-
+		
 		device->unmapMemory(ubosMemory[i].get());
 	}
 
