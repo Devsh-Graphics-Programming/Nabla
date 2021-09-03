@@ -128,6 +128,8 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
 
     for (uint32_t i = 0u; i < compatibleMemoryTypeCount; ++i)
     {
+        // Todo(achal): Make use of requiresDedicatedAllocation and prefersDedicatedAllocation
+
         VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
         vk_allocateInfo.pNext = nullptr; // No extensions for now
         vk_allocateInfo.allocationSize = reqs.vulkanReqs.size;
@@ -136,7 +138,8 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
         VkDeviceMemory vk_deviceMemory;
         if (vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory);
+            // Todo(achal): Change dedicate to not always be false
+            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory);
         }
     }
 

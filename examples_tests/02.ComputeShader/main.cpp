@@ -423,7 +423,7 @@ int main()
 	{
 		video::IGPUBuffer::SCreationParams creationParams = {};
 		creationParams.size = sizeof(UniformBufferObject);
-		creationParams.usage = video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT;
+		creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
 		creationParams.sharingMode = asset::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndexCount = 0u;
 		creationParams.queuueFamilyIndices = nullptr;
@@ -440,8 +440,7 @@ int main()
 		additionalMemReqs.vulkanReqs.size = ubos[i]->getMemoryReqs().vulkanReqs.size;
 		additionalMemReqs.vulkanReqs.memoryTypeBits = ubos[i]->getMemoryReqs().vulkanReqs.memoryTypeBits;
 		additionalMemReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-		additionalMemReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ
-			| video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
+		additionalMemReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
 		additionalMemReqs.prefersDedicatedAllocation = ubos[i]->getMemoryReqs().prefersDedicatedAllocation;
 		additionalMemReqs.requiresDedicatedAllocation = ubos[i]->getMemoryReqs().requiresDedicatedAllocation;
 
@@ -458,11 +457,10 @@ int main()
 	device->bindBufferMemory(swapchainImageCount, bindBufferInfos);
 
 	// Fill up ubos with dummy data
-	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer
-	// core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
+	core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
 
-	asset::SBufferRange<video::IGPUBuffer> bufferRanges[3] = {};
-	for (uint32_t i = 0u; i < 3u; ++i)
+	asset::SBufferRange<video::IGPUBuffer> bufferRanges[MAX_SWAPCHAIN_IMAGE_COUNT] = {};
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		bufferRanges[i].size = ubos[i]->getSize();
 		bufferRanges[i].offset = 0ull;
@@ -471,18 +469,7 @@ int main()
 
 	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
-	{
-		// utils->updateBufferRangeViaStagingBuffer(computeQueue, bufferRanges[i], &uboData_cpu[i]);
-
-		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(ubosMemory[i].get(),
-			0ull, sizeof(UniformBufferObject));
-		void* mappedMemoryAddress = device->mapMemory(mappedMemoryRange);
-		assert(mappedMemoryAddress);
-		
-		memcpy(mappedMemoryAddress, &uboData_cpu[i], sizeof(UniformBufferObject));
-		
-		device->unmapMemory(ubosMemory[i].get());
-	}
+		utils->updateBufferRangeViaStagingBuffer(computeQueue, bufferRanges[i], &uboData_cpu[i]);
 
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{

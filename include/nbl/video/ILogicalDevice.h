@@ -250,45 +250,55 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getDeviceLocalGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getSpilloverGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getUpStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getDownStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Low level function used to implement the above, use with caution
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
         virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 

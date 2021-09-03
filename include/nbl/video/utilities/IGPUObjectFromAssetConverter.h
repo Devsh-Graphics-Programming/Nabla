@@ -429,8 +429,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
         if (reqs.vulkanReqs.size==0u)
             return;
+
+        IGPUBuffer::SCreationParams unused = {};
         
-        auto gpubuffer = _params.device->createGPUBufferOnDedMem(reqs);
+        auto gpubuffer = _params.device->createGPUBufferOnDedMem(unused, reqs);
         for (auto it = firstInBlock; it != out; it++)
         {
             if (auto output = *it)

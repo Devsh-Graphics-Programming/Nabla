@@ -195,8 +195,20 @@ public:
             
     IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override
     {
-        assert(!"Not implemented!\n");
-        return IGPUFence::E_STATUS::ES_ERROR;
+        if (!_fence && (_fence->getAPIType() != EAT_VULKAN))
+            return IGPUFence::E_STATUS::ES_ERROR;
+
+        VkResult retval = vkGetFenceStatus(m_vkdev, static_cast<const CVulkanFence*>(_fence)->getInternalObject());
+
+        switch (retval)
+        {
+        case VK_SUCCESS:
+            return IGPUFence::ES_SUCCESS;
+        case VK_NOT_READY:
+            return IGPUFence::ES_NOT_READY;
+        default:
+            return IGPUFence::ES_ERROR;
+        }
     }
             
     // API needs to change. vkResetFences can fail.
@@ -406,18 +418,24 @@ public:
         }
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& additionalMemoryReqs, const bool canModifySubData = false) override
     {
-#if 0
-        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(initialMreqs, false);
+        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams);
 
         if (!gpuBuffer)
             return nullptr;
 
-        // Todo(achal): Probably do not call getMemoryReqs at all but
-        // vkGetBufferMemoryRequirements or equivalent
+        IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = gpuBuffer->getMemoryReqs();
+        memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalMemoryReqs.vulkanReqs.size);
+        memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalMemoryReqs.vulkanReqs.alignment);
+        memoryReqs.vulkanReqs.memoryTypeBits &= additionalMemoryReqs.vulkanReqs.memoryTypeBits;
+        memoryReqs.memoryHeapLocation = additionalMemoryReqs.memoryHeapLocation;
+        memoryReqs.mappingCapability = additionalMemoryReqs.mappingCapability;
+        memoryReqs.prefersDedicatedAllocation = additionalMemoryReqs.prefersDedicatedAllocation;
+        memoryReqs.requiresDedicatedAllocation = additionalMemoryReqs.requiresDedicatedAllocation;
+
         core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =
-            allocateDeviceLocalMemory(gpuBuffer->getMemoryReqs());
+            allocateGPUMemory(memoryReqs);
 
         if (!bufferMemory)
             return nullptr;
@@ -429,8 +447,6 @@ public:
         bindBufferMemory(1u, &bindBufferInfo);
 
         return gpuBuffer;
-#endif
-        return nullptr;
     }
         
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override

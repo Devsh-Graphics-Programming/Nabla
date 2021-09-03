@@ -16,5 +16,14 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     auto reqs = mBufferMemReqs;
     reqs.vulkanReqs.size = bytes;
     reqs.vulkanReqs.alignment = alignment;
-    return mDriver->createGPUBufferOnDedMem(reqs,canUpdateViaCmdBuff);
+
+    // Todo(achal): Need to get these values from the user somehow
+    IGPUBuffer::SCreationParams creationParams = {};
+    creationParams.size = reqs.vulkanReqs.size;
+    creationParams.usage = IGPUBuffer::EUF_TRANSFER_SRC_BIT;
+    creationParams.sharingMode = asset::ESM_EXCLUSIVE;
+    creationParams.queueFamilyIndexCount = 0u;
+    creationParams.queuueFamilyIndices = nullptr;
+
+    return mDriver->createGPUBufferOnDedMem(creationParams, reqs, canUpdateViaCmdBuff);
 }
