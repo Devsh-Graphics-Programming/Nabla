@@ -270,7 +270,11 @@ class COpenGL_Queue final : public IGPUQueue
             m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {
+        }
 
+        void waitForInitComplete()
+        {
+            threadHandler.waitForInitComplete();
         }
 
         bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override

@@ -96,8 +96,22 @@ public:
                 );
             }
         }
+        // wait for all queues to start before we set out master context
+        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+        {
+            const auto& qci = params.queueCreateInfos[i];
+            const uint32_t famIx = qci.familyIndex;
+            const uint32_t offset = (*m_offsets)[famIx];
+            for (uint32_t j = 0u; j < params.queueCreateInfos[i].count; ++j)
+            {
+                const uint32_t ix = offset + j;
+                // wait until queue's internal thread finish context creation
+                static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->waitForInitComplete();
+            }
+        }
 
         m_threadHandler.start();
+        m_threadHandler.waitForInitComplete();
 
         constexpr size_t GLSLcnt = std::extent<decltype(FeaturesType::m_GLSLExtensions)>::value;
         if (!m_supportedGLSLExtsNames)
