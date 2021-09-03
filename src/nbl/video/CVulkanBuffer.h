@@ -14,8 +14,8 @@ class CVulkanBuffer : public IGPUBuffer
 {
 public:
     CVulkanBuffer(core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, VkBuffer buffer)
-        : IGPUBuffer(std::move(dev), reqs), m_vkBuffer(buffer)
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, const bool canModifySubData, VkBuffer buffer)
+        : IGPUBuffer(std::move(dev), reqs), m_canModifySubData(canModifySubData), m_vkBuffer(buffer)
     {}
 
     ~CVulkanBuffer();
@@ -48,6 +48,7 @@ public:
 private:
     core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;
     uint64_t m_memBindingOffset;
+    const bool m_canModifySubData;
     VkBuffer m_vkBuffer;
 };
 

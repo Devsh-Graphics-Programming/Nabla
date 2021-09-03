@@ -124,7 +124,35 @@ public:
 
     bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
-        return false;
+        if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstBuffer->getAPIType() != EAT_VULKAN))
+            return false;
+
+        VkBuffer vk_srcBuffer = static_cast<const CVulkanBuffer*>(srcBuffer)->getInternalObject();
+        VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
+
+        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),
+            core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer) };
+
+        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 2);
+
+        constexpr uint32_t MAX_BUFFER_COPY_REGION_COUNT = 681u;
+        VkBufferCopy vk_bufferCopyRegions[MAX_BUFFER_COPY_REGION_COUNT];
+        for (uint32_t i = 0u; i < regionCount; ++i)
+        {
+            vk_bufferCopyRegions[i].srcOffset = pRegions[i].srcOffset;
+            vk_bufferCopyRegions[i].dstOffset = pRegions[i].dstOffset;
+            vk_bufferCopyRegions[i].size = pRegions[i].size;
+        }
+
+        vkCmdCopyBuffer(m_cmdbuf, vk_srcBuffer, vk_dstBuffer, regionCount, vk_bufferCopyRegions);
+
+        return true;
     }
 
     bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override

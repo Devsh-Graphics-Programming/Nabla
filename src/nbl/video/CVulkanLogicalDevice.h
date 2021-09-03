@@ -202,6 +202,7 @@ public:
             
     IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override
     {
+        assert(!"Not implemented!\n");
         return IGPUFence::E_STATUS::ES_ERROR;
     }
             
@@ -329,34 +330,64 @@ public:
         // Todo(achal): Hoist creation out of constructor
         return nullptr; // return core::make_smart_refctd_ptr<CVulkanRenderpass>(this, params);
     }
-            
+           
+    // API needs to change, vkFlushMappedMemoryRanges could fail.
     void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
     {
-        return;
+        constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
+        VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
+
+        const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
+        assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
+
+        getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
+        
+        if (vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
+            printf("flushMappedMemoryRanges failed\n");
     }
             
+    // API needs to change, this could fail
     void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
     {
-        return;
+        constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
+        VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
+
+        const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
+        assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
+
+        getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
+
+        if (vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
+            printf("invalidateMappedMemoryRanges failed!\n");
     }
 
     bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override
     {
+        bool anyFailed = false;
         for (uint32_t i = 0u; i < bindInfoCount; ++i)
         {
-            if ((pBindInfos[i].buffer->getAPIType() != EAT_VULKAN) /*|| (pBindInfos[i].memory->getAPIType() != EAT_VULKAN)*/)
+            const auto& bindInfo = pBindInfos[i];
+            
+            if ((bindInfo.buffer->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
 
-            VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pBindInfos[i].buffer)->getInternalObject();
+            CVulkanBuffer* vulkanBuffer = static_cast<CVulkanBuffer*>(bindInfo.buffer);
+            vulkanBuffer->setMemoryAndOffset(
+                core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
+
+            VkBuffer vk_buffer = vulkanBuffer->getInternalObject();
             VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
             if (vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
-                return false;
-        }
+            {
+                // Todo(achal): Log which one failed
+                anyFailed = true;
+            }
+        }   
 
-        return true;
+        return !anyFailed;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const bool canModifySubData = false) override
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
@@ -389,7 +420,7 @@ public:
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, vk_buffer);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, canModifySubData, vk_buffer);
         }
         else
         {
@@ -693,8 +724,8 @@ public:
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override
     {
-        // if (memory.memory->getAPIType() != EAT_VULKAN)
-        //     return nullptr;
+        if (memory.memory->getAPIType() != EAT_VULKAN)
+            return nullptr;
 
         VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
         VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(memory.memory)->getInternalObject();
@@ -712,8 +743,8 @@ public:
 
     void unmapMemory(IDriverMemoryAllocation* memory) override
     {
-        // if (memory.memory->getAPIType() != EAT_VULKAN)
-        //     return;
+        if (memory->getAPIType() != EAT_VULKAN)
+            return;
 
         VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(memory)->getInternalObject();
         vkUnmapMemory(m_vkdev, vk_deviceMemory);
@@ -1227,9 +1258,25 @@ protected:
     }
 
 private:
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-        VkMemoryPropertyFlags desiredMemoryProperties);
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs);
+
+    inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDriverMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDriverMemoryAllocation::MappedMemoryRange* inRangeEnd)
+    {
+        uint32_t k = 0u;
+        for (auto currentRange = inRangeBegin; currentRange != inRangeEnd; ++currentRange)
+        {
+            VkMappedMemoryRange& vk_memoryRange = outRanges[k++];
+            vk_memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+            vk_memoryRange.pNext = nullptr; // pNext must be NULL
+
+            if (currentRange->memory->getAPIType() != EAT_VULKAN)
+                continue;
+
+            vk_memoryRange.memory = static_cast<const CVulkanMemoryAllocation*>(currentRange->memory)->getInternalObject();
+            vk_memoryRange.offset = static_cast<VkDeviceSize>(currentRange->range.offset);
+            vk_memoryRange.size = static_cast<VkDeviceSize>(currentRange->range.length);
+        }
+    }
 
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet

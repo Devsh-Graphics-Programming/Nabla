@@ -20,7 +20,6 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
     public:
         struct SDriverMemoryRequirements
         {
-            // I feel like this field doesn't belong here
             VkMemoryRequirements vulkanReqs;
 
             uint32_t memoryHeapLocation             : 2; //IDriverMemoryAllocation::E_SOURCE_MEMORY_TYPE
