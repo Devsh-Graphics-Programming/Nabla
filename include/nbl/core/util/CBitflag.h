@@ -27,6 +27,15 @@ struct CBitflag final
 	inline CBitflag<ENUM_TYPE>& operator|=(CBitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value | rhs.value); return *this; }
 	inline CBitflag<ENUM_TYPE>& operator&=(CBitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value | rhs.value); return *this; }
 	inline CBitflag<ENUM_TYPE>& operator^=(CBitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value | rhs.value); return *this; }
+
+	inline CBitflag<ENUM_TYPE> operator>>(size_t a) { return static_cast<ENUM_TYPE>(value >> a); }
+	inline CBitflag<ENUM_TYPE> operator<<(size_t a) { return static_cast<ENUM_TYPE>(value << a); }
+	inline CBitflag<ENUM_TYPE>& operator>>=(size_t a) { value = static_cast<ENUM_TYPE>(value >> a); return *this; }
+	inline CBitflag<ENUM_TYPE>& operator<<=(size_t a) { value = static_cast<ENUM_TYPE>(value << a); return *this; }
+
+	inline bool operator!() { return !value; }
+	inline bool operator||(CBitflag<ENUM_TYPE> rhs) { return value || rhs.value;  }
+	inline bool operator&&(CBitflag<ENUM_TYPE> rhs) { return value && rhs.value; }
 };
 
 }
