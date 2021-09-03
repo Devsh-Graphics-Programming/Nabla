@@ -54,13 +54,7 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
     }
 
     if (bin_res.GetCompilationStatus() != shaderc_compilation_status_success) {
-<<<<<<< HEAD
-        os::Printer::log(bin_res.GetErrorMessage(), ELL_ERROR);
-        // tmp, Printer doesnt work on my branch so i have to printf to see shader build errors
-        printf("%s\n", bin_res.GetErrorMessage().c_str());
-=======
         logger.log(bin_res.GetErrorMessage(), system::ILogger::ELL_ERROR);
->>>>>>> scene_manager
         return nullptr;
     }
 
@@ -248,13 +242,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-<<<<<<< HEAD
-        os::Printer::log(res.GetErrorMessage(), ELL_ERROR);
-        // tmp, Printer doesnt work on my branch so i have to printf to see shader build errors
-        printf("%s\n", res.GetErrorMessage().c_str());
-=======
         logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
->>>>>>> scene_manager
         return nullptr;
     }
 

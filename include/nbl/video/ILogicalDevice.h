@@ -574,33 +574,8 @@ class ILogicalDevice : public core::IReferenceCounted
             uint32_t greatestFamNum = 0u;
             for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
             {
-<<<<<<< HEAD
-                // but first sumbit the already buffered up copies
-                cmdbuf->end();
-                IGPUQueue::SSubmitInfo submit;
-                submit.commandBufferCount = 1u;
-                submit.commandBuffers = &cmdbuf;
-                submit.signalSemaphoreCount = 0u;
-                submit.pSignalSemaphores = nullptr;
-                submit.waitSemaphoreCount = 0u;
-                submit.pWaitSemaphores = nullptr;
-                submit.pWaitDstStageMask = nullptr;
-                queue->submit(1u,&submit,fence);
-                waitForFences(1u,&fence,false,9999999999ull);
-                //waitSemaphoreCount = 0u;
-                //semaphoresToWaitBeforeOverwrite = nullptr;
-                //stagesToWaitForPerSemaphore = nullptr;
-                // but before we reset we need to poll the events (which are tied to this fence)
-                m_defaultUploadBuffer.get()->cull_frees();
-                // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
-                resetFences(1u,&fence);
-                cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-                cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-                continue;
-=======
                 greatestFamNum = (std::max)(greatestFamNum, params.queueCreateInfos[i].familyIndex);
                 qcnt += params.queueCreateInfos[i].count;
->>>>>>> scene_manager
             }
 
             m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);

@@ -268,11 +268,6 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         {
             return m_pipeline.get();
         }
-        //!
-        inline void setPipeline(core::smart_refctd_ptr<PipelineType>&& _pipeline)
-        {
-            m_pipeline = std::move(_pipeline);
-        }
 
 	    //! Get type of index data which is stored in this meshbuffer.
 	    /** \return Index type of this buffer. */
