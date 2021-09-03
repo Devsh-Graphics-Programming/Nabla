@@ -537,6 +537,9 @@ inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
 	return r;
 }
 
+uint32_t& floatBitsToUint(float& _f);
+uint32_t floatBitsToUint(float&& _f);
+
 /*
 	RGB18E7S3
 */
@@ -568,10 +571,6 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	auto clamp_rgb18e7s3 = [=](float x) -> float {
 		return std::max(0.f, std::min(x, MAX_RGB18E7S3));
 	};
-
-	const bool isRInputNegative = _rgb[0] < 0;
-	const bool isGInputNegative = _rgb[1] < 0;
-	const bool isBInputNegative = _rgb[2] < 0;
 
 	const float r = clamp_rgb18e7s3(abs(_rgb[0]));
 	const float g = clamp_rgb18e7s3(abs(_rgb[1]));
@@ -606,20 +605,9 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	assert(rm >= 0);
 	assert(gm >= 0);
 	assert(bm >= 0);
+
+	const auto signMask = static_cast<uint8_t>(((floatBitsToUint(static_cast<float>(_rgb[0])) & 0x80000000u) >> 31u) | ((floatBitsToUint(static_cast<float>(_rgb[1])) & 0x80000000u) >> 30u) | ((floatBitsToUint(static_cast<float>(_rgb[2])) & 0x80000000u) >> 29u));
 	
-	const uint8_t signMask = [&]()
-	{
-		uint8_t mask = {};
-		if (isRInputNegative)
-			mask |= 1u << 0u;
-		if (isGInputNegative)
-			mask |= 1u << 1u;
-		if (isBInputNegative)
-			mask |= 1u << 2u;
-
-		return mask;
-	}();
-
 	rgb18e7s3 returnValue;
 	returnValue.field.r = rm;
 	returnValue.field.g = gm;
@@ -640,8 +628,6 @@ inline uint64_t rgb32f_to_rgb18e7s3(float r, float g, float b)
 
 	return rgb32f_to_rgb18e7s3(rgb);
 }
-
-uint32_t& floatBitsToUint(float& _f);
 
 inline rgb32f rgb18e7s3_to_rgb32f(uint64_t _rgb18e7s3)
 {
