@@ -2,6 +2,7 @@
 #define __NBL_I_COMMAND_BUFFER_H_INCLUDED__
 
 #include <nbl/core/IReferenceCounted.h>
+#include <nbl/core/util/bitflag.h>
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/IRenderpass.h"
 #include "nbl/asset/ISampler.h"
@@ -248,7 +249,7 @@ public:
     virtual bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) = 0;
 
     virtual bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        std::underlying_type_t<E_DEPENDENCY_FLAGS> dependencyFlags,
+        core::bitflag<E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) = 0;
