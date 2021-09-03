@@ -19,10 +19,10 @@ _NBL_STATIC_INLINE_CONSTEXPR size_t FRAMES_IN_FLIGHT = 3u;
 enum E_SSBO
 {
     ES_RGB,
-    ES_RGB_CPP_ENCODED,
     ES_RGB_CPP_DECODED,
-    ES_RGB_GLSL_ENCODED,
     ES_RGB_GLSL_DECODED,
+    ES_RGB_CPP_ENCODED,
+    ES_RGB_GLSL_ENCODED,
     ES_COUNT
 };
 
@@ -30,23 +30,24 @@ enum E_SSBO
 struct alignas(16) SShaderStorageBufferObject
 {
     core::vector4df_SIMD rgb[MAX_TEST_RGB_VALUES]; //! buffer generated and filled on cpp side
+    core::vector4df_SIMD rgb_cpp_decoded[MAX_TEST_RGB_VALUES];
+    core::vector4df_SIMD rgb_glsl_decoded[MAX_TEST_RGB_VALUES];
 
     uint64_t rgb_cpp_encoded[MAX_TEST_RGB_VALUES];
-    core::vector4df_SIMD rgb_cpp_decoded[MAX_TEST_RGB_VALUES];
-
     uint64_t rgb_glsl_encoded[MAX_TEST_RGB_VALUES];
-    core::vector4df_SIMD rgb_glsl_decoded[MAX_TEST_RGB_VALUES];
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
+
+static_assert(sizeof(SShaderStorageBufferObject) == sizeof(SShaderStorageBufferObject::rgb) + sizeof(SShaderStorageBufferObject::rgb_cpp_encoded) + sizeof(SShaderStorageBufferObject::rgb_cpp_decoded) + sizeof(SShaderStorageBufferObject::rgb_glsl_encoded) + sizeof(SShaderStorageBufferObject::rgb_glsl_decoded), "There will be inproper alignment!");
 
 int main()
 {
     constexpr std::string_view APP_NAME = "RGB18E7S3 utility test";
-    constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 
 	auto initOutput = CommonAPI::Init(video::EAT_OPENGL, APP_NAME.data());
 	auto system = std::move(initOutput.system);
     auto gl = std::move(initOutput.apiConnection);
+    auto logger = std::move(initOutput.logger);
     auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
     auto logicalDevice = std::move(initOutput.logicalDevice);
     auto queues = std::move(initOutput.queues);
@@ -137,14 +138,13 @@ int main()
         return core::vector4df_SIMD(getRandomValue(), getRandomValue(), getRandomValue());
     };
 
-    auto cpuSSBOBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(SShaderStorageBufferObject));
-    auto* ssbo = reinterpret_cast<SShaderStorageBufferObject*>(cpuSSBOBuffer->getPointer());
+    SShaderStorageBufferObject ssbo;
     {
         for (size_t i = 0; i < MAX_TEST_RGB_VALUES; ++i)
         {
-            const auto& rgb = ssbo->rgb[i] = getRandomRGB();
-            const auto& encoded = ssbo->rgb_cpp_encoded[i] = rgb32f_to_rgb18e7s3(rgb.x, rgb.y, rgb.z);
-            const auto& decoded = ssbo->rgb_cpp_decoded[i] = [&]()
+            const auto& rgb = ssbo.rgb[i] = getRandomRGB();
+            const auto& encoded = ssbo.rgb_cpp_encoded[i] = rgb32f_to_rgb18e7s3(rgb.x, rgb.y, rgb.z);
+            const auto& decoded = ssbo.rgb_cpp_decoded[i] = [&]()
             {
                 const auto& rgb32f = rgb18e7s3_to_rgb32f(encoded);
                 return core::vector4df_SIMD(rgb32f.x, rgb32f.y, rgb32f.z);
@@ -152,22 +152,18 @@ int main()
         }
     }
 
-    core::smart_refctd_ptr<video::IGPUBuffer> gpuSSBOBuffer;
-    {
-        auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1, cpu2gpuParams); // pending?
-        if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
-            assert(false);
-
-        gpuSSBOBuffer = core::smart_refctd_ptr<video::IGPUBuffer>((*gpu_array)[0]->getBuffer());
-    }
+    auto ssboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
+    ssboMemoryReqs.vulkanReqs.size = sizeof(SShaderStorageBufferObject);
+    ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
+    auto gpuDownloadSSBOmapped = logicalDevice->createGPUBufferOnDedMem(ssboMemoryReqs, true);
 
     video::IGPUDescriptorSetLayout::SBinding gpuBindingsLayout[ES_COUNT] =
     {
         {ES_RGB, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-        {ES_RGB_CPP_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
         {ES_RGB_CPP_DECODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-        {ES_RGB_GLSL_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-        {ES_RGB_GLSL_DECODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr}
+        {ES_RGB_GLSL_DECODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
+        {ES_RGB_CPP_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
+        {ES_RGB_GLSL_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr}
     };
 
     auto gpuCDescriptorPool = createDescriptorPool(ES_COUNT, asset::EDT_STORAGE_BUFFER);
@@ -176,25 +172,25 @@ int main()
     {
         video::IGPUDescriptorSet::SDescriptorInfo gpuDescriptorSetInfos[ES_COUNT];
 
-        gpuDescriptorSetInfos[ES_RGB].desc = core::smart_refctd_ptr(gpuSSBOBuffer);
+        gpuDescriptorSetInfos[ES_RGB].desc = core::smart_refctd_ptr(gpuDownloadSSBOmapped);
         gpuDescriptorSetInfos[ES_RGB].buffer.size = sizeof(SShaderStorageBufferObject::rgb);
         gpuDescriptorSetInfos[ES_RGB].buffer.offset = 0;
 
-        gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].desc = core::smart_refctd_ptr(gpuSSBOBuffer);
-        gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.size = sizeof(SShaderStorageBufferObject::rgb_cpp_encoded);
-        gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.offset = sizeof(SShaderStorageBufferObject::rgb);
-
-        gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].desc = core::smart_refctd_ptr(gpuSSBOBuffer);
+        gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].desc = core::smart_refctd_ptr(gpuDownloadSSBOmapped);
         gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].buffer.size = sizeof(SShaderStorageBufferObject::rgb_cpp_decoded);
-        gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].buffer.offset = gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.offset + gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.size;
+        gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].buffer.offset = gpuDescriptorSetInfos[ES_RGB].buffer.size;
 
-        gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].desc = core::smart_refctd_ptr(gpuSSBOBuffer);
-        gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].buffer.size = sizeof(SShaderStorageBufferObject::rgb_glsl_encoded);
-        gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].buffer.offset = gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].buffer.offset + gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].buffer.size;
-
-        gpuDescriptorSetInfos[ES_RGB_GLSL_DECODED].desc = core::smart_refctd_ptr(gpuSSBOBuffer);
+        gpuDescriptorSetInfos[ES_RGB_GLSL_DECODED].desc = core::smart_refctd_ptr(gpuDownloadSSBOmapped);
         gpuDescriptorSetInfos[ES_RGB_GLSL_DECODED].buffer.size = sizeof(SShaderStorageBufferObject::rgb_glsl_decoded);
-        gpuDescriptorSetInfos[ES_RGB_GLSL_DECODED].buffer.offset = gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].buffer.offset + gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].buffer.size;
+        gpuDescriptorSetInfos[ES_RGB_GLSL_DECODED].buffer.offset = gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].buffer.offset + gpuDescriptorSetInfos[ES_RGB_CPP_DECODED].buffer.size;
+
+        gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].desc = core::smart_refctd_ptr(gpuDownloadSSBOmapped);
+        gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.size = sizeof(SShaderStorageBufferObject::rgb_cpp_encoded);
+        gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.offset = gpuDescriptorSetInfos[ES_RGB_GLSL_DECODED].buffer.offset + gpuDescriptorSetInfos[ES_RGB_GLSL_DECODED].buffer.size;
+
+        gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].desc = core::smart_refctd_ptr(gpuDownloadSSBOmapped);
+        gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].buffer.size = sizeof(SShaderStorageBufferObject::rgb_glsl_encoded);
+        gpuDescriptorSetInfos[ES_RGB_GLSL_ENCODED].buffer.offset = gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.offset + gpuDescriptorSetInfos[ES_RGB_CPP_ENCODED].buffer.size;
 
         video::IGPUDescriptorSet::SWriteDescriptorSet gpuWrites[ES_COUNT];
         {
@@ -210,6 +206,7 @@ int main()
     core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
     logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
     auto gpuFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
     for(size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
     {
         auto& commandBuffer = commandBuffers[i];
@@ -222,6 +219,7 @@ int main()
         static_assert(MAX_TEST_RGB_VALUES % WORK_GROUP_SIZE == 0, "Inccorect amount!");
         _NBL_STATIC_INLINE_CONSTEXPR size_t groupCountX = MAX_TEST_RGB_VALUES / WORK_GROUP_SIZE;
 
+        commandBuffer->updateBuffer(gpuDownloadSSBOmapped.get(), 0, sizeof(SShaderStorageBufferObject), &ssbo);
         commandBuffer->dispatch(groupCountX, 1, 1);
         commandBuffer->end();
 
@@ -252,34 +250,39 @@ int main()
         }
     }
 
-    video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuSSBOBuffer->getBoundMemory(), 0u, gpuSSBOBuffer->getSize());
+    video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuDownloadSSBOmapped->getBoundMemory(), 0u, gpuDownloadSSBOmapped->getSize());
     logicalDevice->mapMemory(mappedMemoryRange, video::IDriverMemoryAllocation::EMCAF_READ);
 
-    if (gpuSSBOBuffer->getBoundMemory()->haveToMakeVisible())
+    if (gpuDownloadSSBOmapped->getBoundMemory()->haveToMakeVisible())
         logicalDevice->invalidateMappedMemoryRanges(1u, &mappedMemoryRange);
 
-    auto* gpuSsbo = reinterpret_cast<SShaderStorageBufferObject*>(gpuSSBOBuffer->getBoundMemory()->getMappedPointer());
+    auto* gpuSsbo = reinterpret_cast<SShaderStorageBufferObject*>(gpuDownloadSSBOmapped->getBoundMemory()->getMappedPointer());
     {
         for (size_t i = 0; i < MAX_TEST_RGB_VALUES; ++i)
         {
-            const auto& rgb_reference = ssbo->rgb[i];
+            const auto& rgb_reference = gpuSsbo->rgb[i];
 
-            const auto& cpp_encoded = ssbo->rgb_cpp_encoded[i];
-            const auto& cpp_decoded = ssbo->rgb_cpp_decoded[i];
+            const auto& cpp_encoded = gpuSsbo->rgb_cpp_encoded[i];
+            const auto& cpp_decoded = gpuSsbo->rgb_cpp_decoded[i];
 
-            const auto& glsl_encoded = ssbo->rgb_glsl_encoded[i];
-            const auto& glsl_decoded = ssbo->rgb_cpp_decoded[i];
+            const auto& glsl_encoded = gpuSsbo->rgb_glsl_encoded[i];
+            const auto& glsl_decoded = gpuSsbo->rgb_cpp_decoded[i];
 
-            std::cout << "rgb[ " << i << "] result" << "\n" <<
-                         "references: " << rgb_reference.x << " " << rgb_reference.y << " " << rgb_reference.z << "\n" <<
-                         "cpp encoded: " << cpp_encoded << "\n" <<
-                         "cpp decoded: " << cpp_decoded.x << " " << cpp_decoded.y << " " << cpp_decoded.z << "\n" <<
-                         "glsl encoded: " << glsl_encoded << "\n" <<
-                         "glsl decoded: " << glsl_decoded.x << " " << glsl_decoded.y << " " << glsl_decoded.z << "\n\n";
+            const std::string logMessage_result = "rgb[" + std::to_string(i) + "] result";
+            const std::string logMessage_performance =
+                "\n[references]: " + std::to_string(rgb_reference.x) + " " + std::to_string(rgb_reference.y) + " " + std::to_string(rgb_reference.z) + "\n" +
+                "[cpp encoded]: " + std::to_string(cpp_encoded) + "\n" +
+                "[cpp decoded]: " + std::to_string(cpp_decoded.x) + " " + std::to_string(cpp_decoded.y) + " " + std::to_string(cpp_decoded.z) + "\n" +
+                "[glsl encoded]: " + std::to_string(glsl_encoded) + "\n" +
+                "[glsl decoded]: " + std::to_string(glsl_decoded.x) + " " + std::to_string(glsl_decoded.y) + " " + std::to_string(glsl_decoded.z) + "\n\n";
+
+            logger->log(logMessage_result, system::ILogger::ELL_WARNING);
+            logger->log(logMessage_performance, system::ILogger::ELL_PERFORMANCE);
+
         }
     }
 
-    logicalDevice->unmapMemory(gpuSSBOBuffer->getBoundMemory());
+    logicalDevice->unmapMemory(gpuDownloadSSBOmapped->getBoundMemory());
 
 	return 0;
 }
