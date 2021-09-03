@@ -19,7 +19,7 @@ using namespace core;
 
 // #define NBL_MORE_LOGS
 
-int main()
+int main(int argc, char** argv)
 {
     system::path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
     constexpr uint32_t WIN_W = 1280;
