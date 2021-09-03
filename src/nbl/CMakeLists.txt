@@ -333,6 +333,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueryPool.cpp
 
 
 	#opengl

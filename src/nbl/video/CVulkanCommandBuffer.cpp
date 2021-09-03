@@ -2,6 +2,7 @@
 
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
+#include "nbl/video/CVulkanQueryPool.h"
 
 namespace nbl::video
 {
@@ -155,4 +156,122 @@ namespace nbl::video
         }
         return ret;
     }
+    
+    bool CVulkanCommandBuffer::resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
+    {
+        bool ret = false;
+        if(queryPool != nullptr)
+        {
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            vkCmdResetQueryPool(m_cmdbuf, vk_queryPool, firstQuery, queryCount);
+            ret = true;
+        }
+        return ret;
+    }
+
+    bool CVulkanCommandBuffer::beginQuery(video::IQueryPool* queryPool, uint32_t query, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags)
+    {
+        bool ret = false;
+        if(queryPool != nullptr)
+        {
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags);
+            vkCmdBeginQuery(m_cmdbuf, vk_queryPool, query, vk_flags);
+            ret = true;
+        }
+        return ret;
+    }
+
+    bool CVulkanCommandBuffer::endQuery(video::IQueryPool* queryPool, uint32_t query)
+    {
+        bool ret = false;
+        if(queryPool != nullptr)
+        {
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            vkCmdEndQuery(m_cmdbuf, vk_queryPool, query);
+            ret = true;
+        }
+        return ret;
+    }
+
+    bool CVulkanCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, video::IQueryPool::E_QUERY_RESULTS_FLAGS flags)
+    {
+        bool ret = false;
+        if(queryPool != nullptr && dstBuffer != nullptr)
+        {
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_dstBuffer = static_cast<video::CVulkanBuffer*>(dstBuffer)->getInternalObject();
+            auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags); 
+            vkCmdCopyQueryPoolResults(m_cmdbuf, vk_queryPool, firstQuery, queryCount, vk_dstBuffer, dstOffset, static_cast<VkDeviceSize>(stride), vk_queryResultsFlags);
+            ret = true;
+        }
+        return ret;
+    }
+
+    bool CVulkanCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query)
+    {
+        bool ret = false;
+        if(queryPool != nullptr)
+        {
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_pipelineStage = static_cast<VkPipelineStageFlagBits>(pipelineStage); // am I doing this right?
+
+            vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStage, vk_queryPool, query);
+            ret = true;
+        }
+        return ret;
+    }
+    // TRANSFORM_FEEDBACK_STREAM
+    bool CVulkanCommandBuffer::beginQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags)
+    {
+        bool ret = false;
+         // TODO: Check  for PhysicalDevice Availability and Extension
+        if(queryPool != nullptr)
+        {
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags);
+            vkCmdBeginQueryIndexedEXT(m_cmdbuf, vk_queryPool, query, vk_flags, index);
+            ret = true;
+        }
+        return ret;
+    }
+
+    bool CVulkanCommandBuffer::endQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index)
+    {
+        bool ret = false;
+        if(queryPool != nullptr)
+        {
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            vkCmdEndQueryIndexedEXT(m_cmdbuf, vk_queryPool, query, index);
+            ret = true;
+        }
+        return ret;
+    }
+
+    // Acceleration Structure Properties (Only available on Vulkan)
+    bool CVulkanCommandBuffer::writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) 
+    {
+        bool ret = false;
+        if(queryPool != nullptr && pAccelerationStructures.empty() == false)
+        {
+            // TODO: Use Better Containers
+            static constexpr size_t MaAccelerationStructureCount = 128;
+            uint32_t asCount = static_cast<uint32_t>(pAccelerationStructures.size());
+            assert(asCount <= MaAccelerationStructureCount);
+            auto accelerationStructures = pAccelerationStructures.begin();
+            VkAccelerationStructureKHR vk_accelerationStructures[MaAccelerationStructureCount] = {};
+
+            for(size_t i = 0; i < asCount; ++i) 
+            {
+                vk_accelerationStructures[i] = static_cast<CVulkanAccelerationStructure*>(&accelerationStructures[i])->getInternalObject();
+            }
+
+            auto vk_queryPool = static_cast<video::CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryType = CVulkanQueryPool::getVkQueryTypeFromQueryType(queryType);
+            vkCmdWriteAccelerationStructuresPropertiesKHR(m_cmdbuf, asCount, vk_accelerationStructures, vk_queryType, vk_queryPool, firstQuery);
+            ret = true;
+        }
+        return ret;
+    }
+
 }

@@ -9,9 +9,7 @@ namespace nbl::video
 
 class IQueryPool : public core::IReferenceCounted, public IBackendObject
 {
-public:
-        explicit IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
-        
+    
 public:
         enum E_QUERY_TYPE
         {
@@ -39,13 +37,34 @@ public:
             EPSF_COMPUTE_SHADER_INVOCATIONS_BIT = 0x00000400,
         };
 
-        struct SCreateInfo
+        enum E_QUERY_RESULTS_FLAGS
+        {
+            EQRF_64_BIT = 0x00000001,
+            EQRF_WAIT_BIT = 0x00000002,
+            EQRF_WITH_AVAILABILITY_BIT = 0x00000004,
+            EQRF_PARTIAL_BIT = 0x00000008,
+        };
+
+        enum E_QUERY_CONTROL_FLAGS : uint32_t
+        {
+            EQCF_PRECISE_BIT = 0x01
+        };
+
+        struct SCreationParams
         {
             E_QUERY_TYPE                    queryType;
             uint32_t                        queryCount;
-            E_PIPELINE_STATISTICS_FLAGS     flags; // only when the queryType is EQT_PIPELINE_STATISTICS
+            E_PIPELINE_STATISTICS_FLAGS     pipelineStatisticsFlags; // only when the queryType is EQT_PIPELINE_STATISTICS
         };
 
+public:
+        explicit IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) 
+            : IBackendObject(std::move(dev)) 
+            , params(std::move(_params))
+        {}
+        
+protected:
+        SCreationParams params;
 };
 
 }

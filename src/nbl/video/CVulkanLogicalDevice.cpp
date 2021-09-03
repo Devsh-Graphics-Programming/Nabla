@@ -1,6 +1,7 @@
 #include "CVulkanLogicalDevice.h"
 
 #include "nbl/video/CVulkanPhysicalDevice.h"
+#include "nbl/video/CVulkanQueryPool.h"
 
 namespace nbl::video
 {
@@ -292,6 +293,30 @@ IGPUAccelerationStructure::BuildSizes CVulkanLogicalDevice::getAccelerationStruc
 {
     // TODO(Validation): Rayquery or RayTracing Pipeline must be enabled
     return getAccelerationStructureBuildSizes_impl(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, pPartialInfos, pMaxPrimitiveCounts);
+}
+
+core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool(IQueryPool::SCreationParams&& params)
+{
+    VkQueryPool vk_queryPool = VK_NULL_HANDLE;
+    VkQueryPoolCreateInfo vk_qpci = CVulkanQueryPool::getVkCreateInfoFromCreationParams(std::move(params));
+    auto vk_res = vkCreateQueryPool(m_vkdev, &vk_qpci, nullptr, &vk_queryPool);
+    if(VK_SUCCESS != vk_res)
+        return nullptr;
+    return core::make_smart_refctd_ptr<CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_queryPool);
+}
+
+bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags)
+{
+    bool ret = false;
+    if(queryPool != nullptr)
+    {
+        auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+        auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags);
+        auto vk_res = vkGetQueryPoolResults(m_vkdev, vk_queryPool, firstQuery, queryCount, dataSize, pData, static_cast<VkDeviceSize>(stride), vk_queryResultsflags);
+        if(VK_SUCCESS == vk_res)
+            ret = true;
+    }
+    return ret;
 }
 
 }

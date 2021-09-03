@@ -749,6 +749,10 @@ public:
         VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(memory)->getInternalObject();
         vkUnmapMemory(m_vkdev, vk_deviceMemory);
     }
+            
+    core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override;
+    
+    bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override;
 
     bool buildAccelerationStructures(
         core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,

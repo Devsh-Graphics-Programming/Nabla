@@ -116,7 +116,7 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 	protected:
 		IGPUAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) 
 			: IBackendObject(std::move(dev)) 
-			 , params(std::move(_params))
+			, params(std::move(_params))
 		{}
 		virtual ~IGPUAccelerationStructure() = default;
 	private:
