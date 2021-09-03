@@ -323,7 +323,8 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             std::string filePath = _params.workingDirectory.string() + _filePath;
 
             IAssetLoader::SAssetLoadParams params(_params);
-            if (!std::filesystem::exists(filePath) && !m_system->isArchiveAlias(_params.workingDirectory))
+            bool not_exist = !std::filesystem::exists(filePath);
+            if (not_exist && !m_system->isArchiveAlias(_params.workingDirectory))
             {
                 filePath = _filePath;
                 params.workingDirectory = system::path(_filePath).parent_path().string() + "/";

@@ -193,6 +193,8 @@ public:
 
     bool isArchiveAlias(const system::path& path)
     {
+        if (path.empty())
+            return false;
         auto p = path;
         if (*p.string().rbegin() == '/') p = p.string().substr(0, p.string().size() - 1);
         return !m_cachedPathAliases.findRange(p).empty();

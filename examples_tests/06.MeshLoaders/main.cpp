@@ -148,7 +148,7 @@ int main(int argc, char** argv)
         if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
             assert(false);
 
-        cpu2gpuWaitForFences();
+        //cpu2gpuWaitForFences();
         gpuds1layout = (*gpu_array)[0];
     }
 
@@ -205,7 +205,7 @@ int main(int argc, char** argv)
     CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
     core::vectorSIMDf cameraPosition(0, 5, -10);
-    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
     Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
     auto lastTime = std::chrono::system_clock::now();
 
