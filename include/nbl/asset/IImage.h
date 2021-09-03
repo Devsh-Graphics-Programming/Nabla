@@ -18,7 +18,11 @@
 
 namespace nbl::asset
 {
-	
+
+// Todo(achal): Vulkan's VkOffset3D has int32_t members, getting rid of this
+// produces a bunch of errors in the filtering APIs and core::vectorSIMD**,
+// gotta do it carefully
+
 //placeholder until we configure Vulkan SDK
 typedef struct VkOffset3D {
 	uint32_t	x;
@@ -39,6 +43,7 @@ typedef struct VkExtent3D {
 	uint32_t	height;
 	uint32_t	depth;
 } VkExtent3D; //depr
+
 inline bool operator!=(const VkExtent3D& v1, const VkExtent3D& v2)
 {
 	return v1.width!=v2.width||v1.height!=v2.height||v1.depth!=v2.depth;

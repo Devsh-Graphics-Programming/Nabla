@@ -172,7 +172,54 @@ public:
 
     bool blitImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
-        return false;
+        if (srcImage->getAPIType() != EAT_VULKAN || (dstImage->getAPIType() != EAT_VULKAN))
+            return false;
+
+        VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
+        VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
+
+        // Todo(achal): Its high time I abstract this out
+        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUImage>(srcImage),
+            core::smart_refctd_ptr<const IGPUImage>(dstImage) };
+
+        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 2);
+
+        constexpr uint32_t MAX_BLIT_REGION_COUNT = 100u;
+        VkImageBlit vk_blitRegions[MAX_BLIT_REGION_COUNT];
+        assert(regionCount <= MAX_BLIT_REGION_COUNT);
+
+        for (uint32_t i = 0u; i < regionCount; ++i)
+        {
+            vk_blitRegions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask);
+            vk_blitRegions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
+            vk_blitRegions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
+            vk_blitRegions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
+
+            // Todo(achal): Remove `static_cast`s
+            vk_blitRegions[i].srcOffsets[0] = { static_cast<int32_t>(pRegions[i].srcOffsets[0].x), static_cast<int32_t>(pRegions[i].srcOffsets[0].y), static_cast<int32_t>(pRegions[i].srcOffsets[0].z) };
+            vk_blitRegions[i].srcOffsets[1] = { static_cast<int32_t>(pRegions[i].srcOffsets[1].x), static_cast<int32_t>(pRegions[i].srcOffsets[1].y), static_cast<int32_t>(pRegions[i].srcOffsets[1].z) };
+
+            vk_blitRegions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask);
+            vk_blitRegions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
+            vk_blitRegions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
+            vk_blitRegions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
+
+            // Todo(achal): Remove `static_cast`s
+            vk_blitRegions[i].dstOffsets[0] = { static_cast<int32_t>(pRegions[i].dstOffsets[0].x), static_cast<int32_t>(pRegions[i].dstOffsets[0].y), static_cast<int32_t>(pRegions[i].dstOffsets[0].z) };
+            vk_blitRegions[i].dstOffsets[1] = { static_cast<int32_t>(pRegions[i].dstOffsets[1].x), static_cast<int32_t>(pRegions[i].dstOffsets[1].y), static_cast<int32_t>(pRegions[i].dstOffsets[1].z) };
+        }
+
+        vkCmdBlitImage(m_cmdbuf, vk_srcImage, static_cast<VkImageLayout>(srcImageLayout),
+            vk_dstImage, static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_blitRegions,
+            static_cast<VkFilter>(filter));
+
+        return true;
     }
 
     bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
