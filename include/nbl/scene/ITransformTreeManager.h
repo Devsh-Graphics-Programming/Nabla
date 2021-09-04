@@ -209,6 +209,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			};
 			struct BarrierParams
 			{
+				// TODO: what to set queue family indices to if we don't plan on a transfer by default?
 				uint32_t srcQueueFamilyIndex;
 				uint32_t dstQueueFamilyIndex;
 				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::EPSF_ALL_COMMANDS_BIT;
@@ -226,6 +227,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			asset::SBufferRange<video::IGPUBuffer> requestRanges;
 			// this one is filled with RelativeTransformModificationRequest
 			asset::SBufferRange<video::IGPUBuffer> modificationRequests;
+			// TODO: support `modificationRequestTimestamps` being null (via a union with uint64_t, timestamp_t)
+			// and have an alternate pipeline that overwrites all timestamps with the same value from a push constant 
 			asset::SBufferRange<video::IGPUBuffer> modificationRequestTimestamps;
 		};
 		inline bool updateLocalTransforms(const LocalTransformUpdateParams& params)
