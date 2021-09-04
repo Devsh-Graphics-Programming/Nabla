@@ -930,7 +930,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 asset::E_IMAGE_LAYOUT finalLayout;
                 auto usage = gpuimg->getCreationParameters().usage;
                 //constexpr auto UsageWriteMask = asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT | asset::IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT | asset::IImage::EUF_STORAGE_BIT;
-                if (!needToCompMipsForThisImg(cpuimg) && usage == asset::IImage::EUF_SAMPLED_BIT)
+                if (!needToCompMipsForThisImg(cpuimg) && usage.value == asset::IImage::EUF_SAMPLED_BIT)
                     finalLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
                 else
                     finalLayout = asset::EIL_GENERAL;

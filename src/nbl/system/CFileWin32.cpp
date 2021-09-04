@@ -3,10 +3,10 @@
 #define LODWORD(_qw)    ((DWORD)(_qw))
 #define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
 
-nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _flags), m_filename{ _filename }
+nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _flags), m_filename{ _filename }
 {
-	DWORD access = m_flags | ECF_READ_WRITE ? GENERIC_READ | GENERIC_WRITE :
-		(m_flags | ECF_READ ? GENERIC_READ : (m_flags | ECF_WRITE ? GENERIC_WRITE : 0));
+	DWORD access = m_flags.value | ECF_READ_WRITE ? GENERIC_READ | GENERIC_WRITE :
+		(m_flags.value | ECF_READ ? GENERIC_READ : (m_flags.value | ECF_WRITE ? GENERIC_WRITE : 0));
 	const bool canOpenWhenOpened = false;
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	m_native = CreateFile(m_filename.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);

@@ -19,7 +19,7 @@ class CFileWin32 : public IFile
 		size_t m_size = 0;
 		native_file_handle_t m_native = nullptr;
 	public:
-		CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags);
+		CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
 		~CFileWin32();
 		// Inherited via IFile
 		virtual size_t getSize() const override;

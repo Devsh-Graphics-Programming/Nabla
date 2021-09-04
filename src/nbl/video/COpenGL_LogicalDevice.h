@@ -208,7 +208,7 @@ public:
         return sc;
     }
 
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         return core::make_smart_refctd_ptr<COpenGLCommandPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), flags, _familyIx);
     }
