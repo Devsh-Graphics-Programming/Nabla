@@ -452,19 +452,19 @@ protected:
         constexpr GLbitfield imageBits = GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT;
 
         // ignoring source access flags
-        std::underlying_type_t<asset::E_ACCESS_FLAGS> bufaccess = 0u;
+        core::bitflag<asset::E_ACCESS_FLAGS> bufaccess = static_cast<asset::E_ACCESS_FLAGS>(0u);
         for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
             bufaccess |= pBufferMemoryBarriers[i].barrier.dstAccessMask;// | pBufferMemoryBarriers[i].barrier.srcAccessMask;
-        std::underlying_type_t<asset::E_ACCESS_FLAGS> imgaccess = 0u;
+        core::bitflag<asset::E_ACCESS_FLAGS> imgaccess = static_cast <asset::E_ACCESS_FLAGS>(0u);
         for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
             imgaccess |= pImageMemoryBarriers[i].barrier.dstAccessMask;// | pImageMemoryBarriers[i].barrier.srcAccessMask;
-        std::underlying_type_t<asset::E_ACCESS_FLAGS> memaccess = 0u;
+        core::bitflag<asset::E_ACCESS_FLAGS> memaccess = static_cast <asset::E_ACCESS_FLAGS>(0u);
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
             memaccess |= pMemoryBarriers[i].dstAccessMask;// | pMemoryBarriers[i].srcAccessMask;
 
-        GLbitfield bufbarrier = bufferBits & accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(bufaccess));
-        GLbitfield imgbarrier = imageBits & accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(imgaccess));
-        GLbitfield membarrier = accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(memaccess));
+        GLbitfield bufbarrier = bufferBits & accessFlagsToMemoryBarrierBits(bufaccess.value);
+        GLbitfield imgbarrier = imageBits & accessFlagsToMemoryBarrierBits(imgaccess.value);
+        GLbitfield membarrier = accessFlagsToMemoryBarrierBits(memaccess.value);
 
         return bufbarrier | imgbarrier | membarrier;
     }

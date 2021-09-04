@@ -354,13 +354,13 @@ public:
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
-        std::underlying_type_t<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = 0;
+        core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = static_cast< IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(0);
         if (flags & GL_MAP_READ_BIT)
             actualAccess |= IDriverMemoryAllocation::EMCAF_READ;
         if (flags & GL_MAP_WRITE_BIT)
             actualAccess |= IDriverMemoryAllocation::EMCAF_WRITE;
         if (retval)
-            post_mapMemory(memory.memory, retval, memory.range, static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(actualAccess));
+            post_mapMemory(memory.memory, retval, memory.range, actualAccess.value);
 
         return retval;
     }
