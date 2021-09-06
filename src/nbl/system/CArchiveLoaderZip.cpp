@@ -1,5 +1,5 @@
 #include "nbl/system/CArchiveLoaderZip.h"
-#include "nbl/system/CFileViewVirtualAllocatorWin32.h"
+#include "nbl/system/IFileViewAllocator.h"
 #include <aesGladman/fileenc.h>
 #include <zconf.h>
 #include <zlib/zlib.h>
@@ -283,7 +283,7 @@ namespace nbl::system
 			int16_t actualCompressionMethod = e.header.CompressionMethod;
 			//TODO: CFileView factory
 			// CFileViewVirtualAllocatorWin32
-			core::smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>> decrypted = nullptr;
+			core::smart_refctd_ptr<CFileView<VirtualAllocator>> decrypted = nullptr;
 			uint8_t* decryptedBuf = 0;
 			uint32_t decryptedSize = e.header.DataDescriptor.CompressedSize;
 #ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
@@ -360,7 +360,7 @@ namespace nbl::system
 					delete[] decryptedBuf;
 					return 0;
 				}
-				decrypted = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);//new io::CMemoryReadFile(decryptedBuf, decryptedSize, found->FullName);
+				decrypted = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);//new io::CMemoryReadFile(decryptedBuf, decryptedSize, found->FullName);
 				{
 					write_blocking(decrypted.get(), decryptedBuf, 0, decryptedSize);
 				}
@@ -468,7 +468,7 @@ namespace nbl::system
 				}
 				else
 				{
-					auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(
+					auto ret = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(
 						core::smart_refctd_ptr<ISystem>(m_system),
 						found->fullName,
 						IFile::ECF_READ_WRITE,
@@ -553,7 +553,7 @@ namespace nbl::system
 				}
 				else
 				{
-					auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize);
+					auto ret = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize);
 					{
 						write_blocking(decrypted.get(), pBuf, 0, uncompressedSize);
 					}

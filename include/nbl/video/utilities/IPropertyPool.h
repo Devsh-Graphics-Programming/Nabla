@@ -99,7 +99,6 @@ class IPropertyPool : public core::IReferenceCounted
                 if (!srcAddresses || !dstAddresses)
                 {
                     assert(false);
-                    __debugbreak();
                     exit(0xdeadbeefu);
                 }
                 auto gapIt = dstAddresses;

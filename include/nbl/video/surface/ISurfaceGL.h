@@ -77,7 +77,13 @@ class CSurfaceGL final : public CSurface<Window>
 
 
 // TODO: conditional defines
+#ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
+#elif defined(_NBL_PLATFORM_LINUX_)
+using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
+#elif defined(_NBL_PLATFORM_ANDROID_)
+using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
+#endif
 //using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 //using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
 //using CSurfaceGLWayland = CSurfaceGL<ui::IWindowWayland>;

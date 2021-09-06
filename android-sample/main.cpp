@@ -81,9 +81,10 @@ static int engine_init_display(struct nabla* engine) {
     engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
     engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(engine->app->window);
 
-    engine->api = video::IAPIConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), video::EAT_OPENGL_ES, 0, "android-sample", /*&dbgcb*/nullptr);
+    COpenGLDebugCallback cb;
+    engine->api = video::COpenGLConection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), video::EAT_OPENGL_ES, 0, "android-sample", std::move(cb));
 
-    auto surface = engine->api->createSurface(engine->window.get());
+    auto surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(engine->api),engine->window));
 
     auto gpus = engine->api->getPhysicalDevices();
 	assert(!gpus.empty());
@@ -351,7 +352,7 @@ void main()
 		cb->bindGraphicsPipeline(engine->pipeline.get());
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::SClearValue clear;
-		asset::VkRect2D area;
+		VkRect2D area;
 		area.offset = { 0, 0 };
 		area.extent = { win_w, win_h };
 		clear.color.float32[0] = 0.f;

@@ -137,7 +137,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			request.dstAddresses = nullptr;
 			request.buffer = dest;
 			request.offset = destOffset;
-			request.download = true;
+			//request.download = true; // @devshgraphicsprogramming this line doesn't compile
 
 			return pphandler->transferProperties(upIndexBuff,nullptr,cmdbuf,fence,&request,&request+1u,logger,maxWaitPoint).transferSuccess;
 		}
