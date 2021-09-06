@@ -43,7 +43,7 @@ class ILogicalDevice : public core::IReferenceCounted
         struct SCreationParams
         {
             uint32_t queueParamsCount;
-            const SQueueCreationParams* queueCreateInfos;
+            const SQueueCreationParams* queueParams;
             // ???:
             //uint32_t enabledExtensionCount;
             //const char* const* ppEnabledExtensionNames;
@@ -588,14 +588,14 @@ class ILogicalDevice : public core::IReferenceCounted
             uint32_t greatestFamNum = 0u;
             for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
             {
-                greatestFamNum = (std::max)(greatestFamNum, params.queueCreateInfos[i].familyIndex);
-                qcnt += params.queueCreateInfos[i].count;
+                greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
+                qcnt += params.queueParams[i].count;
             }
 
             m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
             m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
 
-            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueCreateInfos, params.queueCreateInfos + params.queueParamsCount))
+            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams, params.queueParams + params.queueParamsCount))
             {
                 if (qci.familyIndex == greatestFamNum)
                     continue;

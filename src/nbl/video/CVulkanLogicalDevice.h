@@ -44,7 +44,7 @@ public:
         // create actual queue objects
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
-            const auto& qci = params.queueCreateInfos[i];
+            const auto& qci = params.queueParams[i];
             const uint32_t famIx = qci.familyIndex;
             const uint32_t offset = (*m_offsets)[famIx];
             const auto flags = qci.flags;
@@ -89,8 +89,8 @@ public:
         vk_createInfo.imageArrayLayers = params.arrayLayers;
         vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
         vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
-        vk_createInfo.queueFamilyIndexCount = static_cast<uint32_t>(params.queueFamilyIndices->size());
-        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
+        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
         vk_createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // Todo(achal)     
         vk_createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Todo(achal)
         vk_createInfo.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
@@ -223,7 +223,7 @@ public:
             if (_fences[i]->getAPIType() != EAT_VULKAN)
                 return;
 
-            vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+            vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
 
         vkResetFences(m_vkdev, _count, vk_fences);
@@ -241,7 +241,7 @@ public:
             if (_fences[i]->getAPIType() != EAT_VULKAN)
                 return IGPUFence::E_STATUS::ES_ERROR;
 
-            vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+            vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
 
         VkResult result = vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
@@ -481,8 +481,8 @@ public:
         vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
         vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
         vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
-        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndices->size();
-        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
+        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
         vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
 
         VkImage vk_image;
@@ -731,7 +731,7 @@ protected:
         if (cmdPool->getAPIType() != EAT_VULKAN)
             return false;
 
-        auto vulkanCommandPool = reinterpret_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
+        auto vulkanCommandPool = static_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
 
         assert(count <= MAX_COMMAND_BUFFER_COUNT);
         VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];

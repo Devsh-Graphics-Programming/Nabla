@@ -239,7 +239,8 @@ class IImage : public IDescriptor
 			E_TILING									tiling = static_cast<E_TILING>(0);
 			std::underlying_type_t<E_USAGE_FLAGS>		usage = 0u;
 			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
-			core::smart_refctd_dynamic_array<uint32_t>	queueFamilyIndices = nullptr;
+			uint32_t									queueFamilyIndexCount;
+			const uint32_t*								queueFamilyIndices;
 			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;
 			bool operator==(const SCreationParams& rhs) const
 			{

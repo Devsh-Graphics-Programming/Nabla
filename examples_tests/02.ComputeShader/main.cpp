@@ -65,6 +65,7 @@ void main()
 })";
 #endif
 
+// Todo(achal): This can come from CommonAPI now
 #define LOG(...) printf(__VA_ARGS__); printf("\n");
 class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 {
@@ -115,7 +116,6 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 		LOG("Window lost keyboard focus");
 		windowShouldClose_Global = true;
 	}
-
 	void onMouseConnected_impl(core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
 	{
 		LOG("A mouse has been connected");
@@ -145,7 +145,7 @@ int main()
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
 
-	auto system = CommonAPI::createSystem(); // Todo(achal): Need to get rid of this
+	auto system = CommonAPI::createSystem();
 
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 
@@ -250,7 +250,8 @@ int main()
 			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
 			printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
 
-			// This flag is required, for some reason, I forgot xD
+			// This is probably required because we're using swapchain image as storage image
+			// in this example
 			if ((surfaceCapabilities.supportedUsageFlags & asset::IImage::EUF_STORAGE_BIT) == 0)
 				isGPUSuitable = false;
 			
@@ -295,9 +296,7 @@ int main()
 			(*queueFamilyIndices)[i] = tmp[i];
 	}
 
-	// Could make this a static member of IGPUQueue, something like
-	// IGPUQueue::DEFAULT_QUEUE_PRIORITY, as a "don't-care" value for the user
-	const float defaultQueuePriority = 1.f;
+	const float defaultQueuePriority = video::IGPUQueue::DEFAULT_QUEUE_PRIORITY;
 
 	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
 	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)

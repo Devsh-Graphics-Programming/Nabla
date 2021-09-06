@@ -42,7 +42,7 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
     {
         uint32_t count = 0u;
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
-            count += params.queueCreateInfos[i].count;
+            count += params.queueParams[i].count;
         return count;
     }
 
@@ -73,7 +73,7 @@ public:
 
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
-            const auto& qci = params.queueCreateInfos[i];
+            const auto& qci = params.queueParams[i];
             const uint32_t famIx = qci.familyIndex;
             const uint32_t offset = (*m_offsets)[famIx];
             const auto flags = qci.flags;
@@ -177,6 +177,7 @@ public:
         imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
         imgci.format = params.surfaceFormat.format;
         imgci.mipLevels = 1u;
+        imgci.queueFamilyIndexCount = params.queueFamilyIndexCount;
         imgci.queueFamilyIndices = params.queueFamilyIndices;
         imgci.samples = asset::IImage::ESCF_1_BIT;
         imgci.type = asset::IImage::ET_2D;

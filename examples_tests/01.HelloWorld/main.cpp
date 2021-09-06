@@ -11,13 +11,10 @@ nothing fancy, just to show that Irrlicht links fine
 #include <cstdio>
 #include <nabla.h>
 
+
 // Temporary
+#include "../../src/nbl/video/CVulkanConnection.h"
 #include <volk/volk.h>
-#include "../../src/nbl/video/CVulkanPhysicalDevice.h"
-#include "../../include/nbl/video/surface/ISurfaceVK.h"
-#include "../../src/nbl/video/CVulkanImage.h"
-#include "../../src/nbl/video/CVulkanSemaphore.h"
-#include "../../src/nbl/video/CVulkanFence.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
 #include "../common/CommonAPI.h"
@@ -27,52 +24,39 @@ using namespace nbl;
 // This probably a TODO for @sadiuk
 static bool windowShouldClose_Global = false;
 
-
-inline void debugCallback(nbl::video::E_DEBUG_MESSAGE_SEVERITY severity, nbl::video::E_DEBUG_MESSAGE_TYPE type, const char* msg, void* userData)
-{
-	using namespace nbl;
-	const char* sev = nullptr;
-	switch (severity)
-	{
-        case video::EDMS_VERBOSE:
-		sev = "verbose"; break;
-        case video::EDMS_INFO:
-		sev = "info"; break;
-        case video::EDMS_WARNING:
-		sev = "warning"; break;
-        case video::EDMS_ERROR:
-		sev = "error"; break;
-	}
-	std::cout << "OpenGL " << sev << ": " << msg << std::endl;
-}
-
 // Don't wanna use Printer::log
 #define LOG(...) printf(__VA_ARGS__); printf("\n");
 class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 {
-	void onWindowShown_impl() override
+	bool onWindowShown_impl() override
 	{
 		LOG("Window Shown");
+		return true;
 	}
-	void onWindowHidden_impl() override
+	bool onWindowHidden_impl() override
 	{
 		LOG("Window hidden");
+		return true;
 	}
-	void onWindowMoved_impl(int32_t x, int32_t y) override
+	bool onWindowMoved_impl(int32_t x, int32_t y) override
 	{
 		LOG("Window window moved to { %d, %d }", x, y);
+		return true;
 	}
-	void onWindowResized_impl(uint32_t w, uint32_t h) override
+	bool onWindowResized_impl(uint32_t w, uint32_t h) override
 	{
 		LOG("Window resized to { %u, %u }", w, h);
+		return true;
 	}
-	void onWindowMinimized_impl() override
+	bool onWindowMinimized_impl() override
 	{
 		LOG("Window minimized");
+		return true;
 	}
-	void onWindowMaximized_impl() override
+	bool onWindowMaximized_impl() override
 	{
 		LOG("Window maximized");
+		return true;
 	}
 	void onGainedMouseFocus_impl() override
 	{
@@ -91,7 +75,6 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 		LOG("Window lost keyboard focus");
 		windowShouldClose_Global = true;
 	}
-
 	void onMouseConnected_impl(core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
 	{
 		LOG("A mouse has been connected");
@@ -114,12 +97,7 @@ int main()
 {
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
-	constexpr uint32_t SC_IMG_COUNT = 3u; // problematic, shouldn't fix the number of swapchain images at compile time, since Vulkan is under no obligation to return you the exact number of images you requested
-	
-	// Note(achal): This is unused, for now
-	video::SDebugCallback dbgcb;
-	dbgcb.callback = &debugCallback;
-	dbgcb.userData = nullptr;
+	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
 	
 	auto system = CommonAPI::createSystem(); // Todo(achal): Need to get rid of this
 
@@ -133,60 +111,55 @@ int main()
 	params.y = 0;
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = nbl::ui::IWindow::ECF_NONE;
-	params.windowCaption = "Test Window";
+	params.windowCaption = "01.HelloWorld";
 	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
 	auto window = winManager->createWindow(std::move(params));
 
-	// Todo(achal): This, for some reason, fails for Release and RelWithDebInfo builds
-	core::smart_refctd_ptr<video::IAPIConnection> vk = video::IAPIConnection::create(std::move(system), video::EAT_VULKAN, 0, "New API Test", &dbgcb);
-#if 1
-	core::smart_refctd_ptr<video::ISurface> surface = vk->createSurface(window.get());
+	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
+		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "01.HelloWorld", true);
 
-	auto gpus = vk->getPhysicalDevices();
+	core::smart_refctd_ptr<video::CSurfaceVulkanWin32> surface =
+		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
+			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+
+	auto gpus = apiConnection->getPhysicalDevices();
 	assert(!gpus.empty());
 	
 	// Find a suitable gpu
-	// 
-	// Todo(achal): This process gets quite involved in Vulkan, do we want to delegate some of it to the engine.
-	// For example, the user just specifies if the application is a headless compute one and we could check the
-	// availability of the required extensions on the backend and report which physical device is suitable or
-	// some thing like that
-
-	// Todo(achal): Look at this:
-	// https://github.com/Devsh-Graphics-Programming/Nabla/blob/6bd5061abe0a2020142efda827269ea6c07f0f2f/examples_tests/common/CommonAPI.h
-	core::smart_refctd_ptr<video::CVulkanPhysicalDevice> gpu = nullptr;
-
 	uint32_t graphicsFamilyIndex(~0u);
 	uint32_t presentFamilyIndex(~0u);
 
 	// Todo(achal): Probably want to put these into some struct
+	uint32_t minSwapchainImageCount(~0u);
 	nbl::video::ISurface::SFormat surfaceFormat;
 	nbl::video::ISurface::E_PRESENT_MODE presentMode;
-	nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
+	// nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform; // Todo(achal)
 	nbl::asset::E_SHARING_MODE imageSharingMode;
 	VkExtent2D swapchainExtent;
-	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
-	QueueFamilyIndicesArrayType queueFamilyIndices;
 
+	// Todo(achal): Look at this:
+	// https://github.com/Devsh-Graphics-Programming/Nabla/blob/6bd5061abe0a2020142efda827269ea6c07f0f2f/examples_tests/common/CommonAPI.h
+
+	video::IPhysicalDevice* gpu = nullptr;
 	for (size_t i = 0ull; i < gpus.size(); ++i)
 	{
-		// Todo(achal): Hacks, get rid
-		gpu = core::smart_refctd_ptr_static_cast<video::CVulkanPhysicalDevice>(*(gpus.begin() + i));
-		auto vk_surface = core::smart_refctd_ptr_static_cast<video::ISurfaceVK>(surface);
+		gpu = gpus.begin()[i];
 
 		bool isGPUSuitable = false;
 
-		// Check if the physical device has queue families which support both graphics and presenting, not necessarily overlapping
+		// Todo(achal): Abstract out
+		// Find required queue family indices
 		{
 			const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
 
 			for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
 			{
 				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+
 				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT)
 					graphicsFamilyIndex = familyIndex;
 
-				if (surface->isSupported(gpu.get(), familyIndex))
+				if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
 					presentFamilyIndex = familyIndex;
 
 				if ((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))
@@ -197,62 +170,39 @@ int main()
 			}
 		}
 
-		// Check if this physical device supports the swapchain extension
-		// Todo(achal): Eventually move this to CommonAPI.h
-		{
-			// Todo(achal): Get this from the user
-			const uint32_t requiredDeviceExtensionCount = 1u;
-			const char* requiredDeviceExtensionNames[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+		// Since our workload is not headless compute, a swapchain is mandatory
+		if (!gpu->isSwapchainSupported())
+			isGPUSuitable = false;
 
-			uint32_t availableExtensionCount;
-			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, NULL);
-			std::vector<VkExtensionProperties> availableExtensions(availableExtensionCount);
-			vkEnumerateDeviceExtensionProperties(gpu->getInternalObject(), NULL, &availableExtensionCount, availableExtensions.data());
-
-			bool requiredDeviceExtensionsAvailable = false;
-			for (uint32_t i = 0u; i < availableExtensionCount; ++i)
-			{
-				if (strcmp(availableExtensions[i].extensionName, requiredDeviceExtensionNames[0]) == 0)
-				{
-					requiredDeviceExtensionsAvailable = true;
-					break;
-				}
-			}
-
-			if (!requiredDeviceExtensionsAvailable)
-				isGPUSuitable = false;
-		}
-
+		// Todo(achal): Abstract it out
 		// Check if the surface is adequate
 		{
 			uint32_t surfaceFormatCount;
-			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, nullptr);
+			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
 			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
-			gpu->getAvailableFormatsForSurface(surface.get(), surfaceFormatCount, surfaceFormats.data());
+			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, surfaceFormats.data());
 
-			video::ISurface::E_PRESENT_MODE presentModes =
-				gpu->getAvailablePresentModesForSurface(surface.get());
+			video::ISurface::E_PRESENT_MODE availablePresentModes =
+				surface->getAvailablePresentModesForPhysicalDevice(gpu);
 
-			// Todo(achal): Probably should make a ISurface::SCapabilities
-			// struct for this as a wrapper for VkSurfaceCapabilitiesKHR
-			// nbl::video::ISurface::SCapabilities surfaceCapabilities = ;
-			VkSurfaceCapabilitiesKHR surfaceCapabilities;
-			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->getInternalObject(), 
-				vk_surface->m_surface, &surfaceCapabilities);
-
-			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
-			printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
-
-			if ((surfaceCapabilities.maxImageCount != 0) && (SC_IMG_COUNT > surfaceCapabilities.maxImageCount)
-				|| (surfaceFormats.empty()) || (presentModes == static_cast<video::ISurface::E_PRESENT_MODE>(0)))
-			{
+			video::ISurface::SCapabilities surfaceCapabilities = {};
+			if (!surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, surfaceCapabilities))
 				isGPUSuitable = false;
-			}
+
+			printf("Min swapchain image count (as returned by Vulkan): %d\n", surfaceCapabilities.minImageCount);
+			printf("Max swapchain image count (as returned by Vulkan): %d\n", surfaceCapabilities.maxImageCount);
+
+			if ((surfaceFormats.empty()) || (availablePresentModes == video::ISurface::EPM_UNKNOWN))
+				isGPUSuitable = false;
 
 			// Todo(achal): Probably a more sophisticated way to choose these
+			minSwapchainImageCount = core::min(surfaceCapabilities.minImageCount + 1u, MAX_SWAPCHAIN_IMAGE_COUNT);
+			if ((surfaceCapabilities.maxImageCount != 0u) && (minSwapchainImageCount > surfaceCapabilities.maxImageCount))
+				minSwapchainImageCount = surfaceCapabilities.maxImageCount;
+
 			surfaceFormat = surfaceFormats[0];
-			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(presentModes & (1 << 0));
-			preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
+			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(availablePresentModes & (1 << 0));
+			// preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
 			swapchainExtent = surfaceCapabilities.currentExtent;
 		}
 
@@ -273,39 +223,49 @@ int main()
 		imageSharingMode = asset::ESM_CONCURRENT;
 	}
 
-	queueFamilyIndices = core::make_refctd_dynamic_array<QueueFamilyIndicesArrayType>(deviceCreationParams.queueParamsCount);
+	std::vector<uint32_t> queueFamilyIndices(deviceCreationParams.queueParamsCount);
 	{
 		const uint32_t temp[] = { graphicsFamilyIndex, presentFamilyIndex };
 		for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
-			(*queueFamilyIndices)[i] = temp[i];
+			queueFamilyIndices[i] = temp[i];
 	}
 
-	const float priority = 1.f;
+	const float priority = video::IGPUQueue::DEFAULT_QUEUE_PRIORITY;
 	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
 	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
 	{
-		queueCreationParams[i].familyIndex = (*queueFamilyIndices)[i];
+		queueCreationParams[i].familyIndex = queueFamilyIndices[i];
 		queueCreationParams[i].count = 1u;
 		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
 		queueCreationParams[i].priorities = &priority;
 	}
-	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
+	deviceCreationParams.queueParams = queueCreationParams.data();
+
 	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
+
+	video::IGPUQueue* graphicsQueue = device->getQueue(graphicsFamilyIndex, 0u);
+	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
 
 	nbl::video::ISwapchain::SCreationParams sc_params = {};
 	sc_params.surface = surface;
-	sc_params.minImageCount = SC_IMG_COUNT;
+	sc_params.minImageCount = minSwapchainImageCount;
 	sc_params.surfaceFormat = surfaceFormat;
 	sc_params.presentMode = presentMode;
 	sc_params.width = WIN_W;
 	sc_params.height = WIN_H;
-	sc_params.queueFamilyIndices = queueFamilyIndices;
+	sc_params.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
+	sc_params.queueFamilyIndices = queueFamilyIndices.data();
 	sc_params.imageSharingMode = imageSharingMode;
-	sc_params.preTransform = preTransform;
+	// sc_params.preTransform = preTransform;
 	sc_params.imageUsage = asset::IImage::EUF_COLOR_ATTACHMENT_BIT;
+	sc_params.oldSwapchain = nullptr;
 
 	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(std::move(sc_params));
 
+	const auto swapchainImages = swapchain->getImages();
+	const uint32_t swapchainImageCount = swapchain->getImageCount();
+
+#if 0
 	// Create render pass
 	video::IGPURenderpass::SCreationParams::SAttachmentDescription attachmentDescription;
 	attachmentDescription.format = surfaceFormat.format; // this should be same as the imageview used for this attachment
@@ -648,6 +608,5 @@ int main()
 	device->waitIdle();
 #endif
     
-	// return 0;
-	exit(0);
+	return 0;
 }
