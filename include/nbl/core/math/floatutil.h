@@ -425,6 +425,14 @@ class Float16Compressor
 		}
 };
 
+struct rgb32f {
+	float x, y, z;
+};
+
+/*
+	RGB19E7
+*/
+
 [[maybe_unused]] constexpr uint32_t RGB19E7_EXP_BITS = 7u;
 constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
 constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
@@ -505,9 +513,6 @@ inline uint64_t rgb32f_to_rgb19e7(float r, float g, float b)
 
 	return rgb32f_to_rgb19e7(rgb);
 }
-struct rgb32f {
-	float x, y, z;
-};
 inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
 {
 	union rgb19e7 {
@@ -530,6 +535,137 @@ inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
 	r.z = u.field.b * scale;
 
 	return r;
+}
+
+uint32_t& floatBitsToUint(float& _f);
+uint32_t floatBitsToUint(float&& _f);
+
+/*
+	RGB18E7S3
+*/
+
+[[maybe_unused]] constexpr uint32_t RGB18E7S3_EXP_BITS = 7u;
+constexpr uint32_t RGB18E7S3_MANTISSA_BITS = 18u;
+constexpr uint32_t RGB18E7S3_EXP_BIAS = 63;	//! 2^(RGB18E7S3_EXP_BITS - 1) - 1
+constexpr uint32_t RGB18E7S3_MAX_VALID_BIASED_EXP = 127u; //! 2^RGB18E7S3_EXP_BITS - 1
+
+constexpr uint32_t MAX_RGB18E7S3_EXP = RGB18E7S3_MAX_VALID_BIASED_EXP - RGB18E7S3_EXP_BIAS;
+constexpr uint32_t RGB18E7S3_MANTISSA_VALUES = 1u << RGB18E7S3_MANTISSA_BITS;
+constexpr uint32_t MAX_RGB18E7S3_MANTISSA = RGB18E7S3_MANTISSA_VALUES - 1u;
+constexpr float MAX_RGB18E7S3 = static_cast<float>(MAX_RGB18E7S3_MANTISSA) / RGB18E7S3_MANTISSA_VALUES * (1LL << (MAX_RGB18E7S3_EXP - 32)) * (1LL << 32);
+[[maybe_unused]] constexpr float EPSILON_RGB18E7S3 = (1.f / RGB18E7S3_MANTISSA_VALUES) / (1LL << (RGB18E7S3_EXP_BIAS - 32)) / (1LL << 32);
+
+inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
+{
+	union rgb18e7s3 {
+		uint64_t u64;
+		struct field {
+			uint64_t r : 18;
+			uint64_t g : 18;
+			uint64_t b : 18;
+			uint64_t e : 7;
+			uint64_t s : 3;
+		} field;
+	};
+
+	auto clamp_rgb18e7s3 = [=](float x) -> float {
+		return std::max(0.f, std::min(x, MAX_RGB18E7S3));
+	};
+
+	const float r = clamp_rgb18e7s3(abs(_rgb[0]));
+	const float g = clamp_rgb18e7s3(abs(_rgb[1]));
+	const float b = clamp_rgb18e7s3(abs(_rgb[2]));
+
+	auto f32_exp = [](float x) -> int32_t { return ((reinterpret_cast<int32_t&>(x) >> 23) & 0xff) - 127; };
+
+	const float maxrgb = std::max({ r,g,b });
+	int32_t exp_shared = std::max(-static_cast<int32_t>(RGB18E7S3_EXP_BIAS) - 1, f32_exp(maxrgb)) + 1 + RGB18E7S3_EXP_BIAS;
+	assert(exp_shared <= static_cast<int32_t>(RGB18E7S3_MAX_VALID_BIASED_EXP));
+	assert(exp_shared >= 0);
+
+	double denom = std::pow(2.0, static_cast<int32_t>(exp_shared - RGB18E7S3_EXP_BIAS - RGB18E7S3_MANTISSA_BITS)); // TODO: use fast exp2 and compute reciprocal instead, also use floats not doubles
+
+	const uint32_t maxm = static_cast<uint32_t>(maxrgb / denom + 0.5);
+	if (maxm == MAX_RGB18E7S3_MANTISSA + 1u)
+	{
+		denom *= 2.0;
+		++exp_shared;
+		assert(exp_shared <= static_cast<int32_t>(RGB18E7S3_MAX_VALID_BIASED_EXP));
+	}
+	else
+		assert(maxm <= MAX_RGB18E7S3_MANTISSA);
+
+	int32_t rm = r / denom + 0.5;
+	int32_t gm = g / denom + 0.5;
+	int32_t bm = b / denom + 0.5;
+
+	assert(rm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
+	assert(gm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
+	assert(bm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
+	assert(rm >= 0);
+	assert(gm >= 0);
+	assert(bm >= 0);
+
+	const auto signMask = static_cast<uint8_t>(((floatBitsToUint(static_cast<float>(_rgb[0])) & 0x80000000u) >> 31u) | ((floatBitsToUint(static_cast<float>(_rgb[1])) & 0x80000000u) >> 30u) | ((floatBitsToUint(static_cast<float>(_rgb[2])) & 0x80000000u) >> 29u));
+	
+	rgb18e7s3 returnValue;
+	returnValue.field.r = rm;
+	returnValue.field.g = gm;
+	returnValue.field.b = bm;
+	returnValue.field.e = exp_shared;
+	returnValue.field.s = signMask;
+
+	return returnValue.u64;
+}
+
+inline uint64_t rgb32f_to_rgb18e7s3(const uint32_t _rgb[3])
+{
+	return rgb32f_to_rgb18e7s3(reinterpret_cast<const float*>(_rgb));
+}
+inline uint64_t rgb32f_to_rgb18e7s3(float r, float g, float b)
+{
+	const float rgb[3]{ r,g,b };
+
+	return rgb32f_to_rgb18e7s3(rgb);
+}
+
+inline rgb32f rgb18e7s3_to_rgb32f(uint64_t _rgb18e7s3)
+{
+	union rgb18e7s3 {
+		uint64_t u64;
+		struct field {
+			uint64_t r : 18;
+			uint64_t g : 18;
+			uint64_t b : 18;
+			uint64_t e : 7;
+			uint64_t s : 3;
+		} field;
+	};
+
+	rgb18e7s3 u;
+	u.u64 = _rgb18e7s3;
+	int32_t exp = u.field.e - RGB18E7S3_EXP_BIAS - RGB18E7S3_MANTISSA_BITS;
+	float scale = static_cast<float>(std::exp2(exp));
+	const uint8_t signMask = u.field.s;
+
+	const bool isEncodedRNegative = signMask & (1u << 0u);
+	const bool isEncodedGNegative = signMask & (1u << 1u);
+	const bool isEncodedBNegative = signMask & (1u << 2u);
+
+	rgb32f rgb;
+	rgb.x = u.field.r * scale;
+	if (isEncodedRNegative)
+		floatBitsToUint(rgb.x) ^= 0x80000000u;
+
+	rgb.y = u.field.g * scale;
+	if (isEncodedGNegative)
+		floatBitsToUint(rgb.y) ^= 0x80000000u;
+
+	rgb.z = u.field.b * scale;
+	if (isEncodedBNegative)
+		floatBitsToUint(rgb.z) ^= 0x80000000u;
+
+	return rgb;
 }
 
 NBL_FORCE_INLINE float nextafter32(float x, float y)

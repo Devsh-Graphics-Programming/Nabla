@@ -199,11 +199,6 @@ private:
             return syncs[imgix];
         }
 
-        void waitForInitComplete()
-        {
-            m_initComplete.wait(false);
-        }
-
     protected:
 
         void init(SThreadHandlerInternalState* state_ptr)
@@ -261,8 +256,6 @@ private:
                 syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
                 syncs[i]->init(m_device, &gl, false);
             }
-            m_initComplete.test_and_set();
-            m_initComplete.notify_one();
         }
 
         void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)
@@ -323,8 +316,6 @@ private:
         } request;
 
         bool needToBlit = false;
-
-        std::atomic_flag m_initComplete;
 
         EGLBoolean m_makeCurrentRes = EGL_FALSE;
         std::condition_variable m_ctxCreatedCvar;
