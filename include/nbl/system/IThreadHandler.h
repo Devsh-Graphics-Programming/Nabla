@@ -104,6 +104,8 @@ private:
         {
             static_cast<CRTP*>(this)->init();
         }
+        m_initComplete.test_and_set();
+        m_initComplete.notify_one();
     }
 
     void terminate()
@@ -137,6 +139,11 @@ public:
             return true;
         }
         return false;
+    }
+
+    void waitForInitComplete()
+    {
+        m_initComplete.wait(false);
     }
 
     ~IThreadHandler()
@@ -189,7 +196,8 @@ protected:
 
     mutex_t m_mutex;
     cvar_t m_cvar;
-    bool m_quit = false;
+    std::atomic_flag m_initComplete; // begins in false state, per C++11 spec
+    bool m_quit = false; // TODO: make this an atomic_flag
 
     // Must be last member!
     std::thread m_thread;
