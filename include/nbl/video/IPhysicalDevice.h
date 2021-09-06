@@ -83,6 +83,7 @@ public:
         bool accelerationStructureIndirectBuild = false;
         bool accelerationStructureHostCommands = false;
         bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
+        bool allowCommandBufferQueryCopies = false;
     };
 
     struct SMemoryProperties

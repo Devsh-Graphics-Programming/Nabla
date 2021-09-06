@@ -106,6 +106,7 @@ public:
             m_features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
             m_features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
             m_features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
+            m_features.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
         }
                 
         requestDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME, false);

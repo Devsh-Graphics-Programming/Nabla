@@ -320,6 +320,11 @@ public:
 
 		GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 		m_glfeatures.MaxArrayTextureLayers = num;
+		
+		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
+		{
+			m_features.allowCommandBufferQueryCopies = true;
+		}
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 		{
