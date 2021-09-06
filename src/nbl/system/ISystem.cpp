@@ -23,20 +23,14 @@ namespace nbl::system
         system::path path = _path.parent_path().string();
 
         
-        bool isPathAlias = !std::filesystem::exists(path);
         while (!path.empty() && path.parent_path() != path) // going up the directory tree
         {
             system::path realPath = path;
-            if (isPathAlias)
-            {
-                auto a = m_cachedPathAliases.findRange(path);
-                if (a.empty())
-                {
-                    path = path.parent_path();
-                    continue;
-                }
+            
+            auto a = m_cachedPathAliases.findRange(path);
+            if (!a.empty())
                 realPath = a.begin()->second;
-            }
+
             auto archives = m_cachedArchiveFiles.findRange(realPath);
             for (auto& archive : archives)
             {
