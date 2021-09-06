@@ -11,12 +11,14 @@ namespace nbl::ui
 class CWindowAndroid : public IWindowAndroid
 {
 public:
-    explicit CWindowAndroid(native_handle_t anw) : m_native(anw)
+    explicit CWindowAndroid(native_handle_t anw) : m_native(anw), IWindowAndroid(SCreationParams{})
     {
         m_width = ANativeWindow_getWidth(anw);
         m_height = ANativeWindow_getHeight(anw);
     }
 
+    virtual IClipboardManager* getClipboardManager() { return nullptr; }
+    virtual ICursorControl* getCursorControl() { return nullptr; }
     const native_handle_t& getNativeHandle() const override { return m_native; }
 
 private:

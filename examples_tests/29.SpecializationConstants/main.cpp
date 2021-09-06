@@ -29,7 +29,7 @@ int main()
 	auto surface = std::move(initOutp.surface);
 	auto device = std::move(initOutp.logicalDevice);
 	auto gpu = std::move(initOutp.physicalDevice);
-	auto queue = std::move(initOutp.queue);
+	auto queue = std::move(initOutp.queues[decltype(initOutp)::EQT_GRAPHICS]);
 	auto sc = std::move(initOutp.swapchain);
 	auto renderpass = std::move(initOutp.renderpass);
 	auto fbo = std::move(initOutp.fbo);
@@ -118,6 +118,7 @@ int main()
 	auto computeLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr,nullptr,core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(computePipeline->getLayout()->getDescriptorSetLayout(0)));
 	computePipeline->setLayout(core::smart_refctd_ptr(computeLayout));
 
+	// TODO: move to CommonAPI
 	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 	cpu2gpuParams.assetManager = am.get();
 	cpu2gpuParams.device = device.get();

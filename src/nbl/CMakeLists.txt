@@ -181,6 +181,10 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -365,6 +369,7 @@ set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
 	${THIRD_PARTY_SOURCE_DIR}/glm
+        ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
@@ -395,7 +400,7 @@ macro(nbl_target_include_parallel_hashmap _trgt)
 endmacro()
 
 macro(nbl_target_link_openssl _trgt)
-	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 		target_link_libraries(${_trgt} INTERFACE
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		)
@@ -562,7 +567,7 @@ target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
 		${X11_INCLUDE_DIR} 
-		${X11_Xrandr_INCLUDE_PATH} 
+		X11_Xrandr_INCLUDE_PATH
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
@@ -670,7 +675,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 nbl_install_lib(png_static)
 
-if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 	install(FILES
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		DESTINATION lib
@@ -679,7 +684,7 @@ endif()
 nbl_install_lib(shaderc)
 nbl_install_lib(shaderc_util)
 nbl_install_lib(SPIRV)
-nbl_install_lib(SPIRV-Tools)
+nbl_install_lib(SPIRV-Tools-static)
 nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)

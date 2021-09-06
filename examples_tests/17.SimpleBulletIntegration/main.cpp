@@ -206,10 +206,10 @@ int main(int argc, char** argv)
 	std::array<video::CPropertyPoolHandler::TransferRequest,object_property_pool_t::PropertyCount+1> transfers;
 	for (auto i=0u; i<transfers.size(); i++)
 	{
+		transfers[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
 		transfers[i].propertyID = i;
 		transfers[i].device2device = false;
 		transfers[i].srcAddresses = nullptr;
-		transfers[i].download = false;
 	}
 	transfers[2].propertyID = 0;
 	// add a shape
@@ -408,7 +408,7 @@ int main(int argc, char** argv)
 		//params.relativeDir = tmp.c_str();
 		auto spec = assetManager->getAsset(path,params).getContents();
 		if (spec.empty())
-			return nullptr;
+			assert(false);
 
 		return core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*spec.begin());
 	};
@@ -633,13 +633,13 @@ int main(int argc, char** argv)
 
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.pool = objectPool.get();
+			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
 			request.propertyID = TransformPropertyID;
 			request.elementCount = CInstancedMotionState::s_updateAddresses.size();
 			request.srcAddresses = nullptr;
 			request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
 			request.device2device = false;
 			request.source = CInstancedMotionState::s_updateData.data();
-			request.download = false;
 			// TODO: why does the very first update set matrices to identity?
 			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
 			assert(result.transferSuccess);
@@ -681,7 +681,7 @@ int main(int argc, char** argv)
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
-			asset::VkRect2D area;
+			VkRect2D area;
 			clearValues[0].color.float32[0] = 0.1f;
 			clearValues[0].color.float32[1] = 0.1f;
 			clearValues[0].color.float32[2] = 0.1f;

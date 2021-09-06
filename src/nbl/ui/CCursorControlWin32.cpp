@@ -1,5 +1,9 @@
 #include "nbl/ui/CCursorControlWin32.h"
 
+#ifdef _NBL_PLATFORM_WINDOWS_
+
+#include <Windows.h>
+
 
 namespace nbl::ui
 {
@@ -42,3 +46,5 @@ CCursorControlWin32::SRelativePosition CCursorControlWin32::getRelativePosition(
 }
 
 }
+
+#endif

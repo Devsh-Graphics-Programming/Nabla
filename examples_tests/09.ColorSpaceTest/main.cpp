@@ -44,37 +44,40 @@ int main()
     auto fbos = std::move(initOutput.fbo);
     auto commandPool = std::move(initOutput.commandPool);
     auto assetManager = std::move(initOutput.assetManager);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto utilities = std::move(initOutput.utilities);
 
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+	auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuTransferFence;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuTransferSemaphore;
-
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuComputeFence;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUSemaphore> gpuComputeSemaphore;
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 	{
-		gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-		gpuTransferSemaphore = logicalDevice->createSemaphore();
-
-		gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-		gpuComputeSemaphore = logicalDevice->createSemaphore();
-
-		cpu2gpuParams.assetManager = assetManager.get();
-		cpu2gpuParams.device = logicalDevice.get();
-		cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
-		cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
-		cpu2gpuParams.pipelineCache = nullptr;
-		cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
-
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queues[decltype(initOutput)::EQT_COMPUTE];
 	}
+
+	auto cpu2gpuWaitForFences = [&]() -> void
+	{
+		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
+		}
+
+		waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
+		}
+	};
 
     auto createDescriptorPool = [&](const uint32_t textureCount)
     {
@@ -91,17 +94,10 @@ int main()
 	auto gpuDescriptorSetLayout3 = logicalDevice->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 	auto gpuDescriptorPool = createDescriptorPool(1u); // per single texture
 	auto fstProtoPipeline = nbl::ext::FullScreenTriangle::createProtoPipeline(cpu2gpuParams);
-	{
-		gpuTransferFence = std::move(logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0)));
-		gpuTransferSemaphore = std::move(logicalDevice->createSemaphore());
-
-		gpuComputeFence = std::move(logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0)));
-		gpuComputeSemaphore = std::move(logicalDevice->createSemaphore());
-	}
-
+	
 	auto createGPUPipeline = [&](nbl::asset::IImageView<nbl::asset::ICPUImage>::E_TYPE typeOfImage) -> core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>
 	{
-		auto getPathToFragmentShader = [&]()
+		auto getPathToFragmentShader = [&]() -> std::string
 		{
 			switch (typeOfImage)
 			{
@@ -120,7 +116,7 @@ int main()
 
 		auto fs_bundle = assetManager->getAsset(getPathToFragmentShader(), {});
 		auto fs_contents = fs_bundle.getContents();
-		if (fs_contents.begin() == fs_contents.end())
+		if (fs_contents.empty())
 			assert(false);
 
 		asset::ICPUSpecializedShader* cpuFragmentShader = static_cast<nbl::asset::ICPUSpecializedShader*>(fs_contents.begin()->get());
@@ -131,6 +127,7 @@ int main()
 			if (!gpu_array.get() || gpu_array->size() < 1u || !(*gpu_array)[0])
 				assert(false);
 
+			cpu2gpuWaitForFences();
 			gpuFragmentShader = (*gpu_array)[0];
 		}
 
@@ -238,6 +235,7 @@ int main()
 	auto gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
 	if (!gpuImageViews || gpuImageViews->size() < cpuImageViews.size())
 		assert(false);
+	cpu2gpuWaitForFences();
 
 	auto getCurrentGPURenderpassIndependentPipeline = [&](nbl::video::IGPUImageView* gpuImageView)
 	{
@@ -353,7 +351,7 @@ int main()
 
 			nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 			{
-				nbl::asset::VkRect2D area;
+				VkRect2D area;
 				area.offset = { 0,0 };
 				area.extent = { NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT };
 				nbl::asset::SClearValue clear;

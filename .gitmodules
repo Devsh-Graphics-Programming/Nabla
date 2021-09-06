@@ -101,3 +101,6 @@
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
 	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
+[submodule "3rdparty/nbl_spirv_cross"]
+	path = 3rdparty/nbl_spirv_cross
+	url = https://github.com/devshgraphicsprogramming/SPIRV-Cross.git

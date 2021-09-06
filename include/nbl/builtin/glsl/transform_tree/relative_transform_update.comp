@@ -1,0 +1,20 @@
+#version 440 core
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+// disable descriptors we dont need
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_BINDING
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_BINDING
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_BINDING
+// constrain access type
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_QUALIFIERS writeonly restrict
+#include "nbl/builtin/glsl/transform_tree/relative_transform_update_commmon.glsl"
+
+void main()
+{
+    if (gl_GlobalInvocationID.x>=relativeTransformModicicationRequestRanges.rangeCount)
+        return;
+
+    const nbl_glsl_transform_tree_modification_request_range_t requestRange = relativeTransformModicicationRequestRanges.data[gl_GlobalInvocationID.x];
+    nbl_glsl_transform_tree_relativeTransformUpdate_noStamp(requestRange);
+    nodeUpdatedTimestamp.data[requestRange.nodeID] = request.newTimestamp;
+}

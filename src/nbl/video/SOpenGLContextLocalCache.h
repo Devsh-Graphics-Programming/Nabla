@@ -45,6 +45,14 @@ struct SOpenGLContextLocalCache
         GLuint GLname;
     };
 
+    struct SBeforeClearStateBackup
+    {
+        GLuint stencilWrite_front;
+        GLuint stencilWrite_back;
+        GLboolean depthWrite;
+        GLboolean colorWrite[4];
+    };
+
     using vao_cache_t = core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash>;
     using pipeline_cache_t = core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc>;
     using fbo_cache_t = core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc>;
@@ -190,25 +198,25 @@ struct SOpenGLContextLocalCache
         }
     }
 
-    GLuint getSingleColorAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img)
+    inline GLuint getSingleColorAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img, uint32_t mip, int32_t layer)
     {
-        auto hash = COpenGLFramebuffer::getHashColorImage(img);
+        auto hash = COpenGLFramebuffer::getHashColorImage(img, mip, layer);
         auto found = FBOCache.get(hash);
         if (found)
             return *found;
-        GLuint fbo = COpenGLFramebuffer::getNameColorImage(gl, img);
+        GLuint fbo = COpenGLFramebuffer::getNameColorImage(gl, img, mip, layer);
         if (!fbo)
             return 0u;
         FBOCache.insert(hash, fbo);
         return fbo;
     }
-    GLuint getDepthStencilAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img)
+    inline GLuint getDepthStencilAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img, uint32_t mip, int32_t layer)
     {
-        auto hash = COpenGLFramebuffer::getHashDepthStencilImage(img);
+        auto hash = COpenGLFramebuffer::getHashDepthStencilImage(img, mip, layer);
         auto found = FBOCache.get(hash);
         if (found)
             return *found;
-        GLuint fbo = COpenGLFramebuffer::getNameDepthStencilImage(gl, img);
+        GLuint fbo = COpenGLFramebuffer::getNameDepthStencilImage(gl, img, mip, layer);
         if (!fbo)
             return 0u;
         FBOCache.insert(hash, fbo);
@@ -245,6 +253,38 @@ struct SOpenGLContextLocalCache
     // state flushing 
     void flushStateGraphics(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
     void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
+
+    inline SBeforeClearStateBackup backupAndFlushStateClear(IOpenGL_FunctionTable* gl, uint32_t ctxid, bool color, bool depth, bool stencil)
+    {
+        SBeforeClearStateBackup backup;
+        memcpy(backup.colorWrite, currentState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4);
+        backup.depthWrite = currentState.rasterParams.depthWriteEnable;
+        backup.stencilWrite_back = currentState.rasterParams.stencilFunc_back.mask;
+        backup.stencilWrite_front = currentState.rasterParams.stencilFunc_front.mask;
+        //TODO dithering (? i think vulkan doesnt have dithering at all), scissor test (COpenGLCommandBuffer impl doesnt support scissor yet)
+        // "The pixel ownership test, the scissor test, dithering, and the buffer writemasks affect the operation of glClear."
+
+        if (color)
+            std::fill_n(nextState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4u, GL_TRUE);
+        if (depth)
+            nextState.rasterParams.depthWriteEnable = GL_TRUE;
+        if (stencil)
+        {
+            nextState.rasterParams.stencilFunc_back.mask = ~0u;
+            nextState.rasterParams.stencilFunc_front.mask = ~0u;
+        }
+
+        flushStateGraphics(gl, GSB_RASTER_PARAMETERS, ctxid);
+
+        return backup;
+    }
+    inline void restoreStateAfterClear(const SBeforeClearStateBackup& backup)
+    {
+        memcpy(nextState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, backup.colorWrite, 4);
+        nextState.rasterParams.depthWriteEnable = backup.depthWrite;
+        nextState.rasterParams.stencilFunc_back.mask = backup.stencilWrite_back;
+        nextState.rasterParams.stencilFunc_front.mask = backup.stencilWrite_front;
+    }
 
 private:
     uint64_t m_timestampCounter = 0u;
