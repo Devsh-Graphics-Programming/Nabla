@@ -436,7 +436,21 @@ public:
         auto& req = m_threadHandler.request(std::move(req_params));
         //dont need to wait on this
     }
-
+    void destroyQueryPool(COpenGLQueryPool* qp) override final
+    {
+        if(qp != nullptr)
+        {
+            auto queriesRange = qp->getQueries();
+            if(!queriesRange.empty())
+            {
+                auto queries = qp->getQueries().begin();
+                for(uint32_t i = 0; i < queriesRange.size(); ++i)
+                {
+                    destroyGlObjects<ERT_QUERY_DESTROY>(1u, &queries[i]);
+                }
+            }
+        }
+    }
 protected:
     void bindMasterContext()
     {

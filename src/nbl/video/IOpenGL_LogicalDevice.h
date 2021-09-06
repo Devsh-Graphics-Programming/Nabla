@@ -62,6 +62,7 @@ namespace impl
             ERT_SWAPCHAIN_DESTROY,
             ERT_SYNC_DESTROY,
             ERT_SAMPLER_DESTROY,
+            ERT_QUERY_DESTROY,
             //ERT_GRAPHICS_PIPELINE_DESTROY,
             ERT_PROGRAM_DESTROY,
 
@@ -388,6 +389,7 @@ protected:
             SRequest_Destroy<ERT_SWAPCHAIN_DESTROY>,
             SRequest_Destroy<ERT_SAMPLER_DESTROY>,
             SRequest_Destroy<ERT_PROGRAM_DESTROY>,
+            SRequest_Destroy<ERT_QUERY_DESTROY>,
             SRequestSyncDestroy,
 
             SRequestGetEventStatus,
@@ -547,6 +549,12 @@ protected:
                 auto& p = std::get<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req.params_variant);
                 assert(p.count == 1u);
                 gl.glShader.pglDeleteProgram(p.glnames[0]);
+            }
+                break;
+            case ERT_QUERY_DESTROY:
+            {
+                auto& p = std::get<SRequest_Destroy<ERT_QUERY_DESTROY>>(req.params_variant);
+                gl.glQuery.pglDeleteQueries(p.count, p.glnames);
             }
                 break;
 
@@ -938,6 +946,7 @@ public:
     virtual void destroySampler(GLuint s) = 0;
     virtual void destroySpecializedShader(uint32_t count, const GLuint* programs) = 0;
     virtual void destroySync(GLsync sync) = 0;
+    virtual void destroyQueryPool(COpenGLQueryPool* qp) = 0;
 };
 
 }

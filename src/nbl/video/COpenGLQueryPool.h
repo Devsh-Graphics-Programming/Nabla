@@ -5,6 +5,7 @@
 #ifndef _NBL_VIDEO_C_OPEN_GL_QUERY_POOL_H_INCLUDED_
 #define _NBL_VIDEO_C_OPEN_GL_QUERY_POOL_H_INCLUDED_
 
+#include "nbl/core/SRange.h"
 #include "nbl/video/IQueryPool.h"
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
@@ -23,7 +24,10 @@ class COpenGLQueryPool final : public IQueryPool
 
 		}
 
-
+		inline core::SRange<GLuint> getQueries() const
+		{
+			return core::SRange<GLuint>(nullptr, nullptr);
+		}
 };
 
 } // end namespace nbl::video
