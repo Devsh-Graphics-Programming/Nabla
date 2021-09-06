@@ -277,14 +277,17 @@ namespace nbl {
 				, glEndTransformFeedback
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLquery, OpenGLFunctionLoader
-				//, glCreateQueries
 				, glGenQueries
 				, glDeleteQueries
 				, glIsQuery
 				, glBeginQuery
 				, glEndQuery
+				, glBeginQueryIndexed
+				, glEndQueryIndexed
+				, glQueryCounter
 				, glGetQueryiv
 				, glGetQueryObjectuiv
+				, glGetQueryObjectui64v
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLgeneral, OpenGLFunctionLoader
 				, glEnablei
@@ -406,6 +409,8 @@ namespace nbl {
 			virtual inline void extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
 			virtual inline void extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor);
 			virtual inline void extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids);
+			virtual inline void extGlGetQueryBufferObjectuiv(GLuint query, GLuint buffer, GLenum pname, GLintptr offset);
+			virtual inline void extGlGetQueryBufferObjectui64v(GLuint query, GLuint buffer, GLenum pname, GLintptr offset);
 			virtual inline void extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 			virtual void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) = 0;
 			virtual void extGlDepthRangeArrayv(GLuint first, GLsizei count, const double* v) = 0;
@@ -1135,9 +1140,42 @@ namespace nbl {
 		}
 		inline void IOpenGL_FunctionTable::extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids)
 		{
-			
 			if (glQuery.pglGenQueries)
 				_NBL_GL_CALL(m_logger, glQuery.pglGenQueries(n, ids));
+		}
+		inline void IOpenGL_FunctionTable::extGlGetQueryBufferObjectuiv(GLuint query, GLuint buffer, GLenum pname, GLintptr offset)
+		{
+			if(glQuery.pglGetQueryObjectuiv && glBuffer.pglBindBuffer)
+			{
+				GLenum retval;
+				GLuint bound;
+				_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, buffer));
+
+				_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectuiv(query, pname, reinterpret_cast<GLuint*>(offset)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, bound));
+			}
+		}
+		inline void IOpenGL_FunctionTable::extGlGetQueryBufferObjectui64v(GLuint query, GLuint buffer, GLenum pname, GLintptr offset)
+		{
+			if(glQuery.pglGetQueryObjectui64v && glBuffer.pglBindBuffer)
+			{
+				GLenum retval;
+				GLuint bound;
+				_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, buffer));
+
+				_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectui64v(query, pname, reinterpret_cast<GLuint64*>(offset)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, bound));
+			}
 		}
 		inline void IOpenGL_FunctionTable::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 		{
