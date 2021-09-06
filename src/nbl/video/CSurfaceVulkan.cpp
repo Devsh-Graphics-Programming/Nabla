@@ -15,6 +15,7 @@ core::smart_refctd_ptr<CSurfaceVulkan<Window>> CSurfaceVulkan<Window>::create(
     if (!api || !window)
         return nullptr;
 
+#ifdef _NBL_PLATFORM_WINDOWS_    
     if constexpr (std::is_same_v<Window, ui::IWindowWin32>)
     {
         VkWin32SurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
@@ -34,6 +35,11 @@ core::smart_refctd_ptr<CSurfaceVulkan<Window>> CSurfaceVulkan<Window>::create(
             return nullptr;
         }
     }
+#else
+return nullptr;
+#endif    
+
+    
 }
 
 template <typename Window>
@@ -173,6 +179,7 @@ bool CSurfaceVulkan<Window>::getSurfaceCapabilitiesForPhysicalDevice(const IPhys
     return true;
 }
 
+#ifdef _NBL_PLATFORM_WINDOWS_
 template class CSurfaceVulkan<ui::IWindowWin32>;
-
+#endif
 }

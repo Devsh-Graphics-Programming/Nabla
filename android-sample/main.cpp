@@ -38,6 +38,12 @@
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 
 using namespace nbl;
+using namespace ui;
+using namespace video;
+using namespace system;
+using namespace asset;
+using namespace core;
+
 
 static constexpr uint32_t SC_IMG_COUNT = 3u;
 
@@ -81,14 +87,14 @@ static int engine_init_display(struct nabla* engine) {
     engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
     engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(engine->app->window);
 
-    COpenGLDebugCallback cb;
-    engine->api = video::COpenGLConection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), video::EAT_OPENGL_ES, 0, "android-sample", std::move(cb));
+    video::COpenGLDebugCallback cb;
+    engine->api = video::COpenGLConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
-    auto surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(engine->api),engine->window));
+    auto surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(engine->api),core::smart_refctd_ptr<IWindowAndroid>(static_cast<CWindowAndroid*>(engine->window.get())));
 
     auto gpus = engine->api->getPhysicalDevices();
 	assert(!gpus.empty());
-    engine->gpu = gpus.begin()[0];
+    engine->gpu = gpus.begin();
 
     assert(surface->isSupported(engine->gpu.get(), 0u));
     

@@ -20,7 +20,7 @@ public:
     virtual IClipboardManager* getClipboardManager() { return nullptr; }
     virtual ICursorControl* getCursorControl() { return nullptr; }
     const native_handle_t& getNativeHandle() const override { return m_native; }
-
+    void setCaption(const std::string_view& caption) override {}
 private:
     native_handle_t m_native;
 };
