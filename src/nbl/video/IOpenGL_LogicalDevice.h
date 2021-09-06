@@ -28,6 +28,7 @@
 #include "nbl/video/COpenGLSampler.h"
 #include "nbl/video/COpenGLPipelineCache.h"
 #include "nbl/video/COpenGLFence.h"
+#include "nbl/video/COpenGLQueryPool.h"
 
 #ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
@@ -74,6 +75,7 @@ namespace impl
             ERT_SAMPLER_CREATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
             ERT_COMPUTE_PIPELINE_CREATE,
+            ERT_QUERY_POOL_CREATE,
             //ERT_GRAPHICS_PIPELINE_CREATE,
 
             // non-create requests
@@ -185,7 +187,12 @@ namespace impl
             uint32_t count;
             IGPUPipelineCache* pipelineCache;
         };
-
+        struct SRequestQueryPoolCreate
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_QUERY_POOL_CREATE;
+            using retval_t = core::smart_refctd_ptr<IQueryPool>;
+            IQueryPool::SCreationParams params;
+        };
         //
         // Non-create requests:
         //
@@ -374,6 +381,7 @@ protected:
             SRequestSamplerCreate,
             SRequestRenderpassIndependentPipelineCreate,
             SRequestComputePipelineCreate,
+            SRequestQueryPoolCreate,
 
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
@@ -603,6 +611,13 @@ protected:
                     pretval[0] = core::make_smart_refctd_ptr<COpenGLFence>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device));
                 // only fence create should flush, nothing else needs to do flush or wait idle
                 gl.glGeneral.pglFlush();
+            }
+                break;
+            case ERT_QUERY_POOL_CREATE:
+            {
+                auto& p = std::get<SRequestQueryPoolCreate>(req.params_variant);
+                core::smart_refctd_ptr<IQueryPool>* pretval = reinterpret_cast<core::smart_refctd_ptr<IQueryPool>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLQueryPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
             }
                 break;
 

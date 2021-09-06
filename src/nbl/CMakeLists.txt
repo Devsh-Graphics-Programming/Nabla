@@ -338,7 +338,6 @@ set(NABLA_SRCS_NORMAL
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
@@ -353,6 +352,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 	# CUDA
