@@ -158,5 +158,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
   "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
   "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
+  # depth pyramid generator
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/common.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
 PARENT_SCOPE)
 
