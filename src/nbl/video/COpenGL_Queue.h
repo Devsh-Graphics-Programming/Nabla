@@ -17,7 +17,7 @@
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/containers/CMemoryPool.h"
 
-#define DEBUGGING_BAW
+// #define DEBUGGING_BAW @Crisspl it leads to linker errors on clean build
 
 #ifdef DEBUGGING_BAW
 #include "renderdoc_app.h"
