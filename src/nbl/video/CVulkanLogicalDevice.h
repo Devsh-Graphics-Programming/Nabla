@@ -1259,6 +1259,8 @@ protected:
         ret.accelerationStructureSize = vk_ret.accelerationStructureSize;
         ret.updateScratchSize = vk_ret.updateScratchSize;
         ret.buildScratchSize = vk_ret.buildScratchSize;
+
+        return ret;
     }
 
 private:
