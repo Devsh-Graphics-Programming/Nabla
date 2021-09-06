@@ -72,16 +72,21 @@ int main()
 	auto utilities = std::move(initOutput.utilities);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 
+	auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+	{
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+	}
 
 	auto cpu2gpuWaitForFences = [&]() -> void
 	{
 		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
 		while (waitStatus != video::IGPUFence::ES_SUCCESS)
 		{
-			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 9999999999ull);
+			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999ull);
 			if (waitStatus == video::IGPUFence::ES_ERROR)
 				assert(false);
 			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
@@ -91,7 +96,7 @@ int main()
 		waitStatus = video::IGPUFence::ES_NOT_READY;
 		while (waitStatus != video::IGPUFence::ES_SUCCESS)
 		{
-			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 9999999999ull);
+			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999ull);
 			if (waitStatus == video::IGPUFence::ES_ERROR)
 				assert(false);
 			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
@@ -139,7 +144,7 @@ int main()
 		if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
 			assert(false);
 
-		cpu2gpuWaitForFences();
+		//cpu2gpuWaitForFences(); still doesn't work?
 		gpuDescriptorSet1Layout = (*gpu_array)[0];
 	}
 
@@ -192,8 +197,7 @@ int main()
 			if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
 				assert(false);
 
-			cpu2gpuWaitForFences();
-
+			//cpu2gpuWaitForFences(); still doesn't work?
 			gpuMesh = (*gpu_array)[0];
 		}
 
