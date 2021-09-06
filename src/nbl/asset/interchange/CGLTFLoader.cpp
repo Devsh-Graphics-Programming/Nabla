@@ -510,6 +510,8 @@ namespace nbl
 						};
 
 						const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
+						if (format == EF_UNKNOWN)
+							assert(false);
 
 						auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
 						const uint32_t& bufferBindingId = glTFAccessor.bufferView.value();
@@ -1223,6 +1225,33 @@ namespace nbl
 
 					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
 						gltfAnimation.name = name.get_string().value();
+				}
+			}
+
+			if (skins.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				const auto& skinsData = skins.get_array();
+				for (const auto& skin : skinsData)
+				{
+					auto& glTFSkin = glTF.skins.emplace_back();
+
+					const auto& inverseBindMatrices = skin.at_key("inverseBindMatrices");
+					const auto& skeleton = skin.at_key("skeleton");
+					const auto& joints = skin.at_key("joints");
+					const auto& name = skin.at_key("name");
+
+					if (inverseBindMatrices.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSkin.inverseBindMatrices = inverseBindMatrices.get_uint64().value();
+
+					if (skeleton.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSkin.skeleton = skeleton.get_uint64().value();
+
+					if (joints.error() != simdjson::error_code::NO_SUCH_FIELD)
+						for (const auto& joint : joints.get_array())
+							glTFSkin.joints.push_back(joint.get_uint64().value());
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSkin.name = name.get_string().value();
 				}
 			}
 

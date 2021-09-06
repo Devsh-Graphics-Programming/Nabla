@@ -586,6 +586,16 @@ namespace nbl
 						std::optional<std::string> extras;
 					};
 
+					struct SGLTFSkin
+					{
+						std::optional<std::string> name;
+						std::optional<size_t> inverseBindMatrices;						//! The index of the accessor containing the floating-point 4x4 inverse-bind matrices. The default is that each matrix is a 4x4 identity matrix, which implies that inverse-bind matrices were pre-applied.
+						std::optional<size_t> skeleton;									//! The index of the node used as a skeleton root.
+						std::vector<size_t> joints;										//! Indices of skeleton nodes, used as joints in this skin.
+						std::optional<std::string> extensions;
+						std::optional<std::string> extras;
+					};
+
 					/*
 						Various resources referenced by accessors, etc and may be the same,
 						not unique, so holding it bellow is necessary
@@ -597,6 +607,7 @@ namespace nbl
 					std::vector<SGLTFSampler> samplers;
 					std::vector<SGLTFTexture> textures;
 					std::vector<SGLTFMaterial> materials;
+					std::vector<SGLTFSkin> skins;
 					std::vector<SGLTFAnimation> animations;
 				};
 

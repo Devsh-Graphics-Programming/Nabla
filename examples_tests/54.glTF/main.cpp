@@ -86,7 +86,7 @@ int main()
 		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
 		while (waitStatus != video::IGPUFence::ES_SUCCESS)
 		{
-			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999ull);
+			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 99999999ull);
 			if (waitStatus == video::IGPUFence::ES_ERROR)
 				assert(false);
 			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
@@ -96,7 +96,7 @@ int main()
 		waitStatus = video::IGPUFence::ES_NOT_READY;
 		while (waitStatus != video::IGPUFence::ES_SUCCESS)
 		{
-			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999ull);
+			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 99999999ull);
 			if (waitStatus == video::IGPUFence::ES_ERROR)
 				assert(false);
 			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
