@@ -200,10 +200,10 @@ protected:
 
     }
 
-    IWindow(core::smart_refctd_ptr<system::ISystem>&& system) : m_sys(std::move(system))
-    {
+    // IWindow(core::smart_refctd_ptr<system::ISystem>&& system) : m_sys(std::move(system))
+    // {
 
-    }
+    // }
 
     virtual ~IWindow() = default;
 

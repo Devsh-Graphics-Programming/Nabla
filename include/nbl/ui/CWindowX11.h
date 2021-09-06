@@ -18,7 +18,7 @@ class CWindowX11 final : public IWindowX11
 {
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
 public:
-	explicit CWindowX11(core::smart_refctd_ptr<system::ISystem>& sys, CWindowManagerX11* manager, Display* dpy, native_handle_t win);
+	explicit CWindowX11(IWindow::SCreationParams&& creationParams, core::smart_refctd_ptr<system::ISystem>& sys, CWindowManagerX11* manager, Display* dpy, native_handle_t win);
     ~CWindowX11();
 	Display* getDisplay() const override { return m_dpy; }
 	const native_handle_t& getNativeHandle() const override { return m_native; }
