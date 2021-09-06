@@ -60,6 +60,14 @@ public:
 		bool roundUpToPoTWithPadding = false;
 	};
 
+	struct PushConstantsData
+	{
+		uint32_t mainDispatchMipCnt;
+		uint32_t virtualDispatchMipCnt;
+		uint32_t maxMetaZLayerCnt;
+		uint32_t virtualDispatchIndex;
+	};
+
 	// inputDepthImageView - input texture
 	//outputDepthPyramidMips - array of created mipMaps
 	DepthPyramidGenerator(IVideoDriver* driver, IAssetManager* am, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView,
@@ -76,11 +84,11 @@ public:
 	static uint32_t createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config = Config());
 
 	static uint32_t createDescriptorSets(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
-		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, uint32_t* outputPushConstants, const Config& config = Config());
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, PushConstantsData* outputPushConstants, const Config& config = Config());
 
-	void createPipeline(IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln, const Config& config = Config());
+	void createPipeline(IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln);
 
-	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, uint32_t pushConstantsData, bool issueDefaultBarrier = true);
+	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, const PushConstantsData& pushConstantsData, bool issueDefaultBarrier = true);
 
 	static inline void defaultBarrier()
 	{
@@ -109,6 +117,8 @@ private:
 
 	const Config m_config;
 	core::smart_refctd_ptr<IGPUSpecializedShader> m_shader = nullptr;
+
+	static constexpr uint32_t maxMipLvlsPerDispatch = 8u;
 
 };
 

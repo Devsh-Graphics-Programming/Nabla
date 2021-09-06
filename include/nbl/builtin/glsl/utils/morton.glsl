@@ -2,7 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-uint decodeMorton2d4bComponent(in uint x) 
+#ifndef _NBL_BUILTIN_GLSL_UTILS_MORTON_INCLUDED_
+#define _NBL_BUILTIN_GLSL_UTILS_MORTON_INCLUDED_
+
+uint nbl_glsl_morton_decode2d4bComponent(in uint x) 
 {
     x &= 0x55555555u;
     x = (x ^ (x >>  1u)) & 0x33333333u;
@@ -10,7 +13,7 @@ uint decodeMorton2d4bComponent(in uint x)
     return x;
 }
 
-uint decodeMorton2d8bComponent(in uint x) 
+uint nbl_glsl_morton_decode2d8bComponent(in uint x) 
 {
     x &= 0x55555555u;
     x = (x ^ (x >>  1u)) & 0x33333333u;
@@ -19,12 +22,14 @@ uint decodeMorton2d8bComponent(in uint x)
     return x;
 }
 
-uvec2 decodeMorton2d4b(in uint x)
+uvec2 nbl_glsl_morton_decode2d4b(in uint x)
 {
-    return uvec2(decodeMorton2d4bComponent(x), decodeMorton2d4bComponent(x >> 1u));
+    return uvec2(nbl_glsl_morton_decode2d4bComponent(x), nbl_glsl_morton_decode2d4bComponent(x >> 1u));
 }
 
-uvec2 decodeMorton2d8b(in uint x)
+uvec2 nbl_glsl_morton_decode2d8b(in uint x)
 {
-    return uvec2(decodeMorton2d8bComponent(x), decodeMorton2d8bComponent(x >> 1u));
+    return uvec2(nbl_glsl_morton_decode2d8bComponent(x), nbl_glsl_morton_decode2d8bComponent(x >> 1u));
 }
+
+#endif
