@@ -192,6 +192,7 @@ int main()
 			assert(false);
 
 		auto gpuSSBOOffsetBufferPair = (*gpu_array)[0];
+		gpuSSBOBuffer = core::smart_refctd_ptr<video::IGPUBuffer>( gpuSSBOOffsetBufferPair->getBuffer() );
 	}
 
 	video::IGPUDescriptorSetLayout::SBinding gpuBindingsLayout[EE_COUNT] =
@@ -273,7 +274,9 @@ int main()
 
 	auto gpuGDescriptorPool = createDescriptorPool(1, EDT_UNIFORM_BUFFER);
 	auto gpuGDs1Layout = logicalDevice->createGPUDescriptorSetLayout(&gpuUboBinding, &gpuUboBinding + 1);
-	auto gpuUBO = logicalDevice->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+	auto dev_local_reqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
+	dev_local_reqs.vulkanReqs.size = sizeof(SBasicViewParameters);
+	auto gpuUBO = logicalDevice->createGPUBufferOnDedMem(dev_local_reqs, true);
 
 	auto gpuGDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuGDescriptorPool.get(), gpuGDs1Layout);
 	{
@@ -401,7 +404,7 @@ int main()
 
 	core::vectorSIMDf cameraPosition(0, 0, 0);
 	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
-	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, -1), projectionMatrix, 10.f, 1.f);
 	auto lastTime = std::chrono::system_clock::now();
 
 	constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
@@ -459,7 +462,7 @@ int main()
 		commandBuffer->setViewport(0u, 1u, &viewport);
 
 		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
-		nbl::asset::VkRect2D area;
+		VkRect2D area;
 		area.offset = { 0,0 };
 		area.extent = { WIN_W, WIN_H };
 		nbl::asset::SClearValue clear[2];
@@ -469,7 +472,7 @@ int main()
 		clear[0].color.float32[3] = 0.f;
 		clear[1].depthStencil.depth = 0.f;
 
-		beginInfo.clearValueCount = 1u;
+		beginInfo.clearValueCount = 2u;
 		beginInfo.framebuffer = fbo;
 		beginInfo.renderpass = renderpass;
 		beginInfo.renderArea = area;
