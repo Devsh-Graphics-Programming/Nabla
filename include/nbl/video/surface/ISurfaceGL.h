@@ -30,7 +30,7 @@ class CSurfaceGLImpl final : public Base<Window>
         template<video::E_API_TYPE API_TYPE>
         static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, typename Window::native_handle_t ntv_window)
         {
-            if (!api || !window)
+            if (!api || !ntv_window)
                 return nullptr;
             auto retval = new this_t(std::move(api), ntv_window);
             return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
