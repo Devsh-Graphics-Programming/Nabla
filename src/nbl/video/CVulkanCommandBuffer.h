@@ -369,16 +369,16 @@ public:
     }
 
     
-    bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
-    bool beginQuery(video::IQueryPool* queryPool, uint32_t query, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<video::IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override;
-    bool endQuery(video::IQueryPool* queryPool, uint32_t query) override;
-    bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, video::IQueryPool::E_QUERY_RESULTS_FLAGS flags) override;
-    bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) override;
+    bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
+    bool beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override;
+    bool endQuery(IQueryPool* queryPool, uint32_t query) override;
+    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override;
+    bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override;
     // TRANSFORM_FEEDBACK_STREAM
-    bool beginQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<video::IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override;
-    bool endQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index) override;
+    bool beginQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override;
+    bool endQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index) override;
     // Acceleration Structure Properties (Only available on Vulkan)
-    bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) override;
+    bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) override;
 
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)

@@ -388,6 +388,18 @@ public:
 
         post_unmapMemory(memory);
     }
+    
+    core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override
+    {
+        core::smart_refctd_ptr<IQueryPool> retval;
+
+        SRequestQueryPoolCreate req_params;
+        req_params.params = params;
+        auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_threadHandler.template waitForRequestCompletion<SRequestQueryPoolCreate>(req);
+
+        return retval;
+    }
 
     void waitIdle() override
     {

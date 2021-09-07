@@ -2,6 +2,7 @@
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
 #include "nbl/video/COpenGLCommandBuffer.h"
+#include "nbl/video/COpenGLQueryPool.h"
 #include "nbl/video/COpenGLCommon.h"
 
 //#include "renderdoc_app.h"
@@ -853,13 +854,15 @@ namespace nbl::video
             case impl::ECT_BEGIN_QUERY:
             {
                 auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
-                _NBL_TODO();
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                qp->beginQuery(gl, c.query, c.flags);
             }
             break;
             case impl::ECT_END_QUERY:
             {
                 auto& c = cmd.get<impl::ECT_END_QUERY>();
-                _NBL_TODO();
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                qp->endQuery(gl, c.query);
             }
             break;
             case impl::ECT_COPY_QUERY_POOL_RESULTS:
@@ -871,7 +874,24 @@ namespace nbl::video
             case impl::ECT_WRITE_TIMESTAMP:
             {
                 auto& c = cmd.get<impl::ECT_WRITE_TIMESTAMP>();
-                _NBL_TODO();
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                GLuint query = qp->getQueryAt(c.query);
+                assert(qp->getCreationParameters().queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
+                gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
+            }
+            break;
+            case impl::ECT_BEGIN_QUERY_INDEXED:
+            {
+                auto& c = cmd.get<impl::ECT_BEGIN_QUERY_INDEXED>();
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                qp->beginQueryIndexed(gl, c.query, c.index, c.flags);
+            }
+            break;
+            case impl::ECT_END_QUERY_INDEXED:
+            {
+                auto& c = cmd.get<impl::ECT_END_QUERY_INDEXED>();
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                qp->endQueryIndexed(gl, c.query, c.index);
             }
             break;
             case impl::ECT_BIND_DESCRIPTOR_SETS:

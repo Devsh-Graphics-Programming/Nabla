@@ -9,6 +9,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/IGPUMeshBuffer.h"
+#include "nbl/video/IQueryPool.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
 namespace nbl::video
@@ -69,6 +70,8 @@ namespace impl
     ECT_END_QUERY,\
     ECT_COPY_QUERY_POOL_RESULTS,\
     ECT_WRITE_TIMESTAMP,\
+    ECT_BEGIN_QUERY_INDEXED,\
+    ECT_END_QUERY_INDEXED,\
 \
     ECT_BIND_DESCRIPTOR_SETS,\
 \
@@ -296,23 +299,49 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_RESET_QUERY_POOL)
     {
-        // TODO
+        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        uint32_t query;
+        uint32_t queryCount;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_BEGIN_QUERY)
     {
-        // TODO
+        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        uint32_t query;
+        IQueryPool::E_QUERY_CONTROL_FLAGS flags;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_END_QUERY)
     {
-        // TODO
+        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        uint32_t query;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_COPY_QUERY_POOL_RESULTS)
     {
-        // TODO
+        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        uint32_t firstQuery;
+        uint32_t queryCount;
+        core::smart_refctd_ptr<const IGPUBuffer> dstBuffer;
+        size_t dstOffset;
+        size_t stride;
+        IQueryPool::E_QUERY_RESULTS_FLAGS flags;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_WRITE_TIMESTAMP)
     {
-        // TODO
+        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        asset::E_PIPELINE_STAGE_FLAGS pipelineStage;
+        uint32_t query;
+    };
+    _NBL_DEFINE_SCMD_SPEC(ECT_BEGIN_QUERY_INDEXED)
+    {
+        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        uint32_t query;
+        uint32_t index;
+        IQueryPool::E_QUERY_CONTROL_FLAGS flags;
+    };
+    _NBL_DEFINE_SCMD_SPEC(ECT_END_QUERY_INDEXED)
+    {
+        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        uint32_t query;
+        uint32_t index;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_BIND_DESCRIPTOR_SETS)
     {
@@ -995,6 +1024,90 @@ public:
         cmd.pipeline = core::smart_refctd_ptr<const compute_pipeline_t>(pipeline);
         pushCommand(std::move(cmd));
         return true;
+    }
+        
+    bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override
+    {
+        // If multiple queries are issued using the same query object id before calling glGetQueryObject or glGetQueryBufferObject:
+        // the results of the most recent query will be returned. In this case, when issuing a new query, the results of the previous query are discarded.
+        // So just ignore :)
+        return true;
+    }
+    bool beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override
+    {
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_BEGIN_QUERY> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.query = query;
+        cmd.flags = flags;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool endQuery(IQueryPool* queryPool, uint32_t query) override
+    {
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_END_QUERY> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.query = query;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override
+    {
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_COPY_QUERY_POOL_RESULTS> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.firstQuery = firstQuery;
+        cmd.queryCount = queryCount;
+        cmd.dstBuffer = core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer);
+        cmd.dstOffset = dstOffset;
+        cmd.stride = stride;
+        cmd.flags = flags;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override
+    {
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_WRITE_TIMESTAMP> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.pipelineStage = pipelineStage;
+        cmd.query = query;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    // TRANSFORM_FEEDBACK_STREAM
+    bool beginQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0))
+    {
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_BEGIN_QUERY_INDEXED> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.query = query;
+        cmd.flags = flags;
+        cmd.index = index;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool endQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index) override
+    {
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_END_QUERY_INDEXED> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.query = query;
+        cmd.index = index;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+
+    bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery)
+    {
+        return false;
     }
 
     bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,

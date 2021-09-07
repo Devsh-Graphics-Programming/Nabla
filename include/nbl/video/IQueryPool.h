@@ -63,6 +63,11 @@ public:
             , params(std::move(_params))
         {}
         
+        inline const auto& getCreationParameters() const
+        {
+            return params;
+        }
+
 protected:
         SCreationParams params;
 };
