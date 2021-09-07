@@ -334,15 +334,12 @@ int main()
 		fbos[i] = device->createGPUFramebuffer(std::move(fbParams));
 	}
 
-
-#if 0
 	const uint32_t FRAMES_IN_FLIGHT = 2u;
 
-	// acquireSemaphore will be signalled once you acquire the image to render
-	// releaseSeamphore will be signalled once you rendered to the image and you're ready to release it to present it
 	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
 	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
 	core::smart_refctd_ptr<video::IGPUFence> frameFences[FRAMES_IN_FLIGHT];
+
 	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
 	{
 		acquireSemaphores[i] = device->createSemaphore();
@@ -350,9 +347,36 @@ int main()
 		frameFences[i] = device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
 	}
 
-	video::IGPUQueue* graphicsQueue = device->getQueue(graphicsFamilyIndex, 0u);
-	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
+	core::smart_refctd_ptr<video::IGPUCommandPool> commandPool =
+		device->createCommandPool(graphicsFamilyIndex, video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
+	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
+		swapchainImageCount, commandBuffers);
+
+	asset::SClearValue clearColor = { 0.2f, 0.2f, 0.3f, 1.f };
+
+	// Record commands in commandBuffers here
+	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	{
+		commandBuffers[i]->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+
+		video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo = {};
+		beginInfo.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderPass);
+		beginInfo.framebuffer = core::smart_refctd_ptr<video::IGPUFramebuffer>(fbos[i]);
+		beginInfo.renderArea.offset = { 0, 0 };
+		beginInfo.renderArea.extent = swapchainExtent;
+		beginInfo.clearValueCount = 1u;
+		beginInfo.clearValues = &clearColor;
+		commandBuffers[i]->beginRenderPass(&beginInfo, asset::ESC_INLINE);
+
+		// Do nothing
+
+		commandBuffers[i]->endRenderPass();
+		commandBuffers[i]->end();
+	}
+
+#if 0
 	// Todo(achal): Hacky stuff begin, get rid
 	// Get handles to existing Vulkan stuff
 	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();

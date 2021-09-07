@@ -20,6 +20,8 @@ public:
 
     ~CVulkanFramebuffer();
 
+    inline VkFramebuffer getInternalObject() const { return m_vkfbo; }
+
 private:
     VkFramebuffer m_vkfbo;
 };

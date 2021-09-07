@@ -124,22 +124,18 @@ public:
 
     bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),
+            core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer) };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
         if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstBuffer->getAPIType() != EAT_VULKAN))
             return false;
 
         VkBuffer vk_srcBuffer = static_cast<const CVulkanBuffer*>(srcBuffer)->getInternalObject();
         VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
-
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
-            return false;
-
-        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),
-            core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer) };
-
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 2);
 
         constexpr uint32_t MAX_BUFFER_COPY_REGION_COUNT = 681u;
         VkBufferCopy vk_bufferCopyRegions[MAX_BUFFER_COPY_REGION_COUNT];
@@ -175,20 +171,15 @@ public:
         if (srcImage->getAPIType() != EAT_VULKAN || (dstImage->getAPIType() != EAT_VULKAN))
             return false;
 
-        VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
-        VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
-
-        // Todo(achal): Its high time I abstract this out
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
-            return false;
-
-        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-
         core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
             core::smart_refctd_ptr<const IGPUImage>(srcImage),
             core::smart_refctd_ptr<const IGPUImage>(dstImage) };
 
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 2);
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
+        VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
 
         constexpr uint32_t MAX_BLIT_REGION_COUNT = 100u;
         VkImageBlit vk_blitRegions[MAX_BLIT_REGION_COUNT];
@@ -298,13 +289,22 @@ public:
     {
         constexpr uint32_t MAX_BARRIER_COUNT = 100u;
 
-        // Todo(achal): Should probably just abstract this out?
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+        assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
+        assert(bufferMemoryBarrierCount <= MAX_BARRIER_COUNT);
+        assert(imageMemoryBarrierCount <= MAX_BARRIER_COUNT);
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2*MAX_BARRIER_COUNT];
+
+        uint32_t totalResourceCount = 0u;
+        for (; totalResourceCount < bufferMemoryBarrierCount; ++totalResourceCount)
+            tmp[totalResourceCount] = pBufferMemoryBarriers[totalResourceCount].buffer;
+
+        for (; totalResourceCount < imageMemoryBarrierCount; ++totalResourceCount)
+            tmp[totalResourceCount] = pImageMemoryBarriers[totalResourceCount].image;
+
+        if (!saveReferencesToResources(tmp, tmp + totalResourceCount))
             return false;
 
-        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-
-        assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
         VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
         {
@@ -314,9 +314,6 @@ public:
             vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].dstAccessMask);
         }
 
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_BARRIER_COUNT];
-
-        assert(bufferMemoryBarrierCount <= MAX_BARRIER_COUNT);
         VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
         {
@@ -329,12 +326,8 @@ public:
             vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get())->getInternalObject();
             vk_bufferMemoryBarriers[i].offset = pBufferMemoryBarriers[i].offset;
             vk_bufferMemoryBarriers[i].size = pBufferMemoryBarriers[i].size;
-
-            tmp[i] = pBufferMemoryBarriers[i].buffer;
         }
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + bufferMemoryBarrierCount);
 
-        assert(imageMemoryBarrierCount <= MAX_BARRIER_COUNT);
         VkImageMemoryBarrier vk_imageMemoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
         {
@@ -352,10 +345,7 @@ public:
             vk_imageMemoryBarriers[i].subresourceRange.levelCount = pImageMemoryBarriers[i].subresourceRange.levelCount;
             vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = pImageMemoryBarriers[i].subresourceRange.baseArrayLayer;
             vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
-
-            tmp[i] = pImageMemoryBarriers[i].image;
         }
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + imageMemoryBarrierCount);
 
         vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask),
             static_cast<VkPipelineStageFlags>(dstStageMask),
@@ -369,7 +359,37 @@ public:
 
     bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
     {
-        return false;
+        if ((pRenderPassBegin->renderpass->getAPIType() != EAT_VULKAN) || (pRenderPassBegin->framebuffer->getAPIType() != EAT_VULKAN))
+            return false;
+
+        constexpr uint32_t MAX_CLEAR_VALUE_COUNT = (1 << 12ull) / sizeof(VkClearValue);
+        VkClearValue vk_clearValues[MAX_CLEAR_VALUE_COUNT];
+        assert(pRenderPassBegin->clearValueCount <= MAX_CLEAR_VALUE_COUNT);
+
+        for (uint32_t i = 0u; i < pRenderPassBegin->clearValueCount; ++i)
+        {
+            for (uint32_t k = 0u; k < 4u; ++k)
+            {
+                vk_clearValues[i].color.float32[k] = pRenderPassBegin->clearValues[i].color.float32[k];
+                vk_clearValues[i].color.int32[k] = pRenderPassBegin->clearValues[i].color.int32[k];
+                vk_clearValues[i].color.uint32[k] = pRenderPassBegin->clearValues[i].color.uint32[k];
+            }
+
+            vk_clearValues[i].depthStencil.depth = pRenderPassBegin->clearValues[i].depthStencil.depth;
+            vk_clearValues[i].depthStencil.stencil = pRenderPassBegin->clearValues[i].depthStencil.stencil;
+        }
+
+        VkRenderPassBeginInfo vk_beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+        vk_beginInfo.pNext = nullptr;
+        vk_beginInfo.renderPass = static_cast<const CVulkanRenderpass*>(pRenderPassBegin->renderpass.get())->getInternalObject();
+        vk_beginInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(pRenderPassBegin->framebuffer.get())->getInternalObject();
+        vk_beginInfo.renderArea = pRenderPassBegin->renderArea;
+        vk_beginInfo.clearValueCount = pRenderPassBegin->clearValueCount;
+        vk_beginInfo.pClearValues = vk_clearValues;
+
+        vkCmdBeginRenderPass(m_cmdbuf, &vk_beginInfo, static_cast<VkSubpassContents>(content));
+
+        return true;
     }
 
     bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override
@@ -379,7 +399,8 @@ public:
 
     bool endRenderPass() override
     {
-        return false;
+        vkCmdEndRenderPass(m_cmdbuf);
+        return true;
     }
 
     bool setDeviceMask(uint32_t deviceMask) override
@@ -397,17 +418,12 @@ public:
 
     bool bindComputePipeline(const compute_pipeline_t* pipeline) override
     {
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const compute_pipeline_t>(pipeline) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
         if (pipeline->getAPIType() != EAT_VULKAN)
             return false;
-
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = 
-            { core::smart_refctd_ptr<const compute_pipeline_t>(pipeline) };
-
-        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 1u);
 
         VkPipeline vk_pipeline = static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject();
         vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
@@ -500,6 +516,18 @@ private:
             CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
             vulkanCommandPool->free_all(m_argListHead);
         }
+    }
+
+    bool saveReferencesToResources(const core::smart_refctd_ptr<const core::IReferenceCounted>* begin,
+        const core::smart_refctd_ptr<const core::IReferenceCounted>* end)
+    {
+        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+        vulkanCommandPool->emplace_n(m_argListTail, begin, end);
+
+        return true;
     }
 
     ArgumentReferenceSegment* m_argListHead = nullptr;
