@@ -76,8 +76,6 @@ public:
         if (params.surface->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        // Todo(achal): not sure yet, how would I handle multiple platforms without making
-        // this function templated
         VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
 
         VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
@@ -317,8 +315,134 @@ public:
             
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
     {
-        // Todo(achal): Hoist creation out of constructor
-        return nullptr; // return core::make_smart_refctd_ptr<CVulkanRenderpass>(this, params);
+        // auto* vk = m_vkdev->getFunctionTable();
+
+        VkRenderPassCreateInfo createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+        createInfo.pNext = nullptr;
+        createInfo.flags = static_cast<VkRenderPassCreateFlags>(0u); // No flags are supported
+        createInfo.attachmentCount = params.attachmentCount;
+
+        core::vector<VkAttachmentDescription> attachments(createInfo.attachmentCount); // TODO reduce number of allocations/get rid of vectors
+        for (uint32_t i = 0u; i < attachments.size(); ++i)
+        {
+            const auto& att = params.attachments[i];
+            auto& vkatt = attachments[i];
+            vkatt.flags = static_cast<VkAttachmentDescriptionFlags>(0u); // No flags are supported
+            vkatt.format = getVkFormatFromFormat(att.format);
+            vkatt.samples = static_cast<VkSampleCountFlagBits>(att.samples);
+            vkatt.loadOp = static_cast<VkAttachmentLoadOp>(att.loadOp);
+            vkatt.storeOp = static_cast<VkAttachmentStoreOp>(att.storeOp);
+
+            // Todo(achal): Do we want these??
+            vkatt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            vkatt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+            vkatt.initialLayout = static_cast<VkImageLayout>(att.initialLayout);
+            vkatt.finalLayout = static_cast<VkImageLayout>(att.finalLayout);
+        }
+        createInfo.pAttachments = attachments.data();
+
+        createInfo.subpassCount = params.subpassCount;
+        core::vector<VkSubpassDescription> vk_subpasses(createInfo.subpassCount);
+        
+        constexpr uint32_t MemSz = 1u << 12;
+        constexpr uint32_t MaxAttachmentRefs = MemSz / sizeof(VkAttachmentReference);
+        VkAttachmentReference vk_attRefs[MaxAttachmentRefs];
+        uint32_t preserveAttRefs[MaxAttachmentRefs];
+
+        uint32_t totalAttRefCount = 0u;
+        uint32_t totalPreserveCount = 0u;
+
+        auto fillUpVkAttachmentRefHandles = [&vk_attRefs, &totalAttRefCount](const uint32_t count, const auto* srcRef, uint32_t& dstCount, auto*& dstRef)
+        {
+            for (uint32_t j = 0u; j < count; ++j)
+            {
+                vk_attRefs[totalAttRefCount + j].attachment = srcRef[j].attachment;
+                vk_attRefs[totalAttRefCount + j].layout = static_cast<VkImageLayout>(srcRef[j].layout);
+            }
+
+            dstRef = srcRef ? vk_attRefs + totalAttRefCount : nullptr;
+            dstCount = count;
+            totalAttRefCount += count;
+        };
+
+        for (uint32_t i = 0u; i < params.subpassCount; ++i)
+        {
+            auto& vk_subpass = vk_subpasses[i];
+            const auto& subpass = params.subpasses[i];
+
+            vk_subpass.flags = static_cast<VkSubpassDescriptionFlags>(subpass.flags);
+            vk_subpass.pipelineBindPoint = static_cast<VkPipelineBindPoint>(subpass.pipelineBindPoint);
+
+            // Copy over input attachments for this subpass
+            fillUpVkAttachmentRefHandles(subpass.inputAttachmentCount, subpass.inputAttachments,
+                vk_subpass.inputAttachmentCount, vk_subpass.pInputAttachments);
+
+            // Copy over color attachments for this subpass
+            fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.colorAttachments,
+                vk_subpass.colorAttachmentCount, vk_subpass.pColorAttachments);
+
+            // Copy over resolve attachments for this subpass
+            vk_subpass.pResolveAttachments = nullptr;
+            if (subpass.resolveAttachments)
+            {
+                uint32_t unused;
+                fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.resolveAttachments, unused, vk_subpass.pResolveAttachments);
+            }
+
+            // Copy over depth-stencil attachment for this subpass
+            vk_subpass.pDepthStencilAttachment = nullptr;
+            if (subpass.depthStencilAttachment)
+            {
+                uint32_t unused;
+                fillUpVkAttachmentRefHandles(1u, subpass.depthStencilAttachment, unused, vk_subpass.pDepthStencilAttachment);
+            }
+
+            // Copy over attachments that need to be preserved for this subpass
+            vk_subpass.preserveAttachmentCount = subpass.preserveAttachmentCount;
+            vk_subpass.pPreserveAttachments = nullptr;
+            if (subpass.preserveAttachments)
+            {
+                for (uint32_t j = 0u; j < subpass.preserveAttachmentCount; ++j)
+                    preserveAttRefs[totalPreserveCount + j] = subpass.preserveAttachments[j];
+
+                vk_subpass.pPreserveAttachments = preserveAttRefs + totalPreserveCount;
+                totalPreserveCount += subpass.preserveAttachmentCount;
+            }
+        }
+        assert(totalAttRefCount <= MaxAttachmentRefs);
+        assert(totalPreserveCount <= MaxAttachmentRefs);
+
+        createInfo.pSubpasses = vk_subpasses.data();
+
+        createInfo.dependencyCount = params.dependencyCount;
+        core::vector<VkSubpassDependency> deps(createInfo.dependencyCount);
+        for (uint32_t i = 0u; i < deps.size(); ++i)
+        {
+            const auto& dep = params.dependencies[i];
+            auto& vkdep = deps[i];
+
+            vkdep.srcSubpass = dep.srcSubpass;
+            vkdep.dstSubpass = dep.dstSubpass;
+            vkdep.srcStageMask = static_cast<VkPipelineStageFlags>(dep.srcStageMask);
+            vkdep.dstStageMask = static_cast<VkPipelineStageFlags>(dep.dstStageMask);
+            vkdep.srcAccessMask = static_cast<VkAccessFlags>(dep.srcAccessMask);
+            vkdep.dstAccessMask = static_cast<VkAccessFlags>(dep.dstAccessMask);
+            vkdep.dependencyFlags = static_cast<VkDependencyFlags>(dep.dependencyFlags);
+        }
+        createInfo.pDependencies = deps.data();
+
+        // vk->vk.vkCreateRenderPass(vkdev, &ci, nullptr, &m_renderpass);
+        VkRenderPass vk_renderpass;
+        if (vkCreateRenderPass(m_vkdev, &createInfo, nullptr, &vk_renderpass) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanRenderpass>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), params, vk_renderpass);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
            
     // API needs to change, vkFlushMappedMemoryRanges could fail.

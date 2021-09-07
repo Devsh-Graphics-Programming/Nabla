@@ -265,9 +265,8 @@ int main()
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
 
-#if 0
 	// Create render pass
-	video::IGPURenderpass::SCreationParams::SAttachmentDescription attachmentDescription;
+	video::IGPURenderpass::SCreationParams::SAttachmentDescription attachmentDescription = {};
 	attachmentDescription.format = surfaceFormat.format; // this should be same as the imageview used for this attachment
 	attachmentDescription.samples = asset::IImage::ESCF_1_BIT;
 	attachmentDescription.loadOp = video::IGPURenderpass::ELO_CLEAR; // when the first subpass begins with this attachment, clear its color and depth components
@@ -275,7 +274,7 @@ int main()
 	attachmentDescription.initialLayout = asset::EIL_UNDEFINED;
 	attachmentDescription.finalLayout = asset::EIL_PRESENT_SRC_KHR;
 
-	video::IGPURenderpass::SCreationParams::SSubpassDescription subpassDescription;
+	video::IGPURenderpass::SCreationParams::SSubpassDescription subpassDescription = {};
 	subpassDescription.flags = video::IGPURenderpass::ESDF_NONE;
 	subpassDescription.pipelineBindPoint = asset::EPBP_GRAPHICS;
 	subpassDescription.inputAttachmentCount = 0u;
@@ -303,6 +302,7 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPURenderpass> renderPass = device->createGPURenderpass(renderPassParams);
 
+#if 0
 	std::array<core::smart_refctd_ptr<video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
