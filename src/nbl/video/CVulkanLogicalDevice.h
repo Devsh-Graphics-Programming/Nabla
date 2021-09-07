@@ -890,8 +890,49 @@ protected:
 
     core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
     {
-        // Todo(achal): Hoist creation out of constructor
-        return nullptr; // return core::make_smart_refctd_ptr<CVulkanFramebuffer>(this, std::move(params));
+        // This flag isn't supported until Vulkan 1.2
+        // assert(!(m_params.flags & ECF_IMAGELESS_BIT));
+
+        constexpr uint32_t MemSize = 1u << 12;
+        constexpr uint32_t MaxAttachments = MemSize / sizeof(VkImageView);
+
+        VkImageView vk_attachments[MaxAttachments];
+        uint32_t attachmentCount = 0u;
+        for (uint32_t i = 0u; i < params.attachmentCount; ++i)
+        {
+            if (params.attachments[i]->getAPIType() == EAT_VULKAN)
+            {
+                vk_attachments[i] = static_cast<const CVulkanImageView*>(params.attachments[i].get())->getInternalObject();
+                ++attachmentCount;
+            }
+        }
+        assert(attachmentCount <= MaxAttachments);
+
+        VkFramebufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        createInfo.pNext = nullptr;
+        createInfo.flags = static_cast<VkFramebufferCreateFlags>(params.flags);
+
+        if (params.renderpass->getAPIType() != EAT_VULKAN)
+            return nullptr;
+
+        createInfo.renderPass = static_cast<const CVulkanRenderpass*>(params.renderpass.get())->getInternalObject();
+        createInfo.attachmentCount = attachmentCount;
+        createInfo.pAttachments = vk_attachments;
+        createInfo.width = params.width;
+        createInfo.height = params.height;
+        createInfo.layers = params.layers;
+
+        // vk->vk.vkCreateFramebuffer(vkdev, &createInfo, nullptr, &m_vkfbo);
+        VkFramebuffer vk_framebuffer;
+        if (vkCreateFramebuffer(m_vkdev, &createInfo, nullptr, &vk_framebuffer) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanFramebuffer>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_framebuffer);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     // Todo(achal): For some reason this is not printing shader errors to console

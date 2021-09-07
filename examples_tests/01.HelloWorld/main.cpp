@@ -262,9 +262,6 @@ int main()
 
 	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(std::move(sc_params));
 
-	const auto swapchainImages = swapchain->getImages();
-	const uint32_t swapchainImageCount = swapchain->getImageCount();
-
 	// Create render pass
 	video::IGPURenderpass::SCreationParams::SAttachmentDescription attachmentDescription = {};
 	attachmentDescription.format = surfaceFormat.format; // this should be same as the imageview used for this attachment
@@ -302,12 +299,10 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPURenderpass> renderPass = device->createGPURenderpass(renderPassParams);
 
-#if 0
-	std::array<core::smart_refctd_ptr<video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
-	assert(swapchainImageCount == SC_IMG_COUNT);
 
+	core::smart_refctd_ptr<video::IGPUFramebuffer> fbos[MAX_SWAPCHAIN_IMAGE_COUNT];
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		auto img = swapchainImages.begin()[i];
@@ -321,7 +316,7 @@ int main()
 			viewParams.subresourceRange.levelCount = 1u;
 			viewParams.subresourceRange.baseArrayLayer = 0u;
 			viewParams.subresourceRange.layerCount = 1u;
-			viewParams.image = std::move(img); // this might create problems
+			viewParams.image = std::move(img);
 
 			imageView = device->createGPUImageView(std::move(viewParams));
 			assert(imageView);
@@ -333,12 +328,14 @@ int main()
 		fbParams.layers = 1u;
 		fbParams.renderpass = renderPass;
 		fbParams.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
-		fbParams.attachmentCount = 1u; // Todo(achal): must be equal to the corresponding value in render pass
+		fbParams.attachmentCount = renderPass->getAttachments().size();
 		fbParams.attachments = &imageView;
 
 		fbos[i] = device->createGPUFramebuffer(std::move(fbParams));
 	}
 
+
+#if 0
 	const uint32_t FRAMES_IN_FLIGHT = 2u;
 
 	// acquireSemaphore will be signalled once you acquire the image to render
