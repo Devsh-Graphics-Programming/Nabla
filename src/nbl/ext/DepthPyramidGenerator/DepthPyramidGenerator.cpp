@@ -25,7 +25,7 @@ DepthPyramidGenerator::DepthPyramidGenerator(IVideoDriver* driver, IAssetManager
 	const char* source =
 		R"(#version 460 core
 #define WORKGROUP_X_AND_Y_SIZE %u
-#define MIPMAP_LEVELS_PER_PASS 8u
+#define MIPMAP_LEVELS_PER_PASS 7u
 #define MIP_IMAGE_FORMAT %s
 #define STRETCH_MIN
 #define %s
@@ -168,7 +168,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 			mipCnt = config.lvlLimit;
 	}
 
-	constexpr uint32_t perPassMipCnt = 8u;
+	constexpr uint32_t perPassMipCnt = 7u;
 	const uint32_t outputDsCnt = (mipCnt + perPassMipCnt - 1u) / perPassMipCnt;
 
 	if (outputDs == nullptr)
@@ -209,7 +209,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 		bindings[2].type = EDT_COMBINED_IMAGE_SAMPLER;
 
 		bindings[3].binding = 3u;
-		bindings[3].count = perPassMipCnt; // for convenience it's always 8, even if not all bindings are being used. compiler doesn't complain, but is it correct?
+		bindings[3].count = perPassMipCnt; // for convenience it's always 7, even if not all bindings are being used. compiler doesn't complain, but is it correct?
 		bindings[3].samplers = nullptr;
 		bindings[3].stageFlags = ISpecializedShader::ESS_COMPUTE;
 		bindings[3].type = EDT_STORAGE_IMAGE;
