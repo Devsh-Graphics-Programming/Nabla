@@ -627,6 +627,7 @@ int main()
 		presentInfo.swapchainCount = 1u;
 		presentInfo.swapchains = &rawPointerToSwapchain;
 		presentInfo.imgIndices = &imageIndex;
+
 		presentQueue->present(presentInfo);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;

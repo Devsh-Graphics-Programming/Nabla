@@ -354,12 +354,12 @@ int main()
 	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
 		swapchainImageCount, commandBuffers);
 
-	asset::SClearValue clearColor = { 0.2f, 0.2f, 0.3f, 1.f };
+	asset::SClearValue clearColor = { 1.f, 0.f, 0.f, 1.f };
 
 	// Record commands in commandBuffers here
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
-		commandBuffers[i]->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+		commandBuffers[i]->begin(0U);
 
 		video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo = {};
 		beginInfo.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderPass);
@@ -376,143 +376,49 @@ int main()
 		commandBuffers[i]->end();
 	}
 
-#if 0
-	// Todo(achal): Hacky stuff begin, get rid
-	// Get handles to existing Vulkan stuff
-	VkDevice vk_device = reinterpret_cast<video::CVKLogicalDevice*>(device.get())->getInternalObject();
-	VkSwapchainKHR vk_swapchain = reinterpret_cast<video::CVKSwapchain*>(swapchain.get())->m_swapchain;
-	VkRenderPass vk_renderPass = reinterpret_cast<video::CVulkanRenderpass*>(renderPass.get())->getInternalObject();
-
-	VkFramebuffer vk_framebuffers[SC_IMG_COUNT];
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-		vk_framebuffers[i] = reinterpret_cast<video::CVulkanFramebuffer*>(fbos[i].get())->m_vkfbo;
-
-	VkImage vk_swapchainImages[SC_IMG_COUNT];
-	uint32_t i = 0u;
-	for (auto image : swapchainImages)
-		vk_swapchainImages[i++] = reinterpret_cast<video::CVulkanImage*>(image.get())->getInternalObject();
-
-	VkSemaphore vk_acquireSemaphores[FRAMES_IN_FLIGHT], vk_releaseSemaphores[FRAMES_IN_FLIGHT];
-	VkFence vk_frameFences[FRAMES_IN_FLIGHT];
-	{
-		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
-		{
-			vk_acquireSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(acquireSemaphores[i].get())->getInternalObject();
-			vk_releaseSemaphores[i] = reinterpret_cast<video::CVulkanSemaphore*>(releaseSemaphores[i].get())->getInternalObject();
-			vk_frameFences[i] = reinterpret_cast<video::CVulkanFence*>(frameFences[i].get())->getInternalObject();
-		}
-	}
-
-	VkQueue vk_graphicsQueue = reinterpret_cast<video::CVulkanQueue*>(graphicsQueue)->getInternalObject();
-
-	// Pure Vulkan begins here, don't even have API code for them yet!
-	VkCommandPool commandPool = VK_NULL_HANDLE;
-	{
-		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-		createInfo.queueFamilyIndex = graphicsFamilyIndex;
-
-		assert(vkCreateCommandPool(vk_device, &createInfo, nullptr, &commandPool) == VK_SUCCESS);
-		assert(commandPool);
-	}
-
-	VkCommandBuffer commandBuffers[SC_IMG_COUNT];
-
-	VkCommandBufferAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-	allocateInfo.commandPool = commandPool;
-	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocateInfo.commandBufferCount = SC_IMG_COUNT;
-
-	assert(vkAllocateCommandBuffers(vk_device, &allocateInfo, commandBuffers) == VK_SUCCESS);
-
-	VkClearValue clearColor = { 0.2f, 0.2f, 0.3f, 1.f };
-
-	// Record commands in commandBuffers here
-	for (uint32_t i = 0u; i < SC_IMG_COUNT; ++i)
-	{
-		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-
-		assert(vkBeginCommandBuffer(commandBuffers[i], &beginInfo) == VK_SUCCESS);
-
-		VkRenderPassBeginInfo renderPassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-		renderPassBeginInfo.renderPass = vk_renderPass;
-		renderPassBeginInfo.framebuffer = vk_framebuffers[i];
-		renderPassBeginInfo.renderArea.offset = { 0, 0 };
-		renderPassBeginInfo.renderArea.extent = swapchainExtent;
-		renderPassBeginInfo.clearValueCount = 1u;
-		renderPassBeginInfo.pClearValues = &clearColor;
-
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		// Do nothing
-
-		vkCmdEndRenderPass(commandBuffers[i]);
-
-		assert(vkEndCommandBuffer(commandBuffers[i]) == VK_SUCCESS);
-	}
-
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
 
 	uint32_t currentFrameIndex = 0u;
-	while (!windowShouldClose_Global)
+	do
 	{
-		video::IGPUSemaphore* acquireSemaphore_frame = acquireSemaphores[currentFrameIndex].get();
-		video::IGPUSemaphore* releaseSemaphore_frame = releaseSemaphores[currentFrameIndex].get();
-		video::IGPUFence* fence_frame = frameFences[currentFrameIndex].get();
+		video::IGPUSemaphore* acquireSemaphore = acquireSemaphores[currentFrameIndex].get();
+		video::IGPUSemaphore* releaseSemaphore = releaseSemaphores[currentFrameIndex].get();
+		video::IGPUFence* fence = frameFences[currentFrameIndex].get();
 
-		assert(device->waitForFences(1u, &fence_frame, true, ~0ull) == video::IGPUFence::ES_SUCCESS);
+		device->waitForFences(1u, &fence, true, ~0ull);
 
 		uint32_t imageIndex;
 		swapchain->acquireNextImage(~0ull, acquireSemaphores[currentFrameIndex].get(), nullptr,
 			&imageIndex);
 
-		// At this stage the final color values are output from the pipeline
-		// Todo(achal): Not really sure why are waiting at this pipeline stage for
-		// acquiring the image to render
-		VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		device->resetFences(1u, &fence);
 
-		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+		asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+		video::IGPUQueue::SSubmitInfo submitInfo = {};
 		submitInfo.waitSemaphoreCount = 1u;
-		submitInfo.pWaitSemaphores = &vk_acquireSemaphores[currentFrameIndex];
-		submitInfo.pWaitDstStageMask = &pipelineStageFlags;
-		submitInfo.commandBufferCount = 1u;
-		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+		submitInfo.pWaitSemaphores = &acquireSemaphore;
+		submitInfo.pWaitDstStageMask = &waitDstStageFlags;
 		submitInfo.signalSemaphoreCount = 1u;
-		submitInfo.pSignalSemaphores = &vk_releaseSemaphores[currentFrameIndex];
+		submitInfo.pSignalSemaphores = &releaseSemaphore;
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.commandBuffers = &commandBuffers[imageIndex].get();
 
-		// Make sure you unsignal the fence before expecting vkQueueSubmit to signal it
-		// once it finishes its execution
-		device->resetFences(1u, &fence_frame);
-
-		VkResult result = vkQueueSubmit(vk_graphicsQueue, 1u, &submitInfo, vk_frameFences[currentFrameIndex]);
-		assert(result == VK_SUCCESS);
-
-		// asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-		// video::IGPUQueue::SSubmitInfo submitInfo = {};
-		// submitInfo.waitSemaphoreCount = 1u;
-		// submitInfo.pWaitSemaphores = &acquireSemaphore_frame;
-		// submitInfo.pWaitDstStageMask = &waitDstStageFlags;
-		// submitInfo.signalSemaphoreCount = 1u;
-		// submitInfo.pSignalSemaphores = &releaseSemaphore_frame;
-		// submitInfo.commandBufferCount = 1u;
-		// submitInfo.commandBuffers = ;
-		// assert(graphicsQueue->submit(1u, &submitInfo, fence_frame));
+		graphicsQueue->submit(1u, &submitInfo, fence);
 
 		video::IGPUQueue::SPresentInfo presentInfo;
 		presentInfo.waitSemaphoreCount = 1u;
-		presentInfo.waitSemaphores = &releaseSemaphore_frame;
+		presentInfo.waitSemaphores = &releaseSemaphore;
 		presentInfo.swapchainCount = 1u;
 		presentInfo.swapchains = &rawPointerToSwapchain;
 		presentInfo.imgIndices = &imageIndex;
-		assert(presentQueue->present(presentInfo));
+
+		presentQueue->present(presentInfo);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
-	}
+	} while (!windowShouldClose_Global);
 
 	device->waitIdle();
-
-	vkDestroyCommandPool(vk_device, commandPool, nullptr);
-#endif
 
 #if 0
 	auto gl = video::IAPIConnection::create(video::EAT_OPENGL, 0, "New API Test", dbgcb);
