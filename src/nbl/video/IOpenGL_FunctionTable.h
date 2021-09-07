@@ -1186,7 +1186,8 @@ namespace nbl {
 			{
 				if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
 				{
-					// Query availability with `GL_QUERY_RESULT_AVAILABLE` and if it returned GL_TRUE then Query results with `GL_QUERY_RESULT`
+					// GL_QUERY_RESULT_NO_WAIT is a combination of GL_QUERY_RESULT_AVAILABLE and GL_QUERY_RESULT
+					// Get Query availability with `GL_QUERY_RESULT_AVAILABLE` and if it returned GL_TRUE then Query results with `GL_QUERY_RESULT`
 					GLuint done = 0;
 					_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectuiv(query, GL_QUERY_RESULT_AVAILABLE, &done));
 					if(done > 0) 
