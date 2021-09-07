@@ -1058,6 +1058,8 @@ public:
     {
         if (!this->isCompatibleDevicewise(queryPool))
             return false;
+        if (!this->isCompatibleDevicewise(dstBuffer))
+            return false;
         SCmd<impl::ECT_COPY_QUERY_POOL_RESULTS> cmd;
         cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
         cmd.firstQuery = firstQuery;

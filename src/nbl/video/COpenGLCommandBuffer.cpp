@@ -868,7 +868,84 @@ namespace nbl::video
             case impl::ECT_COPY_QUERY_POOL_RESULTS:
             {
                 auto& c = cmd.get<impl::ECT_COPY_QUERY_POOL_RESULTS>();
-                _NBL_TODO();
+                
+                const COpenGLBuffer* buffer = static_cast<const COpenGLBuffer*>(c.dstBuffer.get());
+                GLuint bufferId = buffer->getOpenGLName();
+
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                
+                auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
+                auto queriesRange = qp->getQueries(); // queriesRange.size() is a multiple of queryPoolQueriesCount
+                auto queries = queriesRange.begin();
+                
+                IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
+                bool use64Version = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT;
+                bool availabilityFlag = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT;
+                bool waitForAllResults = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT;
+                bool partialResults = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT;
+
+                if(c.firstQuery + c.queryCount > queryPoolQueriesCount)
+                {
+                    assert(false && "The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool");
+                    break;
+                }
+                if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
+                    assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
+                    break;
+                }
+
+                size_t currentDataPtrOffset = c.dstOffset;
+                size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+
+                GLenum pname;
+                if(availabilityFlag)
+                    pname = GL_QUERY_RESULT_AVAILABLE;
+                else if(waitForAllResults)
+                    pname = GL_QUERY_RESULT;
+                else if(partialResults)
+                    pname = GL_QUERY_NO_WAIT;
+
+                auto getQueryBufferObject = [&](GLuint queryId, GLuint buffer, GLenum pname, GLintptr offset) -> void 
+                {
+                    if(use64Version)
+                    {
+                        gl->extGlGetQueryBufferObjectui64v(queryId, buffer, pname, offset);
+                    }
+                    else
+                    {
+                        gl->extGlGetQueryBufferObjectuiv(queryId, buffer, pname, offset);
+                    }
+                };
+
+                for(uint32_t i = 0; i < c.queryCount; ++i)
+                {
+                    if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP || queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION)
+                    {
+                        assert(queryPoolQueriesCount == queriesRange.size());
+                        assert(c.stride >= queryElementDataSize);
+                        GLuint query = queries[i+c.firstQuery];
+
+                        getQueryBufferObject(query, bufferId, pname, currentDataPtrOffset);
+                    }
+                    else if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
+                    {
+                        assert(queryPoolQueriesCount * 2 == queriesRange.size());
+                        assert(c.stride >= queryElementDataSize * 2);
+
+                        GLuint query1 = queries[i+c.firstQuery];
+                        GLuint query2 = queries[i+c.firstQuery + queryPoolQueriesCount];
+
+                        // Write All
+                        getQueryBufferObject(query1, bufferId, pname, currentDataPtrOffset);
+                        getQueryBufferObject(query2, bufferId, pname, currentDataPtrOffset + queryElementDataSize);
+                    }
+                    else
+                    {
+                        assert(false && "QueryType is not supported.");
+                    }
+
+                    currentDataPtrOffset += c.stride;
+                }
             }
             break;
             case impl::ECT_WRITE_TIMESTAMP:

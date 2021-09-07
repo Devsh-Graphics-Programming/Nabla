@@ -91,6 +91,7 @@ namespace impl
             ERT_MAP_BUFFER_RANGE,
             ERT_UNMAP_BUFFER,
             //BIND_BUFFER_MEMORY,
+            ERT_GET_QUERY_POOL_RESULTS,
 
             ERT_CTX_MAKE_CURRENT,
 
@@ -264,6 +265,18 @@ namespace impl
 
             core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
         };
+        struct SRequestGetQueryPoolResults
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_GET_QUERY_POOL_RESULTS;
+            using retval_t = void;
+            core::smart_refctd_ptr<const IQueryPool> queryPool;
+            uint32_t firstQuery;
+            uint32_t queryCount;
+            size_t dataSize;
+            void * pData;
+            uint64_t stride;
+            IQueryPool::E_QUERY_RESULTS_FLAGS flags;
+        };
         struct SRequestMakeCurrent
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_CTX_MAKE_CURRENT;
@@ -402,6 +415,7 @@ protected:
             SRequestInvalidateMappedMemoryRanges,
             SRequestMapBufferRange,
             SRequestUnmapBuffer,
+            SRequestGetQueryPoolResults,
 
             SRequestMakeCurrent,
 
@@ -660,6 +674,97 @@ protected:
                 auto& p = std::get<SRequestUnmapBuffer>(req.params_variant);
 
                 gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
+            }
+                break;
+            case ERT_GET_QUERY_POOL_RESULTS:
+            {
+                auto& p = std::get<SRequestGetQueryPoolResults>(req.params_variant);
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(p.queryPool.get());
+                auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
+                auto queriesRange = qp->getQueries(); // queriesRange.size() is a multiple of queryPoolQueriesCount
+                auto queries = queriesRange.begin();
+
+                if(p.pData != nullptr)
+                {
+                    IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
+                    bool use64Version = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT;
+                    bool availabilityFlag = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT;
+                    bool waitForAllResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT;
+                    bool partialResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT;
+
+                    if(p.firstQuery + p.queryCount > queryPoolQueriesCount)
+                    {
+                        assert(false && "The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool");
+                        break;
+                    }
+                    if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
+                        assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
+                        break;
+                    }
+
+                    size_t currentDataPtrOffset = 0;
+                    size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+
+                    GLenum pname;
+                    if(availabilityFlag)
+                        pname = GL_QUERY_RESULT_AVAILABLE;
+                    else if(waitForAllResults)
+                        pname = GL_QUERY_RESULT;
+                    else if(partialResults)
+                        pname = GL_QUERY_NO_WAIT;
+
+                    auto getQueryObject = [&](GLuint queryId, GLenum pname, void * pData) -> void 
+                    {
+                        if(use64Version)
+                        {
+                            gl.extGlGetQueryObjectui64v(queryId, pname, reinterpret_cast<GLuint64*>(pData));
+                        }
+                        else
+                        {
+                            gl.extGlGetQueryObjectuiv(queryId, pname, reinterpret_cast<GLuint*>(pData));
+                        }
+                    };
+
+                    for(uint32_t i = 0; i < p.queryCount; ++i)
+                    {
+                        // Don't write queries that exceed the dataSize
+                        if(currentDataPtrOffset >= p.dataSize)
+                            break;
+                        
+                        if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP || queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION)
+                        {
+                            assert(queryPoolQueriesCount == queriesRange.size());
+                            assert(p.stride >= queryElementDataSize);
+
+                            GLuint query = queries[i+p.firstQuery];
+                            uint8_t* pData = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
+                            getQueryObject(query, pname, pData);
+                        }
+                        else if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
+                        {
+                            assert(queryPoolQueriesCount * 2 == queriesRange.size());
+                            assert(p.stride >= queryElementDataSize * 2);
+
+                            GLuint query1 = queries[i+p.firstQuery];
+                            GLuint query2 = queries[i+p.firstQuery + queryPoolQueriesCount];
+                                
+                            // If VK_QUERY_RESULT_WITH_AVAILABILITY_BIT is set, the final integer value written for each query is non-zero if the query’s status was available or zero if the status was unavailable.
+                            uint8_t* pData1 = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
+                            uint8_t* pData2 = pData1 + queryElementDataSize;
+
+                            // Write All
+                            getQueryObject(query1, pname, reinterpret_cast<GLuint64*>(pData1));
+                            getQueryObject(query2, pname, reinterpret_cast<GLuint64*>(pData2));
+                        }
+                        else
+                        {
+                            assert(false && "QueryType is not supported.");
+                        }
+
+                        currentDataPtrOffset += p.stride;
+                        
+                    }
+                }
             }
                 break;
             case ERT_GET_FENCE_STATUS:
