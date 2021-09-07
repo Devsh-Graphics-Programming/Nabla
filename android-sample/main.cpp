@@ -66,7 +66,7 @@ struct nabla {
     core::smart_refctd_ptr<ui::IWindow> window;
     core::smart_refctd_ptr<system::ISystem> system;
     core::smart_refctd_ptr<video::IAPIConnection> api;
-    core::smart_refctd_ptr<video::IPhysicalDevice> gpu;
+    IPhysicalDevice* gpu;
     core::smart_refctd_ptr<video::ILogicalDevice> dev;
     core::smart_refctd_ptr<video::ISwapchain> sc;
     core::smart_refctd_ptr<video::IGPURenderpass> renderpass;
@@ -90,11 +90,11 @@ static int engine_init_display(struct nabla* engine) {
     video::COpenGLDebugCallback cb;
     engine->api = video::COpenGLConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
-    auto surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(engine->api),core::smart_refctd_ptr<IWindowAndroid>(static_cast<CWindowAndroid*>(engine->window.get())));
+    auto surface = video::CSurfaceGLAndroid::create<video::EAT_OPENGL>(core::smart_refctd_ptr<video::COpenGLConnection>((video::COpenGLConnection*)engine->api.get()),core::smart_refctd_ptr<IWindowAndroid>(static_cast<CWindowAndroid*>(engine->window.get())));
 
     auto gpus = engine->api->getPhysicalDevices();
 	assert(!gpus.empty());
-    engine->gpu = gpus.begin();
+    engine->gpu = gpus.begin()[0];
 
     assert(surface->isSupported(engine->gpu.get(), 0u));
     
