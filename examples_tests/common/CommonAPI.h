@@ -386,7 +386,7 @@ public:
 		q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
 		float priority = 1.f;
 		q_params.priorities = &priority;
-		dev_params.queueCreateInfos = &q_params;
+		dev_params.queueParams = &q_params;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
 		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));

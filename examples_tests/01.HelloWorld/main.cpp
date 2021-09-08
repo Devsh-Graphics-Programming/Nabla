@@ -108,7 +108,7 @@ int main()
 	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
 	auto window = winManager->createWindow(std::move(params));
 
-#if 0
+#if 1
 	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
 		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "01.HelloWorld", true);
 
