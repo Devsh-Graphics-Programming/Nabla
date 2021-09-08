@@ -40,7 +40,7 @@ namespace nbl::system
 		}
 	};
 }
-	#ifdef _NBL_PLATFORM_WINDOWS
+	#ifdef _NBL_PLATFORM_WINDOWS_
 	#include <nbl/system/CFileViewVirtualAllocatorWin32.h>
 		using VirtualAllocator = nbl::system::CFileViewVirtualAllocatorWin32;
 	#elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
