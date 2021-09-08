@@ -46,6 +46,17 @@ void storeReducedValToImage(in uint mipIdx, in uvec2 coords, REDUCED_VAL_T reduc
 #endif
 }
 
+REDUCED_VAL_T loadFromImage(in uint mipIdx, in uvec2 coords)
+{
+    vec4 pix = imageLoad(outMips[mipIdx], ivec2(coords));
+
+#ifndef REDUCION_OP_BOTH
+  return pix.x;
+#else
+  return pix.xy;
+#endif
+}
+
 void storeReducedValToSharedMemory(in uint idx, in REDUCED_VAL_T val)
 {
 #ifndef REDUCION_OP_BOTH
@@ -90,10 +101,39 @@ void copySharedMemValue(in uint dstIdx, in uint srcIdx)
     #define DECODE_MORTON nbl_glsl_morton_decode2d4b
 #endif
 
+void calcMipsFromSharedMemoryData(in uint mipToCalcCnt, in uint firstOutputMipIdx, in uvec2 base, in uvec2 morton)
+{
+    copySharedMemValue(gl_LocalInvocationIndex, WORKGROUP_SIZE + (bitfieldReverse(gl_LocalInvocationIndex) >> (32 - findMSB(WORKGROUP_SIZE))));
+    barrier();
+            
+    uint limit = WORKGROUP_SIZE >> 1u;
+    for (int i = 1; i < mipToCalcCnt; i++)
+    {
+        if (gl_LocalInvocationIndex < limit)
+        {
+          const REDUCED_VAL_T reducedVal = reduceValFromSharedMemory(gl_LocalInvocationIndex, gl_LocalInvocationIndex + limit);
+          storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
+        }
+
+        barrier();
+        limit >>= 1u;
+        if (gl_LocalInvocationIndex < limit)
+        {
+          const REDUCED_VAL_T reducedVal = reduceValFromSharedMemory(gl_LocalInvocationIndex, gl_LocalInvocationIndex + limit);
+          storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
+          storeReducedValToImage(firstOutputMipIdx + i, (base >> i) + morton, getValFromSharedMemory(bitfieldReverse(gl_LocalInvocationIndex) >> uint(32 - findMSB(1024) + i + i)));
+        }
+        barrier();
+        limit >>= 1u;
+    }
+}
+
 void main()
 {
     for (uint metaZLayer = 0u; ; metaZLayer++)
     {
+        //TODO: handle case, where pixelCnt of base mip for main dispatch is < WORKGROUP_X_AND_Y_SIZE * WORKGROUP_X_AND_Y_SIZE
+
         const uvec3 virtualWorkGroupID = nbl_glsl_depthPyramid_scheduler_getWork(metaZLayer);
         
         if(metaZLayer == 0u)
@@ -108,44 +148,121 @@ void main()
             const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
             #endif
             const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
-            const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]),REDUCTION_OPERATOR(samples[2], samples[3]));
+            const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
             storeReducedValToImage(0, naturalOrder, reducedVal);
 
             storeReducedValToSharedMemory(WORKGROUP_SIZE + gl_LocalInvocationIndex, reducedVal);
-
             barrier();
-            copySharedMemValue(gl_LocalInvocationIndex, WORKGROUP_SIZE+(bitfieldReverse(gl_LocalInvocationIndex) >> (32 - findMSB(WORKGROUP_SIZE))));
-            barrier();
-
-            uint limit = WORKGROUP_SIZE >> 1u;
-            for (int i = 1; i < pc.data.mainDispatchMipCnt; i++)
-            {
-                if (gl_LocalInvocationIndex < limit)
-                {
-                  const REDUCED_VAL_T reducedVal = reduceValFromSharedMemory(gl_LocalInvocationIndex, gl_LocalInvocationIndex + limit);
-                  storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
-                }
-
-                barrier();
-                limit >>= 1u;
-                if (gl_LocalInvocationIndex < limit)
-                {
-                  const REDUCED_VAL_T reducedVal = reduceValFromSharedMemory(gl_LocalInvocationIndex, gl_LocalInvocationIndex + limit);
-                  storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
-                  storeReducedValToImage(i, (base >> i) + morton, getValFromSharedMemory(bitfieldReverse(gl_LocalInvocationIndex) >> uint(32 - findMSB(1024) + i + i)));
-                }
-                barrier();
-                limit >>= 1u;
-            }
+            calcMipsFromSharedMemoryData(pc.data.mainDispatchMipCnt, 0u, base, morton);
         }
         else
         {
-            //if(gl_localInvocationIndex);
+            const uint virutalPassFirstMipPixelCnt = pc.data.virtualDispatchFirstMipExtent.x * pc.data.virtualDispatchFirstMipExtent.y;
+
+            if(virutalPassFirstMipPixelCnt >= WORKGROUP_SIZE)
+            {
+                const uvec2 base = virtualWorkGroupID.xy * gl_WorkGroupSize.xy;
+                const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
+
+                uvec2 naturalOrder = base + morton;
+                naturalOrder <<= 1u;
+
+                const uint srcImgIdx = pc.data.mainDispatchMipCnt - 1u;
+                REDUCED_VAL_T p[4];
+                p[0] = loadFromImage(srcImgIdx, naturalOrder);
+                p[1] = loadFromImage(srcImgIdx, naturalOrder + uvec2(1, 0));
+                p[2] = loadFromImage(srcImgIdx, naturalOrder + uvec2(0, 1));
+                p[3] = loadFromImage(srcImgIdx, naturalOrder + uvec2(1, 1));
+
+                const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR_2(p[0], p[1]), REDUCTION_OPERATOR_2(p[2], p[3]));
+
+                naturalOrder >>= 1u;
+
+                const uint dstImgIdx = pc.data.mainDispatchMipCnt;
+                storeReducedValToImage(dstImgIdx, uvec2(naturalOrder), reducedVal);
+
+                storeReducedValToSharedMemory(WORKGROUP_SIZE + gl_LocalInvocationIndex, reducedVal);
+                barrier();
+                calcMipsFromSharedMemoryData(pc.data.virtualDispatchMipCnt, pc.data.mainDispatchMipCnt, base, morton);
+            }
+            else
+            {
+                if(gl_LocalInvocationIndex < virutalPassFirstMipPixelCnt)
+                {
+                    ivec2 coords;
+                    coords.x = int(gl_LocalInvocationIndex) % int(pc.data.virtualDispatchFirstMipExtent.x);
+                    coords.y = int(gl_LocalInvocationIndex) / int(pc.data.virtualDispatchFirstMipExtent.x);
+                    coords <<= 1;
+
+                    const uint srcImgIdx = pc.data.mainDispatchMipCnt - 1u;
+                    REDUCED_VAL_T p[4];
+                    p[0] = loadFromImage(srcImgIdx, uvec2(coords));
+                    p[1] = loadFromImage(srcImgIdx, uvec2(coords) + uvec2(1, 0));
+                    p[2] = loadFromImage(srcImgIdx, uvec2(coords) + uvec2(0, 1));
+                    p[3] = loadFromImage(srcImgIdx, uvec2(coords) + uvec2(1, 1));
+
+                    const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR_2(p[0], p[1]), REDUCTION_OPERATOR_2(p[2], p[3]));
+
+                    const uint dstImgIdx = pc.data.mainDispatchMipCnt;
+                    storeReducedValToImage(dstImgIdx, uvec2(coords) / 2u, reducedVal);
+
+                    storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
+
+                    //TODO: optimize
+                    uint limit = virutalPassFirstMipPixelCnt >> 1u;
+                    uvec2 currImgExtent = pc.data.virtualDispatchFirstMipExtent >> 1u;
+                    for (int i = 1; i < pc.data.virtualDispatchMipCnt; i++)
+                    {
+                        if (gl_LocalInvocationIndex < limit)
+                        {
+                            ivec2 coords;
+                            coords.x = int(gl_LocalInvocationIndex) % int(currImgExtent.x);
+                            coords.y = int(gl_LocalInvocationIndex) / int(currImgExtent.x);
+                            coords <<= 1;
+
+                            currImgExtent <<= 1u;
+
+                            const uint p0Index = coords.y * currImgExtent.x + coords.x;
+                            const uint p1Index = p0Index + currImgExtent.x;
+                            const REDUCED_VAL_T reducedVal0 = reduceValFromSharedMemory(p0Index, p0Index + 1u);
+                            const REDUCED_VAL_T reducedVal1 = reduceValFromSharedMemory(p1Index, p1Index + 1u);
+                            const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(reducedVal0, reducedVal1);
+                            storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
+                            storeReducedValToImage(pc.data.mainDispatchMipCnt + 1u, uvec2(coords) / 2u, reducedVal);
+
+                            currImgExtent >>= 1u;
+                        }
+                        barrier();
+                        limit >>= 1u;
+                        currImgExtent >>= 1u;
+                    }
+                }
+            }
+
+
+          //test code
+            // const uvec2 base = gl_WorkGroupID.xy * gl_WorkGroupSize.xy;
+            // const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
+            // const uvec2 naturalOrder = base + morton;
+
+            // imageStore(outMips[0u], ivec2(naturalOrder), vec4(1.0f));
+
+            // if(gl_LocalInvocationIndex < virutalPassFirstMipPixelCnt)
+            // {
+            //   ivec2 coords;
+            //   coords.x = int(gl_LocalInvocationIndex) % 16;
+            //   coords.y = int(gl_LocalInvocationIndex) / 16;
+
+            //   imageStore(outMips[6u], coords, vec4(1.0f));
+            // }
         }
         
         const bool shouldTerminate = nbl_glsl_depthPyramid_finalizeVirtualWorkgGroup(metaZLayer);
         if(shouldTerminate)
-            return;
+        {
+          nbl_glsl_depthPyramid_resetAtomicCounters();
+          return;
+        }
     }
 }
 

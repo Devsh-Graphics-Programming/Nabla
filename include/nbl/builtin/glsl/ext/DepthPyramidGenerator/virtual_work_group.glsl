@@ -48,11 +48,8 @@ uvec3 nbl_glsl_depthPyramid_scheduler_getWork(in uint metaZLayer)
         }
         barrier();
 
-        if(metaZLayer > 0u)
-        {
-            uint prevLvlWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex].x * virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex].y;
-            while(virtualWorkGroup.workGroupsFinished < prevLvlWGCnt); //spin lock
-        }
+        uint prevLvlWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex].x * virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex].y;
+        while(virtualWorkGroup.workGroupsFinished < prevLvlWGCnt); //spin lock
 
         return unmappedVirtualWorkGroupIDShared;
     }
@@ -60,28 +57,47 @@ uvec3 nbl_glsl_depthPyramid_scheduler_getWork(in uint metaZLayer)
 
 bool nbl_glsl_depthPyramid_finalizeVirtualWorkgGroup(in uint metaZLayer)
 {
+    if(pc.data.virtualDispatchMipCnt == 0u || metaZLayer >= (pc.data.maxMetaZLayerCnt - 1u))
+    {
+        if(gl_LocalInvocationIndex == 0u)
+            atomicAdd(virtualWorkGroup.workGroupsFinished, 1u);
+        barrier();
+
+        return true;
+        
+        //if we reset atomic counter after shader execution:
+        //return true;
+    }
+
     if(gl_LocalInvocationIndex == 0u)
     {
-        if(metaZLayer >= pc.data.maxMetaZLayerCnt - 1u)
-        {
-            //atomicAdd(virtualWorkGroup.workGroupsFinished, 1u);
-            shouldTerminateShared = true;
-        }
-        else
-        {
-            atomicAdd(virtualWorkGroup.workGroupsFinished, 1u);
+        const uint workGroupsFinished = atomicAdd(virtualWorkGroup.workGroupsFinished, 1u);
+        const uint thisVirtualDispatchIndex = pc.data.virtualDispatchIndex + metaZLayer;
+        const uint thisLvlWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex].x * virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex].y;
+        const uint nextLvlWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex + 1u].x * virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex + 1u].y;
 
-            uint thisLvlWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex + metaZLayer].x * virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex + metaZLayer].y;
-            uint nextLvlWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex + metaZLayer + 1u].x * virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex + metaZLayer + 1u].y;
-            if(virtualWorkGroup.workGroupsFinished + nextLvlWGCnt > nextLvlWGCnt)
-                shouldTerminateShared = false;
-            else
-                shouldTerminateShared = true;
-        }
+        if(thisLvlWGCnt - workGroupsFinished <= nextLvlWGCnt)
+           shouldTerminateShared = false;
+        else
+           shouldTerminateShared = true;
     }
     barrier();
 
     return shouldTerminateShared;
+}
+
+// maybe I should do it after shader exectution via `IVideoDriver::fillBuffer` or smth, if not: TODO: optimize this function
+void nbl_glsl_depthPyramid_resetAtomicCounters()
+{
+    const uint thisVirtualDispatchIndex = pc.data.virtualDispatchIndex;
+    const uint mainPassWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex].x * virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex].y;
+    const uint virtualPassWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex + 1u].x * virtualWorkGroupData.zLayerWorkGroupDim[thisVirtualDispatchIndex + 1u].y;
+
+    if(mainPassWGCnt + virtualPassWGCnt == virtualWorkGroup.workGroupsFinished)
+    {
+        virtualWorkGroup.workGroupsDispatched = 0u;
+        virtualWorkGroup.workGroupsFinished = 0u;
+    }
 }
 
 #endif

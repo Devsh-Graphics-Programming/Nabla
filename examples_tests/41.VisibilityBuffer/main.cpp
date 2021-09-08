@@ -260,6 +260,7 @@ int main()
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+    //params.WindowSize = dimension2d<uint32_t>(3000, 2100);
     params.WindowSize = dimension2d<uint32_t>(1280, 720);
     params.Fullscreen = false;
     params.Vsync = true; //! If supported by target platform
@@ -331,7 +332,8 @@ int main()
     DPG::Config config;
     config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH;
     config.outputFormat = DPG::E_IMAGE_FORMAT::EIF_R32G32_FLOAT;
-    config.lvlLimit = 5u;
+    config.workGroupSize = DPG::E_WORK_GROUP_SIZE::EWGS_32x32x1;
+    //config.lvlLimit = 5u;
     DPG dpg(driver, am, depthBufferView, config);
 
     const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView);

@@ -66,6 +66,8 @@ public:
 		uint32_t virtualDispatchMipCnt;
 		uint32_t maxMetaZLayerCnt;
 		uint32_t virtualDispatchIndex;
+		core::vector2d<uint32_t> mainDispatchFirstMipExtent;
+		core::vector2d<uint32_t> virtualDispatchFirstMipExtent;
 	};
 
 	// inputDepthImageView - input texture

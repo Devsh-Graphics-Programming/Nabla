@@ -12,6 +12,8 @@ struct PushConstantsData
     uint virtualDispatchMipCnt;
     uint maxMetaZLayerCnt;
     uint virtualDispatchIndex;
+    uvec2 mainDispatchFirstMipExtent;
+    uvec2 virtualDispatchFirstMipExtent;
 };
 
 layout(push_constant) uniform PushConstants
