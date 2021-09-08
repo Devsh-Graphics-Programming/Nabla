@@ -277,8 +277,9 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 			auto& particularCache = std::get<cache_type_t<CacheFormat>>(cache);
 			cache_type_t<CacheFormat> backup;
+
 			if (!replaceCurrentContents)
-				backup.swap(std::move(particularCache));
+				backup.swap(particularCache);
 			
 			CBufferPhmapInputArchive buffWrap(buffer);
 			bool loadingSuccess = particularCache.load(buffWrap);
@@ -289,32 +290,39 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			return loadingSuccess;
 		}
 
-#if 0 // TODO: Danlyo
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool loadCacheFromFile(io::IReadFile* file, bool replaceCurrentContents = false)
+		inline bool loadCacheFromFile(system::IFile* file, bool replaceCurrentContents = false)
 		{
 			if (!file)
 				return false;
 
 			auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
-			file->read(buffer->getPointer(),file->getSize()); // TODO: make it a better way
+			system::future<size_t> future;
+
+			file->read(future, buffer->getPointer(), 0, file->getSize());
+			future.get();
 
 			asset::SBufferRange<const asset::ICPUBuffer> bufferRange;
 			bufferRange.offset = 0;
 			bufferRange.size = file->getSize();
 			bufferRange.buffer = std::move(buffer);
-			return loadCacheFromBuffer<CacheFormat>(bufferRange,replaceCurrentContents);
+			return loadCacheFromBuffer<CacheFormat>(bufferRange, replaceCurrentContents);
 		}
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool loadCacheFromFile(io::IFileSystem* fs, const std::string& path, bool replaceCurrentContents = false)
+		inline bool loadCacheFromFile(nbl::system::ISystem* system, const std::string& path, bool replaceCurrentContents = false)
 		{
-			auto file = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile(path.c_str()),core::dont_grab);
+			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+			bool validInput = system->createFile(future, path, nbl::system::IFile::ECF_READ);
+
+			if (!validInput) 
+				return false;
+
+			core::smart_refctd_ptr<system::IFile> file = future.get();
 			return loadCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
 		}
-#endif
 
 		//!
 		template<E_FORMAT CacheFormat>
@@ -329,10 +337,10 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			CBufferPhmapOutputArchive buffWrap(buffer);
 			return std::get<cache_type_t<CacheFormat>>(cache).dump(buffWrap);
 		}
-#if 0 // TODO: Danlyo
+
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool saveCacheToFile(io::IWriteFile* file)
+		inline bool saveCacheToFile(system::IFile* file)
 		{
 			if (!file)
 				return false;
@@ -343,14 +351,25 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			bufferRange.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferRange.size);
 		
 			saveCacheToBuffer<CacheFormat>(bufferRange);
-			file->write(bufferRange.buffer->getPointer(), bufferRange.buffer->getSize());
+
+			system::future<size_t> future;
+			file->write(future, bufferRange.buffer->getPointer(), 0, bufferRange.buffer->getSize());
+			future.get(); // NOTE: should it wait?
+
 			return true;
 		}
+
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool saveCacheToFile(io::IFileSystem* fs, const std::string& path)
+		inline bool saveCacheToFile(nbl::system::ISystem* system, const std::string& path)
 		{
-			auto file = core::smart_refctd_ptr<io::IWriteFile>(fs->createAndWriteFile(path.c_str()));
+			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+			bool validInput = system->createFile(future, path, nbl::system::IFile::ECF_WRITE);
+
+			if (!validInput)
+				return false;
+
+			core::smart_refctd_ptr<system::IFile> file = future.get();
 			return saveCacheToFile<CacheFormat>(file.get());
 		}
 
@@ -360,7 +379,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		{
 			return getSerializedCacheSizeInBytes_impl<CacheFormat>(std::get<cache_type_t<CacheFormat>>(cache).capacity());
 		}
-#endif
+
 	protected:
 		std::tuple<cache_type_t<Formats>...> cache;
 		

@@ -22,9 +22,11 @@ class CPropertyPool final : public IPropertyPool
             return (sizeof(Properties) + ...);
         }
 
-        static inline constexpr auto PropertyCount = sizeof...(Properties);
-
 	public:
+        static inline constexpr auto PropertyCount = sizeof...(Properties);
+        static inline constexpr std::array<size_t,PropertyCount> PropertySizes = {sizeof(Properties)...};
+
+        //
         static inline uint32_t calcApproximateCapacity(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks)
         {
             size_t capacity = ~0ull;
@@ -34,14 +36,27 @@ class CPropertyPool final : public IPropertyPool
                 if (bufcap<capacity)
                     capacity = bufcap;
             }
-            return core::min<size_t>(IPropertyPool::invalid_index,capacity);
+            return core::min<size_t>(IPropertyPool::invalid,capacity);
         }
 
+        // easy dont care creation
+        static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
+        {
+            asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
+            for (auto i=0u; i<PropertyCount; i++)
+            {
+                blocks[i].offset = 0ull;
+                blocks[i].size = capacity*PropertySizes[i];
+                blocks[i].buffer = device->createDeviceLocalGPUBufferOnDedMem(blocks[i].size);
+            }
+            return create(device,blocks,capacity,contiguous,allocator<uint8_t>());
+        }
+        // you can either construct the pool with explicit capacity or have it deduced from the memory blocks you pass
 		static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, uint32_t capacity=0u, const bool contiguous=false, allocator<uint8_t>&& alloc = allocator<uint8_t>())
 		{
             if (!capacity)
                 capacity = calcApproximateCapacity(_memoryBlocks);
-			const auto reservedSize = getReservedSize(capacity);
+			const auto reservedSize = getReservedSize(capacity,contiguous);
 			auto reserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,reservedSize);
 			if (!reserved)
 				return nullptr;
@@ -87,8 +102,6 @@ class CPropertyPool final : public IPropertyPool
         allocator<uint8_t> alloc;
         asset::SBufferRange<IGPUBuffer> m_memoryBlocks[PropertyCount];
 		void* reserved;
-
-        static inline constexpr std::array<size_t,PropertyCount> PropertySizes = {sizeof(Properties)...};
 };
 
 

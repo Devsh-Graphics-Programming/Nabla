@@ -179,6 +179,10 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -216,14 +220,14 @@ set(NBL_ASSET_SOURCES
 # Mesh loaders
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
 
 # Mesh writers
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -362,6 +366,7 @@ set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
 	${THIRD_PARTY_SOURCE_DIR}/glm
+        ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
@@ -392,7 +397,7 @@ macro(nbl_target_include_parallel_hashmap _trgt)
 endmacro()
 
 macro(nbl_target_link_openssl _trgt)
-	if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 		target_link_libraries(${_trgt} INTERFACE
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		)
@@ -548,7 +553,7 @@ target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
 		${X11_INCLUDE_DIR} 
-		${X11_Xrandr_INCLUDE_PATH} 
+		X11_Xrandr_INCLUDE_PATH
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
@@ -571,6 +576,20 @@ if (ANDROID)
 endif()
 
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
+set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
+
+write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+add_custom_command(
+	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" 
+	COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/include -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaHeader.cmake
+	DEPENDS ${NBL_ROOT_PATH}/include/nabla.h.in
+	COMMENT "Generating nabla.h"
+	VERBATIM
+)
+
+add_custom_target(generate_nabla_header DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
+add_dependencies(Nabla generate_nabla_header)
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Nabla PUBLIC /bigobj)
@@ -604,18 +623,10 @@ set(NABLA_HEADERS_TO_INSTALL
 
 set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
 	# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CFileList.h
-	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.h
-	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CReadFile.h
-	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.h
 	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
 	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-#	${NBL_ROOT_PATH}/source/Nabla/COSOperator.h
-	${NBL_ROOT_PATH}/source/Nabla/nbl_os.h
 )
 
 nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
@@ -650,7 +661,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 nbl_install_lib(png_static)
 
-if(NOT (ANDROID AND "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")) # OpenSSL can't be built for Android platform using windows OS host
+if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 	install(FILES
 			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
 		DESTINATION lib
@@ -659,7 +670,7 @@ endif()
 nbl_install_lib(shaderc)
 nbl_install_lib(shaderc_util)
 nbl_install_lib(SPIRV)
-nbl_install_lib(SPIRV-Tools)
+nbl_install_lib(SPIRV-Tools-static)
 nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)

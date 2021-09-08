@@ -96,8 +96,22 @@ public:
                 );
             }
         }
+        // wait for all queues to start before we set out master context
+        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+        {
+            const auto& qci = params.queueCreateInfos[i];
+            const uint32_t famIx = qci.familyIndex;
+            const uint32_t offset = (*m_offsets)[famIx];
+            for (uint32_t j = 0u; j < params.queueCreateInfos[i].count; ++j)
+            {
+                const uint32_t ix = offset + j;
+                // wait until queue's internal thread finish context creation
+                static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->waitForInitComplete();
+            }
+        }
 
         m_threadHandler.start();
+        m_threadHandler.waitForInitComplete();
 
         constexpr size_t GLSLcnt = std::extent<decltype(FeaturesType::m_GLSLExtensions)>::value;
         if (!m_supportedGLSLExtsNames)
@@ -205,7 +219,7 @@ public:
         if (!sc)
             return nullptr;
         // wait until swapchain's internal thread finish context creation
-        sc->waitForContextCreation();
+        sc->waitForInitComplete();
         // make master context (in logical device internal thread) again
         bindMasterContext();
 
@@ -302,14 +316,21 @@ public:
         for (uint32_t i = 0u; i < _count; ++i)
         {
             assert(_fences[i]);
-            auto* glfence = static_cast<COpenGLFence*>(_fences[i]);
-            assert(glfence->getInternalObject()); // seems like fence hasnt even been put to be signaled or has been resetted in the meantime
         }
 #endif
-        SRequestWaitForFences params{ {_fences,_fences + _count},_waitAll,_timeout };
+        auto tmp = SRequestWaitForFences::clock_t::now();
+        const auto end = tmp+std::chrono::nanoseconds(_timeout);
+        
+        // dont hog the queue, let other requests jump in every 50us (20000 device non-queue requests/second if something is polling)
+        constexpr uint64_t pollingQuanta = 50000u;
         IGPUFence::E_STATUS retval;
-        auto& req = m_threadHandler.request(std::move(params), &retval);
-        m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
+        do
+        {
+            tmp += std::chrono::nanoseconds(pollingQuanta);
+            SRequestWaitForFences params{ {_fences,_fences+_count},core::min(tmp,end),_waitAll };
+            auto& req = m_threadHandler.request(std::move(params),&retval);
+            m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
+        } while (retval==IGPUFence::ES_TIMEOUT && SRequestWaitForFences::clock_t::now()<end);
 
         return retval;
     }
@@ -628,7 +649,7 @@ protected:
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-        IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+        IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
         const asset::SVertexInputParams& _vertexInputParams,
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -646,7 +667,7 @@ protected:
         for (auto* s = _shaders; s != _shadersEnd; ++s)
         {
             uint32_t ix = core::findLSB<uint32_t>((*s)->getStage());
-            params.shaders[ix] = core::smart_refctd_ptr<IGPUSpecializedShader>(*s);
+            params.shaders[ix] = core::smart_refctd_ptr<const IGPUSpecializedShader>(*s);
         }
 
         SRequestRenderpassIndependentPipelineCreate req_params;

@@ -3,9 +3,9 @@
 
 #include <nbl/builtin/glsl/format/constants.glsl>
 
-void nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBias, in int newMaxExp, in int mantissaBits, out int shared_exp)
+uvec3 nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBias, in int newMaxExp, in int mantissaBits, out int shared_exp)
 {
-	maxrgb = max(max(clamped.r,clamped.g),clamped.b);
+	float maxrgb = max(max(clamped.r,clamped.g),clamped.b);
 	// TODO: optimize this
 	const int f32_exp = ((floatBitsToInt(maxrgb)>>23) & 0xff) - 126;
 
@@ -17,6 +17,7 @@ void nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBias
 	scale = need ? 0.5*scale:scale;
 	shared_exp = need ? (shared_exp+1):shared_exp;
 	const uvec3 mantissas = uvec3(clamped*scale + vec3(0.5));
+	return mantissas;
 }
 
 uvec2 nbl_glsl_encodeRGB19E7(in vec3 col)

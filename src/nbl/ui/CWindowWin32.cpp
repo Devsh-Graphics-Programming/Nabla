@@ -21,6 +21,11 @@ namespace nbl::ui
 		SetWindowLongPtr(m_native, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 	}
 
+	void CWindowWin32::setCaption(const std::string_view& caption)
+	{
+		SetWindowText(m_native, caption.data());
+	}
+
 	CWindowWin32::~CWindowWin32()
 	{
 		m_windowManager->destroyWindow(this);
@@ -217,7 +222,7 @@ namespace nbl::ui
 			UINT size;
 			UINT headerSize;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-			core::vector<std::byte> data(size);
+			core::vector<std::byte> data(size); // TODO: preallocate some upper bound, dont want an alloc here!
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data.data(), &size, sizeof(RAWINPUTHEADER));
 			rawInput = reinterpret_cast<RAWINPUT*>(data.data());
 			HANDLE device = rawInput->header.hDevice;
@@ -381,7 +386,7 @@ namespace nbl::ui
 		}
 		if(shouldCallDefProc)
 			return DefWindowProc(hWnd, message, wParam, lParam);
-		// TODO: not all paths return a value !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+		return 0;
 	}
 
 	E_KEY_CODE CWindowWin32::getNablaKeyCodeFromNative(uint8_t nativeWindowsKeyCode)

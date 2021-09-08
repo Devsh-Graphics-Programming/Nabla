@@ -3,10 +3,16 @@
 
 struct nbl_glsl_property_pool_transfer_t
 {
-	int propertyDWORDsize_upDownFlag;
+	int propertyDWORDsize_flags;
     int elementCount;
-    int indexOffset;
+    int srcIndexOffset;
+    int dstIndexOffset;
 };
-#define _NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE 12
+#define NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_DOWNLOAD 0x1u
+#define NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL 0x2u
+#define NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT 2
+
+#define NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE 16
+#define NBL_BUILTIN_PROPERTY_POOL_INVALID 0xdeadbeef
 
 #endif

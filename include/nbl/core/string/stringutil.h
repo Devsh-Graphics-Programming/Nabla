@@ -349,7 +349,7 @@ namespace core
 		}
 		if (filename != nullptr)
 		{
-			*filename = name.filename();
+			*filename = name.filename().replace_extension();
 			if (make_lower) *filename = toLower(*filename);
 		}
 		if (extension != nullptr)

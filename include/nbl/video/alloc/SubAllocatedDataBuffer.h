@@ -18,7 +18,7 @@ namespace nbl::video
 
 // this buffer is not growabl
 template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunctor=void>
-class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
+class SubAllocatedDataBuffer : public core::IReferenceCounted, protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
     public:
         typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType GPUBufferAllocator;
@@ -54,9 +54,6 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             }
             return unallocatedSize;
         }
-
-        //! Mutable version for protected usage
-        inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept {return mAllocator;}
 
         inline auto& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustGeneralpurposeAllocator a-la naughty dog
 
@@ -167,8 +164,12 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             #endif // _NBL_DEBUG
         }
 
+
+        //! Mutable version for `DefaultDeferredFreeFunctor` and `StreamingTransientDataBuffer` ONLY!
+        inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept { return mAllocator; }
         //!
         const HeterogenousMemoryAddressAllocator& getAllocator() const {return mAllocator;}
+        
         //!
         inline const IGPUBuffer*  getBuffer() const noexcept
         {
@@ -190,6 +191,16 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         inline IGPUBuffer* getBuffer() noexcept
         {
             return const_cast<IGPUBuffer*>(static_cast<const ThisType*>(this)->getBuffer());
+        }
+
+        //!
+        inline void         cull_frees() noexcept
+        {
+            #ifdef _NBL_DEBUG
+            std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+            assert(tLock.owns_lock());
+            #endif // _NBL_DEBUG
+            deferredFrees.cullEvents(0u);
         }
 
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
@@ -257,7 +268,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             #endif // _NBL_DEBUG
             mAllocator.multi_free_addr(count,addr,bytes);
         }
-        template<typename T>
+        template<typename T=core::IReferenceCounted>
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IGPUFence>&& fence, const T*const *const objectsToDrop=nullptr) noexcept
         {
             if (fence)
