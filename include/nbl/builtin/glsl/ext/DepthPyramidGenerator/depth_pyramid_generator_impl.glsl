@@ -128,33 +128,95 @@ void calcMipsFromSharedMemoryData(in uint mipToCalcCnt, in uint firstOutputMipId
     }
 }
 
+//TODO: rename
+void calcMipsFromSharedMemoryData2(in uint mipToCalcCnt, in uint firstOutputMipIdx, in uint passFirstMipPixelCnt, in uvec2 currImgExtent)
+{
+    //TODO: optimize
+    uint limit = passFirstMipPixelCnt >> 1u;
+    currImgExtent >>= 1u;
+    for (int i = 1; i < mipToCalcCnt; i++)
+    {
+        if (gl_LocalInvocationIndex < limit)
+        {
+            ivec2 coords;
+            coords.x = int(gl_LocalInvocationIndex) % int(currImgExtent.x);
+            coords.y = int(gl_LocalInvocationIndex) / int(currImgExtent.x);
+            coords <<= 1;
+
+            currImgExtent <<= 1u;
+
+            const uint p0Index = coords.y * currImgExtent.x + coords.x;
+            const uint p1Index = p0Index + currImgExtent.x;
+            const REDUCED_VAL_T reducedVal0 = reduceValFromSharedMemory(p0Index, p0Index + 1u);
+            const REDUCED_VAL_T reducedVal1 = reduceValFromSharedMemory(p1Index, p1Index + 1u);
+            const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(reducedVal0, reducedVal1);
+            storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
+            storeReducedValToImage(firstOutputMipIdx + i, uvec2(coords) >> 1u, reducedVal);
+
+            currImgExtent >>= 1u;
+        }
+        barrier();
+        limit >>= 1u;
+        currImgExtent >>= 1u;
+    }
+}
+
 void main()
 {
     for (uint metaZLayer = 0u; ; metaZLayer++)
     {
-        //TODO: handle case, where pixelCnt of base mip for main dispatch is < WORKGROUP_X_AND_Y_SIZE * WORKGROUP_X_AND_Y_SIZE
-
         const uvec3 virtualWorkGroupID = nbl_glsl_depthPyramid_scheduler_getWork(metaZLayer);
         
+        // main dispatch
         if(metaZLayer == 0u)
         {
-            const uvec2 base = virtualWorkGroupID.xy * gl_WorkGroupSize.xy;
-            const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
+            const uint mainPassFirstMipPixelCnt = pc.data.mainDispatchFirstMipExtent.x * pc.data.mainDispatchFirstMipExtent.y;
 
-            const uvec2 naturalOrder = base + morton;
-            #ifdef STRETCH_MIN
-            const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy); 
-            #else // PAD MAX
-            const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
-            #endif
-            const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
-            const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
-            storeReducedValToImage(0, naturalOrder, reducedVal);
+            if(mainPassFirstMipPixelCnt >= WORKGROUP_SIZE)
+            {
+                const uvec2 base = virtualWorkGroupID.xy * gl_WorkGroupSize.xy;
+                const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
 
-            storeReducedValToSharedMemory(WORKGROUP_SIZE + gl_LocalInvocationIndex, reducedVal);
-            barrier();
-            calcMipsFromSharedMemoryData(pc.data.mainDispatchMipCnt, 0u, base, morton);
+                const uvec2 naturalOrder = base + morton;
+                #ifdef STRETCH_MIN
+                const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy); 
+                #else // PAD MAX
+                const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
+                #endif
+                const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
+                const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
+                storeReducedValToImage(0, naturalOrder, reducedVal);
+
+                storeReducedValToSharedMemory(WORKGROUP_SIZE + gl_LocalInvocationIndex, reducedVal);
+                barrier();
+                calcMipsFromSharedMemoryData(pc.data.mainDispatchMipCnt, 0u, base, morton);
+            }
+            else
+            {
+                if(gl_LocalInvocationIndex < mainPassFirstMipPixelCnt)
+                {
+                    ivec2 coords;
+                    coords.x = int(gl_LocalInvocationIndex) % int(pc.data.mainDispatchFirstMipExtent.x);
+                    coords.y = int(gl_LocalInvocationIndex) / int(pc.data.mainDispatchFirstMipExtent.x);
+
+                    const vec2 uv = (vec2(coords) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
+
+                    const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
+                    //TODO: it will work only for first dispatch if `EMGO_BOTH` is set (`textureGather` argument `comp` is implicitly set to 0)
+                    //possible solution send `sourceImageIsDepthOriginalDepthBuffer` flag, if this flag is set to 1 then act accordingly
+
+                    //TODO: are samples fetched incorrectly?
+                    const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
+                    storeReducedValToImage(0, coords, reducedVal);
+
+                    storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
+                    barrier();
+                    calcMipsFromSharedMemoryData2(pc.data.mainDispatchMipCnt, 0u, mainPassFirstMipPixelCnt, pc.data.mainDispatchFirstMipExtent);
+                }
+            }
+            
         }
+        // virtual dispatch
         else
         {
             const uint virutalPassFirstMipPixelCnt = pc.data.virtualDispatchFirstMipExtent.x * pc.data.virtualDispatchFirstMipExtent.y;
@@ -207,54 +269,10 @@ void main()
                     storeReducedValToImage(dstImgIdx, uvec2(coords) / 2u, reducedVal);
 
                     storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
-
-                    //TODO: optimize
-                    uint limit = virutalPassFirstMipPixelCnt >> 1u;
-                    uvec2 currImgExtent = pc.data.virtualDispatchFirstMipExtent >> 1u;
-                    for (int i = 1; i < pc.data.virtualDispatchMipCnt; i++)
-                    {
-                        if (gl_LocalInvocationIndex < limit)
-                        {
-                            ivec2 coords;
-                            coords.x = int(gl_LocalInvocationIndex) % int(currImgExtent.x);
-                            coords.y = int(gl_LocalInvocationIndex) / int(currImgExtent.x);
-                            coords <<= 1;
-
-                            currImgExtent <<= 1u;
-
-                            const uint p0Index = coords.y * currImgExtent.x + coords.x;
-                            const uint p1Index = p0Index + currImgExtent.x;
-                            const REDUCED_VAL_T reducedVal0 = reduceValFromSharedMemory(p0Index, p0Index + 1u);
-                            const REDUCED_VAL_T reducedVal1 = reduceValFromSharedMemory(p1Index, p1Index + 1u);
-                            const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(reducedVal0, reducedVal1);
-                            storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);
-                            storeReducedValToImage(pc.data.mainDispatchMipCnt + 1u, uvec2(coords) / 2u, reducedVal);
-
-                            currImgExtent >>= 1u;
-                        }
-                        barrier();
-                        limit >>= 1u;
-                        currImgExtent >>= 1u;
-                    }
+                    barrier();
+                    calcMipsFromSharedMemoryData2(pc.data.virtualDispatchMipCnt, pc.data.mainDispatchMipCnt, virutalPassFirstMipPixelCnt, pc.data.virtualDispatchFirstMipExtent);
                 }
             }
-
-
-          //test code
-            // const uvec2 base = gl_WorkGroupID.xy * gl_WorkGroupSize.xy;
-            // const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
-            // const uvec2 naturalOrder = base + morton;
-
-            // imageStore(outMips[0u], ivec2(naturalOrder), vec4(1.0f));
-
-            // if(gl_LocalInvocationIndex < virutalPassFirstMipPixelCnt)
-            // {
-            //   ivec2 coords;
-            //   coords.x = int(gl_LocalInvocationIndex) % 16;
-            //   coords.y = int(gl_LocalInvocationIndex) / 16;
-
-            //   imageStore(outMips[6u], coords, vec4(1.0f));
-            // }
         }
         
         const bool shouldTerminate = nbl_glsl_depthPyramid_finalizeVirtualWorkgGroup(metaZLayer);

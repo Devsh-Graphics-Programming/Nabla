@@ -159,7 +159,7 @@ uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, cor
 
 // TODO: move descriptor set layout creation to other function maybe?
 uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
-		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, PushConstantsData* outputPushConstants, const Config& config)
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, DispatchData* outputDispatchData, const Config& config)
 {
 	uint32_t mipCnt = getMaxMipCntFromImage(inputDepthImageView, config.roundUpToPoTWithPadding);
 	if (config.lvlLimit)
@@ -250,56 +250,63 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 		
 		VkExtent3D currMipExtent = inputDepthPyramidMips[0]->getCreationParameters().image->getCreationParameters().extent;
 		virtualWorkGroupDataContents[0] = core::vector2d<uint32_t>(currMipExtent.width / static_cast<uint32_t>(config.workGroupSize), currMipExtent.height / static_cast<uint32_t>(config.workGroupSize));
+		outputDispatchData[0].globalWorkGroupSize = virtualWorkGroupDataContents[0];
 
 		//TODO: make it work for multiple dispatches
-		outputPushConstants[0].mainDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
+		outputDispatchData[0].pcData.mainDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
 
 		for (uint32_t i = 1u; i < virtualDispatchCnt; i++)
 		{
 			currMipExtent.width >>= (i % 2u == 0) ? maxMipCntForVirtualDispatch : maxMipCntForMainDispatch;
 			currMipExtent.height >>= (i % 2u == 0) ? maxMipCntForVirtualDispatch : maxMipCntForMainDispatch;
 
-			//TODO: make it work for multiple dispatches
-			if(i == 1u)
-				outputPushConstants[0].virtualDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
-
 			virtualWorkGroupDataContents[i].X = (currMipExtent.width + static_cast<uint32_t>(config.workGroupSize) - 1u) / static_cast<uint32_t>(config.workGroupSize);
 			virtualWorkGroupDataContents[i].Y = (currMipExtent.height + static_cast<uint32_t>(config.workGroupSize) - 1u) / static_cast<uint32_t>(config.workGroupSize);
 
 			assert(virtualWorkGroupDataContents[i].X);
 			assert(virtualWorkGroupDataContents[i].Y);
+
+			if (i % 2u == 0)
+			{
+				outputDispatchData[i / 2u].globalWorkGroupSize = virtualWorkGroupDataContents[i];
+				outputDispatchData[i / 2u].pcData.mainDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
+			}
+			else
+			{
+				outputDispatchData[i / 2u].pcData.virtualDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
+			}
 		}
 
 		for (uint32_t i = 0u; i < outputDsCnt; i++)
 		{
-			outputPushConstants[i].mainDispatchMipCnt = maxMipCntForMainDispatch;
-			outputPushConstants[i].virtualDispatchMipCnt = maxMipCntForVirtualDispatch;
-			outputPushConstants[i].maxMetaZLayerCnt = 2u;
-			outputPushConstants[i].virtualDispatchIndex = i * 2u;
+			outputDispatchData[i].pcData.mainDispatchMipCnt = maxMipCntForMainDispatch;
+			outputDispatchData[i].pcData.virtualDispatchMipCnt = maxMipCntForVirtualDispatch;
+			outputDispatchData[i].pcData.maxMetaZLayerCnt = 2u;
+			outputDispatchData[i].pcData.virtualDispatchIndex = i * 2u;
 		}
 
 		if (lastDispatchMipLvlCnt)
 		{
 			if (lastDispatchMipLvlCnt > maxMipCntForMainDispatch)
 			{
-				outputPushConstants[outputDsCnt - 1u].mainDispatchMipCnt = maxMipCntForMainDispatch;
-				outputPushConstants[outputDsCnt - 1u].virtualDispatchMipCnt = lastDispatchMipLvlCnt - maxMipCntForMainDispatch;
+				outputDispatchData[outputDsCnt - 1u].pcData.mainDispatchMipCnt = maxMipCntForMainDispatch;
+				outputDispatchData[outputDsCnt - 1u].pcData.virtualDispatchMipCnt = lastDispatchMipLvlCnt - maxMipCntForMainDispatch;
 			}
 			else
 			{
-				outputPushConstants[outputDsCnt - 1u].mainDispatchMipCnt = lastDispatchMipLvlCnt;
-				outputPushConstants[outputDsCnt - 1u].virtualDispatchMipCnt = 0u;
+				outputDispatchData[outputDsCnt - 1u].pcData.mainDispatchMipCnt = lastDispatchMipLvlCnt;
+				outputDispatchData[outputDsCnt - 1u].pcData.virtualDispatchMipCnt = 0u;
 			}
 		}
 
 		if(virtualDispatchCnt % 2u)
-			outputPushConstants[outputDsCnt - 1u].maxMetaZLayerCnt = 1u;
+			outputDispatchData[outputDsCnt - 1u].pcData.maxMetaZLayerCnt = 1u;
 
 		virtualWorkGroupData = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(core::vector2d<uint32_t>) * virtualWorkGroupDataContents.size(), virtualWorkGroupDataContents.data());
 	}
 
 	uint32_t mipLvlsRemaining = mipCnt;
-	for (uint32_t i = 0u; i < /*outputDsCnt*/1u; i++)
+	for (uint32_t i = 0u; i < outputDsCnt; i++)
 	{
 		core::smart_refctd_ptr<IGPUDescriptorSet>& currDs = *(outputDs + i);
 		currDs = driver->createGPUDescriptorSet(core::smart_refctd_ptr(outputDsLayout));
@@ -380,18 +387,13 @@ void DepthPyramidGenerator::createPipeline(IVideoDriver* driver, core::smart_ref
 	outputPpln = driver->createGPUComputePipeline(nullptr, driver->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(dsLayout)), core::smart_refctd_ptr(m_shader));
 }
 
-void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, const PushConstantsData& pushConstantsData, bool issueDefaultBarrier)
+void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, const DispatchData& dispatchData, bool issueDefaultBarrier)
 {
-	const VkExtent3D lvl0MipExtent = calcLvl0MipExtent(inputImage->getCreationParameters().image->getCreationParameters().extent, m_config.roundUpToPoTWithPadding);
-
-	const vector2du32_SIMD globalWorkGroupSize = vector2du32_SIMD(lvl0MipExtent.width / static_cast<uint32_t>(m_config.workGroupSize), lvl0MipExtent.height / static_cast<uint32_t>(m_config.workGroupSize));
-	assert(globalWorkGroupSize.x > 0u && globalWorkGroupSize.y > 0u);
-
 	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, ppln->getLayout(), 0u, 1u, &ds.get(), nullptr);
 	m_driver->bindComputePipeline(ppln.get());
-	m_driver->pushConstants(ppln->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(PushConstantsData), &pushConstantsData);
+	m_driver->pushConstants(ppln->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(PushConstantsData), &dispatchData.pcData);
 
-	m_driver->dispatch(globalWorkGroupSize.X, globalWorkGroupSize.Y, 1u);
+	m_driver->dispatch(dispatchData.globalWorkGroupSize.X, dispatchData.globalWorkGroupSize.Y, 1u);
 
 	if (issueDefaultBarrier)
 		defaultBarrier();
