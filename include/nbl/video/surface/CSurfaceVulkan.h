@@ -47,8 +47,13 @@ public:
     VkSurfaceKHR m_vkSurfaceKHR = VK_NULL_HANDLE;
 };
 
+#ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceVulkanWin32 = CSurfaceVulkan<ui::IWindowWin32>;
-
+#elif defined _NBL_PLATFORM_LINUX
+using CSurfaceVulkanX11 = CSurfaceVulkan<ui::IWindowX11>;
+#elif defined _NBL_PLATFORM_LINUX
+using CSurfaceVulkanAndroid = CSurfaceVulkan<ui::IWindowAndroid>;
+#endif
 }
 
 #endif

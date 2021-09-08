@@ -76,12 +76,15 @@ public:
         if (params.surface->getAPIType() != EAT_VULKAN)
             return nullptr;
 
+#ifdef _NBL_PLATFORM_WINDOWS_
         // Todo(achal): not sure yet, how would I handle multiple platforms without making
         // this function templated
         VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
-
+#endif
         VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+#ifdef _NBL_PLATFORM_WINDOWS_
         vk_createInfo.surface = vk_surface;
+#endif        
         vk_createInfo.minImageCount = params.minImageCount;
         vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
         vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);

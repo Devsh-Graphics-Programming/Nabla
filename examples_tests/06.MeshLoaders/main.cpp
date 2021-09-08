@@ -13,15 +13,13 @@
 
 using namespace nbl;
 using namespace core;
-
-
 /*
     Uncomment for more detailed logging
 */
 
 // #define NBL_MORE_LOGS
 
-int main(int argc, char** argv)
+int main()
 {
     system::path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
     constexpr uint32_t WIN_W = 1280;

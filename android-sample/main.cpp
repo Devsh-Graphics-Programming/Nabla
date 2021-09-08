@@ -38,6 +38,12 @@
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 
 using namespace nbl;
+using namespace ui;
+using namespace video;
+using namespace system;
+using namespace asset;
+using namespace core;
+
 
 static constexpr uint32_t SC_IMG_COUNT = 3u;
 
@@ -60,7 +66,7 @@ struct nabla {
     core::smart_refctd_ptr<ui::IWindow> window;
     core::smart_refctd_ptr<system::ISystem> system;
     core::smart_refctd_ptr<video::IAPIConnection> api;
-    core::smart_refctd_ptr<video::IPhysicalDevice> gpu;
+    IPhysicalDevice* gpu;
     core::smart_refctd_ptr<video::ILogicalDevice> dev;
     core::smart_refctd_ptr<video::ISwapchain> sc;
     core::smart_refctd_ptr<video::IGPURenderpass> renderpass;
@@ -81,9 +87,10 @@ static int engine_init_display(struct nabla* engine) {
     engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
     engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(engine->app->window);
 
-    engine->api = video::IAPIConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), video::EAT_OPENGL_ES, 0, "android-sample", /*&dbgcb*/nullptr);
+    video::COpenGLDebugCallback cb;
+    engine->api = video::COpenGLConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
-    auto surface = engine->api->createSurface(engine->window.get());
+    auto surface = video::CSurfaceGLAndroid::create<video::EAT_OPENGL>(core::smart_refctd_ptr<video::COpenGLConnection>((video::COpenGLConnection*)engine->api.get()),core::smart_refctd_ptr<IWindowAndroid>(static_cast<CWindowAndroid*>(engine->window.get())));
 
     auto gpus = engine->api->getPhysicalDevices();
 	assert(!gpus.empty());
@@ -351,7 +358,7 @@ void main()
 		cb->bindGraphicsPipeline(engine->pipeline.get());
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::SClearValue clear;
-		asset::VkRect2D area;
+		VkRect2D area;
 		area.offset = { 0, 0 };
 		area.extent = { win_w, win_h };
 		clear.color.float32[0] = 0.f;
