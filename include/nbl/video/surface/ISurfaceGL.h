@@ -57,10 +57,18 @@ class CSurfaceGL final : public CSurface<Window>
             return static_cast<ISurface::E_PRESENT_MODE>(ISurface::EPM_IMMEDIATE | ISurface::EPM_FIFO | ISurface::EPM_FIFO_RELAXED);
         }
 
-        // Todo(achal)
         bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
         {
-            return false;
+            // Todo(achal): Fill it properly
+            capabilities.minImageCount = 2u;
+            capabilities.maxImageCount = 8u;
+            capabilities.currentExtent = { base_t::m_window->getWidth(), base_t::m_window->getHeight() };
+            capabilities.minImageExtent = { 1u, 1u };
+            capabilities.maxImageExtent = { base_t::m_window->getWidth(), base_t::m_window->getHeight() };
+            capabilities.maxImageArrayLayers = 1u;
+            capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(0u);
+
+            return true;
         }
 
         inline const void* getNativeWindowHandle() const override

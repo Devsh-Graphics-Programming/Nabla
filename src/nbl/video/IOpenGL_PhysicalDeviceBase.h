@@ -101,7 +101,7 @@ protected:
 		res.major = 0;
 		res.minor = 0;
 
-#if 1
+#if 0
 		EGLConfig cfgs[1024];
 		EGLint cfgs_count;
 		_egl->call.peglGetConfigs(_egl->display, cfgs, 1024, &cfgs_count);
