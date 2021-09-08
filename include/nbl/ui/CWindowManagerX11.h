@@ -40,6 +40,9 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(X11, system::DefaultFuncPtrLoad
     ,XMoveWindow
     ,XNextEvent
     ,XMapWindow
+    ,XFlush
+    ,XUnmapWindow
+    ,XSelectInput
 );
 
 // TODO add more

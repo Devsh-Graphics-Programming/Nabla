@@ -36,92 +36,90 @@ CWindowManagerX11::CWindowManagerX11()
 void CWindowX11::processEvent(XEvent event)
 {
     IEventCallback* eventCallback = getEventCallback();
-/*
+
+    std::cout << event.type << std::endl;
+
     switch(event.type)
     {
-        case ConfigureNotify:
+        case ResizeRequest: // window resize event
         {
-            XConfigureEvent e = event.xconfigure;
-            // Resized
-            if(e.width != m_width || e.height != m_height)
+            std::cout << "Resize event!\n";
+            XResizeRequestEvent& e = (XResizeRequestEvent&)event;
+            if (e.width != m_width || e.height != m_height)
             {
-                if(eventCallback->onWindowResized(this, e.width, e.height))
+                if (eventCallback->onWindowResized(this, e.width, e.height))
+                {
                     x11.pXResizeWindow(m_dpy, m_native, e.width, e.height);
-                    std::cout << "Window resized: " << e.width << " " << e.height << std::endl;
-
+                }
             }
-            // Moved
-            if(e.x != m_x || e.y != m_y)
+            break;
+        }
+
+        case ConfigureNotify:  // window move event
+        {
+            std::cout << "Move event!\n";
+            XConfigureRequestEvent& e = (XConfigureRequestEvent&)event;
+             if (e.x != m_x || e.y != m_y)
             {
-                if(eventCallback->onWindowMoved(this, e.x, e.y))
+                if (eventCallback->onWindowMoved(this, e.x, e.y))
+                {
                     x11.pXMoveWindow(m_dpy, m_native, e.x, e.y);
+                }
             }
-
             break;
         }
-        case MapNotify:
+
+        case MapNotify: // window show event
         {
-            if (eventCallback->onWindowShown(this))
+            std::cout << "Show event!\n";
+            if (eventCallback->onWindowShown(this)) 
             {
-                assert(false);
-                // ShowWindow call or sth like that
+                x11.pXMapWindow(m_dpy, m_native);
             }
 
             break;
         }
-        // Don't think these 2 are the same, will return to them later, but onWindowHidden is definitely right here
-        case UnmapNotify: //TODO
+
+        case UnmapNotify: // hide window event
         {
-            assert(false);
-            // eventCallback->onWindowHidden(this);
-            // eventCallback->onWindowMinimized(this); 
-            break;
-        }
-        
-        case PropertyNotify:
-        {
-            // XPropertyEvent e = event.xproperty;
-            // if(e.atom == _NET_WM_STATE)
-            // {
-                // Atom* allStates;
-                // unsigned long itemCount, bytesAfter;
-                // unsigned char *properties = NULL;
-                // //Retrieving all states
-                // XGetWindowProperty(m_dpy, m_native, _NET_WM_STATE, 0, LONG_MAX, False, AnyPropertyType, allStates, &itemCount, &bytesAfter, &properties);
-                // bool maximizedVertically = false, maximizedHorizontally = false; 
-                // for(int i = 0; i < itemCount; i++)
-                // {
-                //     if(allStates[i] == _NET_WM_STATE_MAXIMIZED_HORZ) maximizedHorizontally = true;
-                //     else if(allStates[i] == _NET_WM_STATE_MAXIMIZED_VERT) maximizedVertically = true;
-                // }
-                // if(maximizedVertically && maximizedHorizontally && !isMaximized)
-                // {
-                //     isMaximized = true;
-                //     if (eventCallback->onWindowMaximized(this)
-                //     {
-                //         assert(false);
-                //         // MaximizeWindow or sth like that
-                //     }
-                // }
-            // }
+            std::cout << "Hide event!\n";
+            if (eventCallback->onWindowHidden(this) || eventCallback->onWindowMinimized(this)) 
+            {
+                x11.pXUnmapWindow(m_dpy, m_native);
+            }
 
             break;
         }
-        
-        // TODO: don't know yet how those behave and whether i should
-        // call mouse/keyboard/both focus change 
+
         case FocusIn:
         {
-            assert(false);
+            // TODO
             break;
         }
         case FocusOut:
         {
-            assert(false);
+            // TODO
+            break;
+        }
+
+        case KeyPress:
+        {
+            // TODO
+            break;
+        }
+
+        case KeyRelease:
+        {
+            //TODO
+            break;
+        }
+
+        default:
+        {
+            x11.pXFlush(m_dpy);
             break;
         }
     }
-    */
 }
 
 core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreationParams&& creationParams)
