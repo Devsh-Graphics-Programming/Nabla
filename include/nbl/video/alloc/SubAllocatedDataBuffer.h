@@ -18,7 +18,7 @@ namespace nbl::video
 
 // this buffer is not growabl
 template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunctor=void>
-class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
+class SubAllocatedDataBuffer : public core::IReferenceCounted, protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
     public:
         typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType GPUBufferAllocator;
@@ -54,9 +54,6 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             }
             return unallocatedSize;
         }
-
-        //! Mutable version for protected usage
-        inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept {return mAllocator;}
 
         inline auto& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustGeneralpurposeAllocator a-la naughty dog
 
@@ -167,8 +164,12 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             #endif // _NBL_DEBUG
         }
 
+
+        //! Mutable version for `DefaultDeferredFreeFunctor` and `StreamingTransientDataBuffer` ONLY!
+        inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept { return mAllocator; }
         //!
         const HeterogenousMemoryAddressAllocator& getAllocator() const {return mAllocator;}
+        
         //!
         inline const IGPUBuffer*  getBuffer() const noexcept
         {
