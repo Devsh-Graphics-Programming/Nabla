@@ -21,13 +21,13 @@ class IGPUQueue : public core::Interface, public core::Unmovable
 
         struct SSubmitInfo
         {
-            uint32_t waitSemaphoreCount;
-            IGPUSemaphore*const * pWaitSemaphores;
-            const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask;
-            uint32_t signalSemaphoreCount;
-            IGPUSemaphore*const * pSignalSemaphores;
-            uint32_t commandBufferCount;
-            IGPUCommandBuffer*const * commandBuffers;
+            uint32_t waitSemaphoreCount = 0u;
+            IGPUSemaphore*const * pWaitSemaphores = nullptr;
+            const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask = nullptr;
+            uint32_t signalSemaphoreCount = 0u;
+            IGPUSemaphore*const * pSignalSemaphores = nullptr;
+            uint32_t commandBufferCount = 0u;
+            IGPUCommandBuffer*const * commandBuffers = nullptr;
         };
         struct SPresentInfo
         {
