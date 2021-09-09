@@ -25,7 +25,7 @@ DepthPyramidGenerator::DepthPyramidGenerator(IVideoDriver* driver, IAssetManager
 #define WORKGROUP_X_AND_Y_SIZE %u
 #define MIPMAP_LEVELS_PER_PASS 8u
 #define MIP_IMAGE_FORMAT %s
-#define STRETCH_MIN
+#define %s
 #define %s
 
 layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_SIZE) in;
@@ -78,11 +78,18 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 		assert(false);
 	}
 
+	constexpr char* mipScalingOptions[] =
+	{
+		"STRETCH_MIN", "PAD_MAX"
+	};
+
+	const char* mipScaling = config.roundUpToPoTWithPadding ? mipScalingOptions[1] : mipScalingOptions[0];
+
 	const uint32_t perPassMipCnt = static_cast<uint32_t>(config.workGroupSize) == 32u ? 6u : 5u;
 
 	constexpr size_t extraSize = 32u;
 	auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
-	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), format, redOp);
+	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), format, redOp, mipScaling);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
 		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderCode), asset::ICPUShader::buffer_contains_glsl),
@@ -99,7 +106,7 @@ uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, cor
 		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
 
 	// TODO: `calcLvl0MipExtent` will be called second time here, fix it
-	const uint32_t mipmapsCnt = getMaxMipCntFromImage(inputDepthImageView, config.roundUpToPoTWithPadding);
+	const uint32_t mipmapsCnt = getMaxMipCntFromImage(inputDepthImageView, config);
 
 	if (outputDepthPyramidMips == nullptr)
 	{
@@ -157,7 +164,7 @@ uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, cor
 uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, DispatchData* outputDispatchData, const Config& config)
 {
-	uint32_t mipCnt = getMaxMipCntFromImage(inputDepthImageView, config.roundUpToPoTWithPadding);
+	uint32_t mipCnt = getMaxMipCntFromImage(inputDepthImageView, config);
 	if (config.lvlLimit)
 	{
 		if (config.lvlLimit < mipCnt) //TODO: if (config.lvlLimit < (mipCnt - 1u)) ?
@@ -177,12 +184,35 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 		params.TextureWrapU = ISampler::ETC_CLAMP_TO_BORDER;
 		params.TextureWrapV = ISampler::ETC_CLAMP_TO_BORDER;
 		params.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
-		params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
 		params.MinFilter = ISampler::ETF_NEAREST;
 		params.MaxFilter = ISampler::ETF_NEAREST;
 		params.MipmapMode = ISampler::ESMM_NEAREST;
 		params.AnisotropicFilter = 0;
 		params.CompareEnable = 0;
+
+		if (config.roundUpToPoTWithPadding)
+		{
+			switch (config.op)
+			{
+			case E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX:
+				params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+				break;
+			case E_MIPMAP_GENERATION_OPERATOR::EMGO_MIN:
+				params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
+				break;
+			case E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH:
+				// TODO: fix
+				params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+				break;
+			default:
+				assert(false);
+			}
+		}
+		else
+		{
+			params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+		}
+
 		auto sampler = driver->createGPUSampler(params);
 
 		IGPUDescriptorSetLayout::SBinding bindings[4];

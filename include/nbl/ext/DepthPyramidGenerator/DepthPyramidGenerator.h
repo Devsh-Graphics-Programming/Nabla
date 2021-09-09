@@ -70,20 +70,19 @@ public:
 	// inputDepthImageView - input texture
 	//outputDepthPyramidMips - array of created mipMaps
 	DepthPyramidGenerator(IVideoDriver* driver, IAssetManager* am, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView,
-		const Config& config = Config());
+		const Config& config);
 
-	static inline uint32_t getMaxMipCntFromImage(const core::smart_refctd_ptr<IGPUImageView>& image, bool roundUpToPoTWithPadding = false)
+	static inline uint32_t getMaxMipCntFromImage(const core::smart_refctd_ptr<IGPUImageView>& image, const Config& config)
 	{
-		const VkExtent3D lvl0MipExtent = calcLvl0MipExtent(image->getCreationParameters().image->getCreationParameters().extent, roundUpToPoTWithPadding);
+		const VkExtent3D lvl0MipExtent = calcLvl0MipExtent(image->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
 
-		// TODO: take `roundUpToPoTWithPadding` into account
 		return core::findMSB(std::min(lvl0MipExtent.width, lvl0MipExtent.height)) + 1u;
 	}
 
-	static uint32_t createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config = Config());
+	static uint32_t createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config);
 
 	static uint32_t createDescriptorSets(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
-		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, DispatchData* outputDispatchData, const Config& config = Config());
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, DispatchData* outputDispatchData, const Config& config);
 
 	void createPipeline(IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln);
 
