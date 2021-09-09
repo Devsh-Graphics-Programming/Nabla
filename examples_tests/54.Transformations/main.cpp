@@ -419,17 +419,6 @@ int main()
 	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 	device->resetFences(1u, &fence_nodes.get());
 
-	// weird fix -> do not read the next 6 lines (It doesn't affect the program logically) -> waiting for access_violation_repro branch to fix and merge
-	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
-	{
-		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-		system->createFile(future, "../../29.SpecializationConstants/particles.comp", nbl::system::IFile::ECF_READ_WRITE);
-		auto file = future.get();
-		auto sname = file->getFileName().string();
-		char const* shaderName = sname.c_str();//yep, makes sense
-		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(file.get(), asset::ISpecializedShader::ESS_COMPUTE, shaderName);
-	}
-
 	// Geom Create
 	auto geometryCreator = assetManager->getGeometryCreator();
 	auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
@@ -642,6 +631,7 @@ int main()
 
 		// draw
 		{
+			assert(gpuObjects.size() == 1ull);
 			// Draw Stuff 
 			for(uint32_t i = 0; i < gpuObjects.size(); ++i) {
 				auto & gpuObject = gpuObjects[i];
