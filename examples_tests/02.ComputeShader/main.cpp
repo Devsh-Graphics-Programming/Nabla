@@ -287,13 +287,11 @@ int main()
 		imageSharingMode = asset::ESM_CONCURRENT;
 	}
 
-	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
-	QueueFamilyIndicesArrayType queueFamilyIndices;
-	queueFamilyIndices = core::make_refctd_dynamic_array<QueueFamilyIndicesArrayType>(deviceCreationParams.queueParamsCount);
+	std::vector<uint32_t> queueFamilyIndices(deviceCreationParams.queueParamsCount);
 	{
 		const uint32_t tmp[] = { computeFamilyIndex, presentFamilyIndex };
 		for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
-			(*queueFamilyIndices)[i] = tmp[i];
+			queueFamilyIndices[i] = tmp[i];
 	}
 
 	const float defaultQueuePriority = video::IGPUQueue::DEFAULT_QUEUE_PRIORITY;
@@ -301,12 +299,12 @@ int main()
 	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
 	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
 	{
-		queueCreationParams[i].familyIndex = (*queueFamilyIndices)[i];
+		queueCreationParams[i].familyIndex = queueFamilyIndices[i];
 		queueCreationParams[i].count = 1u;
 		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
 		queueCreationParams[i].priorities = &defaultQueuePriority;
 	}
-	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
+	deviceCreationParams.queueParams = queueCreationParams.data();
 
 	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(deviceCreationParams);
 
@@ -325,7 +323,8 @@ int main()
 	sc_params.presentMode = presentMode;
 	sc_params.width = WIN_W;
 	sc_params.height = WIN_H;
-	sc_params.queueFamilyIndices = queueFamilyIndices;
+	sc_params.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
+	sc_params.queueFamilyIndices = queueFamilyIndices.data();
 	sc_params.imageSharingMode = imageSharingMode;
 	sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
 		asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
