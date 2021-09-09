@@ -26,10 +26,6 @@ struct uvec2
 
 struct nbl_glsl_depthPyramid_PushConstantsData
 {
-    uint mainDispatchMipCnt;
-    uint virtualDispatchMipCnt;
-    uint maxMetaZLayerCnt;
-    uint virtualDispatchIndex;
 #ifdef __cplusplus
     DepthPyramidGenerator::uvec2 mainDispatchFirstMipExtent;
     DepthPyramidGenerator::uvec2 virtualDispatchFirstMipExtent;
@@ -37,6 +33,12 @@ struct nbl_glsl_depthPyramid_PushConstantsData
     uvec2 mainDispatchFirstMipExtent;
     uvec2 virtualDispatchFirstMipExtent;
 #endif
+    uint mainDispatchMipCnt;
+    uint virtualDispatchMipCnt;
+    uint maxMetaZLayerCnt;
+    uint virtualDispatchIndex;
+    uint sourceImageIsDepthOriginalDepthBuffer;
+
 };
 
 #ifdef __cplusplus

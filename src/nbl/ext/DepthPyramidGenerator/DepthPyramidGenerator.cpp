@@ -2,8 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-// TODO: make it work for multiple passes
-
 #include <nbl/ext/DepthPyramidGenerator/DepthPyramidGenerator.h>
 
 using namespace nbl;
@@ -281,7 +279,10 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 			outputDispatchData[i].pcData.virtualDispatchMipCnt = maxMipCntForVirtualDispatch;
 			outputDispatchData[i].pcData.maxMetaZLayerCnt = 2u;
 			outputDispatchData[i].pcData.virtualDispatchIndex = i * 2u;
+			outputDispatchData[i].pcData.sourceImageIsDepthOriginalDepthBuffer = 0u;
 		}
+
+		outputDispatchData[0].pcData.sourceImageIsDepthOriginalDepthBuffer = 1u;
 
 		if (lastDispatchMipLvlCnt)
 		{
@@ -395,24 +396,6 @@ void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUIma
 
 	if (issueDefaultBarrier)
 		defaultBarrier();
-}
-
-inline VkExtent3D calcLvl0MipExtent(const VkExtent3D& sourceImageExtent, bool roundUpToPoTWithPadding)
-{
-	VkExtent3D lvl0MipExtent;
-
-	lvl0MipExtent.width = core::roundUpToPoT(sourceImageExtent.width);
-	lvl0MipExtent.height = core::roundUpToPoT(sourceImageExtent.height);
-
-	if (!roundUpToPoTWithPadding)
-	{
-		if (!core::isPoT(sourceImageExtent.width))
-			lvl0MipExtent.width >>= 1u;
-		if (!core::isPoT(sourceImageExtent.height))
-			lvl0MipExtent.height >>= 1u;
-	}
-
-	return lvl0MipExtent;
 }
 
 }

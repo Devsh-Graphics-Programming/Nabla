@@ -2,7 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-//TODO: consistent tabs
+// TODO: consistent tabs
+// TODO: nbl_glsl_depthPyramid prefix everywhere
 
 #ifndef _NBL_GLSL_EXT_DEPTH_PYRAMID_GENERATOR_INCLUDED_
 #define _NBL_GLSL_EXT_DEPTH_PYRAMID_GENERATOR_INCLUDED_
@@ -93,6 +94,31 @@ void copySharedMemValue(in uint dstIdx, in uint srcIdx)
 #endif
 }
 
+REDUCED_VAL_T getReducedValFromSourceTexture(in vec2 uv)
+{
+#ifndef REDUCION_OP_BOTH
+    const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
+    return REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
+#else
+    if(bool(pc.data.sourceImageIsDepthOriginalDepthBuffer))
+    {
+        const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
+        return REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
+    }
+    else
+    {
+        const vec4 samplesR = textureGather(sourceTexture, uv, 0);
+        const vec4 samplesG = textureGather(sourceTexture, uv, 1);
+
+        vec2 samplesRG[4];
+        for(uint i = 0; i < 4; i++)
+            samplesRG[i] = vec2(samplesR[i], samplesG[i]);
+
+        return REDUCTION_OPERATOR_2(REDUCTION_OPERATOR_2(samplesRG[0], samplesRG[1]), REDUCTION_OPERATOR_2(samplesRG[2], samplesRG[3]));
+    }
+#endif
+}
+
 #include "nbl/builtin/glsl/utils/morton.glsl"
 
 #if (WORKGROUP_X_AND_Y_SIZE == 32)
@@ -178,13 +204,13 @@ void main()
                 const uvec2 morton = DECODE_MORTON(gl_LocalInvocationIndex);
 
                 const uvec2 naturalOrder = base + morton;
-                #ifdef STRETCH_MIN
+                
+            #ifdef STRETCH_MIN
                 const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy); 
-                #else // PAD MAX
+            #else // PAD MAX
                 const vec2 uv = (vec2(naturalOrder) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
-                #endif
-                const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
-                const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
+            #endif
+                const REDUCED_VAL_T reducedVal = getReducedValFromSourceTexture(uv);
                 storeReducedValToImage(0, naturalOrder, reducedVal);
 
                 storeReducedValToSharedMemory(WORKGROUP_SIZE + gl_LocalInvocationIndex, reducedVal);
@@ -201,11 +227,7 @@ void main()
 
                     const vec2 uv = ((vec2(coords << 1)) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
 
-                    const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
-                    //TODO: it will work only for first dispatch if `EMGO_BOTH` is set (`textureGather` argument `comp` is implicitly set to 0)
-                    //possible solution send `sourceImageIsDepthOriginalDepthBuffer` flag, if this flag is set to 1 then act accordingly
-                    
-                    const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
+                    const REDUCED_VAL_T reducedVal = getReducedValFromSourceTexture(uv);
                     storeReducedValToImage(0, coords, reducedVal);
 
                     storeReducedValToSharedMemory(gl_LocalInvocationIndex, reducedVal);

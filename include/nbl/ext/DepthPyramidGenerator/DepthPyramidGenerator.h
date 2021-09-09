@@ -104,8 +104,10 @@ private:
 
 		if (!roundUpToPoTWithPadding)
 		{
-			lvl0MipExtent.width >>= 1u;
-			lvl0MipExtent.height >>= 1u;
+			if (!core::isPoT(sourceImageExtent.width))
+				lvl0MipExtent.width >>= 1u;
+			if (!core::isPoT(sourceImageExtent.height))
+				lvl0MipExtent.height >>= 1u;
 		}
 
 		return lvl0MipExtent;
