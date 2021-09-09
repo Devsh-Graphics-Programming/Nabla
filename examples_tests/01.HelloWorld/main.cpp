@@ -11,12 +11,12 @@ nothing fancy, just to show that Irrlicht links fine
 #include <cstdio>
 #include <nabla.h>
 
-#include "../common/CommonAPI.h"
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#endif // TODO more platforms
+// TODO: make these include themselves via `nabla.h`
 
 using namespace nbl;
-
-// Todo(achal): Merge with `scene_manager` to get access to replace this
-static bool windowShouldClose_Global = false;
 
 #define LOG(...) printf(__VA_ARGS__); printf("\n");
 class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
@@ -66,7 +66,12 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 	void onLostKeyboardFocus_impl() override
 	{
 		LOG("Window lost keyboard focus");
-		windowShouldClose_Global = true;
+	}
+	bool onWindowClosed_impl() override
+	{
+		LOG("Window closed");
+		m_gotWindowClosedMsg = true;
+		return true;
 	}
 	void onMouseConnected_impl(core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
 	{
@@ -84,39 +89,92 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 	{
 		LOG("A keyboard has been disconnected");
 	}
+
+public:
+	bool m_gotWindowClosedMsg = false;
 };
+
+static core::smart_refctd_ptr<system::ISystem> createSystem()
+{
+	core::smart_refctd_ptr<system::ISystemCaller> caller = nullptr;
+#ifdef _NBL_PLATFORM_WINDOWS_
+	caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
+#endif
+	return make_smart_refctd_ptr<system::ISystem>(std::move(caller));
+}
 
 int main()
 {
+	const char* APP_NAME = "01.HelloWorld";
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 8u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
 
-	auto system = CommonAPI::createSystem(); // Todo(achal): Remove
+	auto system = createSystem();
+	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
+	auto eventCallback = core::make_smart_refctd_ptr<DemoEventCallback>();
 
 	nbl::ui::IWindow::SCreationParams params;
 	params.callback = nullptr;
 	params.width = WIN_W;
 	params.height = WIN_H;
-	params.x = 0;
-	params.y = 0;
+	params.x = 100;
+	params.y = 100;
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = nbl::ui::IWindow::ECF_NONE;
-	params.windowCaption = "01.HelloWorld";
-	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
+	params.windowCaption = APP_NAME;
+	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
+
+	std::cout <<
+		R"(
+Choose Graphics API:
+0) Vulkan
+1) OpenGL
+2) OpenGL ES
+)" << std::endl;
+
+	int apiType;
+	std::cin >> apiType;
+
+	core::smart_refctd_ptr<video::IAPIConnection> api = nullptr;
+	core::smart_refctd_ptr<video::ISurface> surface = nullptr;
+	switch (apiType)
+	{
+		case 0:
+		{
+			api = video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, APP_NAME, true);
+
+			surface = video::CSurfaceVulkanWin32::create(
+				core::smart_refctd_ptr<video::CVulkanConnection>(static_cast<video::CVulkanConnection*>(api.get())),
+				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+		} break;
+
+		case 1:
+		{
+			api = video::COpenGLConnection::create(core::smart_refctd_ptr(system), 0, APP_NAME, video::COpenGLDebugCallback(core::smart_refctd_ptr(logger)));
+
+			surface = video::CSurfaceGLWin32::create(
+				core::smart_refctd_ptr<video::COpenGLConnection>(static_cast<video::COpenGLConnection*>(api.get())),
+				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+		} break;
+
+		case 2:
+		{
+			api = video::COpenGLESConnection::create(core::smart_refctd_ptr(system), 0, APP_NAME, video::COpenGLDebugCallback(core::smart_refctd_ptr(logger)));
+
+			surface = video::CSurfaceGLWin32::create(
+				core::smart_refctd_ptr<video::COpenGLESConnection>(static_cast<video::COpenGLESConnection*>(api.get())),
+				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+		} break;
+	}
+	assert(api);
+
 #if 1
-	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
-		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "01.HelloWorld", true);
-
-	core::smart_refctd_ptr<video::CSurfaceVulkanWin32> surface =
-		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
-			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
-
-	auto gpus = apiConnection->getPhysicalDevices();
+	auto gpus = api->getPhysicalDevices();
 	assert(!gpus.empty());
 	
 	// Find a suitable gpu
@@ -371,7 +429,7 @@ int main()
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
 
 	uint32_t currentFrameIndex = 0u;
-	do
+	while (!eventCallback->m_gotWindowClosedMsg)
 	{
 		video::IGPUSemaphore* acquireSemaphore = acquireSemaphores[currentFrameIndex].get();
 		video::IGPUSemaphore* releaseSemaphore = releaseSemaphores[currentFrameIndex].get();
@@ -408,20 +466,17 @@ int main()
 		presentQueue->present(presentInfo);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
-	} while (!windowShouldClose_Global);
+	}
 
 	device->waitIdle();
 
 #else
 
-	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
-	core::smart_refctd_ptr<video::COpenGLConnection> apiConnection =
-		video::COpenGLConnection::create(core::smart_refctd_ptr(system), 0, "01.HelloWorld",
-			video::COpenGLDebugCallback(core::smart_refctd_ptr(logger)));
+	core::smart_refctd_ptr<video::IAPIConnection> apiConnection = video::COpenGLConnection::create(core::smart_refctd_ptr(system), 0, "01.HelloWorld",
+		video::COpenGLDebugCallback(core::smart_refctd_ptr(logger)));
+	core::smart_refctd_ptr<video::ISurface> surface = video::CSurfaceGLWin32::create(
+		core::smart_refctd_ptr<video::COpenGLConnection>(static_cast<video::COpenGLConnection*>(apiConnection.get())), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 
-	core::smart_refctd_ptr<video::CSurfaceGLWin32> surface =
-		video::CSurfaceGLWin32::create(core::smart_refctd_ptr(apiConnection),
-			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
     
 	auto gpus = apiConnection->getPhysicalDevices();
 	assert(!gpus.empty());
@@ -668,7 +723,7 @@ int main()
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
     
 	uint32_t currentFrameIndex = 0u;
-	do
+	while (!eventCallback->m_gotWindowClosedMsg)
 	{
 		video::IGPUSemaphore* acquireSemaphore = acquireSemaphores[currentFrameIndex].get();
 		video::IGPUSemaphore* releaseSemaphore = releaseSemaphores[currentFrameIndex].get();
@@ -705,7 +760,7 @@ int main()
 		presentQueue->present(presentInfo);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
-	} while (!windowShouldClose_Global);
+	}
 
 	device->waitIdle();
 
