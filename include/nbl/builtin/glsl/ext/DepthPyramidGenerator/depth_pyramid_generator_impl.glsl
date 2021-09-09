@@ -199,13 +199,12 @@ void main()
                     coords.x = int(gl_LocalInvocationIndex) % int(pc.data.mainDispatchFirstMipExtent.x);
                     coords.y = int(gl_LocalInvocationIndex) / int(pc.data.mainDispatchFirstMipExtent.x);
 
-                    const vec2 uv = (vec2(coords) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
+                    const vec2 uv = ((vec2(coords << 1)) + vec2(0.5)) / vec2(textureSize(sourceTexture, 0));
 
                     const vec4 samples = textureGather(sourceTexture, uv); // border color set to far value (or far,near if doing two channel reduction)
                     //TODO: it will work only for first dispatch if `EMGO_BOTH` is set (`textureGather` argument `comp` is implicitly set to 0)
                     //possible solution send `sourceImageIsDepthOriginalDepthBuffer` flag, if this flag is set to 1 then act accordingly
-
-                    //TODO: are samples fetched incorrectly?
+                    
                     const REDUCED_VAL_T reducedVal = REDUCTION_OPERATOR_2(REDUCTION_OPERATOR(samples[0], samples[1]), REDUCTION_OPERATOR(samples[2], samples[3]));
                     storeReducedValToImage(0, coords, reducedVal);
 
