@@ -86,8 +86,6 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 	auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
 	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), format, redOp);
 
-	std::cout << reinterpret_cast<char*>(shaderCode->getPointer()) << std::endl;
-
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
 		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderCode), asset::ICPUShader::buffer_contains_glsl),
 		asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
@@ -253,7 +251,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 		outputDispatchData[0].globalWorkGroupSize = virtualWorkGroupDataContents[0];
 
 		//TODO: make it work for multiple dispatches
-		outputDispatchData[0].pcData.mainDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
+		outputDispatchData[0].pcData.mainDispatchFirstMipExtent = { currMipExtent.width, currMipExtent.height };
 
 		for (uint32_t i = 1u; i < virtualDispatchCnt; i++)
 		{
@@ -269,11 +267,11 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 			if (i % 2u == 0)
 			{
 				outputDispatchData[i / 2u].globalWorkGroupSize = virtualWorkGroupDataContents[i];
-				outputDispatchData[i / 2u].pcData.mainDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
+				outputDispatchData[i / 2u].pcData.mainDispatchFirstMipExtent = { currMipExtent.width, currMipExtent.height };
 			}
 			else
 			{
-				outputDispatchData[i / 2u].pcData.virtualDispatchFirstMipExtent = core::vector2d<uint32_t>(currMipExtent.width, currMipExtent.height);
+				outputDispatchData[i / 2u].pcData.virtualDispatchFirstMipExtent = { currMipExtent.width, currMipExtent.height };
 			}
 		}
 
@@ -380,7 +378,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 void DepthPyramidGenerator::createPipeline(IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln)
 {
 	SPushConstantRange pcRange;
-	pcRange.size = sizeof(PushConstantsData);
+	pcRange.size = sizeof(nbl_glsl_depthPyramid_PushConstantsData);
 	pcRange.offset = 0u;
 	pcRange.stageFlags = ISpecializedShader::ESS_COMPUTE;
 
@@ -391,7 +389,7 @@ void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUIma
 {
 	m_driver->bindDescriptorSets(video::EPBP_COMPUTE, ppln->getLayout(), 0u, 1u, &ds.get(), nullptr);
 	m_driver->bindComputePipeline(ppln.get());
-	m_driver->pushConstants(ppln->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(PushConstantsData), &dispatchData.pcData);
+	m_driver->pushConstants(ppln->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_depthPyramid_PushConstantsData), &dispatchData.pcData);
 
 	m_driver->dispatch(dispatchData.globalWorkGroupSize.X, dispatchData.globalWorkGroupSize.Y, 1u);
 

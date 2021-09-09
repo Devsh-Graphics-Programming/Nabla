@@ -5,20 +5,11 @@
 #ifndef _NBL_GLSL_EXT_DEPTH_PYRAMID_GENERATOR_COMMON_INCLUDED_
 #define _NBL_GLSL_EXT_DEPTH_PYRAMID_GENERATOR_COMMON_INCLUDED_
 
-//TODO: this is used in cpp code too, make it common for both cpp and glsl
-struct PushConstantsData
-{
-    uint mainDispatchMipCnt;
-    uint virtualDispatchMipCnt;
-    uint maxMetaZLayerCnt;
-    uint virtualDispatchIndex;
-    uvec2 mainDispatchFirstMipExtent;
-    uvec2 virtualDispatchFirstMipExtent;
-};
+#include <nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h>
 
 layout(push_constant) uniform PushConstants
 {
-    PushConstantsData data;
+    nbl_glsl_depthPyramid_PushConstantsData data;
 } pc;
 
 #endif

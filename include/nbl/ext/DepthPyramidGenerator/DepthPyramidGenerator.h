@@ -10,6 +10,7 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/asset/format/EFormat.h"
 #include "../../../../Nabla/source/Nabla/COpenGLExtensionHandler.h"
+#include "nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h"
 
 using namespace nbl;
 using namespace nbl::core;
@@ -60,19 +61,9 @@ public:
 		bool roundUpToPoTWithPadding = false;
 	};
 
-	struct PushConstantsData
-	{
-		uint32_t mainDispatchMipCnt;
-		uint32_t virtualDispatchMipCnt;
-		uint32_t maxMetaZLayerCnt;
-		uint32_t virtualDispatchIndex;
-		core::vector2d<uint32_t> mainDispatchFirstMipExtent;
-		core::vector2d<uint32_t> virtualDispatchFirstMipExtent;
-	};
-
 	struct DispatchData
 	{
-		PushConstantsData pcData;
+		nbl_glsl_depthPyramid_PushConstantsData pcData;
 		core::vector2d<uint32_t> globalWorkGroupSize;
 	};
 
@@ -96,7 +87,7 @@ public:
 
 	void createPipeline(IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>& dsLayout, core::smart_refctd_ptr<IGPUComputePipeline>& outputPpln);
 
-	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, const DispatchData& pushConstantsData, bool issueDefaultBarrier = true);
+	void generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, const DispatchData& dispatchData, bool issueDefaultBarrier = true);
 
 	static inline void defaultBarrier()
 	{

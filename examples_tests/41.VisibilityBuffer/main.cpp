@@ -330,8 +330,8 @@ int main()
     using DPG = ext::DepthPyramidGenerator::DepthPyramidGenerator;
 
     DPG::Config config;
-    config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH;
-    config.outputFormat = DPG::E_IMAGE_FORMAT::EIF_R32G32_FLOAT;
+    config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX;
+    config.outputFormat = DPG::E_IMAGE_FORMAT::EIF_R32_FLOAT;
     config.workGroupSize = DPG::E_WORK_GROUP_SIZE::EWGS_32x32x1;
     //config.lvlLimit = 5u;
     DPG dpg(driver, am, depthBufferView, config);
@@ -343,8 +343,8 @@ int main()
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> dpgDsLayout;
     const uint32_t dpgDsCnt = DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, nullptr, nullptr, config);
     core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> dpgDs(dpgDsCnt);
-    core::vector<DPG::PushConstantsData> dpgPushConstants(dpgDsCnt);
-    DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, dpgDs.data(), dpgPushConstants.data(), config);
+    core::vector<DPG::DispatchData> dpgDispatchData(dpgDsCnt);
+    DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, dpgDs.data(), dpgDispatchData.data(), config);
 
     core::smart_refctd_ptr<IGPUComputePipeline> dpgPpln;
     dpg.createPipeline(driver, dpgDsLayout, dpgPpln);
@@ -1255,8 +1255,8 @@ int main()
         fillVBuffer(sceneData.frustumCulledMdiBuffer);
 
         // create depth pyramid
-        for (uint32_t i = 0u; i < /*dpgDsCnt*/1; i++)
-            dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs[i], dpgPushConstants[i]);
+        for (uint32_t i = 0u; i < dpgDsCnt; i++)
+            dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs[i], dpgDispatchData[i]);
 
         // occlusion cull (against partially filled new Z-buffer)
         driver->setRenderTarget(zBuffOnlyFrameBuffer);
