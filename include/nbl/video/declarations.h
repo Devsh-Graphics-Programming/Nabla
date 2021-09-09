@@ -21,6 +21,7 @@
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // utilities
+#include "nbl/video/utilities/ICommandPoolCache.h"
 #include "nbl/video/utilities/CPropertyPool.h"
 #include "nbl/video/utilities/IUtilities.h"
 #include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
