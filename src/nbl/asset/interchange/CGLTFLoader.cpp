@@ -698,7 +698,7 @@ namespace nbl
 							materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
 							materialDependencyData.cpuTextures = &cpuTextures;
 
-							auto cpuPipelineLayout = ds3lAvailableFlag ? makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, true) : makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
+							auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
 							auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
 
 							cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
@@ -1579,7 +1579,7 @@ namespace nbl
 			}
 		}
 
-		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isDS3L)
+		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData)
 		{
 			/*
 				Assumes all supported textures are always present
@@ -1606,19 +1606,20 @@ namespace nbl
 
 			auto getCpuDs3Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
 			{
-				if (isDS3L)
+				//! Samplers
+				_NBL_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = SGLTF::SGLTFMaterial::EGT_COUNT;
+				auto cpuDS3Bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(samplerBindingsAmount);
+				{
+					ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
+					cpuSamplerBinding.count = 1u;
+					cpuSamplerBinding.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+					cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
+					std::fill(cpuDS3Bindings->begin(), cpuDS3Bindings->end(), cpuSamplerBinding);
+				}
+
+				if (materialData.glTFMaterial)
 				{
 					auto& material = materialData;
-
-					_NBL_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = SGLTF::SGLTFMaterial::EGT_COUNT;
-					auto cpuSamplerBindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(samplerBindingsAmount);
-					{
-						ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
-						cpuSamplerBinding.count = 1u;
-						cpuSamplerBinding.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-						cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
-						std::fill(cpuSamplerBindings->begin(), cpuSamplerBindings->end(), cpuSamplerBinding);
-					}
 
 					auto fillAssets = [&](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
 					{
@@ -1734,27 +1735,25 @@ namespace nbl
 							}
 						*/
 					}
-
-					for (uint32_t i = 0u; i < samplerBindingsAmount; ++i)
-					{
-						(*cpuSamplerBindings)[i].binding = i;
-						(*cpuSamplerBindings)[i].samplers = SAMPLERS.data() + i;
-					}
-
-					return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuSamplerBindings->begin(), cpuSamplerBindings->end());
 				}
-				else
-					return nullptr;
-			};
-			  
-			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", assetManager);		
-			auto cpuDs3Layout = getCpuDs3Layout();
 
-			if (isDS3L)
-			{
-				auto cpuDescriptorSet3 = makeAndGetDS3set(IMAGE_VIEWS, cpuDs3Layout);
-				materialData.cpuMeshBuffer->setAttachedDescriptorSet(std::move(cpuDescriptorSet3));
-			}
+				for (uint32_t i = 0u; i < samplerBindingsAmount; ++i)
+				{
+					(*cpuDS3Bindings)[i].binding = i;
+					(*cpuDS3Bindings)[i].samplers = SAMPLERS.data() + i;
+				}
+
+				return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDS3Bindings->begin(), cpuDS3Bindings->end());
+			};
+
+			//! camera UBO DS
+			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", assetManager);		
+			
+			//! samplers and skinMatrices DS
+			auto cpuDs3Layout = getCpuDs3Layout();
+			
+			auto cpuDescriptorSet3 = makeAndGetDS3set(IMAGE_VIEWS, cpuDs3Layout); 
+			materialData.cpuMeshBuffer->setAttachedDescriptorSet(std::move(cpuDescriptorSet3));
 
 			constexpr uint32_t PUSH_CONSTANTS_COUNT = 1u;
 			asset::SPushConstantRange pushConstantRange[PUSH_CONSTANTS_COUNT]; 
@@ -1762,7 +1761,7 @@ namespace nbl
 			pushConstantRange[0].offset = 0u;
 			pushConstantRange[0].size = sizeof(CGLTFPipelineMetadata::SGLTFMaterialParameters);
 
-			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, nullptr, std::move(cpuDs1Layout), nullptr, isDS3L ? std::move(cpuDs3Layout) : nullptr);
+			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, nullptr, std::move(cpuDs1Layout), nullptr, std::move(cpuDs3Layout));
 			return cpuPipelineLayout;
 		}
 		
