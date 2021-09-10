@@ -555,8 +555,6 @@ public:
         memoryReqs.vulkanReqs.memoryTypeBits &= additionalMemoryReqs.vulkanReqs.memoryTypeBits;
         memoryReqs.memoryHeapLocation = additionalMemoryReqs.memoryHeapLocation;
         memoryReqs.mappingCapability = additionalMemoryReqs.mappingCapability;
-        memoryReqs.prefersDedicatedAllocation = additionalMemoryReqs.prefersDedicatedAllocation;
-        memoryReqs.requiresDedicatedAllocation = additionalMemoryReqs.requiresDedicatedAllocation;
 
         core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =
             allocateGPUMemory(memoryReqs);
@@ -568,7 +566,9 @@ public:
         bindBufferInfo.buffer = gpuBuffer.get();
         bindBufferInfo.memory = bufferMemory.get();
         bindBufferInfo.offset = 0ull;
-        bindBufferMemory(1u, &bindBufferInfo);
+
+        if (!bindBufferMemory(1u, &bindBufferInfo))
+            return nullptr;
 
         return gpuBuffer;
     }
