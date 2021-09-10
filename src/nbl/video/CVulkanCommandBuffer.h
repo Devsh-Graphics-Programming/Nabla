@@ -158,7 +158,41 @@ public:
 
     bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
-        return false;
+        if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstImage->getAPIType() != EAT_VULKAN))
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] =
+        {
+            core::smart_refctd_ptr<const video::IGPUBuffer>(srcBuffer),
+            core::smart_refctd_ptr<const video::IGPUImage>(dstImage)
+        };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        constexpr uint32_t MAX_REGION_COUNT = (1ull << 12) / sizeof(VkBufferImageCopy);
+        assert(regionCount <= MAX_REGION_COUNT);
+
+        VkBufferImageCopy vk_regions[MAX_REGION_COUNT];
+        for (uint32_t i = 0u; i < regionCount; ++i)
+        {
+            vk_regions[i].bufferOffset = pRegions[i].bufferOffset;
+            vk_regions[i].bufferRowLength = pRegions[i].bufferRowLength;
+            vk_regions[i].bufferImageHeight = pRegions[i].bufferImageHeight;
+            vk_regions[i].imageSubresource.aspectMask = pRegions[i].imageSubresource.aspectMask;
+            vk_regions[i].imageSubresource.mipLevel = pRegions[i].imageSubresource.mipLevel;
+            vk_regions[i].imageSubresource.baseArrayLayer = pRegions[i].imageSubresource.baseArrayLayer;
+            vk_regions[i].imageSubresource.layerCount = pRegions[i].imageSubresource.layerCount;
+            vk_regions[i].imageOffset = { static_cast<int32_t>(pRegions[i].imageOffset.x), static_cast<int32_t>(pRegions[i].imageOffset.y), static_cast<int32_t>(pRegions[i].imageOffset.z) }; // Todo(achal): Make the regular old assignment operator work
+            vk_regions[i].imageExtent = { pRegions[i].imageExtent.width, pRegions[i].imageExtent.height, pRegions[i].imageExtent.depth }; // Todo(achal): Make the regular old assignment operator work
+        }
+
+        vkCmdCopyBufferToImage(m_cmdbuf,
+            static_cast<const video::CVulkanBuffer*>(srcBuffer)->getInternalObject(),
+            static_cast<const video::CVulkanImage*>(dstImage)->getInternalObject(),
+            static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_regions);
+
+        return true;
     }
 
     bool copyImageToBuffer(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
