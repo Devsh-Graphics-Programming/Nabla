@@ -102,7 +102,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUCommandBuffer* cmdbuf;
 			video::IGPUFence* fence;
 			ITransformTree* tree;
-			core::SRange<ITransformTree::node_t> outNodes;
+			core::SRange<ITransformTree::node_t> outNodes = { nullptr, nullptr };
 			// if null we set these properties to defaults (no parent and identity transform)
 			const ITransformTree::parent_t* parents = nullptr;
 			const ITransformTree::relative_transform_t* relativeTransforms = nullptr;

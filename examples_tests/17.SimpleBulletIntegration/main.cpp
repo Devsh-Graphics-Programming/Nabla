@@ -400,10 +400,10 @@ int main(int argc, char** argv)
 	// Creating CPU Shaders 
 	auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
-		// TODO: Change IAssetLoader::SAssetLoadParams::relativeDir to `system::path`
-		//auto tmp = system::path(argv[0]).root_directory().string();
+		auto cwd = system::path(argv[0]).parent_path();
 
 		asset::IAssetLoader::SAssetLoadParams params{};
+		params.workingDirectory = cwd;
 		params.logger = logger.get();
 		//params.relativeDir = tmp.c_str();
 		auto spec = assetManager->getAsset(path,params).getContents();

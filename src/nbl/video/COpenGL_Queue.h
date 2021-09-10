@@ -341,7 +341,8 @@ class COpenGL_Queue final : public IGPUQueue
                 params.syncToInit = sync;
 
                 auto& req = threadHandler.request(std::move(params));
-                // TODO: why do we even wait for the submit to finish, can't we just throw all the data over to the queue?
+                // TODO: Copy all the data to the request and dont wait for the request to finish, also 
+                // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
                 threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
@@ -393,7 +394,9 @@ class COpenGL_Queue final : public IGPUQueue
             SRequestParams_DestroyFramebuffer params;
             params.fbo_hash = fbohash;
 
-            threadHandler.request(std::move(params));
+            auto& req = threadHandler.request(std::move(params));
+            // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            threadHandler.template waitForRequestCompletion<SRequestParams_DestroyFramebuffer>(req);
         }
 
         void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline)
@@ -401,13 +404,14 @@ class COpenGL_Queue final : public IGPUQueue
             SRequestParams_DestroyPipeline params;
             params.hash = pipeline->getPipelineHash(m_ctxid);
 
-            threadHandler.request(std::move(params));
+            auto& req = threadHandler.request(std::move(params));
+            // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            threadHandler.template waitForRequestCompletion<SRequestParams_DestroyPipeline>(req);
         }
 
     protected:
         ~COpenGL_Queue()
         {
-
         }
 
     private:
