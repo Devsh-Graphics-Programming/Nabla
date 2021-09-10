@@ -500,7 +500,7 @@ protected:
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
             std::string glsl(begin, end);
             COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
-            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str());
+            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str(), 4u, getLogger());
             //{
                 //auto fl = fopen("shader.glsl", "w");
                 //fwrite(glsl.c_str(), 1, glsl.size(), fl);

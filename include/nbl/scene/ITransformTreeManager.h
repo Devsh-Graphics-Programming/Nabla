@@ -39,6 +39,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					ET_WEIGHTED_ACCUMULATE=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_WEIGHTED_ACCUMULATE_, // add to existing value, `(Previous+This)(vertex)`
 					ET_COUNT=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_COUNT_
 				};
+				RelativeTransformModificationRequest() = default;
 				RelativeTransformModificationRequest(const E_TYPE type, const core::matrix3x4SIMD& _preweightedModification)
 				{
 					constexpr uint32_t log2ET_COUNT = 2u;
@@ -66,15 +67,15 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
         static inline core::smart_refctd_ptr<ITransformTreeManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& device)
         {
 			auto system = device->getPhysicalDevice()->getSystem();
-			auto createShader = [&system,&device](const char* builtinpath) {
-				auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(builtinpath)>();
-				auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
-				auto shader = device->createGPUShader(std::move(cpushader));
-				return device->createGPUSpecializedShader(shader.get(), { nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE });
-			};
+#define _CREATE_SHADER(_builtinpath) [&system,&device] () {\
+				auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(_builtinpath)>();\
+				auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::buffer_contains_glsl_t{});\
+				auto shader = device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", WorkgroupSize));\
+				return device->createGPUSpecializedShader(shader.get(), { nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE });\
+			}()
 
-			core::smart_refctd_ptr<video::IGPUSpecializedShader> updateRelativeSpec = createShader("nbl/builtin/glsl/transform_tree/relative_transform_update.comp"); // is it correct shader?
-			core::smart_refctd_ptr<video::IGPUSpecializedShader> recomputeGlobalSpec = createShader("nbl/builtin/glsl/transform_tree/global_transform_update.comp"); // is it correct shader?
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> updateRelativeSpec = _CREATE_SHADER("nbl/builtin/glsl/transform_tree/relative_transform_update.comp"); // is it correct shader?
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> recomputeGlobalSpec = _CREATE_SHADER("nbl/builtin/glsl/transform_tree/global_transform_update.comp"); // is it correct shader?
 			if (!updateRelativeSpec || !recomputeGlobalSpec)
 				return nullptr;
 
@@ -232,8 +233,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			updateDS1_global(tempDS, params.nodeIDs);
 
 			auto* cmdbuf = params.cmdbuf;
-			cmdbuf->bindComputePipeline(m_recomputePipeline.get());
-			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(), tempDS.get() };
+			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(), tempDS };
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_recomputePipeline->getLayout(),0u,2u,descSets);
 			lastDispatch(m_recomputePipeline.get(),params);
 
@@ -301,10 +301,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			auto* cmdbuf = params.cmdbuf;
 			cmdbuf->bindComputePipeline(pipeline);
+			
 			if (params.dispatchIndirect.buffer)
 				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
 			else
 				cmdbuf->dispatch((params.dispatchDirect.nodeCount-1u)/WorkgroupSize+1u,1u,1u); // TODO: @Przemog would really like that dispatch factorization function
+				
 
 			// we always add our own stage and access flags, simply to have up to date data available for the next time we run the shader
 			uint32_t barrierCount = 0u;
@@ -335,7 +337,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			cmdbuf->pipelineBarrier(
 				asset::EPSF_COMPUTE_SHADER_BIT,params.finalBarrier.dstStages|asset::EPSF_COMPUTE_SHADER_BIT,
-				asset::EDF_NONE,0u,nullptr,4u,bufferBarriers,0u,nullptr
+				asset::EDF_NONE,0u,nullptr,barrierCount,bufferBarriers,0u,nullptr
 			);
 		}
 
@@ -363,7 +365,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		void updateDS1_global(video::IGPUDescriptorSet* ds, const asset::SBufferBinding<video::IGPUBuffer>& nodesToUpdateBuf)
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo info;
-			info.buffer = nodesToUpdateBuf.buffer;
+			info.desc = nodesToUpdateBuf.buffer;
 			info.buffer.offset = nodesToUpdateBuf.offset;
 			info.buffer.size = info.buffer.WholeBuffer;
 			video::IGPUDescriptorSet::SWriteDescriptorSet w;
