@@ -35,22 +35,22 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 
 	constexpr char* imageFormats[] =
 	{
-		"r16f", "r32f", "rg16f", "rg32f"
+		"r16f", "r32f", "rg16f", "rg32f",
 	};
 
 	const char* format;
 	switch (config.outputFormat)
 	{
-	case E_IMAGE_FORMAT::EIF_R16_FLOAT:
+	case EF_R16_SFLOAT:
 		format = imageFormats[0];
 		break;
-	case E_IMAGE_FORMAT::EIF_R32_FLOAT:
+	case EF_R32_SFLOAT:
 		format = imageFormats[1];
 		break;
-	case E_IMAGE_FORMAT::EIF_R16G16_FLOAT:
+	case EF_R16G16_SFLOAT:
 		format = imageFormats[2];
 		break;
-	case E_IMAGE_FORMAT::EIF_R32G32_FLOAT:
+	case EF_R32G32_SFLOAT:
 		format = imageFormats[3];
 		break;
 	default:
@@ -83,6 +83,8 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 		"STRETCH_MIN", "PAD_MAX"
 	};
 
+	// TODO: use `IGLSLCompiler::createOverridenCopy` after #68 PR merge
+
 	const char* mipScaling = config.roundUpToPoTWithPadding ? mipScalingOptions[1] : mipScalingOptions[0];
 
 	const uint32_t perPassMipCnt = static_cast<uint32_t>(config.workGroupSize) == 32u ? 6u : 5u;
@@ -99,16 +101,14 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 	m_shader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
 }
 
-// returns count of mip levels
-uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* outputDepthPyramidMips, const Config& config)
+uint32_t DepthPyramidGenerator::createMipMapImages(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImage>* outputDepthPyramidMipImages, const Config& config)
 {
 	VkExtent3D currMipExtent = calcLvl0MipExtent(
 		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
 
-	// TODO: `calcLvl0MipExtent` will be called second time here, fix it
-	const uint32_t mipmapsCnt = getMaxMipCntFromImage(inputDepthImageView, config);
+	const uint32_t mipmapsCnt = getMaxMipCntFromLvl0Mipextent(currMipExtent);
 
-	if (outputDepthPyramidMips == nullptr)
+	if (outputDepthPyramidMipImages == nullptr)
 	{
 		if (config.lvlLimit == 0u)
 			return mipmapsCnt;
@@ -119,38 +119,22 @@ uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, cor
 	IGPUImage::SCreationParams imgParams;
 	imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 	imgParams.type = IImage::ET_2D;
-	imgParams.format = static_cast<E_FORMAT>(config.outputFormat);
+	imgParams.format = config.outputFormat;
 	imgParams.mipLevels = 1u;
 	imgParams.arrayLayers = 1u;
 	imgParams.samples = IImage::ESCF_1_BIT;
 
-	IGPUImageView::SCreationParams imgViewParams;
-	imgViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-	imgViewParams.image = nullptr;
-	imgViewParams.viewType = IGPUImageView::ET_2D;
-	imgViewParams.format = static_cast<E_FORMAT>(config.outputFormat);
-	imgViewParams.components = {};
-	imgViewParams.subresourceRange = {};
-	imgViewParams.subresourceRange.levelCount = 1u;
-	imgViewParams.subresourceRange.layerCount = 1u;
-
 	uint32_t i = 0u;
 	while (currMipExtent.width > 0u && currMipExtent.height > 0u)
 	{
-		core::smart_refctd_ptr<IGPUImage> image;
-
 		imgParams.extent = { currMipExtent.width, currMipExtent.height, 1u };
-		image = driver->createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams(imgParams));
-		assert(image);
-
-		imgViewParams.image = std::move(image);
-		*outputDepthPyramidMips = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewParams));
-		assert(*outputDepthPyramidMips);
+		*outputDepthPyramidMipImages = driver->createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams(imgParams));
+		assert(*outputDepthPyramidMipImages);
 
 		currMipExtent.width >>= 1u;
 		currMipExtent.height >>= 1u;
 
-		outputDepthPyramidMips++;
+		outputDepthPyramidMipImages++;
 		i++;
 
 		if (config.lvlLimit && i >= config.lvlLimit)
@@ -160,9 +144,123 @@ uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, cor
 	return mipmapsCnt;
 }
 
-// TODO: move descriptor set layout creation to other function maybe?
+// returns count of mip levels
+uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImage>* inputMipImages, core::smart_refctd_ptr<IGPUImageView>* outputMips, const Config& config)
+{
+	VkExtent3D currMipExtent = calcLvl0MipExtent(
+		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
+
+	const uint32_t mipmapsCnt = getMaxMipCntFromLvl0Mipextent(currMipExtent);
+
+	if (outputMips == nullptr)
+	{
+		if (config.lvlLimit == 0u)
+			return mipmapsCnt;
+
+		return std::min(config.lvlLimit, mipmapsCnt);
+	}
+
+	IGPUImageView::SCreationParams imgViewParams;
+	imgViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+	imgViewParams.image = nullptr;
+	imgViewParams.viewType = IGPUImageView::ET_2D;
+	imgViewParams.format = config.outputFormat;
+	imgViewParams.components = {};
+	imgViewParams.subresourceRange = {};
+	imgViewParams.subresourceRange.levelCount = 1u;
+	imgViewParams.subresourceRange.layerCount = 1u;
+
+	uint32_t i = 0u;
+	while (currMipExtent.width > 0u && currMipExtent.height > 0u)
+	{
+		assert(*inputMipImages);
+		imgViewParams.image = core::smart_refctd_ptr(*inputMipImages);
+		*outputMips = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewParams));
+		assert(*outputMips);
+
+		currMipExtent.width >>= 1u;
+		currMipExtent.height >>= 1u;
+
+		inputMipImages++;
+		outputMips++;
+		i++;
+
+		if (config.lvlLimit && i >= config.lvlLimit)
+			break;
+	}
+
+	return mipmapsCnt;
+}
+
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> DepthPyramidGenerator::createDescriptorSetLayout(IVideoDriver* driver, const Config& config)
+{
+	constexpr uint32_t perPassMipCnt = 8u;
+
+	IGPUSampler::SParams params;
+	params.TextureWrapU = ISampler::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapV = ISampler::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
+	params.MinFilter = ISampler::ETF_NEAREST;
+	params.MaxFilter = ISampler::ETF_NEAREST;
+	params.MipmapMode = ISampler::ESMM_NEAREST;
+	params.AnisotropicFilter = 0;
+	params.CompareEnable = 0;
+	
+	if (config.roundUpToPoTWithPadding)
+	{
+		switch (config.op)
+		{
+		case E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX:
+			params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+			break;
+		case E_MIPMAP_GENERATION_OPERATOR::EMGO_MIN:
+			params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
+			break;
+		case E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH:
+			// TODO: fix
+			params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+			break;
+		default:
+			assert(false);
+		}
+	}
+	else
+	{
+		params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+	}
+	
+	auto sampler = driver->createGPUSampler(params);
+	
+	IGPUDescriptorSetLayout::SBinding bindings[4];
+	bindings[0].binding = 0u;
+	bindings[0].count = 1u;
+	bindings[0].samplers = nullptr;
+	bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
+	bindings[0].type = EDT_STORAGE_BUFFER;
+	
+	bindings[1].binding = 1u;
+	bindings[1].count = 1u;
+	bindings[1].samplers = nullptr;
+	bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
+	bindings[1].type = EDT_STORAGE_BUFFER;
+	
+	bindings[2].binding = 2u;
+	bindings[2].count = 1u;
+	bindings[2].samplers = &sampler;
+	bindings[2].stageFlags = ISpecializedShader::ESS_COMPUTE;
+	bindings[2].type = EDT_COMBINED_IMAGE_SAMPLER;
+	
+	bindings[3].binding = 3u;
+	bindings[3].count = perPassMipCnt; // for convenience it's always 8, even if not all bindings are being used. compiler doesn't complain, but is it correct?
+	bindings[3].samplers = nullptr;
+	bindings[3].stageFlags = ISpecializedShader::ESS_COMPUTE;
+	bindings[3].type = EDT_STORAGE_IMAGE;
+	
+	return driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+}
+
 uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
-		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& outputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, DispatchData* outputDispatchData, const Config& config)
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout>& inputDsLayout, core::smart_refctd_ptr<IGPUDescriptorSet>* outputDs, DispatchData* outputDispatchData, const Config& config)
 {
 	uint32_t mipCnt = getMaxMipCntFromImage(inputDepthImageView, config);
 	if (config.lvlLimit)
@@ -179,78 +277,13 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 
 	assert(inputDepthPyramidMips); 
 
-	{
-		IGPUSampler::SParams params;
-		params.TextureWrapU = ISampler::ETC_CLAMP_TO_BORDER;
-		params.TextureWrapV = ISampler::ETC_CLAMP_TO_BORDER;
-		params.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
-		params.MinFilter = ISampler::ETF_NEAREST;
-		params.MaxFilter = ISampler::ETF_NEAREST;
-		params.MipmapMode = ISampler::ESMM_NEAREST;
-		params.AnisotropicFilter = 0;
-		params.CompareEnable = 0;
-
-		if (config.roundUpToPoTWithPadding)
-		{
-			switch (config.op)
-			{
-			case E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX:
-				params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-				break;
-			case E_MIPMAP_GENERATION_OPERATOR::EMGO_MIN:
-				params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
-				break;
-			case E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH:
-				// TODO: fix
-				params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-				break;
-			default:
-				assert(false);
-			}
-		}
-		else
-		{
-			params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-		}
-
-		auto sampler = driver->createGPUSampler(params);
-
-		IGPUDescriptorSetLayout::SBinding bindings[4];
-		bindings[0].binding = 0u;
-		bindings[0].count = 1u;
-		bindings[0].samplers = nullptr;
-		bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
-		bindings[0].type = EDT_STORAGE_BUFFER;
-
-		bindings[1].binding = 1u;
-		bindings[1].count = 1u;
-		bindings[1].samplers = nullptr;
-		bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
-		bindings[1].type = EDT_STORAGE_BUFFER;
-
-		bindings[2].binding = 2u;
-		bindings[2].count = 1u;
-		bindings[2].samplers = &sampler;
-		bindings[2].stageFlags = ISpecializedShader::ESS_COMPUTE;
-		bindings[2].type = EDT_COMBINED_IMAGE_SAMPLER;
-
-		bindings[3].binding = 3u;
-		bindings[3].count = perPassMipCnt; // for convenience it's always 8, even if not all bindings are being used. compiler doesn't complain, but is it correct?
-		bindings[3].samplers = nullptr;
-		bindings[3].stageFlags = ISpecializedShader::ESS_COMPUTE;
-		bindings[3].type = EDT_STORAGE_IMAGE;
-
-		outputDsLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
-	}
-
-	// TODO: complete supported formats
 	switch (config.outputFormat)
 	{
-	case E_IMAGE_FORMAT::EIF_R16_FLOAT:
-	case E_IMAGE_FORMAT::EIF_R32_FLOAT:
+	case EF_R16_SFLOAT:
+	case EF_R32_SFLOAT:
 		break;
-	case E_IMAGE_FORMAT::EIF_R16G16_FLOAT:
-	case E_IMAGE_FORMAT::EIF_R32G32_FLOAT:
+	case EF_R16G16_SFLOAT:
+	case EF_R32G32_SFLOAT:
 		if (config.op != E_MIPMAP_GENERATION_OPERATOR::EMGO_BOTH)
 			assert(false);
 		break;
@@ -273,12 +306,11 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 			virtualDispatchCnt -= 1u;
 
 		core::vector<core::vector2d<uint32_t>> virtualWorkGroupDataContents(virtualDispatchCnt);
-		
+
 		VkExtent3D currMipExtent = inputDepthPyramidMips[0]->getCreationParameters().image->getCreationParameters().extent;
 		virtualWorkGroupDataContents[0] = core::vector2d<uint32_t>(currMipExtent.width / static_cast<uint32_t>(config.workGroupSize), currMipExtent.height / static_cast<uint32_t>(config.workGroupSize));
 		outputDispatchData[0].globalWorkGroupSize = virtualWorkGroupDataContents[0];
 
-		//TODO: make it work for multiple dispatches
 		outputDispatchData[0].pcData.mainDispatchFirstMipExtent = { currMipExtent.width, currMipExtent.height };
 
 		for (uint32_t i = 1u; i < virtualDispatchCnt; i++)
@@ -338,7 +370,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 	for (uint32_t i = 0u; i < outputDsCnt; i++)
 	{
 		core::smart_refctd_ptr<IGPUDescriptorSet>& currDs = *(outputDs + i);
-		currDs = driver->createGPUDescriptorSet(core::smart_refctd_ptr(outputDsLayout));
+		currDs = driver->createGPUDescriptorSet(core::smart_refctd_ptr(inputDsLayout));
 
 		const uint32_t thisPassMipCnt = mipLvlsRemaining > perPassMipCnt ? perPassMipCnt : mipLvlsRemaining;
 

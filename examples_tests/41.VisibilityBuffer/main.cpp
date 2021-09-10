@@ -331,16 +331,22 @@ int main()
 
     DPG::Config config;
     config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX;
-    config.outputFormat = DPG::E_IMAGE_FORMAT::EIF_R32_FLOAT;
+    config.outputFormat = EF_R32_SFLOAT;
     config.workGroupSize = DPG::E_WORK_GROUP_SIZE::EWGS_32x32x1;
+    //config.roundUpToPoTWithPadding = true;
     //config.lvlLimit = 5u;
     DPG dpg(driver, am, depthBufferView, config);
 
-    const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView);
+    const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView, config);
+    
+    core::vector<core::smart_refctd_ptr<IGPUImage>> mipImages(mipCnt);
     core::vector<core::smart_refctd_ptr<IGPUImageView>> mips(mipCnt);
-    DPG::createMipMapImageViews(driver, depthBufferView, mips.data(), config);
+    DPG::createMipMapImages(driver, depthBufferView, mipImages.data(), config);
+    DPG::createMipMapImageViews(driver, depthBufferView, mipImages.data(), mips.data(), config);
+    
 
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> dpgDsLayout;
+    dpgDsLayout = DPG::createDescriptorSetLayout(driver, config);
     const uint32_t dpgDsCnt = DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, nullptr, nullptr, config);
     core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> dpgDs(dpgDsCnt);
     core::vector<DPG::DispatchData> dpgDispatchData(dpgDsCnt);

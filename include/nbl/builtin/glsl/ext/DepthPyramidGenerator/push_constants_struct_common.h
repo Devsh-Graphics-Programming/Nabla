@@ -8,6 +8,10 @@
 #ifdef __cplusplus
 #define uint uint32_t
 
+namespace nbl
+{
+namespace ext
+{
 namespace DepthPyramidGenerator
 {
 
@@ -15,20 +19,21 @@ struct uvec2
 {
     uvec2() = default;
     uvec2(uint32_t _x, uint32_t _y) : x(_x), y(_y) {}
-    
+
     uint32_t x;
     uint32_t y;
 };
 
 }
-
+}
+}
 #endif
 
 struct nbl_glsl_depthPyramid_PushConstantsData
 {
 #ifdef __cplusplus
-    DepthPyramidGenerator::uvec2 mainDispatchFirstMipExtent;
-    DepthPyramidGenerator::uvec2 virtualDispatchFirstMipExtent;
+    nbl::ext::DepthPyramidGenerator::uvec2 mainDispatchFirstMipExtent;
+    nbl::ext::DepthPyramidGenerator::uvec2 virtualDispatchFirstMipExtent;
 #else
     uvec2 mainDispatchFirstMipExtent;
     uvec2 virtualDispatchFirstMipExtent;
