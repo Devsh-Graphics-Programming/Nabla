@@ -170,6 +170,7 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPUImageView>				        create(const asset::ICPUImageView** const _begin, const asset::ICPUImageView** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUDescriptorSet>				    create(const asset::ICPUDescriptorSet** const _begin, const asset::ICPUDescriptorSet** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUAnimationLibrary>			    create(const asset::ICPUAnimationLibrary** const _begin, const asset::ICPUAnimationLibrary** const _end, const SParams& _params);
+        inline virtual created_gpu_object_array<asset::ICPUAccelerationStructure>			create(const asset::ICPUAccelerationStructure** const _begin, const asset::ICPUAccelerationStructure** const _end, const SParams& _params);
 
 
         //! iterator_type is always either `[const] core::smart_refctd_ptr<AssetType>*[const]*` or `[const] AssetType*[const]*`
@@ -1601,6 +1602,288 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAnimationLibrary** _b
         }
 
         (*res)[i] = core::make_smart_refctd_ptr<IGPUAnimationLibrary>(std::move(keyframeBinding),std::move(timestampBinding),std::move(animationRange),cpuanim);
+    }
+
+    return res;
+}
+
+auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure** _begin, const asset::ICPUAccelerationStructure** _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUAccelerationStructure>
+{
+	const size_t assetCount = std::distance(_begin, _end);
+	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUAccelerationStructure> >(assetCount);
+	auto toCreateAndBuild = std::vector<const asset::ICPUAccelerationStructure*>();
+    auto buildRangeInfos = std::vector<IGPUAccelerationStructure::BuildRangeInfo*>();
+    toCreateAndBuild.reserve(assetCount);
+    buildRangeInfos.reserve(assetCount);
+    // Lambda function: creates the acceleration structure and It's buffer
+    auto allocateBufferAndCreateAccelerationStructure = [&](size_t asSize, const asset::ICPUAccelerationStructure* cpuas)
+    {
+        // Create buffer with cpuas->getAccelerationStructureSize
+        // TODO -> Needs Usage Flags
+        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(asSize);
+            
+        // Create GPUAccelerationStructure with that buffer
+        video::IGPUAccelerationStructure::SCreationParams creatationParams = {};
+        creatationParams.bufferRange.offset = 0;
+        creatationParams.bufferRange.buffer = gpubuf;
+        creatationParams.flags = cpuas->getCreationParameters().flags;
+        creatationParams.type = cpuas->getCreationParameters().type;
+        return _params.device->createGPUAccelerationStructure(std::move(creatationParams));
+    };
+
+    for (ptrdiff_t i = 0u; i < assetCount; ++i)
+    {
+        const asset::ICPUAccelerationStructure* cpuas = _begin[i];
+
+        if(cpuas->getBuildInfo() != nullptr)
+        {
+            // Add to toBuild vector of ICPUAccelerationStructure
+            toCreateAndBuild.push_back(cpuas);
+            buildRangeInfos.push_back(const_cast<IGPUAccelerationStructure::BuildRangeInfo*>(cpuas->getBuildRangesPtr()));
+        }
+        else if(cpuas->getAccelerationStructureSize() > 0)
+        {
+            res->operator[](i) = allocateBufferAndCreateAccelerationStructure(cpuas->getAccelerationStructureSize(), cpuas);
+        }
+    }
+
+    if(toCreateAndBuild.empty() == false)
+    {
+        bool hostBuildCommands = false; // get from SFeatures
+        if(hostBuildCommands)
+        {
+            _NBL_TODO();
+        }
+        else
+        {
+            core::vector<const asset::ICPUBuffer*> cpuBufferDeps;
+            constexpr uint32_t MaxGeometryPerBuildInfo = 16;
+            constexpr uint32_t MaxBuffersPerGeometry = 3; // TrianglesData ->  vertex+index+transformation
+            cpuBufferDeps.reserve(assetCount * MaxGeometryPerBuildInfo * MaxBuffersPerGeometry);
+
+            // Get CPUBuffer Dependencies
+            for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
+            {
+                const asset::ICPUAccelerationStructure* cpuas = toCreateAndBuild[i];
+            
+                auto buildInfo = cpuas->getBuildInfo();
+                assert(buildInfo != nullptr);
+
+                auto geoms = buildInfo->geometries.begin();
+                auto geomsCount = buildInfo->geometries.size();
+                for(uint32_t g = 0; g < geomsCount; ++g) 
+                {
+                    const auto& geom = geoms[g];
+                    if(geom.type == asset::IAccelerationStructure::EGT_TRIANGLES)
+                    {
+                        if(geom.data.triangles.indexData.isValid())
+                            cpuBufferDeps.push_back(geom.data.triangles.indexData.buffer.get());
+                        if(geom.data.triangles.vertexData.isValid())
+                            cpuBufferDeps.push_back(geom.data.triangles.vertexData.buffer.get());
+                        if(geom.data.triangles.transformData.isValid())
+                            cpuBufferDeps.push_back(geom.data.triangles.transformData.buffer.get());
+                    }
+                    else if(geom.type == asset::IAccelerationStructure::EGT_AABBS)
+                    {
+                        if(geom.data.aabbs.data.isValid())
+                            cpuBufferDeps.push_back(geom.data.aabbs.data.buffer.get());
+                    }
+                    else if(geom.type == asset::IAccelerationStructure::EGT_INSTANCES)
+                    {
+                        if(geom.data.instances.data.isValid())
+                            cpuBufferDeps.push_back(geom.data.instances.data.buffer.get());
+                    }
+                }
+            }
+
+            // Convert CPUBuffer Deps to GPUBuffers
+            core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuBufferDeps);
+            auto gpuBufs = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBufferDeps.data(), cpuBufferDeps.data()+cpuBufferDeps.size(), _params);
+            size_t bufIter = 0ull;
+
+            // Fill buildGeomInfos partially (to later ge Get AS Size before build command)
+            std::vector<IGPUAccelerationStructure::DeviceBuildGeometryInfo> buildGeomInfos(toCreateAndBuild.size());
+     
+            using GPUGeometry = IGPUAccelerationStructure::Geometry<IGPUAccelerationStructure::DeviceAddressType>;
+            std::vector<GPUGeometry> gpuGeoms;
+            gpuGeoms.reserve(assetCount * MaxGeometryPerBuildInfo);
+
+            for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
+            {
+                const asset::ICPUAccelerationStructure* cpuas = toCreateAndBuild[i];
+            
+                auto cpuBuildInfo = cpuas->getBuildInfo();
+                auto & gpuBuildInfo = buildGeomInfos[i];
+
+                gpuBuildInfo.type = cpuBuildInfo->type;
+                gpuBuildInfo.buildFlags = cpuBuildInfo->buildFlags;
+                gpuBuildInfo.buildMode = cpuBuildInfo->buildMode;
+                assert(cpuBuildInfo->buildMode == asset::IAccelerationStructure::EBM_BUILD);
+
+                // Fill Later:
+                gpuBuildInfo.srcAS = nullptr;
+                gpuBuildInfo.dstAS = nullptr;
+                gpuBuildInfo.scratchAddr = {};
+
+                auto cpu_geoms = cpuBuildInfo->geometries.begin();
+                auto geomsCount = cpuBuildInfo->geometries.size();
+
+                size_t startGeom = gpuGeoms.size();
+                size_t endGeom = gpuGeoms.size() + geomsCount;
+
+                for(uint32_t g = 0; g < geomsCount; ++g) 
+                {
+                    const auto& cpu_geom = cpu_geoms[g];
+
+                    GPUGeometry gpu_geom = {};
+                    gpu_geom.type = cpu_geom.type;
+                    gpu_geom.flags = cpu_geom.flags;
+
+                    if(cpu_geom.type == asset::IAccelerationStructure::EGT_TRIANGLES)
+                    {
+                        gpu_geom.data.triangles.vertexFormat = cpu_geom.data.triangles.vertexFormat;
+                        gpu_geom.data.triangles.vertexStride = cpu_geom.data.triangles.vertexStride;
+                        gpu_geom.data.triangles.maxVertex = cpu_geom.data.triangles.maxVertex;
+                        gpu_geom.data.triangles.indexType = cpu_geom.data.triangles.indexType;
+
+                        if(cpu_geom.data.triangles.indexData.isValid())
+                        {
+                            IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
+                            gpu_geom.data.triangles.indexData.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+                            gpu_geom.data.triangles.indexData.offset = gpubuf->getOffset() + cpu_geom.data.triangles.indexData.offset;
+                        }
+                        if(cpu_geom.data.triangles.vertexData.isValid())
+                        {
+                            IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
+                            gpu_geom.data.triangles.vertexData.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+                            gpu_geom.data.triangles.vertexData.offset = gpubuf->getOffset() + cpu_geom.data.triangles.vertexData.offset;
+                        }
+                        if(cpu_geom.data.triangles.transformData.isValid())
+                        {
+                            IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
+                            gpu_geom.data.triangles.transformData.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+                            gpu_geom.data.triangles.transformData.offset = gpubuf->getOffset() + cpu_geom.data.triangles.transformData.offset;
+                        }
+                    }
+                    else if(cpu_geom.type == asset::IAccelerationStructure::EGT_AABBS)
+                    {
+                        gpu_geom.data.aabbs.stride = cpu_geom.data.aabbs.stride;
+                        if(cpu_geom.data.aabbs.data.isValid())
+                        {
+                            IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
+                            gpu_geom.data.aabbs.data.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+                            gpu_geom.data.aabbs.data.offset = gpubuf->getOffset() + cpu_geom.data.aabbs.data.offset;
+                        }
+                    }
+                    else if(cpu_geom.type == asset::IAccelerationStructure::EGT_INSTANCES)
+                    {
+                        if(cpu_geom.data.instances.data.isValid())
+                        {
+                            IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
+                            gpu_geom.data.instances.data.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
+                            gpu_geom.data.instances.data.offset = gpubuf->getOffset() + cpu_geom.data.instances.data.offset;
+                        }
+                    }
+
+                    gpuGeoms.push_back(gpu_geom);
+                }
+
+                gpuBuildInfo.geometries = core::SRange<GPUGeometry>(gpuGeoms.data() + startGeom, gpuGeoms.data() + endGeom);
+            }
+            
+            // Get SizeInfo for each CPUAS -> Create the AS -> Get Total Scratch Buffer Size 
+            std::vector<IGPUAccelerationStructure::BuildSizes> buildSizes(toCreateAndBuild.size());
+            uint64_t totalScratchBufferSize = 0ull;
+            uint64_t maxScratchBufferSize = 0ull;
+            for (ptrdiff_t i = 0u, toBuildIndex = 0u; i < assetCount; ++i)
+            {
+                const asset::ICPUAccelerationStructure* cpuas = _begin[i];
+                if(cpuas->getBuildInfo() == nullptr)
+                {
+                    // Only those with buildInfo (index in toCreateAndBuild vector) will get passed
+                    continue;
+                }
+
+                toBuildIndex++;
+                assert(cpuas == toCreateAndBuild[toBuildIndex]);
+                assert(toBuildIndex < toCreateAndBuild.size());
+
+                auto buildRanges = cpuas->getBuildRanges().begin();
+                auto buildRangesCount = cpuas->getBuildRanges().size();
+
+                auto & gpuBuildInfo = buildGeomInfos[toBuildIndex];
+                
+                std::vector<uint32_t> maxPrimCount(buildRangesCount);
+                for(auto b = 0; b < buildRangesCount; b++)
+                  maxPrimCount[b] = buildRanges[b].primitiveCount;
+
+                auto buildSize = _params.device->getAccelerationStructureBuildSizes(gpuBuildInfo, maxPrimCount.data());
+                buildSizes[i] = buildSize;
+
+                auto gpuAS = allocateBufferAndCreateAccelerationStructure(buildSize.accelerationStructureSize, cpuas);
+                res->operator[](i) = gpuAS;
+
+                // complete the buildGeomInfos (now only thing left is to allocate and set scratchAddr.buffer)
+                buildGeomInfos[toBuildIndex].dstAS = gpuAS.get();
+                buildGeomInfos[toBuildIndex].scratchAddr.offset = totalScratchBufferSize;
+
+                totalScratchBufferSize += buildSize.buildScratchSize;
+                core::max(maxScratchBufferSize, buildSize.buildScratchSize); // maxScratchBufferSize has no use now (unless we changed this function to build 1 by 1 instead of batch builds or have some kind of memory limit?)
+            }
+
+            // Allocate Scratch Buffer
+            // TODO -> Needs Usage Flags
+            auto gpuScratchBuf = _params.device->createDeviceLocalGPUBufferOnDedMem(totalScratchBufferSize);
+            for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
+            {
+                auto & gpuBuildInfo = buildGeomInfos[i];
+                gpuBuildInfo.scratchAddr.buffer = gpuScratchBuf;
+            }
+
+            // Record CommandBuffer for Building (We have Completed buildInfos + buildRanges for each CPUAS)
+            // TODO: Should do something different?
+            core::smart_refctd_ptr<IGPUCommandPool> pool = _params.device->createCommandPool(_params.perQueue[EQU_COMPUTE].queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            auto fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+            _params.device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+
+            IGPUQueue::SSubmitInfo submit;
+            {
+                submit.commandBufferCount = 1u;
+                submit.commandBuffers = &cmdbuf.get();
+                // CPU to GPU upload doesn't need to wait for anything or narrow down the execution barrier
+                // buffer and addresses we're writing into are fresh and brand new, don't need to synchronize the writing with anything
+                submit.waitSemaphoreCount = 0u;
+                submit.pWaitDstStageMask = nullptr;
+                submit.pWaitSemaphores = nullptr;
+                uint32_t waitSemaphoreCount = 0u;
+            }
+            
+            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            {
+                // video::IGPUAccelerationStructure::BuildRangeInfo* const*
+                auto ppBuildRangeInfos = buildRangeInfos.data();
+                cmdbuf->buildAccelerationStructures(core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>(buildGeomInfos.data(), buildGeomInfos.data() + buildGeomInfos.size()), ppBuildRangeInfos);
+            }
+            cmdbuf->end();
+
+            // TODO for future to make this function more sophisticated: Compaction, MemoryLimit for Build
+
+            core::smart_refctd_ptr<IGPUSemaphore> sem;
+            if (_params.perQueue[EQU_COMPUTE].semaphore)
+                sem = _params.device->createSemaphore();
+            auto* sem_ptr = sem.get();
+            submit.signalSemaphoreCount = sem_ptr?1u:0u;
+            submit.pSignalSemaphores = sem_ptr?&sem_ptr:nullptr;
+
+            // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
+            auto* signalFence = _params.perQueue[EQU_TRANSFER].fence ? fence.get() : nullptr;
+            _params.perQueue[EQU_COMPUTE].queue->submit(1u, &submit, signalFence);
+            if (_params.perQueue[EQU_COMPUTE].fence)
+                _params.perQueue[EQU_COMPUTE].fence[0] = std::move(fence);
+            if (_params.perQueue[EQU_COMPUTE].semaphore)
+                _params.perQueue[EQU_COMPUTE].semaphore[0] = std::move(sem);
+        }
     }
 
     return res;

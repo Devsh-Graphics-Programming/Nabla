@@ -608,12 +608,12 @@ class ILogicalDevice : public core::IReferenceCounted
             return false;
         }
 
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pInfos, const uint32_t* pMaxPrimitiveCounts)
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
         {
             return IGPUAccelerationStructure::BuildSizes{};
         }
 
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pInfos, const uint32_t* pMaxPrimitiveCounts)
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
         {
             return IGPUAccelerationStructure::BuildSizes{};
         }

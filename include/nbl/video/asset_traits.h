@@ -31,6 +31,8 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/asset/ICPUAnimationLibrary.h"
 #include "nbl/video/IGPUAnimationLibrary.h"
+#include "nbl/asset/ICPUAccelerationStructure.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
 
 
 namespace nbl
@@ -95,6 +97,8 @@ template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 template<>
 struct asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
+template<>
+struct asset_traits<asset::ICPUAccelerationStructure> { using GPUObjectType = video::IGPUAccelerationStructure; };
 
 
 template<typename AssetType>

@@ -765,9 +765,9 @@ public:
 
     bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
 
-    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pPartialInfos, const uint32_t* pMaxPrimitiveCounts) override;
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
 
-    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pPartialInfos, const uint32_t* pMaxPrimitiveCounts) override;
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
 
     CVulkanDeviceFunctionTable* getFunctionTable() { return &m_devf; }
 
@@ -1226,7 +1226,7 @@ protected:
     }
     
     template<typename AddressType>
-    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pPartialInfos, const uint32_t* pMaxPrimitiveCounts) 
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) 
     {
         VkAccelerationStructureBuildSizesInfoKHR vk_ret = {};
 
@@ -1244,12 +1244,12 @@ protected:
         VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount] = {};
 
         {
-            uint32_t geomCount = pPartialInfos.geometries.size();
+            uint32_t geomCount = pBuildInfo.geometries.size();
 
             assert(geomCount > 0);
             assert(geomCount <= MaxGeometryPerBuildInfoCount);
 
-            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, pPartialInfos, &vk_geometries[geometryArrayOffset]);
+            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, pBuildInfo, &vk_geometries[geometryArrayOffset]);
             geometryArrayOffset += geomCount;
         }
 

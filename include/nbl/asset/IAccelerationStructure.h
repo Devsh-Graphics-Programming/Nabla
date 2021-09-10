@@ -70,10 +70,35 @@ class IAccelerationStructure : public IDescriptor
 		template<typename AddressType>
 		struct GeometryData
 		{
-			~GeometryData() = delete; // because of compiler warning : destructor was implicitly defined as deleted
+			GeometryData() {}
+			~GeometryData() {}
+
+			GeometryData(GeometryData& copy)
+			{
+				std::memmove(this, &copy, sizeof(GeometryData));
+			}
+
+			GeometryData(const GeometryData& copy)
+			{
+				std::memmove(this, &copy, sizeof(GeometryData));
+			}
+
+			GeometryData& operator=(GeometryData& copy)
+			{
+				std::memmove(this, &copy, sizeof(GeometryData));
+				return *this;
+			}
+
+			GeometryData& operator=(const GeometryData& copy)
+			{
+				std::memmove(this, &copy, sizeof(GeometryData));
+				return *this;
+			}
+
 			union
 			{
-				struct Triangles {
+				struct Triangles
+				{
 					E_FORMAT		vertexFormat;
 					AddressType		vertexData;
 					uint64_t		vertexStride;
@@ -82,11 +107,15 @@ class IAccelerationStructure : public IDescriptor
 					AddressType		indexData;
 					AddressType		transformData;
 				} triangles;
-				struct AABBs {
+
+				struct AABBs
+				{
 					AddressType		data;
 					size_t			stride;
 				} aabbs;
-				struct Instances {
+
+				struct Instances
+				{
 					AddressType		data;
 				} instances;
 			};
@@ -99,7 +128,6 @@ class IAccelerationStructure : public IDescriptor
 				: type(static_cast<E_GEOM_TYPE>(0u))
 				, flags(static_cast<E_GEOM_FLAGS>(0u))
 			{};
-			~Geometry() = delete; // because of compiler warning : destructor was implicitly defined as deleted
 			E_GEOM_TYPE					type;
 			E_GEOM_FLAGS				flags;
 			GeometryData<AddressType>	data;
