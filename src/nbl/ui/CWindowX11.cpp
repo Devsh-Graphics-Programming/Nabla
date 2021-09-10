@@ -43,7 +43,6 @@ void CWindowX11::processEvent(XEvent event)
     {
         case ResizeRequest: // window resize event
         {
-            std::cout << "Resize event!\n";
             XResizeRequestEvent& e = (XResizeRequestEvent&)event;
             if (e.width != m_width || e.height != m_height)
             {
@@ -57,7 +56,6 @@ void CWindowX11::processEvent(XEvent event)
 
         case ConfigureNotify:  // window move event
         {
-            std::cout << "Move event!\n";
             XConfigureRequestEvent& e = (XConfigureRequestEvent&)event;
              if (e.x != m_x || e.y != m_y)
             {
@@ -71,7 +69,6 @@ void CWindowX11::processEvent(XEvent event)
 
         case MapNotify: // window show event
         {
-            std::cout << "Show event!\n";
             if (eventCallback->onWindowShown(this)) 
             {
                 x11.pXMapWindow(m_dpy, m_native);
@@ -82,7 +79,6 @@ void CWindowX11::processEvent(XEvent event)
 
         case UnmapNotify: // hide window event
         {
-            std::cout << "Hide event!\n";
             if (eventCallback->onWindowHidden(this) || eventCallback->onWindowMinimized(this)) 
             {
                 x11.pXUnmapWindow(m_dpy, m_native);
@@ -93,12 +89,12 @@ void CWindowX11::processEvent(XEvent event)
 
         case FocusIn:
         {
-            // TODO
+            eventCallback->onGainedKeyboardFocus(this);
             break;
         }
         case FocusOut:
         {
-            // TODO
+            eventCallback->onLostKeyboardFocus(this);
             break;
         }
 
@@ -143,6 +139,7 @@ core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(IWindow::SCreati
 
     XSetWindowAttributes attributes;
     
+    attributes.override_redirect = 0;
     attributes.background_pixel = WhitePixel(m_managerDpy, screen);
     attributes.border_pixel = BlackPixel(m_managerDpy, screen);
 
