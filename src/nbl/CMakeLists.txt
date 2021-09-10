@@ -269,20 +269,16 @@ set(NBL_VIDEO_SOURCES
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
-# Property Pools
-	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorSetCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IPropertyPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+# Utilities
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/CPropertyPoolHandler.cpp
 
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
-
-# Junk to refactor
-#${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
-#${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
