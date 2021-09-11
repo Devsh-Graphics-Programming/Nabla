@@ -41,6 +41,18 @@ struct SPushConstantRange
     uint32_t offset;
     uint32_t size;
 
+    inline bool operator<(const SPushConstantRange& _rhs) const
+    {
+        if (stageFlags==_rhs.stageFlags)
+        {
+            if (offset==_rhs.offset)
+            {
+                return size<_rhs.size;
+            }
+            return offset<_rhs.offset;
+        }
+        return stageFlags<_rhs.stageFlags;
+    }
     inline bool operator==(const SPushConstantRange& _rhs) const
     {
         if (stageFlags != _rhs.stageFlags)
