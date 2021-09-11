@@ -62,7 +62,7 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 		You will not have to drop the pointer to the loaded texture,
 		because the name of the method does not start with 'create'.
 		The texture is stored somewhere by the driver. */
-		inline void grab() const { ReferenceCounter++; }
+		inline uint32_t grab() const { return ReferenceCounter++; }
 
 		//! Drops the object. Decrements the reference counter by one.
 		/** The IReferenceCounted class provides a basic reference

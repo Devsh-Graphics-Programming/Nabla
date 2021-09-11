@@ -15,6 +15,7 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
+            ECF_NONE = 0x00,
             ECF_TRANSIENT_BIT = 0x01,
             ECF_RESET_COMMAND_BUFFER_BIT = 0x02,
             ECF_PROTECTED_BIT = 0x04

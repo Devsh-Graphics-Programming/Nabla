@@ -5,7 +5,6 @@
 #ifndef _NBL_VIDEO_C_PROPERTY_POOL_HANDLER_H_INCLUDED_
 #define _NBL_VIDEO_C_PROPERTY_POOL_HANDLER_H_INCLUDED_
 
-
 #include "nbl/asset/asset.h"
 
 #include "nbl/video/IGPUCommandBuffer.h"

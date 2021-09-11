@@ -16,9 +16,15 @@
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/containers/CMemoryPool.h"
-//#include "renderdoc_app.h"
 
-//extern RENDERDOC_API_1_1_2* g_rdoc_api;
+#define DEBUGGING_BAW
+
+#ifdef DEBUGGING_BAW
+#include "renderdoc_app.h"
+
+extern RENDERDOC_API_1_1_2* g_rdoc_api;
+extern volatile bool g_rdoc_start_capture;
+#endif
 
 namespace nbl::video
 {
@@ -184,8 +190,15 @@ class COpenGL_Queue final : public IGPUQueue
                         barrierBits |= pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT, submit.pWaitDstStageMask[i]);
                     }
 
-                    //if (g_rdoc_api)
-                    //	g_rdoc_api->StartFrameCapture(NULL, NULL);
+#ifdef DEBUGGING_BAW
+                    bool rdc_capturing = false;
+                    if (g_rdoc_api && g_rdoc_start_capture)
+                    {
+                        g_rdoc_api->StartFrameCapture(NULL, NULL);
+                        rdc_capturing = g_rdoc_start_capture;
+                        g_rdoc_start_capture = false;
+                    }
+#endif
 
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
@@ -212,8 +225,10 @@ class COpenGL_Queue final : public IGPUQueue
                     else // need to flush, otherwise OpenGL goes gaslighting the user with wrong error messages
                         gl.glGeneral.pglFlush();
 
-                    //if (g_rdoc_api)
-                    //	g_rdoc_api->EndFrameCapture(NULL, NULL);
+#ifdef DEBUGGING_BAW
+                    if (g_rdoc_api && rdc_capturing)
+                    	g_rdoc_api->EndFrameCapture(NULL, NULL);
+#endif
                 }
                 break;
                 case ERT_DESTROY_FRAMEBUFFER:
@@ -270,7 +285,11 @@ class COpenGL_Queue final : public IGPUQueue
             m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {
+        }
 
+        void waitForInitComplete()
+        {
+            threadHandler.waitForInitComplete();
         }
 
         bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
@@ -322,7 +341,8 @@ class COpenGL_Queue final : public IGPUQueue
                 params.syncToInit = sync;
 
                 auto& req = threadHandler.request(std::move(params));
-                // TODO: why do we even wait for the submit to finish, can't we just throw all the data over to the queue?
+                // TODO: Copy all the data to the request and dont wait for the request to finish, also 
+                // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
                 threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
@@ -374,7 +394,9 @@ class COpenGL_Queue final : public IGPUQueue
             SRequestParams_DestroyFramebuffer params;
             params.fbo_hash = fbohash;
 
-            threadHandler.request(std::move(params));
+            auto& req = threadHandler.request(std::move(params));
+            // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            threadHandler.template waitForRequestCompletion<SRequestParams_DestroyFramebuffer>(req);
         }
 
         void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline)
@@ -382,13 +404,14 @@ class COpenGL_Queue final : public IGPUQueue
             SRequestParams_DestroyPipeline params;
             params.hash = pipeline->getPipelineHash(m_ctxid);
 
-            threadHandler.request(std::move(params));
+            auto& req = threadHandler.request(std::move(params));
+            // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            threadHandler.template waitForRequestCompletion<SRequestParams_DestroyPipeline>(req);
         }
 
     protected:
         ~COpenGL_Queue()
         {
-
         }
 
     private:

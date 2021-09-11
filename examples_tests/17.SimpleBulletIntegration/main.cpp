@@ -79,7 +79,8 @@ int main(int argc, char** argv)
 	auto windowCb = std::move(initOutput.windowCb);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
-	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);===
+    
 	auto device = std::move(initOutput.logicalDevice);
 	auto utilities = std::move(initOutput.utilities);
 	auto queues = std::move(initOutput.queues);
@@ -122,7 +123,7 @@ int main(int argc, char** argv)
 		basePlateBody = world->createRigidBody(basePlateRigidBodyData);
 		world->bindRigidBody(basePlateBody);
 	}
- 
+	
 	// set up
 	auto propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
 	auto createPropertyPoolWithMemory = [device](auto& retval, uint32_t capacity, bool contiguous=false) -> void
@@ -152,10 +153,6 @@ int main(int argc, char** argv)
 	constexpr auto TransformPropertyID = 1u;
 	using object_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
 	core::smart_refctd_ptr<object_property_pool_t> objectPool; createPropertyPoolWithMemory(objectPool,MaxNumObjects);
-	
-	// TODO: start using the TransformTree
-	auto tt = scene::ITransformTree::create(device.get(),MaxNumObjects);
-	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	// Physics
 	core::vector<btRigidBody*> bodies(MaxNumObjects,nullptr);
@@ -404,10 +401,10 @@ int main(int argc, char** argv)
 	// Creating CPU Shaders 
 	auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
-		// TODO: Change IAssetLoader::SAssetLoadParams::relativeDir to `system::path`
-		//auto tmp = system::path(argv[0]).root_directory().string();
+		auto cwd = system::path(argv[0]).parent_path();
 
 		asset::IAssetLoader::SAssetLoadParams params{};
+		params.workingDirectory = cwd;
 		params.logger = logger.get();
 		//params.relativeDir = tmp.c_str();
 		auto spec = assetManager->getAsset(path,params).getContents();

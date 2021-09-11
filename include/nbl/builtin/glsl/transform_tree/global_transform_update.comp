@@ -4,7 +4,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_QUALIFIERS coherent restrict
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_QUALIFIERS coherent restrict
 #include "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
-
+#include "nbl/builtin/glsl/utils/transform.glsl"
 #include "nbl/builtin/glsl/transform_tree/global_transform_update_descriptor_set.glsl"
 
 #include "nbl/builtin/glsl/utils/transform.glsl"
@@ -54,13 +54,20 @@ void main()
         return;
 
     // in the future, maybe put it in shared mem or something
-    int stackPtr = 0;
+#define NBL_GLSL_TRANSFORM_TREE_STACK_SIZE (NBL_GLSL_TRANSFORM_TREE_MAX_DEPTH-1)
     uint stack[NBL_GLSL_TRANSFORM_TREE_MAX_DEPTH-1];
+#undef NBL_GLSL_TRANSFORM_TREE_STACK_SIZE
+    int stackPtr = 0;
 
     uint rootNode = nodesToUpdate.data[gl_GlobalInvocationID.x];
-    for (uint parent=nodeParents.data[rootNode]; parent!=NBL_BUILTIN_PROPERTY_POOL_INVALID; rootNode=parent)
+    uint parent = nodeParents.data[rootNode];
+    while (parent!=NBL_GLSL_PROPERTY_POOL_INVALID)
+    {
         stack[stackPtr++] = rootNode;
-    
+        rootNode = parent;
+        parent = nodeParents.data[rootNode]; 
+    }
+   
     //
     memoryBarrierBuffer();
     mat4x3 accumulatedTransform = nbl_glsl_transform_tree_globalTransformUpdate_root(rootNode);

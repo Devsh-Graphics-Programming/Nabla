@@ -132,12 +132,12 @@ class ITransformTree : public virtual core::IReferenceCounted
 			request.pool = m_nodeStorage.get();
 			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
 			request.propertyID = global_transform_prop_ix;
-			request.elementCount = nodesEnd-nodesBegin;
+			request.elementCount = nodesEnd - nodesBegin;
 			request.srcAddresses = nodesBegin;
 			request.dstAddresses = nullptr;
 			request.buffer = dest;
 			request.offset = destOffset;
-			return pphandler->transferProperties(upIndexBuff,nullptr,cmdbuf,fence,&request,&request+1u,logger,maxWaitPoint).transferSuccess;
+			return pphandler->transferProperties(upIndexBuff, nullptr, cmdbuf, fence, &request, &request + 1u, logger, maxWaitPoint).transferSuccess;
 		}
 
 		//

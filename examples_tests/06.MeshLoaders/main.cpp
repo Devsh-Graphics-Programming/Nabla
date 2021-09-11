@@ -13,15 +13,15 @@
 
 using namespace nbl;
 using namespace core;
-
 /*
     Uncomment for more detailed logging
 */
 
 // #define NBL_MORE_LOGS
 
-int main()
+int main(int argc, char** argv)
 {
+    system::path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
     constexpr uint32_t WIN_W = 1280;
     constexpr uint32_t WIN_H = 720;
     constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -104,9 +104,13 @@ int main()
 
             TODO: come back to addFileArchive
         */
-
+        system::path archPath = CWD.generic_string() + "../../media/sponza.zip";
+        auto arch = system->openFileArchive(archPath);
+        system->mount(std::move(arch), "arch");
         asset::IAssetLoader::SAssetLoadParams loadParams;
-        auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
+        loadParams.workingDirectory = CWD;
+        loadParams.logger = logger.get();
+        auto meshes_bundle = assetManager->getAsset("arch/sponza.obj", loadParams);
         assert(!meshes_bundle.getContents().empty());
 
         metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
@@ -144,7 +148,7 @@ int main()
         if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
             assert(false);
 
-        cpu2gpuWaitForFences();
+        //cpu2gpuWaitForFences();
         gpuds1layout = (*gpu_array)[0];
     }
 
@@ -201,7 +205,7 @@ int main()
     CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
     core::vectorSIMDf cameraPosition(0, 5, -10);
-    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
     Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
     auto lastTime = std::chrono::system_clock::now();
 

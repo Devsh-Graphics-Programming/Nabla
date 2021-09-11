@@ -30,13 +30,13 @@ void main()
     const uint propID = gl_WorkGroupID.y;
     const nbl_glsl_property_pool_transfer_t transfer = getTransferData(propID);
 
-    const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
+  const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
 	const uint propDWORDs = uint(bitfieldExtract(transfer.propertyDWORDsize_flags,0,flagsBitOffset));
 
     const uint index = gl_GlobalInvocationID.x/propDWORDs;
     if (index>=transfer.elementCount)
         return;
-        
+
     const uint srcIndex = bool(transfer.propertyDWORDsize_flags&(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL<<flagsBitOffset)) ? 0u:index;
     const uint srcAddress = transfer.srcIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[srcIndex+transfer.srcIndexOffset]:srcIndex;
     const uint dstAddress = transfer.dstIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[index+transfer.dstIndexOffset]:index;

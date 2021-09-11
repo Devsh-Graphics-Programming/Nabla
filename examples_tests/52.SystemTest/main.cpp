@@ -208,8 +208,10 @@ private:
 	bool m_gotWindowClosedMsg;
 };
 
-int main()
+int main(int argc, char** argv)
 {
+	path CWD = path(argv[0]).parent_path().generic_string() + "/";
+	path mediaWD = CWD.generic_string() + "../../media/";
 	auto system = CommonAPI::createSystem();
 	// *** Select stdout/file logger ***
 	auto logger = make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
@@ -246,7 +248,7 @@ int main()
 	auto* cursorControl = window->getCursorControl();
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-	system->createFile(future, "testFile.txt", nbl::system::IFile::ECF_READ_WRITE);
+	system->createFile(future, CWD.generic_string() + "testFile.txt", nbl::system::IFile::ECF_READ_WRITE | IFile::ECF_MAPPABLE);
 	auto file = future.get();
 	std::string fileData = "Test file data!";
 
@@ -304,11 +306,33 @@ int main()
 		}
 	};
 	
-#if 0 // none of this is going to work as long as you dont have a CWD parameter in `IAssetLoader::SAssetLoadParams` or `IAssetWriter::SAssetWriteParams`
+	auto tarArch = system->openFileArchive(CWD.generic_string() + "file.tar");
+	system->mount(std::move(tarArch), "tarArch");
+	auto arch = system->openFileArchive(CWD.generic_string() + "test.zip");
+	system->mount(std::move(arch), "arch");
+	auto arch1 = system->openFileArchive("arch/test/test1.zip");
+	system->mount(std::move(arch1), "arch1");
+	{
+		system::future<smart_refctd_ptr<IFile>> fut;
+		system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
+		auto file = fut.get();
+		{
+			system::future<smart_refctd_ptr<IFile>> fut;
+			system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
+			file = fut.get();
+		}
+		std::string str(5, '\0');
+		system::future<size_t> readFut;
+		file->read(readFut, str.data(), 0, 5);
+		readFut.get();
+		std::cout << str << std::endl;
+	}
+
+	IAssetLoader::SAssetLoadParams lp;
+	lp.workingDirectory = mediaWD;
 	//PNG loader test
 	{
-		IAssetLoader::SAssetLoadParams lp;
-		auto asset = assetManager->getAsset("../../media/cegui_alfisko/screenshot.png", lp);
+		auto asset = assetManager->getAsset("cegui_alfisko/screenshot.png", lp);
 		assert(!asset.getContents().empty());
 		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
 		core::smart_refctd_ptr<ICPUImageView> imageView;
@@ -321,11 +345,12 @@ int main()
 		imageView = ICPUImageView::create(std::move(imgViewParams));
 
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		wp.workingDirectory = CWD;
+
 		assetManager->writeAsset("pngWriteSuccessful.png", wp);
 	}
 	//TODO OBJ loader test 
 	{
-		//IAssetLoader::SAssetLoadParams lp;
 		//auto bundle = assetManager->getAsset("../../media/sponza.obj", lp);
 		//assert(!bundle.getContents().empty());
 		//auto cpumesh = bundle.getContents().begin()[0];
@@ -336,8 +361,7 @@ int main()
 	}
 	//JPEG loader test
 	{
-		IAssetLoader::SAssetLoadParams lp;
-		auto asset = assetManager->getAsset("../../media/dwarf.jpg", lp);
+		auto asset = assetManager->getAsset("dwarf.jpg", lp);
 		assert(!asset.getContents().empty());
 		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
 		core::smart_refctd_ptr<ICPUImageView> imageView;
@@ -350,9 +374,10 @@ int main()
 		imageView = ICPUImageView::create(std::move(imgViewParams));
 
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
+		wp.workingDirectory = CWD;
+
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
-#endif
 	while (windowCb->isWindowOpen())
 	{
 		input->getDefaultMouse(&mouse);

@@ -119,9 +119,9 @@ class IDescriptorSetCache : public core::IReferenceCounted
 	protected:
 		friend class DeferredDescriptorSetReclaimer;
 		IDescriptorSetCache(ILogicalDevice* device, const uint32_t capacity);
-		~IDescriptorSetCache()
+		virtual ~IDescriptorSetCache()
 		{
-			// destructor of `deferredReclaims` will wait for all fences
+			m_deferredReclaims.cullEvents(0u);
 			free(m_reserved);
 			delete[] m_cache;
 		}

@@ -5,7 +5,6 @@
 using namespace nbl;
 using namespace video;
 
-
 //
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
 {
@@ -175,6 +174,8 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				}
 			});
 			{
+				for (auto i=0u; i<upAllocations; i++)
+					m_tmpSizes[i] = core::roundUp(m_tmpSizes[i],m_alignments[i]);
 				// TODO: handle overflow (chunk the updates with `max_size()` on the upload and download allocators)
 				const auto unallocatedBytes = upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses,m_tmpSizes,m_alignments);
 				if (!(retval=unallocatedBytes==0u))
@@ -253,6 +254,8 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 				if (downAllocations)
 				{
+					for (auto i=0u; i<downAllocations; i++)
+						downSizes[i] = core::roundUp(downSizes[i],m_alignments[i]);
 					const auto unallocatedBytes = downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments);
 					if (!(retval=unallocatedBytes==0u))
 					{

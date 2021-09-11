@@ -12,6 +12,7 @@
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
+#include "nbl/system/IFileViewAllocator.h"
 
 #include "nbl/builtin/MTLdefaults.h"
 
@@ -80,7 +81,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     // default pipelines
     constexpr std::string_view filename = "Nabla default MTL material";
 
-    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ);
+    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CPlainHeapAllocator>>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ, strlen(DUMMY_MTL_CONTENT));
     
     system::future<size_t> future;
     default_mtl_file->write(future, DUMMY_MTL_CONTENT, 0, strlen(DUMMY_MTL_CONTENT));
@@ -121,7 +122,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
     const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = fullName.parent_path().string();
+		auto dir = fullName.filename().string();
         return dir;
 	}();
 
@@ -526,13 +527,13 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             const uint32_t hierarchyLevel = _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW; // this is weird actually, we're not sure if we're loading image or image view
             SAssetBundle bundle;
             if (i != CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
-                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             else
             {
                 // we need bumpmap restored to create derivative map from it
                 const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
                 lp.restoreLevels = std::max(lp.restoreLevels, hierarchyLevel + restoreLevels);
-                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
             if (asset)

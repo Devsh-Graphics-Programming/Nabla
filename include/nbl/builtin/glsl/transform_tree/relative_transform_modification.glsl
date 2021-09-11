@@ -25,6 +25,8 @@ NBL_INLINE uint nbl_glsl_transform_tree_relative_transform_modification_t_getTyp
 	return (rtm.data[0][0]&0x1u)|((rtm.data[2][2]&0x1u)<<1u);
 }
 #ifndef __cplusplus
+#include "nbl/builtin/glsl/utils/transform.glsl"
+
 mat4x3 nbl_glsl_transform_tree_relative_transform_modification_t_getMatrix(in nbl_glsl_transform_tree_relative_transform_modification_t rtm)
 {
 	return transpose(mat3x4(uintBitsToFloat(rtm.data[0]),uintBitsToFloat(rtm.data[1]),uintBitsToFloat(rtm.data[2])));
