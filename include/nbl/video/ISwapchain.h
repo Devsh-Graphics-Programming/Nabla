@@ -26,7 +26,8 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             uint32_t width;
             uint32_t height;
             uint32_t arrayLayers = 1u;
-            core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
+            uint32_t queueFamilyIndexCount;
+            const uint32_t* queueFamilyIndices;
 
             asset::IImage::E_USAGE_FLAGS imageUsage;
             asset::E_SHARING_MODE imageSharingMode;

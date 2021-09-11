@@ -555,8 +555,9 @@ public:
 
     bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
-        if (!this->isCompatibleDevicewise(buffer))
-            return false;
+        if(buffer)
+            if (!this->isCompatibleDevicewise(buffer))
+                return false;
 
         SCmd<impl::ECT_BIND_INDEX_BUFFER> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
@@ -784,6 +785,9 @@ public:
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
+        if (!IGPUCommandBuffer::blitImage(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter))
+            return false;
+
         SCmd<impl::ECT_BLIT_IMAGE> cmd;
         cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
         cmd.srcImageLayout = srcImageLayout;

@@ -7,6 +7,7 @@
 
 #include "BuildConfigOptions.h"
 
+#include <cstdint>
 #include <limits.h> // For INT_MAX / UINT_MAX
 #include <initializer_list>
 #include <type_traits>

@@ -226,9 +226,10 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_FOR_FENCES;
             using retval_t = IGPUFence::E_STATUS;
+            using clock_t = std::chrono::steady_clock;
             core::SRange<IGPUFence*const,IGPUFence*const*,IGPUFence*const*> fences = { nullptr, nullptr };
+            clock_t::time_point timeoutPoint;
             bool waitForAll;
-            uint64_t timeout;
         };
         struct SRequestGetFenceStatus
         {
@@ -781,11 +782,8 @@ protected:
                 auto& p = std::get<SRequestWaitForFences>(req.params_variant);
                 uint32_t _count = p.fences.size();
                 IGPUFence*const *const _fences = p.fences.begin();
-                bool _waitAll = p.waitForAll;
-                uint64_t _timeout = p.timeout;
 
-                IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
-                retval[0] = waitForFences(gl, _count, _fences, _waitAll, _timeout);
+                *reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval) = waitForFences(gl, _count, _fences, p.waitForAll, p.timeoutPoint);
             }
                 break;
             case ERT_CTX_MAKE_CURRENT:
@@ -836,15 +834,15 @@ protected:
 
             using GLPpln = COpenGLRenderpassIndependentPipeline;
 
-            IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+            const IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
             uint32_t shaderCount = 0u;
             for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
                 if (params.shaders[i])
                     shaders_array[shaderCount++] = params.shaders[i].get();
 
-            auto shaders = core::SRange<IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
-            auto vsIsPresent = [&shaders] {
-                return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
+            auto shaders = core::SRange<const IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
+            auto vsIsPresent = [&shaders]() -> bool {
+                return std::find_if(shaders.begin(), shaders.end(), [](const IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
             };
 
             asset::ISpecializedShader::E_SHADER_STAGE lastVertexLikeStage = asset::ISpecializedShader::ESS_VERTEX;
@@ -875,7 +873,7 @@ protected:
             COpenGLPipelineLayout* gllayout = static_cast<COpenGLPipelineLayout*>(layout.get());
             for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
             {
-                COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
+                const auto* glshdr = static_cast<const COpenGLSpecializedShader*>(*shdr);
 
                 auto stage = glshdr->getStage();
                 uint32_t ix = core::findLSB<uint32_t>(stage);
@@ -950,11 +948,9 @@ protected:
 
             return core::make_smart_refctd_ptr<COpenGLComputePipeline>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
-        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, uint64_t _timeout)
+        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, const std::chrono::steady_clock::time_point& timeoutPoint)
         {
-            using clock_t = std::chrono::high_resolution_clock;
-            const auto start = clock_t::now();
-            const auto end = start+std::chrono::nanoseconds(_timeout);
+            const auto start = SRequestWaitForFences::clock_t::now();
             
             assert(_count!=0u);
 
@@ -967,17 +963,17 @@ protected:
                 _waitAll = true;
                 timeout = 0xdeadbeefBADC0FFEull;
             }
-            while (true)
+            for (bool notFirstRun=false; true; notFirstRun=true)
             {
                 for (uint32_t i=0u; i<_count; )
                 {
-                    const auto now = clock_t::now();
+                    const auto now = SRequestWaitForFences::clock_t::now();
                     if (timeout)
                     {
-                        if(now>=end)
+                        if(notFirstRun && now>=timeoutPoint)
                             return IGPUFence::ES_TIMEOUT;
                         else if (_waitAll) // all fences have to get signalled anyway so no use round robining
-                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(end-now).count();
+                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(timeoutPoint-now).count();
                         else if (i==0u) // if we're only looking for one to succeed then poll with increasing timeouts until deadline
                             timeout <<= 1u;
                     }

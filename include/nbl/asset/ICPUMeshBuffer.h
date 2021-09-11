@@ -227,7 +227,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 	    inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
 	    {
             assert(!isImmutable_debug());
-		    m_descriptorSet = std::move(descriptorSet);
+            base_t::setAttachedDescriptorSet(std::move(descriptorSet));
 	    }
 
         //!
@@ -237,10 +237,10 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             assert(!isImmutable_debug());
             return m_pipeline.get();
         }
-	    inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
+	    inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline) override final
 	    {
             assert(!isImmutable_debug());
-		    m_pipeline = std::move(pipeline);
+            base_t::setPipeline(std::move(pipeline));
 	    }
 
         //

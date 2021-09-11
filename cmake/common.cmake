@@ -262,7 +262,7 @@ endmacro()
 
 function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
+	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE) # WTF TODO: change CMAKE_BINARY_DIR in future! 
 endfunction()
 
 
@@ -467,8 +467,9 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 		endif()
 	endforeach()
 	
-	file(READ "${NBL_ROOT_PATH}/include/nabla.h.in" NBL_NABLA_IMPORT_HEADER_CODE)
-	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h.in" "${WRAPPER_CODE}")
-	file(APPEND "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h.in" "${NBL_NABLA_IMPORT_HEADER_CODE}")
-	configure_file("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h.in" "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
+	set(${NBL_REFERENCE_RETURN_VARIABLE} "${WRAPPER_CODE}")
+endmacro()
+
+macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
+	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()

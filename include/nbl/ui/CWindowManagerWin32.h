@@ -166,9 +166,9 @@ class CWindowManagerWin32 : public IWindowManager
 					auto& params = req.createWindowParam;
 					HINSTANCE hinstance = GetModuleHandle(NULL);
 
-					const char* classname = __TEXT("Nabla Engine");
+					const char* classname = "Nabla Engine";
 
-					WNDCLASSEX wcex;
+					WNDCLASSEXA wcex;
 					wcex.cbSize = sizeof(WNDCLASSEX);
 					wcex.style = CS_HREDRAW | CS_VREDRAW;
 					wcex.lpfnWndProc = CWindowWin32::WndProc;
@@ -182,7 +182,7 @@ class CWindowManagerWin32 : public IWindowManager
 					wcex.lpszClassName = classname;
 					wcex.hIconSm = 0;
 
-					RegisterClassEx(&wcex);
+					RegisterClassExA(&wcex);
 					// calculate client size
 
 					RECT clientSize;
@@ -233,7 +233,7 @@ class CWindowManagerWin32 : public IWindowManager
 					const int32_t realHeight = clientSize.bottom - clientSize.top;
 
 					
-					*params.nativeWindow = CreateWindow(classname, params.windowCaption.c_str(), style, clientSize.left, clientSize.top,
+					*params.nativeWindow = CreateWindowA(classname, params.windowCaption.c_str(), style, clientSize.left, clientSize.top,
 						realWidth, realHeight, NULL, NULL, hinstance, NULL);
 					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
 						ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);

@@ -14,7 +14,7 @@ class IWindowAndroid : public IWindow
 {
 protected:
     virtual ~IWindowAndroid() = default;
-
+    IWindowAndroid(SCreationParams&& params) : IWindow(std::move(params)) {}
 public:
     using IWindow::IWindow;
 

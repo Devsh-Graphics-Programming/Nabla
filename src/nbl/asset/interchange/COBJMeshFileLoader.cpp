@@ -154,9 +154,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 				_params.logger.log("Reading material _file %s", system::ILogger::ELL_DEBUG, tmpbuf);
 
-                std::string mtllib = relPath+tmpbuf;
+                std::string mtllib = tmpbuf;
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
-                SAssetLoadParams loadParams;
+                SAssetLoadParams loadParams(_params);
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
 				auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
 				if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)

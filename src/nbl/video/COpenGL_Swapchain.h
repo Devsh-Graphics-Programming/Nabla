@@ -109,9 +109,9 @@ public:
         return EAIR_SUCCESS;
     }
 
-    void waitForContextCreation()
+    void waitForInitComplete()
     {
-        m_threadHandler.waitForCtxCreation();
+        m_threadHandler.waitForInitComplete();
     }
 
 protected:
@@ -169,7 +169,8 @@ private:
 
                 EGL_NONE
             };
-            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, *reinterpret_cast<const EGLNativeWindowType*>(_window), surface_attributes);
+
+            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, (EGLNativeWindowType)_window, surface_attributes);
             assert(surface != EGL_NO_SURFACE);
 
             base_t::start();
@@ -199,19 +200,13 @@ private:
             return syncs[imgix];
         }
 
-        void waitForCtxCreation()
-        {
-            auto lk = base_t::createLock();
-            m_ctxCreatedCvar.wait(lk, [this]() {return static_cast<bool>(m_makeCurrentRes); });
-        }
-
     protected:
 
         void init(SThreadHandlerInternalState* state_ptr)
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-            EGLBoolean mcres = m_makeCurrentRes = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
+            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
             assert(mcres == EGL_TRUE);
 
             m_ctxCreatedCvar.notify_one();

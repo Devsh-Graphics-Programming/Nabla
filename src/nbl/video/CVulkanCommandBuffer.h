@@ -124,22 +124,18 @@ public:
 
     bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),
+            core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer) };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
         if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstBuffer->getAPIType() != EAT_VULKAN))
             return false;
 
         VkBuffer vk_srcBuffer = static_cast<const CVulkanBuffer*>(srcBuffer)->getInternalObject();
         VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
-
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
-            return false;
-
-        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),
-            core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer) };
-
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 2);
 
         constexpr uint32_t MAX_BUFFER_COPY_REGION_COUNT = 681u;
         VkBufferCopy vk_bufferCopyRegions[MAX_BUFFER_COPY_REGION_COUNT];
@@ -162,7 +158,41 @@ public:
 
     bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
-        return false;
+        if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstImage->getAPIType() != EAT_VULKAN))
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] =
+        {
+            core::smart_refctd_ptr<const video::IGPUBuffer>(srcBuffer),
+            core::smart_refctd_ptr<const video::IGPUImage>(dstImage)
+        };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        constexpr uint32_t MAX_REGION_COUNT = (1ull << 12) / sizeof(VkBufferImageCopy);
+        assert(regionCount <= MAX_REGION_COUNT);
+
+        VkBufferImageCopy vk_regions[MAX_REGION_COUNT];
+        for (uint32_t i = 0u; i < regionCount; ++i)
+        {
+            vk_regions[i].bufferOffset = pRegions[i].bufferOffset;
+            vk_regions[i].bufferRowLength = pRegions[i].bufferRowLength;
+            vk_regions[i].bufferImageHeight = pRegions[i].bufferImageHeight;
+            vk_regions[i].imageSubresource.aspectMask = pRegions[i].imageSubresource.aspectMask;
+            vk_regions[i].imageSubresource.mipLevel = pRegions[i].imageSubresource.mipLevel;
+            vk_regions[i].imageSubresource.baseArrayLayer = pRegions[i].imageSubresource.baseArrayLayer;
+            vk_regions[i].imageSubresource.layerCount = pRegions[i].imageSubresource.layerCount;
+            vk_regions[i].imageOffset = { static_cast<int32_t>(pRegions[i].imageOffset.x), static_cast<int32_t>(pRegions[i].imageOffset.y), static_cast<int32_t>(pRegions[i].imageOffset.z) }; // Todo(achal): Make the regular old assignment operator work
+            vk_regions[i].imageExtent = { pRegions[i].imageExtent.width, pRegions[i].imageExtent.height, pRegions[i].imageExtent.depth }; // Todo(achal): Make the regular old assignment operator work
+        }
+
+        vkCmdCopyBufferToImage(m_cmdbuf,
+            static_cast<const video::CVulkanBuffer*>(srcBuffer)->getInternalObject(),
+            static_cast<const video::CVulkanImage*>(dstImage)->getInternalObject(),
+            static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_regions);
+
+        return true;
     }
 
     bool copyImageToBuffer(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
@@ -172,7 +202,49 @@ public:
 
     bool blitImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
-        return false;
+        if (srcImage->getAPIType() != EAT_VULKAN || (dstImage->getAPIType() != EAT_VULKAN))
+            return false;
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUImage>(srcImage),
+            core::smart_refctd_ptr<const IGPUImage>(dstImage) };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
+        VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
+
+        constexpr uint32_t MAX_BLIT_REGION_COUNT = 100u;
+        VkImageBlit vk_blitRegions[MAX_BLIT_REGION_COUNT];
+        assert(regionCount <= MAX_BLIT_REGION_COUNT);
+
+        for (uint32_t i = 0u; i < regionCount; ++i)
+        {
+            vk_blitRegions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask);
+            vk_blitRegions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
+            vk_blitRegions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
+            vk_blitRegions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
+
+            // Todo(achal): Remove `static_cast`s
+            vk_blitRegions[i].srcOffsets[0] = { static_cast<int32_t>(pRegions[i].srcOffsets[0].x), static_cast<int32_t>(pRegions[i].srcOffsets[0].y), static_cast<int32_t>(pRegions[i].srcOffsets[0].z) };
+            vk_blitRegions[i].srcOffsets[1] = { static_cast<int32_t>(pRegions[i].srcOffsets[1].x), static_cast<int32_t>(pRegions[i].srcOffsets[1].y), static_cast<int32_t>(pRegions[i].srcOffsets[1].z) };
+
+            vk_blitRegions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask);
+            vk_blitRegions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
+            vk_blitRegions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
+            vk_blitRegions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
+
+            // Todo(achal): Remove `static_cast`s
+            vk_blitRegions[i].dstOffsets[0] = { static_cast<int32_t>(pRegions[i].dstOffsets[0].x), static_cast<int32_t>(pRegions[i].dstOffsets[0].y), static_cast<int32_t>(pRegions[i].dstOffsets[0].z) };
+            vk_blitRegions[i].dstOffsets[1] = { static_cast<int32_t>(pRegions[i].dstOffsets[1].x), static_cast<int32_t>(pRegions[i].dstOffsets[1].y), static_cast<int32_t>(pRegions[i].dstOffsets[1].z) };
+        }
+
+        vkCmdBlitImage(m_cmdbuf, vk_srcImage, static_cast<VkImageLayout>(srcImageLayout),
+            vk_dstImage, static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_blitRegions,
+            static_cast<VkFilter>(filter));
+
+        return true;
     }
 
     bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
@@ -251,13 +323,22 @@ public:
     {
         constexpr uint32_t MAX_BARRIER_COUNT = 100u;
 
-        // Todo(achal): Should probably just abstract this out?
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+        assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
+        assert(bufferMemoryBarrierCount <= MAX_BARRIER_COUNT);
+        assert(imageMemoryBarrierCount <= MAX_BARRIER_COUNT);
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2*MAX_BARRIER_COUNT];
+
+        uint32_t totalResourceCount = 0u;
+        for (; totalResourceCount < bufferMemoryBarrierCount; ++totalResourceCount)
+            tmp[totalResourceCount] = pBufferMemoryBarriers[totalResourceCount].buffer;
+
+        for (; totalResourceCount < imageMemoryBarrierCount; ++totalResourceCount)
+            tmp[totalResourceCount] = pImageMemoryBarriers[totalResourceCount].image;
+
+        if (!saveReferencesToResources(tmp, tmp + totalResourceCount))
             return false;
 
-        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-
-        assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
         VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
         {
@@ -267,9 +348,6 @@ public:
             vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].dstAccessMask);
         }
 
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_BARRIER_COUNT];
-
-        assert(bufferMemoryBarrierCount <= MAX_BARRIER_COUNT);
         VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
         {
@@ -282,12 +360,8 @@ public:
             vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get())->getInternalObject();
             vk_bufferMemoryBarriers[i].offset = pBufferMemoryBarriers[i].offset;
             vk_bufferMemoryBarriers[i].size = pBufferMemoryBarriers[i].size;
-
-            tmp[i] = pBufferMemoryBarriers[i].buffer;
         }
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + bufferMemoryBarrierCount);
 
-        assert(imageMemoryBarrierCount <= MAX_BARRIER_COUNT);
         VkImageMemoryBarrier vk_imageMemoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
         {
@@ -305,10 +379,7 @@ public:
             vk_imageMemoryBarriers[i].subresourceRange.levelCount = pImageMemoryBarriers[i].subresourceRange.levelCount;
             vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = pImageMemoryBarriers[i].subresourceRange.baseArrayLayer;
             vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
-
-            tmp[i] = pImageMemoryBarriers[i].image;
         }
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + imageMemoryBarrierCount);
 
         vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask),
             static_cast<VkPipelineStageFlags>(dstStageMask),
@@ -322,7 +393,37 @@ public:
 
     bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
     {
-        return false;
+        if ((pRenderPassBegin->renderpass->getAPIType() != EAT_VULKAN) || (pRenderPassBegin->framebuffer->getAPIType() != EAT_VULKAN))
+            return false;
+
+        constexpr uint32_t MAX_CLEAR_VALUE_COUNT = (1 << 12ull) / sizeof(VkClearValue);
+        VkClearValue vk_clearValues[MAX_CLEAR_VALUE_COUNT];
+        assert(pRenderPassBegin->clearValueCount <= MAX_CLEAR_VALUE_COUNT);
+
+        for (uint32_t i = 0u; i < pRenderPassBegin->clearValueCount; ++i)
+        {
+            for (uint32_t k = 0u; k < 4u; ++k)
+            {
+                vk_clearValues[i].color.float32[k] = pRenderPassBegin->clearValues[i].color.float32[k];
+                vk_clearValues[i].color.int32[k] = pRenderPassBegin->clearValues[i].color.int32[k];
+                vk_clearValues[i].color.uint32[k] = pRenderPassBegin->clearValues[i].color.uint32[k];
+            }
+
+            vk_clearValues[i].depthStencil.depth = pRenderPassBegin->clearValues[i].depthStencil.depth;
+            vk_clearValues[i].depthStencil.stencil = pRenderPassBegin->clearValues[i].depthStencil.stencil;
+        }
+
+        VkRenderPassBeginInfo vk_beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+        vk_beginInfo.pNext = nullptr;
+        vk_beginInfo.renderPass = static_cast<const CVulkanRenderpass*>(pRenderPassBegin->renderpass.get())->getInternalObject();
+        vk_beginInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(pRenderPassBegin->framebuffer.get())->getInternalObject();
+        vk_beginInfo.renderArea = pRenderPassBegin->renderArea;
+        vk_beginInfo.clearValueCount = pRenderPassBegin->clearValueCount;
+        vk_beginInfo.pClearValues = vk_clearValues;
+
+        vkCmdBeginRenderPass(m_cmdbuf, &vk_beginInfo, static_cast<VkSubpassContents>(content));
+
+        return true;
     }
 
     bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override
@@ -332,7 +433,8 @@ public:
 
     bool endRenderPass() override
     {
-        return false;
+        vkCmdEndRenderPass(m_cmdbuf);
+        return true;
     }
 
     bool setDeviceMask(uint32_t deviceMask) override
@@ -350,17 +452,12 @@ public:
 
     bool bindComputePipeline(const compute_pipeline_t* pipeline) override
     {
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const compute_pipeline_t>(pipeline) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
         if (pipeline->getAPIType() != EAT_VULKAN)
             return false;
-
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = 
-            { core::smart_refctd_ptr<const compute_pipeline_t>(pipeline) };
-
-        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-        vulkanCommandPool->emplace_n(m_argListTail, tmp, tmp + 1u);
 
         VkPipeline vk_pipeline = static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject();
         vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
@@ -474,6 +571,18 @@ private:
             CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
             vulkanCommandPool->free_all(m_argListHead);
         }
+    }
+
+    bool saveReferencesToResources(const core::smart_refctd_ptr<const core::IReferenceCounted>* begin,
+        const core::smart_refctd_ptr<const core::IReferenceCounted>* end)
+    {
+        if (m_cmdpool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+        vulkanCommandPool->emplace_n(m_argListTail, begin, end);
+
+        return true;
     }
 
     ArgumentReferenceSegment* m_argListHead = nullptr;

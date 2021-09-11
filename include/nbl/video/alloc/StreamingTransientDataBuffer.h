@@ -5,15 +5,6 @@
 #ifndef __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
 #define __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
 
-// TODO: move this to somewhere in nbl/core headers
-#define NBL_NEW_OPERATOR_PASSTHTHROUGH(Base)  static inline void* operator new(size_t size)                noexcept {return (Base::operator new(size));}\
-        static inline void* operator new[](size_t size)              noexcept {return Base::operator new[](size);}\
-        static inline void* operator new(size_t size, void* where)   noexcept {return (Base::operator new(size,where));}\
-        static inline void* operator new[](size_t size, void* where) noexcept {return Base::operator new[](size,where);}\
-        static inline void operator delete(void* ptr)                noexcept {Base::operator delete(ptr);}\
-        static inline void operator delete[](void* ptr)              noexcept {Base::operator delete[](ptr);}\
-        static inline void operator delete(void* ptr, size_t size)   noexcept {Base::operator delete(ptr,size);}\
-        static inline void operator delete[](void* ptr, size_t size) noexcept {Base::operator delete[](ptr,size);}
 
 #include "nbl/core/declarations.h"
 
@@ -25,46 +16,47 @@
 
 namespace nbl::video
 {
+    
+template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
+class StreamingTransientDataBufferMT;
 
-
-template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void >
-class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator>,CustomDeferredFreeFunctor>,
-                                                                public virtual core::IReferenceCounted
+namespace impl
+{
+template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
+class StreamingTransientDataBuffer
 {
         typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
-        typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> ThisType;
-        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor> Base;
+        typedef StreamingTransientDataBuffer<_size_type,CPUAllocator> ThisType;
+        using Composed = impl::SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor>;
     protected:
-        virtual ~StreamingTransientDataBufferST() {}
+        Composed m_composed;
     public:
-        typedef typename Base::size_type    size_type;
-        static constexpr size_type          invalid_address = Base::invalid_address;
+        using size_type = typename Composed::size_type;
+        static constexpr inline size_type invalid_address = Composed::invalid_address;
+        
+        virtual ~StreamingTransientDataBuffer() {}
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR StreamingTransientDataBufferST() {}
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-        #undef DUMMY_DEFAULT_CONSTRUCTOR
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
-        StreamingTransientDataBufferST(ILogicalDevice* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs, const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
-                                Base(inDriver, reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),0u,0u,bufferReqs.vulkanReqs.alignment,bufferReqs.vulkanReqs.size,minAllocSize)
-        {
-        }
+        StreamingTransientDataBuffer(ILogicalDevice* inDevice, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs, const CPUAllocator& reservedMemAllocator = CPUAllocator(), size_type minAllocSize = 64u)
+            : m_composed(inDevice, reservedMemAllocator, StreamingGPUBufferAllocator(inDevice, bufferReqs), 0u, 0u, bufferReqs.vulkanReqs.alignment, bufferReqs.vulkanReqs.size, minAllocSize) {}
 
-        const auto& getAllocator() const {return Base::getAllocator();}
+        const auto& getAllocator() const {return m_composed.getAllocator();}
 
 
         inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
 
-        inline IGPUBuffer*  getBuffer() noexcept {return Base::getBuffer();}
-        inline const IGPUBuffer*  getBuffer() const noexcept {return Base::getBuffer();}
+        inline IGPUBuffer*  getBuffer() noexcept {return m_composed.getBuffer();}
+        inline const IGPUBuffer*  getBuffer() const noexcept {return m_composed.getBuffer();}
 
-        inline void*        getBufferPointer() noexcept {return Base::mAllocator.getCurrentBufferAllocation().ptr;}
+        inline void*        getBufferPointer() noexcept {return m_composed.getAllocator().getCurrentBufferAllocation().ptr;}
 
+        inline void         cull_frees() noexcept {m_composed.cull_frees();}
 
-        inline size_type    max_size() noexcept {return Base::max_size();}
+        inline size_type    max_size() noexcept {return m_composed.max_size();}
 
-        inline size_type    max_alignment() const noexcept {return Base::maxalignment();}
+        inline size_type    max_alignment() const noexcept {return m_composed.maxalignment();}
 
 
         template<typename... Args>
@@ -76,7 +68,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         template<typename... Args>
         inline size_type    multi_alloc(Args&&... args) noexcept
         {
-            return Base::multi_alloc(std::forward<Args>(args)...);
+            return m_composed.multi_alloc(std::forward<Args>(args)...);
         }
 
         template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration, typename... Args>
@@ -98,34 +90,45 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         template<typename... Args>
         inline void         multi_free(Args&&... args) noexcept
         {
-            Base::multi_free(std::forward<Args>(args)...);
+            m_composed.multi_free(std::forward<Args>(args)...);
         }
+};
+}
 
-        NBL_NEW_OPERATOR_PASSTHTHROUGH(Base)
+template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
+class StreamingTransientDataBufferST : public core::IReferenceCounted, public impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>
+{
+        using Base = impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>;
+    protected:
+        ~StreamingTransientDataBufferST() = default;
+    public:
+        template<typename... Args>
+        StreamingTransientDataBufferST(Args&&... args) : Base(std::forward<Args>(args)...) {}
 };
 
-
-template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
-class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor>, public virtual core::IReferenceCounted
+template<typename _size_type, class CPUAllocator, class CustomDeferredFreeFunctor, class RecursiveLockable>
+class StreamingTransientDataBufferMT : public core::IReferenceCounted
 {
-        typedef StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor> Base;
+        using Composed = impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>;
     protected:
+        Composed m_composed;
         RecursiveLockable lock;
 
         virtual ~StreamingTransientDataBufferMT() {}
     public:
-        using size_type = typename Base::size_type;
-        static constexpr size_type invalid_address = Base::invalid_address;
+        using size_type = typename Composed::size_type;
+        static constexpr inline size_type invalid_address = Composed::invalid_address;
 
-        using Base::Base;
+        template<typename... Args>
+        StreamingTransientDataBufferMT(Args... args) : m_composed(std::forward<Args>(args)...) {}
 
-        const auto& getAllocator() const {return Base::getAllocator();}
+        const auto& getAllocator() const {return m_composed.getAllocator();}
 
 
         inline bool         needsManualFlushOrInvalidate()
         {
             lock.lock();
-            bool retval = Base::needsManualFlushOrInvalidate(); // if this cap doesn't change we can cache it and avoid a stupid lock that protects against invalid buffer pointer
+            bool retval = m_composed.needsManualFlushOrInvalidate(); // if this cap doesn't change we can cache it and avoid a stupid lock that protects against invalid buffer pointer
             lock.unlock();
             return retval;
         }
@@ -134,34 +137,42 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         //! With the right Data Allocator, this pointer should remain constant after first allocation but the underlying gfx API object may change!
         inline IGPUBuffer*  getBuffer() noexcept
         {
-            return Base::getBuffer();
+            return m_composed.getBuffer();
         }
 
         //! you should really `this->get_lock()`  if you need the pointer to not become invalid while you use it
         inline void*        getBufferPointer() noexcept
         {
-            return Base::getBufferPointer();
+            return m_composed.getBufferPointer();
+        }
+
+        //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
+        inline void    cull_frees() noexcept
+        {
+            lock.lock();
+            m_composed.cull_frees();
+            lock.unlock();
         }
 
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
         inline size_type    max_size() noexcept
         {
             lock.lock();
-            auto retval = Base::max_size();
+            auto retval = m_composed.max_size();
             lock.unlock();
             return retval;
         }
 
 
         //! this value should be immutable
-        inline size_type    max_alignment() const noexcept {return Base::maxalignment();}
+        inline size_type    max_alignment() const noexcept {return m_composed.maxalignment();}
 
 
         template<typename... Args>
         inline size_type    multi_alloc(Args&&... args) noexcept
         {
             lock.lock();
-            auto retval = Base::multi_alloc(std::forward<Args>(args)...);
+            auto retval = m_composed.multi_alloc(std::forward<Args>(args)...);
             lock.unlock();
             return retval;
         }
@@ -170,7 +181,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         inline size_type    multi_place(Args&&... args) noexcept
         {
             lock.lock();
-            auto retval = Base::multi_place(std::forward<Args>(args)...);
+            auto retval = m_composed.multi_place(std::forward<Args>(args)...);
             lock.unlock();
             return retval;
         }
@@ -179,7 +190,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         inline void         multi_free(Args&&... args) noexcept
         {
             lock.lock();
-            Base::multi_free(std::forward<Args>(args)...);
+            m_composed.multi_free(std::forward<Args>(args)...);
             lock.unlock();
         }
 
@@ -189,8 +200,6 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         {
             return lock;
         }
-
-        NBL_NEW_OPERATOR_PASSTHTHROUGH(Base)
 };
 
 

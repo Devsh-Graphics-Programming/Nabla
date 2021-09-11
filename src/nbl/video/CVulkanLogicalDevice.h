@@ -51,7 +51,7 @@ public:
         // create actual queue objects
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
-            const auto& qci = params.queueCreateInfos[i];
+            const auto& qci = params.queueParams[i];
             const uint32_t famIx = qci.familyIndex;
             const uint32_t offset = (*m_offsets)[famIx];
             const auto flags = qci.flags;
@@ -83,8 +83,6 @@ public:
         if (params.surface->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        // Todo(achal): not sure yet, how would I handle multiple platforms without making
-        // this function templated
         VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
 
         VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
@@ -96,8 +94,8 @@ public:
         vk_createInfo.imageArrayLayers = params.arrayLayers;
         vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
         vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
-        vk_createInfo.queueFamilyIndexCount = static_cast<uint32_t>(params.queueFamilyIndices->size());
-        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
+        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
         vk_createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // Todo(achal)     
         vk_createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Todo(achal)
         vk_createInfo.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
@@ -202,8 +200,20 @@ public:
             
     IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override
     {
-        assert(!"Not implemented!\n");
-        return IGPUFence::E_STATUS::ES_ERROR;
+        if (!_fence && (_fence->getAPIType() != EAT_VULKAN))
+            return IGPUFence::E_STATUS::ES_ERROR;
+
+        VkResult retval = vkGetFenceStatus(m_vkdev, static_cast<const CVulkanFence*>(_fence)->getInternalObject());
+
+        switch (retval)
+        {
+        case VK_SUCCESS:
+            return IGPUFence::ES_SUCCESS;
+        case VK_NOT_READY:
+            return IGPUFence::ES_NOT_READY;
+        default:
+            return IGPUFence::ES_ERROR;
+        }
     }
             
     // API needs to change. vkResetFences can fail.
@@ -218,7 +228,7 @@ public:
             if (_fences[i]->getAPIType() != EAT_VULKAN)
                 return;
 
-            vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+            vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
 
         vkResetFences(m_vkdev, _count, vk_fences);
@@ -236,7 +246,7 @@ public:
             if (_fences[i]->getAPIType() != EAT_VULKAN)
                 return IGPUFence::E_STATUS::ES_ERROR;
 
-            vk_fences[i] = reinterpret_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+            vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
 
         VkResult result = vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
@@ -327,8 +337,134 @@ public:
             
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
     {
-        // Todo(achal): Hoist creation out of constructor
-        return nullptr; // return core::make_smart_refctd_ptr<CVulkanRenderpass>(this, params);
+        // auto* vk = m_vkdev->getFunctionTable();
+
+        VkRenderPassCreateInfo createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+        createInfo.pNext = nullptr;
+        createInfo.flags = static_cast<VkRenderPassCreateFlags>(0u); // No flags are supported
+        createInfo.attachmentCount = params.attachmentCount;
+
+        core::vector<VkAttachmentDescription> attachments(createInfo.attachmentCount); // TODO reduce number of allocations/get rid of vectors
+        for (uint32_t i = 0u; i < attachments.size(); ++i)
+        {
+            const auto& att = params.attachments[i];
+            auto& vkatt = attachments[i];
+            vkatt.flags = static_cast<VkAttachmentDescriptionFlags>(0u); // No flags are supported
+            vkatt.format = getVkFormatFromFormat(att.format);
+            vkatt.samples = static_cast<VkSampleCountFlagBits>(att.samples);
+            vkatt.loadOp = static_cast<VkAttachmentLoadOp>(att.loadOp);
+            vkatt.storeOp = static_cast<VkAttachmentStoreOp>(att.storeOp);
+
+            // Todo(achal): Do we want these??
+            vkatt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            vkatt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+            vkatt.initialLayout = static_cast<VkImageLayout>(att.initialLayout);
+            vkatt.finalLayout = static_cast<VkImageLayout>(att.finalLayout);
+        }
+        createInfo.pAttachments = attachments.data();
+
+        createInfo.subpassCount = params.subpassCount;
+        core::vector<VkSubpassDescription> vk_subpasses(createInfo.subpassCount);
+        
+        constexpr uint32_t MemSz = 1u << 12;
+        constexpr uint32_t MaxAttachmentRefs = MemSz / sizeof(VkAttachmentReference);
+        VkAttachmentReference vk_attRefs[MaxAttachmentRefs];
+        uint32_t preserveAttRefs[MaxAttachmentRefs];
+
+        uint32_t totalAttRefCount = 0u;
+        uint32_t totalPreserveCount = 0u;
+
+        auto fillUpVkAttachmentRefHandles = [&vk_attRefs, &totalAttRefCount](const uint32_t count, const auto* srcRef, uint32_t& dstCount, auto*& dstRef)
+        {
+            for (uint32_t j = 0u; j < count; ++j)
+            {
+                vk_attRefs[totalAttRefCount + j].attachment = srcRef[j].attachment;
+                vk_attRefs[totalAttRefCount + j].layout = static_cast<VkImageLayout>(srcRef[j].layout);
+            }
+
+            dstRef = srcRef ? vk_attRefs + totalAttRefCount : nullptr;
+            dstCount = count;
+            totalAttRefCount += count;
+        };
+
+        for (uint32_t i = 0u; i < params.subpassCount; ++i)
+        {
+            auto& vk_subpass = vk_subpasses[i];
+            const auto& subpass = params.subpasses[i];
+
+            vk_subpass.flags = static_cast<VkSubpassDescriptionFlags>(subpass.flags);
+            vk_subpass.pipelineBindPoint = static_cast<VkPipelineBindPoint>(subpass.pipelineBindPoint);
+
+            // Copy over input attachments for this subpass
+            fillUpVkAttachmentRefHandles(subpass.inputAttachmentCount, subpass.inputAttachments,
+                vk_subpass.inputAttachmentCount, vk_subpass.pInputAttachments);
+
+            // Copy over color attachments for this subpass
+            fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.colorAttachments,
+                vk_subpass.colorAttachmentCount, vk_subpass.pColorAttachments);
+
+            // Copy over resolve attachments for this subpass
+            vk_subpass.pResolveAttachments = nullptr;
+            if (subpass.resolveAttachments)
+            {
+                uint32_t unused;
+                fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.resolveAttachments, unused, vk_subpass.pResolveAttachments);
+            }
+
+            // Copy over depth-stencil attachment for this subpass
+            vk_subpass.pDepthStencilAttachment = nullptr;
+            if (subpass.depthStencilAttachment)
+            {
+                uint32_t unused;
+                fillUpVkAttachmentRefHandles(1u, subpass.depthStencilAttachment, unused, vk_subpass.pDepthStencilAttachment);
+            }
+
+            // Copy over attachments that need to be preserved for this subpass
+            vk_subpass.preserveAttachmentCount = subpass.preserveAttachmentCount;
+            vk_subpass.pPreserveAttachments = nullptr;
+            if (subpass.preserveAttachments)
+            {
+                for (uint32_t j = 0u; j < subpass.preserveAttachmentCount; ++j)
+                    preserveAttRefs[totalPreserveCount + j] = subpass.preserveAttachments[j];
+
+                vk_subpass.pPreserveAttachments = preserveAttRefs + totalPreserveCount;
+                totalPreserveCount += subpass.preserveAttachmentCount;
+            }
+        }
+        assert(totalAttRefCount <= MaxAttachmentRefs);
+        assert(totalPreserveCount <= MaxAttachmentRefs);
+
+        createInfo.pSubpasses = vk_subpasses.data();
+
+        createInfo.dependencyCount = params.dependencyCount;
+        core::vector<VkSubpassDependency> deps(createInfo.dependencyCount);
+        for (uint32_t i = 0u; i < deps.size(); ++i)
+        {
+            const auto& dep = params.dependencies[i];
+            auto& vkdep = deps[i];
+
+            vkdep.srcSubpass = dep.srcSubpass;
+            vkdep.dstSubpass = dep.dstSubpass;
+            vkdep.srcStageMask = static_cast<VkPipelineStageFlags>(dep.srcStageMask);
+            vkdep.dstStageMask = static_cast<VkPipelineStageFlags>(dep.dstStageMask);
+            vkdep.srcAccessMask = static_cast<VkAccessFlags>(dep.srcAccessMask);
+            vkdep.dstAccessMask = static_cast<VkAccessFlags>(dep.dstAccessMask);
+            vkdep.dependencyFlags = static_cast<VkDependencyFlags>(dep.dependencyFlags);
+        }
+        createInfo.pDependencies = deps.data();
+
+        // vk->vk.vkCreateRenderPass(vkdev, &ci, nullptr, &m_renderpass);
+        VkRenderPass vk_renderpass;
+        if (vkCreateRenderPass(m_vkdev, &createInfo, nullptr, &vk_renderpass) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanRenderpass>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), params, vk_renderpass);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
            
     // API needs to change, vkFlushMappedMemoryRanges could fail.
@@ -428,18 +564,22 @@ public:
         }
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& additionalMemoryReqs, const bool canModifySubData = false) override
     {
-#if 0
-        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(initialMreqs, false);
+        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams);
 
         if (!gpuBuffer)
             return nullptr;
 
-        // Todo(achal): Probably do not call getMemoryReqs at all but
-        // vkGetBufferMemoryRequirements or equivalent
+        IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = gpuBuffer->getMemoryReqs();
+        memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalMemoryReqs.vulkanReqs.size);
+        memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalMemoryReqs.vulkanReqs.alignment);
+        memoryReqs.vulkanReqs.memoryTypeBits &= additionalMemoryReqs.vulkanReqs.memoryTypeBits;
+        memoryReqs.memoryHeapLocation = additionalMemoryReqs.memoryHeapLocation;
+        memoryReqs.mappingCapability = additionalMemoryReqs.mappingCapability;
+
         core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =
-            allocateDeviceLocalMemory(gpuBuffer->getMemoryReqs());
+            allocateGPUMemory(memoryReqs);
 
         if (!bufferMemory)
             return nullptr;
@@ -448,11 +588,11 @@ public:
         bindBufferInfo.buffer = gpuBuffer.get();
         bindBufferInfo.memory = bufferMemory.get();
         bindBufferInfo.offset = 0ull;
-        bindBufferMemory(1u, &bindBufferInfo);
+
+        if (!bindBufferMemory(1u, &bindBufferInfo))
+            return nullptr;
 
         return gpuBuffer;
-#endif
-        return nullptr;
     }
         
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
@@ -487,8 +627,8 @@ public:
         vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
         vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
         vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
-        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndices->size();
-        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices->data();
+        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
+        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
         vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
 
         VkImage vk_image;
@@ -786,7 +926,7 @@ protected:
         if (cmdPool->getAPIType() != EAT_VULKAN)
             return false;
 
-        auto vulkanCommandPool = reinterpret_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
+        auto vulkanCommandPool = static_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
 
         assert(count <= MAX_COMMAND_BUFFER_COUNT);
         VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
@@ -821,8 +961,49 @@ protected:
 
     core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
     {
-        // Todo(achal): Hoist creation out of constructor
-        return nullptr; // return core::make_smart_refctd_ptr<CVulkanFramebuffer>(this, std::move(params));
+        // This flag isn't supported until Vulkan 1.2
+        // assert(!(m_params.flags & ECF_IMAGELESS_BIT));
+
+        constexpr uint32_t MemSize = 1u << 12;
+        constexpr uint32_t MaxAttachments = MemSize / sizeof(VkImageView);
+
+        VkImageView vk_attachments[MaxAttachments];
+        uint32_t attachmentCount = 0u;
+        for (uint32_t i = 0u; i < params.attachmentCount; ++i)
+        {
+            if (params.attachments[i]->getAPIType() == EAT_VULKAN)
+            {
+                vk_attachments[i] = static_cast<const CVulkanImageView*>(params.attachments[i].get())->getInternalObject();
+                ++attachmentCount;
+            }
+        }
+        assert(attachmentCount <= MaxAttachments);
+
+        VkFramebufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        createInfo.pNext = nullptr;
+        createInfo.flags = static_cast<VkFramebufferCreateFlags>(params.flags);
+
+        if (params.renderpass->getAPIType() != EAT_VULKAN)
+            return nullptr;
+
+        createInfo.renderPass = static_cast<const CVulkanRenderpass*>(params.renderpass.get())->getInternalObject();
+        createInfo.attachmentCount = attachmentCount;
+        createInfo.pAttachments = vk_attachments;
+        createInfo.width = params.width;
+        createInfo.height = params.height;
+        createInfo.layers = params.layers;
+
+        // vk->vk.vkCreateFramebuffer(vkdev, &createInfo, nullptr, &m_vkfbo);
+        VkFramebuffer vk_framebuffer;
+        if (vkCreateFramebuffer(m_vkdev, &createInfo, nullptr, &vk_framebuffer) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanFramebuffer>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_framebuffer);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     // Todo(achal): For some reason this is not printing shader errors to console
@@ -1202,7 +1383,7 @@ protected:
     }
 
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(IGPUPipelineCache* _pipelineCache,
-        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
         const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams) override
     {

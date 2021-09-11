@@ -36,8 +36,8 @@ public:
         m_alctr.deallocate(_ptr, s);
     }
 
-    template <typename T, typename... Args>
-    T* emplace_n(uint32_t n, Args&&... args)
+    template <typename T, typename... FuncArgs>
+    T* emplace_n(uint32_t n, FuncArgs&&... args)
     {
         size_type s = static_cast<size_type>(n) * sizeof(T);
         size_type a = alignof(T);
@@ -47,17 +47,17 @@ public:
 
         using traits_t = std::allocator_traits<DataAllocator<T>>;
         DataAllocator<T> data_alctr;
-        if constexpr (sizeof...(Args)!=0u || !std::is_pod_v<T>)
+        if constexpr (sizeof...(FuncArgs)!=0u || !std::is_pod_v<T>)
         {
             for (uint32_t i = 0u; i < n; ++i)
-                traits_t::construct(data_alctr, reinterpret_cast<T*>(ptr) + i, std::forward<Args>(args)...);
+                traits_t::construct(data_alctr, reinterpret_cast<T*>(ptr) + i, std::forward<FuncArgs>(args)...);
         }
         return reinterpret_cast<T*>(ptr);
     }
-    template <typename T, typename... Args>
-    T* emplace(Args&&... args)
+    template <typename T, typename... FuncArgs>
+    T* emplace(FuncArgs&&... args)
     {
-        return emplace_n<T,Args...>(1u, std::forward<Args>(args)...);
+        return emplace_n<T,FuncArgs...>(1u, std::forward<FuncArgs>(args)...);
     }
 
     template <typename T>

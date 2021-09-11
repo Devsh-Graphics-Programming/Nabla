@@ -35,7 +35,8 @@ class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
 
         inline void deallocate(value_type& allocation) noexcept
         {
-            assert(allocation->getReferenceCount()==1);
+            //commented out, it's not fulfilling its purpose since we use smart refctd ptr
+            //assert(allocation->getReferenceCount()==1);
             allocation = nullptr;
         }
 };

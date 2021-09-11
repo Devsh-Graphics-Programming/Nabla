@@ -11,7 +11,7 @@ IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, co
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
     using range_t = core::SRange<const ILogicalDevice::SQueueCreationParams>;
-    range_t qcis(params.queueCreateInfos, params.queueCreateInfos+params.queueParamsCount);
+    range_t qcis(params.queueParams, params.queueParams+params.queueParamsCount);
 
     for (const auto& qci : qcis)
     {

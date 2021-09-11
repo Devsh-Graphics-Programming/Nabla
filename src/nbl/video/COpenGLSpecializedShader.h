@@ -17,7 +17,7 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
 
-#include "spirv_cross/spirv_glsl.hpp"
+#include "nbl_spirv_cross/spirv_glsl.hpp"
 
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_

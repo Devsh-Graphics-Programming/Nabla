@@ -35,6 +35,8 @@ public:
         uint32_t maxBufferViewSizeTexels;
         uint32_t maxBufferSize;
 
+        uint32_t maxImageArrayLayers;
+
         uint32_t maxPerStageSSBOs;
         //uint32_t maxPerStageUBOs;
         //uint32_t maxPerStageTextures;

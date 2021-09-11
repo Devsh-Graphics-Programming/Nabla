@@ -20,7 +20,7 @@ class ISurface : public core::IReferenceCounted
 {
     protected:
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
-        ~ISurface() = default;
+        virtual ~ISurface() = default;
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
 
@@ -76,11 +76,33 @@ class ISurface : public core::IReferenceCounted
 template<class Window>
 class CSurface : public ISurface
 {
+    public:
+        inline const void* getNativeWindowHandle() const override final
+        {
+            return m_window->getNativeHandle();
+        }
+
     protected:
         CSurface(core::smart_refctd_ptr<IAPIConnection>&& api, core::smart_refctd_ptr<Window>&& window) : ISurface(std::move(api)), m_window(std::move(window)) {}
-        ~CSurface() = default;
+        virtual ~CSurface() = default;
 
         core::smart_refctd_ptr<Window> m_window;
+};
+
+template<class Window>
+class CSurfaceNative : public ISurface
+{
+    public:
+        inline const void* getNativeWindowHandle() const override final
+        {
+            return m_handle;
+        }
+
+    protected:
+        CSurfaceNative(core::smart_refctd_ptr<IAPIConnection>&& api, typename Window::native_handle_t handle) : ISurface(std::move(api)), m_handle(handle) {}
+        virtual ~CSurfaceNative() = default;
+
+        typename Window::native_handle_t m_handle;
 };
 
 }

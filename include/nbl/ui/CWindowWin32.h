@@ -23,7 +23,7 @@ public:
 	CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd);
 
 	const native_handle_t& getNativeHandle() const override { return m_native; }
-
+	void setCaption(const std::string_view& caption) override;
 	~CWindowWin32() override;
 private:
 	CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params);
@@ -98,16 +98,26 @@ private:
 		*   from it (the handle to it will be nullptr).
 		**/
 		auto ch = m_mouseEventChannels.find(deviceHandle);
-		if (ch == m_mouseEventChannels.end())
+		// windows is a special boy
+		if (ch==m_mouseEventChannels.end())
 		{
 			auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
-			addMouseEventChannel(deviceHandle, std::move(channel));
+			if (addMouseEventChannel(deviceHandle,std::move(channel)))
+				m_cb->onMouseConnected(this,std::move(channel));
 		}
 		return m_mouseEventChannels.find(deviceHandle)->second.get();
 	}
 
 	IKeyboardEventChannel* getKeyboardEventChannel(HANDLE deviceHandle)
 	{
+		auto ch = m_keyboardEventChannels.find(deviceHandle);
+		// anydesk makes windows a special boy
+		if (ch==m_keyboardEventChannels.end())
+		{
+			auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+			if (addKeyboardEventChannel(deviceHandle, std::move(channel)))
+				m_cb->onKeyboardConnected(this, std::move(channel));
+		}
 		return m_keyboardEventChannels.find(deviceHandle)->second.get();
 	}
 	

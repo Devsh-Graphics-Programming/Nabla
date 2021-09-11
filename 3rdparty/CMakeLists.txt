@@ -16,7 +16,7 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./shaderc)
 	update_git_submodule(./bzip2)
 	update_git_submodule(./lz4)
-	update_git_submodule(./spirv_cross)
+	update_git_submodule(./nbl_spirv_cross)
 	update_git_submodule(./zlib)
 	update_git_submodule(./openexr)
 	update_git_submodule(./utfcpp)
@@ -264,12 +264,12 @@ add_library(bzip2 OBJECT
 )
 
 add_library(spirv_cross OBJECT
-	spirv_cross/spirv_cfg.cpp
-	spirv_cross/spirv_cross.cpp
-	spirv_cross/spirv_glsl.cpp
-	spirv_cross/spirv_reflect.cpp
-	spirv_cross/spirv_parser.cpp
-	spirv_cross/spirv_cross_parsed_ir.cpp
+	nbl_spirv_cross/spirv_cfg.cpp
+	nbl_spirv_cross/spirv_cross.cpp
+	nbl_spirv_cross/spirv_glsl.cpp
+	nbl_spirv_cross/spirv_reflect.cpp
+	nbl_spirv_cross/spirv_parser.cpp
+	nbl_spirv_cross/spirv_cross_parsed_ir.cpp
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
@@ -511,7 +511,6 @@ set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
-				OpenSSL
 				spirv_cross
 				png_static
 				zlibstatic
@@ -526,7 +525,7 @@ set(NBL_3RDPARTY_TARGETS
 				MachineIndependent
 				GenericCodeGen
 				SPIRV 
-				SPIRV-Tools
+				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
 				egl 
 )
@@ -545,6 +544,11 @@ endif()
 if (NBL_COMPILE_WITH_SDL2 )
 	list(APPEND NBL_3RDPARTY_TARGETS
 	    SDL2-static
+	)
+endif()
+if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
+	list(APPEND NBL_3RDPARTY_TARGETS
+		OpenSSL
 	)
 endif()
 #TODO insert more targets that are conditionally built

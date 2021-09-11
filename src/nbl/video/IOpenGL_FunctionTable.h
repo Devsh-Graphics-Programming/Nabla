@@ -176,6 +176,9 @@ namespace nbl {
 				, glGenTextures
 				, glTexParameteriv
 				, glCopyImageSubData
+				, glReadPixels
+				, glGetTextureSubImage
+				, glGetCompressedTextureSubImage
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLshader, OpenGLFunctionLoader
 				, glCreateShader

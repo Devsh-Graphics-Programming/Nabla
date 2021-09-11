@@ -21,7 +21,7 @@ class IPropertyPool : public core::IReferenceCounted
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto invalid_index = PropertyAddressAllocator::invalid_address;
+        _NBL_STATIC_INLINE_CONSTEXPR auto invalid = PropertyAddressAllocator::invalid_address;
 
 		//
         virtual const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const =0;
@@ -52,7 +52,7 @@ class IPropertyPool : public core::IReferenceCounted
             return indexAllocator.get_total_size();
         }
 
-        // allocate, indices need to be pre-initialized to `invalid_index`
+        // allocate, indices need to be pre-initialized to `invalid`
         inline bool allocateProperties(uint32_t* outIndicesBegin, uint32_t* outIndicesEnd)
         {
             constexpr uint32_t unit = 1u;
@@ -60,17 +60,17 @@ class IPropertyPool : public core::IReferenceCounted
             for (auto it=outIndicesBegin; it!=outIndicesEnd; it++)
             {
                 auto& index = *it;
-                if (index!=invalid_index)
+                if (index!=invalid)
                     continue;
 
                 index = indexAllocator.alloc_addr(unit,unit);
-                if (index==invalid_index)
+                if (index==invalid)
                     return false;
                 
                 if (isContiguous())
                 {
-                    assert(m_indexToAddr[index]==invalid_index);
-                    assert(m_addrToIndex[head]==invalid_index);
+                    assert(m_indexToAddr[index]==invalid);
+                    assert(m_addrToIndex[head]==invalid);
                     m_indexToAddr[index] = head;
                     m_addrToIndex[head++] = index;
                 }
@@ -78,59 +78,99 @@ class IPropertyPool : public core::IReferenceCounted
             return true;
         }
 
-        // TODO: return how to copy the tail around
-        inline void freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
+        // WARNING: For contiguous pools, YOU NEED TO ISSUE A TransferRequest WITH `tailMoveDest` BEFORE YOU ALLOCATE OR FREE ANY MORE PROPS!
+        // This function does not move the properties' contents, for contiguous pools it means you WILL loose the tail's data if you dont do this!
+        // Returns how many elements need to be transferred from the tail to fill the gaps after deallocation in a contiguous pool.
+        [[nodiscard]] inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
         {
-            uint32_t head = getAllocated();
-
+            const uint32_t oldHead = getAllocated();
             constexpr uint32_t unit = 1u;
             for (auto it=indicesBegin; it!=indicesEnd; it++)
             {
-                auto& index = *it;
-                if (index==invalid_index)
+                if (*it==invalid)
                     continue;
-
-                indexAllocator.free_addr(index,unit);
-                if (isContiguous())
-                {
-                    assert(head!=0u);
-
-                    auto& addr = m_indexToAddr[index];
-                    auto& lastIx = m_addrToIndex[--head];
-                    assert(addr!=invalid_index&&lastIx!=invalid_index);
-                    m_indexToAddr[lastIx] = addr;
-                    m_addrToIndex[addr] = lastIx;
-                    lastIx = invalid_index;
-                    addr = invalid_index;
-                }
+                indexAllocator.free_addr(*it,unit);
             }
-            /* TODO: figure out how to schedule a copy
-            for (auto addr=head; addr<oldHead; addr++)
+            const uint32_t head = getAllocated();
+            const uint32_t removedCount = oldHead-head;
+            // no point trying to move anything if we've freed nothing or everything
+            if (isContiguous() && head!=oldHead && head!=0u)
             {
-                auto changedIx = m_addrToIndex[addr];
-                auto newAddr = m_indexToAddr[changedIx];
-                data[newAddr] = data[addr];
+                if (!srcAddresses || !dstAddresses)
+                {
+                    assert(false);
+                    __debugbreak();
+                    exit(0xdeadbeefu);
+                }
+                auto gapIt = dstAddresses;
+                for (auto it=indicesBegin; it!=indicesEnd; it++)
+                {
+                    const auto index = *it;
+                    if (index==invalid)
+                        continue;
+                    auto& addr = m_indexToAddr[index];
+                    if (addr<head) // overwrite if address in live range
+                        *(gapIt++) = addr;
+                    else // mark as dead if outside
+                        m_addrToIndex[addr] = invalid;
+                    // index doesn't map to any address anymore
+                    addr = invalid;
+                }
+                gapIt = dstAddresses; // rewind
+                for (auto a=head; a<oldHead; a++)
+                {
+                    auto& index = m_addrToIndex[a];
+                    // marked as dead by previous pass
+                    if (index==invalid)
+                        continue;
+                    // if not dead we need to move
+                    *(srcAddresses++) = a;
+                    const auto freeAddr = *(gapIt++);
+                    m_addrToIndex[freeAddr] = index;
+                    m_indexToAddr[index] = freeAddr;
+                    index = invalid;
+                }
+                return (gapIt-dstAddresses);
             }
-            */
+            return 0u;
+        }
+        inline uint32_t freeProperties(const uint32_t* indicesBegin, const uint32_t* indicesEnd)
+        {
+            return freeProperties(indicesBegin,indicesEnd,nullptr,nullptr);
         }
 
         //
-        inline uint32_t indexToAddress(const uint32_t index)
+        template<typename ConstIterator, typename Iterator>
+        inline void indicesToAddresses(ConstIterator begin, ConstIterator end, Iterator dst) const
         {
             if (isContiguous())
-                return m_indexToAddr[index];
-            return index;
+            {
+                for (auto it=begin; it!=end; it++)
+                    *(dst++) = m_indexToAddr[*it];
+            }
+            else if (begin!=dst)
+                std::copy(begin,end,dst);
         }
-        inline uint32_t addressToIndex(const uint32_t addr)
+        template<typename ConstIterator, typename Iterator>
+        inline void addressesToIndices(ConstIterator begin, ConstIterator end, Iterator dst) const
         {
             if (isContiguous())
-                return m_addrToIndex[addr];
-            return addr;
+            {
+                for (auto it=begin; it!=end; it++)
+                    *(dst++) = m_addrToIndex[*it];
+            }
+            else if (begin!=dst)
+                std::copy(begin,end,dst);
         }
 
         //
         inline void freeAllProperties()
         {
+            if (isContiguous())
+            {
+                std::fill_n(m_indexToAddr,getCapacity(),invalid);
+                std::fill_n(m_addrToIndex,getAllocated(),invalid);
+            }
             indexAllocator.reset();
         }
         
