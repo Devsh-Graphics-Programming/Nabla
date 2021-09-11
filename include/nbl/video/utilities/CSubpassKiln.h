@@ -274,41 +274,45 @@ class CSubpassKiln
                     {
                         if (incompatiblePushConstants)
                             return 0u;
-                        for (uint32_t i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+                        for (auto i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
                         if (it->descriptorSets[i].get()!=descriptorSets[i])
                             return i;
                         return layout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1,currentLayout)+1;
                     }();
                     const auto nonNullDSEnd = [&]() -> uint32_t
                     {
-                        for (uint32_t i=unmodifiedSetCount; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+                        for (auto i=unmodifiedSetCount; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
                         if (!it->descriptorSets[i])
                             return i;
                         return IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
                     }();
                     if (nonNullDSEnd!=unmodifiedSetCount)
                         cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,currentLayout,unmodifiedSetCount,nonNullDSEnd-unmodifiedSetCount,it->descriptorSets+unmodifiedSetCount,nullptr); // TODO: support dynamic offsets later
-                    for (uint32_t i=unmodifiedSetCount; i<nonNullDSEnd; i++)
+                    for (auto i=unmodifiedSetCount; i<nonNullDSEnd; i++)
                         descriptorSets[i] = it->descriptorSets[i].get();
                     layout = currentLayout;
-#if 0
                     // change vertex bindings iff dirty
                     const auto unmodifiedBindingCount = [&]() -> uint32_t
                     {
-                        // TODO
+                        for (auto i=0u; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+                        if (it->vertexBufferBindings[i].buffer.get()!=vertexBindingBuffers[i] || it->vertexBufferBindings[i].offset!=vertexBindingOffsets[i])
+                            return i;
+                        return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
                     }();
                     const auto nonNullBindingEnd = [&]() -> uint32_t
                     {
-                        // TODO
+                        for (auto i=unmodifiedBindingCount; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+                        if (!it->vertexBufferBindings[i].buffer)
+                            return i;
+                        return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
                     }();
                     if (nonNullBindingEnd!=unmodifiedBindingCount)
                         cmdbuf->bindVertexBuffers(unmodifiedBindingCount,nonNullBindingEnd-unmodifiedBindingCount,vertexBindingBuffers+unmodifiedBindingCount,vertexBindingOffsets+unmodifiedBindingCount);
-                    for (uint32_t i=unmodifiedBindingCount; i<nonNullBindingEnd; i++)
+                    for (auto i=unmodifiedBindingCount; i<nonNullBindingEnd; i++)
                     {
                         vertexBindingBuffers[i] = it->vertexBufferBindings[i].buffer.get();
                         vertexBindingOffsets[i] = it->vertexBufferBindings[i].offset;
                     }
-#endif
                     // change index bindings iff dirty
                     if (it->indexBufferBinding.buffer.get()!=indexBuffer || it->indexBufferBinding.offset!=indexOffset || it->indexType!=indexType)
                     {
