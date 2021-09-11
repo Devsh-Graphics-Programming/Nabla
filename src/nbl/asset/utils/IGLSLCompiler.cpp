@@ -65,11 +65,11 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 
 core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly, system::logger_opt_ptr logger) const
 {
-    auto spirvBuffer = compileSPIRVFromGLSL(_glslCode,_stage,_entryPoint,_compilationId,_genDebugInfo,_outAssembly);
+    auto spirvBuffer = compileSPIRVFromGLSL(_glslCode,_stage,_entryPoint,_compilationId,_genDebugInfo,_outAssembly,logger);
 	if (!spirvBuffer)
 		return nullptr;
     if (_opt)
-        spirvBuffer = _opt->optimize(spirvBuffer.get(), system::logger_opt_ptr(logger.get()));
+        spirvBuffer = _opt->optimize(spirvBuffer.get(),logger) ;
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer));
 }

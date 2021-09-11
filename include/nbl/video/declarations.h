@@ -21,6 +21,7 @@
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // utilities
+#include "nbl/video/utilities/ICommandPoolCache.h"
 #include "nbl/video/utilities/CPropertyPool.h"
 #include "nbl/video/utilities/IUtilities.h"
 #include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
@@ -29,6 +30,7 @@
 // platform and API specific stuff
 #include "nbl/video/COpenGL_Connection.h"
 #include "nbl/video/surface/ISurfaceGL.h"
+#include "nbl/video/CVulkanConnection.h"
 
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"

@@ -29,7 +29,7 @@ extern "C"
 #define OUTPUT_BUF_SIZE 4096
 
 using namespace nbl;
-using namespace asset;
+using namespace asset;	
 
 struct mem_destination_mgr
 {

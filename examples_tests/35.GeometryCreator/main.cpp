@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2021 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -7,17 +7,24 @@
 #include <cstdio>
 #include <nabla.h>
 
-//! I advise to check out this file, its a basic input handler
-#include "../common/QToQuitEventReceiver.h"
+#include "../common/Camera.hpp"
+#include "../common/CommonAPI.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
 using namespace core;
 
+/*
+	Uncomment for more detailed logging
+*/
+
+// #define NBL_MORE_LOGS
+
 #include "nbl/nblpack.h"
 struct GPUObject
 {
-	core::smart_refctd_ptr<video::IGPUMeshBuffer> meshbuffer;
-	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline;
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMeshbBuffer;
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
 } PACK_STRUCT;
 
 struct Objects
@@ -77,45 +84,63 @@ void main()
 
 int main()
 {
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	auto device = createDeviceEx(params);
+	constexpr uint32_t WIN_W = 1280;
+	constexpr uint32_t WIN_H = 720;
+	constexpr uint32_t SC_IMG_COUNT = 3u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	if (!device)
-		return 1; // could not create selected driver.
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "GeometryCreator", nbl::asset::EF_D32_SFLOAT);
+	auto window = std::move(initOutput.window);
+	auto gl = std::move(initOutput.apiConnection);
+	auto surface = std::move(initOutput.surface);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto logicalDevice = std::move(initOutput.logicalDevice);
+	auto queues = std::move(initOutput.queues);
+	auto swapchain = std::move(initOutput.swapchain);
+	auto renderpass = std::move(initOutput.renderpass);
+	auto fbos = std::move(initOutput.fbo);
+	auto commandPool = std::move(initOutput.commandPool);
+	auto assetManager = std::move(initOutput.assetManager);
+	auto logger = std::move(initOutput.logger);
+	auto inputSystem = std::move(initOutput.inputSystem);
+	auto windowCallback = std::move(initOutput.windowCb);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto utilities = std::move(initOutput.utilities);
 
-	//! disable mouse cursor, since camera will force it to the middle
-	//! and we don't want a jittery cursor in the middle distracting us
-	device->getCursorControl()->setVisible(false);
+	auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-	//! Since our cursor will be enslaved, there will be no way to close the window
-	//! So we listen for the "Q" key being pressed and exit the application
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+	{
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+	}
 
-	auto* driver = device->getVideoDriver();
-	auto* smgr = device->getSceneManager();
+	auto cpu2gpuWaitForFences = [&]() -> void
+	{
+		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
+		}
 
-	//! we want to move around the scene and view it from different angles
-	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
-
-	camera->setPosition(core::vector3df(-5, 0, 0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(100.0f);
-
-    smgr->setActiveCamera(camera);
-
-	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
+		waitStatus = video::IGPUFence::ES_NOT_READY;
+		while (waitStatus != video::IGPUFence::ES_SUCCESS)
+		{
+			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
+			if (waitStatus == video::IGPUFence::ES_ERROR)
+				assert(false);
+			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+				break;
+		}
+	};
+	
+	auto geometryCreator = assetManager->getGeometryCreator();
 	auto cubeGeometry = geometryCreator->createCubeMesh(vector3df(2,2,2));
 	auto sphereGeometry = geometryCreator->createSphereMesh(2, 16, 16);
 	auto cylinderGeometry = geometryCreator->createCylinderMesh(2, 2, 20);
@@ -127,25 +152,26 @@ int main()
 
 	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 	{
-		auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
+		auto spirv = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
 		if (!spirv)
 			return nullptr;
-		auto unspec = driver->createGPUShader(std::move(spirv));
-		return driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
+
+		auto gpuUnspecializedShader = logicalDevice->createGPUShader(std::move(spirv));
+		return logicalDevice->createGPUSpecializedShader(gpuUnspecializedShader.get(), { nullptr, nullptr, "main", stage });
 	};
 
 	auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
 	{
-		auto resolved_includes = device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
+		auto resolved_includes = assetManager->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
 		return createGPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
 	};
 
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuShaders[2] =
 	{
 		createGPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert"),
 		createGPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
 	};
-	auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);
+	auto gpuShadersRaw = reinterpret_cast<video::IGPUSpecializedShader**>(gpuShaders);
 
 	auto createGPUMeshBufferAndItsPipeline = [&](asset::IGeometryCreator::return_type& geometryObject) -> GPUObject
 	{
@@ -153,10 +179,18 @@ int main()
 		asset::SRasterizationParams rasterParams;
 		rasterParams.faceCullingMode = asset::EFCM_NONE;
 
-		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-		auto pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, driver->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
-			shadersPtr, shadersPtr + sizeof(shaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
-			geometryObject.inputParams, blendParams, geometryObject.assemblyParams, rasterParams);
+		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
+		auto gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+		(
+			nullptr, 
+			logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+			gpuShadersRaw, 
+			gpuShadersRaw + sizeof(gpuShaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
+			geometryObject.inputParams, 
+			blendParams, 
+			geometryObject.assemblyParams, 
+			rasterParams
+		);
 
 		constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
 		constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT + 1;
@@ -172,7 +206,13 @@ int main()
 		if (cpuindexbuffer)
 			cpubuffers.push_back(cpuindexbuffer);
 
-		auto gpubuffers = driver->getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data()+cpubuffers.size());
+		auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size(), cpu2gpuParams);
+		{
+			if (!gpubuffers || gpubuffers->size() < 1u)
+				assert(false);
+
+			cpu2gpuWaitForFences();
+		}
 
 		asset::SBufferBinding<video::IGPUBuffer> bindings[MAX_DATA_BUFFERS];
 		for (auto i=0,j=0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
@@ -190,14 +230,20 @@ int main()
 			bindings[MAX_ATTR_BUF_BINDING_COUNT].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
 		}
 
-		auto mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(pipeline), nullptr, bindings, std::move(bindings[MAX_ATTR_BUF_BINDING_COUNT]));
+		auto mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuRenderpassIndependentPipeline), nullptr, bindings, std::move(bindings[MAX_ATTR_BUF_BINDING_COUNT]));
 		{
 			mb->setIndexType(geometryObject.indexType);
 			mb->setIndexCount(geometryObject.indexCount);
 			mb->setBoundingBox(geometryObject.bbox);
 		}
 
-		return { mb, pipeline };
+		nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+		graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr(gpuRenderpassIndependentPipeline);
+		graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
+
+		auto gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+		
+		return { mb, gpuGraphicsPipeline };
 	};
 
 	auto gpuCube = createGPUMeshBufferAndItsPipeline(cubeGeometry);
@@ -221,17 +267,124 @@ int main()
 		std::make_pair(icosphereGeometry, gpuIcosphere)
 	};
 	
-	uint64_t lastFPSTime = 0;
-	while(device->run() && receiver.keepOpen())
+	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+
+	core::vectorSIMDf cameraPosition(0, 5, -10);
+	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+	auto lastTime = std::chrono::system_clock::now();
+
+	constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+	bool frameDataFilled = false;
+	size_t frame_count = 0ull;
+	double time_sum = 0;
+	double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+	for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
+		dtList[i] = 0.0;
+
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
+	logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+
+	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+
+	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
 	{
-		driver->beginScene(true, true, video::SColor(255,255,255,255) );
+		imageAcquire[i] = logicalDevice->createSemaphore();
+		renderFinished[i] = logicalDevice->createSemaphore();
+	}
 
-        //! This animates (moves) the camera and sets the transforms
-		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
-		camera->render();
+	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+	uint32_t acquiredNextFBO = {};
+	auto resourceIx = -1;
 
-		// draw available objects placed in the vector
-		const auto viewProjection = camera->getConcatenatedMatrix();
+	while(windowCallback->isWindowOpen())
+	{
+		++resourceIx;
+		if (resourceIx >= FRAMES_IN_FLIGHT)
+			resourceIx = 0;
+
+		auto& commandBuffer = commandBuffers[resourceIx];
+		auto& fence = frameComplete[resourceIx];
+
+		if (fence)
+			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+		else
+			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
+		auto renderStart = std::chrono::system_clock::now();
+		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
+		lastTime = renderStart;
+		{ // Calculate Simple Moving Average for FrameTime
+			time_sum -= dtList[frame_count];
+			time_sum += renderDt;
+			dtList[frame_count] = renderDt;
+			frame_count++;
+			if (frame_count >= NBL_FRAMES_TO_AVERAGE)
+			{
+				frameDataFilled = true;
+				frame_count = 0;
+			}
+				
+		}
+		const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
+
+		#ifdef NBL_MORE_LOGS
+				logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
+		#endif // NBL_MORE_LOGS
+
+		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
+		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+
+		inputSystem->getDefaultMouse(&mouse);
+		inputSystem->getDefaultKeyboard(&keyboard);
+
+		camera.beginInputProcessing(nextPresentationTimeStamp);
+		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+		camera.endInputProcessing(nextPresentationTimeStamp);
+
+		const auto& viewMatrix = camera.getViewMatrix();
+		const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
+
+		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+		commandBuffer->begin(0);
+
+		asset::SViewport viewport;
+		viewport.minDepth = 1.f;
+		viewport.maxDepth = 0.f;
+		viewport.x = 0u;
+		viewport.y = 0u;
+		viewport.width = WIN_W;
+		viewport.height = WIN_H;
+		commandBuffer->setViewport(0u, 1u, &viewport);
+
+		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
+		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+		{
+			VkRect2D area;
+			area.offset = { 0,0 };
+			area.extent = { WIN_W, WIN_H };
+			asset::SClearValue clear[2] = {};
+			clear[0].color.float32[0] = 1.f;
+			clear[0].color.float32[1] = 1.f;
+			clear[0].color.float32[2] = 1.f;
+			clear[0].color.float32[3] = 1.f;
+			clear[1].depthStencil.depth = 0.f;
+
+			beginInfo.clearValueCount = 2u;
+			beginInfo.framebuffer = fbos[acquiredNextFBO];
+			beginInfo.renderpass = renderpass;
+			beginInfo.renderArea = area;
+			beginInfo.clearValues = clear;
+		}
+
+		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+
 		for (auto index = 0u; index < cpuGpuObjects.objects.size(); ++index)
 		{
 			const auto iterator = cpuGpuObjects.objects[index];
@@ -241,25 +394,26 @@ int main()
 			core::matrix3x4SIMD modelMatrix;
 			modelMatrix.setTranslation(nbl::core::vectorSIMDf(index * 5, 0, 0, 0));
 
-			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);
-			driver->bindGraphicsPipeline(gpuObject.pipeline.get());
-			driver->pushConstants(gpuObject.pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
-			driver->drawMeshBuffer(gpuObject.meshbuffer.get());
+			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
+			auto* gpuGraphicsPipeline = gpuObject.gpuGraphicsPipeline.get();
+
+			commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline);
+			commandBuffer->pushConstants(gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+			commandBuffer->drawMeshBuffer(gpuObject.gpuMeshbBuffer.get());
 		}
 
-		driver->endScene();
+		commandBuffer->endRenderPass();
+		commandBuffer->end();
 
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time-lastFPSTime > 1000)
-		{
-			std::wostringstream str;
-			str << L"GPU Mesh Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
-
-			device->setWindowCaption(str.str().c_str());
-			lastFPSTime = time;
-		}
+		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
 	}
+
+	const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
+	auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+	bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+	assert(status);
 
 	return 0;
 }

@@ -43,7 +43,7 @@ class ILogicalDevice : public core::IReferenceCounted
         struct SCreationParams
         {
             uint32_t queueParamsCount;
-            const SQueueCreationParams* queueCreateInfos;
+            const SQueueCreationParams* queueParams;
             // ???:
             //uint32_t enabledExtensionCount;
             //const char* const* ppEnabledExtensionNames;
@@ -236,7 +236,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const bool canModifySubData = false) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
@@ -250,45 +250,55 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getDeviceLocalGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getSpilloverGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getUpStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getDownStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
         {
+            IGPUBuffer::SCreationParams unused = {};
+
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            return this->createGPUBufferOnDedMem(unused, reqs, false);
         }
 
         //! Low level function used to implement the above, use with caution
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
         virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
@@ -471,7 +481,7 @@ class ILogicalDevice : public core::IReferenceCounted
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -578,14 +588,14 @@ class ILogicalDevice : public core::IReferenceCounted
             uint32_t greatestFamNum = 0u;
             for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
             {
-                greatestFamNum = (std::max)(greatestFamNum, params.queueCreateInfos[i].familyIndex);
-                qcnt += params.queueCreateInfos[i].count;
+                greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
+                qcnt += params.queueParams[i].count;
             }
 
             m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
             m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
 
-            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueCreateInfos, params.queueCreateInfos + params.queueParamsCount))
+            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams, params.queueParams + params.queueParamsCount))
             {
                 if (qci.familyIndex == greatestFamNum)
                     continue;
@@ -632,7 +642,7 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,

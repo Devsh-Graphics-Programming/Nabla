@@ -6,74 +6,19 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
+#include "../common/Camera.hpp"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 #include "nbl/ext/Bullet/BulletUtility.h"
 #include "nbl/ext/Bullet/CPhysicsWorld.h"
-#include "Camera.hpp"
+
 
 using namespace nbl;
 using namespace core;
 using namespace ui;
 
-const char* vertexSource = R"===(
-#version 430 core
-layout(location = 0) in vec4 vPos;
-layout(location = 3) in vec3 vNormal;
-layout(location = 4) in vec4 vCol;
-
-layout(location = 5) in vec4 vWorldMatRow0;
-layout(location = 6) in vec4 vWorldMatRow1;
-layout(location = 7) in vec4 vWorldMatRow2;
-
-layout( push_constant, row_major ) uniform Block {
-	mat4 viewProj;
-} PushConstants;
-
-layout(location = 0) out vec3 Color;
-layout(location = 1) out vec3 Normal;
-
-void main()
-{
-	mat3x4 transposeWorldMat = mat3x4(vWorldMatRow0, vWorldMatRow1, vWorldMatRow2);
-	mat4x3 worldMat = transpose(transposeWorldMat);
-
-	vec4 worldPos = vec4(dot(vWorldMatRow0, vPos), dot(vWorldMatRow1, vPos), dot(vWorldMatRow2, vPos), 1);
-	vec4 pos = PushConstants.viewProj*worldPos;
-	gl_Position = pos;
-	Color = vCol.xyz;
-
-	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
-	Normal = inverseTransposeWorld * normalize(vNormal);
-}
-)===";
-
-const char* fragmentSource = R"===(
-#version 430 core
-
-layout(location = 0) in vec3 Color;
-layout(location = 1) in vec3 Normal;
-
-layout(location = 0) out vec4 pixelColor;
-
-void main()
-{
-	vec3 normal = normalize(Normal);
-
-	float ambient = 0.35;
-	float diffuse = 0.8;
-	float cos_theta_term = max(dot(normal,vec3(3.0,5.0,-4.0)),0.0);
-
-	float fresnel = 0.0; //not going to implement yet, not important
-	float specular = 0.0;///pow(max(dot(halfVector,normal),0.0),shininess);
-
-	const float sunPower = 3.14156*0.3;
-
-	pixelColor = vec4(Color, 1)*sunPower*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
-}
-)===";
 
 class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 {
@@ -81,51 +26,57 @@ class CInstancedMotionState : public ext::Bullet3::IMotionStateBase
 		btTransform m_correctionMatrix;
 
 		inline CInstancedMotionState() {}
-		inline CInstancedMotionState(uint32_t index, core::matrix3x4SIMD const & start_mat, core::matrix3x4SIMD const & correction_mat)
-			: m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)), m_index(index), ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat))
+		inline CInstancedMotionState(const void* instancePool, uint32_t objectID, uint32_t instanceID, core::matrix3x4SIMD const& start_mat, core::matrix3x4SIMD const& correction_mat)
+			: ext::Bullet3::IMotionStateBase(ext::Bullet3::convertMatrixSIMD(start_mat)), m_correctionMatrix(ext::Bullet3::convertMatrixSIMD(correction_mat)), m_instancePool(instancePool), m_objectID(objectID), m_instanceID(instanceID)
 		{
-			m_cachedMat = m_startWorldTrans*m_correctionMatrix.inverse();
-			m_index = index;
+			m_cachedMat = m_startWorldTrans * m_correctionMatrix.inverse();
 		}
 
 		inline ~CInstancedMotionState()
 		{
 		}
 
-		inline virtual void getWorldTransform(btTransform &worldTrans) const override
+		inline virtual void getWorldTransform(btTransform& worldTrans) const override
 		{
 			worldTrans = m_cachedMat;
 		}
 
-		inline virtual void setWorldTransform(const btTransform &worldTrans) override
+		inline virtual void setWorldTransform(const btTransform& worldTrans) override
 		{
+			// TODO: protect agains simulation "substeps" somehow (redundant update sets)
 			m_cachedMat = worldTrans;
 
-			s_updateIndices.push_back(m_index);
-			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat*m_correctionMatrix));
+			s_updateAddresses.push_back(m_objectID);
+			s_updateData.push_back(ext::Bullet3::convertbtTransform(m_cachedMat * m_correctionMatrix));
 		}
 
-		static core::vector<uint32_t> s_updateIndices;
+		inline auto getInstancePool() const {return m_instancePool;}
+		inline auto getObjectID() const {return m_objectID;}
+		inline auto getInstanceID() const {return m_instanceID;}
+
+		static core::vector<uint32_t> s_updateAddresses;
 		static core::vector<core::matrix3x4SIMD> s_updateData;
 	protected:
 		btTransform m_cachedMat;
-		uint32_t m_index;
+		uint32_t m_objectID,m_instanceID;
+		const void* m_instancePool;
 };
-core::vector<uint32_t> CInstancedMotionState::s_updateIndices;
+core::vector<uint32_t> CInstancedMotionState::s_updateAddresses;
 core::vector<core::matrix3x4SIMD> CInstancedMotionState::s_updateData;
 
 
-int main()
+int main(int argc, char** argv)
 {
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
-	constexpr uint32_t FBO_COUNT = 1u;
+	constexpr uint32_t FBO_COUNT = 2u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
 	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
 	auto system = std::move(initOutput.system);
 	auto window = std::move(initOutput.window);
+	auto windowCb = std::move(initOutput.windowCb);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
@@ -137,7 +88,7 @@ int main()
 	auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
-	auto fbo = std::move(initOutput.fbo[0]);
+	auto fbo = std::move(initOutput.fbo);
 	auto commandPool = std::move(initOutput.commandPool);
 	auto assetManager = std::move(initOutput.assetManager);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
@@ -165,133 +116,216 @@ int main()
 		baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
 
 		basePlateRigidBodyData.mass = 0.0f;
-		basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
+		basePlateRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(64,1,64));
 		basePlateRigidBodyData.trans = baseplateMat;
 
 		basePlateBody = world->createRigidBody(basePlateRigidBodyData);
 		world->bindRigidBody(basePlateBody);
 	}
-
-
-	// Instance Data
-	std::array<uint32_t,20u> cubeIDs;
-	std::array<uint32_t,20u> cylinderIDs;
-	std::array<uint32_t,20u> sphereIDs;
-	std::array<uint32_t,10u> coneIDs;
-	constexpr uint32_t startIndexCubes = 0;
-	constexpr uint32_t startIndexCylinders = startIndexCubes + cubeIDs.size();
-	constexpr uint32_t startIndexSpheres = startIndexCylinders + cylinderIDs.size();
-	constexpr uint32_t startIndexCones = startIndexSpheres + sphereIDs.size();
-
-	constexpr uint32_t MaxNumInstances = cubeIDs.size() + cylinderIDs.size() + sphereIDs.size() + coneIDs.size();
-	// Instances Buffer
-	auto colorBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(core::vectorSIMDf)*MaxNumInstances);
-	auto transformBuffer = device->createDeviceLocalGPUBufferOnDedMem(sizeof(core::matrix3x4SIMD)*MaxNumInstances);
-	// Physics
-	core::vector<btRigidBody*> bodies;
-	bodies.resize(MaxNumInstances);
-	// Shapes RigidBody Data
-	ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData;
-	ext::Bullet3::CPhysicsWorld::RigidBodyData cylinderRigidBodyData;
-	ext::Bullet3::CPhysicsWorld::RigidBodyData sphereRigidBodyData;
-	ext::Bullet3::CPhysicsWorld::RigidBodyData coneRigidBodyData;
-	{
-		cubeRigidBodyData.mass = 2.0f;
-		cubeRigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
-		btVector3 inertia;
-		cubeRigidBodyData.shape->calculateLocalInertia(cubeRigidBodyData.mass, inertia);
-		cubeRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
-	{
-		cylinderRigidBodyData.mass = 1.0f;
-		cylinderRigidBodyData.shape = world->createbtObject<btCylinderShape>(btVector3(0.5, 0.5, 0.5));
-		btVector3 inertia;
-		cylinderRigidBodyData.shape->calculateLocalInertia(cylinderRigidBodyData.mass, inertia);
-		cylinderRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
-	{
-		sphereRigidBodyData.mass = 1.0f;
-		sphereRigidBodyData.shape = world->createbtObject<btSphereShape>(0.5);
-		btVector3 inertia;
-		sphereRigidBodyData.shape->calculateLocalInertia(sphereRigidBodyData.mass, inertia);
-		sphereRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
-	{
-		coneRigidBodyData.mass = 1.0f;
-		coneRigidBodyData.shape = world->createbtObject<btConeShape>(0.5, 1.0);
-		btVector3 inertia;
-		coneRigidBodyData.shape->calculateLocalInertia(coneRigidBodyData.mass, inertia);
-		coneRigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-	}
-
-	// GPU data pool
-	constexpr auto TransformPropertyID = 1u;
-	using instance_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
-	core::smart_refctd_ptr<instance_property_pool_t> propertyPool;
+	
+	// set up
 	auto propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
+	auto createPropertyPoolWithMemory = [device](auto& retval, uint32_t capacity, bool contiguous=false) -> void
 	{
-		asset::SBufferRange<video::IGPUBuffer> blocks[2];
-		blocks[0] = { 0,colorBuffer->getSize(),colorBuffer };
-		blocks[1] = { 0,transformBuffer->getSize(),transformBuffer };
-		propertyPool = instance_property_pool_t::create(device.get(),blocks,MaxNumInstances);
-		
-		core::vector<core::vectorSIMDf> initialColor(MaxNumInstances);
-		core::vector<core::matrix3x4SIMD> instanceTransforms(MaxNumInstances);
-		for (auto i=0u; i<MaxNumInstances; i++)
+		using pool_type = std::remove_reference_t<decltype(retval)>::pointee;
+		asset::SBufferRange<video::IGPUBuffer> blocks[pool_type::PropertyCount];
+		for (auto i=0u; i<pool_type::PropertyCount; i++)
 		{
-			initialColor[i] = core::vector3df_SIMD(float(i)/float(MaxNumInstances),0.5f,1.f);
-			instanceTransforms[i].setTranslation(core::vectorSIMDf(float(i % 3) - 1.0f, i * 1.5f, 0.0f));
-			// TODO: make this code pretty
-			{	
-				core::matrix3x4SIMD correction_mat; 
-
-				auto & rigidBodyData = cubeRigidBodyData;
-				if(i >= startIndexCones) 
-				{
-					rigidBodyData = coneRigidBodyData;
-					correction_mat.setTranslation(core::vector3df_SIMD(0.0f, -0.5f, 0.0f));
-				}
-				else if(i >= startIndexSpheres) 
-				{
-					rigidBodyData = sphereRigidBodyData;
-				}
-				else if(i >= startIndexCylinders) 
-				{
-					rigidBodyData = cylinderRigidBodyData;
-					correction_mat.setRotation(core::quaternion(core::PI<float>() / 2.0f, 0.0f, 0.0f));
-				}
-				rigidBodyData.trans = instanceTransforms[i];
-		
-				auto& body = bodies[i] = world->createRigidBody(rigidBodyData);
-				world->bindRigidBody<CInstancedMotionState>(body, i, instanceTransforms[i], correction_mat);
-			}
+			auto& block = blocks[i];
+			block.offset = 0u;
+			block.size = pool_type::PropertySizes[i]*capacity;
+			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(block.size);
 		}
+		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
+	};
 
-		std::array<video::CPropertyPoolHandler::AllocationRequest,4u> requests;
-		const void* data[4u][2u] = {};
-		auto setupRequest = [&](const uint32_t i, auto& ix_array, const uint32_t rangeStart) -> void
+	// Instance Redirects
+	using instance_redirect_property_pool_t = video::CPropertyPool<core::allocator,uint32_t>;
+	core::smart_refctd_ptr<instance_redirect_property_pool_t> cubes,cylinders,spheres,cones;
+	createPropertyPoolWithMemory(cubes,20u,true);
+	createPropertyPoolWithMemory(cylinders,20u,true);
+	createPropertyPoolWithMemory(spheres,20u,true);
+	createPropertyPoolWithMemory(cones,10u,true);
+	// global object data pool
+	const uint32_t MaxSingleType = core::max(core::max(cubes->getCapacity(),cylinders->getCapacity()),core::max(spheres->getCapacity(),cones->getCapacity()));
+	const uint32_t MaxNumObjects = cubes->getCapacity()+cylinders->getCapacity()+spheres->getCapacity()+cones->getCapacity();
+	constexpr auto TransformPropertyID = 1u;
+	using object_property_pool_t = video::CPropertyPool<core::allocator,core::vectorSIMDf,core::matrix3x4SIMD>;
+	core::smart_refctd_ptr<object_property_pool_t> objectPool; createPropertyPoolWithMemory(objectPool,MaxNumObjects);
+
+	// Physics
+	core::vector<btRigidBody*> bodies(MaxNumObjects,nullptr);
+	// Shapes RigidBody Data
+	const ext::Bullet3::CPhysicsWorld::RigidBodyData cubeRigidBodyData = [world]()
+	{
+		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData;
+		rigidBodyData.mass = 2.0f;
+		rigidBodyData.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
+		btVector3 inertia;
+		rigidBodyData.shape->calculateLocalInertia(rigidBodyData.mass, inertia);
+		rigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+		return rigidBodyData;
+	}();
+	const ext::Bullet3::CPhysicsWorld::RigidBodyData cylinderRigidBodyData = [world]()
+	{
+		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData;
+		rigidBodyData.mass = 1.0f;
+		rigidBodyData.shape = world->createbtObject<btCylinderShape>(btVector3(0.5, 0.5, 0.5));
+		btVector3 inertia;
+		rigidBodyData.shape->calculateLocalInertia(rigidBodyData.mass, inertia);
+		rigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+		return rigidBodyData;
+	}();
+	const ext::Bullet3::CPhysicsWorld::RigidBodyData sphereRigidBodyData = [world]()
+	{
+		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData;
+		rigidBodyData.mass = 1.0f;
+		rigidBodyData.shape = world->createbtObject<btSphereShape>(0.5);
+		btVector3 inertia;
+		rigidBodyData.shape->calculateLocalInertia(rigidBodyData.mass, inertia);
+		rigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+		return rigidBodyData;
+	}();
+	const ext::Bullet3::CPhysicsWorld::RigidBodyData coneRigidBodyData = [world]()
+	{
+		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData;
+		rigidBodyData.mass = 1.0f;
+		rigidBodyData.shape = world->createbtObject<btConeShape>(0.5, 1.0);
+		btVector3 inertia;
+		rigidBodyData.shape->calculateLocalInertia(rigidBodyData.mass, inertia);
+		rigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+		return rigidBodyData;
+	}();
+
+	// kept state
+	uint32_t totalSpawned=0u;
+	core::vector<uint32_t> scratchObjectIDs;
+	core::vector<uint32_t> scratchInstanceRedirects;
+	core::vector<core::vectorSIMDf> initialColor;
+	core::vector<core::matrix3x4SIMD> instanceTransforms;
+	std::array<video::CPropertyPoolHandler::TransferRequest,object_property_pool_t::PropertyCount+1> transfers;
+	for (auto i=0u; i<transfers.size(); i++)
+	{
+		transfers[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
+		transfers[i].propertyID = i;
+		transfers[i].device2device = false;
+		transfers[i].srcAddresses = nullptr;
+	}
+	transfers[2].propertyID = 0;
+	// add a shape
+	auto addShapes = [&](
+		video::IGPUFence* fence,
+		video::IGPUCommandBuffer* cmdbuf,
+		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData,
+		instance_redirect_property_pool_t* pool, const uint32_t count,
+		const core::matrix3x4SIMD& correction_mat=core::matrix3x4SIMD()
+	) -> void
+	{
+		// prepare all the temporary array sizes
+		scratchObjectIDs.resize(count);
+		scratchInstanceRedirects.resize(count);
+		initialColor.resize(count);
+		instanceTransforms.resize(count);
+		// allocate the object data
+		std::fill_n(scratchObjectIDs.data(),count,object_property_pool_t::invalid);
+		objectPool->allocateProperties(scratchObjectIDs.data(),scratchObjectIDs.data()+count);
+		// now the redirects
+		std::fill_n(scratchInstanceRedirects.data(),count,instance_redirect_property_pool_t::invalid);
+		pool->allocateProperties(scratchInstanceRedirects.data(),scratchInstanceRedirects.data()+count);
+		// fill with data
+		for (auto i=0u; i<count; i++)
 		{
-			data[i][0] = initialColor.data()+rangeStart;
-			data[i][1] = instanceTransforms.data()+rangeStart;
-			// need to initialize the addresses to invalid for them to get allocated
-			std::fill(ix_array.begin(),ix_array.end(),instance_property_pool_t::invalid_index);
-			requests[i] = video::CPropertyPoolHandler::AllocationRequest(
-				propertyPool.get(),
-				core::SRange<uint32_t>{ix_array.data(),ix_array.data()+ix_array.size()},
-				reinterpret_cast<const void* const*>(data[i])
-			);
-		};
-		setupRequest(0u,cubeIDs,startIndexCubes);
-		setupRequest(1u,cylinderIDs,startIndexCylinders);
-		setupRequest(2u,sphereIDs,startIndexSpheres);
-		setupRequest(3u,coneIDs,startIndexCones);
+			initialColor[i] = core::vectorSIMDf(float(totalSpawned%MaxNumObjects)/float(MaxNumObjects),0.5f,1.f);
+			rigidBodyData.trans = instanceTransforms[i] = core::matrix3x4SIMD().setTranslation(core::vectorSIMDf(float(totalSpawned%3)-1.0f,totalSpawned*1.5f,0.f));
+			totalSpawned++;
+			// TODO: seems like `rigidBodyData.trans` is redundant to some matrices in the MotionStateBase
+			const auto objectID = scratchObjectIDs[i];
+			auto& body = bodies[objectID] = world->createRigidBody(rigidBodyData);
+			world->bindRigidBody<CInstancedMotionState>(body,pool,objectID,scratchInstanceRedirects[i],rigidBodyData.trans,correction_mat);
+		}
+		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
+		{
+			transfers[i].pool = objectPool.get();
+			transfers[i].elementCount = count;
+			transfers[i].dstAddresses = scratchObjectIDs.data();
+		}
+		transfers[0].source = initialColor.data();
+		transfers[1].source = instanceTransforms.data();
+		//
+		transfers[2].pool = pool;
+		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
+		transfers[2].elementCount = count;
+		transfers[2].srcAddresses = nullptr;
+		transfers[2].dstAddresses = scratchInstanceRedirects.data();
+		transfers[2].device2device = false;
+		transfers[2].source = scratchObjectIDs.data();
+		// set up the transfer/update
+		propertyPoolHandler->transferProperties(
+			utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),
+			cmdbuf,fence,transfers.data(),transfers.data()+transfers.size(),logger.get()
+		);
+	};
+	auto addCubes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	{
+		addShapes(std::move(fence),cmdbuf,cubeRigidBodyData,cubes.get(),count);
+	};
+	auto addCylinders = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	{
+		addShapes(std::move(fence),cmdbuf,cylinderRigidBodyData,cylinders.get(),count,core::matrix3x4SIMD().setRotation(core::quaternion(core::PI<float>()/2.f,0.f,0.f)));
+	};
+	auto addSpheres = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	{
+		addShapes(std::move(fence),cmdbuf,sphereRigidBodyData,spheres.get(),count);
+	};
+	auto addCones = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	{
+		addShapes(std::move(fence),cmdbuf,coneRigidBodyData,cones.get(),count,core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f,-0.5f,0.f)));
+	};
+	//
+	auto deleteShapes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, const uint32_t* objectsToDelete, const uint32_t* instanceRedirectsToDelete, const uint32_t count)
+	{
+		objectPool->freeProperties(objectsToDelete,objectsToDelete+count);
+		// a bit of reuse
+		scratchObjectIDs.resize(count);
+		scratchInstanceRedirects.resize(count);
+		uint32_t* srcAddrScratch = scratchObjectIDs.data();
+		uint32_t* dstAddrScratch = scratchInstanceRedirects.data();
+		//
+		const bool needTransfer = video::CPropertyPoolHandler::freeProperties(pool,transfers.data()+2u,instanceRedirectsToDelete,instanceRedirectsToDelete+count,srcAddrScratch,dstAddrScratch);
+		if (needTransfer)
+			propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,cmdbuf,fence,transfers.data()+2,transfers.data()+3,logger.get());
+	};
+	auto deleteBasedOnPhysicsPredicate = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, auto pred)
+	{
+		core::vector<uint32_t> objects, instances;
+		for (auto& body : bodies)
+		{
+			if (!body)
+				continue;
+			auto* motionState = static_cast<CInstancedMotionState*>(body->getMotionState());
+			if (motionState->getInstancePool()!=pool || !pred(motionState))
+				continue;
 
+			objects.emplace_back(motionState->getObjectID());
+			instances.emplace_back(motionState->getInstanceID());
+			world->unbindRigidBody(body);
+			world->deleteRigidBody(body);
+			body = nullptr;
+		}
+		deleteShapes(fence,cmdbuf,pool,objects.data(),instances.data(),objects.size());
+	};
+
+	// setup scene
+	{
 		auto& fence = frameComplete[FRAMES_IN_FLIGHT-1] = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
 
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		propertyPoolHandler->addProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cmdbuf,fence.get(),requests.data(),requests.data()+requests.size(),logger.get());
- 		cmdbuf->end();
+		addCubes(fence.get(),cmdbuf,20u);
+		addCylinders(fence.get(),cmdbuf,20u);
+		addSpheres(fence.get(),cmdbuf,20u);
+		addCones(fence.get(),cmdbuf,10u);
+		cmdbuf->end();
 		
 		video::IGPUQueue::SSubmitInfo submit;
 		{
@@ -305,16 +339,56 @@ int main()
 	}
 
 
-	// weird fix -> do not read the next 6 lines (It doesn't affect the program logically) -> waiting for access_violation_repro branch to fix and merge
-	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
+	video::IGPUObjectFromAssetConverter CPU2GPU;
+	// set up shader inputs
+	core::smart_refctd_ptr<asset::ICPUPipelineLayout> cpuLayout;
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> gpuLayout;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> globalDs;
 	{
-		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-		system->createFile(future, "../../29.SpecializationConstants/particles.comp", nbl::system::IFile::ECF_READ_WRITE);
-		auto file = future.get();
-		auto sname = file->getFileName().string();
-		char const* shaderName = sname.c_str();
-		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(file.get(), asset::ISpecializedShader::ESS_COMPUTE, shaderName);
+		//
+		constexpr auto GLOBAL_DS_COUNT = 2u;
+		{
+			asset::ICPUDescriptorSetLayout::SBinding bindings[GLOBAL_DS_COUNT];
+			for (auto i = 0u; i < GLOBAL_DS_COUNT; i++)
+			{
+				bindings[i].binding = i;
+				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].count = 1u;
+				bindings[i].stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+				bindings[i].samplers = nullptr;
+			}
+			auto dsLayout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+GLOBAL_DS_COUNT);
+		
+			asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+			cpuLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,std::move(dsLayout));
+		}
+		gpuLayout = CPU2GPU.getGPUObjectsFromAssets(&cpuLayout.get(),&cpuLayout.get()+1,cpu2gpuParams)->front();
+
+		{
+			auto globalDsLayout = gpuLayout->getDescriptorSetLayout(0u);
+			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&globalDsLayout,&globalDsLayout+1u);
+			globalDs = device->createGPUDescriptorSet(pool.get(),core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(globalDsLayout)); // TODO: change method signature to make it obvious we're taking shared ownership of a pool
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[GLOBAL_DS_COUNT];
+			video::IGPUDescriptorSet::SDescriptorInfo infos[GLOBAL_DS_COUNT];
+			for (auto i = 0u; i < GLOBAL_DS_COUNT; i++)
+			{
+				writes[i].dstSet = globalDs.get();
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].info = infos+i;
+
+				const auto& poolBuff = objectPool->getPropertyMemoryBlock(i);
+				infos[i].desc = poolBuff.buffer;
+				infos[i].buffer.offset = poolBuff.offset;
+				infos[i].buffer.size = poolBuff.size;
+			}
+			device->updateDescriptorSets(GLOBAL_DS_COUNT,writes,0u,nullptr);
+		}
 	}
+
 
 	// Geom Create
 	auto geometryCreator = assetManager->getGeometryCreator();
@@ -324,28 +398,34 @@ int main()
 	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
 	// Creating CPU Shaders 
-	auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
+	auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
-		auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
-		if (!unspec)
-			return nullptr;
+		auto cwd = system::path(argv[0]).parent_path();
 
-		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", stage, "");
-		return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspec), std::move(info));
+		asset::IAssetLoader::SAssetLoadParams params{};
+		params.workingDirectory = cwd;
+		params.logger = logger.get();
+		//params.relativeDir = tmp.c_str();
+		auto spec = assetManager->getAsset(path,params).getContents();
+		if (spec.empty())
+			assert(false);
+
+		return core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*spec.begin());
 	};
 
-	auto vs = createCPUSpecializedShaderFromSource(vertexSource,asset::ISpecializedShader::ESS_VERTEX);
-	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
+	auto vs = createCPUSpecializedShaderFromSource("../mesh.vert",asset::ISpecializedShader::ESS_VERTEX);
+	auto fs = createCPUSpecializedShaderFromSource("../mesh.frag", asset::ISpecializedShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 	
-	auto createMeshBufferFromGeomCreatorReturnType = [](
+	auto dummyPplnLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>();
+	auto createMeshBufferFromGeomCreatorReturnType = [&dummyPplnLayout](
 		asset::IGeometryCreator::return_type& _data,
 		asset::IAssetManager* _manager,
 		asset::ICPUSpecializedShader** _shadersBegin, asset::ICPUSpecializedShader** _shadersEnd)
 	{
 		//creating pipeline just to forward vtx and primitive params
 		auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
-			nullptr, _shadersBegin, _shadersEnd, 
+			core::smart_refctd_ptr(dummyPplnLayout), _shadersBegin, _shadersEnd,
 			_data.inputParams, 
 			asset::SBlendParams(),
 			_data.assemblyParams,
@@ -371,99 +451,74 @@ int main()
 	auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders+2);
 	auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, assetManager.get(), shaders, shaders+2);
+	dummyPplnLayout = nullptr;
 
 	// TODO: replace with an actual scenemanager
 	struct GPUObject
 	{
+		const video::IPropertyPool* pool;
 		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
 	};
 	// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
-	auto createGPUObject = [&](
-		asset::ICPUMeshBuffer * cpuMesh, uint32_t numInstances, uint64_t rangeStart,
-		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
+	auto createGPUObject = [&](const video::IPropertyPool* pool, asset::ICPUMeshBuffer* cpuMesh, asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject
 	{
-		GPUObject ret = {};
-		
-		uint32_t xformBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT-1u;
-		uint32_t colorBufferBinding = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT-2u;
-
 		auto pipeline = cpuMesh->getPipeline();
-		{
-			// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
-			auto & rasterParams = pipeline->getRasterizationParams();
-			rasterParams.frontFaceIsCCW = 0;
-			rasterParams.faceCullingMode = faceCullingMode;
+		//
+		auto vtxinputParams = pipeline->getVertexInputParams();
+		vtxinputParams.bindings[15].inputRate = asset::EVIR_PER_INSTANCE;
+		vtxinputParams.bindings[15].stride = sizeof(uint32_t);
+		vtxinputParams.attributes[15].binding = 15;
+		vtxinputParams.attributes[15].relativeOffset = 0;
+		vtxinputParams.attributes[15].format = asset::E_FORMAT::EF_R32_UINT;
+		vtxinputParams.enabledAttribFlags |= 0x1u<<15;
+		vtxinputParams.enabledBindingFlags |= 0x1u<<15;
+		// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
+		auto rasterParams = pipeline->getRasterizationParams();
+		rasterParams.frontFaceIsCCW = 0;
+		rasterParams.faceCullingMode = faceCullingMode;
+		// for wireframe rendering
+		#if 0
+		pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
+		#endif
 
-			auto & vtxinputParams = pipeline->getVertexInputParams();
-			vtxinputParams.bindings[colorBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
-			vtxinputParams.bindings[colorBufferBinding].stride = sizeof(core::vectorSIMDf);
-			vtxinputParams.bindings[xformBufferBinding].inputRate = asset::EVIR_PER_INSTANCE;
-			vtxinputParams.bindings[xformBufferBinding].stride = sizeof(core::matrix3x4SIMD);
-			// Color
-			vtxinputParams.attributes[4].binding = colorBufferBinding;
-			vtxinputParams.attributes[4].relativeOffset = 0;
-			vtxinputParams.attributes[4].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-			// World Row 0
-			vtxinputParams.attributes[5].binding = xformBufferBinding;
-			vtxinputParams.attributes[5].relativeOffset = 0;
-			vtxinputParams.attributes[5].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-			// World Row 1
-			vtxinputParams.attributes[6].binding = xformBufferBinding;
-			vtxinputParams.attributes[6].relativeOffset = sizeof(core::vector3df_SIMD);
-			vtxinputParams.attributes[6].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
-			// World Row 2
-			vtxinputParams.attributes[7].binding = xformBufferBinding;
-			vtxinputParams.attributes[7].relativeOffset = sizeof(core::vector3df_SIMD)*2u;
-			vtxinputParams.attributes[7].format = asset::E_FORMAT::EF_R32G32B32A32_SFLOAT;
+		asset::ICPUSpecializedShader* cpuShaders[2] = {
+			pipeline->getShaderAtStage(asset::ISpecializedShader::ESS_VERTEX),
+			pipeline->getShaderAtStage(asset::ISpecializedShader::ESS_FRAGMENT)
+		};
+		cpuMesh->setPipeline(core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
+			core::smart_refctd_ptr(cpuLayout),&cpuShaders[0],&cpuShaders[0]+2,
+			vtxinputParams,
+			pipeline->getBlendParams(),
+			pipeline->getPrimitiveAssemblyParams(),
+			rasterParams
+		));
 
-
-			vtxinputParams.enabledAttribFlags |= 0x1u << 4 | 0x1u << 5 | 0x1u << 6 | 0x1u << 7;
-			vtxinputParams.enabledBindingFlags |= (0x1u<<xformBufferBinding)|(0x1u<<colorBufferBinding);
-
-			// for wireframe rendering
-			#if 0
-			pipeline->getRasterizationParams().polygonMode = asset::EPM_LINE; 
-			#endif
-		}
-
-		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-		auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u);
-		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
-
-		video::IGPUObjectFromAssetConverter CPU2GPU;
-		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
+		GPUObject ret = {};
+		ret.pool = pool;
+		// get the mesh
 		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh,&cpuMesh+1,cpu2gpuParams)->front();
-	
-		asset::SBufferBinding<video::IGPUBuffer> vtxInstanceBufBnd;
-		vtxInstanceBufBnd.offset = rangeStart*sizeof(core::vectorSIMDf);
-		vtxInstanceBufBnd.buffer = colorBuffer;
-		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd),colorBufferBinding);
-		vtxInstanceBufBnd.offset = rangeStart*sizeof(core::matrix3x4SIMD);
-		vtxInstanceBufBnd.buffer = transformBuffer;
-		ret.gpuMesh->setVertexBufferBinding(std::move(vtxInstanceBufBnd),xformBufferBinding);
-		ret.gpuMesh->setInstanceCount(numInstances);
-
+		asset::SBufferBinding<video::IGPUBuffer> instanceRedirectBufBnd;
+		instanceRedirectBufBnd.offset = 0u;
+		instanceRedirectBufBnd.buffer = pool->getPropertyMemoryBlock(0u).buffer;
+		ret.gpuMesh->setVertexBufferBinding(std::move(instanceRedirectBufBnd),15u);
+		//
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
 		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
 		gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
-		gp_params.renderpassIndependent = rpIndependentPipeline; // TODO: fix use gpuMesh->getPipeline instead
+		gp_params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(ret.gpuMesh->getPipeline());
 		gp_params.subpassIx = 0u;
-
 		ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr,std::move(gp_params));
 
 		return ret;
 	};
 
-	core::vector<GPUObject> gpuObjects;
-	if(cubeIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCube.get(), cubeIDs.size(), startIndexCubes));
-	if(cylinderIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCylinder.get(), cylinderIDs.size(), startIndexCylinders, asset::EFCM_NONE));
-	if(sphereIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshSphere.get(), sphereIDs.size(), startIndexSpheres));
-	if(coneIDs.size() > 0)
-		gpuObjects.push_back(createGPUObject(cpuMeshCone.get(), coneIDs.size(), startIndexCones, asset::EFCM_NONE));
+	core::vector<GPUObject> gpuObjects = {
+		createGPUObject(cubes.get(),cpuMeshCube.get()),
+		createGPUObject(cylinders.get(),cpuMeshCylinder.get(),asset::EFCM_NONE),
+		createGPUObject(spheres.get(),cpuMeshSphere.get()),
+		createGPUObject(cones.get(),cpuMeshCone.get(),asset::EFCM_NONE)
+	};
 
 
 	//
@@ -478,8 +533,9 @@ int main()
 		renderFinished[i] = device->createSemaphore();
 	}
 
-	// render loop
+	// Render
 	constexpr size_t MaxFramesToAverage = 100ull;
+	bool frameDataFilled = false;
 	size_t frame_count = 0ull;
 	double time_sum = 0;
 	double dtList[MaxFramesToAverage] = {};
@@ -497,13 +553,20 @@ int main()
 	// polling for events!
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-
+	
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
-	while (true) // TODO: window closed check
-	{
-		// Timing
 
+	auto resourceIx = -1;
+
+	while(windowCb->isWindowOpen())
+	{
+		resourceIx++;
+		if(resourceIx >= FRAMES_IN_FLIGHT) {
+			resourceIx = 0;
+		}
+
+		// Timing
 		auto renderStart = std::chrono::system_clock::now();
 		dt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart-lastTime).count();
 		lastTime = renderStart;
@@ -516,10 +579,11 @@ int main()
 			frame_count++;
 			if(frame_count >= MaxFramesToAverage) {
 				frame_count = 0;
+				frameDataFilled = true;
 			}
 		}
-		double averageFrameTime = time_sum / (double)MaxFramesToAverage;
-		// logger->log("dt = %f ------ averageFrameTime = %f",system::ILogger::ELL_INFO, dt, averageFrameTime);
+		double averageFrameTime = (frameDataFilled) ? (time_sum / (double)MaxFramesToAverage) : (time_sum / frame_count);
+		// logger->log("averageFrameTime = %f",system::ILogger::ELL_INFO, averageFrameTime);
 		
 		// Calculate Next Presentation Time Stamp
 		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
@@ -532,11 +596,11 @@ int main()
 
 		cam.beginInputProcessing(nextPresentationTimeStamp);
 		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { cam.mouseProcess(events); }, logger.get());
-		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { cam.keyboardProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void {
+			cam.keyboardProcess(events); 
+		}, logger.get());
 		cam.endInputProcessing(nextPresentationTimeStamp);
 
-		// Render
-		const auto resourceIx = i%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
@@ -551,8 +615,8 @@ int main()
 
 		{
 			asset::SViewport vp;
-			vp.minDepth = 0.f;
-			vp.maxDepth = 1.f;
+			vp.minDepth = 1.f;
+			vp.maxDepth = 0.f;
 			vp.x = 0u;
 			vp.y = 0u;
 			vp.width = WIN_W;
@@ -566,22 +630,58 @@ int main()
 		{
 			// Update Physics (TODO: fixed timestep)
 			world->getWorld()->stepSimulation(dt);
+
 			video::CPropertyPoolHandler::TransferRequest request;
-			request.download = false;
-			request.pool = propertyPool.get();
-			request.indices = {CInstancedMotionState::s_updateIndices.data(),CInstancedMotionState::s_updateIndices.data()+CInstancedMotionState::s_updateIndices.size()};
+			request.pool = objectPool.get();
+			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
 			request.propertyID = TransformPropertyID;
-			request.data = CInstancedMotionState::s_updateData.data();
+			request.elementCount = CInstancedMotionState::s_updateAddresses.size();
+			request.srcAddresses = nullptr;
+			request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
+			request.device2device = false;
+			request.source = CInstancedMotionState::s_updateData.data();
+			// TODO: why does the very first update set matrices to identity?
 			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
 			assert(result.transferSuccess);
-			CInstancedMotionState::s_updateIndices.clear();
+			// ensure dependency from transfer to any following transfers
+			{
+				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				memBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				cb->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
+					1u,&memBarrier,0u,nullptr,0u,nullptr
+				);
+			}
+			CInstancedMotionState::s_updateAddresses.clear();
 			CInstancedMotionState::s_updateData.clear();
+
+			auto falledFromMap = [](CInstancedMotionState* motionState) -> bool
+			{
+				btTransform tform;
+				motionState->getWorldTransform(tform);
+				return tform.getOrigin().getY()<-128.f;
+			};
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cones.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cubes.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),spheres.get(),falledFromMap);
+			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cylinders.get(),falledFromMap);
+			// ensure dependency from transfer to any following transfers and vertex shaders
+			{
+				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				memBarrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
+				cb->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
+					1u,&memBarrier,0u,nullptr,0u,nullptr
+				);
+			}			
 		}
 		// renderpass
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
-			asset::VkRect2D area;
+			VkRect2D area;
 			clearValues[0].color.float32[0] = 0.1f;
 			clearValues[0].color.float32[1] = 0.1f;
 			clearValues[0].color.float32[2] = 0.1f;
@@ -591,7 +691,7 @@ int main()
 			clearValues[1].depthStencil.stencil = 0.0f;
 
 			info.renderpass = renderpass;
-			info.framebuffer = fbo;
+			info.framebuffer = fbo[imgnum];
 			info.clearValueCount = 2u;
 			info.clearValues = clearValues;
 			info.renderArea.offset = { 0, 0 };
@@ -599,6 +699,7 @@ int main()
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
 		}
 		// draw
+		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,gpuLayout.get(),0u,1u,&globalDs.get());
 		{
 			auto viewProj = cam.getConcatenatedMatrix();
 
@@ -608,6 +709,7 @@ int main()
 
 				cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
 				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
+				gpuObject.gpuMesh->setInstanceCount(gpuObject.pool->getAllocated());
 				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 			}
 		}
@@ -623,11 +725,11 @@ int main()
 	world->deleteRigidBody(basePlateBody);
 	world->deletebtObject(basePlateRigidBodyData.shape);
 	
-	for (uint32_t i=0u; i<MaxNumInstances; ++i)
-	{
-		world->unbindRigidBody(bodies[i]);
-		world->deleteRigidBody(bodies[i]);
-	}
+	auto alwaysTrue = [](auto dummy) -> bool {return true;};
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cylinders.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,spheres.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cones.get(),alwaysTrue);
+	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cubes.get(),alwaysTrue);
 
 	world->deletebtObject(cubeRigidBodyData.shape);
 	world->deletebtObject(cylinderRigidBodyData.shape);

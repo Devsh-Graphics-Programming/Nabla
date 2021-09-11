@@ -8,19 +8,34 @@ namespace nbl::video
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDeviceLocalMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (getDeviceLocalGPUMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
-        return nullptr;
+    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDeviceLocalGPUMemoryReqs();
+    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
+    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
+    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
+    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
+    memoryReqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
 
-    return allocateGPUMemory(additionalReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    return allocateGPUMemory(additionalReqs);
 }
 
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateSpilloverMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (getSpilloverGPUMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
+    if (additionalReqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
         return nullptr;
 
-    return allocateGPUMemory(additionalReqs, static_cast<VkMemoryPropertyFlags>(0u));
+    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getSpilloverGPUMemoryReqs();
+    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
+    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
+    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
+    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
+    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
+    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+
+    return allocateGPUMemory(memoryReqs);
 }
 
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUpStreamingMemory(
@@ -29,7 +44,16 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUp
     if (getUpStreamingMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
         return nullptr;
 
-    return allocateGPUMemory(additionalReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getUpStreamingMemoryReqs();
+    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
+    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
+    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
+    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
+    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
+    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+
+    return allocateGPUMemory(memoryReqs);
 }
 
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDownStreamingMemory(
@@ -38,22 +62,44 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDo
     if (getDownStreamingMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
         return nullptr;
 
-    return allocateGPUMemory(additionalReqs, static_cast<VkMemoryPropertyFlags>(0u));
+    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDownStreamingMemoryReqs();
+    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
+    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
+    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
+    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
+    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
+    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+
+    return allocateGPUMemory(memoryReqs);
 }
 
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateCPUSideGPUVisibleMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (getCPUSideGPUVisibleGPUMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
+    if (additionalReqs.memoryHeapLocation != IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL)
         return nullptr;
 
-    return allocateGPUMemory(additionalReqs, static_cast<VkMemoryPropertyFlags>(0u));
+    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getCPUSideGPUVisibleGPUMemoryReqs();
+    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
+    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
+    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
+    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
+    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
+    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+
+    return allocateGPUMemory(memoryReqs);
 }
 
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGPUMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-    VkMemoryPropertyFlags desiredMemoryProperties)
+    const IDriverMemoryBacked::SDriverMemoryRequirements& reqs)
 {
+    VkMemoryPropertyFlags desiredMemoryProperties = static_cast<VkMemoryPropertyFlags>(0u);
+
+    if (reqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
+        desiredMemoryProperties |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
     if ((reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) ||
         (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE))
         desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
@@ -82,6 +128,8 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
 
     for (uint32_t i = 0u; i < compatibleMemoryTypeCount; ++i)
     {
+        // Todo(achal): Make use of requiresDedicatedAllocation and prefersDedicatedAllocation
+
         VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
         vk_allocateInfo.pNext = nullptr; // No extensions for now
         vk_allocateInfo.allocationSize = reqs.vulkanReqs.size;
@@ -90,7 +138,8 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
         VkDeviceMemory vk_deviceMemory;
         if (vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory);
+            // Todo(achal): Change dedicate to not always be false
+            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory);
         }
     }
 

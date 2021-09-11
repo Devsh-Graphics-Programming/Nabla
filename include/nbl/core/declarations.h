@@ -38,6 +38,7 @@
 #include "nbl/core/alloc/SimpleBlockBasedAllocator.h"
 // algorithm
 #include "nbl/core/algorithm/radix_sort.h"
+#include "nbl/core/algorithm/utility.h"
 // containers
 #include "nbl/core/containers/dynamic_array.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
@@ -68,5 +69,6 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/SRAIIBasedExiter.h"
 #include "nbl/core/SRange.h"
+#include "nbl/core/Byteswap.h"
 
 #endif

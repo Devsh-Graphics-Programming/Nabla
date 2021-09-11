@@ -14,10 +14,13 @@ class CFileWin32 : public IFile
 		using base_t = IFile;
 		using native_file_handle_t = HANDLE;
 	private:
+		DWORD m_allocGranularity;
 		bool m_openedProperly = true;
 		std::filesystem::path m_filename;
 		size_t m_size = 0;
 		native_file_handle_t m_native = nullptr;
+		HANDLE m_fileMappingObj = nullptr;
+		mutable core::vector<void*> m_openedFileViews;
 	public:
 		CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags);
 		~CFileWin32();

@@ -44,6 +44,8 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                 {
                     size_t offset;
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+
+					static constexpr inline size_t WholeBuffer = ~0ull;
                 };
                 struct SImageInfo
                 {

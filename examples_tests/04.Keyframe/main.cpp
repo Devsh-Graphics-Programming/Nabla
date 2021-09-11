@@ -3,13 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <iostream>
-#include <cstdio>
 #include <nabla.h>
-
-//! I advise to check out this file, its a basic input handler
-#include "../common/QToQuitEventReceiver.h"
-
 
 using namespace nbl;
 using namespace core;
@@ -24,38 +18,6 @@ struct VertexStruct
     uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
-
-const char* vertexSource = R"===(
-#version 430 core
-
-layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
-layout(location = 1) in vec4 vCol;
-
-layout( push_constant, row_major ) uniform Block {
-	mat4 modelViewProj;
-} PushConstants;
-
-layout(location = 0) out vec4 Color; //per vertex output color, will be interpolated across the triangle
-
-void main()
-{
-    gl_Position = PushConstants.modelViewProj*vPos; //only thing preventing the shader from being core-compliant
-    Color = vCol;
-}
-)===";
-
-const char* fragmentSource = R"===(
-#version 430 core
-
-layout(location = 0) in vec4 Color; //per vertex output color, will be interpolated across the triangle
-
-layout(location = 0) out vec4 pixelColor;
-
-void main()
-{
-    pixelColor = Color;
-}
-)===";
 
 int main()
 {

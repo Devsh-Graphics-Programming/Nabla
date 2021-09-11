@@ -41,9 +41,11 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 		auto extent = gpuImage->getMipSize();
 		video::IGPUImage::SBufferCopy pRegions[1u] = { {0u,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),0,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
 
+		video::IGPUBuffer::SCreationParams unused = {};
+
 		auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
 		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
-		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(deviceLocalGPUMemoryReqs, true);
+		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(unused, deviceLocalGPUMemoryReqs, true);
 
 		// TODO: after Vulkan comes, pay attention to the image layout
 		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::EIL_GENERAL,gpuTexelBuffer.get(),1,pRegions);

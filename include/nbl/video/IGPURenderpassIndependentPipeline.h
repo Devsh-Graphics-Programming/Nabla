@@ -28,7 +28,7 @@ class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPi
 		IGPURenderpassIndependentPipeline(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-			IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+			IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
 			const asset::SVertexInputParams& _vertexInputParams,
 			const asset::SBlendParams& _blendParams,
 			const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -40,7 +40,7 @@ class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPi
 		struct SCreationParams
 		{
 			core::smart_refctd_ptr<IGPUPipelineLayout> layout;
-			core::smart_refctd_ptr<IGPUSpecializedShader> shaders[SHADER_STAGE_COUNT];
+			core::smart_refctd_ptr<const IGPUSpecializedShader> shaders[SHADER_STAGE_COUNT];
 			asset::SVertexInputParams vertexInput;
 			asset::SBlendParams blend;
 			asset::SPrimitiveAssemblyParams primitiveAssembly;

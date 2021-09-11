@@ -20,11 +20,6 @@ public:
         core::smart_refctd_ptr<video::CVulkanConnection>&& api,
         core::smart_refctd_ptr<Window>&& window);
 
-    inline const void* getNativeWindowHandle() const override
-    {
-        return &base_t::m_window->getNativeHandle();
-    }
-
     bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override;
 
     void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override;

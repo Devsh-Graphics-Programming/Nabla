@@ -181,7 +181,7 @@ protected:
         core::vector<VkDeviceQueueCreateInfo> queueCreateInfos(vk_createInfo.queueCreateInfoCount);
         for (uint32_t i = 0u; i < queueCreateInfos.size(); ++i)
         {
-            const auto& qparams = params.queueCreateInfos[i];
+            const auto& qparams = params.queueParams[i];
             auto& qci = queueCreateInfos[i];
                     
             qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
