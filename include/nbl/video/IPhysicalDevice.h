@@ -78,7 +78,6 @@ public:
         // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
-        bool multiDrawIndirect = false;
         bool drawIndirectCount = false;
     };
 
