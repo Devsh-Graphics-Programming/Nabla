@@ -34,7 +34,7 @@ namespace nbl::scene
 * 
 * The way that this system is supposed to work is that the ITransformTreeManager is supposed to construct an Indirect Dispatch + compact Node List for the next frame's animation updates.
 * The reason for this weird feedback loop and one-frame delay is because there's no sane way to keep contiguous lists of nodes bucketed by their update frequencies.
-* This means a TODO of passing three optional node update frequency [readonly], animation blend dispatch indirect[coherent readwrite] and node output list [writeonly] buffers via `ITreeTransformManager::GlobalTransformRecomputeParams`
+* This means a TODO of passing three optional node update frequency [readonly], animation blend dispatch indirect[coherent readwrite] and node output list [writeonly] buffers via `ITreeTransformManager::GlobalTransformUpdateParams`
 * 
 * Also this allows us to cull the animation updates to only the nodes whose global transforms we want to know.
 * 
