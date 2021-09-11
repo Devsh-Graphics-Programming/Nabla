@@ -372,6 +372,8 @@ public:
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
 			m_features.vertexAttributeDouble = !IsGLES;
+			m_features.multiDrawIndirect = ISGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
+			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 
 			// TODO: handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
@@ -396,6 +398,9 @@ public:
 
 		// physical device limits
 		{
+			// GL doesnt have any limit on this (???)
+			m_limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_limits.maxDrawIndirectCount)>::max();
+
 			m_limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
 			m_limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
 			m_limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;

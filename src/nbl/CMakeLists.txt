@@ -598,11 +598,12 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
 	   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
 	  add_dependencies(Nabla builtin_resources)
-elseif()
-	foreach(X IN LISTS nbl_resources_to_embed)
-		list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
-	endforeach()
 endif()
+
+#always install builtins (some may be included in cpp regardless if embedded or not)
+foreach(X IN LISTS nbl_resources_to_embed)
+	list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
+endforeach()
 
 
 # extensions
