@@ -44,6 +44,8 @@ public:
         uint32_t maxTextures;
         uint32_t maxStorageImages;
 
+        uint32_t maxDrawIndirectCount;
+
         float pointSizeRange[2];
         float lineWidthRange[2];
 
@@ -76,6 +78,8 @@ public:
         // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
+        bool multiDrawIndirect = false;
+        bool drawIndirectCount = false;
     };
 
     enum E_QUEUE_FLAGS : uint32_t
