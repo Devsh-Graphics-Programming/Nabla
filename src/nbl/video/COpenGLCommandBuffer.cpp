@@ -534,50 +534,58 @@ namespace nbl::video
             case impl::ECT_DRAW_INDIRECT:
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDIRECT>();
+                if (c.maxDrawCount==0u)
+                    break;
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
+                ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.countBuffer);
+
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
+                
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
-                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-                if (c.drawCount)
-                {
-                    GLuint64 offset = c.offset;
-                    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlMultiDrawArraysIndirect(glpt, reinterpret_cast<void*>(offset), c.drawCount, c.stride);
-                }
+                GLuint64 offset = c.offset;
+                static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
+                if (ctxlocal->currentState.vertexInputParams.parameterBuf)
+                    gl->extGlMultiDrawArraysIndirectCount(glpt, reinterpret_cast<void*>(offset), c.countBufferOffset, c.maxDrawCount, c.stride);
+                else
+                    gl->extGlMultiDrawArraysIndirect(glpt, reinterpret_cast<void*>(offset), c.maxDrawCount, c.stride);
             }
             break;
             case impl::ECT_DRAW_INDEXED_INDIRECT:
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDEXED_INDIRECT>();
+                if (c.maxDrawCount==0u)
+                    break;
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
+                ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.countBuffer);
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
-                GLenum glpt = getGLprimitiveType(primType);
 
                 GLenum idxType = GL_INVALID_ENUM;
                 switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
                 {
-                case asset::EIT_16BIT:
-                    idxType = GL_UNSIGNED_SHORT;
-                    break;
-                case asset::EIT_32BIT:
-                    idxType = GL_UNSIGNED_INT;
-                    break;
-                default: break;
+                    case asset::EIT_16BIT:
+                        idxType = GL_UNSIGNED_SHORT;
+                        break;
+                    case asset::EIT_32BIT:
+                        idxType = GL_UNSIGNED_INT;
+                        break;
+                    default:
+                        break;
                 }
 
-                if (c.drawCount && idxType != GL_INVALID_ENUM)
-                {
-                    GLuint64 offset = c.offset;
-                    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.drawCount, c.stride);
-                }
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                GLenum glpt = getGLprimitiveType(primType);
+
+                GLuint64 offset = c.offset;
+                static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
+                if (ctxlocal->currentState.vertexInputParams.parameterBuf)
+                    gl->extGlMultiDrawElementsIndirectCount(glpt, idxType, reinterpret_cast<void*>(offset), c.countBufferOffset, c.maxDrawCount, c.stride);
+                else
+                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.countBufferOffset, c.stride);
             }
             break;
             case impl::ECT_SET_VIEWPORT:

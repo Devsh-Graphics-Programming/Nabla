@@ -556,8 +556,10 @@ namespace nbl {
 			}
 
 			virtual void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
-
 			virtual void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
+
+			virtual void extGlMultiDrawArraysIndirectCount(GLenum mode, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) = 0;
+			virtual void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) = 0;
 
 			virtual void extGlLogicOp(GLenum opcode) = 0;
 

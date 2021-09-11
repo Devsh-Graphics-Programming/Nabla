@@ -123,14 +123,18 @@ namespace impl
     {
         core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
-        uint32_t drawCount;
+        core::smart_refctd_ptr<const IGPUBuffer> countBuffer;
+        size_t countBufferOffset;
+        uint32_t maxDrawCount;
         uint32_t stride;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_DRAW_INDEXED_INDIRECT)
     {
         core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
-        uint32_t drawCount;
+        core::smart_refctd_ptr<const IGPUBuffer> countBuffer;
+        size_t countBufferOffset;
+        uint32_t maxDrawCount;
         uint32_t stride;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_VIEWPORT)
@@ -563,7 +567,9 @@ public:
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
-        cmd.drawCount = drawCount;
+        cmd.countBuffer = nullptr;
+        cmd.countBufferOffset = 0xdeadbeefBADC0FFEull;
+        cmd.maxDrawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
         return true;
@@ -573,7 +579,33 @@ public:
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
-        cmd.drawCount = drawCount;
+        cmd.countBuffer = nullptr;
+        cmd.countBufferOffset = 0xdeadbeefBADC0FFEull;
+        cmd.maxDrawCount = drawCount;
+        cmd.stride = stride;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    {
+        SCmd<impl::ECT_DRAW_INDIRECT> cmd;
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
+        cmd.offset = offset;
+        cmd.countBuffer = core::smart_refctd_ptr<const buffer_t>(countBuffer);
+        cmd.countBufferOffset = countBufferOffset;
+        cmd.maxDrawCount = maxDrawCount;
+        cmd.stride = stride;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    {
+        SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
+        cmd.offset = offset;
+        cmd.countBuffer = core::smart_refctd_ptr<const buffer_t>(countBuffer);
+        cmd.countBufferOffset = countBufferOffset;
+        cmd.maxDrawCount = maxDrawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
         return true;
