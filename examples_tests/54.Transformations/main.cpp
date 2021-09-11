@@ -766,7 +766,7 @@ int main()
 				scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
 				lcparams.cmdbuf = cb.get();
 				lcparams.tree = tt.get();
-				lcparams.fence = fence;
+				lcparams.fence = fence.get();
 				lcparams.dispatchDirect.nodeCount = ObjectCount; //???
 				lcparams.finalBarrier.dstStages = asset::EPSF_COMPUTE_SHADER_BIT;
 				lcparams.finalBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
@@ -781,7 +781,7 @@ int main()
 				scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
 				gparams.cmdbuf = cb.get();
 				gparams.tree = tt.get();
-				gparams.fence = fence;
+				gparams.fence = fence.get();
 				gparams.dispatchDirect.nodeCount = ObjectCount; //???
 				gparams.dispatchIndirect.buffer = nullptr;
 				gparams.finalBarrier.dstStages = asset::EPSF_VERTEX_SHADER_BIT;
