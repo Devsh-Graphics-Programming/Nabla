@@ -191,10 +191,13 @@ class CSubpassKiln
             if (begin==end)
                 return;
 
-            if (cmdbuf->getOriginDevice()->getPhysicalDevice()->getFeatures().multiDrawIndirect)
-                bake_subpass<true>(cmdbuf,begin,end);
+            const auto& features = cmdbuf->getOriginDevice()->getPhysicalDevice()->getFeatures();
+            const bool drawCountEnabled = features.drawIndirectCount;
+
+            if (features.multiDrawIndirect)
+                bake_impl<true>(drawCountEnabled,drawIndirectBuffer,drawCountBuffer)(cmdbuf,begin,end);
             else
-                bake_subpass<false>(cmdbuf,begin,end);
+                bake_impl<false>(drawCountEnabled,drawIndirectBuffer,drawCountBuffer)(cmdbuf,begin,end);
         }
 
     protected:
@@ -202,141 +205,150 @@ class CSubpassKiln
         uint64_t m_needsSorting = DefaultOrder::invalidTypeID;
 
         using call_iterator = typename decltype(m_drawCallMetadataStorage)::const_iterator;
-        template<bool coalesceDrawIndirects>
-        void bake(IGPUCommandBuffer* cmdbuf, const IGPUBuffer* drawIndirectBuffer, const IGPUBuffer* drawCountBuffer, call_iterator begin, const call_iterator end)
+        template<bool multiDrawEnabled>
+        struct bake_impl
         {
-            const bool multiDrawEnabled = cmdbuf->getOriginDevice()->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-            const bool drawCountEnabled = cmdbuf->getOriginDevice()->getPhysicalDevice()->getFeatures().drawIndirectCount;
+            public:
+                bake_impl(const bool _drawCountEnabled, const IGPUBuffer* _drawIndirectBuffer, const IGPUBuffer* _drawCountBuffer)
+                    : drawCountEnabled(_drawCountEnabled), drawIndirectBuffer(_drawIndirectBuffer), drawCountBuffer(_drawCountBuffer) {}
 
-            const IGPUGraphicsPipeline* pipeline = nullptr;
-            const uint8_t* pushConstants = nullptr;
-            const IGPUDescriptorSet* descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {nullptr};
-            const IGPUPipelineLayout* layout = nullptr;
-            const IGPUBuffer* vertexBindingBuffers[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {nullptr};
-            size_t vertexBindingOffsets[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {0ull};
-            const auto indexType = asset::EIT_UNKNOWN;
-            const IGPUBuffer* indexBuffer = nullptr;
-            size_t indexOffset = 0ull;
-            auto recordDraw = [&](const bool indexed, const uint32_t drawCallOffset, const uint32_t drawCountOffset, const uint32_t drawMaxCount, const uint32_t drawCommandStride) -> void
-            {
-                if (drawCountBuffer && drawCountOffset!=IDrawIndirectAllocator::invalid_draw_count_ix)
+                inline void operator()(IGPUCommandBuffer* cmdbuf, const call_iterator begin, const call_iterator end)
                 {
-                    assert(drawCountEnabled && multiDrawEnabled);
-                    if (indexed)
-                        cmdbuf->drawIndexedIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
-                    else
-                        cmdbuf->drawIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
-                }
-                else
-                {
-                    if (indexed)
+                    for (auto it=begin; it!=end;)
                     {
-                        if (multiDrawEnabled)
-                            cmdbuf->drawIndexedIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
-                        else
-                        for (auto i=0u; i<drawMaxCount; i++)
-                            cmdbuf->drawIndexedIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawElementsIndirectCommand_t));
-                    }
-                    else
-                    {
-                        if (multiDrawEnabled)
-                            cmdbuf->drawIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
-                        else
-                        for (auto i=0u; i<drawMaxCount; i++)
-                            cmdbuf->drawIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawArraysIndirectCommand_t));
-                    }
-                }
-            };
-            for (auto it=begin; it!=end;)
-            {
-                if (it->pipeline.get()!=pipeline)
-                {
-                    pipeline = it->pipeline.get();
-                    cmdbuf->bindGraphicsPipeline(pipeline);
-                }
-                assert(it->pipeline->getRenderpassIndependentPipeline()==pipeline->getRenderpassIndependentPipeline());
-                assert(it->pipeline->getSubpassIndex()==pipeline->getSubpassIndex());
-                for (; it!=end&&it->pipeline.get()==pipeline; it++)
-                {
-                    const auto currentLayout = pipeline->getRenderpassIndependentPipeline()->getLayout();
-                    // repush constants iff dirty
-                    bool incompatiblePushConstants = !layout || !layout->isCompatibleForPushConstants(currentLayout);
-                    const auto currentPushConstantRange = currentLayout->getPushConstantRanges();
-                    for (const auto& rng : currentPushConstantRange)
-                    {
-                        const uint8_t* src = it->pushConstantData+rng.offset;
-                        if (incompatiblePushConstants || memcmp(src,pushConstants+rng.offset,rng.size)!=0)
-                            cmdbuf->pushConstants(currentLayout,rng.stageFlags,rng.ofset,rng.size,src);
-                    }
-                    pushConstants = it->pushConstantData;
-                    // rebind descriptor sets iff dirty
-                    const auto unmodifiedSetCount = [&]() -> uint32_t
-                    {
-                        if (incompatiblePushConstants)
-                            return 0u;
-                        for (auto i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
-                        if (it->descriptorSets[i].get()!=descriptorSets[i])
-                            return i;
-                        return layout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1,currentLayout)+1;
-                    }();
-                    const auto nonNullDSEnd = [&]() -> uint32_t
-                    {
-                        for (auto i=unmodifiedSetCount; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
-                        if (!it->descriptorSets[i])
-                            return i;
-                        return IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
-                    }();
-                    if (nonNullDSEnd!=unmodifiedSetCount)
-                        cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,currentLayout,unmodifiedSetCount,nonNullDSEnd-unmodifiedSetCount,it->descriptorSets+unmodifiedSetCount,nullptr); // TODO: support dynamic offsets later
-                    for (auto i=unmodifiedSetCount; i<nonNullDSEnd; i++)
-                        descriptorSets[i] = it->descriptorSets[i].get();
-                    layout = currentLayout;
-                    // change vertex bindings iff dirty
-                    const auto unmodifiedBindingCount = [&]() -> uint32_t
-                    {
-                        for (auto i=0u; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
-                        if (it->vertexBufferBindings[i].buffer.get()!=vertexBindingBuffers[i] || it->vertexBufferBindings[i].offset!=vertexBindingOffsets[i])
-                            return i;
-                        return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
-                    }();
-                    const auto nonNullBindingEnd = [&]() -> uint32_t
-                    {
-                        for (auto i=unmodifiedBindingCount; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
-                        if (!it->vertexBufferBindings[i].buffer)
-                            return i;
-                        return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
-                    }();
-                    if (nonNullBindingEnd!=unmodifiedBindingCount)
-                        cmdbuf->bindVertexBuffers(unmodifiedBindingCount,nonNullBindingEnd-unmodifiedBindingCount,vertexBindingBuffers+unmodifiedBindingCount,vertexBindingOffsets+unmodifiedBindingCount);
-                    for (auto i=unmodifiedBindingCount; i<nonNullBindingEnd; i++)
-                    {
-                        vertexBindingBuffers[i] = it->vertexBufferBindings[i].buffer.get();
-                        vertexBindingOffsets[i] = it->vertexBufferBindings[i].offset;
-                    }
-                    // change index bindings iff dirty
-                    if (it->indexBufferBinding.buffer.get()!=indexBuffer || it->indexBufferBinding.offset!=indexOffset || it->indexType!=indexType)
-                    {
-                        switch (it->indexType)
+                        if (it->pipeline.get()!=pipeline)
                         {
-                            case asset::EIT_16BIT:
-                                [[fallthrough]]
-                            case asset::EIT_32BIT:
-                                indexType = static_cast<asset::E_INDEX_TYPE>(it->indexType);
-                                cmdbuf->bindIndexBuffer(it->indexBufferBinding.buffer.get(),it->indexBufferBinding.offset,indexType);
-                                break;
-                            default:
-                                cmdbuf->bindIndexBuffer(nullptr,0u,asset::EIT_UNKNOWN);
-                                indexType = asset::EIT_UNKNOWN;
-                                break;
+                            pipeline = it->pipeline.get();
+                            cmdbuf->bindGraphicsPipeline(pipeline);
                         }
-                        indexBuffer = it->indexBufferBinding.buffer.get();
-                        indexOffset = it->indexBufferBinding.offset;
+                        assert(it->pipeline->getRenderpassIndependentPipeline()==pipeline->getRenderpassIndependentPipeline());
+                        assert(it->pipeline->getSubpassIndex()==pipeline->getSubpassIndex());
+                        for (; it!=end&&it->pipeline.get()==pipeline; it++)
+                        {
+                            const auto currentLayout = pipeline->getRenderpassIndependentPipeline()->getLayout();
+                            // repush constants iff dirty
+                            bool incompatiblePushConstants = !layout || !layout->isCompatibleForPushConstants(currentLayout);
+                            const auto currentPushConstantRange = currentLayout->getPushConstantRanges();
+                            for (const auto& rng : currentPushConstantRange)
+                            {
+                                const uint8_t* src = it->pushConstantData+rng.offset;
+                                if (incompatiblePushConstants || memcmp(src,pushConstants+rng.offset,rng.size)!=0)
+                                    cmdbuf->pushConstants(currentLayout,rng.stageFlags,rng.ofset,rng.size,src);
+                            }
+                            pushConstants = it->pushConstantData;
+                            // rebind descriptor sets iff dirty
+                            const auto unmodifiedSetCount = [&]() -> uint32_t
+                            {
+                                if (incompatiblePushConstants)
+                                    return 0u;
+                                for (auto i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+                                if (it->descriptorSets[i].get()!=descriptorSets[i])
+                                    return i;
+                                return layout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1,currentLayout)+1;
+                            }();
+                            const auto nonNullDSEnd = [&]() -> uint32_t
+                            {
+                                for (auto i=unmodifiedSetCount; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+                                if (!it->descriptorSets[i])
+                                    return i;
+                                return IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+                            }();
+                            if (nonNullDSEnd!=unmodifiedSetCount)
+                                cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,currentLayout,unmodifiedSetCount,nonNullDSEnd-unmodifiedSetCount,it->descriptorSets+unmodifiedSetCount,nullptr); // TODO: support dynamic offsets later
+                            for (auto i=unmodifiedSetCount; i<nonNullDSEnd; i++)
+                                descriptorSets[i] = it->descriptorSets[i].get();
+                            layout = currentLayout;
+                            // change vertex bindings iff dirty
+                            const auto unmodifiedBindingCount = [&]() -> uint32_t
+                            {
+                                for (auto i=0u; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+                                if (it->vertexBufferBindings[i].buffer.get()!=vertexBindingBuffers[i] || it->vertexBufferBindings[i].offset!=vertexBindingOffsets[i])
+                                    return i;
+                                return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
+                            }();
+                            const auto nonNullBindingEnd = [&]() -> uint32_t
+                            {
+                                for (auto i=unmodifiedBindingCount; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+                                if (!it->vertexBufferBindings[i].buffer)
+                                    return i;
+                                return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
+                            }();
+                            if (nonNullBindingEnd!=unmodifiedBindingCount)
+                                cmdbuf->bindVertexBuffers(unmodifiedBindingCount,nonNullBindingEnd-unmodifiedBindingCount,vertexBindingBuffers+unmodifiedBindingCount,vertexBindingOffsets+unmodifiedBindingCount);
+                            for (auto i=unmodifiedBindingCount; i<nonNullBindingEnd; i++)
+                            {
+                                vertexBindingBuffers[i] = it->vertexBufferBindings[i].buffer.get();
+                                vertexBindingOffsets[i] = it->vertexBufferBindings[i].offset;
+                            }
+                            // change index bindings iff dirty
+                            if (it->indexBufferBinding.buffer.get()!=indexBuffer || it->indexBufferBinding.offset!=indexOffset || it->indexType!=indexType)
+                            {
+                                switch (it->indexType)
+                                {
+                                    case asset::EIT_16BIT:
+                                        [[fallthrough]]
+                                    case asset::EIT_32BIT:
+                                        indexType = static_cast<asset::E_INDEX_TYPE>(it->indexType);
+                                        cmdbuf->bindIndexBuffer(it->indexBufferBinding.buffer.get(),it->indexBufferBinding.offset,indexType);
+                                        break;
+                                    default:
+                                        cmdbuf->bindIndexBuffer(nullptr,0u,asset::EIT_UNKNOWN);
+                                        indexType = asset::EIT_UNKNOWN;
+                                        break;
+                                }
+                                indexBuffer = it->indexBufferBinding.buffer.get();
+                                indexOffset = it->indexBufferBinding.offset;
+                            }
+                            // now we're ready to record a few drawcalls
+                            const bool indexed = indexType!=asset::EIT_UNKNOWN;
+                            const uint32_t drawCallOffset=it->drawCallOffset, drawCountOffset=it->drawCountOffset, drawMaxCount=it->drawMaxCount, drawCommandStride=it->drawCommandStride;
+                            if (drawCountBuffer && drawCountOffset!=IDrawIndirectAllocator::invalid_draw_count_ix)
+                            {
+                                assert(drawCountEnabled && multiDrawEnabled);
+                                if (indexed)
+                                    cmdbuf->drawIndexedIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
+                                else
+                                    cmdbuf->drawIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
+                            }
+                            else
+                            {
+                                if (indexed)
+                                {
+                                    if constexpr (multiDrawEnabled)
+                                        cmdbuf->drawIndexedIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
+                                    else
+                                    for (auto i=0u; i<drawMaxCount; i++)
+                                        cmdbuf->drawIndexedIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawElementsIndirectCommand_t));
+                                }
+                                else
+                                {
+                                    if constexpr (multiDrawEnabled)
+                                        cmdbuf->drawIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
+                                    else
+                                    for (auto i=0u; i<drawMaxCount; i++)
+                                        cmdbuf->drawIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawArraysIndirectCommand_t));
+                                }
+                            }
+                        }
                     }
-                    // now we're ready
-                    recordDraw(indexType!=asset::EIT_UNKNOWN,it->drawCallOffset,it->drawCountOffset,it->drawMaxCount,it->drawCommandStride);
+                    return end;
                 }
-            }
-        }
+            private:
+                //
+                const bool drawCountEnabled;
+                const IGPUBuffer* drawIndirectBuffer;
+                const IGPUBuffer* drawCountBuffer;
+                //
+                const IGPUGraphicsPipeline* pipeline = nullptr;
+                const uint8_t* pushConstants = nullptr;
+                const IGPUDescriptorSet* descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {nullptr};
+                const IGPUPipelineLayout* layout = nullptr;
+                const IGPUBuffer* vertexBindingBuffers[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {nullptr};
+                size_t vertexBindingOffsets[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {0ull};
+                asset::E_INDEX_TYPE indexType = asset::EIT_UNKNOWN;
+                const IGPUBuffer* indexBuffer = nullptr;
+                size_t indexOffset = 0ull;
+        };
 };
 
 }

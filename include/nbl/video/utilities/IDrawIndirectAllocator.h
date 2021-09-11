@@ -159,6 +159,8 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
             }
         }
 
+        // TODO: transfers of contents to allocated (weird SoA emulation required)
+
         //
         inline void clear()
         {
