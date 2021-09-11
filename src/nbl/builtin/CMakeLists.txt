@@ -110,6 +110,15 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
   ##"nbl/builtin/glsl/subgroup/fft.glsl"
+  #
+  "nbl/builtin/glsl/transform_tree/global_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_update_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
+  "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_modification.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update_common.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update_descriptor_set.glsl"
   # utilities
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"

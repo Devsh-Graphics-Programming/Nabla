@@ -79,7 +79,8 @@ int main(int argc, char** argv)
 	auto windowCb = std::move(initOutput.windowCb);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
-	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);===
+    
 	auto device = std::move(initOutput.logicalDevice);
 	auto utilities = std::move(initOutput.utilities);
 	auto queues = std::move(initOutput.queues);
