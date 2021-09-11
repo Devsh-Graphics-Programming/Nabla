@@ -17,6 +17,13 @@ namespace nbl::video
 class ISubpassKiln : public core::IReferenceCounted
 {
     public:
+        // for finding upper and lower bounds of subpass drawcalls
+        struct SearchObject
+        {
+            const IGPURenderpass* renderpass;
+            uint32_t subpassIndex;
+        };
+        //
         struct DrawcallInfo
         {
             public:
@@ -25,10 +32,11 @@ class ISubpassKiln : public core::IReferenceCounted
                 core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSets[4] = {};
                 asset::SBufferBinding<IGPUBuffer> vertexBufferBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
                 asset::SBufferBinding<IGPUBuffer> indexBufferBinding;
+                uint32_t drawCommandStride : 31;
+                uint32_t isIndexed : 1;
                 uint32_t drawCountOffset = IDrawIndirectAllocator::invalid_draw_count_ix;
                 uint32_t drawCallOffset;
                 uint32_t drawMaxCount = 0u;
-                // 4 bytes of padding remain
 
                 inline bool operator<(const DrawcallInfo& rhs) const
                 {
@@ -38,6 +46,19 @@ class ISubpassKiln : public core::IReferenceCounted
                 {
                     return chainComparator<true,std::equal_to>(rhs);
                 }
+
+                struct renderpass_subpass_comp
+                {
+                    inline bool operator()(const DrawcallInfo& lhs, const SearchObject& rhs)
+                    {
+                        const auto renderpass = lhs.pipeline->getRenderpass();
+                        if (lhs.pipeline->getRenderpass()==rhs.renderpass)
+                        {
+                            return lhs.pipeline->getSubpassIndex()<rhs.subpassIndex;
+                        }
+                        return renderpass<rhs.renderpass;
+                    }
+                };
 
             private:
                 template<bool equalRetval, template<class> class Cmp>
@@ -98,17 +119,25 @@ class ISubpassKiln : public core::IReferenceCounted
                                         if (indexBufferBinding.offset==rhs.indexBufferBinding.offset)
                                         {
                                             // then drawcall stuff
-                                            if (drawCountOffset==rhs.drawCountOffset)
+                                            if (isIndexed==rhs.isIndexed)
                                             {
-                                                if (drawCallOffset==rhs.drawCallOffset)
+                                                if (drawCommandStride==rhs.drawCommandStride)
                                                 {
-                                                    if (drawMaxCount==rhs.drawMaxCount)
-                                                        return equalRetval;
-                                                    return Cmp<uint32_t>()(drawMaxCount,rhs.drawMaxCount);
+                                                    if (drawCountOffset==rhs.drawCountOffset)
+                                                    {
+                                                        if (drawCallOffset==rhs.drawCallOffset)
+                                                        {
+                                                            if (drawMaxCount==rhs.drawMaxCount)
+                                                                return equalRetval;
+                                                            return Cmp<uint32_t>()(drawMaxCount,rhs.drawMaxCount);
+                                                        }
+                                                        return Cmp<uint32_t>()(drawCallOffset,rhs.drawCallOffset);
+                                                    }
+                                                    return Cmp<uint32_t>()(drawCountOffset,rhs.drawCountOffset);
                                                 }
-                                                return Cmp<uint32_t>()(drawCallOffset,rhs.drawCallOffset);
+                                                return Cmp<uint32_t>()(drawCommandStride,rhs.drawCommandStride);
                                             }
-                                            return Cmp<uint32_t>()(drawCountOffset,rhs.drawCountOffset);
+                                            return Cmp<uint32_t>()(isIndexed,rhs.isIndexed);
                                         }
                                         return Cmp<uint64_t>()(indexBufferBinding.offset,rhs.indexBufferBinding.offset);
                                     }
@@ -123,6 +152,9 @@ class ISubpassKiln : public core::IReferenceCounted
                     return Cmp<const void*>()(pipeline->getRenderpass(),rhs.pipeline->getRenderpass());
                 }
         };
+
+        //
+        virtual void bake(IGPUCommandBuffer* cmdbuf, const IGPURenderpass* renderpass, const uint32_t subpassIndex) =0;
 };
 
 }
