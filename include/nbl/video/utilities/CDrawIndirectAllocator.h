@@ -24,9 +24,10 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             if (!params.device || params.drawCommandCapacity==0u)
                 return nullptr;
 
-            const auto& limits = params.device->getPhysicalDevice()->getLimits();
-            if (limits.drawIndirectCount)
+            const auto& features = params.device->getPhysicalDevice()->getFeatures();
+            if (features.drawIndirectCount)
                 params.drawCountCapacity = 0;
+            const auto& limits = params.device->getPhysicalDevice()->getLimits();
             
             ExplicitBufferCreationParameters explicit_params;
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);

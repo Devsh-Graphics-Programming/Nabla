@@ -63,7 +63,6 @@ public:
         bool robustBufferAccess = false;
         bool imageCubeArray = false;
         bool logicOp = false;
-        bool multiDrawIndirect = false;
         bool multiViewport = false;
         bool vertexAttributeDouble = false;
         bool dispatchBase = false;

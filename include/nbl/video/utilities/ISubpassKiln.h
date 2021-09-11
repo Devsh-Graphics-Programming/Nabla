@@ -8,6 +8,8 @@
 
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
 
+#include <functional>
+
 
 namespace nbl::video
 {
@@ -17,7 +19,7 @@ class ISubpassKiln : public core::IReferenceCounted
     public:
         struct DrawcallInfo
         {
-            alignas(16) pushConstantData[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE]; // could try to push it to 64, if we had containers capable of such allocations
+            alignas(16) uint8_t pushConstantData[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE]; // could try to push it to 64, if we had containers capable of such allocations
             core::smart_refctd_ptr<IGPUGraphicsPipeline> pipeline;
             core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSets[4] = {};
             asset::SBufferBinding<IGPUBuffer> m_vertexBufferBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
@@ -37,16 +39,16 @@ class ISubpassKiln : public core::IReferenceCounted
             template<bool equalRetval, template<class> class op>
             inline bool chainComparator(const DrawcallInfo& rhs) const // why isnt something like this in the STL?
             {
-                if (orderNumber!=rhs.orderNumber)
+                if (orderNumber==rhs.orderNumber)
                 {/*
                     auto layout = pipeline->;
                     if ()
                     {
                         return op<>(drawCallOffset,rhs.drawCallOffset);
                     }*/
-                    return op<>(orderNumber,rhs.orderNumber);
+                    return false;
                 }
-                return equalRetval;
+                return op<decltype(orderNumber)>()(orderNumber,rhs.orderNumber);
             }
         };
 };
