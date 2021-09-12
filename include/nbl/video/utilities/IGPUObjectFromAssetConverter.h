@@ -1642,11 +1642,11 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
     {
         const asset::ICPUAccelerationStructure* cpuas = _begin[i];
 
-        if(cpuas->getBuildInfo() != nullptr)
+        if(cpuas->hasBuildInfo())
         {
             // Add to toBuild vector of ICPUAccelerationStructure
             toCreateAndBuild.push_back(cpuas);
-            buildRangeInfos.push_back(const_cast<IGPUAccelerationStructure::BuildRangeInfo*>(cpuas->getBuildRangesPtr()));
+            buildRangeInfos.push_back(const_cast<IGPUAccelerationStructure::BuildRangeInfo*>(cpuas->getBuildRanges().begin()));
         }
         else if(cpuas->getAccelerationStructureSize() > 0)
         {
@@ -1676,8 +1676,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
                 auto buildInfo = cpuas->getBuildInfo();
                 assert(buildInfo != nullptr);
 
-                auto geoms = buildInfo->geometries.begin();
-                auto geomsCount = buildInfo->geometries.size();
+                auto geoms = buildInfo->getGeometries().begin();
+                auto geomsCount = buildInfo->getGeometries().size();
+                if(geomsCount == 0)
+                {
+                    assert(false);
+                    continue;
+                }
+
                 for(uint32_t g = 0; g < geomsCount; ++g) 
                 {
                     const auto& geom = geoms[g];
@@ -1731,9 +1737,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
                 gpuBuildInfo.srcAS = nullptr;
                 gpuBuildInfo.dstAS = nullptr;
                 gpuBuildInfo.scratchAddr = {};
-
-                auto cpu_geoms = cpuBuildInfo->geometries.begin();
-                auto geomsCount = cpuBuildInfo->geometries.size();
+                
+                auto cpu_geoms = cpuBuildInfo->getGeometries().begin();
+                auto geomsCount = cpuBuildInfo->getGeometries().size();
+                if(geomsCount == 0)
+                {
+                    assert(false);
+                    continue;
+                }
 
                 size_t startGeom = gpuGeoms.size();
                 size_t endGeom = gpuGeoms.size() + geomsCount;
@@ -1805,7 +1816,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             for (ptrdiff_t i = 0u, toBuildIndex = 0u; i < assetCount; ++i)
             {
                 const asset::ICPUAccelerationStructure* cpuas = _begin[i];
-                if(cpuas->getBuildInfo() == nullptr)
+                if(cpuas->hasBuildInfo() == false)
                 {
                     // Only those with buildInfo (index in toCreateAndBuild vector) will get passed
                     continue;

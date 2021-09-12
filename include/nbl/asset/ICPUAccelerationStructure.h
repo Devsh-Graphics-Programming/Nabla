@@ -37,17 +37,24 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		template<typename AddressType>
 		struct BuildGeometryInfo
 		{
+			using Geom = Geometry<AddressType>;
 			BuildGeometryInfo() 
 				: type(static_cast<Base::E_TYPE>(0u))
 				, buildFlags(static_cast<E_BUILD_FLAGS>(0u))
 				, buildMode(static_cast<E_BUILD_MODE>(0u))
-				, geometries(core::SRange<Geometry<AddressType>>(nullptr, nullptr))
 			{}
 			~BuildGeometryInfo() = default;
 			Base::E_TYPE	type; // TODO: Can deduce from creationParams.type?
 			E_BUILD_FLAGS	buildFlags;
 			E_BUILD_MODE	buildMode;
-			core::SRange<Geometry<AddressType>> geometries;
+			core::smart_refctd_dynamic_array<Geom> geometries;
+			
+			inline const core::SRange<Geom> getGeometries() const 
+			{ 
+				if (geometries)
+					return {geometries->begin(), geometries->end()};
+				return {nullptr,nullptr};
+			}
 		};
 		using HostBuildGeometryInfo = BuildGeometryInfo<HostAddressType>;
 
@@ -73,23 +80,40 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 
 		ICPUAccelerationStructure(SCreationParams&& _params) 
 			: params(std::move(_params))
+			, m_hasBuildInfo(false)
+			, m_accelerationStructureSize(0)
 		{}
 
 		inline void setAccelerationStructureSize(uint64_t accelerationStructureSize) { m_accelerationStructureSize = accelerationStructureSize; }
 		inline uint64_t getAccelerationStructureSize() const { return m_accelerationStructureSize; }
 
-		inline void setBuildInfoAndRanges(HostBuildGeometryInfo* buildInfo, const core::SRange<BuildRangeInfo>& buildRangeInfos)
+		inline void setBuildInfoAndRanges(HostBuildGeometryInfo&& buildInfo, const core::smart_refctd_dynamic_array<BuildRangeInfo>& buildRangeInfos)
 		{
-			m_buildInfo = buildInfo;
-			m_buildRangeInfo = buildRangeInfos.begin();
-			m_buildRangeInfoCount = buildRangeInfos.size(); // is m_buildRangeInfoCount needed? just for validation
-			assert(buildInfo->geometries.size() == m_buildRangeInfoCount);
+			assert(buildInfo.geometries.size() == m_buildRangeInfoCount);
+			// assert(validateBuildInfo(buildInfo));
+
+			m_buildInfo = std::move(buildInfo);
+			m_buildRangeInfos = buildRangeInfos;
+			m_hasBuildInfo = true;
 		}
 
-		inline const BuildRangeInfo* getBuildRangesPtr() const { return m_buildRangeInfo; }
-		inline const HostBuildGeometryInfo* getBuildInfo() const { return m_buildInfo; }
-		inline const uint32_t getBuildRangesCount() const { return m_buildRangeInfoCount; }
-		inline const core::SRange<const BuildRangeInfo> getBuildRanges() const { return core::SRange<const BuildRangeInfo>(m_buildRangeInfo, m_buildRangeInfo + m_buildRangeInfoCount); }
+		inline const core::SRange<const BuildRangeInfo> getBuildRanges() const 
+		{ 
+			if (m_buildRangeInfos)
+				return {m_buildRangeInfos->begin(),m_buildRangeInfos->end()};
+			return {nullptr,nullptr};
+		}
+		
+		inline const uint32_t getBuildRangesCount() const { return getBuildRanges().size(); }
+
+		inline const HostBuildGeometryInfo* getBuildInfo() const 
+		{
+			if(hasBuildInfo())
+				return &m_buildInfo; 
+			else
+				return nullptr;
+		}
+		inline const bool hasBuildInfo() const {return m_hasBuildInfo;};
 
 		//!
 		size_t conservativeSizeEstimate() const override
@@ -147,13 +171,20 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 
 		virtual ~ICPUAccelerationStructure() = default;
 
+		inline bool validateBuildInfo()
+		{
+			return false;
+		}
+
 	private:
 		SCreationParams params;
+
 		uint64_t m_accelerationStructureSize;
 
-		HostBuildGeometryInfo* m_buildInfo;
-		BuildRangeInfo* m_buildRangeInfo = nullptr;
-		uint32_t m_buildRangeInfoCount = 0;
+		bool m_hasBuildInfo = false;
+		HostBuildGeometryInfo m_buildInfo;
+		
+		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
 };
 
 }
