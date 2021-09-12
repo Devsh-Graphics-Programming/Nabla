@@ -18,21 +18,25 @@ class ILogicalDevice;
 class CVulkanImage : public IGPUImage
 {
 	public:
-		// CVulkanImage(ILogicalDevice* _vkdev, IGPUImage::SCreationParams&& _params);
-		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev, IGPUImage::SCreationParams&& _params, VkImage _vkimg) :
-			IGPUImage(std::move(_vkdev), std::move(_params)), m_vkImage(_vkimg)
+		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
+			IGPUImage::SCreationParams&& _params, VkImage _vkimg,
+			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
+			: IGPUImage(std::move(_vkdev), std::move(_params), reqs), m_vkImage(_vkimg)
 		{}
 
 		inline VkImage getInternalObject() const { return m_vkImage; }
 
-		// Todo(achal)
-		inline IDriverMemoryAllocation* getBoundMemory() override { return nullptr; }
-		inline const IDriverMemoryAllocation* getBoundMemory() const override { return nullptr; }
-		inline size_t getBoundMemoryOffset() const override { return 0ull; }
+		inline IDriverMemoryAllocation* getBoundMemory() override { return m_memory.get(); }
+
+		inline const IDriverMemoryAllocation* getBoundMemory() const override { return m_memory.get(); }
+
+		inline size_t getBoundMemoryOffset() const override { return m_memBindingOffset; }
 
 	protected:
 		virtual ~CVulkanImage();
 
+		core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;
+		uint64_t m_memBindingOffset;
 		VkImage m_vkImage;
 };
 

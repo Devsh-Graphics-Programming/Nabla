@@ -470,7 +470,71 @@ int main()
 			device->unmapMemory(memRange.memory);
 		}
 
-		// asset::SBufferCopy 
+		const uint32_t mipLevels = 1u;
+		std::vector<asset::IImage::SBufferCopy> copyRegions(mipLevels);
+		for (size_t i = 0ull; i < copyRegions.size(); ++i)
+		{
+			copyRegions[i].bufferOffset = 0ull;
+			// If "setting this to different from 0 can fail an image copy on OpenGL", then
+			// it could cause problems???
+			copyRegions[i].bufferRowLength = 0ull;
+			// If "setting this to different from 0 can fail an image copy on OpenGL", then
+			// it could cause problems???
+			copyRegions[i].bufferImageHeight = 0ull;
+			copyRegions[i].imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			copyRegions[i].imageSubresource.mipLevel = i;
+			copyRegions[i].imageSubresource.baseArrayLayer = 0u;
+			copyRegions[i].imageSubresource.layerCount = 1u;
+			copyRegions[i].imageOffset = { 0u,0u,0u };
+			copyRegions[i].imageExtent = { imageWidth, imageHeight, 1u };
+		}
+
+		// Actually create the image, its memory and bind
+		// Todo(achal): Use createGPUImageOnDedMem
+		{
+			video::IGPUImage::SCreationParams creationParams = {};
+			creationParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+			creationParams.type = asset::IImage::ET_2D;
+			asset::E_FORMAT imageFormat = asset::EF_R8G8B8A8_UNORM;
+			{
+				// Todo(achal): Need to wrap this up
+				VkFormatProperties formatProps;
+				vkGetPhysicalDeviceFormatProperties(
+					static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
+					video::getVkFormatFromFormat(imageFormat), &formatProps);
+				assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
+			}
+			creationParams.format = imageFormat;
+			creationParams.extent = { imageWidth, imageHeight, 1u };
+			creationParams.mipLevels = mipLevels;
+			creationParams.arrayLayers = 1u;
+			creationParams.samples = asset::IImage::ESCF_1_BIT;
+			creationParams.tiling = asset::IImage::ET_OPTIMAL;
+			creationParams.usage = asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT;
+			creationParams.sharingMode = asset::ESM_EXCLUSIVE;
+			creationParams.queueFamilyIndexCount = 0u;
+			creationParams.queueFamilyIndices = nullptr;
+			creationParams.initialLayout = asset::EIL_UNDEFINED; // trash any previous image contents
+
+			inImage = device->createGPUImage(std::move(creationParams));
+
+			// Allocate GPU memory for image
+			video::IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = inImage->getMemoryReqs();
+			imageMemReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+			imageMemReqs.mappingCapability = 0u;
+			auto imageMem = device->allocateGPUMemory(imageMemReqs);
+			assert(imageMem);
+
+			video::ILogicalDevice::SBindImageMemoryInfo bindInfo = {};
+			bindInfo.image = inImage.get();
+			bindInfo.memory = imageMem.get();
+			bindInfo.offset = 0ull;
+
+			bool bindSuccessful = device->bindImageMemory(1u, &bindInfo);
+			assert(bindSuccessful);
+		}
+
+
 
 		// I have a single queue family right now both for compute and present
 		// at index 0
@@ -480,36 +544,9 @@ int main()
 		assert(copyCmdBuf);
 
 		copyCmdBuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
+		// copyCmdBuf->copyBufferToImage()
 
 		copyCmdBuf->end();
-
-		video::IGPUImage::SCreationParams imageCreationParams = {};
-		imageCreationParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-		imageCreationParams.type = asset::IImage::ET_2D;
-		asset::E_FORMAT imageFormat = asset::EF_R8G8B8A8_UNORM;
-		{
-			// Todo(achal): Need to wrap this up
-			VkFormatProperties formatProps;
-			vkGetPhysicalDeviceFormatProperties(
-				static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
-				video::getVkFormatFromFormat(imageFormat), &formatProps);
-			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
-		}
-		imageCreationParams.format = imageFormat;
-		imageCreationParams.extent = { WIN_W, WIN_H, 1u };
-		imageCreationParams.mipLevels = 1u;
-		imageCreationParams.arrayLayers = 1u;
-		imageCreationParams.samples = asset::IImage::ESCF_1_BIT;
-		imageCreationParams.tiling = asset::IImage::ET_OPTIMAL;
-		imageCreationParams.usage = asset::IImage::EUF_STORAGE_BIT;
-		imageCreationParams.sharingMode = asset::ESM_EXCLUSIVE;
-		imageCreationParams.queueFamilyIndexCount = 0u;
-		imageCreationParams.queueFamilyIndices = nullptr;
-		imageCreationParams.initialLayout = asset::EIL_UNDEFINED; // trash any previous image contents
-
-		// Todo(achal): Use createGPUImageOnDedMem
-		inImage = device->createGPUImage(std::move(imageCreationParams));
 	}
 	assert(inImage);
 	free(imagePixels);

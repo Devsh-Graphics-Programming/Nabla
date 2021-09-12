@@ -612,8 +612,28 @@ public:
         VkImage vk_image;
         if (vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                std::move(params), vk_image);
+            VkImageMemoryRequirementsInfo2 vk_memReqsInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 };
+            vk_memReqsInfo.pNext = nullptr;
+            vk_memReqsInfo.image = vk_image;
+
+            VkMemoryDedicatedRequirements vk_memDedReqs = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
+            VkMemoryRequirements2 vk_memReqs = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+            vk_memReqs.pNext = &vk_memDedReqs;
+
+            vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
+
+            IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
+            imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
+            imageMemReqs.vulkanReqs.size = vk_memReqs.memoryRequirements.size;
+            imageMemReqs.vulkanReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
+            imageMemReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+            imageMemReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+            imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
+            imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
+
+            return core::make_smart_refctd_ptr<CVulkanImage>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
+                vk_image, imageMemReqs);
         }
         else
         {
@@ -799,6 +819,9 @@ public:
 
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(
         const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
+
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) override;
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
@@ -1332,9 +1355,8 @@ protected:
     {
         return false;
     }
-            
+
 private:
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs);
 
     inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDriverMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDriverMemoryAllocation::MappedMemoryRange* inRangeEnd)
     {
