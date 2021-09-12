@@ -42,6 +42,7 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 				: type(static_cast<Base::E_TYPE>(0u))
 				, buildFlags(static_cast<E_BUILD_FLAGS>(0u))
 				, buildMode(static_cast<E_BUILD_MODE>(0u))
+				, geometries(nullptr)
 			{}
 			~BuildGeometryInfo() = default;
 			Base::E_TYPE	type; // TODO: Can deduce from creationParams.type?
@@ -82,6 +83,7 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 			: params(std::move(_params))
 			, m_hasBuildInfo(false)
 			, m_accelerationStructureSize(0)
+			, m_buildRangeInfos(nullptr)
 		{}
 
 		inline void setAccelerationStructureSize(uint64_t accelerationStructureSize) { m_accelerationStructureSize = accelerationStructureSize; }
@@ -89,9 +91,7 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 
 		inline void setBuildInfoAndRanges(HostBuildGeometryInfo&& buildInfo, const core::smart_refctd_dynamic_array<BuildRangeInfo>& buildRangeInfos)
 		{
-			assert(buildInfo.geometries.size() == m_buildRangeInfoCount);
-			// assert(validateBuildInfo(buildInfo));
-
+			assert(validateBuildInfoAndRanges(std::move(buildInfo), buildRangeInfos));
 			m_buildInfo = std::move(buildInfo);
 			m_buildRangeInfos = buildRangeInfos;
 			m_hasBuildInfo = true;
@@ -118,31 +118,53 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		//!
 		size_t conservativeSizeEstimate() const override
 		{
-			return sizeof(SCreationParams);
+			size_t buildInfoSize = m_buildInfo.getGeometries().size() * sizeof(HostBuildGeometryInfo::Geom); 
+			size_t buildRangesSize = getBuildRanges().size() * sizeof(BuildRangeInfo); 
+			return sizeof(ICPUAccelerationStructure)+buildInfoSize+buildRangesSize;
 		}
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
-			return nullptr; //TODO
+			auto par = params;
+			auto cp = core::smart_refctd_ptr<ICPUAccelerationStructure>(new ICPUAccelerationStructure(std::move(par)), core::dont_grab);
+			clone_common(cp.get());
+			
+			cp->m_accelerationStructureSize = this->m_accelerationStructureSize;
+			if(this->hasBuildInfo())
+			{
+				cp->m_hasBuildInfo = true;
+				// TODO: should I clone each buffer of each geometry and clone every geom in build info?
+				cp->m_buildInfo = this->m_buildInfo; // no need to copy cp->m_buildInfo.geometries because m_buildInfo.geometries is a `core::smart_refctd_dynamic_array`
+				cp->m_buildRangeInfos = this->m_buildRangeInfos; // no need to copy because this is  `core::smart_refctd_dynamic_array`
+			}
+
+			return cp;
 		}
 
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			return; //TODO
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+			m_buildInfo = {}; // TODO: should I convert each geometries buffers to dummies?
+			if (canBeConvertedToDummy())
+				m_buildRangeInfos = nullptr;
 		}
 		
 		//!
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUAccelerationStructure*>(_other);
-			const auto& rhs = other->params;
 
-			if (params.flags != rhs.flags)
+			if (params.flags != other->params.flags)
 				return false;
-			if (params.type != rhs.type)
+			if (params.type != other->params.type)
 				return false;
-			 //TODO
+			if(m_hasBuildInfo != other->m_hasBuildInfo)
+				return false;
+			if(m_hasBuildInfo)
+			{
+				// TODO: Should I also check details around buildInfo?
+			}
 			return true;
 		}
 
@@ -156,24 +178,34 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUAccelerationStructure*>(_other);
+			
+			const bool restorable = willBeRestoredFrom(_other);
+			
+			// TODO?
+			if (restorable)
+				std::swap(m_buildRangeInfos, other->m_buildRangeInfos);
 
 			if (_levelsBelow)
-			{
-				//TODO
-			}
+			{			}
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{
-			// TODO
+			// TODO?
 			return false;
 		}
 
 		virtual ~ICPUAccelerationStructure() = default;
-
-		inline bool validateBuildInfo()
+		
+		inline bool validateBuildInfoAndRanges(HostBuildGeometryInfo&& buildInfo, const core::smart_refctd_dynamic_array<BuildRangeInfo>& buildRangeInfos)
 		{
-			return false;
+			// Validate
+			return 
+				(buildRangeInfos->empty() == false) &&
+				(buildInfo.getGeometries().size() > 0) &&
+				(buildInfo.getGeometries().size() == buildRangeInfos->size()) &&
+				(buildInfo.type == params.type) &&
+				(buildInfo.buildMode == IAccelerationStructure::EBM_BUILD);
 		}
 
 	private:
