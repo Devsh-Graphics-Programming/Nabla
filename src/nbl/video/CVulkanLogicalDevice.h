@@ -643,24 +643,29 @@ public:
 
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
     {
+        bool anyFailed = false;
         for (uint32_t i = 0u; i < bindInfoCount; ++i)
         {
-            if (pBindInfos[i].image->getAPIType() != EAT_VULKAN)
+            const auto& bindInfo = pBindInfos[i];
+
+            if ((bindInfo.image->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
-            VkImage vk_image = static_cast<const CVulkanImage*>(pBindInfos[i].image)->getInternalObject();
 
-            // if (pBindInfos[i].memory->getAPIType() != EAT_VULKAN)
-            //     continue;
-            VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
+            CVulkanImage* vulkanImage = static_cast<CVulkanImage*>(bindInfo.image);
+            vulkanImage->setMemoryAndOffset(
+                core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory),
+                bindInfo.offset);
 
-            if (vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory,
-                static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
+            VkImage vk_image = vulkanImage->getInternalObject();
+            VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(bindInfo.memory)->getInternalObject();
+            if (vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) != VK_SUCCESS)
             {
-                return false;
+                // Todo(achal): Log which one failed
+                anyFailed = true;
             }
         }
 
-        return true;
+        return !anyFailed;
     }
             
     core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override

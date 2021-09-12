@@ -32,6 +32,12 @@ class CVulkanImage : public IGPUImage
 
 		inline size_t getBoundMemoryOffset() const override { return m_memBindingOffset; }
 
+		inline void setMemoryAndOffset(core::smart_refctd_ptr<IDriverMemoryAllocation>&& memory, uint64_t memBindingOffset)
+		{
+			m_memory = std::move(memory);
+			m_memBindingOffset = memBindingOffset;
+		}
+
 	protected:
 		virtual ~CVulkanImage();
 

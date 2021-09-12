@@ -312,12 +312,6 @@ int main()
 	video::IGPUQueue* computeQueue = device->getQueue(computeFamilyIndex, 0u);
 	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
 
-	// Todo(achal): We might want to check if: VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT and
-	// VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT are supported for current surface format
-	// and current physical device. In fact, we might want to put this up as a criteria
-	// for making the physical device suitable. I'm not sure if we really have to do this
-	// since I can't seem to find a way to query tiling for swapchain images
-
 	nbl::video::ISwapchain::SCreationParams scParams = {};
 	scParams.surface = surface;
 	scParams.minImageCount = minSwapchainImageCount;
@@ -445,7 +439,7 @@ int main()
 		{
 			video::IGPUBuffer::SCreationParams params = {};
 			params.size = imageWidth * imageHeight * imageChannelCount * sizeof(uint8_t);
-			params.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+			params.usage = video::IGPUBuffer::EUF_TRANSFER_SRC_BIT;
 			params.sharingMode = asset::ESM_EXCLUSIVE;
 			params.queueFamilyIndexCount = 0u;
 			params.queuueFamilyIndices = nullptr;
@@ -534,8 +528,6 @@ int main()
 			assert(bindSuccessful);
 		}
 
-
-
 		// I have a single queue family right now both for compute and present
 		// at index 0
 		auto copyCmdPool = device->createCommandPool(0u, 0u);
@@ -544,7 +536,27 @@ int main()
 		assert(copyCmdBuf);
 
 		copyCmdBuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-		// copyCmdBuf->copyBufferToImage()
+
+		video::IGPUCommandBuffer::SImageMemoryBarrier undefToTransferDst = {};
+		undefToTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+		undefToTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+		undefToTransferDst.oldLayout = asset::EIL_UNDEFINED;
+		undefToTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+		undefToTransferDst.srcQueueFamilyIndex = ~0u;
+		undefToTransferDst.dstQueueFamilyIndex = ~0u;
+		undefToTransferDst.image = inImage;
+		undefToTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		undefToTransferDst.subresourceRange.baseMipLevel = 0u;
+		undefToTransferDst.subresourceRange.levelCount = mipLevels;
+		undefToTransferDst.subresourceRange.baseArrayLayer = 0u;
+		undefToTransferDst.subresourceRange.layerCount = 1u;
+
+		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, 0,
+			0u, nullptr, 0u, nullptr, 1u, &undefToTransferDst);
+
+		copyCmdBuf->copyBufferToImage(stagingBuffer.get(), inImage.get(),
+			asset::EIL_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(copyRegions.size()),
+			copyRegions.data());
 
 		copyCmdBuf->end();
 	}

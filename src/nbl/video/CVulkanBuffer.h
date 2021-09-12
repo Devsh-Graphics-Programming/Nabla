@@ -39,7 +39,7 @@ public:
         return m_memBindingOffset;
     }
 
-    void setMemoryAndOffset(core::smart_refctd_ptr<IDriverMemoryAllocation>&& memory, uint64_t memBindingOffset)
+    inline void setMemoryAndOffset(core::smart_refctd_ptr<IDriverMemoryAllocation>&& memory, uint64_t memBindingOffset)
     {
         m_memory = std::move(memory);
         m_memBindingOffset = memBindingOffset;
