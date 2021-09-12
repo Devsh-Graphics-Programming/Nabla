@@ -45,14 +45,7 @@ const char* src = R"(#version 450
 // layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (set = 0, binding = 0, rgba8) uniform writeonly image2D outImage;
-
-layout (set = 0, binding = 1) uniform UniformBufferObject
-{
-	float r;
-	float g;
-	float b;
-	float a;
-} ubo;
+layout (set = 0, binding = 1, rgba8) uniform readonly image2D inImage;
 
 void main()
 {
@@ -61,7 +54,8 @@ void main()
 		// vec3 rgb = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
 		
 		// imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 0, 1, 1));
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(ubo.r, ubo.g, ubo.b, ubo.a));
+		vec4 inColor = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy));
+		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), inColor);
 	}
 })";
 #endif
@@ -383,7 +377,7 @@ int main()
 
 		// ubo
 		bindings[1].binding = 1u;
-		bindings[1].type = asset::EDT_UNIFORM_BUFFER;
+		bindings[1].type = asset::EDT_STORAGE_IMAGE;
 		bindings[1].count = 1u;
 		bindings[1].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 		bindings[1].samplers = nullptr;
@@ -391,13 +385,10 @@ int main()
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
 		device->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
-	const uint32_t descriptorPoolSizeCount = 2u;
+	const uint32_t descriptorPoolSizeCount = 1u;
 	video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
 	poolSizes[0].type = asset::EDT_STORAGE_IMAGE;
-	poolSizes[0].count = swapchainImageCount;
-	poolSizes[1].type = asset::EDT_UNIFORM_BUFFER;
-	// poolSizes[1].count = swapchainImageCount;
-	poolSizes[1].count = 1u;
+	poolSizes[0].count = swapchainImageCount + 1u;
 
 	video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
 		static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
@@ -558,14 +549,58 @@ int main()
 			asset::EIL_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(copyRegions.size()),
 			copyRegions.data());
 
+		video::IGPUCommandBuffer::SImageMemoryBarrier transferDstToGeneral = {};
+		transferDstToGeneral.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+		transferDstToGeneral.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		transferDstToGeneral.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+		transferDstToGeneral.newLayout = asset::EIL_GENERAL;
+		transferDstToGeneral.srcQueueFamilyIndex = ~0u;
+		transferDstToGeneral.dstQueueFamilyIndex = ~0u;
+		transferDstToGeneral.image = inImage;
+		transferDstToGeneral.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		transferDstToGeneral.subresourceRange.baseMipLevel = 0u;
+		transferDstToGeneral.subresourceRange.levelCount = mipLevels;
+		transferDstToGeneral.subresourceRange.baseArrayLayer = 0u;
+		transferDstToGeneral.subresourceRange.layerCount = 1u;
+
+		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, 0,
+			0u, nullptr, 0u, nullptr, 1u, &transferDstToGeneral);
+
 		copyCmdBuf->end();
+
+		// Execute the command buffer
+		auto fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0u));
+
+		video::IGPUQueue::SSubmitInfo submitInfo = {};
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.commandBuffers = &copyCmdBuf.get();
+
+		computeQueue->submit(1u, &submitInfo, fence.get());
+
+		device->waitForFences(1u, &fence.get(), true, ~0ull);
 	}
 	assert(inImage);
 	free(imagePixels);
 
+	// Create an image view for input image
+	core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
+	{
+		video::IGPUImageView::SCreationParams viewParams;
+		viewParams.format = inImage->getCreationParameters().format;
+		viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+		viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		viewParams.subresourceRange.baseMipLevel = 0u;
+		viewParams.subresourceRange.levelCount = 1u;
+		viewParams.subresourceRange.baseArrayLayer = 0u;
+		viewParams.subresourceRange.layerCount = 1u;
+		viewParams.image = inImage;
+
+		inImageView = device->createGPUImageView(std::move(viewParams));
+	}
+	assert(inImageView);
 
 
-
+#if 0
 	core::smart_refctd_ptr<video::IGPUBuffer> ubo;
 	// core::smart_refctd_ptr<video::IGPUBuffer> ubos[MAX_SWAPCHAIN_IMAGE_COUNT];
 	{
@@ -639,6 +674,7 @@ int main()
 	// for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	// 	utils->updateBufferRangeViaStagingBuffer(computeQueue, bufferRanges[i], &uboData_cpu[i]);
 	utils->updateBufferRangeViaStagingBuffer(computeQueue, bufferRange, &uboData_cpu);
+#endif
 
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
@@ -647,7 +683,7 @@ int main()
 		video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
 		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
 
-		// image2D
+		// image2D -- swapchain image
 		{
 			descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
 			descriptorInfos[0].image.sampler = nullptr;
@@ -661,18 +697,17 @@ int main()
 			writeDescriptorSets[0].info = &descriptorInfos[0];
 		}
 
-		// ubo
+		// image2D -- my input
 		{
-			descriptorInfos[1].buffer.offset = 0ull;
-			descriptorInfos[1].buffer.size = sizeof(UniformBufferObject);
-			// descriptorInfos[1].desc = ubos[i];
-			descriptorInfos[1].desc = ubo;
+			descriptorInfos[1].image.imageLayout = asset::EIL_GENERAL;
+			descriptorInfos[1].image.sampler = nullptr;
+			descriptorInfos[1].desc = inImageView;
 
 			writeDescriptorSets[1].dstSet = descriptorSets[i].get();
 			writeDescriptorSets[1].binding = 1u;
 			writeDescriptorSets[1].arrayElement = 0u;
 			writeDescriptorSets[1].count = 1u;
-			writeDescriptorSets[1].descriptorType = asset::EDT_UNIFORM_BUFFER;
+			writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_IMAGE;
 			writeDescriptorSets[1].info = &descriptorInfos[1];
 		}
 

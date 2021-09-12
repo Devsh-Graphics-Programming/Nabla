@@ -734,9 +734,9 @@ public:
 
                         VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
 
-                        vk_bufferInfos[j].buffer = vk_buffer;
-                        vk_bufferInfos[j].offset = pDescriptorWrites[i].info[j].buffer.offset;
-                        vk_bufferInfos[j].range = pDescriptorWrites[i].info[j].buffer.size;
+                        vk_bufferInfos[bufferInfoOffset + j].buffer = vk_buffer;
+                        vk_bufferInfos[bufferInfoOffset + j].offset = pDescriptorWrites[i].info[j].buffer.offset;
+                        vk_bufferInfos[bufferInfoOffset + j].range = pDescriptorWrites[i].info[j].buffer.size;
                     }
 
                     vk_writeDescriptorSets[i].pBufferInfo = vk_bufferInfos + bufferInfoOffset;
@@ -757,9 +757,9 @@ public:
                         //     continue;
                         VkImageView vk_imageView = static_cast<const CVulkanImageView*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
 
-                        vk_imageInfos[j].sampler = vk_sampler;
-                        vk_imageInfos[j].imageView = vk_imageView;
-                        vk_imageInfos[j].imageLayout = static_cast<VkImageLayout>(descriptorWriteImageInfo.imageLayout);
+                        vk_imageInfos[imageInfoOffset + j].sampler = vk_sampler;
+                        vk_imageInfos[imageInfoOffset + j].imageView = vk_imageView;
+                        vk_imageInfos[imageInfoOffset + j].imageLayout = static_cast<VkImageLayout>(descriptorWriteImageInfo.imageLayout);
                     }
 
                     vk_writeDescriptorSets[i].pImageInfo = vk_imageInfos + imageInfoOffset;
@@ -774,7 +774,7 @@ public:
                         //     continue;
 
                         VkBufferView vk_bufferView = static_cast<const CVulkanBufferView*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
-                        vk_bufferViews[j] = vk_bufferView;
+                        vk_bufferViews[bufferViewOffset + j] = vk_bufferView;
                     }
 
                     vk_writeDescriptorSets[i].pTexelBufferView = vk_bufferViews + bufferViewOffset;
