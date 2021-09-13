@@ -540,7 +540,7 @@ public:
 		result.cpu2gpuParams.finalQueueFamIx = familyIndex;
 		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
 		result.cpu2gpuParams.pipelineCache = nullptr;
-		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE; 
+		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
 		result.cpu2gpuParams.utilities = result.utilities.get();
 
 		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
