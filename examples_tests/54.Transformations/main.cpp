@@ -33,12 +33,14 @@ void main()
 	mat4x3 tform = globalTform.data[gl_InstanceIndex];
 	mat3x4 tpose = transpose(tform);
 
-	vec4 worldPos = vec4(dot(tpose[0], vPos), dot(tpose[1], vPos), dot(tpose[2], vPos), 1.0);
+	vec4 lcpos = vPos;
+	lcpos.xyz *= vCol.a; // color's alpha has encoded scale
+	vec4 worldPos = vec4(dot(tpose[0], lcpos), dot(tpose[1], lcpos), dot(tpose[2], lcpos), 1.0);
     vec4 pos = PushConstants.viewProj*worldPos;
 	gl_Position = pos;
 	Color = vCol.xyz;
 
-	mat3x4 transposeWorldMat = tform;
+	mat3x4 transposeWorldMat = tpose;
 	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
 	Normal = inverseTransposeWorld * normalize(vNormal);
 }
@@ -76,6 +78,7 @@ struct InstanceData {
 
 // I was tempted to name this PlanetData but Sun and Moon are not planets xD
 struct SolarSystemObject {
+	scene::ITransformTree::node_t node;
 	scene::ITransformTree::node_t parentIndex;
 	float yRotationSpeed = 0.0f;
 	float zRotationSpeed = 0.0f;
@@ -174,7 +177,7 @@ int main()
 
 	constexpr uint32_t GlobalTformPropNum = 3u;
 
-	constexpr size_t SSBOAlignment = 16ull;
+	const size_t SSBOAlignment = gpuPhysicalDevice->getLimits().SSBOAlignment;
 	const size_t offset_parent = 0u;
 	const size_t offset_relTform = core::alignUp(offset_parent + parentPropSz*ObjectCount, SSBOAlignment);
 	const size_t offset_modifStamp = core::alignUp(offset_relTform + relTformPropSz*ObjectCount, SSBOAlignment);
@@ -189,15 +192,15 @@ int main()
 	for (uint32_t i = 0u; i < PropertyCount; ++i)
 		propBufs[i].buffer = ssbo_buf;
 	propBufs[0].offset = offset_parent;
-	propBufs[0].size = parentPropSz;
+	propBufs[0].size = parentPropSz*ObjectCount;
 	propBufs[1].offset = offset_relTform;
-	propBufs[1].size = relTformPropSz;
+	propBufs[1].size = relTformPropSz*ObjectCount;
 	propBufs[2].offset = offset_modifStamp;
-	propBufs[2].size = modifStampPropSz;
+	propBufs[2].size = modifStampPropSz*ObjectCount;
 	propBufs[3].offset = offset_globalTform;
-	propBufs[3].size = globalTformPropSz;
+	propBufs[3].size = globalTformPropSz*ObjectCount;
 	propBufs[4].offset = offset_recompStamp;
-	propBufs[4].size = recompStampPropSz;
+	propBufs[4].size = recompStampPropSz*ObjectCount;
 
 	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true);
 	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
@@ -248,6 +251,8 @@ int main()
 		parent_req.tree = tt.get();
 		parent_req.upBuff = utils->getDefaultUpStreamingBuffer();
 		parent_req.logger = initOutput.logger.get();
+		ttm->addNodes(parent_req);
+		cmdbuf_nodes->end();
 
 		auto* q = device->getQueue(0u, 0u);
 		video::IGPUQueue::SSubmitInfo submit;
@@ -255,6 +260,14 @@ int main()
 		submit.commandBuffers = &cmdbuf_nodes.get();
 		q->submit(1u, &submit, fence_nodes.get());
 	}
+
+	auto waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
+	assert(waitres == video::IGPUFence::ES_SUCCESS);
+
+	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+	device->resetFences(1u, &fence_nodes.get());
+
+	solarSystemObjectsData[sunIndex].node = parent_node;
 	
 	// Mercury
 	uint32_t constexpr mercuryIndex = 1u;
@@ -337,12 +350,6 @@ int main()
 	solarSystemObjectsData[plutoIndex].scale = 0.5f;
 	solarSystemObjectsData[plutoIndex].initialRelativePosition = core::vector3df_SIMD(36.0f, 0.0f, 0.0f);
 
-	auto waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-	assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-	device->resetFences(1u, &fence_nodes.get());
-
 	cmdbuf_nodes->begin(0);
 
 	// -2u because w/o sun and moon
@@ -369,6 +376,14 @@ int main()
 		req.tree = tt.get();
 		req.upBuff = utils->getDefaultUpStreamingBuffer();
 		req.logger = initOutput.logger.get();
+		ttm->addNodes(req);
+		cmdbuf_nodes->end();
+
+		auto* q = device->getQueue(0u, 0u);
+		video::IGPUQueue::SSubmitInfo submit;
+		submit.commandBufferCount = 1u;
+		submit.commandBuffers = &cmdbuf_nodes.get();
+		q->submit(1u, &submit, fence_nodes.get());
 	}
 
 	waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
@@ -376,6 +391,9 @@ int main()
 
 	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 	device->resetFences(1u, &fence_nodes.get());
+
+	for (uint32_t i = 0u; i < childNodes.size(); ++i)
+		solarSystemObjectsData[mercuryIndex + i].node = childNodes[i];
 
 	cmdbuf_nodes->begin(0);
 	
@@ -393,17 +411,19 @@ int main()
 	scene::ITransformTree::node_t moon_node = scene::ITransformTree::invalid_node;
 	{
 
-		scene::ITransformTreeManager::AllocationRequest parent_req;
-		parent_req.cmdbuf = cmdbuf_nodes.get();
-		parent_req.fence = fence_nodes.get();
+		scene::ITransformTreeManager::AllocationRequest req;
+		req.cmdbuf = cmdbuf_nodes.get();
+		req.fence = fence_nodes.get();
 		auto tform = solarSystemObjectsData[sunIndex].getTform();
-		parent_req.relativeTransforms = &tform;
-		parent_req.outNodes = { &moon_node, &moon_node + 1 };
-		parent_req.parents = &earth_node;
-		parent_req.poolHandler = ppHandler.get();
-		parent_req.tree = tt.get();
-		parent_req.upBuff = utils->getDefaultUpStreamingBuffer();
-		parent_req.logger = initOutput.logger.get();
+		req.relativeTransforms = &tform;
+		req.outNodes = { &moon_node, &moon_node + 1 };
+		req.parents = &earth_node;
+		req.poolHandler = ppHandler.get();
+		req.tree = tt.get();
+		req.upBuff = utils->getDefaultUpStreamingBuffer();
+		req.logger = initOutput.logger.get();
+		ttm->addNodes(req);
+		cmdbuf_nodes->end();
 
 		auto* q = device->getQueue(0u, 0u);
 		video::IGPUQueue::SSubmitInfo submit;
@@ -419,16 +439,7 @@ int main()
 	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 	device->resetFences(1u, &fence_nodes.get());
 
-	// weird fix -> do not read the next 6 lines (It doesn't affect the program logically) -> waiting for access_violation_repro branch to fix and merge
-	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
-	{
-		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-		system->createFile(future, "../../29.SpecializationConstants/particles.comp", nbl::system::IFile::ECF_READ_WRITE);
-		auto file = future.get();
-		auto sname = file->getFileName().string();
-		char const* shaderName = sname.c_str();//yep, makes sense
-		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(file.get(), asset::ISpecializedShader::ESS_COMPUTE, shaderName);
-	}
+	solarSystemObjectsData[moonIndex].node = moon_node;
 
 	// Geom Create
 	auto geometryCreator = assetManager->getGeometryCreator();
@@ -444,7 +455,7 @@ int main()
 
 	auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
-		auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
+		auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID", nullptr, true, nullptr, initOutput.logger.get());
 		if (!unspec)
 			return nullptr;
 
@@ -470,14 +481,53 @@ int main()
 		cpu_gfxDsl0 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd,&bnd+1);
 	}
 
+	constexpr size_t ColorBufSz = sizeof(core::vectorSIMDf) * ObjectCount;
+	auto gpuColorBuf = device->createDeviceLocalGPUBufferOnDedMem(ColorBufSz);
+	core::vectorSIMDf colors[ObjectCount]{
+		core::vectorSIMDf(0.f, 0.f, 1.f),
+		core::vectorSIMDf(0.f, 1.f, 0.f),
+		core::vectorSIMDf(0.f, 1.f, 1.f),
+		core::vectorSIMDf(1.f, 0.f, 0.f),
+		core::vectorSIMDf(1.f, 0.f, 1.f),
+		core::vectorSIMDf(1.f, 1.f, 0.f),
+		core::vectorSIMDf(1.f, 1.f, 1.f),
+		core::vectorSIMDf(0.5f, 1.f, 0.5f),
+		core::vectorSIMDf(0.f, 1.f, 0.f),
+		core::vectorSIMDf(0.5f, 0.7f, 0.2f),
+		core::vectorSIMDf(0.6f, 0.8f, 0.1f)
+	};
+	for (uint32_t i = 0u; i < ObjectCount; ++i)
+		colors[i].w = solarSystemObjectsData[i].scale;
+	utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), { 0ull, ColorBufSz, gpuColorBuf }, colors);
+
 	// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
 	auto createGPUObject = [&](
 		asset::ICPUMeshBuffer * cpuMesh,
-		uint64_t numInstances, uint64_t instanceBufferOffset,
+		uint64_t numInstances, uint64_t colorBufferOffset, core::smart_refctd_ptr<video::IGPUBuffer> colorBuffer,
 		asset::E_FACE_CULL_MODE faceCullingMode = asset::EFCM_BACK_BIT) -> GPUObject {
 		GPUObject ret = {};
 		
+		constexpr auto ColorBindingNum = 15u;
+		constexpr auto ColorAttribNum = 4u;
+
 		auto pipeline = cpuMesh->getPipeline();
+		{
+			// we're working with RH coordinate system(view proj) and in that case the cubeGeom frontFace is NOT CCW.
+			auto& rasterParams = pipeline->getRasterizationParams();
+			rasterParams.frontFaceIsCCW = 0;
+			rasterParams.faceCullingMode = faceCullingMode;
+
+
+			auto& vtxinputParams = pipeline->getVertexInputParams();
+			vtxinputParams.bindings[ColorBindingNum].inputRate = asset::EVIR_PER_INSTANCE;
+			vtxinputParams.bindings[ColorBindingNum].stride = sizeof(core::vectorSIMDf);
+			vtxinputParams.attributes[ColorAttribNum].binding = ColorBindingNum;
+			vtxinputParams.attributes[ColorAttribNum].format = asset::EF_R32G32B32A32_SFLOAT;
+			vtxinputParams.attributes[ColorAttribNum].relativeOffset = 0u;
+
+			vtxinputParams.enabledAttribFlags |= 0x1u << ColorAttribNum;
+			vtxinputParams.enabledBindingFlags |= 0x1u << ColorBindingNum;
+		}
 
 		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
 		auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,core::smart_refctd_ptr(cpu_gfxDsl0));
@@ -485,8 +535,14 @@ int main()
 
 		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
 	
+		asset::SBufferBinding<video::IGPUBuffer> colorBufBinding;
+		colorBufBinding.offset = colorBufferOffset;
+		colorBufBinding.buffer = colorBuffer;
+
 		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh, &cpuMesh + 1,cpu2gpuParams)->front();
+		ret.gpuMesh->setVertexBufferBinding(std::move(colorBufBinding), ColorBindingNum);
 		ret.gpuMesh->setInstanceCount(numInstances);
+
 
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
 		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
@@ -499,11 +555,11 @@ int main()
 		return ret;
 	};
 
-	gpuObjects.push_back(createGPUObject(cpuMeshPlanets.get(), NumSolarSystemObjects, 0));
+	gpuObjects.push_back(createGPUObject(cpuMeshPlanets.get(), NumSolarSystemObjects, 0ull, gpuColorBuf));
 
 	auto* gfxDsl0 = gpuObjects.back().gpuMesh->getPipeline()->getLayout()->getDescriptorSetLayout(0);
 	auto gfxDescPool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &gfxDsl0, &gfxDsl0 + 1);
-	auto gfxDs0 = device->createGPUDescriptorSet(gfxDescPool.get(), core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(gfxDsl0));
+	auto gfxDs0 = device->createGPUDescriptorSet(gfxDescPool.get(), core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(const_cast<video::IGPUDescriptorSetLayout*>(gfxDsl0)));
 	{
 		video::IGPUDescriptorSet::SDescriptorInfo info;
 		info.desc = propBufs[GlobalTformPropNum].buffer;
@@ -538,6 +594,25 @@ int main()
 	
 	uint32_t resourceIx = 0;
 
+	constexpr size_t ModsRangesBufSz = 2u*sizeof(uint32_t) + sizeof(scene::nbl_glsl_transform_tree_modification_request_range_t)*ObjectCount;
+	auto modRangesBuf = device->createDeviceLocalGPUBufferOnDedMem(ModsRangesBufSz);
+	auto relTformModsBuf = device->createDeviceLocalGPUBufferOnDedMem(sizeof(scene::nbl_glsl_transform_tree_relative_transform_modification_t)*ObjectCount);
+	auto nodeIdsBuf = device->createDeviceLocalGPUBufferOnDedMem(std::max(sizeof(uint32_t) + sizeof(scene::ITransformTree::node_t) * ObjectCount, 128ull));
+	{
+		//update `nodeIdsBuf`
+		uint32_t countAndIds[1u + ObjectCount];
+		countAndIds[0] = ObjectCount;
+		for (uint32_t i = 0u; i < ObjectCount; ++i)
+			countAndIds[1u+i] = solarSystemObjectsData[i].node;
+
+		asset::SBufferRange<video::IGPUBuffer> bufrng;
+		bufrng.buffer = nodeIdsBuf;
+		bufrng.offset = 0;
+		bufrng.size = nodeIdsBuf->getSize();
+		utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
+	}
+
+	uint32_t timestamp = 1u;
 	while(windowCb->isWindowOpen())
 	{
 		resourceIx++;
@@ -558,8 +633,99 @@ int main()
 		dt = std::chrono::duration_cast<std::chrono::milliseconds>(now-lastTime).count();
 		lastTime = now;
 		
+		timestamp++;
+
 		// safe to proceed
 		cb->begin(0);
+
+
+		// update `modRangesBuf`
+		{
+#include "nbl/nblpack.h"
+			struct SSBO
+			{
+				uint32_t rangecount;
+				uint32_t reqcnt;
+				scene::ITransformTreeManager::ModificationRequestRange ranges[ObjectCount];
+			}PACK_STRUCT;
+#include "nbl/nblunpack.h"
+			uint8_t data[sizeof(SSBO)];
+			SSBO* ssbo = reinterpret_cast<SSBO*>(&data[0]);
+			ssbo->rangecount = ObjectCount;
+			ssbo->reqcnt = ObjectCount;
+			for (uint32_t i = 0u; i < ObjectCount; ++i)
+			{
+				auto& obj = solarSystemObjectsData[i];
+				ssbo->ranges[i].nodeID = obj.node;
+				ssbo->ranges[i].requestsBegin = i;
+				ssbo->ranges[i].requestsEnd = i + 1u;
+				ssbo->ranges[i].newTimestamp = timestamp;
+			}
+
+			asset::SBufferRange<video::IGPUBuffer> bufrng;
+			bufrng.buffer = modRangesBuf;
+			bufrng.offset = 0;
+			bufrng.size = modRangesBuf->getSize();
+
+
+			uint32_t waitSemaphoreCount = 0u;
+			const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+			video::IGPUSemaphore* const* waitSems = nullptr;
+			utils->updateBufferRangeViaStagingBuffer(cb.get(), fence.get(), device->getQueue(0,0), bufrng, ssbo, waitSemaphoreCount, waitSems, waitStages);
+		}
+
+		// update `relTformModsBuf`
+		{
+			static float current_rotation = 0.0f;
+			current_rotation += dt * 0.005f * SimulationSpeedScale;
+
+			std::array<scene::ITransformTreeManager::RelativeTransformModificationRequest, ObjectCount> reqs;
+			for (uint32_t i = 0u; i < reqs.size(); ++i)
+			{
+				core::matrix3x4SIMD translationMat;
+				core::matrix3x4SIMD rotationMat;
+				core::matrix3x4SIMD scaleMat;
+
+				translationMat.setTranslation(solarSystemObjectsData[i].initialRelativePosition);
+				{
+					auto rot = current_rotation + 300; // just offset in time for beauty
+					rotationMat.setRotation(core::quaternion(0.0f, rot * solarSystemObjectsData[i].yRotationSpeed, rot * solarSystemObjectsData[i].zRotationSpeed));
+				}
+				scaleMat.setScale(core::vectorSIMDf(solarSystemObjectsData[i].scale));
+
+				auto tform = core::matrix3x4SIMD::concatenateBFollowedByA(rotationMat, translationMat);
+
+				reqs[i] = scene::ITransformTreeManager::RelativeTransformModificationRequest(scene::ITransformTreeManager::RelativeTransformModificationRequest::ET_OVERWRITE, tform);
+			}
+
+			asset::SBufferRange<video::IGPUBuffer> bufrng;
+			bufrng.buffer = relTformModsBuf;
+			bufrng.offset = 0;
+			bufrng.size = relTformModsBuf->getSize();
+
+			uint32_t waitSemaphoreCount = 0u;
+			const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+			video::IGPUSemaphore* const* waitSems = nullptr;
+			utils->updateBufferRangeViaStagingBuffer(cb.get(), fence.get(), device->getQueue(0, 0), bufrng, reqs.data(), waitSemaphoreCount, waitSems, waitStages);
+		}
+
+		// barrier after buffer upload, before TTM updates
+		{
+			video::IGPUCommandBuffer::SBufferMemoryBarrier barrier[2];
+			barrier[0].buffer = modRangesBuf;
+			barrier[0].offset = 0;
+			barrier[0].size = modRangesBuf->getSize();
+			barrier[0].dstQueueFamilyIndex = 0u;
+			barrier[0].srcQueueFamilyIndex = 0u;
+			barrier[0].barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+			barrier[0].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+			barrier[1] = barrier[0];
+			barrier[1].buffer = relTformModsBuf;
+			barrier[1].offset = 0;
+			barrier[1].size = relTformModsBuf->getSize();
+
+			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, 0, 0u, nullptr, 2u, barrier, 0u, nullptr);
+		}
 
 		{
 			asset::SViewport vp;
@@ -596,38 +762,41 @@ int main()
 		}
 		// Update instances buffer 
 		{
-			static float current_rotation = 0.0f;
-			current_rotation += dt * 0.005f * SimulationSpeedScale;
+			{
+				scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
+				lcparams.cmdbuf = cb.get();
+				lcparams.tree = tt.get();
+				lcparams.fence = fence;
+				lcparams.dispatchDirect.nodeCount = ObjectCount; //???
+				lcparams.finalBarrier.dstStages = asset::EPSF_COMPUTE_SHADER_BIT;
+				lcparams.finalBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				lcparams.finalBarrier.dstQueueFamilyIndex = 0u;
+				lcparams.finalBarrier.srcQueueFamilyIndex = 0u;
+				lcparams.modificationRequests = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, relTformModsBuf };
+				lcparams.requestRanges = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, modRangesBuf };
+				lcparams.dispatchIndirect.buffer = nullptr;
+				ttm->updateLocalTransforms(lcparams);
+			}
+			{
+				scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
+				gparams.cmdbuf = cb.get();
+				gparams.tree = tt.get();
+				gparams.fence = fence;
+				gparams.dispatchDirect.nodeCount = ObjectCount; //???
+				gparams.dispatchIndirect.buffer = nullptr;
+				gparams.finalBarrier.dstStages = asset::EPSF_VERTEX_SHADER_BIT;
+				gparams.finalBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				gparams.finalBarrier.dstQueueFamilyIndex = 0u;
+				gparams.finalBarrier.srcQueueFamilyIndex = 0u;
+				gparams.nodeIDs = { 0ull,nodeIdsBuf };
 
-			// Update Planets Transformations
-			for(uint32_t i = 0; i < NumInstances; ++i) {
-				auto & solarSystemObj = solarSystemObjectsData[i];
-
-				core::matrix3x4SIMD translationMat;
-				core::matrix3x4SIMD scaleMat;
-				core::matrix3x4SIMD rotationMat;
-				core::matrix3x4SIMD parentMat;
-				
-				translationMat.setTranslation(solarSystemObj.initialRelativePosition);
-				scaleMat.setScale(core::vectorSIMDf(solarSystemObj.scale));
-				
-				{
-					auto rot = current_rotation + 300; // just offset in time for beauty
-					rotationMat.setRotation(core::quaternion(0.0f, rot * solarSystemObj.yRotationSpeed, rot * solarSystemObj.zRotationSpeed));
-				}
-
-				if(solarSystemObj.parentIndex > 0u) {
-					auto parentObj = solarSystemObjectsData[solarSystemObj.parentIndex];
-					parentMat = parentObj.matForChildren;
-				}
-
-				solarSystemObj.matForChildren = matrix3x4SIMD::concatenateBFollowedByA(matrix3x4SIMD::concatenateBFollowedByA(parentMat, rotationMat), translationMat); // parentMat * rotationMat * translationMat
-				instancesData[i].modelMatrix = matrix3x4SIMD::concatenateBFollowedByA(solarSystemObj.matForChildren, scaleMat); // solarSystemObj.matForChildren * scaleMat
+				ttm->recomputeGlobalTransforms(gparams);
 			}
 		}
 
 		// pipeline barrier after tform updates done by TTM
-		{
+		// commented-out, done by TTM
+		/* {
 			video::IGPUCommandBuffer::SBufferMemoryBarrier barrier;
 			barrier.buffer = propBufs[GlobalTformPropNum].buffer;
 			barrier.offset = propBufs[GlobalTformPropNum].offset;
@@ -638,10 +807,11 @@ int main()
 			barrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
 
 			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, 0, 0u, nullptr, 1u, &barrier, 0u, nullptr);
-		}
+		}*/
 
 		// draw
 		{
+			assert(gpuObjects.size() == 1ull);
 			// Draw Stuff 
 			for(uint32_t i = 0; i < gpuObjects.size(); ++i) {
 				auto & gpuObject = gpuObjects[i];

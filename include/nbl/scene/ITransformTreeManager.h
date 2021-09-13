@@ -39,6 +39,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					ET_WEIGHTED_ACCUMULATE=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_WEIGHTED_ACCUMULATE_, // add to existing value, `(Previous+This)(vertex)`
 					ET_COUNT=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_COUNT_
 				};
+				RelativeTransformModificationRequest() = default;
 				RelativeTransformModificationRequest(const E_TYPE type, const core::matrix3x4SIMD& _preweightedModification)
 				{
 					constexpr uint32_t log2ET_COUNT = 2u;
@@ -65,15 +66,33 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		// creation
         static inline core::smart_refctd_ptr<ITransformTreeManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& device)
         {
-			// TODO: create the shaders for update,recompute (See how CPropertyPoolHandler does it)
-			core::smart_refctd_ptr<video::IGPUSpecializedShader> updateRelativeSpec;
-			core::smart_refctd_ptr<video::IGPUSpecializedShader> recomputeGlobalSpec;
+			auto system = device->getPhysicalDevice()->getSystem();
+#define _CREATE_SHADER(_builtinpath) [&system,&device] () {\
+				auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(_builtinpath)>();\
+				auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::buffer_contains_glsl_t{});\
+				auto shader = device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", WorkgroupSize));\
+				return device->createGPUSpecializedShader(shader.get(), { nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE });\
+			}()
+
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> updateRelativeSpec = _CREATE_SHADER("nbl/builtin/glsl/transform_tree/relative_transform_update.comp"); // is it correct shader?
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> recomputeGlobalSpec = _CREATE_SHADER("nbl/builtin/glsl/transform_tree/global_transform_update.comp"); // is it correct shader?
 			if (!updateRelativeSpec || !recomputeGlobalSpec)
 				return nullptr;
 
-			// TODO: create the descriptor set 1 layouts for update,recompute
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> updateDsLayout;
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> recomputeDsLayout;
+			{
+				video::IGPUDescriptorSetLayout::SBinding bnd[2];
+				bnd[0].binding = 0u;
+				bnd[0].count = 1u;
+				bnd[0].type = asset::EDT_STORAGE_BUFFER;
+				bnd[0].stageFlags = video::IGPUSpecializedShader::ESS_COMPUTE;
+				bnd[0].samplers = nullptr;
+				bnd[1] = bnd[0];
+				bnd[1].binding = 1u;
+				updateDsLayout = device->createGPUDescriptorSetLayout(bnd, bnd+2);
+				recomputeDsLayout = device->createGPUDescriptorSetLayout(bnd, bnd+1);
+			}
 
 			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
 			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
@@ -185,14 +204,13 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		struct LocalTransformUpdateParams : ParamsBase
 		{
 			// for signalling when to drop a temporary descriptor set
-			video::IGPUFence fence;
+			core::smart_refctd_ptr<video::IGPUFence> fence;
 			// first uint in the buffer tells us how many ModificationRequestRanges we have
 			// second uint in the buffer tells us how many total requests we have
 			// rest is filled wtih ModificationRequestRange
-			asset::SBufferBinding<video::IGPUBuffer> requestRanges;
+			asset::SBufferBinding<video::IGPUBuffer> requestRanges; // imo should be SBufferRange (all of those SBufferBinding-s)
 			// this one is filled with RelativeTransformModificationRequest
 			asset::SBufferBinding<video::IGPUBuffer> modificationRequests;
-			asset::SBufferBinding<video::IGPUBuffer> modificationRequestTimestamps;
 		};
 		inline void updateLocalTransforms(const LocalTransformUpdateParams& params)
 		{
@@ -201,16 +219,25 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		//
 		struct GlobalTransformUpdateParams : ParamsBase
 		{
+			// for signalling when to drop a temporary descriptor set
+			// (imo this struct needs fence as well)
+			core::smart_refctd_ptr<video::IGPUFence> fence;
 			// first uint in the buffer tells us how many nodes to update we have
-			asset::SBufferBinding<video::IGPUBuffer> nodeIDs;
+			asset::SBufferBinding<video::IGPUBuffer> nodeIDs; // imo it should be SBufferRange
 		};
-		void recomputeGlobalTransforms(const ParamsBase& params)
+		void recomputeGlobalTransforms(const GlobalTransformUpdateParams& params) // well, by looking on the shader (actually global_transform_update_descriptor_set.glsl), i think it should tae this struct (not ParamsBase) and create DS
 		{
+			auto dsix = m_dsCache_recompGlobal->acquireSet();
+
+			video::IGPUDescriptorSet* tempDS = m_dsCache_recompGlobal->getSet(dsix);
+			updateDS1_global(tempDS, params.nodeIDs);
+
 			auto* cmdbuf = params.cmdbuf;
-			cmdbuf->bindComputePipeline(m_recomputePipeline.get());
-			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet() };
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_recomputePipeline->getLayout(),0u,1u,descSets);
+			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(), tempDS };
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_recomputePipeline->getLayout(),0u,2u,descSets);
 			lastDispatch(m_recomputePipeline.get(),params);
+
+			m_dsCache_recompGlobal->releaseSet(m_device.get(), core::smart_refctd_ptr(params.fence), dsix);
 		}
 
 		//
@@ -233,6 +260,22 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			m_recomputePipeline(std::move(_recomputePipeline)),
 			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline))
 		{
+			constexpr uint32_t MaxDSs = 10u;
+			constexpr uint32_t UpdateLocalSSBOs = 2u;
+			constexpr uint32_t RecompGlobalSSBOs = 1u;
+
+			video::IDescriptorPool::SDescriptorPoolSize poolsz;
+			poolsz.type = asset::EDT_STORAGE_BUFFER;
+			poolsz.count = UpdateLocalSSBOs*MaxDSs;
+			auto dsPool_updateLocal = m_device->createDescriptorPool(video::IDescriptorPool::ECF_NONE, MaxDSs, 1u, &poolsz);
+			poolsz.count = RecompGlobalSSBOs*MaxDSs;
+			auto dsPool_recompGlobal = m_device->createDescriptorPool(video::IDescriptorPool::ECF_NONE, MaxDSs, 1u, &poolsz);
+
+			auto* dsl_updt = const_cast<video::IGPUDescriptorSetLayout*>(m_updatePipeline->getLayout()->getDescriptorSetLayout(1u));
+			auto* dsl_rcmp = const_cast<video::IGPUDescriptorSetLayout*>(m_recomputePipeline->getLayout()->getDescriptorSetLayout(1u));
+
+			m_dsCache_updateLocal = core::make_smart_refctd_ptr<video::IDescriptorSetCache>(m_device.get(), std::move(dsPool_updateLocal), core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(dsl_updt));
+			m_dsCache_recompGlobal = core::make_smart_refctd_ptr<video::IDescriptorSetCache>(m_device.get(), std::move(dsPool_recompGlobal), core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(dsl_rcmp));
 		}
 		~ITransformTreeManager()
 		{
@@ -242,26 +285,28 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		void soleUpdateOrFusedRecompute_impl(const video::IGPUComputePipeline* pipeline, const LocalTransformUpdateParams& params)
 		{
 			auto* cmdbuf = params.cmdbuf;
-			// TODO: get a descriptor set to populate with our input buffers
-			assert(false);
-			core::smart_refctd_ptr<video::IGPUDescriptorSet> tempDS;
-			// TOOD: do what CPropertyPoolHandler does and fill tempDS from some sort of reclaimable cache
-			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(),tempDS.get() };
+
+			auto dsix = m_dsCache_updateLocal->acquireSet();
+			video::IGPUDescriptorSet* tempDS = m_dsCache_updateLocal->getSet(dsix);
+			updateDS1_local(tempDS, params.requestRanges, params.modificationRequests);
+			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(),tempDS };
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,2u,descSets,nullptr);
 
 			lastDispatch(pipeline,params);
 
-			// TODO: put the tempDS on the deferred free list of IDescriptorSetCache
+			m_dsCache_updateLocal->releaseSet(m_device.get(), core::smart_refctd_ptr(params.fence), dsix);
 		}
 
 		void lastDispatch(const video::IGPUComputePipeline* pipeline, const ParamsBase& params)
 		{
 			auto* cmdbuf = params.cmdbuf;
 			cmdbuf->bindComputePipeline(pipeline);
+			
 			if (params.dispatchIndirect.buffer)
 				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
 			else
 				cmdbuf->dispatch((params.dispatchDirect.nodeCount-1u)/WorkgroupSize+1u,1u,1u); // TODO: @Przemog would really like that dispatch factorization function
+				
 
 			// we always add our own stage and access flags, simply to have up to date data available for the next time we run the shader
 			uint32_t barrierCount = 0u;
@@ -292,12 +337,52 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			cmdbuf->pipelineBarrier(
 				asset::EPSF_COMPUTE_SHADER_BIT,params.finalBarrier.dstStages|asset::EPSF_COMPUTE_SHADER_BIT,
-				asset::EDF_NONE,0u,nullptr,4u,bufferBarriers,0u,nullptr
+				asset::EDF_NONE,0u,nullptr,barrierCount,bufferBarriers,0u,nullptr
 			);
+		}
+
+		void updateDS1_local(video::IGPUDescriptorSet* ds, const asset::SBufferBinding<video::IGPUBuffer>& reqRangesBuf, const asset::SBufferBinding<video::IGPUBuffer>& tformModsBuf)
+		{
+			video::IGPUDescriptorSet::SDescriptorInfo info[2];
+			info[0].desc = reqRangesBuf.buffer;
+			info[0].buffer.offset = reqRangesBuf.offset;
+			info[0].buffer.size = info[0].buffer.WholeBuffer;
+			info[1].desc = tformModsBuf.buffer;
+			info[1].buffer.offset = tformModsBuf.offset;
+			info[1].buffer.size = info[1].buffer.WholeBuffer;
+			video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
+			w[0].arrayElement = 0u;
+			w[0].binding = 0u;
+			w[0].count = 1u;
+			w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+			w[0].info = info;
+			w[0].dstSet = ds;
+			w[1] = w[0];
+			w[1].binding = 1u;
+			w[1].info = info + 1;
+			m_device->updateDescriptorSets(2u, w, 0u, nullptr);
+		}
+		void updateDS1_global(video::IGPUDescriptorSet* ds, const asset::SBufferBinding<video::IGPUBuffer>& nodesToUpdateBuf)
+		{
+			video::IGPUDescriptorSet::SDescriptorInfo info;
+			info.desc = nodesToUpdateBuf.buffer;
+			info.buffer.offset = nodesToUpdateBuf.offset;
+			info.buffer.size = info.buffer.WholeBuffer;
+			video::IGPUDescriptorSet::SWriteDescriptorSet w;
+			w.arrayElement = 0u;
+			w.binding = 0u;
+			w.count = 1u;
+			w.descriptorType = asset::EDT_STORAGE_BUFFER;
+			w.dstSet = ds;
+			w.info = &info;
+			m_device->updateDescriptorSets(1u, &w, 0u, nullptr);
 		}
 
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
+
+		core::smart_refctd_ptr<video::IDescriptorSetCache> m_dsCache_updateLocal;
+		core::smart_refctd_ptr<video::IDescriptorSetCache> m_dsCache_recompGlobal;
 };
 
 } // end namespace nbl::scene
