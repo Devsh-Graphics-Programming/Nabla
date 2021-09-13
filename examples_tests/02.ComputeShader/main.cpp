@@ -45,14 +45,7 @@ const char* src = R"(#version 450
 // layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (set = 0, binding = 0, rgba8) uniform writeonly image2D outImage;
-
-layout (set = 0, binding = 1) uniform UniformBufferObject
-{
-	float r;
-	float g;
-	float b;
-	float a;
-} ubo;
+layout (set = 0, binding = 1, rgba8) uniform readonly image2D inImage;
 
 void main()
 {
@@ -61,7 +54,8 @@ void main()
 		// vec3 rgb = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
 		
 		// imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 0, 1, 1));
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(ubo.r, ubo.g, ubo.b, ubo.a));
+		vec4 inColor = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy));
+		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), inColor);
 	}
 })";
 #endif
@@ -312,12 +306,6 @@ int main()
 	video::IGPUQueue* computeQueue = device->getQueue(computeFamilyIndex, 0u);
 	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
 
-	// Todo(achal): We might want to check if: VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT and
-	// VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT are supported for current surface format
-	// and current physical device. In fact, we might want to put this up as a criteria
-	// for making the physical device suitable. I'm not sure if we really have to do this
-	// since I can't seem to find a way to query tiling for swapchain images
-
 	nbl::video::ISwapchain::SCreationParams scParams = {};
 	scParams.surface = surface;
 	scParams.minImageCount = minSwapchainImageCount;
@@ -389,7 +377,7 @@ int main()
 
 		// ubo
 		bindings[1].binding = 1u;
-		bindings[1].type = asset::EDT_UNIFORM_BUFFER;
+		bindings[1].type = asset::EDT_STORAGE_IMAGE;
 		bindings[1].count = 1u;
 		bindings[1].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 		bindings[1].samplers = nullptr;
@@ -397,13 +385,10 @@ int main()
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
 		device->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
-	const uint32_t descriptorPoolSizeCount = 2u;
+	const uint32_t descriptorPoolSizeCount = 1u;
 	video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
 	poolSizes[0].type = asset::EDT_STORAGE_IMAGE;
-	poolSizes[0].count = swapchainImageCount;
-	poolSizes[1].type = asset::EDT_UNIFORM_BUFFER;
-	// poolSizes[1].count = swapchainImageCount;
-	poolSizes[1].count = 1u;
+	poolSizes[0].count = swapchainImageCount + 1u;
 
 	video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
 		static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
@@ -445,7 +430,7 @@ int main()
 		{
 			video::IGPUBuffer::SCreationParams params = {};
 			params.size = imageWidth * imageHeight * imageChannelCount * sizeof(uint8_t);
-			params.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+			params.usage = video::IGPUBuffer::EUF_TRANSFER_SRC_BIT;
 			params.sharingMode = asset::ESM_EXCLUSIVE;
 			params.queueFamilyIndexCount = 0u;
 			params.queuueFamilyIndices = nullptr;
@@ -470,7 +455,69 @@ int main()
 			device->unmapMemory(memRange.memory);
 		}
 
-		// asset::SBufferCopy 
+		const uint32_t mipLevels = 1u;
+		std::vector<asset::IImage::SBufferCopy> copyRegions(mipLevels);
+		for (size_t i = 0ull; i < copyRegions.size(); ++i)
+		{
+			copyRegions[i].bufferOffset = 0ull;
+			// If "setting this to different from 0 can fail an image copy on OpenGL", then
+			// it could cause problems???
+			copyRegions[i].bufferRowLength = 0ull;
+			// If "setting this to different from 0 can fail an image copy on OpenGL", then
+			// it could cause problems???
+			copyRegions[i].bufferImageHeight = 0ull;
+			copyRegions[i].imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			copyRegions[i].imageSubresource.mipLevel = i;
+			copyRegions[i].imageSubresource.baseArrayLayer = 0u;
+			copyRegions[i].imageSubresource.layerCount = 1u;
+			copyRegions[i].imageOffset = { 0u,0u,0u };
+			copyRegions[i].imageExtent = { imageWidth, imageHeight, 1u };
+		}
+
+		// Actually create the image, its memory and bind
+		// Todo(achal): Use createGPUImageOnDedMem
+		{
+			video::IGPUImage::SCreationParams creationParams = {};
+			creationParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+			creationParams.type = asset::IImage::ET_2D;
+			asset::E_FORMAT imageFormat = asset::EF_R8G8B8A8_UNORM;
+			{
+				// Todo(achal): Need to wrap this up
+				VkFormatProperties formatProps;
+				vkGetPhysicalDeviceFormatProperties(
+					static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
+					video::getVkFormatFromFormat(imageFormat), &formatProps);
+				assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
+			}
+			creationParams.format = imageFormat;
+			creationParams.extent = { imageWidth, imageHeight, 1u };
+			creationParams.mipLevels = mipLevels;
+			creationParams.arrayLayers = 1u;
+			creationParams.samples = asset::IImage::ESCF_1_BIT;
+			creationParams.tiling = asset::IImage::ET_OPTIMAL;
+			creationParams.usage = asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT;
+			creationParams.sharingMode = asset::ESM_EXCLUSIVE;
+			creationParams.queueFamilyIndexCount = 0u;
+			creationParams.queueFamilyIndices = nullptr;
+			creationParams.initialLayout = asset::EIL_UNDEFINED; // trash any previous image contents
+
+			inImage = device->createGPUImage(std::move(creationParams));
+
+			// Allocate GPU memory for image
+			video::IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = inImage->getMemoryReqs();
+			imageMemReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+			imageMemReqs.mappingCapability = 0u;
+			auto imageMem = device->allocateGPUMemory(imageMemReqs);
+			assert(imageMem);
+
+			video::ILogicalDevice::SBindImageMemoryInfo bindInfo = {};
+			bindInfo.image = inImage.get();
+			bindInfo.memory = imageMem.get();
+			bindInfo.offset = 0ull;
+
+			bool bindSuccessful = device->bindImageMemory(1u, &bindInfo);
+			assert(bindSuccessful);
+		}
 
 		// I have a single queue family right now both for compute and present
 		// at index 0
@@ -481,42 +528,79 @@ int main()
 
 		copyCmdBuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
+		video::IGPUCommandBuffer::SImageMemoryBarrier undefToTransferDst = {};
+		undefToTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+		undefToTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+		undefToTransferDst.oldLayout = asset::EIL_UNDEFINED;
+		undefToTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+		undefToTransferDst.srcQueueFamilyIndex = ~0u;
+		undefToTransferDst.dstQueueFamilyIndex = ~0u;
+		undefToTransferDst.image = inImage;
+		undefToTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		undefToTransferDst.subresourceRange.baseMipLevel = 0u;
+		undefToTransferDst.subresourceRange.levelCount = mipLevels;
+		undefToTransferDst.subresourceRange.baseArrayLayer = 0u;
+		undefToTransferDst.subresourceRange.layerCount = 1u;
+
+		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, 0,
+			0u, nullptr, 0u, nullptr, 1u, &undefToTransferDst);
+
+		copyCmdBuf->copyBufferToImage(stagingBuffer.get(), inImage.get(),
+			asset::EIL_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(copyRegions.size()),
+			copyRegions.data());
+
+		video::IGPUCommandBuffer::SImageMemoryBarrier transferDstToGeneral = {};
+		transferDstToGeneral.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+		transferDstToGeneral.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		transferDstToGeneral.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+		transferDstToGeneral.newLayout = asset::EIL_GENERAL;
+		transferDstToGeneral.srcQueueFamilyIndex = ~0u;
+		transferDstToGeneral.dstQueueFamilyIndex = ~0u;
+		transferDstToGeneral.image = inImage;
+		transferDstToGeneral.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		transferDstToGeneral.subresourceRange.baseMipLevel = 0u;
+		transferDstToGeneral.subresourceRange.levelCount = mipLevels;
+		transferDstToGeneral.subresourceRange.baseArrayLayer = 0u;
+		transferDstToGeneral.subresourceRange.layerCount = 1u;
+
+		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, 0,
+			0u, nullptr, 0u, nullptr, 1u, &transferDstToGeneral);
 
 		copyCmdBuf->end();
 
-		video::IGPUImage::SCreationParams imageCreationParams = {};
-		imageCreationParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-		imageCreationParams.type = asset::IImage::ET_2D;
-		asset::E_FORMAT imageFormat = asset::EF_R8G8B8A8_UNORM;
-		{
-			// Todo(achal): Need to wrap this up
-			VkFormatProperties formatProps;
-			vkGetPhysicalDeviceFormatProperties(
-				static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
-				video::getVkFormatFromFormat(imageFormat), &formatProps);
-			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
-		}
-		imageCreationParams.format = imageFormat;
-		imageCreationParams.extent = { WIN_W, WIN_H, 1u };
-		imageCreationParams.mipLevels = 1u;
-		imageCreationParams.arrayLayers = 1u;
-		imageCreationParams.samples = asset::IImage::ESCF_1_BIT;
-		imageCreationParams.tiling = asset::IImage::ET_OPTIMAL;
-		imageCreationParams.usage = asset::IImage::EUF_STORAGE_BIT;
-		imageCreationParams.sharingMode = asset::ESM_EXCLUSIVE;
-		imageCreationParams.queueFamilyIndexCount = 0u;
-		imageCreationParams.queueFamilyIndices = nullptr;
-		imageCreationParams.initialLayout = asset::EIL_UNDEFINED; // trash any previous image contents
+		// Execute the command buffer
+		auto fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0u));
 
-		// Todo(achal): Use createGPUImageOnDedMem
-		inImage = device->createGPUImage(std::move(imageCreationParams));
+		video::IGPUQueue::SSubmitInfo submitInfo = {};
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.commandBuffers = &copyCmdBuf.get();
+
+		computeQueue->submit(1u, &submitInfo, fence.get());
+
+		device->waitForFences(1u, &fence.get(), true, ~0ull);
 	}
 	assert(inImage);
 	free(imagePixels);
 
+	// Create an image view for input image
+	core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
+	{
+		video::IGPUImageView::SCreationParams viewParams;
+		viewParams.format = inImage->getCreationParameters().format;
+		viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+		viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		viewParams.subresourceRange.baseMipLevel = 0u;
+		viewParams.subresourceRange.levelCount = 1u;
+		viewParams.subresourceRange.baseArrayLayer = 0u;
+		viewParams.subresourceRange.layerCount = 1u;
+		viewParams.image = inImage;
+
+		inImageView = device->createGPUImageView(std::move(viewParams));
+	}
+	assert(inImageView);
 
 
-
+#if 0
 	core::smart_refctd_ptr<video::IGPUBuffer> ubo;
 	// core::smart_refctd_ptr<video::IGPUBuffer> ubos[MAX_SWAPCHAIN_IMAGE_COUNT];
 	{
@@ -590,6 +674,7 @@ int main()
 	// for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	// 	utils->updateBufferRangeViaStagingBuffer(computeQueue, bufferRanges[i], &uboData_cpu[i]);
 	utils->updateBufferRangeViaStagingBuffer(computeQueue, bufferRange, &uboData_cpu);
+#endif
 
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
@@ -598,7 +683,7 @@ int main()
 		video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
 		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
 
-		// image2D
+		// image2D -- swapchain image
 		{
 			descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
 			descriptorInfos[0].image.sampler = nullptr;
@@ -612,18 +697,17 @@ int main()
 			writeDescriptorSets[0].info = &descriptorInfos[0];
 		}
 
-		// ubo
+		// image2D -- my input
 		{
-			descriptorInfos[1].buffer.offset = 0ull;
-			descriptorInfos[1].buffer.size = sizeof(UniformBufferObject);
-			// descriptorInfos[1].desc = ubos[i];
-			descriptorInfos[1].desc = ubo;
+			descriptorInfos[1].image.imageLayout = asset::EIL_GENERAL;
+			descriptorInfos[1].image.sampler = nullptr;
+			descriptorInfos[1].desc = inImageView;
 
 			writeDescriptorSets[1].dstSet = descriptorSets[i].get();
 			writeDescriptorSets[1].binding = 1u;
 			writeDescriptorSets[1].arrayElement = 0u;
 			writeDescriptorSets[1].count = 1u;
-			writeDescriptorSets[1].descriptorType = asset::EDT_UNIFORM_BUFFER;
+			writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_IMAGE;
 			writeDescriptorSets[1].info = &descriptorInfos[1];
 		}
 

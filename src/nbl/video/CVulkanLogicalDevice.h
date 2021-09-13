@@ -612,8 +612,28 @@ public:
         VkImage vk_image;
         if (vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                std::move(params), vk_image);
+            VkImageMemoryRequirementsInfo2 vk_memReqsInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 };
+            vk_memReqsInfo.pNext = nullptr;
+            vk_memReqsInfo.image = vk_image;
+
+            VkMemoryDedicatedRequirements vk_memDedReqs = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
+            VkMemoryRequirements2 vk_memReqs = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+            vk_memReqs.pNext = &vk_memDedReqs;
+
+            vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
+
+            IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
+            imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
+            imageMemReqs.vulkanReqs.size = vk_memReqs.memoryRequirements.size;
+            imageMemReqs.vulkanReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
+            imageMemReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+            imageMemReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+            imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
+            imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
+
+            return core::make_smart_refctd_ptr<CVulkanImage>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
+                vk_image, imageMemReqs);
         }
         else
         {
@@ -623,24 +643,29 @@ public:
 
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
     {
+        bool anyFailed = false;
         for (uint32_t i = 0u; i < bindInfoCount; ++i)
         {
-            if (pBindInfos[i].image->getAPIType() != EAT_VULKAN)
+            const auto& bindInfo = pBindInfos[i];
+
+            if ((bindInfo.image->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
-            VkImage vk_image = static_cast<const CVulkanImage*>(pBindInfos[i].image)->getInternalObject();
 
-            // if (pBindInfos[i].memory->getAPIType() != EAT_VULKAN)
-            //     continue;
-            VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
+            CVulkanImage* vulkanImage = static_cast<CVulkanImage*>(bindInfo.image);
+            vulkanImage->setMemoryAndOffset(
+                core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory),
+                bindInfo.offset);
 
-            if (vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory,
-                static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
+            VkImage vk_image = vulkanImage->getInternalObject();
+            VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(bindInfo.memory)->getInternalObject();
+            if (vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) != VK_SUCCESS)
             {
-                return false;
+                // Todo(achal): Log which one failed
+                anyFailed = true;
             }
         }
 
-        return true;
+        return !anyFailed;
     }
             
     core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
@@ -709,9 +734,9 @@ public:
 
                         VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
 
-                        vk_bufferInfos[j].buffer = vk_buffer;
-                        vk_bufferInfos[j].offset = pDescriptorWrites[i].info[j].buffer.offset;
-                        vk_bufferInfos[j].range = pDescriptorWrites[i].info[j].buffer.size;
+                        vk_bufferInfos[bufferInfoOffset + j].buffer = vk_buffer;
+                        vk_bufferInfos[bufferInfoOffset + j].offset = pDescriptorWrites[i].info[j].buffer.offset;
+                        vk_bufferInfos[bufferInfoOffset + j].range = pDescriptorWrites[i].info[j].buffer.size;
                     }
 
                     vk_writeDescriptorSets[i].pBufferInfo = vk_bufferInfos + bufferInfoOffset;
@@ -732,9 +757,9 @@ public:
                         //     continue;
                         VkImageView vk_imageView = static_cast<const CVulkanImageView*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
 
-                        vk_imageInfos[j].sampler = vk_sampler;
-                        vk_imageInfos[j].imageView = vk_imageView;
-                        vk_imageInfos[j].imageLayout = static_cast<VkImageLayout>(descriptorWriteImageInfo.imageLayout);
+                        vk_imageInfos[imageInfoOffset + j].sampler = vk_sampler;
+                        vk_imageInfos[imageInfoOffset + j].imageView = vk_imageView;
+                        vk_imageInfos[imageInfoOffset + j].imageLayout = static_cast<VkImageLayout>(descriptorWriteImageInfo.imageLayout);
                     }
 
                     vk_writeDescriptorSets[i].pImageInfo = vk_imageInfos + imageInfoOffset;
@@ -749,7 +774,7 @@ public:
                         //     continue;
 
                         VkBufferView vk_bufferView = static_cast<const CVulkanBufferView*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
-                        vk_bufferViews[j] = vk_bufferView;
+                        vk_bufferViews[bufferViewOffset + j] = vk_bufferView;
                     }
 
                     vk_writeDescriptorSets[i].pTexelBufferView = vk_bufferViews + bufferViewOffset;
@@ -799,6 +824,9 @@ public:
 
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(
         const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
+
+    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) override;
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
@@ -1332,9 +1360,8 @@ protected:
     {
         return false;
     }
-            
+
 private:
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs);
 
     inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDriverMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDriverMemoryAllocation::MappedMemoryRange* inRangeEnd)
     {

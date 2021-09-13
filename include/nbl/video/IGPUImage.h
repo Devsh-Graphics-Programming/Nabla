@@ -20,6 +20,9 @@ namespace nbl::video
 
 class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>, public IBackendObject
 {
+	private:
+		using base_t = core::impl::ResolveAlignment<IDriverMemoryBacked, asset::IImage>;
+
     public:
         _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
 			
@@ -54,7 +57,10 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
         _NBL_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
-		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) : IBackendObject(std::move(dev))
+		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			SCreationParams&& _params,
+			const IDriverMemoryBacked::SDriverMemoryRequirements reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
+			: base_t(reqs), IBackendObject(std::move(dev))
         {
 			params = std::move(_params);
         }
