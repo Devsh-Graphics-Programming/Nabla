@@ -42,38 +42,13 @@ int main(int argc, char** argv)
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     auto utilities = std::move(initOutput.utilities);
 
-    auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-    auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-    
+    core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
+    core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
     {
         cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
         cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
     }
-
-    // TODO: should add an inifnite wait for fences
-    auto cpu2gpuWaitForFences = [&]() -> void
-    {
-        video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-        while (waitStatus != video::IGPUFence::ES_SUCCESS)
-        {
-            waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
-            if (waitStatus == video::IGPUFence::ES_ERROR)
-                assert(false);
-            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                break;
-        }
-
-        waitStatus = video::IGPUFence::ES_NOT_READY;
-        while (waitStatus != video::IGPUFence::ES_SUCCESS)
-        {
-            waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
-            if (waitStatus == video::IGPUFence::ES_ERROR)
-                assert(false);
-            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                break;
-        }
-    };
 
     asset::ICPUMesh* meshRaw = nullptr;
     const asset::COBJMetadata* metaOBJ = nullptr;
@@ -128,6 +103,7 @@ int main(int argc, char** argv)
             auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&ds1layout,&ds1layout+1,cpu2gpuParams);
             assert(!gpu_array || gpu_array->size()<1u || !(*gpu_array)[0]);
             gpuds1layout = (*gpu_array)[0];
+            cpu2gpuParams.waitForCreationToComplete();
         }
 
         auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&gpuds1layout.get(),&gpuds1layout.get()+1);
@@ -157,11 +133,9 @@ int main(int argc, char** argv)
     core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
     {
         auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&meshRaw, &meshRaw + 1, cpu2gpuParams);
-        if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
-            assert(false);
-
-        cpu2gpuWaitForFences();
+        assert(!gpu_array || gpu_array->size()<1u || !(*gpu_array)[0]);
         gpumesh = (*gpu_array)[0];
+        cpu2gpuParams.waitForCreationToComplete();
     }
 
     // TODO: remove
