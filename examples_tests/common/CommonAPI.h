@@ -360,10 +360,22 @@ public:
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
 
-		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
-
-		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
-		result.apiConnection = _apiConnection;
+		if(api_type == EAT_VULKAN) 
+		{
+			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
+		}
+		else if(api_type == EAT_OPENGL)
+		{
+			result.apiConnection = video::COpenGLConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+		}
+		else if(api_type == EAT_OPENGL_ES)
+		{
+			result.apiConnection = video::COpenGLESConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+		}
+		else
+		{
+			_NBL_TODO();
+		}
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
@@ -396,7 +408,7 @@ public:
 		result.queues[InitOutput<0>::EQT_TRANSFER_UP] = queue;
 		result.queues[InitOutput<0>::EQT_TRANSFER_DOWN] = queue;
 
-		result.renderpass = createRenderpass(result.logicalDevice, asset::EF_UNKNOWN);
+		result.renderpass = createRenderpass(result.logicalDevice, asset::EF_B8G8R8A8_UNORM, asset::EF_UNKNOWN);
 
 		result.commandPool = result.logicalDevice->createCommandPool(familyIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
@@ -443,11 +455,31 @@ public:
 		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
-		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
-		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
-		result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
-		result.apiConnection = _apiConnection;
 
+		if(api_type == EAT_VULKAN) 
+		{
+			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
+			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+			result.apiConnection = _apiConnection;
+		}
+		else if(api_type == EAT_OPENGL)
+		{
+			auto _apiConnection = video::COpenGLConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+			result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+			result.apiConnection = _apiConnection;
+		}
+		else if(api_type == EAT_OPENGL_ES)
+		{
+			auto _apiConnection = video::COpenGLESConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+			result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+			result.apiConnection = _apiConnection;
+		}
+		else
+		{
+			_NBL_TODO();
+		}
+
+		// TODO(Erfan):  Extract : queueFamilyIndices, availableSurfaceFormats, availablePresentModes, surfaceCapabilities and Select Suitable GPU
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 		auto gpu = gpus.begin()[0];
@@ -488,10 +520,12 @@ public:
 		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = queue;
 		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = queue;
 
+		// TODO(Erfan): createSwapChain with preferredFormat input, preferredPresentMode and select these
 		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
 		assert(result.swapchain);
-
-		result.renderpass = createRenderpass(result.logicalDevice, depthFormat);
+		
+		asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
+		result.renderpass = createRenderpass(result.logicalDevice, swapChainFormat, depthFormat);
 
 		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
 
@@ -506,7 +540,7 @@ public:
 		result.cpu2gpuParams.finalQueueFamIx = familyIndex;
 		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
 		result.cpu2gpuParams.pipelineCache = nullptr;
-		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE; 
 		result.cpu2gpuParams.utilities = result.utilities.get();
 
 		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
@@ -522,20 +556,23 @@ public:
 		nbl::video::ISurface::E_PRESENT_MODE presentMode)
 	{
 		using namespace nbl;
-		video::ISwapchain::SCreationParams sc_params;
+		// TODO(Erfan): ImageSharing Mode
+		video::ISwapchain::SCreationParams sc_params = {};
 		sc_params.width = width;
 		sc_params.height = height;
 		sc_params.arrayLayers = 1u;
 		sc_params.minImageCount = imageCount;
 		sc_params.presentMode = presentMode;
+		sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);;
 		sc_params.surface = surface;
-		sc_params.surfaceFormat.format = asset::EF_R8G8B8A8_SRGB;
+		sc_params.imageSharingMode = asset::ESM_EXCLUSIVE;
+		sc_params.surfaceFormat.format = asset::EF_B8G8R8A8_UNORM;
 		sc_params.surfaceFormat.colorSpace.eotf = asset::EOTF_sRGB;
 		sc_params.surfaceFormat.colorSpace.primary = asset::ECP_SRGB;
 
 		return device->createSwapchain(std::move(sc_params));
 	}
-	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
+	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device, nbl::asset::E_FORMAT colorAttachmentFormat = nbl::asset::EF_UNKNOWN, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
 	{
 		using namespace nbl;
 
@@ -543,14 +580,14 @@ public:
 
 		video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
 		attachments[0].initialLayout = asset::EIL_UNDEFINED;
-		attachments[0].finalLayout = asset::EIL_UNDEFINED;
-		attachments[0].format = asset::EF_R8G8B8A8_SRGB;
+		attachments[0].finalLayout = asset::EIL_PRESENT_SRC_KHR;
+		attachments[0].format = colorAttachmentFormat; //TODO: Surface Format
 		attachments[0].samples = asset::IImage::ESCF_1_BIT;
 		attachments[0].loadOp = video::IGPURenderpass::ELO_CLEAR;
 		attachments[0].storeOp = video::IGPURenderpass::ESO_STORE;
 
 		attachments[1].initialLayout = asset::EIL_UNDEFINED;
-		attachments[1].finalLayout = asset::EIL_UNDEFINED;
+		attachments[1].finalLayout = asset::EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachments[1].format = depthFormat;
 		attachments[1].samples = asset::IImage::ESCF_1_BIT;
 		attachments[1].loadOp = video::IGPURenderpass::ELO_CLEAR;
@@ -558,13 +595,14 @@ public:
 
 		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
 		colorAttRef.attachment = 0u;
-		colorAttRef.layout = asset::EIL_UNDEFINED;
+		colorAttRef.layout = asset::EIL_COLOR_ATTACHMENT_OPTIMAL;
 
 		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef depthStencilAttRef;
 		depthStencilAttRef.attachment = 1u;
-		depthStencilAttRef.layout = asset::EIL_UNDEFINED;
+		depthStencilAttRef.layout = asset::EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
+		sp.pipelineBindPoint = asset::EPBP_GRAPHICS;
 		sp.colorAttachmentCount = 1u;
 		sp.colorAttachments = &colorAttRef;
 		if(useDepth) {
@@ -610,6 +648,7 @@ public:
 				video::IGPUImageView::SCreationParams view_params;
 				view_params.format = img->getCreationParameters().format;
 				view_params.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				view_params.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 				view_params.subresourceRange.baseMipLevel = 0u;
 				view_params.subresourceRange.levelCount = 1u;
 				view_params.subresourceRange.baseArrayLayer = 0u;
@@ -634,6 +673,7 @@ public:
 				video::IGPUImageView::SCreationParams view_params;
 				view_params.format = depthFormat;
 				view_params.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				view_params.subresourceRange.aspectMask = asset::IImage::EAF_DEPTH_BIT;
 				view_params.subresourceRange.baseMipLevel = 0u;
 				view_params.subresourceRange.levelCount = 1u;
 				view_params.subresourceRange.baseArrayLayer = 0u;

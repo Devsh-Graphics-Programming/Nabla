@@ -62,6 +62,11 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             images_array_t&& images)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))
         {}
+        
+        inline const auto& getCreationParameters() const
+        {
+            return m_params;
+        }
 
     protected:
         virtual ~ISwapchain() = default;

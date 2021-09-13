@@ -78,6 +78,16 @@ public:
 
         VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
 
+        VkPresentModeKHR vkPresentMode;
+        if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
+            vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_MAILBOX) == ISurface::E_PRESENT_MODE::EPM_MAILBOX)
+            vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO) == ISurface::E_PRESENT_MODE::EPM_FIFO)
+            vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
+            vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+
         VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
         vk_createInfo.surface = vk_surface;
         vk_createInfo.minImageCount = params.minImageCount;
@@ -91,7 +101,7 @@ public:
         vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
         vk_createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // Todo(achal)     
         vk_createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Todo(achal)
-        vk_createInfo.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
+        vk_createInfo.presentMode = vkPresentMode;
         vk_createInfo.clipped = VK_TRUE;
         vk_createInfo.oldSwapchain = VK_NULL_HANDLE; // Todo(achal)
 

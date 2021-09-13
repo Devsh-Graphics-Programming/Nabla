@@ -40,9 +40,6 @@ public:
     // API needs to change, vkBeginCommandBuffer can fail
     void begin(uint32_t recordingFlags) override
     {
-        // Should we do manual state management? Wouldn't relying on validation errors be better?
-        // IGPUCommandBuffer::begin(recordingFlags);
-        
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
         beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags);
@@ -50,6 +47,7 @@ public:
         
         VkResult retval = vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
         assert(retval == VK_SUCCESS);
+        IGPUCommandBuffer::begin(recordingFlags);
     }
 
     // API needs to changed, vkEndCommandBuffer can fail
@@ -57,6 +55,7 @@ public:
     {
         VkResult retval = vkEndCommandBuffer(m_cmdbuf);
         assert(retval == VK_SUCCESS);
+        IGPUCommandBuffer::end();
     }
 
     bool reset(uint32_t _flags) override
@@ -64,7 +63,10 @@ public:
         freeSpaceInCmdPool();
 
         if (vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags)) == VK_SUCCESS)
+        {
+            IGPUCommandBuffer::reset(_flags);
             return true;
+        }
         else
             return false;
     }
