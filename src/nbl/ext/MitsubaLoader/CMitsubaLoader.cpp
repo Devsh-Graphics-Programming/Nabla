@@ -3,8 +3,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl_os.h"
-
 #include <cwchar>
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
@@ -277,7 +275,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(asset::ICPUImage*
 			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor)
 	);
 }
-static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const asset::ICPUImage* _img)
+static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const asset::ICPUImage* _img, const system::logger_opt_ptr& _logger)
 {
 	auto outParams = _img->getCreationParameters();
 	assert(asset::getFormatChannelCount(outParams.format) == 1u);
@@ -334,7 +332,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 
 	if (!convert_filter_t::execute(&conv))
 	{
-		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
+		_logger.log("Mitsuba XML Loader: blend weight texture creation failed!", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 		_NBL_DEBUG_BREAK_IF(true);
 	}
 
@@ -388,7 +386,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
 }
 
-CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs) : asset::IRenderpassIndependentPipelineLoader(_manager), m_filesystem(_fs)
+CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager, system::ISystem* _system) : asset::IRenderpassIndependentPipelineLoader(_manager), m_system(_system)
 {
 #ifdef _NBL_DEBUG
 	setDebugName("CMitsubaLoader");
@@ -401,54 +399,57 @@ void CMitsubaLoader::initialize()
 
 	auto* glslc = m_assetMgr->getGLSLCompiler();
 
-	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_filesystem));
+	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_system));
 }
 
-bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
+bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
-	constexpr uint32_t stackSize = 16u*1024u;
-	char tempBuff[stackSize+1];
-	tempBuff[stackSize] = 0;
+	//constexpr uint32_t stackSize = 16u*1024u;
+	//char tempBuff[stackSize+1];
+	//tempBuff[stackSize] = 0;
 
-	static const char* stringsToFind[] = { "<?xml", "version", "scene"};
-	static const wchar_t* stringsToFindW[] = { L"<?xml", L"version", L"scene"};
-	constexpr uint32_t maxStringSize = 8u; // "version\0"
-	static_assert(stackSize > 2u*maxStringSize, "WTF?");
+	//static const char* stringsToFind[] = { "<?xml", "version", "scene"};
+	//static const wchar_t* stringsToFindW[] = { L"<?xml", L"version", L"scene"};
+	//constexpr uint32_t maxStringSize = 8u; // "version\0"
+	//static_assert(stackSize > 2u*maxStringSize, "WTF?");
 
-	const size_t prevPos = _file->getPos();
-	const auto fileSize = _file->getSize();
-	if (fileSize < maxStringSize)
-		return false;
+	//const size_t prevPos = _file->getPos();
+	//const auto fileSize = _file->getSize();
+	//if (fileSize < maxStringSize)
+	//	return false;
 
-	_file->seek(0);
-	_file->read(tempBuff, 3u);
-	bool utf16 = false;
-	if (tempBuff[0]==0xEFu && tempBuff[1]==0xBBu && tempBuff[2]==0xBFu)
-		utf16 = false;
-	else if (reinterpret_cast<uint16_t*>(tempBuff)[0]==0xFEFFu)
-	{
-		utf16 = true;
-		_file->seek(2);
-	}
-	else
-		_file->seek(0);
-	while (true)
-	{
-		auto pos = _file->getPos();
-		if (pos >= fileSize)
-			break;
-		if (pos > maxStringSize)
-			_file->seek(_file->getPos()-maxStringSize);
-		_file->read(tempBuff,stackSize);
-		for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
-		if (utf16 ? (wcsstr(reinterpret_cast<wchar_t*>(tempBuff),stringsToFindW[i])!=nullptr):(strstr(tempBuff, stringsToFind[i])!=nullptr))
-		{
-			_file->seek(prevPos);
-			return true;
-		}
-	}
-	_file->seek(prevPos);
-	return false;
+	//_file->seek(0);
+	//_file->read(tempBuff, 3u);
+	//bool utf16 = false;
+	//if (tempBuff[0]==0xEFu && tempBuff[1]==0xBBu && tempBuff[2]==0xBFu)
+	//	utf16 = false;
+	//else if (reinterpret_cast<uint16_t*>(tempBuff)[0]==0xFEFFu)
+	//{
+	//	utf16 = true;
+	//	_file->seek(2);
+	//}
+	//else
+	//	_file->seek(0);
+	//while (true)
+	//{
+	//	auto pos = _file->getPos();
+	//	if (pos >= fileSize)
+	//		break;
+	//	if (pos > maxStringSize)
+	//		_file->seek(_file->getPos()-maxStringSize);
+	//	_file->read(tempBuff,stackSize);
+	//	for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
+	//	if (utf16 ? (wcsstr(reinterpret_cast<wchar_t*>(tempBuff),stringsToFindW[i])!=nullptr):(strstr(tempBuff, stringsToFind[i])!=nullptr))
+	//	{
+	//		_file->seek(prevPos);
+	//		return true;
+	//	}
+	//}
+	//_file->seek(prevPos);
+	//return false;
+
+	// TODO
+	return true;
 }
 
 const char** CMitsubaLoader::getAssociatedFileExtensions() const
@@ -457,9 +458,9 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 	return ext;
 }
 
-asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	ParserManager parserManager(m_assetMgr->getFileSystem(),_override);
+	ParserManager parserManager(m_assetMgr->getSystem(),_override);
 	if (!parserManager.parse(_file))
 		return {};
 
@@ -470,13 +471,18 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	}
 	else
 	{
-		//
-		auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
+		// OLD
+		//auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
+
+		__debugbreak();
+		// TODO: does `IFile::getFileName` return full path?
+		auto currentDir = _file->getFileName();
+
 		SContext ctx(
 			m_assetMgr->getGeometryCreator(),
 			m_assetMgr->getMeshManipulator(),
 			asset::IAssetLoader::SAssetLoadContext{ 
-				asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.c_str()),
+				asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.string().c_str()),
 				_file
 			},
 			_override,
@@ -494,7 +500,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			if (shapedef->type == CElementShape::Type::SHAPEGROUP)
 				continue;
 
-			auto lowermeshes = getMesh(ctx, _hierarchyLevel, shapedef);
+			auto lowermeshes = getMesh(ctx, _hierarchyLevel, shapedef, _params.logger);
 			for (auto& mesh : lowermeshes)
 			{
 				if (!mesh)
@@ -570,13 +576,13 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	}
 }
 
-core::vector<SContext::shape_ass_type> CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
+core::vector<SContext::shape_ass_type> CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const system::logger_opt_ptr& logger)
 {
 	if (!shape)
 		return {};
 
 	if (shape->type!=CElementShape::Type::INSTANCE)
-		return {loadBasicShape(ctx, hierarchyLevel, shape, core::matrix3x4SIMD())};
+		return {loadBasicShape(ctx, hierarchyLevel, shape, core::matrix3x4SIMD(), logger)};
 	else
 	{
 		core::matrix3x4SIMD relTform = shape->getAbsoluteTransform();
@@ -587,11 +593,11 @@ core::vector<SContext::shape_ass_type> CMitsubaLoader::getMesh(SContext& ctx, ui
 		assert(parent->type==CElementShape::Type::SHAPEGROUP);
 		const CElementShape::ShapeGroup* shapegroup = &parent->shapegroup;
 		
-		return loadShapeGroup(ctx, hierarchyLevel, shapegroup, relTform);
+		return loadShapeGroup(ctx, hierarchyLevel, shapegroup, relTform, logger);
 	}
 }
 
-core::vector<SContext::shape_ass_type> CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform)
+core::vector<SContext::shape_ass_type> CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform, const system::logger_opt_ptr& logger)
 {
 	// @Crisspl why no group cache?
 	// find group
@@ -610,11 +616,11 @@ core::vector<SContext::shape_ass_type> CMitsubaLoader::loadShapeGroup(SContext& 
 
 		assert(child->type!=CElementShape::Type::INSTANCE);
 		if (child->type != CElementShape::Type::SHAPEGROUP) {
-			auto lowermesh = loadBasicShape(ctx, hierarchyLevel, child, relTform);
+			auto lowermesh = loadBasicShape(ctx, hierarchyLevel, child, relTform, logger);
 			meshes.push_back(std::move(lowermesh));
 		}
 		else {
-			auto lowermeshes = loadShapeGroup(ctx, hierarchyLevel, &child->shapegroup, relTform);
+			auto lowermeshes = loadShapeGroup(ctx, hierarchyLevel, &child->shapegroup, relTform, logger);
 			meshes.insert(meshes.begin(), std::make_move_iterator(lowermeshes.begin()), std::make_move_iterator(lowermeshes.end()));
 		}
 	}
@@ -649,13 +655,13 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	return mesh;
 }
 
-SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform)
+SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform, const system::logger_opt_ptr& logger)
 {
 	constexpr uint32_t UV_ATTRIB_ID = 2U;
 
-	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh)
+	auto addInstance = [shape,&ctx,&relTform,&logger,this](SContext::shape_ass_type& mesh)
 	{
-		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
+		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf, logger);
 		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
 		SContext::SInstanceData instance(
 			tform,
@@ -1170,7 +1176,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 	}
 }
 
-auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
+auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf, const system::logger_opt_ptr& _logger) -> SContext::bsdf_type
 {
 	if (!bsdf)
 		return {nullptr,nullptr};
@@ -1178,12 +1184,12 @@ auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 	auto found = ctx.instrStreamCache.find(bsdf);
 	if (found!=ctx.instrStreamCache.end())
 		return found->second;
-	auto retval = genBSDFtreeTraversal(ctx, bsdf);
+	auto retval = genBSDFtreeTraversal(ctx, bsdf, _logger);
 	ctx.instrStreamCache.insert({bsdf,retval});
 	return retval;
 }
 
-auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
+auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf, const system::logger_opt_ptr& _logger) -> SContext::bsdf_type
 {
 	{
 		auto cachePropertyTexture = [&](const auto& const_or_tex, SContext::tex_ass_type& out_img) {
@@ -1283,7 +1289,7 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 					{
 						auto img = std::get<0>(tex)->getCreationParameters().image;
 
-						auto blendweight = createBlendWeightImage(img.get());
+						auto blendweight = createBlendWeightImage(img.get(), _logger);
 						asset::SAssetBundle imgBundle(nullptr,{ blendweight });
 						ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
 						auto blendweight_view = createImageView(std::move(blendweight));

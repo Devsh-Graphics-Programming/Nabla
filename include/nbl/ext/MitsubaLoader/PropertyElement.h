@@ -5,7 +5,7 @@
 #ifndef __PROPERTY_ELEMENT_H_INCLUDED__
 #define __PROPERTY_ELEMENT_H_INCLUDED__
 
-#include "nbl/core/core.h"
+//#include "nbl/core/core.h"
 #include "matrix4SIMD.h"
 #include <string>
 

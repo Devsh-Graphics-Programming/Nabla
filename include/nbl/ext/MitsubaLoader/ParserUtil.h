@@ -5,9 +5,9 @@
 #ifndef __I_PARSER_UTIL_H_INCLUDED__
 #define __I_PARSER_UTIL_H_INCLUDED__
 
-#include "nbl/core/core.h"
+//#include "nbl/core/core.h"
 
-#include "IFileSystem.h"
+//#include "IFileSystem.h"
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 
@@ -34,6 +34,7 @@ public:
 	/*prints this message:
 	Mitsuba loader error:
 	Invalid .xml file structure: message */
+	// TODO: I can't use `const system::logger_opt_ptr&` as a parameter here, figure it out
 	static void invalidXMLFileStructure(const std::string& errorMessage);
 
 };
@@ -62,12 +63,12 @@ class ParserManager
 		{
 			ParserManager* manager;
 			XML_Parser parser;
-			io::path currentXMLDir;
+			system::path currentXMLDir;
 		};
 	public:
 		//! Constructor 
-		ParserManager(io::IFileSystem* _filesystem, asset::IAssetLoader::IAssetLoaderOverride* _override) :
-								m_filesystem(_filesystem), m_override(_override), m_sceneDeclCount(0),
+		ParserManager(system::ISystem* _system, asset::IAssetLoader::IAssetLoaderOverride* _override) :
+								m_system(_system), m_override(_override), m_sceneDeclCount(0),
 								m_metadata(core::make_smart_refctd_ptr<CMitsubaMetadata>())
 		{
 		}
@@ -84,7 +85,7 @@ class ParserManager
 			XML_StopParser(ctx.parser, false);
 		}
 
-		bool parse(io::IReadFile* _file);
+		bool parse(system::IFile* _file, const system::logger_opt_ptr& _logger);
 
 		void parseElement(const Context& ctx, const char* _el, const char** _atts);
 
@@ -100,7 +101,7 @@ class ParserManager
 		void processProperty(const Context& ctx, const char* _el, const char** _atts);
 
 		//
-		io::IFileSystem* m_filesystem;
+		system::ISystem* m_system;
 		asset::IAssetLoader::IAssetLoaderOverride* m_override;
 		//
 		uint32_t m_sceneDeclCount;

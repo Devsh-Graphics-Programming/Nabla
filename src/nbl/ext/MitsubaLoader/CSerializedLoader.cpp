@@ -4,10 +4,6 @@
 
 #include "nbl/asset/compile_config.h"
 
-#include "nbl/core/core.h"
-#include "IReadFile.h"
-#include "nbl_os.h"
-
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
 
@@ -51,7 +47,7 @@ struct alignas(PAGE_SIZE) Page_t
 #undef PAGE_SIZE
 
 //! creates/loads an animated mesh from the file.
-asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (!_file)
         return {};
@@ -68,7 +64,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		ctx.inner.mainFile->read(&header, sizeof(header));
 		if (header!=FileHeader())
 		{
-			os::Printer::log("Not a valid `.serialized` file", ctx.inner.mainFile->getFileName().c_str(), ELL_ERROR);
+			//TODO: test
+			_params.logger.log("Not a valid `.serialized` file", system::ILogger::E_LOG_LEVEL::ELL_ERROR, ctx.inner.mainFile->getFileName().string().c_str());
 			return {};
 		}
 
@@ -145,9 +142,10 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 				err = err2;
 			if (err != Z_OK)
 			{
-				std::wstring msg(L"Error decompressing mesh ix ");
-				msg += std::to_wstring(i);
-				os::Printer::log(msg, ELL_ERROR);
+				// TODO: test
+				std::string msg("Error decompressing mesh ix ");
+				msg += std::to_string(i);
+				_params.logger.log(msg, system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 				continue;
 			}
 		}

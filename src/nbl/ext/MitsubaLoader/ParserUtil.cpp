@@ -2,8 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl_os.h"
-
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
@@ -18,14 +16,14 @@ namespace ext
 namespace MitsubaLoader
 {
 
-
+// TODO:
 void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 {
-	std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
+	/*std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
 		+ errorMessage + '\'';
 
 	os::Printer::log(message.c_str(), ELL_ERROR);
-	_NBL_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);*/
 }
 
 void ParserManager::elementHandlerStart(void* _data, const char* _el, const char** _atts)
@@ -44,12 +42,12 @@ void ParserManager::elementHandlerEnd(void* _data, const char* _el)
 
 
 
-bool ParserManager::parse(io::IReadFile* _file)
+bool ParserManager::parse(system::IFile* _file, const system::logger_opt_ptr& _logger)
 {
 	XML_Parser parser = XML_ParserCreate(nullptr);
 	if (!parser)
 	{
-		os::Printer::log("Could not create XML Parser!", ELL_ERROR);
+		_logger.log("Could not create XML Parser!", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 		return false;
 	}
 
@@ -72,18 +70,18 @@ bool ParserManager::parse(io::IReadFile* _file)
 	{
 		case XML_STATUS_ERROR:
 			{
-				os::Printer::log("Parse status: XML_STATUS_ERROR", ELL_ERROR);
+				_logger.log("Parse status: XML_STATUS_ERROR", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 				return false;
 			}
 			break;
 		case XML_STATUS_OK:
 			#ifdef _NBL_DEBUG
-				os::Printer::log("Parse status: XML_STATUS_OK", ELL_INFORMATION);
+			_logger.log("Parse status: XML_STATUS_OK", system::ILogger::E_LOG_LEVEL::ELL_INFO);
 			#endif
 			break;
 		case XML_STATUS_SUSPENDED:
 			{
-				os::Printer::log("Parse status: XML_STATUS_SUSPENDED", ELL_INFORMATION);
+				_logger.log("Parse status: XML_STATUS_SUSPENDED", system::ILogger::E_LOG_LEVEL::ELL_INFO);
 				return false;
 			}
 			break;
@@ -133,9 +131,9 @@ void ParserManager::parseElement(const Context& ctx, const char* _el, const char
 	
 	if (core::strcmpi(_el, "include") == 0)
 	{
-		auto file = m_filesystem->createAndOpenFile(ctx.currentXMLDir+_atts[1]);
+		auto file = m_system->createAndOpenFile(ctx.currentXMLDir+_atts[1]);
 		if (!file) // try global path
-			file = m_filesystem->createAndOpenFile(_atts[1]);
+			file = m_system->createAndOpenFile(_atts[1]);
 		if (!file)
 		{
 			ParserLog::invalidXMLFileStructure(std::string("Could not open include file: ") + _atts[1]);
