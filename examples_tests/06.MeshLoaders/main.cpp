@@ -98,12 +98,12 @@ int main(int argc, char** argv)
 
         system::path archPath = CWD/"../../media/sponza.zip";
         auto arch = system->openFileArchive(archPath);
-        // test alias (TODO: fix relative loading)
-        system->mount(std::move(arch),"resources");
+        // test no alias loading (TODO: fix loading from absolute paths)
+        system->mount(std::move(arch));
         asset::IAssetLoader::SAssetLoadParams loadParams;
-        loadParams.workingDirectory = "resources";
+        loadParams.workingDirectory = CWD;
         loadParams.logger = logger.get();
-        auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
+        auto meshes_bundle = assetManager->getAsset((CWD/"../../media/sponza.zip/sponza.obj").string(), loadParams);
         assert(!meshes_bundle.getContents().empty());
 
         metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
