@@ -145,7 +145,7 @@ int main(int argc, char** argv)
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
     bakedCommandBuffer->begin(0u);
-#define REFERENCE
+//#define REFERENCE
     {
         const uint32_t drawCallCount = gpumesh->getMeshBuffers().size();
         core::smart_refctd_ptr<video::CDrawIndirectAllocator<>> drawAllocator;
@@ -244,6 +244,7 @@ int main(int argc, char** argv)
             request.elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
             request.elementCount = drawCallCount;
             request.srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
+            std::for_each_n(allocation.multiDrawCommandRangeByteOffsets,request.elementCount,[=](auto& handle){handle/=request.elementSize;});
             request.dstAddresses = allocation.multiDrawCommandRangeByteOffsets;
             request.device2device = false;
             request.source = drawCallData;
