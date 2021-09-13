@@ -27,10 +27,10 @@ class CSubpassKiln
         struct DrawcallInfo
         {
             alignas(16) uint8_t pushConstantData[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE]; // could try to push it to 64, if we had containers capable of such allocations
-            core::smart_refctd_ptr<IGPUGraphicsPipeline> pipeline;
+            core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline;
             core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
             asset::SBufferBinding<IGPUBuffer> vertexBufferBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
-            asset::SBufferBinding<IGPUBuffer> indexBufferBinding;
+            core::smart_refctd_ptr<const IGPUBuffer> indexBufferBinding;
             uint32_t drawCommandStride : 31;
             uint32_t indexType : 2;
             uint32_t drawCountOffset = IDrawIndirectAllocator::invalid_draw_count_ix;
@@ -60,13 +60,18 @@ class CSubpassKiln
                 };
                 struct renderpass_subpass_comp
                 {
+                    inline bool operator()(const SearchObject& lhs, const DrawcallInfo& rhs)
+                    {
+                        const auto renderpass = rhs.pipeline->getRenderpass();
+                        if (lhs.renderpass==rhs.pipeline->getRenderpass())
+                            return lhs.subpassIndex<rhs.pipeline->getSubpassIndex();
+                        return lhs.renderpass<renderpass;
+                    }
                     inline bool operator()(const DrawcallInfo& lhs, const SearchObject& rhs)
                     {
                         const auto renderpass = lhs.pipeline->getRenderpass();
                         if (lhs.pipeline->getRenderpass()==rhs.renderpass)
-                        {
                             return lhs.pipeline->getSubpassIndex()<rhs.subpassIndex;
-                        }
                         return renderpass<rhs.renderpass;
                     }
                 };
@@ -125,34 +130,30 @@ class CSubpassKiln
                                         return Cmp<const void*>()(lhs.vertexBufferBindings[i].buffer.get(),rhs.vertexBufferBindings[i].buffer.get());
                                     }
                                     // then index binding
-                                    if (lhs.indexBufferBinding.buffer==rhs.indexBufferBinding.buffer)
+                                    if (lhs.indexBufferBinding==rhs.indexBufferBinding)
                                     {
-                                        if (lhs.indexBufferBinding.offset==rhs.indexBufferBinding.offset)
+                                        // then drawcall stuff
+                                        if (lhs.indexType==rhs.indexType)
                                         {
-                                            // then drawcall stuff
-                                            if (lhs.indexType==rhs.indexType)
+                                            if (lhs.drawCommandStride==rhs.drawCommandStride)
                                             {
-                                                if (lhs.drawCommandStride==rhs.drawCommandStride)
+                                                if (lhs.drawCountOffset==rhs.drawCountOffset)
                                                 {
-                                                    if (lhs.drawCountOffset==rhs.drawCountOffset)
+                                                    if (lhs.drawCallOffset==rhs.drawCallOffset)
                                                     {
-                                                        if (lhs.drawCallOffset==rhs.drawCallOffset)
-                                                        {
-                                                            if (lhs.drawMaxCount==rhs.drawMaxCount)
-                                                                return equalRetval;
-                                                            return Cmp<uint32_t>()(lhs.drawMaxCount,rhs.drawMaxCount);
-                                                        }
-                                                        return Cmp<uint32_t>()(lhs.drawCallOffset,rhs.drawCallOffset);
+                                                        if (lhs.drawMaxCount==rhs.drawMaxCount)
+                                                            return equalRetval;
+                                                        return Cmp<uint32_t>()(lhs.drawMaxCount,rhs.drawMaxCount);
                                                     }
-                                                    return Cmp<uint32_t>()(lhs.drawCountOffset,rhs.drawCountOffset);
+                                                    return Cmp<uint32_t>()(lhs.drawCallOffset,rhs.drawCallOffset);
                                                 }
-                                                return Cmp<uint32_t>()(lhs.drawCommandStride,rhs.drawCommandStride);
+                                                return Cmp<uint32_t>()(lhs.drawCountOffset,rhs.drawCountOffset);
                                             }
-                                            return Cmp<uint32_t>()(lhs.indexType,rhs.indexType);
+                                            return Cmp<uint32_t>()(lhs.drawCommandStride,rhs.drawCommandStride);
                                         }
-                                        return Cmp<uint64_t>()(lhs.indexBufferBinding.offset,rhs.indexBufferBinding.offset);
+                                        return Cmp<uint32_t>()(lhs.indexType,rhs.indexType);
                                     }
-                                    return Cmp<const void*>()(lhs.indexBufferBinding.buffer.get(),rhs.indexBufferBinding.buffer.get());
+                                    return Cmp<const void*>()(lhs.indexBufferBinding.get(),rhs.indexBufferBinding.get());
                                 }
                                 return Cmp<const void*>()(lhs.pipeline.get(),rhs.pipeline.get());
                             }
@@ -233,7 +234,7 @@ class CSubpassKiln
                             {
                                 const uint8_t* src = it->pushConstantData+rng.offset;
                                 if (incompatiblePushConstants || memcmp(src,pushConstants+rng.offset,rng.size)!=0)
-                                    cmdbuf->pushConstants(currentLayout,rng.stageFlags,rng.ofset,rng.size,src);
+                                    cmdbuf->pushConstants(currentLayout,rng.stageFlags,rng.offset,rng.size,src);
                             }
                             pushConstants = it->pushConstantData;
                             // rebind descriptor sets iff dirty
@@ -248,13 +249,13 @@ class CSubpassKiln
                             }();
                             const auto nonNullDSEnd = [&]() -> uint32_t
                             {
-                                for (auto i=unmodifiedSetCount; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
-                                if (!it->descriptorSets[i])
-                                    return i;
-                                return IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+                                for (auto i=IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i!=unmodifiedSetCount;)
+                                if (it->descriptorSets[--i])
+                                    return i+1u;
+                                return unmodifiedSetCount;
                             }();
                             if (nonNullDSEnd!=unmodifiedSetCount)
-                                cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,currentLayout,unmodifiedSetCount,nonNullDSEnd-unmodifiedSetCount,it->descriptorSets+unmodifiedSetCount,nullptr); // TODO: support dynamic offsets later
+                                cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,currentLayout,unmodifiedSetCount,nonNullDSEnd-unmodifiedSetCount,&it->descriptorSets->get()+unmodifiedSetCount,nullptr); // TODO: support dynamic offsets later
                             for (auto i=unmodifiedSetCount; i<nonNullDSEnd; i++)
                                 descriptorSets[i] = it->descriptorSets[i].get();
                             layout = currentLayout;
@@ -268,36 +269,35 @@ class CSubpassKiln
                             }();
                             const auto nonNullBindingEnd = [&]() -> uint32_t
                             {
-                                for (auto i=unmodifiedBindingCount; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
-                                if (!it->vertexBufferBindings[i].buffer)
-                                    return i;
-                                return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
+                                for (auto i=IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i!=unmodifiedBindingCount;)
+                                if (it->vertexBufferBindings[--i].buffer)
+                                    return i+1u;
+                                return unmodifiedBindingCount;
                             }();
-                            if (nonNullBindingEnd!=unmodifiedBindingCount)
-                                cmdbuf->bindVertexBuffers(unmodifiedBindingCount,nonNullBindingEnd-unmodifiedBindingCount,vertexBindingBuffers+unmodifiedBindingCount,vertexBindingOffsets+unmodifiedBindingCount);
                             for (auto i=unmodifiedBindingCount; i<nonNullBindingEnd; i++)
                             {
                                 vertexBindingBuffers[i] = it->vertexBufferBindings[i].buffer.get();
                                 vertexBindingOffsets[i] = it->vertexBufferBindings[i].offset;
                             }
+                            if (nonNullBindingEnd!=unmodifiedBindingCount)
+                                cmdbuf->bindVertexBuffers(unmodifiedBindingCount,nonNullBindingEnd-unmodifiedBindingCount,vertexBindingBuffers+unmodifiedBindingCount,vertexBindingOffsets+unmodifiedBindingCount);
                             // change index bindings iff dirty
-                            if (it->indexBufferBinding.buffer.get()!=indexBuffer || it->indexBufferBinding.offset!=indexOffset || it->indexType!=indexType)
+                            if (it->indexBufferBinding.get()!=indexBuffer || it->indexType!=indexType)
                             {
                                 switch (it->indexType)
                                 {
                                     case asset::EIT_16BIT:
-                                        [[fallthrough]]
+                                        [[fallthrough]];
                                     case asset::EIT_32BIT:
                                         indexType = static_cast<asset::E_INDEX_TYPE>(it->indexType);
-                                        cmdbuf->bindIndexBuffer(it->indexBufferBinding.buffer.get(),it->indexBufferBinding.offset,indexType);
+                                        cmdbuf->bindIndexBuffer(it->indexBufferBinding.get(),0ull,indexType);
                                         break;
                                     default:
-                                        cmdbuf->bindIndexBuffer(nullptr,0u,asset::EIT_UNKNOWN);
+                                        cmdbuf->bindIndexBuffer(nullptr,0ull,asset::EIT_UNKNOWN);
                                         indexType = asset::EIT_UNKNOWN;
                                         break;
                                 }
-                                indexBuffer = it->indexBufferBinding.buffer.get();
-                                indexOffset = it->indexBufferBinding.offset;
+                                indexBuffer = it->indexBufferBinding.get();
                             }
                             // now we're ready to record a few drawcalls
                             const bool indexed = indexType!=asset::EIT_UNKNOWN;
@@ -331,7 +331,6 @@ class CSubpassKiln
                             }
                         }
                     }
-                    return end;
                 }
             private:
                 //
@@ -347,7 +346,6 @@ class CSubpassKiln
                 size_t vertexBindingOffsets[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {0ull};
                 asset::E_INDEX_TYPE indexType = asset::EIT_UNKNOWN;
                 const IGPUBuffer* indexBuffer = nullptr;
-                size_t indexOffset = 0ull;
         };
 };
 
