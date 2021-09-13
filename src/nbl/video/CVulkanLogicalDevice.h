@@ -1180,7 +1180,7 @@ protected:
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3 = nullptr) override
     {
         constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
-        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u; // temporary max, I believe
+        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u;
 
         const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2,
             layout3 };

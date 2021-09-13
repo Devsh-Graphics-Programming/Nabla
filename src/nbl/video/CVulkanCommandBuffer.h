@@ -507,7 +507,21 @@ public:
 
     bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
-        return false;
+        if (layout->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(layout) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        vkCmdPushConstants(m_cmdbuf,
+            static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),
+            static_cast<VkShaderStageFlags>(stageFlags),
+            offset,
+            size,
+            pValues);
+
+        return true;
     }
 
     bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
