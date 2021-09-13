@@ -158,17 +158,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams(_params);
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
-				auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
-				if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)
-				for (auto ass : bundle.getContents())
-                {
-                    auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
-					const auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
-					if (!pplnMeta)
-						continue;
+				if (bundle.getMetadata())
+				{
+					auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
+					if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)
+					for (auto ass : bundle.getContents())
+					{
+						auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
+						const auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
+						if (!pplnMeta)
+							continue;
 
-                    pipelines.emplace(std::move(ppln),pplnMeta);
-                }
+						pipelines.emplace(std::move(ppln),pplnMeta);
+					}
+				}
 			}
 		}
 			break;

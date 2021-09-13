@@ -96,21 +96,14 @@ int main(int argc, char** argv)
         auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
         quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
 
-        //fileSystem->addFileArchive("../../media/sponza.zip"); 
-
-        /*
-            To make it work we need to read sponza but not from a zip,
-            so remember to unpack sponza.zip to /bin directory upon executable
-
-            TODO: come back to addFileArchive
-        */
-        system::path archPath = CWD.generic_string() + "../../media/sponza.zip";
+        system::path archPath = CWD/"../../media/sponza.zip";
         auto arch = system->openFileArchive(archPath);
-        system->mount(std::move(arch), "arch");
+        // test alias (TODO: fix relative loading)
+        system->mount(std::move(arch),"resources");
         asset::IAssetLoader::SAssetLoadParams loadParams;
-        loadParams.workingDirectory = CWD;
+        loadParams.workingDirectory = "resources";
         loadParams.logger = logger.get();
-        auto meshes_bundle = assetManager->getAsset("arch/sponza.obj", loadParams);
+        auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
         assert(!meshes_bundle.getContents().empty());
 
         metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
