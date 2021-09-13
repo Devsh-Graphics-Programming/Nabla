@@ -157,6 +157,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 std::string mtllib = tmpbuf;
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams(_params);
+				loadParams.workingDirectory = _file->getFileName().parent_path();
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
 				if (bundle.getMetadata())
 				{
