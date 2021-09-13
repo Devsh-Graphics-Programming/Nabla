@@ -54,14 +54,15 @@ bool ParserManager::parse(system::IFile* _file, const system::logger_opt_ptr& _l
 	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
 
 	//from now data (instance of ParserData struct) will be visible to expat handlers
-	Context ctx = {this,parser,io::IFileSystem::getFileDir(_file->getFileName())+"/"};
+	// TODO: test
+	Context ctx = {this,parser,_file->getFileName().root_path()};
 	XML_SetUserData(parser, &ctx);
 
 
 	char* buff = (char*)_NBL_ALIGNED_MALLOC(_file->getSize(), 4096u);
 
-	_file->seek(0u);
-	_file->read((void*)buff, _file->getSize());
+	system::future<size_t> future;
+	_file->read(future, (void*)buff, 0u, _file->getSize());
 
 	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
 	_NBL_ALIGNED_FREE(buff);
@@ -131,16 +132,18 @@ void ParserManager::parseElement(const Context& ctx, const char* _el, const char
 	
 	if (core::strcmpi(_el, "include") == 0)
 	{
-		auto file = m_system->createAndOpenFile(ctx.currentXMLDir+_atts[1]);
-		if (!file) // try global path
-			file = m_system->createAndOpenFile(_atts[1]);
-		if (!file)
+		//TODO: test
+		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+		bool validInput = m_system->createFile(future, ctx.currentXMLDir.string()+_atts[1], system::IFile::ECF_READ);
+		if (!validInput) // try global path
+			validInput = m_system->createFile(future, _atts[1], system::IFile::ECF_READ);
+		if (!validInput)
 		{
 			ParserLog::invalidXMLFileStructure(std::string("Could not open include file: ") + _atts[1]);
 			return;
 		}
-		parse(file);
-		file->drop();
+		auto file = future.get();
+		parse(file.get(), system::logger_opt_ptr(nullptr)); // TODO: fix
 		return;
 	}
 

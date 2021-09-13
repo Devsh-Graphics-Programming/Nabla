@@ -45,7 +45,7 @@ class ElementPool // : public std::tuple<core::vector<types>...>
 {
 		core::SimpleBlockBasedAllocator<core::LinearAddressAllocator<uint32_t>,core::aligned_allocator> poolAllocator;
 	public:
-		ElementPool() : poolAllocator(4096u*1024u, 256u) {}
+		ElementPool() : poolAllocator(4096u*1024u, 256u, 256u) {} // TODO: is it correct?
 
 		template<typename T, typename... Args>
 		inline T* construct(Args&& ... args)

@@ -31,7 +31,7 @@ class CMitsubaMaterialCompilerFrontend
     tex_ass_type getTexture(const CElementTexture* _element) const;
     tex_ass_type getTexture(const std::string& _key, const CElementTexture* _element, float _scale) const;
 
-    IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+    IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger);
 
 public:
     struct front_and_back_t
@@ -42,7 +42,7 @@ public:
 
     CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
-    front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+    front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger);
 };
 
 }}}

@@ -461,7 +461,7 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	ParserManager parserManager(m_assetMgr->getSystem(),_override);
-	if (!parserManager.parse(_file))
+	if (!parserManager.parse(_file, _params.logger))
 		return {};
 
 	if (_params.loaderFlags & IAssetLoader::ELPF_LOAD_METADATA_ONLY)
@@ -1091,7 +1091,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 
 						view = ICPUImageView::create(std::move(viewParams));
 						asset::SAssetBundle viewBundle(nullptr,{ view });
-						ctx.override_->insertAssetIntoCache(std::move(viewBundle), cacheKey, ctx.inner, hierarchyLevel);
+						ctx.override_->insertAssetIntoCache(viewBundle, cacheKey, ctx.inner, hierarchyLevel);
 					}
 
 					// adjust gamma on pixels (painful and long process)
@@ -1156,7 +1156,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 				{
 					sampler = core::make_smart_refctd_ptr<ICPUSampler>(samplerParams);
 					SAssetBundle samplerBundle(nullptr,{ sampler });
-					ctx.override_->insertAssetIntoCache(std::move(samplerBundle), samplerCacheKey, ctx.inner, hierarchyLevel);
+					ctx.override_->insertAssetIntoCache(samplerBundle, samplerCacheKey, ctx.inner, hierarchyLevel);
 				}
 
 				SContext::tex_ass_type tex_ass(std::move(view), std::move(sampler));
@@ -1272,10 +1272,10 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 				{
 					auto derivmap = createDerivMap(bumpmap.get(), sampler.get());
 					asset::SAssetBundle imgBundle(nullptr,{ derivmap });
-					ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
+					ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
 					auto derivmap_view = createImageView(std::move(derivmap));
 					asset::SAssetBundle viewBundle(nullptr,{ derivmap_view });
-					ctx.override_->insertAssetIntoCache(std::move(viewBundle), ctx.imageViewCacheKey(key), ctx.inner, 0u);
+					ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
 				}
 			}
 				break;
@@ -1291,10 +1291,10 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 						auto blendweight = createBlendWeightImage(img.get(), _logger);
 						asset::SAssetBundle imgBundle(nullptr,{ blendweight });
-						ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
+						ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
 						auto blendweight_view = createImageView(std::move(blendweight));
 						asset::SAssetBundle viewBundle(nullptr,{ blendweight_view });
-						ctx.override_->insertAssetIntoCache(std::move(viewBundle), ctx.imageViewCacheKey(key), ctx.inner, 0u);
+						ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
 					}
 				}
 				break;
@@ -1306,7 +1306,7 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 		}
 	}
 
-	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf);
+	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf, _logger);
 }
 
 
@@ -1509,7 +1509,7 @@ SContext::SContext(
 	CMitsubaMetadata* _metadata
 ) : creator(_geomCreator), manipulator(_manipulator), inner(_ctx), override_(_override), meta(_metadata),
 	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this),
-	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
+	samplerCacheKeyBase(inner.mainFile->getFileName().string().c_str() + "?sampler"s)
 {
 	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
 		[](asset::E_FORMAT_CLASS) -> uint32_t { return VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2; }, // 16x16 tiles per layer for all dynamically created storages
