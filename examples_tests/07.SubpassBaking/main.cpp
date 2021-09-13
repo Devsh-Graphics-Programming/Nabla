@@ -60,7 +60,11 @@ int main(int argc, char** argv)
         auto arch = system->openFileArchive(archPath);
         system->mount(std::move(arch),"resources");
         asset::IAssetLoader::SAssetLoadParams loadParams;
+#if 0 // @sadiuk unfuck this please
         loadParams.workingDirectory = "resources";
+#else
+        loadParams.workingDirectory = archPath;
+#endif
         loadParams.logger = logger.get();
         auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
         assert(!meshes_bundle.getContents().empty());
@@ -138,51 +142,33 @@ int main(int argc, char** argv)
         cpu2gpuParams.waitForCreationToComplete();
     }
 
-    // TODO: remove
-    using RENDERPASS_INDEPENDENT_PIPELINE_ADRESS = size_t;
-    std::map<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS, core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuPipelines;
-    {
-        for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
-        {
-            auto gpuIndependentPipeline = gpumesh->getMeshBuffers().begin()[i]->getPipeline();
-
-            nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
-            graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuIndependentPipeline));
-            graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
-
-            const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-            gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
-        }
-    }
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
     bakedCommandBuffer->begin(0u);
-        for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
-        {
-            auto gpuMeshBuffer = gpumesh->getMeshBuffers().begin()[i];
-            auto gpuGraphicsPipeline = gpuPipelines[reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(gpuMeshBuffer->getPipeline())];
-
-            const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
-            const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
-            
-            bakedCommandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
-
-            bakedCommandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &perCameraDescSet.get(), nullptr);
-            const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
-            if (gpuds3_ptr)
-                bakedCommandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-            bakedCommandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
-
-            bakedCommandBuffer->drawMeshBuffer(gpuMeshBuffer);
-        }
-    video::CSubpassKiln kiln;
+#define REFERENCE
     {
+        video::CSubpassKiln kiln;
+
+        constexpr auto kSubpassIx = 0u;
         auto& drawcalls = kiln.getDrawcallMetadataVector();
+        core::map<const void*,core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> graphicsPipelines;
         for (auto& mb : gpumesh->getMeshBuffers())
         {
             auto& drawcall = drawcalls.emplace_back();
             memcpy(drawcall.pushConstantData,mb->getPushConstantsDataPtr(),video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
-            //drawcall.pipeline = ;
+            {
+                auto renderpassIndep = mb->getPipeline();
+                auto foundPpln = graphicsPipelines.find(renderpassIndep);
+                if (foundPpln==graphicsPipelines.end())
+                {
+                    video::IGPUGraphicsPipeline::SCreationParams params;
+                    params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(renderpassIndep);
+                    params.renderpass = core::smart_refctd_ptr(renderpass);
+                    params.subpassIx = kSubpassIx;
+                    foundPpln = graphicsPipelines.emplace_hint(foundPpln,renderpassIndep,logicalDevice->createGPUGraphicsPipeline(nullptr,std::move(params)));
+                }
+                drawcall.pipeline = foundPpln->second;
+            }
             drawcall.descriptorSets[1] = perCameraDescSet;
             drawcall.descriptorSets[3] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(mb->getAttachedDescriptorSet());
             std::copy_n(mb->getVertexBufferBindings(),video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,drawcall.vertexBufferBindings);
@@ -192,7 +178,17 @@ int main(int argc, char** argv)
             //drawcall.drawCountOffset // invalid
             drawcall.drawCallOffset = 69;
             drawcall.drawMaxCount = 1u;
+#ifdef REFERENCE
+            bakedCommandBuffer->bindGraphicsPipeline(drawcall.pipeline.get());
+            bakedCommandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS,drawcall.pipeline->getRenderpassIndependentPipeline()->getLayout(),1u,1u,&drawcall.descriptorSets->get()+1u,nullptr);
+            bakedCommandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS,drawcall.pipeline->getRenderpassIndependentPipeline()->getLayout(),3u,1u,&drawcall.descriptorSets->get()+3u,nullptr);
+            bakedCommandBuffer->pushConstants(drawcall.pipeline->getRenderpassIndependentPipeline()->getLayout(),video::IGPUSpecializedShader::ESS_FRAGMENT,0u,video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE,drawcall.pushConstantData);
+            bakedCommandBuffer->drawMeshBuffer(mb);
+#endif
         }
+#ifndef REFERENCE
+        kiln.bake(bakedCommandBuffer.get(),renderpass.get(),kSubpassIx,drawIndirect,nullptr);
+#endif
     }
     bakedCommandBuffer->end();
 
