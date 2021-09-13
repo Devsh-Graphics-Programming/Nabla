@@ -74,15 +74,14 @@ void main()
         const bool cameraInsideAABB = all(greaterThanEqual(localCameraPos, batchCullData.aabbMinEdge)) && all(lessThanEqual(localCameraPos, batchCullData.aabbMaxEdge));
         const bool assumedVisible = uint(visibleBuff.visible[gl_GlobalInvocationID.x]) == 1u || cameraInsideAABB;
         frustumCommandBuff.draws[drawCommandGUID].instanceCount = assumedVisible ? 1u : 0u;
-        // if not frustum culled and batch was not visible in the last frame, and it makes sense to test
+        // if not frustum culled, batch was not visible in the last frame and it makes sense to test
         if(!assumedVisible)
         {
             const uint currCubeIdx = atomicAdd(cubeIndirectDraw.draw.instanceCount, 1);
 
             if(currCubeIdx % WORKGROUP_SIZE == 0)
                 atomicAdd(occlusionDispatchIndirect.di.num_groups_x, 1);
-
-            // only works for a source geometry box which is [0,1]^2, the geometry creator box is [-0.5,0.5]^2, so either make your own box, or work out the math for this
+            
             vec3 aabbExtent = batchCullData.aabbMaxEdge - batchCullData.aabbMinEdge;
             cubeMvpBuff.cubeMVPs[currCubeIdx] = mat4(
                 pc.data.viewProjMatrix[0]*aabbExtent.x,

@@ -35,7 +35,7 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 
 	constexpr char* imageFormats[] =
 	{
-		"r16f", "r32f", "rg16f", "rg32f",
+		"r16f", "r32f", "rg16f", "rg32f"
 	};
 
 	const char* format;
@@ -101,14 +101,14 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 	m_shader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
 }
 
-uint32_t DepthPyramidGenerator::createMipMapImages(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImage>* outputDepthPyramidMipImages, const Config& config)
+uint32_t DepthPyramidGenerator::createMipMapImages(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImage>* outputMipImages, const Config& config)
 {
 	VkExtent3D currMipExtent = calcLvl0MipExtent(
 		inputDepthImageView->getCreationParameters().image->getCreationParameters().extent, config.roundUpToPoTWithPadding);
 
 	const uint32_t mipmapsCnt = getMaxMipCntFromLvl0Mipextent(currMipExtent);
 
-	if (outputDepthPyramidMipImages == nullptr)
+	if (outputMipImages == nullptr)
 	{
 		if (config.lvlLimit == 0u)
 			return mipmapsCnt;
@@ -128,13 +128,13 @@ uint32_t DepthPyramidGenerator::createMipMapImages(IVideoDriver* driver, core::s
 	while (currMipExtent.width > 0u && currMipExtent.height > 0u)
 	{
 		imgParams.extent = { currMipExtent.width, currMipExtent.height, 1u };
-		*outputDepthPyramidMipImages = driver->createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams(imgParams));
-		assert(*outputDepthPyramidMipImages);
+		*outputMipImages = driver->createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams(imgParams));
+		assert(*outputMipImages);
 
 		currMipExtent.width >>= 1u;
 		currMipExtent.height >>= 1u;
 
-		outputDepthPyramidMipImages++;
+		outputMipImages++;
 		i++;
 
 		if (config.lvlLimit && i >= config.lvlLimit)

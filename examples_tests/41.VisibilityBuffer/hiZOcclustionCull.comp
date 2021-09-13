@@ -1,0 +1,27 @@
+layout (local_size_x = WORKGROUP_SIZE) in;
+
+layout(set = 0, binding = 0) uniform sampler2D zPyramid;
+
+#include <nbl/builtin/glsl/utils/indirect_commands.glsl>
+
+struct AABB
+{
+    vec3 aabbMin;
+    vec3 aabbMax;
+}
+
+layout(set = 0, binding = 1) restrict readonly buffer AABBBuffer
+{
+    AABB aabbs[];
+}aabbBuff;
+
+layout(set = 0, binding = 2) restrict buffer DrawCommandBuffer
+{
+    nbl_glsl_DrawElementsIndirectCommand_t draws[];
+}drawCommandBuff;
+
+void main()
+{
+    
+}
+

@@ -330,7 +330,7 @@ int main()
     using DPG = ext::DepthPyramidGenerator::DepthPyramidGenerator;
 
     DPG::Config config;
-    config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX;
+    config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_MIN;
     config.outputFormat = EF_R32_SFLOAT;
     config.workGroupSize = DPG::E_WORK_GROUP_SIZE::EWGS_32x32x1;
     //config.roundUpToPoTWithPadding = true;
