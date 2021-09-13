@@ -86,11 +86,18 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 			, m_buildRangeInfos(nullptr)
 		{}
 
-		inline void setAccelerationStructureSize(uint64_t accelerationStructureSize) { m_accelerationStructureSize = accelerationStructureSize; }
+		inline void setAccelerationStructureSize(uint64_t accelerationStructureSize)
+		{ 
+			if(!isMutable())
+				return;m_accelerationStructureSize = accelerationStructureSize;
+		}
 		inline uint64_t getAccelerationStructureSize() const { return m_accelerationStructureSize; }
 
 		inline void setBuildInfoAndRanges(HostBuildGeometryInfo&& buildInfo, const core::smart_refctd_dynamic_array<BuildRangeInfo>& buildRangeInfos)
 		{
+			if(!isMutable())
+				return;
+
 			assert(validateBuildInfoAndRanges(std::move(buildInfo), buildRangeInfos));
 			m_buildInfo = std::move(buildInfo);
 			m_buildRangeInfos = buildRangeInfos;
@@ -133,9 +140,63 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 			if(this->hasBuildInfo())
 			{
 				cp->m_hasBuildInfo = true;
-				// TODO: should I clone each buffer of each geometry and clone every geom in build info?
-				cp->m_buildInfo = this->m_buildInfo; // no need to copy cp->m_buildInfo.geometries because m_buildInfo.geometries is a `core::smart_refctd_dynamic_array`
-				cp->m_buildRangeInfos = this->m_buildRangeInfos; // no need to copy because this is  `core::smart_refctd_dynamic_array`
+				cp->m_buildInfo.type = this->m_buildInfo.type;
+				cp->m_buildInfo.buildFlags = this->m_buildInfo.buildFlags;
+				cp->m_buildInfo.buildMode = this->m_buildInfo.buildMode;
+				
+				auto geoms = m_buildInfo.getGeometries().begin();
+				const auto geomsCount = m_buildInfo.getGeometries().size();
+
+				cp->m_buildInfo.geometries = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<HostBuildGeometryInfo::Geom>>(geomsCount);
+				auto outGeoms = cp->m_buildInfo.getGeometries().begin();
+
+				for(uint32_t i = 0; i < geomsCount; ++i)
+				{
+					auto geom = geoms[i];
+					auto & outGeom = outGeoms[i];
+					if(geom.type == EGT_TRIANGLES)
+					{
+						outGeom.data.triangles.indexType = geom.data.triangles.indexType;
+						outGeom.data.triangles.maxVertex = geom.data.triangles.maxVertex;
+						outGeom.data.triangles.vertexFormat = geom.data.triangles.vertexFormat;
+						outGeom.data.triangles.vertexStride = geom.data.triangles.vertexStride;
+
+						outGeom.data.triangles.indexData.offset = geom.data.triangles.indexData.offset;
+						outGeom.data.triangles.indexData.buffer = (_depth > 0u && geom.data.triangles.indexData.buffer) ?
+							core::smart_refctd_ptr_static_cast<ICPUBuffer>(geom.data.triangles.indexData.buffer->clone(_depth - 1u)) :
+							geom.data.triangles.indexData.buffer;
+
+						outGeom.data.triangles.vertexData.offset = geom.data.triangles.vertexData.offset;
+						outGeom.data.triangles.vertexData.buffer = (_depth > 0u && geom.data.triangles.vertexData.buffer) ?
+							core::smart_refctd_ptr_static_cast<ICPUBuffer>(geom.data.triangles.vertexData.buffer->clone(_depth - 1u)) :
+							geom.data.triangles.vertexData.buffer;
+						
+						outGeom.data.triangles.transformData.offset = geom.data.triangles.transformData.offset;
+						outGeom.data.triangles.transformData.buffer = (_depth > 0u && geom.data.triangles.transformData.buffer) ?
+							core::smart_refctd_ptr_static_cast<ICPUBuffer>(geom.data.triangles.transformData.buffer->clone(_depth - 1u)) :
+							geom.data.triangles.transformData.buffer;
+					}
+					else if(geom.type == EGT_AABBS)
+					{
+						outGeom.data.aabbs.stride = geom.data.aabbs.stride;
+						outGeom.data.aabbs.data.offset = geom.data.aabbs.data.offset;
+						outGeom.data.aabbs.data.buffer = (_depth > 0u && geom.data.aabbs.data.buffer) ?
+							core::smart_refctd_ptr_static_cast<ICPUBuffer>(geom.data.aabbs.data.buffer->clone(_depth - 1u)) :
+							geom.data.aabbs.data.buffer;
+					}
+					else if(geom.type == EGT_INSTANCES)
+					{
+						outGeom.data.instances.data.offset = geom.data.instances.data.offset;
+						outGeom.data.instances.data.buffer = (_depth > 0u && geom.data.instances.data.buffer) ?
+							core::smart_refctd_ptr_static_cast<ICPUBuffer>(geom.data.instances.data.buffer->clone(_depth - 1u)) :
+							geom.data.instances.data.buffer;
+					}
+				}
+
+				auto buildRangesCount = this->m_buildRangeInfos->size();
+				cp->m_buildRangeInfos = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<BuildRangeInfo>>(buildRangesCount);
+				for(uint32_t i = 0; i < buildRangesCount; ++i)
+					cp->m_buildRangeInfos->begin()[i] = this->m_buildRangeInfos->begin()[i];
 			}
 
 			return cp;
