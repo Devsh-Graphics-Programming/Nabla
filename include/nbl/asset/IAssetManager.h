@@ -320,7 +320,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
 
             
-            std::string filePath = (_params.workingDirectory / _filePath).string();
+            std::string filePath = (_params.workingDirectory / _filePath).generic_string();
 
             IAssetLoader::SAssetLoadParams params(_params);
             bool not_exist = !std::filesystem::exists(filePath);
