@@ -58,7 +58,7 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURende
 
     raster_dst.polygonOffsetEnable = raster_src.depthBiasEnable;
     raster_dst.polygonOffset.factor = raster_src.depthBiasSlopeFactor;
-    raster_dst.polygonOffset.units = raster_src.depthBiasSlopeFactor;
+    raster_dst.polygonOffset.units = raster_src.depthBiasConstantFactor;
 
     raster_dst.sampleShadingEnable = raster_src.sampleShadingEnable;
     raster_dst.minSampleShading = raster_src.minSampleShading;
