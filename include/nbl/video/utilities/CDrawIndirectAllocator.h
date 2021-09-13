@@ -32,10 +32,10 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             ExplicitBufferCreationParameters explicit_params;
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
-            explicit_params.drawCommandBuffer.size = core::roundUp(params.drawCommandCapacity*params.maxDrawCommandStride,limits.SSBOAlignment);
+            explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride,limits.SSBOAlignment);
             explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(explicit_params.drawCommandBuffer.size);
             explicit_params.drawCountBuffer.offset = 0ull;
-            explicit_params.drawCountBuffer.size = core::roundUp(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
+            explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
                 explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(explicit_params.drawCountBuffer.size);
             else

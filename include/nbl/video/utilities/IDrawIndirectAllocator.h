@@ -17,10 +17,6 @@ namespace nbl::video
 
 class IDrawIndirectAllocator : public core::IReferenceCounted
 {
-        using draw_count_pool_t = CPropertyPool<core::allocator,uint32_t>;
-
-        static inline constexpr auto MinAllocationBlock = 512u;
-
     public:
         static inline constexpr auto invalid_draw_count_ix = IPropertyPool::invalid;
 
@@ -30,7 +26,7 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
 
         struct CreationParametersBase
         {
-            const ILogicalDevice* device;
+            ILogicalDevice* device;
             uint16_t maxDrawCommandStride;
         };
         struct ImplicitBufferCreationParameters : CreationParametersBase
@@ -142,6 +138,12 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
             return true;
         }
 
+        // no direct getters for this pool because we dont want user to be able to mess around with the allocations
+        inline void setFromCountPoolOnTransfer(CPropertyPoolHandler::TransferRequest& partiallyFilledStruct) const
+        {
+            partiallyFilledStruct.setFromPool(m_drawCountPool.get(),0u);
+        }
+
         //
         inline void freeMultiDraws(const Allocation& params)
         {
@@ -159,8 +161,6 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
             }
         }
 
-        // TODO: transfers of contents to allocated (weird SoA emulation required)
-
         //
         inline void clear()
         {
@@ -170,6 +170,9 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
         }
 
     protected:
+        using draw_count_pool_t = CPropertyPool<core::allocator,uint32_t>;
+        static inline constexpr auto MinAllocationBlock = 512u;
+
         IDrawIndirectAllocator(core::smart_refctd_ptr<draw_count_pool_t>&& _drawCountPool, const uint16_t _maxDrawCommandStride, asset::SBufferRange<IGPUBuffer>&& _drawCommandBlock, void* _drawAllocatorReserved)
             :   m_drawCountPool(std::move(_drawCountPool)), m_drawAllocator(_drawAllocatorReserved,0u,0u,_maxDrawCommandStride,_drawCommandBlock.size,MinAllocationBlock),
                 m_drawCommandBlock(std::move(_drawCommandBlock)), m_drawAllocatorReserved(_drawAllocatorReserved), m_maxDrawCommandStride(_maxDrawCommandStride)
