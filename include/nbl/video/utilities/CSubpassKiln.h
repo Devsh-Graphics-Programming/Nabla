@@ -28,7 +28,7 @@ class CSubpassKiln
         {
             alignas(16) uint8_t pushConstantData[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE]; // could try to push it to 64, if we had containers capable of such allocations
             core::smart_refctd_ptr<IGPUGraphicsPipeline> pipeline;
-            core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
+            core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
             asset::SBufferBinding<IGPUBuffer> vertexBufferBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
             asset::SBufferBinding<IGPUBuffer> indexBufferBinding;
             uint32_t drawCommandStride : 31;

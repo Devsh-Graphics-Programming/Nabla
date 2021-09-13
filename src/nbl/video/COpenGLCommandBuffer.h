@@ -1165,8 +1165,8 @@ public:
         if (!IGPUCommandBuffer::executeCommands(count, cmdbufs))
             return false;
         for (uint32_t i = 0u; i < count; ++i)
-            if (this->isCompatibleDevicewise(cmdbufs[i]))
-                return false;
+        if (!this->isCompatibleDevicewise(cmdbufs[i]))
+            return false;
 
         for (uint32_t i = 0u; i < count; ++i)
         {
