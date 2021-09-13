@@ -25,6 +25,7 @@
 #include "nbl/video/surface/ISurfaceGL.h"
 
 // utilities
+#include "nbl/video/utilities/CDumbPresentationOracle.h"
 #include "nbl/video/utilities/ICommandPoolCache.h"
 #include "nbl/video/utilities/CPropertyPool.h"
 #include "nbl/video/utilities/CDrawIndirectAllocator.h"

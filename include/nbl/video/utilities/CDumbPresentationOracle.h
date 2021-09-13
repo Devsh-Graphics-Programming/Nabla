@@ -5,16 +5,14 @@
 #ifndef _NBL_VIDEO_UTILITIES_C_DUMB_PRESENTATION_ORACLE_H_INCLUDED_
 #define _NBL_VIDEO_UTILITIES_C_DUMB_PRESENTATION_ORACLE_H_INCLUDED_
 
-#include "nbl/video/IPresentationOracle.h"
+#include "nbl/video/utilities/IPresentationOracle.h"
 
-namespace nbl
+namespace nbl::video
 {
-	namespace video
-	{
 
 class CDumbPresentationOracle : public IPresentationOracle 
 {
-public:
+	public:
 		CDumbPresentationOracle()
 		{
 			reset();
@@ -54,38 +52,43 @@ public:
 
 		inline double getDeltaTimeInMicroSeconds() const {return dt;}
 
-		inline void acquireNextImage(ISwapchain* swapchain, uint64_t timeout, IGPUSemaphore* acquireSemaphore, IGPUFence* fence, uint32_t& imageNumber) override
+		inline std::chrono::microseconds acquireNextImage(ISwapchain* swapchain, IGPUSemaphore* acquireSemaphore, IGPUFence* fence, uint32_t* imageNumber) override
 		{
+			swapchain->acquireNextImage(acquireSemaphore,fence,imageNumber);
+			reportEndFrameRecord();
+			const auto retval = getNextPresentationTimeStamp();
+			reportBeginFrameRecord();
+			return retval;
 		}
 
-		inline void present(ILogicalDevice* device, ISwapchain* swapchain, IGPUQueue* queue, IGPUSemaphore* renderFinishedSemaphore, uint32_t imageNumber) override
+		inline void present(ILogicalDevice* device, ISwapchain* swapchain, IGPUQueue* queue, IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumber) override
 		{
+			// literally cant do anything here in this dumb algorithm
 		}
-private:
+	private:
 	
-	void reset()
-	{
-		frameCount = 0ull;
-		frameDataFilled = false;
-		timeSum = 0.0;
-		for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
-			dtList[i] = 0.0;
+		void reset()
+		{
+			frameCount = 0ull;
+			frameDataFilled = false;
+			timeSum = 0.0;
+			for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
+				dtList[i] = 0.0;
+			}
+			dt = 0.0;
 		}
-		dt = 0.0;
-	}
 
-	static constexpr size_t MaxFramesToAverage = 100ull;
+		static constexpr size_t MaxFramesToAverage = 100ull;
 
-	bool frameDataFilled = false;
-	size_t frameCount = 0ull;
-	double timeSum = 0.0;
-	double dtList[MaxFramesToAverage] = {};
-	double dt = 0.0;
-	std::chrono::system_clock::time_point lastTime;
-	std::chrono::microseconds nextPresentationTimeStamp;
+		bool frameDataFilled = false;
+		size_t frameCount = 0ull;
+		double timeSum = 0.0;
+		double dtList[MaxFramesToAverage] = {};
+		double dt = 0.0;
+		std::chrono::system_clock::time_point lastTime;
+		std::chrono::microseconds nextPresentationTimeStamp;
 };
 
-	}
 }
 
-#endif // __NBL_VIDEO_I_PRESENTATION_ORACLE__H_INCLUDED__
+#endif // _NBL_VIDEO_I_PRESENTATION_ORACLE__H_INCLUDED_

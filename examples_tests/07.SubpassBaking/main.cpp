@@ -202,16 +202,9 @@ int main(int argc, char** argv)
     core::vectorSIMDf cameraPosition(0, 5, -10);
     matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
     Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
-    auto lastTime = std::chrono::system_clock::now();
-
-    // TODO: oracle
-    constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
-    bool frameDataFilled = false;
-    size_t frame_count = 0ull;
-    double time_sum = 0;
-    double dtList[NBL_FRAMES_TO_AVERAGE] = {};
-    for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
-        dtList[i] = 0.0;
+    
+    video::CDumbPresentationOracle oracle;
+    oracle.reportBeginFrameRecord();
 
     core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
     logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
@@ -219,17 +212,14 @@ int main(int argc, char** argv)
     core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
     core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
     core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
-
-    for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+    for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)
     {
         imageAcquire[i] = logicalDevice->createSemaphore();
         renderFinished[i] = logicalDevice->createSemaphore();
     }
 
-    constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
     uint32_t acquiredNextFBO = {};
     auto resourceIx = -1;
-
 	while(windowCallback->isWindowOpen())
 	{
         ++resourceIx;
@@ -238,48 +228,27 @@ int main(int argc, char** argv)
         
         auto& commandBuffer = commandBuffers[resourceIx];
         auto& fence = frameComplete[resourceIx];
-
         if (fence)
-            while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+            logicalDevice->blockForFences(1u,&fence.get());
         else
             fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-        auto renderStart = std::chrono::system_clock::now();
-        const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
-        lastTime = renderStart;
-        { // Calculate Simple Moving Average for FrameTime
-            time_sum -= dtList[frame_count];
-            time_sum += renderDt;
-            dtList[frame_count] = renderDt;
-            frame_count++;
-            if (frame_count >= NBL_FRAMES_TO_AVERAGE) 
-			{
-				frameDataFilled = true;
-				frame_count = 0;
-			}
-                
-        }
-        const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
-
-        auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-        auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-        auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
-
-        
-
+        //
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
         commandBuffer->begin(0);
-        swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
+        // late latch input
+        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(),imageAcquire[resourceIx].get(),nullptr,&acquiredNextFBO);
 
         // input
         {
             inputSystem->getDefaultMouse(&mouse);
             inputSystem->getDefaultKeyboard(&keyboard);
 
-            camera.beginInputProcessing(nextPresentationTimeStamp);
+            camera.beginInputProcessing(nextPresentationTimestamp);
             mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
             keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
-            camera.endInputProcessing(nextPresentationTimeStamp);
+            camera.endInputProcessing(nextPresentationTimestamp);
         }
 
         // update camera
