@@ -585,7 +585,7 @@ namespace nbl::video
                 if (ctxlocal->currentState.vertexInputParams.parameterBuf)
                     gl->extGlMultiDrawElementsIndirectCount(glpt, idxType, reinterpret_cast<void*>(offset), c.countBufferOffset, c.maxDrawCount, c.stride);
                 else
-                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.countBufferOffset, c.stride);
+                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.maxDrawCount, c.stride);
             }
             break;
             case impl::ECT_SET_VIEWPORT:
