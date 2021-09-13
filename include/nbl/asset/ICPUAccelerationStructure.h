@@ -144,28 +144,50 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-			m_buildInfo = {}; // TODO: should I convert each geometries buffers to dummies?
-			if (canBeConvertedToDummy())
+			convertToDummyObject_common(referenceLevelsBelowToConvert);
+			
+			if (referenceLevelsBelowToConvert)
+			{
+				--referenceLevelsBelowToConvert;
+				auto geoms = m_buildInfo.getGeometries().begin();
+				const auto geomsCount = m_buildInfo.getGeometries().size();
+				for(uint32_t i = 0; i < geomsCount; ++i)
+				{
+					auto geom = geoms[i];
+					if(geom.type == EGT_TRIANGLES)
+					{
+						if(geom.data.triangles.indexData.buffer)
+							geom.data.triangles.indexData.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+						if(geom.data.triangles.vertexData.buffer)
+							geom.data.triangles.vertexData.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+						if(geom.data.triangles.transformData.buffer)
+							geom.data.triangles.transformData.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+					}
+					else if(geom.type == EGT_AABBS)
+					{
+						if(geom.data.aabbs.data.buffer)
+							geom.data.aabbs.data.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+					}
+					else if(geom.type == EGT_INSTANCES)
+					{
+						if(geom.data.instances.data.buffer)
+							geom.data.instances.data.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+					}
+				}
+			}
+			if (canBeConvertedToDummy()) {
 				m_buildRangeInfos = nullptr;
+				m_hasBuildInfo = false;
+				m_accelerationStructureSize = 0ull;
+			}
 		}
 		
 		//!
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUAccelerationStructure*>(_other);
-
-			if (params.flags != other->params.flags)
-				return false;
-			if (params.type != other->params.type)
-				return false;
-			if(m_hasBuildInfo != other->m_hasBuildInfo)
-				return false;
-			if(m_hasBuildInfo)
-			{
-				// TODO: Should I also check details around buildInfo?
-			}
-			return true;
+			_NBL_TODO();
+			return false;
 		}
 
 		//!
@@ -178,20 +200,38 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUAccelerationStructure*>(_other);
-			
-			const bool restorable = willBeRestoredFrom(_other);
-			
-			// TODO?
-			if (restorable)
-				std::swap(m_buildRangeInfos, other->m_buildRangeInfos);
-
-			if (_levelsBelow)
-			{			}
+			_NBL_TODO();
+			return;
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{
-			// TODO?
+			--_levelsBelow;
+			auto geoms = m_buildInfo.getGeometries().begin();
+			const auto geomsCount = m_buildInfo.getGeometries().size();
+			for(uint32_t i = 0; i < geomsCount; ++i)
+			{
+				auto geom = geoms[i];
+				if(geom.type == EGT_TRIANGLES)
+				{
+					if(geom.data.triangles.indexData.buffer)
+						return geom.data.triangles.indexData.buffer->isAnyDependencyDummy(_levelsBelow);
+					if(geom.data.triangles.vertexData.buffer)
+						return geom.data.triangles.vertexData.buffer->isAnyDependencyDummy(_levelsBelow);
+					if(geom.data.triangles.transformData.buffer)
+						return geom.data.triangles.transformData.buffer->isAnyDependencyDummy(_levelsBelow);
+				}
+				else if(geom.type == EGT_AABBS)
+				{
+					if(geom.data.aabbs.data.buffer)
+						return geom.data.aabbs.data.buffer->isAnyDependencyDummy(_levelsBelow);
+				}
+				else if(geom.type == EGT_INSTANCES)
+				{
+					if(geom.data.instances.data.buffer)
+						return geom.data.instances.data.buffer->isAnyDependencyDummy(_levelsBelow);
+				}
+			}
 			return false;
 		}
 
