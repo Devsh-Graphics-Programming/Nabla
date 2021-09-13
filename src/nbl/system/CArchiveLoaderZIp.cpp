@@ -244,6 +244,7 @@ namespace nbl::system
 
 		addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, getAllocatorType(entry.header.CompressionMethod), m_fileInfo.size());
 		m_fileInfo.push_back(entry);
+		return true;
 	}
 
 	bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)

@@ -36,6 +36,7 @@ namespace nbl::system
             {
                 auto relative = std::filesystem::relative(_path, path);
                 auto files = archive.second->getArchivedFiles();
+                // TODO: file list should be sorted by the path and you should be using a binary search !!!!!!
                 auto requiredFile = std::find_if(files.begin(), files.end(), [&relative](const IFileArchive::SFileListEntry& entry) { return entry.fullName == relative; });
                 if (requiredFile != files.end())
                 {
