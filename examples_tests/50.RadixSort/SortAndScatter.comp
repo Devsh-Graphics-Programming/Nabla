@@ -1,0 +1,111 @@
+#version 450
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ (1 << 8)
+
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+
+layout (set = 0, binding = 0, std430) readonly buffer in_buffer
+{
+	uvec2 in_values[];
+};
+
+layout (set = 0, binding = 1, std430) writeonly buffer out_buffer
+{
+	uvec2 out_values[];
+};
+
+layout (set = 0, binding = 2, std430) readonly buffer histogram_buffer
+{
+	uint histogram[];
+};
+
+layout(push_constant) uniform pushConstants
+{
+    layout (offset = 0) uint shift;
+} u_push_constants;
+
+#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
+
+#define BITS_PER_PASS 4
+#define NUM_BUCKETS (1 << BITS_PER_PASS)
+
+#define scratch_shared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
+#define WG_DIM _NBL_GLSL_WORKGROUP_SIZE_
+
+shared uvec2 pingpong[WG_DIM * 2]; // 4kB
+shared uint local_histogram[NUM_BUCKETS]; // 64 bytes
+shared uint global_histogram[NUM_BUCKETS]; // 64 bytes
+
+void main()
+{	
+	if (gl_LocalInvocationID.x < NUM_BUCKETS)
+		global_histogram[gl_LocalInvocationID.x] = histogram[gl_LocalInvocationID.x * gl_NumWorkGroups.x + gl_WorkGroupID.x];
+
+	pingpong[gl_LocalInvocationID.x] = in_values[gl_GlobalInvocationID.x];
+
+	barrier();
+
+	// Locally sort the workgroup with 1bit per pass parallel radix sort
+	// 
+	// Note: Theres an optimization on this with 2 bits per pass and packed keys, as described in the 
+	// following paper. This probably will be useful when we decide to do muliple values per thread.
+	// http://www.heterogeneouscompute.org/wordpress/wp-content/uploads/2011/06/RadixSort.pdf
+	
+	uint offset = 0;
+	
+	for (uint i = 0; i < BITS_PER_PASS; ++i)
+	{
+		uint key = pingpong[offset * WG_DIM + gl_LocalInvocationID.x].x;
+		uint value = pingpong[offset * WG_DIM + gl_LocalInvocationID.x].y;
+		uint shift = u_push_constants.shift + i;
+
+		uint bit = (key >> shift) & 1;
+		uint predicate = 1 - bit; // (bit == 0) ? 1 : 0;
+	
+		scratch_shared[gl_LocalInvocationID.x] = nbl_glsl_workgroupInclusiveAdd(predicate);
+
+		barrier();
+
+		uint total = scratch_shared[WG_DIM - 1];
+		uint prefix_sum = (gl_LocalInvocationID.x == 0) ? 0 : scratch_shared[gl_LocalInvocationID.x - 1];
+
+		uint scatter_address = (bit == 0) ? prefix_sum : (gl_LocalInvocationID.x - prefix_sum + total);
+		
+		offset = 1 - offset;
+		
+		pingpong[offset * WG_DIM + scatter_address] = uvec2(key, value);
+		
+		barrier();
+	}
+
+	uint key = pingpong[WG_DIM * offset + gl_LocalInvocationID.x].x;
+	uint value = pingpong[WG_DIM * offset + gl_LocalInvocationID.x].y;
+	uint digit = (key >> u_push_constants.shift) & 0xf;
+
+	if (gl_LocalInvocationID.x < NUM_BUCKETS)
+		local_histogram[gl_LocalInvocationID.x] = 0;
+
+	barrier();
+
+	// Todo: Is there a better way to generate histogram here, than shared memory atomics?
+
+	atomicAdd(local_histogram[digit], 1);
+
+	barrier();
+
+	// Todo: Instead of using nbl_glsl_workgroupExclusiveAdd, should I just implement a small one for only 16 elements,
+	// or probably any nbl_glsl_subgroup* functions would be effective here?
+
+	if (gl_LocalInvocationID.x < NUM_BUCKETS)
+		scratch_shared[gl_LocalInvocationID.x] = nbl_glsl_workgroupExclusiveAdd(local_histogram[gl_LocalInvocationID.x]);
+	else
+		nbl_glsl_workgroupExclusiveAdd(0);
+
+	barrier();
+
+	uint local_offset = scratch_shared[digit];
+	uint global_offset = global_histogram[digit];
+	uint scatter_address = gl_LocalInvocationID.x - local_offset + global_offset;
+
+	out_values[scatter_address] = uvec2(key, value);
+}

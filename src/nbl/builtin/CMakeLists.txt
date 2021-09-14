@@ -148,6 +148,19 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/transform_tree/relative_transform_update_descriptor_set.glsl"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
+  # global exclusive scan
+  "nbl/builtin/glsl/ext/Scan/default_upsweep.comp"
+  "nbl/builtin/glsl/ext/Scan/default_downsweep.comp"
+  "nbl/builtin/glsl/ext/Scan/scan.glsl"
+  "nbl/builtin/glsl/ext/Scan/parameters_struct.glsl"
+  "nbl/builtin/glsl/ext/Scan/default_sweep_common.glsl"
+  "nbl/builtin/glsl/ext/Scan/parameters.glsl"
+  # radix sort
+  "nbl/builtin/glsl/ext/RadixSort/default_histogram.comp"
+  "nbl/builtin/glsl/ext/RadixSort/default_scatter.comp"
+  "nbl/builtin/glsl/ext/RadixSort/radix_sort.glsl"
+  "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
+  "nbl/builtin/glsl/ext/RadixSort/parameters.glsl"
   "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
