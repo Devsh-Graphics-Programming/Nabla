@@ -407,7 +407,7 @@ Choose Graphics API:
 	// Record commands in commandBuffers here
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
-		commandBuffers[i]->begin(0U);
+		commandBuffers[i]->begin(0u);
 
 		video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo = {};
 		beginInfo.renderpass = renderPass;

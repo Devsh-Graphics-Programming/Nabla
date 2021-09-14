@@ -967,6 +967,7 @@ public:
 				imgParams.type = asset::IImage::ET_2D;
 				imgParams.format = depthFormat;
 				imgParams.extent = {width, height, 1};
+				imgParams.usage = asset::IImage::E_USAGE_FLAGS::EUF_DEPTH_STENCIL_ATTACHMENT_BIT;
 				imgParams.mipLevels = 1u;
 				imgParams.arrayLayers = 1u;
 				imgParams.samples = asset::IImage::ESCF_1_BIT;

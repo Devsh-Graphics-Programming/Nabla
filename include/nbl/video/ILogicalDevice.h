@@ -157,6 +157,7 @@ class ILogicalDevice : public core::IReferenceCounted
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.size = 0;
             reqs.vulkanReqs.alignment = 0;
             reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
             reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
@@ -264,53 +265,43 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getSpilloverGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getUpStreamingMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getDownStreamingMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Low level function used to implement the above, use with caution

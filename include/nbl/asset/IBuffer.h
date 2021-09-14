@@ -34,10 +34,10 @@ class IBuffer : public core::IBuffer, public IDescriptor
         struct SCreationParams
         {
             uint64_t size;
-            E_USAGE_FLAGS usage;
+            std::underlying_type_t<E_USAGE_FLAGS> usage;
             E_SHARING_MODE sharingMode;
             uint32_t queueFamilyIndexCount;
-            const uint32_t* queuueFamilyIndices;
+            const uint32_t* queueFamilyIndices;
         };
 
 	protected:
