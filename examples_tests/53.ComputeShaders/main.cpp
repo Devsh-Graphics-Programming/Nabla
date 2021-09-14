@@ -276,7 +276,15 @@ int main()
 	auto gpuGDs1Layout = logicalDevice->createGPUDescriptorSetLayout(&gpuUboBinding, &gpuUboBinding + 1);
 	auto dev_local_reqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
 	dev_local_reqs.vulkanReqs.size = sizeof(SBasicViewParameters);
-	auto gpuUBO = logicalDevice->createGPUBufferOnDedMem(dev_local_reqs, true);
+
+	video::IGPUBuffer::SCreationParams gpuUBOCreationParams;
+	gpuUBOCreationParams.size = sizeof(SBasicViewParameters);
+	gpuUBOCreationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
+	gpuUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+	gpuUBOCreationParams.queueFamilyIndexCount = 0u;
+	gpuUBOCreationParams.queueFamilyIndices = nullptr;
+
+	auto gpuUBO = logicalDevice->createGPUBufferOnDedMem(gpuUBOCreationParams, dev_local_reqs, true);
 
 	auto gpuGDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuGDescriptorPool.get(), gpuGDs1Layout);
 	{
