@@ -453,17 +453,27 @@ public:
 	
 	// TODO: also implement a function:findBestGPU
 	// Returns an index into gpus info vector
-	static uint32_t findSuitableGPU(const std::vector<GPUInfo>& extractedInfos)
+	static uint32_t findSuitableGPU(const std::vector<GPUInfo>& extractedInfos, const bool graphicsQueueEnable)
 	{
-		uint32_t ret = 0;
+		uint32_t ret = ~0u;
 		for(uint32_t i = 0; i < extractedInfos.size(); ++i)
 		{
 			bool isGPUSuitable = false;
 			const auto& extractedInfo = extractedInfos[i];
 
-			if ((extractedInfo.queueFamilyProps.graphics.index != QueueFamilyProps::InvalidIndex) && (extractedInfo.queueFamilyProps.present.index != QueueFamilyProps::InvalidIndex))
+			if(graphicsQueueEnable)
 			{
-				isGPUSuitable = true;
+				if ((extractedInfo.queueFamilyProps.graphics.index != QueueFamilyProps::InvalidIndex) &&
+					(extractedInfo.queueFamilyProps.compute.index != QueueFamilyProps::InvalidIndex) &&
+					(extractedInfo.queueFamilyProps.transfer.index != QueueFamilyProps::InvalidIndex) &&
+					(extractedInfo.queueFamilyProps.present.index != QueueFamilyProps::InvalidIndex))
+					isGPUSuitable = true;
+			}
+			else
+			{
+				if ((extractedInfo.queueFamilyProps.compute.index != QueueFamilyProps::InvalidIndex) &&
+					(extractedInfo.queueFamilyProps.transfer.index != QueueFamilyProps::InvalidIndex))
+					isGPUSuitable = true;
 			}
 
 			if(extractedInfo.isSwapChainSupported == false)
@@ -475,9 +485,17 @@ public:
 			if(isGPUSuitable)
 			{
 				// find the first suitable GPU
+				ret = i;
 				break;
 			}
 		}
+
+		if(ret == ~0u)
+		{
+			assert(false);
+			ret = 0;
+		}
+
 		return ret;
 	}
 
@@ -569,7 +587,7 @@ public:
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 		auto extractedInfos = extractGPUInfos(gpus, nullptr);
-		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos, false);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 
 		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
@@ -690,7 +708,7 @@ public:
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 		auto extractedInfos = extractGPUInfos(gpus, result.surface);
-		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos, graphicsQueueEnable);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
 
