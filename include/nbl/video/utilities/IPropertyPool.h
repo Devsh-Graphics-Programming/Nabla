@@ -21,7 +21,7 @@ class IPropertyPool : public core::IReferenceCounted
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto invalid = PropertyAddressAllocator::invalid_address;
+        static inline constexpr auto invalid = PropertyAddressAllocator::invalid_address;
 
 		//
         virtual const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const =0;

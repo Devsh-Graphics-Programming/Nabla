@@ -11,7 +11,7 @@ class IThreadsafeLogger : public ILogger
 {
 	mutable std::mutex m_mutex;
 public:
-	IThreadsafeLogger(std::underlying_type_t<E_LOG_LEVEL> logLevelMask) : ILogger(logLevelMask) {}
+	IThreadsafeLogger(core::bitflag<E_LOG_LEVEL> logLevelMask) : ILogger(logLevelMask) {}
 	// Inherited via ILogger
 	void log_impl(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list args) override final
 	{

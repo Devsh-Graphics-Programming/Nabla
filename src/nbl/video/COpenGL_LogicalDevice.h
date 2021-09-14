@@ -226,7 +226,7 @@ public:
         return sc;
     }
 
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         return core::make_smart_refctd_ptr<COpenGLCommandPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), flags, _familyIx);
     }
@@ -381,13 +381,13 @@ public:
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
-        std::underlying_type_t<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = 0;
+        core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = static_cast< IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(0);
         if (flags & GL_MAP_READ_BIT)
             actualAccess |= IDriverMemoryAllocation::EMCAF_READ;
         if (flags & GL_MAP_WRITE_BIT)
             actualAccess |= IDriverMemoryAllocation::EMCAF_WRITE;
         if (retval)
-            post_mapMemory(memory.memory, retval, memory.range, static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(actualAccess));
+            post_mapMemory(memory.memory, retval, memory.range, actualAccess.value);
 
         return retval;
     }
@@ -504,7 +504,7 @@ protected:
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
             std::string glsl(begin, end);
             COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
-            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str());
+            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str(), 4u, getLogger());
             //{
                 //auto fl = fopen("shader.glsl", "w");
                 //fwrite(glsl.c_str(), 1, glsl.size(), fl);

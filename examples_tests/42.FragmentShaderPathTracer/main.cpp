@@ -8,6 +8,7 @@
 #include "../common/CommonAPI.h"
 #include "../common/Camera.hpp"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "nbl/video/utilities/CDumbPresentationOracle.h"
 
 using namespace nbl;
 using namespace core;
@@ -41,6 +42,7 @@ smart_refctd_ptr<IGPUImageView> createHDRImageView(nbl::core::smart_refctd_ptr<n
 		imgViewInfo.format = colorFormat;
 		imgViewInfo.viewType = IGPUImageView::ET_2D;
 		imgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewInfo.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 		imgViewInfo.subresourceRange.baseArrayLayer = 0u;
 		imgViewInfo.subresourceRange.baseMipLevel = 0u;
 		imgViewInfo.subresourceRange.layerCount = 1u;
@@ -107,6 +109,7 @@ int main()
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
+	auto utilities = std::move(initOutput.utilities);
 
 	nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
@@ -146,8 +149,15 @@ int main()
 
 	auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 	{
-		auto cpuComputeSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShader, {}).getContents().begin()[0]);
+		asset::IAssetLoader::SAssetLoadParams params{};
+		params.logger = logger.get();
+		//params.relativeDir = tmp.c_str();
+		auto spec = assetManager->getAsset(pathToShader,params).getContents();
+		
+		if (spec.empty())
+			assert(false);
 
+		auto cpuComputeSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*spec.begin());
 
 		ISpecializedShader::SInfo info = cpuComputeSpecializedShader->getSpecializationInfo();
 		info.m_backingBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ShaderParameters));
@@ -171,7 +181,7 @@ int main()
 	E_LIGHT_GEOMETRY lightGeom = ELG_SPHERE;
 	constexpr const char* shaderPaths[] = {"../litBySphere.comp","../litByTriangle.comp","../litByRectangle.comp"};
 	auto gpuComputePipeline = createGpuResources(shaderPaths[lightGeom]);
-	
+
 	DispatchInfo_t dispatchInfo = getDispatchInfo(WIN_W, WIN_H);
 
 	auto createGPUImageView = [&](std::string pathToOpenEXRHDRIImage)
@@ -180,7 +190,7 @@ int main()
 		IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
 		auto cpuTexture = assetManager->getAsset(pathToTexture, lp);
 		auto cpuTextureContents = cpuTexture.getContents();
-
+		assert(!cpuTextureContents.empty());
 		auto asset = *cpuTextureContents.begin();
 
 		ICPUImageView::SCreationParams viewParams;
@@ -217,7 +227,7 @@ int main()
 		{
 			out[i*MaxDimensions+dim] = sampler.sample(dim,i);
 		}
-		auto gpuSequenceBuffer = device->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
+		auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
 		gpuSequenceBufferView = device->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
 
@@ -244,11 +254,11 @@ int main()
 			for (auto& pixel : random)
 				pixel = rng.nextSample();
 		}
-		auto buffer = device->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
+		auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
 
 		IGPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-		viewParams.image = device->createFilledDeviceLocalGPUImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
+		viewParams.image = utilities->createFilledDeviceLocalGPUImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
 		viewParams.viewType = IGPUImageView::ET_2D;
 		viewParams.format = EF_R32G32_UINT;
 		viewParams.subresourceRange.levelCount = 1u;
@@ -283,7 +293,9 @@ int main()
 		device->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	}
 
-	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+	IGPUBuffer::SCreationParams gpuuboParams = {};
+	gpuuboParams.size = sizeof(SBasicViewParameters);
+	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams);
 	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
@@ -335,9 +347,8 @@ int main()
 		device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
-	auto lastTime = std::chrono::system_clock::now();
+
 	constexpr uint32_t FRAME_COUNT = 500000u;
-	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
@@ -347,18 +358,10 @@ int main()
 		imageAcquire[i] = device->createSemaphore();
 		renderFinished[i] = device->createSemaphore();
 	}
-
-	// Render
-	constexpr size_t MaxFramesToAverage = 100ull;
-	bool frameDataFilled = false;
-	size_t frame_count = 0ull;
-	double time_sum = 0;
-	double dtList[MaxFramesToAverage] = {};
-	for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
-		dtList[i] = 0.0;
-	}
-
-	double dt = 0;
+	
+	CDumbPresentationOracle oracle;
+	oracle.reportBeginFrameRecord();
+	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	
 	// polling for events!
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
@@ -372,30 +375,11 @@ int main()
 			resourceIx = 0;
 		}
 		
-		// Timing
-		auto renderStart = std::chrono::system_clock::now();
-		dt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart-lastTime).count();
-		lastTime = renderStart;
-		
-		// Calculate Simple Moving Average for FrameTime
-		{
-			time_sum -= dtList[frame_count];
-			time_sum += dt;
-			dtList[frame_count] = dt;
-			frame_count++;
-			if(frame_count >= MaxFramesToAverage) {
-				frame_count = 0;
-				frameDataFilled = true;
-			}
-		}
-		double averageFrameTime = (frameDataFilled) ? (time_sum / (double)MaxFramesToAverage) : (time_sum / frame_count);
-		// logger->log("averageFrameTime = %f",system::ILogger::ELL_INFO, averageFrameTime);
-		
-		// Calculate Next Presentation Time Stamp
-		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
-		
+		oracle.reportEndFrameRecord();
+		double dt = oracle.getDeltaTimeInMicroSeconds() / 1000.0;
+		auto nextPresentationTimeStamp = oracle.getNextPresentationTimeStamp();
+		oracle.reportBeginFrameRecord();
+
 		// Input 
 		inputSystem->getDefaultMouse(&mouse);
 		inputSystem->getDefaultKeyboard(&keyboard);
@@ -436,7 +420,7 @@ int main()
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
-			asset::VkRect2D area;
+			VkRect2D area;
 			clearValues[0].color.float32[0] = 0.1f;
 			clearValues[0].color.float32[1] = 0.1f;
 			clearValues[0].color.float32[2] = 0.1f;
@@ -469,7 +453,7 @@ int main()
 			range.buffer = gpuubo;
 			range.offset = 0ull;
 			range.size = sizeof(uboData);
-			device->updateBufferRangeViaStagingBuffer(graphicsQueue, range, &uboData);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, range, &uboData);
 		}
 
 		// cube envmap handle
@@ -489,6 +473,7 @@ int main()
 		SImageBlit blit = {};
 		blit.srcOffsets[0] = {0, 0, 0};
 		blit.srcOffsets[1] = {WIN_W, WIN_H, 1};
+		
 		blit.srcSubresource.aspectMask = srcImgViewCreationParams.subresourceRange.aspectMask;
 		blit.srcSubresource.mipLevel = srcImgViewCreationParams.subresourceRange.baseMipLevel;
 		blit.srcSubresource.baseArrayLayer = srcImgViewCreationParams.subresourceRange.baseArrayLayer;

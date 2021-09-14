@@ -21,14 +21,17 @@ public:
 			const core::vectorSIMDf& lookat,
 			const core::matrix4SIMD& projection,
 			float moveSpeed = 1.0f,
-			float rotateSpeed = 1.0f
+			float rotateSpeed = 1.0f,
+			const core::vectorSIMDf& upVec = core::vectorSIMDf(0.0f, 1.0f, 0.0f),
+			const core::vectorSIMDf& backupUpVec = core::vectorSIMDf(0.5f, 1.0f, 0.0f)
 	) 
 		: position(position)
 		, target(lookat)
-		, upVector(0.0f, 1.0f, 0.0f)
 		, firstUpdate(true)
 		, moveSpeed(moveSpeed)
 		, rotateSpeed(rotateSpeed)
+		, upVector(upVec)
+		, backupUpVector(backupUpVec)
 	{
 		allKeysUp();
 		setProjectionMatrix(projection);
@@ -66,24 +69,27 @@ public:
 	inline void setUpVector(const core::vectorSIMDf& up) {
 		upVector = up;
 	}
+	
+	inline void setBackupUpVector(const core::vectorSIMDf& up) {
+		backupUpVector = up;
+	}
 
 	inline const core::vectorSIMDf& getUpVector() const { return upVector; }
+	
+	inline const core::vectorSIMDf& getBackupUpVector() const { return backupUpVector; }
 
 	inline void recomputeViewMatrix() {
-		core::vectorSIMDf pos;
-		pos.set(position);
-
-		core::vectorSIMDf tgtv = core::normalize(target - pos);
+		core::vectorSIMDf pos = position;
+		core::vectorSIMDf localTarget = core::normalize(target - pos);
 
 		// if upvector and vector to the target are the same, we have a
 		// problem. so solve this problem:
 		core::vectorSIMDf up = core::normalize(upVector);
-
-		core::vectorSIMDf dp = core::dot(tgtv,up);
-
-		if (core::iszero(core::abs(dp)[0]-1.f))
+		core::vectorSIMDf cross = core::cross(localTarget, up);
+		bool upVectorNeedsChange = core::lengthsquared(cross)[0] == 0;
+		if (upVectorNeedsChange)
 		{
-			up.X += 0.5f;
+			up = core::normalize(backupUpVector);
 		}
 
 		if (leftHanded)
@@ -237,7 +243,7 @@ public:
 	}
 	
 	void endInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
-		core::vectorSIMDf pos = getPosition();;
+		core::vectorSIMDf pos = getPosition();
 		core::vectorSIMDf localTarget = getTarget() - pos;
 
 		core::vectorSIMDf movedir = localTarget;
@@ -251,11 +257,22 @@ public:
 		pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed * MoveSpeedScale;
 
 		// strafing
-		core::vectorSIMDf strafevect; strafevect.set(localTarget);
+		
+		// if upvector and vector to the target are the same, we have a
+		// problem. so solve this problem:
+		core::vectorSIMDf up = core::normalize(upVector);
+		core::vectorSIMDf cross = core::cross(localTarget, up);
+		bool upVectorNeedsChange = core::lengthsquared(cross)[0] == 0;
+		if (upVectorNeedsChange)
+		{
+			up = core::normalize(backupUpVector);
+		}
+
+		core::vectorSIMDf strafevect = localTarget;
 		if (leftHanded)
-			strafevect = core::cross(strafevect, upVector);
+			strafevect = core::cross(strafevect, up);
 		else
-			strafevect = core::cross(upVector, strafevect);
+			strafevect = core::cross(up, strafevect);
 
 		strafevect = core::normalize(strafevect);
 
@@ -283,6 +300,7 @@ private:
 	core::vectorSIMDf position;
 	core::vectorSIMDf target;
 	core::vectorSIMDf upVector;
+	core::vectorSIMDf backupUpVector;
 	
 	core::matrix3x4SIMD viewMatrix;
 	core::matrix4SIMD concatMatrix;

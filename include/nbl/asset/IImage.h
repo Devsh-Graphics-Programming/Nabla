@@ -5,6 +5,7 @@
 #ifndef __NBL_ASSET_I_IMAGE_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_H_INCLUDED__
 
+#include "nbl/core/util/bitflag.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
@@ -237,7 +238,7 @@ class IImage : public IDescriptor
 			E_SAMPLE_COUNT_FLAGS						samples;
 			// stuff below is irrelevant in OpenGL backend
 			E_TILING									tiling = static_cast<E_TILING>(0);
-			std::underlying_type_t<E_USAGE_FLAGS>		usage = 0u;
+			core::bitflag<E_USAGE_FLAGS>				usage = static_cast<E_USAGE_FLAGS>(0);
 			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
 			uint32_t									queueFamilyIndexCount;
 			const uint32_t*								queueFamilyIndices;

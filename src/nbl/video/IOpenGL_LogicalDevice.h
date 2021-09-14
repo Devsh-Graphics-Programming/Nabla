@@ -538,7 +538,6 @@ protected:
             case ERT_PROGRAM_DESTROY:
             {
                 auto& p = std::get<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req.params_variant);
-                assert(p.count == 1u);
                 gl.glShader.pglDeleteProgram(p.glnames[0]);
             }
                 break;

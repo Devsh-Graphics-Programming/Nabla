@@ -108,6 +108,21 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
         virtual void resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
         virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) = 0;
+        // Forever waiting variant if you're confident that the fence will eventually be signalled
+        inline bool blockForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll = true)
+        {
+            if (_count)
+            for (IGPUFence::E_STATUS waitStatus=IGPUFence::ES_NOT_READY; waitStatus!=IGPUFence::ES_SUCCESS;)
+            {
+                waitStatus = waitForFences(_count,_fences,_waitAll,999999999ull);
+                if (waitStatus==video::IGPUFence::ES_ERROR)
+                {
+                    assert(false);
+                    return false;
+                }
+            }
+            return true;
+        }
 
         virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
 
@@ -125,7 +140,7 @@ class ILogicalDevice : public core::IReferenceCounted
             return freeCommandBuffers_impl(_cmdbufs, _count);
         }
 
-        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
+        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
         core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params)
@@ -142,6 +157,7 @@ class ILogicalDevice : public core::IReferenceCounted
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.size = 0;
             reqs.vulkanReqs.alignment = 0;
             reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
             reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
@@ -249,53 +265,43 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getSpilloverGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getUpStreamingMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getDownStreamingMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
-            IGPUBuffer::SCreationParams unused = {};
-
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(unused, reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Low level function used to implement the above, use with caution

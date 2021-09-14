@@ -123,14 +123,18 @@ namespace impl
     {
         core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
-        uint32_t drawCount;
+        core::smart_refctd_ptr<const IGPUBuffer> countBuffer;
+        size_t countBufferOffset;
+        uint32_t maxDrawCount;
         uint32_t stride;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_DRAW_INDEXED_INDIRECT)
     {
         core::smart_refctd_ptr<const IGPUBuffer> buffer;
         size_t offset;
-        uint32_t drawCount;
+        core::smart_refctd_ptr<const IGPUBuffer> countBuffer;
+        size_t countBufferOffset;
+        uint32_t maxDrawCount;
         uint32_t stride;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_SET_VIEWPORT)
@@ -345,7 +349,7 @@ namespace impl
         constexpr static inline uint32_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
         core::smart_refctd_ptr<const IGPUPipelineLayout> layout;
-        std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags;
+        core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags;
         uint32_t offset;
         uint32_t size;
         uint8_t values[MAX_PUSH_CONSTANT_BYTESIZE];
@@ -452,19 +456,19 @@ protected:
         constexpr GLbitfield imageBits = GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT;
 
         // ignoring source access flags
-        std::underlying_type_t<asset::E_ACCESS_FLAGS> bufaccess = 0u;
+        core::bitflag<asset::E_ACCESS_FLAGS> bufaccess = static_cast<asset::E_ACCESS_FLAGS>(0u);
         for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
             bufaccess |= pBufferMemoryBarriers[i].barrier.dstAccessMask;// | pBufferMemoryBarriers[i].barrier.srcAccessMask;
-        std::underlying_type_t<asset::E_ACCESS_FLAGS> imgaccess = 0u;
+        core::bitflag<asset::E_ACCESS_FLAGS> imgaccess = static_cast <asset::E_ACCESS_FLAGS>(0u);
         for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
             imgaccess |= pImageMemoryBarriers[i].barrier.dstAccessMask;// | pImageMemoryBarriers[i].barrier.srcAccessMask;
-        std::underlying_type_t<asset::E_ACCESS_FLAGS> memaccess = 0u;
+        core::bitflag<asset::E_ACCESS_FLAGS> memaccess = static_cast <asset::E_ACCESS_FLAGS>(0u);
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
             memaccess |= pMemoryBarriers[i].dstAccessMask;// | pMemoryBarriers[i].srcAccessMask;
 
-        GLbitfield bufbarrier = bufferBits & accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(bufaccess));
-        GLbitfield imgbarrier = imageBits & accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(imgaccess));
-        GLbitfield membarrier = accessFlagsToMemoryBarrierBits(static_cast<asset::E_ACCESS_FLAGS>(memaccess));
+        GLbitfield bufbarrier = bufferBits & accessFlagsToMemoryBarrierBits(bufaccess.value);
+        GLbitfield imgbarrier = imageBits & accessFlagsToMemoryBarrierBits(imgaccess.value);
+        GLbitfield membarrier = accessFlagsToMemoryBarrierBits(memaccess.value);
 
         return bufbarrier | imgbarrier | membarrier;
     }
@@ -563,7 +567,9 @@ public:
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
-        cmd.drawCount = drawCount;
+        cmd.countBuffer = nullptr;
+        cmd.countBufferOffset = 0xdeadbeefBADC0FFEull;
+        cmd.maxDrawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
         return true;
@@ -573,7 +579,33 @@ public:
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
-        cmd.drawCount = drawCount;
+        cmd.countBuffer = nullptr;
+        cmd.countBufferOffset = 0xdeadbeefBADC0FFEull;
+        cmd.maxDrawCount = drawCount;
+        cmd.stride = stride;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    {
+        SCmd<impl::ECT_DRAW_INDIRECT> cmd;
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
+        cmd.offset = offset;
+        cmd.countBuffer = core::smart_refctd_ptr<const buffer_t>(countBuffer);
+        cmd.countBufferOffset = countBufferOffset;
+        cmd.maxDrawCount = maxDrawCount;
+        cmd.stride = stride;
+        pushCommand(std::move(cmd));
+        return true;
+    }
+    bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    {
+        SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
+        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
+        cmd.offset = offset;
+        cmd.countBuffer = core::smart_refctd_ptr<const buffer_t>(countBuffer);
+        cmd.countBufferOffset = countBufferOffset;
+        cmd.maxDrawCount = maxDrawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
         return true;
@@ -931,13 +963,13 @@ public:
         return true;
     }
 
-    bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        std::underlying_type_t<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
+    bool pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+        core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
-        GLbitfield barrier = pipelineStageFlagsToMemoryBarrierBits(static_cast<asset::E_PIPELINE_STAGE_FLAGS>(srcStageMask), static_cast<asset::E_PIPELINE_STAGE_FLAGS>(dstStageMask));
+        GLbitfield barrier = pipelineStageFlagsToMemoryBarrierBits(srcStageMask.value, dstStageMask.value);
 
         SCmd<impl::ECT_PIPELINE_BARRIER> cmd;
         cmd.barrier = barrier & barriersToMemBarrierBits(memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
@@ -1007,9 +1039,9 @@ public:
     {
         if (!this->isCompatibleDevicewise(layout))
             return false;
-        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
-            if (!this->isCompatibleDevicewise(pDescriptorSets[i]))
-                return false;
+        for (uint32_t i=0u; i<descriptorSetCount; ++i)
+        if (pDescriptorSets[i] && !this->isCompatibleDevicewise(pDescriptorSets[i]))
+            return false;
         SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
         cmd.pipelineBindPoint = pipelineBindPoint;
         cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
@@ -1021,11 +1053,11 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         SCmd<impl::ECT_PUSH_CONSTANTS> cmd;
         cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
-        cmd.stageFlags = stageFlags;
+        cmd.stageFlags = stageFlags.value;
         cmd.offset = offset;
         cmd.size = size;
         memcpy(cmd.values, pValues, size);
@@ -1133,8 +1165,8 @@ public:
         if (!IGPUCommandBuffer::executeCommands(count, cmdbufs))
             return false;
         for (uint32_t i = 0u; i < count; ++i)
-            if (this->isCompatibleDevicewise(cmdbufs[i]))
-                return false;
+        if (!this->isCompatibleDevicewise(cmdbufs[i]))
+            return false;
 
         for (uint32_t i = 0u; i < count; ++i)
         {
