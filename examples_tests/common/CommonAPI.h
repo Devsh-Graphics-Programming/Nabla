@@ -293,26 +293,43 @@ public:
 #endif
 		return make_smart_refctd_ptr<ISystem>(std::move(caller));
 	}
-
-	struct ExtractedGPUInfo
+	
+	struct QueueFamilyProps
 	{
-		uint32_t graphicsFamilyIndex = ~0u;
-		uint32_t computeFamilyIndex = ~0u;
-		uint32_t presentFamilyIndex = ~0u;
+		static constexpr uint32_t InvalidIndex = ~0u;
+		uint32_t index                  = InvalidIndex;
+		bool supportsGraphics           : 1;
+		bool supportsCompute            : 1;
+		bool supportsTransfer           : 1;
+		bool supportsSparseBinding      : 1;
+		bool supportsPresent            : 1;
+		bool supportsProtected          : 1;
+	};
 
+	struct GPUInfo
+	{
 		std::vector<nbl::video::ISurface::SFormat> availableSurfaceFormats;
 		nbl::video::ISurface::E_PRESENT_MODE availablePresentModes;
 		nbl::video::ISurface::SCapabilities surfaceCapabilities;
+
+		struct
+		{
+			QueueFamilyProps graphics;
+			QueueFamilyProps compute;
+			QueueFamilyProps transfer;
+			QueueFamilyProps present;
+		} queueFamilyProps;
+
 		bool hasSurfaceCapabilities = false;
 		bool isSwapChainSupported = false;
 	};
 
-	static std::vector<ExtractedGPUInfo> getExtractedGPUInfos(nbl::core::SRange<nbl::video::IPhysicalDevice* const> gpus, nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface)
+	static std::vector<GPUInfo> extractGPUInfos(nbl::core::SRange<nbl::video::IPhysicalDevice* const> gpus, nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
 
-		std::vector<ExtractedGPUInfo> extractedInfos = std::vector<ExtractedGPUInfo>(gpus.size());
+		std::vector<GPUInfo> extractedInfos = std::vector<GPUInfo>(gpus.size());
 
 		for (size_t i = 0ull; i < gpus.size(); ++i)
 		{
@@ -325,18 +342,90 @@ public:
 
 				for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
 				{
-					const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+					const auto& familyProperty = queueFamilyProperties.begin()[familyIndex];
+					auto& outFamilyProp = extractedInfo.queueFamilyProps;
 
-					if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT)
-						extractedInfo.graphicsFamilyIndex = familyIndex;
+					if(familyProperty.queueCount <= 0)
+						continue;
 
-					if (surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex))
-						extractedInfo.presentFamilyIndex = familyIndex;
+					bool supportsPresent = surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex);
+					bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT) != 0;
+					bool hasComputeFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_COMPUTE_BIT) != 0;
+					bool hasTransferFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_TRANSFER_BIT) != 0;
+					bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT) != 0;
+					bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT) != 0;
 
-					if ((extractedInfo.graphicsFamilyIndex != ~0u) && (extractedInfo.presentFamilyIndex != ~0u))
+					// Select Unique queues indices for each queue type (Try to get different "queue index"s for each queue type)
+					// Later we can decide if we want them seperate or together. (EXCLUSIVE/CONCURRENT)
+					
+					// Graphics
+					if(hasGraphicsFlag && (outFamilyProp.graphics.index == QueueFamilyProps::InvalidIndex || outFamilyProp.graphics.supportsPresent == false))
 					{
-						break;
+						outFamilyProp.graphics.index = familyIndex;
+						outFamilyProp.graphics.supportsGraphics = hasGraphicsFlag;
+						outFamilyProp.graphics.supportsCompute = hasComputeFlag;
+						outFamilyProp.graphics.supportsTransfer = hasTransferFlag;
+						outFamilyProp.graphics.supportsSparseBinding = hasSparseBindingFlag;
+						outFamilyProp.graphics.supportsPresent = supportsPresent;
+						outFamilyProp.graphics.supportsProtected = hasProtectedFlag;
 					}
+					
+					// Present
+					if(supportsPresent && (outFamilyProp.present.index == QueueFamilyProps::InvalidIndex || outFamilyProp.present.supportsGraphics == false))
+					{
+						outFamilyProp.present.index = familyIndex;
+						outFamilyProp.present.supportsGraphics = hasGraphicsFlag;
+						outFamilyProp.present.supportsCompute = hasComputeFlag;
+						outFamilyProp.present.supportsTransfer = hasTransferFlag;
+						outFamilyProp.present.supportsSparseBinding = hasSparseBindingFlag;
+						outFamilyProp.present.supportsPresent = supportsPresent;
+						outFamilyProp.present.supportsProtected = hasProtectedFlag;
+					}
+
+					// Compute
+					if(hasComputeFlag && !hasGraphicsFlag && outFamilyProp.compute.index == QueueFamilyProps::InvalidIndex)
+					{
+						outFamilyProp.compute.index = familyIndex;
+						outFamilyProp.compute.supportsGraphics = hasGraphicsFlag;
+						outFamilyProp.compute.supportsCompute = hasComputeFlag;
+						outFamilyProp.compute.supportsTransfer = hasTransferFlag;
+						outFamilyProp.compute.supportsSparseBinding = hasSparseBindingFlag;
+						outFamilyProp.compute.supportsPresent = supportsPresent;
+						outFamilyProp.compute.supportsProtected = hasProtectedFlag;
+					}
+
+					// Transfer
+					if(hasTransferFlag && !hasGraphicsFlag && !hasComputeFlag && outFamilyProp.transfer.index == QueueFamilyProps::InvalidIndex)
+					{
+						outFamilyProp.transfer.index = familyIndex;
+						outFamilyProp.transfer.supportsGraphics = hasGraphicsFlag;
+						outFamilyProp.transfer.supportsCompute = hasComputeFlag;
+						outFamilyProp.transfer.supportsTransfer = hasTransferFlag;
+						outFamilyProp.transfer.supportsSparseBinding = hasSparseBindingFlag;
+						outFamilyProp.transfer.supportsPresent = supportsPresent;
+						outFamilyProp.transfer.supportsProtected = hasProtectedFlag;
+					}
+				}
+
+				// If Graphics supports Present, then use Graphics for Present
+				if(extractedInfo.queueFamilyProps.present.index != extractedInfo.queueFamilyProps.graphics.index && extractedInfo.queueFamilyProps.graphics.supportsPresent) 
+				{
+					extractedInfo.queueFamilyProps.present = extractedInfo.queueFamilyProps.graphics;
+				}
+
+				// If a unique Compute is not found but Graphics supports Compute, then use Graphics for Compute
+				if(extractedInfo.queueFamilyProps.compute.index == QueueFamilyProps::InvalidIndex && extractedInfo.queueFamilyProps.graphics.supportsCompute)
+				{
+					extractedInfo.queueFamilyProps.compute = extractedInfo.queueFamilyProps.graphics;
+				}
+				
+				// If a unique Transfer is not found then use either Graphics or Compute for Transfer (prefer compute)
+				if(extractedInfo.queueFamilyProps.transfer.index == QueueFamilyProps::InvalidIndex)
+				{
+					if(extractedInfo.queueFamilyProps.compute.supportsTransfer)
+						extractedInfo.queueFamilyProps.transfer = extractedInfo.queueFamilyProps.compute;
+					else if(extractedInfo.queueFamilyProps.graphics.supportsTransfer)
+						extractedInfo.queueFamilyProps.transfer = extractedInfo.queueFamilyProps.graphics;
 				}
 			}
 
@@ -361,19 +450,20 @@ public:
 
 		return extractedInfos;
 	}
-
-	// return an index into returned physical devices vector
-	static uint32_t findSuitableGPU(const std::vector<ExtractedGPUInfo>& extractedInfos)
+	
+	// TODO: also implement a function:findBestGPU
+	// Returns an index into gpus info vector
+	static uint32_t findSuitableGPU(const std::vector<GPUInfo>& extractedInfos)
 	{
 		uint32_t ret = 0;
 		for(uint32_t i = 0; i < extractedInfos.size(); ++i)
 		{
 			bool isGPUSuitable = false;
 			const auto& extractedInfo = extractedInfos[i];
-			if ((extractedInfo.graphicsFamilyIndex != ~0u) && (extractedInfo.presentFamilyIndex != ~0u))
+
+			// if ((extractedInfo.graphicsFamilyIndex != ~0u) && (extractedInfo.presentFamilyIndex != ~0u))
 			{
 				isGPUSuitable = true;
-				break;
 			}
 
 			if(extractedInfo.isSwapChainSupported == false)
@@ -391,8 +481,6 @@ public:
 		return ret;
 	}
 
-	// TODO: also implement a function:findBestGPU
-	
 	template<uint32_t sc_image_count> //! input with window creation
 	struct InitOutput
 	{
@@ -478,7 +566,7 @@ public:
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
-		auto extractedInfos = getExtractedGPUInfos(gpus, nullptr);
+		auto extractedInfos = extractGPUInfos(gpus, nullptr);
 		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 
@@ -582,7 +670,7 @@ public:
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
-		auto extractedInfos = getExtractedGPUInfos(gpus, result.surface);
+		auto extractedInfos = extractGPUInfos(gpus, result.surface);
 		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 
