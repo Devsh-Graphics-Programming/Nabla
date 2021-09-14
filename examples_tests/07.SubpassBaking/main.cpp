@@ -144,7 +144,7 @@ int main(int argc, char** argv)
 
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
-    bakedCommandBuffer->begin(0u);
+    bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
 //#define REFERENCE
     {
         const uint32_t drawCallCount = gpumesh->getMeshBuffers().size();
