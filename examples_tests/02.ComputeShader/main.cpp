@@ -139,6 +139,12 @@ int main()
 	constexpr uint32_t WIN_W = 800u;
 	constexpr uint32_t WIN_H = 600u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
+	constexpr uint32_t FBO_COUNT = 2u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
+
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_VULKAN, "Compute Shader PathTracer", asset::EF_UNKNOWN);
+
 
 	auto system = CommonAPI::createSystem();
 
@@ -723,7 +729,7 @@ int main()
 			core::smart_refctd_ptr(specializedShader));
 
 	// Todo(achal): Consider making it greater than swapchainImageCount
-	const uint32_t FRAMES_IN_FLIGHT = 2u;
+	// const uint32_t FRAMES_IN_FLIGHT = 2u;
 
 	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
 	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
