@@ -500,7 +500,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::video::IPhysicalDevice* physicalDevice;
-		nbl::video::IGPUQueue* mainQueue = nullptr;
+		nbl::video::IGPUQueue* mainQueue = nullptr; // it's better to let the user know of the main queue that was used to create result.commandPool and result.cpu2gpu
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
@@ -528,7 +528,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::video::IPhysicalDevice* physicalDevice;
-		nbl::video::IGPUQueue* mainQueue = nullptr;
+		nbl::video::IGPUQueue* mainQueue = nullptr; // it's better to let the user know of the main queue that was used to create result.commandPool and result.cpu2gpu
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues = {nullptr, nullptr, nullptr};
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
