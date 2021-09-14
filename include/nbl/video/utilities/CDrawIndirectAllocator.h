@@ -34,7 +34,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             video::IGPUBuffer::SCreationParams creationParams;
             creationParams.size = explicit_params.drawCommandBuffer.size;
             creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
+            creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
             creationParams.queueFamilyIndexCount = 0u;
             creationParams.queueFamilyIndices = nullptr;
 

@@ -248,7 +248,7 @@ int main(int argc, char** argv)
 	auto* cursorControl = window->getCursorControl();
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-	system->createFile(future, CWD.generic_string() + "testFile.txt", nbl::system::IFile::ECF_READ_WRITE | IFile::ECF_MAPPABLE);
+	system->createFile(future, CWD.generic_string() + "testFile.txt", core::bitflag(nbl::system::IFile::ECF_READ_WRITE) | IFile::ECF_MAPPABLE);
 	auto file = future.get();
 	std::string fileData = "Test file data!";
 

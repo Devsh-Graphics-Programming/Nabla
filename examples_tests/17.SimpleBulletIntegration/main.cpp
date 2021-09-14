@@ -130,12 +130,20 @@ int main(int argc, char** argv)
 	{
 		using pool_type = std::remove_reference_t<decltype(retval)>::pointee;
 		asset::SBufferRange<video::IGPUBuffer> blocks[pool_type::PropertyCount];
+
+		video::IGPUBuffer::SCreationParams creationParams;
+		creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT;
+		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+		creationParams.queueFamilyIndices = 0u;
+		creationParams.queueFamilyIndices = nullptr;
+
 		for (auto i=0u; i<pool_type::PropertyCount; i++)
 		{
 			auto& block = blocks[i];
 			block.offset = 0u;
 			block.size = pool_type::PropertySizes[i]*capacity;
-			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(block.size);
+			creationParams.size = block.size;
+			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
 		}
 		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};

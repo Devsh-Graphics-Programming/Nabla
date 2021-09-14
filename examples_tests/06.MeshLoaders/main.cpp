@@ -150,13 +150,12 @@ int main(int argc, char** argv)
     auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
     ubomemreq.vulkanReqs.size = neededDS1UBOsz;
 
-    video::IGPUBuffer::SCreationParams gpuuboCreationParams{
-        neededDS1UBOsz,
-        asset::IBuffer::EUF_UNIFORM_BUFFER_BIT,
-        asset::E_SHARING_MODE::ESM_EXCLUSIVE,
-        0,
-        nullptr
-    };
+    video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+    gpuuboCreationParams.size = neededDS1UBOsz;
+    gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+    gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+    gpuuboCreationParams.queueFamilyIndexCount = 0u;
+    gpuuboCreationParams.queueFamilyIndices = nullptr;
 
     auto gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq,true);
     auto gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
