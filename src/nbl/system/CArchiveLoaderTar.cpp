@@ -11,7 +11,7 @@ namespace nbl::system
 			uint8_t* buff = (uint8_t*)m_file->getMappedPointer() + found->offset;
 			auto a = core::make_smart_refctd_ptr<CFileView<CNullAllocator>>(
 				core::smart_refctd_ptr<ISystem>(m_system),
-				found->fullName,
+				params.absolutePath,
 				IFile::ECF_READ_WRITE,
 				buff,
 				found->size);

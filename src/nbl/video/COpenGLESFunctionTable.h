@@ -537,7 +537,6 @@ public:
 		}
 #endif
 	}
-
 	void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect))
@@ -550,6 +549,15 @@ public:
 			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
 		}
 #endif
+	}
+
+	void extGlMultiDrawArraysIndirectCount(GLenum mode, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		m_logger.log("MDI with DrawCount not supported!", system::ILogger::ELL_ERROR);
+	}
+	void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		m_logger.log("MDI with DrawCount not supported!", system::ILogger::ELL_ERROR);
 	}
 
 	void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) override

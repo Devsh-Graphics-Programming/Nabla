@@ -47,6 +47,8 @@ public:
         uint32_t maxTextures;
         uint32_t maxStorageImages;
 
+        uint32_t maxDrawIndirectCount;
+
         float pointSizeRange[2];
         float lineWidthRange[2];
 
@@ -56,7 +58,7 @@ public:
         uint32_t maxWorkgroupSize[3];
 
         uint32_t subgroupSize;
-        std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+        core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
     };
 
     struct SFeatures
@@ -79,6 +81,7 @@ public:
         // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
+        bool drawIndirectCount = false;
         bool rayQuery = false;
         bool accelerationStructure = false;
         bool accelerationStructureCaptureReplay = false;
@@ -106,7 +109,7 @@ public:
     };
     struct SQueueFamilyProperties
     {
-        std::underlying_type_t<E_QUEUE_FLAGS> queueFlags;
+        core::bitflag<E_QUEUE_FLAGS> queueFlags;
         uint32_t queueCount;
         uint32_t timestampValidBits;
         asset::VkExtent3D minImageTransferGranularity;

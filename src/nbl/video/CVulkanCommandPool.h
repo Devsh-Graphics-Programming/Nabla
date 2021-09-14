@@ -28,9 +28,9 @@ class CVulkanCommandPool final : public IGPUCommandPool
 
 public:
     CVulkanCommandPool(core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags, uint32_t queueFamilyIndex,
+        core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags, uint32_t queueFamilyIndex,
         VkCommandPool commandPool)
-        : IGPUCommandPool(std::move(dev), static_cast<E_CREATE_FLAGS>(flags), queueFamilyIndex),
+        : IGPUCommandPool(std::move(dev), flags.value, queueFamilyIndex),
         m_commandPool(commandPool), mempool(NODES_PER_BLOCK * sizeof(ArgumentReferenceSegment),
             1u, MAX_BLOCK_COUNT, static_cast<uint32_t>(sizeof(ArgumentReferenceSegment)))
     {}

@@ -40,9 +40,6 @@ public:
     // API needs to change, vkBeginCommandBuffer can fail
     void begin(uint32_t recordingFlags) override
     {
-        // Should we do manual state management? Wouldn't relying on validation errors be better?
-        // IGPUCommandBuffer::begin(recordingFlags);
-        
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
         beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags);
@@ -50,6 +47,7 @@ public:
         
         VkResult retval = vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
         assert(retval == VK_SUCCESS);
+        IGPUCommandBuffer::begin(recordingFlags);
     }
 
     // API needs to changed, vkEndCommandBuffer can fail
@@ -57,6 +55,7 @@ public:
     {
         VkResult retval = vkEndCommandBuffer(m_cmdbuf);
         assert(retval == VK_SUCCESS);
+        IGPUCommandBuffer::end();
     }
 
     bool reset(uint32_t _flags) override
@@ -64,7 +63,10 @@ public:
         freeSpaceInCmdPool();
 
         if (vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags)) == VK_SUCCESS)
+        {
+            IGPUCommandBuffer::reset(_flags);
             return true;
+        }
         else
             return false;
     }
@@ -90,8 +92,16 @@ public:
     {
         return false;
     }
-
     bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    {
+        return false;
+    }
+
+    bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    {
+        return false;
+    }
+    bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
         return false;
     }
@@ -314,9 +324,9 @@ public:
         return false;
     }
 
-    bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
-        std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        std::underlying_type_t<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
+    bool pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
+        core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+        core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
@@ -381,9 +391,9 @@ public:
             vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
         }
 
-        vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask),
-            static_cast<VkPipelineStageFlags>(dstStageMask),
-            static_cast<VkDependencyFlags>(dependencyFlags),
+        vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask.value),
+            static_cast<VkPipelineStageFlags>(dstStageMask.value),
+            static_cast<VkDependencyFlags>(dependencyFlags.value),
             memoryBarrierCount, vk_memoryBarriers,
             bufferMemoryBarrierCount, vk_bufferMemoryBarriers,
             imageMemoryBarrierCount, vk_imageMemoryBarriers);
@@ -512,9 +522,23 @@ public:
         return true;
     }
 
-    bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
-        return false;
+        if (layout->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(layout) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        vkCmdPushConstants(m_cmdbuf,
+            static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),
+            static_cast<VkShaderStageFlags>(stageFlags.value),
+            offset,
+            size,
+            pValues);
+
+        return true;
     }
 
     bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override

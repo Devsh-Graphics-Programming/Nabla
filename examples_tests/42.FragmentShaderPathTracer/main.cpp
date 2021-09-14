@@ -42,6 +42,7 @@ smart_refctd_ptr<IGPUImageView> createHDRImageView(nbl::core::smart_refctd_ptr<n
 		imgViewInfo.format = colorFormat;
 		imgViewInfo.viewType = IGPUImageView::ET_2D;
 		imgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewInfo.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 		imgViewInfo.subresourceRange.baseArrayLayer = 0u;
 		imgViewInfo.subresourceRange.baseMipLevel = 0u;
 		imgViewInfo.subresourceRange.layerCount = 1u;
@@ -292,7 +293,9 @@ int main()
 		device->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	}
 
-	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+	IGPUBuffer::SCreationParams gpuuboParams = {};
+	gpuuboParams.size = sizeof(SBasicViewParameters);
+	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams);
 	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
@@ -470,6 +473,7 @@ int main()
 		SImageBlit blit = {};
 		blit.srcOffsets[0] = {0, 0, 0};
 		blit.srcOffsets[1] = {WIN_W, WIN_H, 1};
+		
 		blit.srcSubresource.aspectMask = srcImgViewCreationParams.subresourceRange.aspectMask;
 		blit.srcSubresource.mipLevel = srcImgViewCreationParams.subresourceRange.baseMipLevel;
 		blit.srcSubresource.baseArrayLayer = srcImgViewCreationParams.subresourceRange.baseArrayLayer;

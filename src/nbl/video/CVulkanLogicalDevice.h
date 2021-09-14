@@ -85,6 +85,16 @@ public:
 
         VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
 
+        VkPresentModeKHR vkPresentMode;
+        if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
+            vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_MAILBOX) == ISurface::E_PRESENT_MODE::EPM_MAILBOX)
+            vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO) == ISurface::E_PRESENT_MODE::EPM_FIFO)
+            vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
+            vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+
         VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
         vk_createInfo.surface = vk_surface;
         vk_createInfo.minImageCount = params.minImageCount;
@@ -98,7 +108,7 @@ public:
         vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
         vk_createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // Todo(achal)     
         vk_createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Todo(achal)
-        vk_createInfo.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
+        vk_createInfo.presentMode = vkPresentMode;
         vk_createInfo.clipped = VK_TRUE;
         vk_createInfo.oldSwapchain = VK_NULL_HANDLE; // Todo(achal)
 
@@ -281,11 +291,11 @@ public:
         return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
     }
 
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // pNext must be NULL
-        vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags);
+        vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags.value);
         vk_createInfo.queueFamilyIndex = familyIndex;
 
         VkCommandPool vk_commandPool = VK_NULL_HANDLE;
@@ -625,7 +635,7 @@ public:
         vk_createInfo.arrayLayers = params.arrayLayers;
         vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
         vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
-        vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
+        vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
         vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
         vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
         vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
@@ -692,17 +702,33 @@ public:
             
     core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
-        // Todo(achal)
-#if 0
-        core::smart_refctd_ptr<IGPUImage> gpuImage = createGPUImage(core::smart_refctd_ptr(params));
+        core::smart_refctd_ptr<IGPUImage> gpuImage = createGPUImage(std::move(params));
+
         if (!gpuImage)
             return nullptr;
-        
-        core::smart_refctd_ptr<video::IDriverMemoryAllocation> imageMemory =
-            allocateDeviceLocalMemory(gpuImage->getMemoryReqs());
-#endif
 
-        return nullptr;
+        IDriverMemoryBacked::SDriverMemoryRequirements memReqs = gpuImage->getMemoryReqs();
+        memReqs.vulkanReqs.size = core::max(memReqs.vulkanReqs.size, initialMreqs.vulkanReqs.size);
+        memReqs.vulkanReqs.alignment = core::max(memReqs.vulkanReqs.alignment, initialMreqs.vulkanReqs.alignment);
+        memReqs.vulkanReqs.memoryTypeBits &= initialMreqs.vulkanReqs.memoryTypeBits;
+        memReqs.memoryHeapLocation = initialMreqs.memoryHeapLocation;
+        memReqs.mappingCapability = initialMreqs.mappingCapability;
+
+        core::smart_refctd_ptr<video::IDriverMemoryAllocation> imageMemory =
+            allocateGPUMemory(memReqs);
+
+        if (!imageMemory)
+            return nullptr;
+
+        ILogicalDevice::SBindImageMemoryInfo bindImageInfo = {};
+        bindImageInfo.image = gpuImage.get();
+        bindImageInfo.memory = imageMemory.get();
+        bindImageInfo.offset = 0ull;
+
+        if (!bindImageMemory(1u, &bindImageInfo))
+            return nullptr;
+
+        return gpuImage;
     }
 
     void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
@@ -1253,7 +1279,7 @@ protected:
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3 = nullptr) override
     {
         constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
-        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u; // temporary max, I believe
+        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u;
 
         const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2,
             layout3 };

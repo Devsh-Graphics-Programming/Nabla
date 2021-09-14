@@ -18,7 +18,7 @@ namespace nbl::ext::ScreenShot
 
 inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILogicalDevice* logicalDevice, video::IGPUQueue* queue, video::IGPUSemaphore* semaphore, const video::IGPUImageView* gpuImageView)
 {
-	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags&video::IPhysicalDevice::EQF_TRANSFER_BIT);
+	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&video::IPhysicalDevice::EQF_TRANSFER_BIT);
 
 	auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 	auto gpuImage = fetchedImageViewParmas.image;
@@ -32,7 +32,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> gpuCommandBuffer;
 	{
 		// commandbuffer should refcount the pool, so it should be 100% legal to drop at the end of the scope
-		auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),0u);
+		auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0u));
 		logicalDevice->createCommandBuffers(gpuCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
 		assert(gpuCommandBuffer);
 	}

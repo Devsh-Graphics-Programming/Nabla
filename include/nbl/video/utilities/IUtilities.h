@@ -54,7 +54,9 @@ class IUtilities : public core::IReferenceCounted
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
 	    {
-		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(size);
+            IGPUBuffer::SCreationParams params = {};
+            params.size = size;
+		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params);
             updateBufferRangeViaStagingBuffer(queue,asset::SBufferRange<IGPUBuffer>{0u,size,retval},data);
 		    return retval;
 	    }

@@ -7,7 +7,7 @@
 
 using namespace nbl::system;
 
-IFile::IFile(core::smart_refctd_ptr<ISystem>&& _system, std::underlying_type_t<E_CREATE_FLAGS> _flags) : m_system(std::move(_system)), m_flags(_flags)
+IFile::IFile(core::smart_refctd_ptr<ISystem>&& _system, core::bitflag<E_CREATE_FLAGS> _flags) : m_system(std::move(_system)), m_flags(_flags)
 {
 }
 
