@@ -461,7 +461,7 @@ public:
 			bool isGPUSuitable = false;
 			const auto& extractedInfo = extractedInfos[i];
 
-			// if ((extractedInfo.graphicsFamilyIndex != ~0u) && (extractedInfo.presentFamilyIndex != ~0u))
+			if ((extractedInfo.queueFamilyProps.graphics.index != QueueFamilyProps::InvalidIndex) && (extractedInfo.queueFamilyProps.present.index != QueueFamilyProps::InvalidIndex))
 			{
 				isGPUSuitable = true;
 			}
@@ -500,6 +500,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::video::IPhysicalDevice* physicalDevice;
+		nbl::video::IGPUQueue* mainQueue = nullptr;
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
@@ -527,6 +528,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 		nbl::video::IPhysicalDevice* physicalDevice;
+		nbl::video::IGPUQueue* mainQueue = nullptr;
 		std::array<nbl::video::IGPUQueue*, EQT_COUNT> queues = {nullptr, nullptr, nullptr};
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
@@ -570,36 +572,53 @@ public:
 		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 
-		auto getFamilyIndex = [&]() -> int
-		{
-			uint32_t requiredQueueFlags = nbl::video::IPhysicalDevice::EQF_COMPUTE_BIT | nbl::video::IPhysicalDevice::EQF_TRANSFER_BIT;
+		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
 
-			return getQueueFamilyIndex(gpu, requiredQueueFlags);
-		};
-
-		const auto familyIndex = getFamilyIndex();
+		float queuePriority = 1.f;
+		constexpr uint32_t MaxQueueCount = 4;
+		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
 		
+		uint32_t actualQueueCount = 1;
+		uint32_t mainQueueFamilyIndex = QueueFamilyProps::InvalidIndex;
+		mainQueueFamilyIndex = gpuInfo.queueFamilyProps.compute.index;
+
+		qcp[0].familyIndex = mainQueueFamilyIndex;
+		qcp[0].count = 1u;
+		qcp[0].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+		qcp[0].priorities = &queuePriority;
+
+		if(qcp[0].familyIndex != gpuInfo.queueFamilyProps.compute.index)
+		{
+			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.compute.index;
+			qcp[actualQueueCount].count = 1u;
+			qcp[actualQueueCount].priorities = &queuePriority;
+			actualQueueCount++;
+		}
+		if(gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.compute.index && gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.graphics.index)
+		{
+			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.transfer.index;
+			qcp[actualQueueCount].count = 1u;
+			qcp[actualQueueCount].priorities = &queuePriority;
+			actualQueueCount++;
+		}
+
 		video::ILogicalDevice::SCreationParams dev_params;
-		dev_params.queueParamsCount = 1u;
-		video::ILogicalDevice::SQueueCreationParams q_params;
-		q_params.familyIndex = familyIndex;
-		q_params.count = 1u;
-		q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-		float priority = 1.f;
-		q_params.priorities = &priority;
-		dev_params.queueParams = &q_params;
+		dev_params.queueParamsCount = actualQueueCount;
+		dev_params.queueParams = qcp;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
 		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
-
-		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
-		result.queues[InitOutput<0>::EQT_COMPUTE] = queue;
-		result.queues[InitOutput<0>::EQT_TRANSFER_UP] = queue;
-		result.queues[InitOutput<0>::EQT_TRANSFER_DOWN] = queue;
+		
+		result.mainQueue = result.logicalDevice->getQueue(mainQueueFamilyIndex, 0);
+		result.queues[InitOutput<0>::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, 0);
+		result.queues[InitOutput<0>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
+		result.queues[InitOutput<0>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
 
 		result.renderpass = createRenderpass(result.logicalDevice, asset::EF_B8G8R8A8_UNORM, asset::EF_UNKNOWN);
 
-		result.commandPool = result.logicalDevice->createCommandPool(familyIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+		result.commandPool = result.logicalDevice->createCommandPool(mainQueueFamilyIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
 		result.physicalDevice = gpu;
 
@@ -607,7 +626,7 @@ public:
 
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
-		result.cpu2gpuParams.finalQueueFamIx = familyIndex;
+		result.cpu2gpuParams.finalQueueFamIx = mainQueueFamilyIndex;
 		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
 		result.cpu2gpuParams.pipelineCache = nullptr;
 		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
@@ -673,42 +692,64 @@ public:
 		auto extractedInfos = extractGPUInfos(gpus, result.surface);
 		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
 		auto gpu = gpus.begin()[suitableGPUIndex];
+		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
 
-		auto getFamilyIndex = [&]() -> int
+		float queuePriority = 1.f;
+		constexpr uint32_t MaxQueueCount = 4;
+		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
+		
+		uint32_t actualQueueCount = 1;
+		uint32_t mainQueueFamilyIndex = QueueFamilyProps::InvalidIndex;
+		if(graphicsQueueEnable)
+			mainQueueFamilyIndex = gpuInfo.queueFamilyProps.graphics.index;
+		else
+			mainQueueFamilyIndex = gpuInfo.queueFamilyProps.compute.index;
+
+		qcp[0].familyIndex = mainQueueFamilyIndex;
+		qcp[0].count = 1u;
+		qcp[0].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+		qcp[0].priorities = &queuePriority;
+
+		if(qcp[0].familyIndex != gpuInfo.queueFamilyProps.compute.index)
 		{
-			uint32_t requiredQueueFlags = nbl::video::IPhysicalDevice::EQF_COMPUTE_BIT | nbl::video::IPhysicalDevice::EQF_TRANSFER_BIT;
-
-			if (graphicsQueueEnable)
-				requiredQueueFlags |= nbl::video::IPhysicalDevice::EQF_GRAPHICS_BIT;
-
-			return getQueueFamilyIndex(gpu, requiredQueueFlags);
-		};
-
-		const auto familyIndex = getFamilyIndex();
+			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.compute.index;
+			qcp[actualQueueCount].count = 1u;
+			qcp[actualQueueCount].priorities = &queuePriority;
+			actualQueueCount++;
+		}
+		if(gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.compute.index && gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.graphics.index)
 		{
-			const bool status = result.surface->isSupportedForPhysicalDevice(gpu, familyIndex);
-			assert(status);
+			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.transfer.index;
+			qcp[actualQueueCount].count = 1u;
+			qcp[actualQueueCount].priorities = &queuePriority;
+			actualQueueCount++;
+		}
+		if(gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.compute.index &&
+			gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.graphics.index &&
+			gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.transfer.index )
+		{
+			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.present.index;
+			qcp[actualQueueCount].count = 1u;
+			qcp[actualQueueCount].priorities = &queuePriority;
+			actualQueueCount++;
 		}
 
 		video::ILogicalDevice::SCreationParams dev_params;
-		dev_params.queueParamsCount = 1u;
-		video::ILogicalDevice::SQueueCreationParams q_params;
-		q_params.familyIndex = familyIndex;
-		q_params.count = 1u;
-		q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-		float priority = 1.f;
-		q_params.priorities = &priority;
-		dev_params.queueParams = &q_params;
+		dev_params.queueParamsCount = actualQueueCount;
+		dev_params.queueParams = qcp;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
 		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
 
-		auto queue = result.logicalDevice->getQueue(familyIndex, 0);
+		result.mainQueue = result.logicalDevice->getQueue(mainQueueFamilyIndex, 0);
 		if(graphicsQueueEnable)
-			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = queue;
-		result.queues[InitOutput<sc_image_count>::EQT_COMPUTE] = queue;
-		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = queue;
-		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = queue;
+			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0);
+		result.queues[InitOutput<sc_image_count>::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, 0);
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
 
 		// TODO(Erfan): createSwapChain with preferredFormat input, preferredPresentMode and select these
 		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
@@ -719,7 +760,7 @@ public:
 
 		result.fbo = createFBOWithSwapchainImages<sc_image_count, window_width, window_height>(result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
 
-		result.commandPool = result.logicalDevice->createCommandPool(familyIndex,IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+		result.commandPool = result.logicalDevice->createCommandPool(mainQueueFamilyIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 		assert(result.commandPool);
 		result.physicalDevice = gpu;
 
@@ -727,7 +768,7 @@ public:
 		
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
-		result.cpu2gpuParams.finalQueueFamIx = familyIndex;
+		result.cpu2gpuParams.finalQueueFamIx = mainQueueFamilyIndex;
 		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
 		result.cpu2gpuParams.pipelineCache = nullptr;
 		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
