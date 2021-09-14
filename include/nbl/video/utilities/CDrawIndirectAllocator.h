@@ -30,15 +30,26 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             const auto& limits = params.device->getPhysicalDevice()->getLimits();
             
             ExplicitBufferCreationParameters explicit_params;
+
+            video::IGPUBuffer::SCreationParams creationParams;
+            creationParams.size = explicit_params.drawCommandBuffer.size;
+            creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+            creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+            creationParams.queueFamilyIndexCount = 0u;
+            creationParams.queueFamilyIndices = nullptr;
+
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
             assert(limits.SSBOAlignment<params.maxDrawCommandStride); // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
             explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.SSBOAlignment);
-            explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(explicit_params.drawCommandBuffer.size);
+            explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams);
             explicit_params.drawCountBuffer.offset = 0ull;
             explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
-                explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(explicit_params.drawCountBuffer.size);
+            {
+                creationParams.size = explicit_params.drawCountBuffer.size;
+                explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+            }
             else
                 explicit_params.drawCountBuffer.buffer = nullptr;
             return create(std::move(explicit_params),std::move(alloc));

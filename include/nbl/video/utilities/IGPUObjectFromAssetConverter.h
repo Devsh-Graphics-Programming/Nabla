@@ -782,7 +782,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         // TODO: @criss why isn't this buffer cached and why are we not going through recursive asset creation and getting ICPUBuffer equivalents? 
         //(we can always discard/not cache the GPU Buffers created only for image data upload)
         IGPUBuffer::SCreationParams params = {};
-        params.usage = video::IGPUBuffer::EUF_TRANSFER_SRC_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
+        params.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_SRC_BIT) | video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
         params.size = cpuimg->getBuffer()->getSize();
         auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params);
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });

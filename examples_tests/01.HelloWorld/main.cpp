@@ -206,7 +206,7 @@ Choose Graphics API:
 			{
 				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
 
-				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT)
+				if ((familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT).value)
 					graphicsFamilyIndex = familyIndex;
 
 				if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
