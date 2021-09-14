@@ -370,8 +370,8 @@ int main()
 	auto getGPUShader = [&](const ICPUSpecializedShader* shader, uint32_t wg_count) -> auto
 	{
 		auto overridenUnspecialized = IGLSLCompiler::createOverridenCopy(shader->getUnspecialized(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n",wg_count);
-		asset::ISpecializedShader::SInfo specinfo(nullptr,nullptr,"main",IGPUSpecializedShader::ESS_COMPUTE,"RuntimeID");
-		auto cs = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(overridenUnspecialized),std::move(specinfo));
+		ISpecializedShader::SInfo specInfo = shader->getSpecializationInfo();
+		auto cs = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(overridenUnspecialized),std::move(specInfo));
 		return cpu2gpu.getGPUObjectsFromAssets(&cs,&cs+1,cpu2gpuParams)->front();
 		// no need to wait on fences because its only a shader create, does not result in the filling of image or buffers
 	};
