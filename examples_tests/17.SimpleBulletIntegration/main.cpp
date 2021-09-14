@@ -670,7 +670,7 @@ int main(int argc, char** argv)
 				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 				memBarrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
 				cb->pipelineBarrier(
-					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
+					asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
 					1u,&memBarrier,0u,nullptr,0u,nullptr
 				);
 			}			

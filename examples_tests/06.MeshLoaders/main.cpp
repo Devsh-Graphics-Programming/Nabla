@@ -149,7 +149,16 @@ int main(int argc, char** argv)
 
     auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
     ubomemreq.vulkanReqs.size = neededDS1UBOsz;
-    auto gpuubo = logicalDevice->createGPUBufferOnDedMem(ubomemreq,true);
+
+    video::IGPUBuffer::SCreationParams gpuuboCreationParams{
+        neededDS1UBOsz,
+        asset::IBuffer::EUF_UNIFORM_BUFFER_BIT,
+        asset::E_SHARING_MODE::ESM_EXCLUSIVE,
+        0,
+        nullptr
+    };
+
+    auto gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq,true);
     auto gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
     {
         video::IGPUDescriptorSet::SWriteDescriptorSet write;
