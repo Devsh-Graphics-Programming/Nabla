@@ -5,77 +5,192 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
-#include "../common/QToQuitEventReceiver.h"
-#include "../source/Nabla/COpenGLExtensionHandler.h"
-
-#include <random>
+#include "../common/Camera.hpp"
+#include "../common/CommonAPI.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
 using namespace core;
-using namespace asset;
-using namespace video;
+using namespace system;
 
-
-bool doCulling = false;
-bool useDrawIndirect = true;
-
-class MyEventReceiver : public QToQuitEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case nbl::KEY_KEY_Q: // so we can quit
-				return QToQuitEventReceiver::OnEvent(event);
-            case nbl::KEY_KEY_C: // so we can quit
-                doCulling = !doCulling; // Not enabled/necessary yet
-                return true;
-            case nbl::KEY_SPACE: // toggle between gpu and cpu cull
-                useDrawIndirect = !useDrawIndirect;
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
-
-
-#include "common.glsl"
-#include "commonIndirect.glsl"
+#include <random>
 
 int main()
 {
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = false;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	auto device = createDeviceEx(params);
+	constexpr uint32_t WIN_W = 1280;
+	constexpr uint32_t WIN_H = 720;
+    constexpr uint32_t FBO_COUNT = 1u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
-	if (!device)
-		return 1; // could not create selected driver.
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Level of Detail System", asset::EF_D32_SFLOAT);
+    auto window = std::move(initOutput.window);
+    auto gl = std::move(initOutput.apiConnection);
+    auto surface = std::move(initOutput.surface);
+    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+    auto logicalDevice = std::move(initOutput.logicalDevice);
+    auto queues = std::move(initOutput.queues);
+    auto swapchain = std::move(initOutput.swapchain);
+    auto renderpass = std::move(initOutput.renderpass);
+    auto fbos = std::move(initOutput.fbo);
+    auto commandPool = std::move(initOutput.commandPool);
+    auto assetManager = std::move(initOutput.assetManager);
+    auto logger = std::move(initOutput.logger);
+    auto inputSystem = std::move(initOutput.inputSystem);
+    auto system = std::move(initOutput.system);
+    auto windowCallback = std::move(initOutput.windowCb);
+    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+    auto utilities = std::move(initOutput.utilities);
 
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
+    core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
+    core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
+    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+    {
+        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+    }
+
+    CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+    CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+
+    core::vectorSIMDf cameraPosition(0, 5, -10);
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
+    Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+    
+    video::CDumbPresentationOracle oracle;
+    oracle.reportBeginFrameRecord();
+
+    core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
+    logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
+
+    core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+    for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)
+    {
+        imageAcquire[i] = logicalDevice->createSemaphore();
+        renderFinished[i] = logicalDevice->createSemaphore();
+    }
+
+    uint32_t acquiredNextFBO = {};
+    auto resourceIx = -1;
+	while(windowCallback->isWindowOpen())
+	{
+        ++resourceIx;
+        if (resourceIx >= FRAMES_IN_FLIGHT)
+            resourceIx = 0;
+        
+        auto& commandBuffer = commandBuffers[resourceIx];
+        auto& fence = frameComplete[resourceIx];
+        if (fence)
+            logicalDevice->blockForFences(1u,&fence.get());
+        else
+            fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
+        //
+        commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+        commandBuffer->begin(0);
+
+        // late latch input
+        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(),imageAcquire[resourceIx].get(),nullptr,&acquiredNextFBO);
+
+        // input
+        {
+            inputSystem->getDefaultMouse(&mouse);
+            inputSystem->getDefaultKeyboard(&keyboard);
+
+            camera.beginInputProcessing(nextPresentationTimestamp);
+            mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+            keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+            camera.endInputProcessing(nextPresentationTimestamp);
+        }
+
+        // update camera
+        {
+            const auto& viewMatrix = camera.getViewMatrix();
+            const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
+#if 0
+            core::vector<uint8_t> uboData(cameraUBO->getSize());
+            for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
+            {
+                if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==cameraUBOBinding)
+                {
+                    switch (shdrIn.type)
+                    {
+                        case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
+                        {
+                            memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewProjectionMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                        } break;
+                    
+                        case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
+                        {
+                            memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                        } break;
+                    
+                        case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
+                        {
+                            memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                        } break;
+                    }
+                }
+            }       
+            commandBuffer->updateBuffer(cameraUBO.get(),0ull,cameraUBO->getSize(),uboData.data());
+#endif
+        }
+        
+        // renderpass
+        {
+            asset::SViewport viewport;
+            viewport.minDepth = 1.f;
+            viewport.maxDepth = 0.f;
+            viewport.x = 0u;
+            viewport.y = 0u;
+            viewport.width = WIN_W;
+            viewport.height = WIN_H;
+            commandBuffer->setViewport(0u, 1u, &viewport);
+
+            nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+            {
+                VkRect2D area;
+                area.offset = { 0,0 };
+                area.extent = { WIN_W, WIN_H };
+                asset::SClearValue clear[2] = {};
+                clear[0].color.float32[0] = 1.f;
+                clear[0].color.float32[1] = 1.f;
+                clear[0].color.float32[2] = 1.f;
+                clear[0].color.float32[3] = 1.f;
+                clear[1].depthStencil.depth = 0.f;
+
+                beginInfo.clearValueCount = 2u;
+                beginInfo.framebuffer = fbos[acquiredNextFBO];
+                beginInfo.renderpass = renderpass;
+                beginInfo.renderArea = area;
+                beginInfo.clearValues = clear;
+            }
+
+            commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+            //commandBuffer->executeCommands(1u,&bakedCommandBuffer.get());
+            commandBuffer->endRenderPass();
+
+            commandBuffer->end();
+        }
+
+        CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+        CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+    }
+
+    const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
+    auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_DOWN], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+    assert(status);
+
+    return 0;
+}
+
+#if 0
+int main2()
+{
 
 
     auto* am = device->getAssetManager();
@@ -374,3 +489,4 @@ int main()
 
 	return 0;
 }
+#endif
