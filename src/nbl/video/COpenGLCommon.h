@@ -28,8 +28,8 @@ struct SOpenGLBarrierHelper
 		inline GLbitfield pipelineStageFlagsToMemoryBarrierBits(asset::E_PIPELINE_STAGE_FLAGS srcflags, asset::E_PIPELINE_STAGE_FLAGS dstflags) const
 		{
 			// stuff GL backend could expose but we dont support
-			assert(srcflags&asset::EPSF_TRANSFORM_FEEDBACK_BIT_EXT==0);
-			assert(srcflags&asset::EPSF_CONDITIONAL_RENDERING_BIT_EXT==0);
+			assert((srcflags&asset::EPSF_TRANSFORM_FEEDBACK_BIT_EXT)==0);
+			assert((srcflags&asset::EPSF_CONDITIONAL_RENDERING_BIT_EXT)==0);
 			assert(srcflags<asset::EPSF_SHADING_RATE_IMAGE_BIT_NV);
 
 			constexpr GLbitfield HostBits = GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
