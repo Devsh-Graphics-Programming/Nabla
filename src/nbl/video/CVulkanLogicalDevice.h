@@ -542,7 +542,7 @@ public:
         vk_createInfo.usage = static_cast<VkBufferUsageFlags>(creationParams.usage);
         vk_createInfo.sharingMode = static_cast<VkSharingMode>(creationParams.sharingMode); 
         vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
-        vk_createInfo.pQueueFamilyIndices = creationParams.queuueFamilyIndices;
+        vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
 
         VkBuffer vk_buffer;
         if (vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)

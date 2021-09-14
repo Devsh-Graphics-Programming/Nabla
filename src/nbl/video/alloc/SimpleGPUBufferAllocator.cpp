@@ -25,7 +25,7 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     creationParams.usage = IGPUBuffer::EUF_TRANSFER_SRC_BIT;
     creationParams.sharingMode = asset::ESM_EXCLUSIVE;
     creationParams.queueFamilyIndexCount = 0u;
-    creationParams.queuueFamilyIndices = nullptr;
+    creationParams.queueFamilyIndices = nullptr;
 
     return mDriver->createGPUBufferOnDedMem(creationParams, reqs, canUpdateViaCmdBuff);
 }
