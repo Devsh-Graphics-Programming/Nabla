@@ -751,8 +751,22 @@ public:
 		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
 		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
 
-		// TODO(Erfan): createSwapChain with preferredFormat input, preferredPresentMode and select these
-		result.swapchain = createSwapchain(window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED);
+		nbl::video::ISurface::SFormat requestedFormat;
+		if(api_type == EAT_VULKAN)
+		{
+			requestedFormat.format = asset::EF_B8G8R8A8_UNORM;
+			requestedFormat.colorSpace.eotf = asset::EOTF_sRGB;
+			requestedFormat.colorSpace.primary = asset::ECP_SRGB;
+		}
+		else
+		{
+			// Temporary to make previous examples work
+			requestedFormat.format = asset::EF_R8G8B8A8_SRGB;
+			requestedFormat.colorSpace.eotf = asset::EOTF_sRGB;
+			requestedFormat.colorSpace.primary = asset::ECP_SRGB;
+		}
+
+		result.swapchain = createSwapchain(api_type, window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED, requestedFormat, gpuInfo);
 		assert(result.swapchain);
 		
 		asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
@@ -779,27 +793,84 @@ public:
 	
 		return result;
 	}
-	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,
+	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(
+		nbl::video::E_API_TYPE api_type,
+		uint32_t width,
 		uint32_t height,
 		uint32_t imageCount,
 		const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		const nbl::core::smart_refctd_ptr<nbl::video::ISurface>& surface,
-		nbl::video::ISurface::E_PRESENT_MODE presentMode)
+		nbl::video::ISurface::E_PRESENT_MODE requestedPresentMode,
+		nbl::video::ISurface::SFormat requestedSurfaceFormat,
+		const GPUInfo& gpuInfo)
 	{
 		using namespace nbl;
-		// TODO(Erfan): ImageSharing Mode
+
+		nbl::asset::E_SHARING_MODE imageSharingMode;
+		if (gpuInfo.queueFamilyProps.graphics.index == gpuInfo.queueFamilyProps.present.index)
+			imageSharingMode = asset::ESM_EXCLUSIVE;
+		else
+			imageSharingMode = asset::ESM_CONCURRENT;
+		
+		nbl::video::ISurface::SFormat surfaceFormat;
+
+		if(api_type == video::EAT_VULKAN)
+		{
+			uint32_t found_format_and_colorspace = ~0u;
+			uint32_t found_format = ~0u;
+			for(uint32_t i = 0; i < gpuInfo.availableSurfaceFormats.size(); ++i)
+			{
+				const auto & supportedFormat = gpuInfo.availableSurfaceFormats[i];
+				if(requestedSurfaceFormat.format == supportedFormat.format)
+				{
+					if(found_format == ~0u)
+						found_format = i;
+					if(requestedSurfaceFormat.colorSpace.eotf == supportedFormat.colorSpace.eotf && requestedSurfaceFormat.colorSpace.primary == supportedFormat.colorSpace.primary)
+					{
+						found_format_and_colorspace = i;
+						break;
+					}
+				}
+			}
+		
+			if(found_format_and_colorspace != ~0u)
+			{
+				surfaceFormat = gpuInfo.availableSurfaceFormats[found_format_and_colorspace];
+			}
+			else if(found_format != ~0u) // fallback
+			{
+				assert(false && "Fallback: requested 'colorspace' is not supported.");
+				surfaceFormat = gpuInfo.availableSurfaceFormats[found_format];
+			}
+			else
+			{
+				assert(false && "Fallback: requested 'format' and 'colorspace' is not supported.");
+				surfaceFormat = gpuInfo.availableSurfaceFormats[0];
+			}
+
+			bool presentModeSupported = (gpuInfo.availablePresentModes & requestedPresentMode) != 0;
+			assert(presentModeSupported);
+			if(!presentModeSupported) // fallback 
+			{
+				requestedPresentMode = nbl::video::ISurface::E_PRESENT_MODE::EPM_FIFO;
+				assert(false && "Fallback: requested 'present mode' is not supported");
+			}
+		}
+		else
+		{
+			surfaceFormat = requestedSurfaceFormat;
+		}
+
 		video::ISwapchain::SCreationParams sc_params = {};
 		sc_params.width = width;
 		sc_params.height = height;
 		sc_params.arrayLayers = 1u;
 		sc_params.minImageCount = imageCount;
-		sc_params.presentMode = presentMode;
+		sc_params.presentMode = requestedPresentMode;
 		sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);;
 		sc_params.surface = surface;
-		sc_params.imageSharingMode = asset::ESM_EXCLUSIVE;
-		sc_params.surfaceFormat.format = asset::EF_B8G8R8A8_UNORM;
-		sc_params.surfaceFormat.colorSpace.eotf = asset::EOTF_sRGB;
-		sc_params.surfaceFormat.colorSpace.primary = asset::ECP_SRGB;
+		sc_params.imageSharingMode = imageSharingMode;
+		sc_params.surfaceFormat = surfaceFormat;
 
 		return device->createSwapchain(std::move(sc_params));
 	}
