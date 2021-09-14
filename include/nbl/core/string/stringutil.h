@@ -223,9 +223,7 @@ namespace core
 
 	inline int32_t isFileExtension(const std::filesystem::path& filename, const std::initializer_list<std::string_view>& extensions)
 	{
-		std::string filename_str = filename.string();
-		std::string file_ext = filename.extension().string();
-		file_ext = nbl::system::extension_wo_dot(file_ext);
+		std::string file_ext = nbl::system::extension_wo_dot(filename);
 		auto found = std::find(extensions.begin(), extensions.end(), file_ext);
 		if (found == extensions.end()) return 0;
 		return found - extensions.begin() + 1;
