@@ -294,6 +294,105 @@ public:
 		return make_smart_refctd_ptr<ISystem>(std::move(caller));
 	}
 
+	struct ExtractedGPUInfo
+	{
+		uint32_t graphicsFamilyIndex = ~0u;
+		uint32_t computeFamilyIndex = ~0u;
+		uint32_t presentFamilyIndex = ~0u;
+
+		std::vector<nbl::video::ISurface::SFormat> availableSurfaceFormats;
+		nbl::video::ISurface::E_PRESENT_MODE availablePresentModes;
+		nbl::video::ISurface::SCapabilities surfaceCapabilities;
+		bool hasSurfaceCapabilities = false;
+		bool isSwapChainSupported = false;
+	};
+
+	static std::vector<ExtractedGPUInfo> getExtractedGPUInfos(nbl::core::SRange<nbl::video::IPhysicalDevice* const> gpus, nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface)
+	{
+		using namespace nbl;
+		using namespace nbl::video;
+
+		std::vector<ExtractedGPUInfo> extractedInfos = std::vector<ExtractedGPUInfo>(gpus.size());
+
+		for (size_t i = 0ull; i < gpus.size(); ++i)
+		{
+			auto & extractedInfo = extractedInfos[i];
+			auto gpu = gpus.begin()[i];
+
+			// Find required queue family indices
+			{
+				const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
+
+				for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+				{
+					const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+
+					if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT)
+						extractedInfo.graphicsFamilyIndex = familyIndex;
+
+					if (surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex))
+						extractedInfo.presentFamilyIndex = familyIndex;
+
+					if ((extractedInfo.graphicsFamilyIndex != ~0u) && (extractedInfo.presentFamilyIndex != ~0u))
+					{
+						break;
+					}
+				}
+			}
+
+			// Since our workload is not headless compute, a swapchain is mandatory
+			extractedInfo.isSwapChainSupported = gpu->isSwapchainSupported();
+
+			// Check if the surface is adequate
+			if(surface)
+			{
+				uint32_t surfaceFormatCount;
+				surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
+				extractedInfo.availableSurfaceFormats = std::vector<video::ISurface::SFormat>(surfaceFormatCount);
+				surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, extractedInfo.availableSurfaceFormats.data());
+
+				extractedInfo.availablePresentModes = surface->getAvailablePresentModesForPhysicalDevice(gpu);
+
+				extractedInfo.surfaceCapabilities = {};
+				if (surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, extractedInfo.surfaceCapabilities))
+					extractedInfo.hasSurfaceCapabilities = true;
+			}
+		}
+
+		return extractedInfos;
+	}
+
+	// return an index into returned physical devices vector
+	static uint32_t findSuitableGPU(const std::vector<ExtractedGPUInfo>& extractedInfos)
+	{
+		uint32_t ret = 0;
+		for(uint32_t i = 0; i < extractedInfos.size(); ++i)
+		{
+			bool isGPUSuitable = false;
+			const auto& extractedInfo = extractedInfos[i];
+			if ((extractedInfo.graphicsFamilyIndex != ~0u) && (extractedInfo.presentFamilyIndex != ~0u))
+			{
+				isGPUSuitable = true;
+				break;
+			}
+
+			if(extractedInfo.isSwapChainSupported == false)
+				isGPUSuitable = false;
+
+			if(extractedInfo.hasSurfaceCapabilities == false)
+				isGPUSuitable = false;
+
+			if(isGPUSuitable)
+			{
+				// find the first suitable GPU
+				break;
+			}
+		}
+		return ret;
+	}
+
+	// TODO: also implement a function:findBestGPU
+	
 	template<uint32_t sc_image_count> //! input with window creation
 	struct InitOutput
 	{
@@ -379,7 +478,9 @@ public:
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
-		auto gpu = gpus.begin()[0];
+		auto extractedInfos = getExtractedGPUInfos(gpus, nullptr);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
+		auto gpu = gpus.begin()[suitableGPUIndex];
 
 		auto getFamilyIndex = [&]() -> int
 		{
@@ -479,10 +580,11 @@ public:
 			_NBL_TODO();
 		}
 
-		// TODO(Erfan):  Extract : queueFamilyIndices, availableSurfaceFormats, availablePresentModes, surfaceCapabilities and Select Suitable GPU
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
-		auto gpu = gpus.begin()[0];
+		auto extractedInfos = getExtractedGPUInfos(gpus, result.surface);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos);
+		auto gpu = gpus.begin()[suitableGPUIndex];
 
 		auto getFamilyIndex = [&]() -> int
 		{
