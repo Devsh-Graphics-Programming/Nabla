@@ -52,7 +52,7 @@
 
 uint nbl_glsl_workgroupAnd_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveAnd_impl,val,~0u,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_REDUCE(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveAnd_impl,val,0xffFFffFFu,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupAnd_noBarriers(in int val)
 {
@@ -60,7 +60,7 @@ int nbl_glsl_workgroupAnd_noBarriers(in int val)
 }
 float nbl_glsl_workgroupAnd_noBarriers(in float val)
 {
-	NBL_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,nbl_glsl_subgroupInclusiveAnd_impl,val,0.0,floatBitsToUint);
+	return uintBitsToFloat(nbl_glsl_workgroupAnd_noBarriers(floatBitsToUint(val)));
 }
 
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupAnd)
@@ -185,7 +185,7 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupMax)
 
 uint nbl_glsl_workgroupInclusiveAnd_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(false,nbl_glsl_identityFunction,nbl_glsl_and,nbl_glsl_subgroupInclusiveAnd_impl,val,~0u,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_SCAN(false,nbl_glsl_identityFunction,nbl_glsl_and,nbl_glsl_subgroupInclusiveAnd_impl,val,0xffFFffFFu,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupInclusiveAnd_noBarriers(in int val)
 {
@@ -203,7 +203,7 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupInclusiveAnd)
 
 uint nbl_glsl_workgroupExclusiveAnd_noBarriers(in uint val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,nbl_glsl_identityFunction,nbl_glsl_and,nbl_glsl_subgroupInclusiveAnd_impl,val,~0u,nbl_glsl_identityFunction);
+	NBL_GLSL_WORKGROUP_SCAN(true,nbl_glsl_identityFunction,nbl_glsl_and,nbl_glsl_subgroupInclusiveAnd_impl,val,0xffFFffFFu,nbl_glsl_identityFunction);
 }
 int nbl_glsl_workgroupExclusiveAnd_noBarriers(in int val)
 {
@@ -392,7 +392,7 @@ uint nbl_glsl_workgroupExclusiveMin_noBarriers(in uint val)
 }
 int nbl_glsl_workgroupExclusiveMin_noBarriers(in int val)
 {
-	NBL_GLSL_WORKGROUP_SCAN(true,int,min,nbl_glsl_subgroupExclusiveMin_impl,val,INT_MAX,uint);
+	NBL_GLSL_WORKGROUP_SCAN(true,int,min,nbl_glsl_subgroupInclusiveMin_impl,val,INT_MAX,uint);
 }
 float nbl_glsl_workgroupExclusiveMin_noBarriers(in float val)
 {

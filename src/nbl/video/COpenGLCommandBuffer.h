@@ -1039,9 +1039,9 @@ public:
     {
         if (!this->isCompatibleDevicewise(layout))
             return false;
-        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
-            if (!this->isCompatibleDevicewise(pDescriptorSets[i]))
-                return false;
+        for (uint32_t i=0u; i<descriptorSetCount; ++i)
+        if (pDescriptorSets[i] && !this->isCompatibleDevicewise(pDescriptorSets[i]))
+            return false;
         SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
         cmd.pipelineBindPoint = pipelineBindPoint;
         cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);

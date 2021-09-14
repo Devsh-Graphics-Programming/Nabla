@@ -60,7 +60,11 @@ int main(int argc, char** argv)
         auto arch = system->openFileArchive(archPath);
         system->mount(std::move(arch),"resources");
         asset::IAssetLoader::SAssetLoadParams loadParams;
+#if 0 // @sadiuk unfuck this please
         loadParams.workingDirectory = "resources";
+#else
+        loadParams.workingDirectory = archPath;
+#endif
         loadParams.logger = logger.get();
         auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
         assert(!meshes_bundle.getContents().empty());
@@ -101,7 +105,7 @@ int main(int argc, char** argv)
                 neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz,shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
 
             auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&ds1layout,&ds1layout+1,cpu2gpuParams);
-            assert(!gpu_array || gpu_array->size()<1u || !(*gpu_array)[0]);
+            assert(gpu_array&&gpu_array->size()&&(*gpu_array)[0]);
             gpuds1layout = (*gpu_array)[0];
             cpu2gpuParams.waitForCreationToComplete();
         }
@@ -133,66 +137,139 @@ int main(int argc, char** argv)
     core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
     {
         auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&meshRaw, &meshRaw + 1, cpu2gpuParams);
-        assert(!gpu_array || gpu_array->size()<1u || !(*gpu_array)[0]);
+        assert(gpu_array&&gpu_array->size()&&(*gpu_array)[0]);
         gpumesh = (*gpu_array)[0];
         cpu2gpuParams.waitForCreationToComplete();
     }
 
-    // TODO: remove
-    using RENDERPASS_INDEPENDENT_PIPELINE_ADRESS = size_t;
-    std::map<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS, core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuPipelines;
-    {
-        for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
-        {
-            auto gpuIndependentPipeline = gpumesh->getMeshBuffers().begin()[i]->getPipeline();
-
-            nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
-            graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuIndependentPipeline));
-            graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
-
-            const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-            gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
-        }
-    }
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
-    bakedCommandBuffer->begin(0u);
-        for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
-        {
-            auto gpuMeshBuffer = gpumesh->getMeshBuffers().begin()[i];
-            auto gpuGraphicsPipeline = gpuPipelines[reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(gpuMeshBuffer->getPipeline())];
-
-            const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
-            const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
-            
-            bakedCommandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
-
-            bakedCommandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &perCameraDescSet.get(), nullptr);
-            const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
-            if (gpuds3_ptr)
-                bakedCommandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-            bakedCommandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
-
-            bakedCommandBuffer->drawMeshBuffer(gpuMeshBuffer);
-        }
-    video::CSubpassKiln kiln;
+    bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
+//#define REFERENCE
     {
-        auto& drawcalls = kiln.getDrawcallMetadataVector();
-        for (auto& mb : gpumesh->getMeshBuffers())
+        const uint32_t drawCallCount = gpumesh->getMeshBuffers().size();
+        core::smart_refctd_ptr<video::CDrawIndirectAllocator<>> drawAllocator;
         {
-            auto& drawcall = drawcalls.emplace_back();
-            memcpy(drawcall.pushConstantData,mb->getPushConstantsDataPtr(),video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
-            //drawcall.pipeline = ;
-            drawcall.descriptorSets[1] = perCameraDescSet;
-            drawcall.descriptorSets[3] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(mb->getAttachedDescriptorSet());
-            std::copy_n(mb->getVertexBufferBindings(),video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,drawcall.vertexBufferBindings);
-            drawcall.indexBufferBinding = mb->getIndexBufferBinding();
-            drawcall.drawCommandStride = sizeof(asset::DrawElementsIndirectCommand_t);
-            drawcall.indexType = mb->getIndexType();
-            //drawcall.drawCountOffset // invalid
-            drawcall.drawCallOffset = 69;
-            drawcall.drawMaxCount = 1u;
+            video::IDrawIndirectAllocator::ImplicitBufferCreationParameters params;
+            params.device = logicalDevice.get();
+            params.maxDrawCommandStride = sizeof(asset::DrawElementsIndirectCommand_t);
+            params.drawCommandCapacity = drawCallCount;
+            params.drawCountCapacity = 0u;
+            drawAllocator = video::CDrawIndirectAllocator<>::create(std::move(params));
         }
+        video::IDrawIndirectAllocator::Allocation allocation;
+        {
+            allocation.count = drawCallCount;
+            {
+                allocation.multiDrawCommandRangeByteOffsets = new uint32_t[allocation.count];
+                // you absolutely must do this
+                std::fill_n(allocation.multiDrawCommandRangeByteOffsets,allocation.count,video::IDrawIndirectAllocator::invalid_draw_range_begin);
+            }
+            {
+                auto drawCounts = new uint32_t[allocation.count];
+                std::fill_n(drawCounts,allocation.count,1u);
+                allocation.multiDrawCommandMaxCounts = drawCounts;
+            }
+            allocation.setAllCommandStructSizesConstant(sizeof(asset::DrawElementsIndirectCommand_t));
+            drawAllocator->allocateMultiDraws(allocation);
+            delete[] allocation.multiDrawCommandMaxCounts;
+        }
+
+        video::CSubpassKiln kiln;
+        constexpr auto kSubpassIx = 0u;
+
+        auto drawCallData = new asset::DrawElementsIndirectCommand_t[drawCallCount];
+        {
+            auto drawIndexIt = allocation.multiDrawCommandRangeByteOffsets;
+            auto drawCallDataIt = drawCallData;
+            core::map<const void*,core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> graphicsPipelines;
+            for (auto& mb : gpumesh->getMeshBuffers())
+            {
+                auto& drawcall = kiln.getDrawcallMetadataVector().emplace_back();
+                memcpy(drawcall.pushConstantData,mb->getPushConstantsDataPtr(),video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
+                {
+                    auto renderpassIndep = mb->getPipeline();
+                    auto foundPpln = graphicsPipelines.find(renderpassIndep);
+                    if (foundPpln==graphicsPipelines.end())
+                    {
+                        video::IGPUGraphicsPipeline::SCreationParams params;
+                        params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(renderpassIndep);
+                        params.renderpass = core::smart_refctd_ptr(renderpass);
+                        params.subpassIx = kSubpassIx;
+                        foundPpln = graphicsPipelines.emplace_hint(foundPpln,renderpassIndep,logicalDevice->createGPUGraphicsPipeline(nullptr,std::move(params)));
+                    }
+                    drawcall.pipeline = foundPpln->second;
+                }
+                drawcall.descriptorSets[1] = perCameraDescSet;
+                drawcall.descriptorSets[3] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(mb->getAttachedDescriptorSet());
+                std::copy_n(mb->getVertexBufferBindings(),video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,drawcall.vertexBufferBindings);
+                drawcall.indexBufferBinding = mb->getIndexBufferBinding().buffer;
+                drawcall.drawCommandStride = sizeof(asset::DrawElementsIndirectCommand_t);
+                drawcall.indexType = mb->getIndexType();
+                //drawcall.drawCountOffset // leave as invalid
+                drawcall.drawCallOffset = *(drawIndexIt++);
+                drawcall.drawMaxCount = 1u;
+
+                // TODO: in the far future, just make IMeshBuffer hold a union of `DrawArraysIndirectCommand_t` `DrawElementsIndirectCommand_t`
+                drawCallDataIt->count = mb->getIndexCount();
+                drawCallDataIt->instanceCount = mb->getInstanceCount();
+                switch (drawcall.indexType)
+                {
+                    case asset::EIT_32BIT:
+                        drawCallDataIt->firstIndex = mb->getIndexBufferBinding().offset/sizeof(uint32_t);
+                        break;
+                    case asset::EIT_16BIT:
+                        drawCallDataIt->firstIndex = mb->getIndexBufferBinding().offset/sizeof(uint16_t);
+                        break;
+                    default:
+                        assert(false);
+                        break;
+                }
+                drawCallDataIt->baseVertex = mb->getBaseVertex();
+                drawCallDataIt->baseInstance = mb->getBaseInstance();
+                drawCallDataIt++;
+    #ifdef REFERENCE
+                bakedCommandBuffer->bindGraphicsPipeline(drawcall.pipeline.get());
+                bakedCommandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS,drawcall.pipeline->getRenderpassIndependentPipeline()->getLayout(),1u,3u,&drawcall.descriptorSets->get()+1u,nullptr);
+                bakedCommandBuffer->pushConstants(drawcall.pipeline->getRenderpassIndependentPipeline()->getLayout(),video::IGPUSpecializedShader::ESS_FRAGMENT,0u,video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE,drawcall.pushConstantData);
+                bakedCommandBuffer->drawMeshBuffer(mb);
+    #endif
+            }
+        }
+        // do the transfer of drawcall structs
+        {
+            video::CPropertyPoolHandler::TransferRequest request;
+            request.memblock = drawAllocator->getDrawCommandMemoryBlock();
+            request.flags = decltype(request)::EF_NONE;
+            request.elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
+            request.elementCount = drawCallCount;
+            request.srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
+            std::for_each_n(allocation.multiDrawCommandRangeByteOffsets,request.elementCount,[=](auto& handle){handle/=request.elementSize;});
+            request.dstAddresses = allocation.multiDrawCommandRangeByteOffsets;
+            request.device2device = false;
+            request.source = drawCallData;
+
+            auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
+            core::smart_refctd_ptr<video::IGPUCommandBuffer> tferCmdBuf;
+            logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&tferCmdBuf);
+            tferCmdBuf->begin(0u); // TODO some one time submit bit or something
+            utilities->getDefaultPropertyPoolHandler()->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,tferCmdBuf.get(),fence.get(),&request,&request+1u,logger.get());
+            tferCmdBuf->end();
+            {
+                video::IGPUQueue::SSubmitInfo submit = {}; // intializes all semaphore stuff to 0 and nullptr
+                submit.commandBufferCount = 1u;
+                submit.commandBuffers = &tferCmdBuf.get();
+                queues[decltype(initOutput)::EQT_TRANSFER_UP]->submit(1u,&submit,fence.get());
+            }
+            logicalDevice->blockForFences(1u,&fence.get());
+        }
+        delete[] drawCallData;
+        // free the draw command index list
+        delete[] allocation.multiDrawCommandRangeByteOffsets;
+
+#ifndef REFERENCE
+        kiln.bake(bakedCommandBuffer.get(),renderpass.get(),kSubpassIx,drawAllocator->getDrawCommandMemoryBlock().buffer.get(),nullptr);
+#endif
     }
     bakedCommandBuffer->end();
 
@@ -202,34 +279,24 @@ int main(int argc, char** argv)
     core::vectorSIMDf cameraPosition(0, 5, -10);
     matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
     Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
-    auto lastTime = std::chrono::system_clock::now();
-
-    // TODO: oracle
-    constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
-    bool frameDataFilled = false;
-    size_t frame_count = 0ull;
-    double time_sum = 0;
-    double dtList[NBL_FRAMES_TO_AVERAGE] = {};
-    for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
-        dtList[i] = 0.0;
+    
+    video::CDumbPresentationOracle oracle;
+    oracle.reportBeginFrameRecord();
 
     core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
-    logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+    logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
 
     core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
     core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
     core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
-
-    for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+    for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)
     {
         imageAcquire[i] = logicalDevice->createSemaphore();
         renderFinished[i] = logicalDevice->createSemaphore();
     }
 
-    constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
     uint32_t acquiredNextFBO = {};
     auto resourceIx = -1;
-
 	while(windowCallback->isWindowOpen())
 	{
         ++resourceIx;
@@ -238,48 +305,27 @@ int main(int argc, char** argv)
         
         auto& commandBuffer = commandBuffers[resourceIx];
         auto& fence = frameComplete[resourceIx];
-
         if (fence)
-            while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+            logicalDevice->blockForFences(1u,&fence.get());
         else
             fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-        auto renderStart = std::chrono::system_clock::now();
-        const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
-        lastTime = renderStart;
-        { // Calculate Simple Moving Average for FrameTime
-            time_sum -= dtList[frame_count];
-            time_sum += renderDt;
-            dtList[frame_count] = renderDt;
-            frame_count++;
-            if (frame_count >= NBL_FRAMES_TO_AVERAGE) 
-			{
-				frameDataFilled = true;
-				frame_count = 0;
-			}
-                
-        }
-        const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
-
-        auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-        auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-        auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
-
-        
-
+        //
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
         commandBuffer->begin(0);
-        swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
+        // late latch input
+        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(),imageAcquire[resourceIx].get(),nullptr,&acquiredNextFBO);
 
         // input
         {
             inputSystem->getDefaultMouse(&mouse);
             inputSystem->getDefaultKeyboard(&keyboard);
 
-            camera.beginInputProcessing(nextPresentationTimeStamp);
+            camera.beginInputProcessing(nextPresentationTimestamp);
             mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
             keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
-            camera.endInputProcessing(nextPresentationTimeStamp);
+            camera.endInputProcessing(nextPresentationTimestamp);
         }
 
         // update camera
@@ -358,7 +404,7 @@ int main(int argc, char** argv)
     const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
     auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_DOWN], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
     assert(status);
 
     return 0;

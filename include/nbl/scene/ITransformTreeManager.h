@@ -155,22 +155,21 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
 			for (auto i=0u; i<TransferCount; i++)
 			{
-				transfers[i].pool = pool;
 				transfers[i].elementCount = request.outNodes.size();
 				transfers[i].srcAddresses = nullptr;
 				transfers[i].dstAddresses = request.outNodes.begin();
 				transfers[i].device2device = false;
 			}
-			transfers[0].propertyID = ITransformTree::parent_prop_ix;
+			transfers[0].setFromPool(pool,ITransformTree::parent_prop_ix);
 			transfers[0].flags = request.parents ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
 			transfers[0].source = request.parents ? request.parents:&ITransformTree::invalid_node;
-			transfers[1].propertyID = ITransformTree::relative_transform_prop_ix;
+			transfers[1].setFromPool(pool,ITransformTree::relative_transform_prop_ix);
 			transfers[1].flags = request.relativeTransforms ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
 			transfers[1].source = request.relativeTransforms ? request.relativeTransforms:&IdentityTransform;
-			transfers[2].propertyID = ITransformTree::modified_stamp_prop_ix;
+			transfers[2].setFromPool(pool,ITransformTree::modified_stamp_prop_ix);
 			transfers[2].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
 			transfers[2].source = &ITransformTree::initial_modified_timestamp;
-			transfers[3].propertyID = ITransformTree::recomputed_stamp_prop_ix;
+			transfers[3].setFromPool(pool,ITransformTree::recomputed_stamp_prop_ix);
 			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
 			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
 			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;

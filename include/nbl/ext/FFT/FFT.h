@@ -47,6 +47,7 @@ class FFT final : public core::IReferenceCounted
 		FFT(video::IDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage = false);
 
 		// returns how many dispatches necessary for computing the FFT and fills the uniform data
+		template<bool unconstrainedAxisOrder=true>
 		static inline uint32_t buildParameters(
 			bool isInverse, uint32_t numChannels, const asset::VkExtent3D& inputDimensions, 
 			Parameters_t* outParams, DispatchInfo_t* outInfos, const asset::ISampler::E_TEXTURE_CLAMP* paddingType,
@@ -68,7 +69,8 @@ class FFT final : public core::IReferenceCounted
 						continue;
 					passes[passesRequired++] = {float(dim)/float((&inputDimensions.width)[i]),i,paddingType[i]};
 				}
-				std::sort(passes.begin(),passes.begin()+passesRequired);
+				if (unconstrainedAxisOrder)
+					std::sort(passes.begin(),passes.begin()+passesRequired);
 			}
 
 			auto computeOutputStride = [](const uvec3& output_dimensions, const auto axis, const auto nextAxis) -> uvec4
@@ -200,7 +202,7 @@ class FFT final : public core::IReferenceCounted
 			bool issueDefaultBarrier=true)
 		{
 			driver->pushConstants(pipelineLayout,video::IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(Parameters_t),&params);
-			driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
+			driver->dispatch(dispatchInfo.workGroupCount[0],dispatchInfo.workGroupCount[1],dispatchInfo.workGroupCount[2]);
 
 			if (issueDefaultBarrier)
 				defaultBarrier();

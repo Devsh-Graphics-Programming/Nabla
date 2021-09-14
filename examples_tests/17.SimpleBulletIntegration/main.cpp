@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 	auto windowCb = std::move(initOutput.windowCb);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
-	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);===
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
     
 	auto device = std::move(initOutput.logicalDevice);
 	auto utilities = std::move(initOutput.utilities);
@@ -208,11 +208,9 @@ int main(int argc, char** argv)
 	for (auto i=0u; i<transfers.size(); i++)
 	{
 		transfers[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-		transfers[i].propertyID = i;
 		transfers[i].device2device = false;
 		transfers[i].srcAddresses = nullptr;
 	}
-	transfers[2].propertyID = 0;
 	// add a shape
 	auto addShapes = [&](
 		video::IGPUFence* fence,
@@ -246,14 +244,14 @@ int main(int argc, char** argv)
 		}
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
-			transfers[i].pool = objectPool.get();
+			transfers[i].setFromPool(objectPool.get(),i);
 			transfers[i].elementCount = count;
 			transfers[i].dstAddresses = scratchObjectIDs.data();
 		}
 		transfers[0].source = initialColor.data();
 		transfers[1].source = instanceTransforms.data();
 		//
-		transfers[2].pool = pool;
+		transfers[2].setFromPool(pool,0u);
 		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
 		transfers[2].elementCount = count;
 		transfers[2].srcAddresses = nullptr;
@@ -633,9 +631,8 @@ int main(int argc, char** argv)
 			world->getWorld()->stepSimulation(dt);
 
 			video::CPropertyPoolHandler::TransferRequest request;
-			request.pool = objectPool.get();
+			request.setFromPool(objectPool.get(),TransformPropertyID);
 			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.propertyID = TransformPropertyID;
 			request.elementCount = CInstancedMotionState::s_updateAddresses.size();
 			request.srcAddresses = nullptr;
 			request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();

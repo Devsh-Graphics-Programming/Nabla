@@ -133,6 +133,9 @@ class IGPUObjectFromAssetConverter
                         fences[count++] = pFence->get();
                 }
                 device->blockForFences(count,fences);
+                for (auto i=0; i<EQU_COUNT; i++)
+                if (perQueue[i].fence)
+                    perQueue[i].fence->operator=(nullptr);
             }
         };
 
