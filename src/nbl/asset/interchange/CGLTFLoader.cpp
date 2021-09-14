@@ -633,6 +633,7 @@ namespace nbl
 						}
 					}
 
+					uint32_t jointsPerVxAmount = {};
 					for (uint32_t i = 0; i < SAttributes::MAX_JOINTS_ATTRIBUTES; ++i)
 					{
 						auto statusJoints = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_JOINTS, i));
@@ -642,6 +643,7 @@ namespace nbl
 						{
 							auto& glTFJointsXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_JOINTS, i)];
 							handleAccessor(glTFJointsXAccessor, SAttributes::JOINTS_ATTRIBUTE_BEGINING_ID + i);
+							++jointsPerVxAmount;
 						}
 					}
 
@@ -764,6 +766,20 @@ namespace nbl
 							_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 
 							cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
+							{
+								SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
+								SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
+								core::smart_refctd_ptr<ICPUSkeleton> skeleton;
+								const uint32_t maxJointsPerVx = jointsPerVxAmount;
+
+								cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), maxJointsPerVx);
+							}
+
+							/*
+								TODO: skinning
+							*/
+
+
 							cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 						}
 					}
