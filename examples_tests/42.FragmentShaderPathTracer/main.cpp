@@ -293,7 +293,9 @@ int main()
 		device->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	}
 
-	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+	IGPUBuffer::SCreationParams gpuuboParams = {};
+	gpuuboParams.size = sizeof(SBasicViewParameters);
+	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams);
 	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;

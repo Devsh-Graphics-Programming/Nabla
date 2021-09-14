@@ -680,17 +680,33 @@ public:
             
     core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
-        // Todo(achal)
-#if 0
-        core::smart_refctd_ptr<IGPUImage> gpuImage = createGPUImage(core::smart_refctd_ptr(params));
+        core::smart_refctd_ptr<IGPUImage> gpuImage = createGPUImage(std::move(params));
+
         if (!gpuImage)
             return nullptr;
-        
-        core::smart_refctd_ptr<video::IDriverMemoryAllocation> imageMemory =
-            allocateDeviceLocalMemory(gpuImage->getMemoryReqs());
-#endif
 
-        return nullptr;
+        IDriverMemoryBacked::SDriverMemoryRequirements memReqs = gpuImage->getMemoryReqs();
+        memReqs.vulkanReqs.size = core::max(memReqs.vulkanReqs.size, initialMreqs.vulkanReqs.size);
+        memReqs.vulkanReqs.alignment = core::max(memReqs.vulkanReqs.alignment, initialMreqs.vulkanReqs.alignment);
+        memReqs.vulkanReqs.memoryTypeBits &= initialMreqs.vulkanReqs.memoryTypeBits;
+        memReqs.memoryHeapLocation = initialMreqs.memoryHeapLocation;
+        memReqs.mappingCapability = initialMreqs.mappingCapability;
+
+        core::smart_refctd_ptr<video::IDriverMemoryAllocation> imageMemory =
+            allocateGPUMemory(memReqs);
+
+        if (!imageMemory)
+            return nullptr;
+
+        ILogicalDevice::SBindImageMemoryInfo bindImageInfo = {};
+        bindImageInfo.image = gpuImage.get();
+        bindImageInfo.memory = imageMemory.get();
+        bindImageInfo.offset = 0ull;
+
+        if (!bindImageMemory(1u, &bindImageInfo))
+            return nullptr;
+
+        return gpuImage;
     }
 
     void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
@@ -1190,7 +1206,7 @@ protected:
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3 = nullptr) override
     {
         constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
-        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u; // temporary max, I believe
+        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u;
 
         const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2,
             layout3 };

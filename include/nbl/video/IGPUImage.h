@@ -53,6 +53,8 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			return true;
 		}
 
+		inline const SDriverMemoryRequirements& getMemoryReqs() const { return base_t::getMemoryReqs(); }
+
     protected:
         _NBL_INTERFACE_CHILD(IGPUImage) {}
 
