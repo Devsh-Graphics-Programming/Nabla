@@ -186,7 +186,14 @@ int main()
 
 	const size_t ssboSz = offset_recompStamp + recompStampPropSz * ObjectCount;
 
-	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboSz);
+	video::IGPUBuffer::SCreationParams ssboCreationParams;
+	ssboCreationParams.size = ssboSz;
+	ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+	ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+	ssboCreationParams.queueFamilyIndexCount = 0u;
+	ssboCreationParams.queueFamilyIndices = nullptr;
+
+	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams);
 
 	asset::SBufferRange<video::IGPUBuffer> propBufs[PropertyCount];
 	for (uint32_t i = 0u; i < PropertyCount; ++i)
@@ -482,7 +489,14 @@ int main()
 	}
 
 	constexpr size_t ColorBufSz = sizeof(core::vectorSIMDf) * ObjectCount;
-	auto gpuColorBuf = device->createDeviceLocalGPUBufferOnDedMem(ColorBufSz);
+	video::IGPUBuffer::SCreationParams colorBufCreationParams;
+	colorBufCreationParams.size = ColorBufSz;
+	colorBufCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+	colorBufCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+	colorBufCreationParams.queueFamilyIndexCount = 0u;
+	colorBufCreationParams.queueFamilyIndices = nullptr;
+
+	auto gpuColorBuf = device->createDeviceLocalGPUBufferOnDedMem(colorBufCreationParams);
 	core::vectorSIMDf colors[ObjectCount]{
 		core::vectorSIMDf(0.f, 0.f, 1.f),
 		core::vectorSIMDf(0.f, 1.f, 0.f),
@@ -595,9 +609,18 @@ int main()
 	uint32_t resourceIx = 0;
 
 	constexpr size_t ModsRangesBufSz = 2u*sizeof(uint32_t) + sizeof(scene::nbl_glsl_transform_tree_modification_request_range_t)*ObjectCount;
-	auto modRangesBuf = device->createDeviceLocalGPUBufferOnDedMem(ModsRangesBufSz);
-	auto relTformModsBuf = device->createDeviceLocalGPUBufferOnDedMem(sizeof(scene::nbl_glsl_transform_tree_relative_transform_modification_t)*ObjectCount);
-	auto nodeIdsBuf = device->createDeviceLocalGPUBufferOnDedMem(std::max(sizeof(uint32_t) + sizeof(scene::ITransformTree::node_t) * ObjectCount, 128ull));
+	video::IGPUBuffer::SCreationParams creationParams;
+	creationParams.size = ModsRangesBufSz;
+	creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+	creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+	creationParams.queueFamilyIndexCount = 0u;
+	creationParams.queueFamilyIndices = nullptr;
+
+	auto modRangesBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+	creationParams.size = sizeof(scene::nbl_glsl_transform_tree_relative_transform_modification_t) * ObjectCount;
+	auto relTformModsBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+	creationParams.size = std::max(sizeof(uint32_t) + sizeof(scene::ITransformTree::node_t) * ObjectCount, 128ull);
+	auto nodeIdsBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
 	{
 		//update `nodeIdsBuf`
 		uint32_t countAndIds[1u + ObjectCount];
@@ -724,7 +747,7 @@ int main()
 			barrier[1].offset = 0;
 			barrier[1].size = relTformModsBuf->getSize();
 
-			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, 0, 0u, nullptr, 2u, barrier, 0u, nullptr);
+			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0), 0u, nullptr, 2u, barrier, 0u, nullptr);
 		}
 
 		{
