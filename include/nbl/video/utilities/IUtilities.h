@@ -211,6 +211,8 @@ class IUtilities : public core::IReferenceCounted
                     waitSemaphoreCount = 0u;
                     semaphoresToWaitBeforeOverwrite = nullptr;
                     stagesToWaitForPerSemaphore = nullptr;
+                    // before resetting we need poll all events in the allocator's deferred free list
+                    m_defaultUploadBuffer->cull_frees();
                     // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
                     m_device->resetFences(1u,&fence);
                     cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
