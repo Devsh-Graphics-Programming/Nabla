@@ -1,5 +1,4 @@
 #version 450
-#define _NBL_GLSL_WORKGROUP_SIZE_ ???? 
 
 #include "subgroupCommon.glsl"
 

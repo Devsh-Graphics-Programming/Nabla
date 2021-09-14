@@ -12,12 +12,13 @@ add_subdirectory(07.SubpassBaking EXCLUDE_FROM_ALL)
 add_subdirectory(08.HardwareInstancing EXCLUDE_FROM_ALL)
 add_subdirectory(09.ColorSpaceTest EXCLUDE_FROM_ALL)
 add_subdirectory(10.AllocatorTest EXCLUDE_FROM_ALL)
+add_subdirectory(11.LoDSystem EXCLUDE_FROM_ALL)
 #add_subdirectory(12.Splines EXCLUDE_FROM_ALL)
 if (NBL_BUILD_CEGUI)
 	#add_subdirectory(13.BRDF_Explorer EXCLUDE_FROM_ALL)
 endif()
-#add_subdirectory(14.MSAA EXCLUDE_FROM_ALL) # TODO: Ressurect with Sponza or something?
-#add_subdirectory(15.LayeredCubeMapShadows EXCLUDE_FROM_ALL) # TODO: Ressurect with Sponza or something?
+add_subdirectory(14.ComputeScan EXCLUDE_FROM_ALL)
+#add_subdirectory(15.LayeredCubeMapShadows EXCLUDE_FROM_ALL) # Reserved for Erfan
 add_subdirectory(16.OrderIndependentTransparency EXCLUDE_FROM_ALL)
 if (NBL_BUILD_BULLET)
 	add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
@@ -34,7 +35,7 @@ endif()
 add_subdirectory(23.Autoexposure EXCLUDE_FROM_ALL)
 #add_subdirectory(24.BufferSubDataAlignTest EXCLUDE_FROM_ALL) # TODO: @Anastazluk or @Hazardu
 #add_subdirectory(25.Blur EXCLUDE_FROM_ALL)
-add_subdirectory(26.MultidrawIndirectVSCPUCull EXCLUDE_FROM_ALL)
+#add_subdirectory(26.MultidrawIndirectVSCPUCull EXCLUDE_FROM_ALL)
 add_subdirectory(27.PLYSTLDemo EXCLUDE_FROM_ALL)
 if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_OPTIX)
 	#add_subdirectory(28.OptiXPathTracing EXCLUDE_FROM_ALL)
@@ -62,6 +63,7 @@ add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)
 
 add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
 add_subdirectory(50.NewAPITest EXCLUDE_FROM_ALL)
+add_subdirectory(51.RadixSort EXCLUDE_FROM_ALL)
 add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
 add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL) # todo change the number
 add_subdirectory(54.Transformations EXCLUDE_FROM_ALL)
