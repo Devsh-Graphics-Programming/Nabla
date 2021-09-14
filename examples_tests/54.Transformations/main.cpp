@@ -410,8 +410,8 @@ int main()
 	uint32_t constexpr moonIndex = 10u;
 	instancesData[moonIndex].color = core::vector3df_SIMD(0.3f, 0.2f, 0.25f);
 	solarSystemObjectsData[moonIndex].parentIndex = earth_node;
-	solarSystemObjectsData[moonIndex].yRotationSpeed = 0.2f;
-	solarSystemObjectsData[moonIndex].zRotationSpeed = 0.4f;
+	solarSystemObjectsData[moonIndex].yRotationSpeed = 2.2f;
+	solarSystemObjectsData[moonIndex].zRotationSpeed = 0.f;
 	solarSystemObjectsData[moonIndex].scale = 0.4f;
 	solarSystemObjectsData[moonIndex].initialRelativePosition = core::vector3df_SIMD(2.5f, 0.0f, 0.0f);
 
