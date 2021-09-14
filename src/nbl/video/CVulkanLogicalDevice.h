@@ -269,11 +269,11 @@ public:
         return nullptr;
     }
             
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // pNext must be NULL
-        vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags);
+        vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags.value);
         vk_createInfo.queueFamilyIndex = familyIndex;
 
         VkCommandPool vk_commandPool = VK_NULL_HANDLE;
@@ -613,7 +613,7 @@ public:
         vk_createInfo.arrayLayers = params.arrayLayers;
         vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
         vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
-        vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage);
+        vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
         vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
         vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
         vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;

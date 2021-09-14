@@ -399,7 +399,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				setUpBarrier(ITransformTree::recomputed_stamp_prop_ix);
 			}
 			cmdbuf->pipelineBarrier(
-				asset::EPSF_COMPUTE_SHADER_BIT,params.finalBarrier.dstStages|asset::EPSF_COMPUTE_SHADER_BIT,
+				asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag<asset::E_PIPELINE_STAGE_FLAGS>(params.finalBarrier.dstStages)|asset::EPSF_COMPUTE_SHADER_BIT,
 				asset::EDF_NONE,0u,nullptr,barrierCount,bufferBarriers,0u,nullptr
 			);
 		}

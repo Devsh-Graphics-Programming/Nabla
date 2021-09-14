@@ -58,7 +58,7 @@ public:
         uint32_t maxWorkgroupSize[3];
 
         uint32_t subgroupSize;
-        std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+        core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
     };
 
     struct SFeatures
@@ -102,7 +102,7 @@ public:
     };
     struct SQueueFamilyProperties
     {
-        std::underlying_type_t<E_QUEUE_FLAGS> queueFlags;
+        core::bitflag<E_QUEUE_FLAGS> queueFlags;
         uint32_t queueCount;
         uint32_t timestampValidBits;
         asset::VkExtent3D minImageTransferGranularity;

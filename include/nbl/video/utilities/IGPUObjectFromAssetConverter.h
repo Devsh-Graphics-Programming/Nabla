@@ -19,6 +19,7 @@
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/ILogicalDevice.h"
 
+#include "nbl/asset/ECommonEnums.h"
 
 namespace nbl::video
 {
@@ -856,7 +857,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             barrier.dstQueueFamilyIndex = transferFamIx;
             barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, 0, 0u, nullptr, 1u, &barrier, 0u, nullptr);
+            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &barrier, 0u, nullptr);
             cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_UNDEFINED, cpuimg->getRegions().size(), cpuimg->getRegions().begin());
         }
     };
@@ -954,7 +955,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 asset::E_IMAGE_LAYOUT finalLayout;
                 auto usage = gpuimg->getCreationParameters().usage;
                 //constexpr auto UsageWriteMask = asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT | asset::IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT | asset::IImage::EUF_STORAGE_BIT;
-                if (!needToCompMipsForThisImg(cpuimg) && usage == asset::IImage::EUF_SAMPLED_BIT)
+                if (!needToCompMipsForThisImg(cpuimg) && usage.value == asset::IImage::EUF_SAMPLED_BIT)
                     finalLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
                 else
                     finalLayout = asset::EIL_GENERAL;
@@ -980,11 +981,11 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         }
 
         // ownership transition release or just a barrier
-        cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
+        cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
         if ((_params.sharingMode == asset::ESM_EXCLUSIVE) && (transferFamIx != computeFamIx) && cmdbuf_compute && barrierCount) // need to do ownership transition
         {
             // ownership transition acquire
-            cmdbuf_compute->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
+            cmdbuf_compute->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
         }
 
         if (needToGenMips)

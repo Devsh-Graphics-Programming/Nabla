@@ -954,16 +954,16 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_PUSH_CONSTANTS>();
 
-                if (pushConstants_validate(c.layout.get(), c.stageFlags, c.offset, c.size, c.values))
+                if (pushConstants_validate(c.layout.get(), c.stageFlags.value, c.offset, c.size, c.values))
                 {
                     asset::SPushConstantRange updtRng;
                     updtRng.offset = c.offset;
                     updtRng.size = c.size;
 
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
-                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_COMPUTE)
-                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
+                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_COMPUTE)
+                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
                 }
             }
             break;

@@ -165,7 +165,7 @@ public:
     {
         // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
-        qprops.queueFlags = EQF_GRAPHICS_BIT|EQF_COMPUTE_BIT|EQF_TRANSFER_BIT;
+        qprops.queueFlags = core::bitflag(EQF_GRAPHICS_BIT)|EQF_COMPUTE_BIT|EQF_TRANSFER_BIT;
         qprops.queueCount = MaxQueues;
         qprops.timestampValidBits = 30u; // ??? TODO: glGetQueryiv(GL_TIMESTAMP,GL_QUERY_COUNTER_BITS,&qprops.timestampValidBits)
         qprops.minImageTransferGranularity = { 1u,1u,1u };
@@ -446,7 +446,7 @@ public:
 			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
 
 			m_limits.subgroupSize = 0u;
-			m_limits.subgroupOpsShaderStages = 0u;
+			m_limits.subgroupOpsShaderStages = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(0u);
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{

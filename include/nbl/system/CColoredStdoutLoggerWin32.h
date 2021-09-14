@@ -15,7 +15,7 @@ class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 		HANDLE m_native_console;
 
 	public:
-		CColoredStdoutLoggerWin32(std::underlying_type_t<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask)
+		CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask)
 		{
 			m_native_console = GetStdHandle(STD_OUTPUT_HANDLE);
 		}

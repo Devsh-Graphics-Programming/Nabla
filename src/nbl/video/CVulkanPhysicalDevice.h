@@ -55,7 +55,7 @@ public:
             m_limits.maxWorkgroupSize[2] = deviceProperties.properties.limits.maxComputeWorkGroupSize[2];
                     
             m_limits.subgroupSize = subgroupProperties.subgroupSize;
-            m_limits.subgroupOpsShaderStages = subgroupProperties.supportedStages;
+            m_limits.subgroupOpsShaderStages = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(subgroupProperties.supportedStages);
         }
                 
         // Get physical device's features

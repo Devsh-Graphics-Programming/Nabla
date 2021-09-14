@@ -324,9 +324,9 @@ public:
         return false;
     }
 
-    bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
-        std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        std::underlying_type_t<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
+    bool pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
+        core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+        core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
@@ -391,9 +391,9 @@ public:
             vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
         }
 
-        vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask),
-            static_cast<VkPipelineStageFlags>(dstStageMask),
-            static_cast<VkDependencyFlags>(dependencyFlags),
+        vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask.value),
+            static_cast<VkPipelineStageFlags>(dstStageMask.value),
+            static_cast<VkDependencyFlags>(dependencyFlags.value),
             memoryBarrierCount, vk_memoryBarriers,
             bufferMemoryBarrierCount, vk_bufferMemoryBarriers,
             imageMemoryBarrierCount, vk_imageMemoryBarriers);
@@ -515,7 +515,7 @@ public:
         return true;
     }
 
-    bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         return false;
     }

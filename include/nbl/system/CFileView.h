@@ -16,7 +16,7 @@ public:
 	{
 		other.m_buffer = nullptr;
 	}
-	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags, size_t fileSize) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize)
+	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize)
 	{
 		m_buffer = (std::byte*)allocator.alloc(fileSize);
 	}
@@ -71,7 +71,7 @@ public:
 	{
 		other.m_buffer = nullptr;
 	}
-	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, std::underlying_type_t<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) : IFile(std::move(sys), _flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize), m_buffer((std::byte*)buffer)
+	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) : IFile(std::move(sys), _flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize), m_buffer((std::byte*)buffer)
 	{
 	}
 	~CFileView() = default;

@@ -22,7 +22,7 @@ protected:
 
 public:  
 
-    core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags);
+    core::smart_refctd_ptr<IFile> createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags);
 
     size_t read(IFile* file, void* buffer, size_t offset, size_t size)
     {
@@ -41,7 +41,7 @@ public:
         return false;
     }
 protected:
-    virtual core::smart_refctd_ptr<IFile> createFile_impl(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags) = 0;
+    virtual core::smart_refctd_ptr<IFile> createFile_impl(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) = 0;
 };
 class ISystem final : public core::IReferenceCounted
 {
@@ -67,7 +67,7 @@ private:
         inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
 
         char filename[MAX_FILENAME_LENGTH] {};
-        std::underlying_type_t<IFile::E_CREATE_FLAGS> flags;
+        core::bitflag<IFile::E_CREATE_FLAGS> flags;
     };
     struct SRequestParams_READ : SRequestParamsBase<ERT_READ>
     {
@@ -177,7 +177,7 @@ public:
     }
 
 public:
-    bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags)
+    bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags)
     {
         SRequestParams_CREATE_FILE params;
         if (filename.string().size() >= sizeof(params.filename))
@@ -307,7 +307,7 @@ public:
     core::smart_refctd_ptr<IFileArchive> openFileArchive(const std::filesystem::path& filename, const std::string_view& password = "")
     {
         future_t<core::smart_refctd_ptr<IFile>> future;
-        if (!createFile(future, filename, IFile::ECF_READ | IFile::ECF_MAPPABLE))
+        if (!createFile(future, filename, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_MAPPABLE))
             return nullptr;
 
         auto file = std::move(future.get());

@@ -349,11 +349,11 @@ public:
 						continue;
 
 					bool supportsPresent = surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex);
-					bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT) != 0;
-					bool hasComputeFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_COMPUTE_BIT) != 0;
-					bool hasTransferFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_TRANSFER_BIT) != 0;
-					bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT) != 0;
-					bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT) != 0;
+					bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
+					bool hasComputeFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_COMPUTE_BIT).value != 0;
+					bool hasTransferFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_TRANSFER_BIT).value != 0;
+					bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT).value != 0;
+					bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT).value != 0;
 
 					// Select Unique queues indices for each queue type (Try to get different "queue index"s for each queue type)
 					// Later we can decide if we want them seperate or together. (EXCLUSIVE/CONCURRENT)
@@ -1008,7 +1008,7 @@ public:
 		int currentIndex = 0;
 		for (const auto& property : props)
 		{
-			if ((property.queueFlags & requiredQueueFlags) == requiredQueueFlags)
+			if ((property.queueFlags.value & requiredQueueFlags) == requiredQueueFlags)
 			{
 				return currentIndex;
 			}

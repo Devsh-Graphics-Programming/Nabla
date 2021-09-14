@@ -17,7 +17,7 @@ namespace asset
 
 inline shaderc_shader_kind ESStoShadercEnum(ISpecializedShader::E_SHADER_STAGE _ss)
 {
-    using T = std::underlying_type_t<ISpecializedShader::E_SHADER_STAGE>;
+    using T = core::bitflag<ISpecializedShader::E_SHADER_STAGE>;
 
     shaderc_shader_kind convert[6];
     convert[core::findLSB<uint32_t>(ISpecializedShader::ESS_VERTEX)] = shaderc_vertex_shader;

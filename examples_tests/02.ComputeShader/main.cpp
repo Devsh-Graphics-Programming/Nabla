@@ -209,7 +209,7 @@ int main()
 			{
 				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
 
-				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
+				if (familyProperty->queueFlags.value & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
 					computeFamilyIndex = familyIndex;
 
 				if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
@@ -495,7 +495,7 @@ int main()
 			creationParams.arrayLayers = 1u;
 			creationParams.samples = asset::IImage::ESCF_1_BIT;
 			creationParams.tiling = asset::IImage::ET_OPTIMAL;
-			creationParams.usage = asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT;
+			creationParams.usage = core::bitflag(asset::IImage::EUF_STORAGE_BIT) | asset::IImage::EUF_TRANSFER_DST_BIT;
 			creationParams.sharingMode = asset::ESM_EXCLUSIVE;
 			creationParams.queueFamilyIndexCount = 0u;
 			creationParams.queueFamilyIndices = nullptr;
@@ -521,7 +521,7 @@ int main()
 
 		// I have a single queue family right now both for compute and present
 		// at index 0
-		auto copyCmdPool = device->createCommandPool(0u, 0u);
+		auto copyCmdPool = device->createCommandPool(0u, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0u));
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> copyCmdBuf = nullptr;
 		device->createCommandBuffers(copyCmdPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &copyCmdBuf);
 		assert(copyCmdBuf);
@@ -542,7 +542,7 @@ int main()
 		undefToTransferDst.subresourceRange.baseArrayLayer = 0u;
 		undefToTransferDst.subresourceRange.layerCount = 1u;
 
-		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, 0,
+		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
 			0u, nullptr, 0u, nullptr, 1u, &undefToTransferDst);
 
 		copyCmdBuf->copyBufferToImage(stagingBuffer.get(), inImage.get(),
@@ -563,7 +563,7 @@ int main()
 		transferDstToGeneral.subresourceRange.baseArrayLayer = 0u;
 		transferDstToGeneral.subresourceRange.layerCount = 1u;
 
-		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, 0,
+		copyCmdBuf->pipelineBarrier(asset::E_PIPELINE_STAGE_FLAGS::EPSF_ALL_COMMANDS_BIT, asset::E_PIPELINE_STAGE_FLAGS::EPSF_ALL_COMMANDS_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
 			0u, nullptr, 0u, nullptr, 1u, &transferDstToGeneral);
 
 		copyCmdBuf->end();
@@ -773,7 +773,7 @@ int main()
 		// VK_PIPELINE_STAGE_TRANSFER_BIT shouldn't be specified in compute queue
 		// but present queue (or transfer queue if theres one??)
 		commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
-			asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u,
+			asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u,
 			&undefToComputeTransitionBarrier);
 
 		commandBuffers[i]->bindComputePipeline(pipeline.get());
@@ -785,7 +785,7 @@ int main()
 		commandBuffers[i]->dispatch(WIN_W, WIN_H, 1);
 
 		commandBuffers[i]->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT,
-			0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier);
+			static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier);
 
 		commandBuffers[i]->end();
 	}

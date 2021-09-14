@@ -5,14 +5,14 @@
 #define LODWORD(_qw)    ((DWORD)(_qw))
 #define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
 
-nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _flags), m_filename{ _filename }
+nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _flags), m_filename{ _filename }
 {
 	SYSTEM_INFO info;
 	GetSystemInfo(&info);
 	m_allocGranularity = info.dwAllocationGranularity;
 
-	DWORD access = m_flags | ECF_READ_WRITE ? FILE_GENERIC_READ | FILE_GENERIC_WRITE :
-		(m_flags | ECF_READ ? FILE_GENERIC_READ : (m_flags | ECF_WRITE ? FILE_GENERIC_WRITE : 0));
+	DWORD access = m_flags.value | ECF_READ_WRITE ? FILE_GENERIC_READ | FILE_GENERIC_WRITE :
+		(m_flags.value | ECF_READ ? FILE_GENERIC_READ : (m_flags.value | ECF_WRITE ? FILE_GENERIC_WRITE : 0));
 	const bool canOpenWhenOpened = false;
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	
@@ -27,10 +27,10 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	{
 		m_openedProperly = false;
 	}
-	if (m_flags & ECF_MAPPABLE)
+	if (m_flags.value & ECF_MAPPABLE)
 	{
-		DWORD access = (m_flags | ECF_READ_WRITE || m_flags | ECF_WRITE) ? PAGE_READWRITE :
-			(m_flags | ECF_READ ? PAGE_READONLY : 0);
+		DWORD access = (m_flags.value | ECF_READ_WRITE || m_flags.value | ECF_WRITE) ? PAGE_READWRITE :
+			(m_flags.value | ECF_READ ? PAGE_READONLY : 0);
 		m_openedProperly &= access != 0;
 		/*
 		TODO: should think of a better way to cope with the max size of a file mapping object (those two zeroes after `access`). 
@@ -80,7 +80,7 @@ const void* nbl::system::CFileWin32::getMappedPointer() const
 
 size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t sizeToRead)
 {
-	if (m_flags & ECF_MAPPABLE)
+	if (m_flags.value & ECF_MAPPABLE)
 	{
 		auto viewOffset = (offset / m_allocGranularity) * m_allocGranularity;
 		offset = offset % m_allocGranularity;
@@ -106,7 +106,7 @@ size_t nbl::system::CFileWin32::read_impl(void* buffer, size_t offset, size_t si
 
 size_t nbl::system::CFileWin32::write_impl(const void* buffer, size_t offset, size_t sizeToWrite)
 {
-	if (m_flags & ECF_MAPPABLE)
+	if (m_flags.value & ECF_MAPPABLE)
 	{
 		auto viewOffset = (offset / m_allocGranularity) * m_allocGranularity;
 		offset += offset % m_allocGranularity;
