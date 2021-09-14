@@ -34,6 +34,7 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 			_file->seek(0u);
 			_file->read(&header, sizeof(header));
 			_file->seek(prevPos);*/
+			__debugbreak();
 
 			return header==FileHeader();
 		}

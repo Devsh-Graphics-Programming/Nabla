@@ -22,8 +22,8 @@ void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 	/*std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
 		+ errorMessage + '\'';
 
-	os::Printer::log(message.c_str(), ELL_ERROR);
-	_NBL_DEBUG_BREAK_IF(true);*/
+	os::Printer::log(message.c_str(), ELL_ERROR);*/
+	_NBL_DEBUG_BREAK_IF(true);
 }
 
 void ParserManager::elementHandlerStart(void* _data, const char* _el, const char** _atts)
@@ -55,7 +55,7 @@ bool ParserManager::parse(system::IFile* _file, const system::logger_opt_ptr& _l
 
 	//from now data (instance of ParserData struct) will be visible to expat handlers
 	// TODO: test
-	Context ctx = {this,parser,_file->getFileName().root_path()};
+	Context ctx = {this,parser,_file->getFileName().parent_path()/""};
 	XML_SetUserData(parser, &ctx);
 
 
@@ -63,6 +63,7 @@ bool ParserManager::parse(system::IFile* _file, const system::logger_opt_ptr& _l
 
 	system::future<size_t> future;
 	_file->read(future, (void*)buff, 0u, _file->getSize());
+	future.get();
 
 	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
 	_NBL_ALIGNED_FREE(buff);

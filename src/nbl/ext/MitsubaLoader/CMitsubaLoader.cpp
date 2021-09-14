@@ -471,18 +471,13 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset:
 	}
 	else
 	{
-		// OLD
-		//auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
-
-		__debugbreak();
-		// TODO: does `IFile::getFileName` return full path?
-		auto currentDir = _file->getFileName();
+		auto currentDir = _file->getFileName().parent_path()/"";
 
 		SContext ctx(
 			m_assetMgr->getGeometryCreator(),
 			m_assetMgr->getMeshManipulator(),
 			asset::IAssetLoader::SAssetLoadContext{ 
-				asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.string().c_str()),
+				asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.string().c_str(), ELPF_NONE, _params.logger, _params.workingDirectory),
 				_file
 			},
 			_override,

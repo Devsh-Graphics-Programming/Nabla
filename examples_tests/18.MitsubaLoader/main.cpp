@@ -61,7 +61,8 @@ int main(int argc, char** argv)
 		assetManager->addAssetLoader(std::move(serializedLoader));
 		assetManager->addAssetLoader(std::move(mitsubaLoader));
 
-		std::string filePath = "../../media/mitsuba/staircase2.zip";
+		std::string filePath = "../../media/mitsuba/bathroom.zip";
+		system::path parentPath;
 		//#define MITSUBA_LOADER_TESTS
 #ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load staircase will be loaded.", pfd::choice::ok);
@@ -76,7 +77,7 @@ int main(int argc, char** argv)
 			arch = system->openFileArchive(archPath);
 
 			if (!arch)
-				arch = system->openFileArchive(CWD/ "../../media/mitsuba/staircase2.zip");
+				arch = system->openFileArchive(CWD/ "../../media/mitsuba/bathroom.zip");
 			if (!arch)
 				return 2;
 
@@ -106,16 +107,18 @@ int main(int argc, char** argv)
 			if (chosen >= flist.size())
 				chosen = 0u;
 
-			filePath = flist[chosen].fullName.string();
+			filePath = flist[chosen].name.string();
+			parentPath = flist[chosen].fullName.parent_path();
 		}
 
 		//! read cache results -- speeds up mesh generation
 		qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
 		//! load the mitsuba scene
 		asset::IAssetLoader::SAssetLoadParams loadParams;
-		loadParams.workingDirectory = "resources";
+		loadParams.workingDirectory = "resources"/parentPath;
 		loadParams.logger = logger.get();
 		meshes = assetManager->getAsset(filePath, loadParams);
+		assert(!meshes.getContents().empty());
 		//! cache results -- speeds up mesh generation on second run
 		qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
 
