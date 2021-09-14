@@ -850,15 +850,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             toTransferDst.srcQueueFamilyIndex = transferFamIx;
             toTransferDst.dstQueueFamilyIndex = transferFamIx;
             toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(img);
-            // Entire subresource range could be input to this function, basically answering
-            // the question:"Which parts of the input cpu image you to convert to gpu image?"
-            // 
-            // aspectMask will depend upon image format, need to figure out from there
-            toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+            toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
             toTransferDst.subresourceRange.baseMipLevel = 0u;
-            toTransferDst.subresourceRange.levelCount = cpuimg->getCreationParameters().mipLevels;
+            toTransferDst.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
             toTransferDst.subresourceRange.baseArrayLayer = 0u;
             toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
+
             cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, 0, 0u, nullptr, 1u, &barrier, 1u, &toTransferDst);
 
             cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_TRANSFER_DST_OPTIMAL, cpuimg->getRegions().size(), cpuimg->getRegions().begin());
@@ -961,6 +958,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
                 auto& b = imgbarriers[barrierCount];
                 b.image = core::smart_refctd_ptr<IGPUImage>(gpuimg);
+
                 asset::IImage::SSubresourceRange subres;
                 subres.baseArrayLayer = 0u;
                 subres.baseMipLevel = 0;
