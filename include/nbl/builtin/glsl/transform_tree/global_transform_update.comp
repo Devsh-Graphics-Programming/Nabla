@@ -71,13 +71,12 @@ void main()
     //
     memoryBarrierBuffer();
     mat4x3 accumulatedTransform = nbl_glsl_transform_tree_globalTransformUpdate_root(rootNode);
-    for (int i=NBL_GLSL_TRANSFORM_TREE_MAX_DEPTH-2; i>=0; --i)
+    while (bool(stackPtr--))
     {
         // barriers are needed to ensure the timestamp and global transform writes are made visible
         // **in the correct order** (global transform must be visible before timestamp) every time we check them.
         // This ensures that if the timestamp matches, the global transform is safe to read (contains updated values).
         memoryBarrierBuffer();
-        if (i<stackPtr)
-            nbl_glsl_transform_tree_globalTransformUpdate_child(accumulatedTransform,stack[i]);
+        nbl_glsl_transform_tree_globalTransformUpdate_child(accumulatedTransform,stack[stackPtr]);
     }
 }

@@ -5,23 +5,23 @@
 #ifdef __cplusplus
 	#define int int32_t
 	#define uint uint32_t
+	struct vec2 {float x,y;};
 	#define mat3 nbl::core::matrix3x4SIMD
 #endif
 struct CommonPushConstants
 {
 	uint inImageTexelPitch[3];
 	uint imageWidth;
-
-
-	// 1 if before denoise
-	uint beforeDenoise;
+	uint imageHeight;
+	uint padding;
+	vec2 kernel_half_pixel_size;
 	
 	// luma meter and tonemapping var but also for denoiser
 	uint percentileRange[2];
 	uint intensityBufferDWORDOffset;
 	float denoiserExposureBias;
 
-	uint autoexposureOff;
+	uint flags;
 	// for the tonemapper
 	uint tonemappingOperator;
 	float tonemapperParams[2];
