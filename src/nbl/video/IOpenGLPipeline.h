@@ -10,15 +10,23 @@
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
 
-namespace nbl
-{ 
-namespace video
+namespace nbl::video
 {
+
+class IOpenGLPipelineBase
+{
+    public:
+        struct SShaderProgram
+        {
+            GLuint GLname = 0u;
+            bool uniformsSetForTheVeryFirstTime = true;
+        };
+};
 
 class IOpenGL_LogicalDevice;
 
 template<size_t _STAGE_COUNT>
-class IOpenGLPipeline
+class IOpenGLPipeline : IOpenGLPipelineBase
 {
     protected:
         // needed for spirv-cross-based workaround of GL's behaviour of gl_InstanceID
@@ -57,6 +65,7 @@ class IOpenGLPipeline
         {
             for (uint32_t i = 0u; i < _STAGE_COUNT; ++i)
                 (*m_GLprograms)[i].GLname = _GLnames[i];
+            std::fill_n(m_GLprograms->begin()+_STAGE_COUNT,(_ctxCount-1u)*_STAGE_COUNT,SShaderProgram{});
             for (uint32_t i = 1u; i < _ctxCount; ++i)
                 for (uint32_t j = 0u; j < _STAGE_COUNT; ++j)
                 {
@@ -214,10 +223,6 @@ class IOpenGLPipeline
         }
 
         IOpenGL_LogicalDevice* m_device;
-        struct SShaderProgram {
-            GLuint GLname = 0u;
-            bool uniformsSetForTheVeryFirstTime = true;
-        };
         //mutable for deferred GL objects creation
         mutable core::smart_refctd_dynamic_array<SShaderProgram> m_GLprograms;
         uint8_t* m_uniformValues;
@@ -235,7 +240,6 @@ class IOpenGLPipeline
         }
 };
 
-}
 }
 
 #endif

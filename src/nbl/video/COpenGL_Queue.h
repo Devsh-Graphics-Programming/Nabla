@@ -341,8 +341,7 @@ class COpenGL_Queue final : public IGPUQueue
                 params.syncToInit = sync;
 
                 auto& req = threadHandler.request(std::move(params));
-                // TODO: Copy all the data to the request and dont wait for the request to finish, also 
-                // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+                // TODO: Copy all the data to the request and dont wait for the request to finish, then mark this request type as `isWaitlessRequest`
                 threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
@@ -396,6 +395,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             auto& req = threadHandler.request(std::move(params));
             // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            // TODO: basically implement `isWaitlessRequest` for this thread handler (like the LogicalDevice queue)
             threadHandler.template waitForRequestCompletion<SRequestParams_DestroyFramebuffer>(req);
         }
 
@@ -406,6 +406,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             auto& req = threadHandler.request(std::move(params));
             // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            // TODO: basically implement `isWaitlessRequest` for this thread handler (like the LogicalDevice queue)
             threadHandler.template waitForRequestCompletion<SRequestParams_DestroyPipeline>(req);
         }
 

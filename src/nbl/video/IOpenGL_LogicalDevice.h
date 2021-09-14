@@ -104,6 +104,10 @@ namespace impl
         {
             return !isDestroyRequest(rt) && (rt < ERT_GET_EVENT_STATUS);
         }
+        constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
+        {
+            return isDestroyRequest(rt) || rt==ERT_INVALIDATE_MAPPED_MEMORY_RANGES || rt==ERT_UNMAP_BUFFER;
+        }
 
         template <E_REQUEST_TYPE rt>
         struct SRequest_Destroy
@@ -402,7 +406,7 @@ protected:
         // lock when overwriting the request
         void reset()
         {
-            if (isDestroyRequest(type))
+            if (isWaitlessRequest(type))
             {
                 uint32_t expected = ES_READY;
                 while (!state.compare_exchange_strong(expected,ES_RECORDING))
@@ -920,7 +924,7 @@ public:
     virtual void destroyTexture(GLuint img) = 0;
     virtual void destroyBuffer(GLuint buf) = 0;
     virtual void destroySampler(GLuint s) = 0;
-    virtual void destroySpecializedShader(uint32_t count, const GLuint* programs) = 0;
+    virtual void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) = 0;
     virtual void destroySync(GLsync sync) = 0;
 };
 
