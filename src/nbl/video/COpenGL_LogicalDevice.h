@@ -470,7 +470,12 @@ protected:
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
-            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), _level, _cmdPool, core::smart_refctd_ptr<system::ILogger>(getLogger().get()));
+            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(
+                core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),
+                _level, _cmdPool,
+                core::smart_refctd_ptr<system::ILogger>(getLogger().get()),
+                m_glfeatures
+            );
         return true;
     }
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override final

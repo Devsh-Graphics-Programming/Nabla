@@ -7,10 +7,15 @@
 namespace nbl::video
 {
 
-    COpenGLCommandBuffer::~COpenGLCommandBuffer()
-    {
-        freeSpaceInCmdPool();
-    }
+COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features)
+    : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)), m_features(_features)
+{
+}
+
+COpenGLCommandBuffer::~COpenGLCommandBuffer()
+{
+    freeSpaceInCmdPool();
+}
 
     void COpenGLCommandBuffer::freeSpaceInCmdPool()
     {

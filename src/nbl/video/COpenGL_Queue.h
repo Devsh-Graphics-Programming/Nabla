@@ -187,7 +187,7 @@ class COpenGL_Queue final : public IGPUQueue
                     GLbitfield barrierBits = 0;
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
-                        barrierBits |= pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT, submit.pWaitDstStageMask[i]);
+                        barrierBits |= SOpenGLBarrierHelper(gl.features).pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT,submit.pWaitDstStageMask[i]);
                     }
 
 #ifdef DEBUGGING_BAW

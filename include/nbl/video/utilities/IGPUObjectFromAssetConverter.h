@@ -780,7 +780,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize());
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
-        if (!asset::isIntegerFormat(cpuimg->getCreationParameters().format))
+        const auto format = cpuimg->getCreationParameters().format;
+        if (!asset::isIntegerFormat(format) && !asset::isBlockCompressionFormat(format))
             needToGenMips = true;
     }
 
