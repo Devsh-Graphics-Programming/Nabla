@@ -17,8 +17,8 @@ add_subdirectory(11.LoDSystem EXCLUDE_FROM_ALL)
 if (NBL_BUILD_CEGUI)
 	#add_subdirectory(13.BRDF_Explorer EXCLUDE_FROM_ALL)
 endif()
-#add_subdirectory(14.MSAA EXCLUDE_FROM_ALL) # TODO: Ressurect with Sponza or something?
-#add_subdirectory(15.LayeredCubeMapShadows EXCLUDE_FROM_ALL) # TODO: Ressurect with Sponza or something?
+add_subdirectory(14.ComputeScan EXCLUDE_FROM_ALL)
+#add_subdirectory(15.LayeredCubeMapShadows EXCLUDE_FROM_ALL) # Reserved for Erfan
 add_subdirectory(16.OrderIndependentTransparency EXCLUDE_FROM_ALL)
 if (NBL_BUILD_BULLET)
 	add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
@@ -68,5 +68,3 @@ add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
 add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL) # todo change the number
 add_subdirectory(54.Transformations EXCLUDE_FROM_ALL)
 add_subdirectory(55.RGB18E7S3 EXCLUDE_FROM_ALL)
-#add_subdirectory(50.RadixSort EXCLUDE_FROM_ALL) #move and renumber to 51
-#add_subdirectory(50.MeshPacking EXCLUDE_FROM_ALL)
