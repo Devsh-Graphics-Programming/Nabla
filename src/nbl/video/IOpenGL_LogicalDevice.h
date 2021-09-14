@@ -859,7 +859,11 @@ protected:
                         case IGPUFence::ES_NOT_READY:
                             if (_waitAll) // keep polling this fence until success or overall timeout
                             {
-                                timeout = 0x45u; // to make it start computing and using timeouts
+                                if (!notFirstRun)
+                                {
+                                    timeout = 0x45u; // to make it start computing and using timeouts
+                                    notFirstRun = true;
+                                }
                                 continue;
                             }
                             break;

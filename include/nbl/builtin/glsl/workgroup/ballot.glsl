@@ -106,21 +106,43 @@ uint nbl_glsl_workgroupBallotBitCount()
 	return retval;
 }
 
+#define NBL_GLSL_WORKGROUP_BROADCAST(CONV, INVCONV) if (gl_LocalInvocationIndex==id)\
+	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[nbl_glsl_workgroupBallot_impl_BitfieldDWORDs] = CONV(val);\
+	barrier();\
+	return INVCONV(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[nbl_glsl_workgroupBallot_impl_BitfieldDWORDs]);
 
 uint nbl_glsl_workgroupBroadcast_noBarriers(in uint val, in uint id)
 {
-	if (gl_LocalInvocationIndex==id)
-		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[nbl_glsl_workgroupBallot_impl_BitfieldDWORDs] = val;
-	barrier();
-	return _NBL_GLSL_SCRATCH_SHARED_DEFINED_[nbl_glsl_workgroupBallot_impl_BitfieldDWORDs];
+	NBL_GLSL_WORKGROUP_BROADCAST(nbl_glsl_identityFunction, nbl_glsl_identityFunction)
 }
-uint nbl_glsl_workgroupBroadcast(in uint val, in uint id)
+
+bool nbl_glsl_workgroupBroadcast_noBarriers(in bool val, in uint id)
 {
-	barrier();
-	const uint retval = nbl_glsl_workgroupBroadcast_noBarriers(val,id);
-	barrier();
-	return retval;
+	NBL_GLSL_WORKGROUP_BROADCAST(uint, bool)
 }
+
+float nbl_glsl_workgroupBroadcast_noBarriers(in float val, in uint id)
+{
+	NBL_GLSL_WORKGROUP_BROADCAST(floatBitsToUint, uintBitsToFloat)
+}
+
+int nbl_glsl_workgroupBroadcast_noBarriers(in int val, in uint id)
+{
+	NBL_GLSL_WORKGROUP_BROADCAST(uint, int)
+}
+
+#define DECLARE_WORKGROUP_BROADCAST_OVERLOAD_WITH_BARRIERS(TYPE,FUNC_NAME) TYPE nbl_glsl_##FUNC_NAME (in TYPE val, in uint id) \
+{ \
+	barrier(); \
+	const TYPE retval = nbl_glsl_##FUNC_NAME##_noBarriers (val, id); \
+	barrier(); \
+	return retval; \
+}
+
+DECLARE_WORKGROUP_BROADCAST_OVERLOAD_WITH_BARRIERS(uint, workgroupBroadcast)
+DECLARE_WORKGROUP_BROADCAST_OVERLOAD_WITH_BARRIERS(bool, workgroupBroadcast)
+DECLARE_WORKGROUP_BROADCAST_OVERLOAD_WITH_BARRIERS(float, workgroupBroadcast)
+DECLARE_WORKGROUP_BROADCAST_OVERLOAD_WITH_BARRIERS(int, workgroupBroadcast)
 
 uint nbl_glsl_workgroupBroadcastFirst_noBarriers(in uint val)
 {
@@ -137,15 +159,12 @@ uint nbl_glsl_workgroupBroadcastFirst(in uint val)
 	return retval;
 }
 
-/** TODO @Hazardu, @Przemog or @Anastazluk
-bool nbl_glsl_workgroupBroadcast(in bool val, in uint id);
-float nbl_glsl_workgroupBroadcast(in float val, in uint id);
-int nbl_glsl_workgroupBroadcast(in int val, in uint id);
 
 bool nbl_glsl_workgroupBroadcastFirst(in bool val) {return nbl_glsl_workgroupBroadcast(val,0u);}
 float nbl_glsl_workgroupBroadcastFirst(in float val) {return nbl_glsl_workgroupBroadcast(val,0u);}
 int nbl_glsl_workgroupBroadcastFirst(in int val) {return nbl_glsl_workgroupBroadcast(val,0u);}
 
+/** TODO @Hazardu, @Przemog or @Anastazluk
 // these could use optimization from `bitcount` on shared memory, then a part-sized arithmetic scan
 uint nbl_glsl_workgroupBallotFindLSB();
 uint nbl_glsl_workgroupBallotFindMSB();
