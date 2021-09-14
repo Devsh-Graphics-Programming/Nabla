@@ -96,21 +96,14 @@ int main(int argc, char** argv)
         auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
         quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
 
-        //fileSystem->addFileArchive("../../media/sponza.zip"); 
-
-        /*
-            To make it work we need to read sponza but not from a zip,
-            so remember to unpack sponza.zip to /bin directory upon executable
-
-            TODO: come back to addFileArchive
-        */
-        system::path archPath = CWD.generic_string() + "../../media/sponza.zip";
+        system::path archPath = CWD/"../../media/sponza.zip";
         auto arch = system->openFileArchive(archPath);
-        system->mount(std::move(arch), "arch");
+        // test no alias loading (TODO: fix loading from absolute paths)
+        system->mount(std::move(arch));
         asset::IAssetLoader::SAssetLoadParams loadParams;
         loadParams.workingDirectory = CWD;
         loadParams.logger = logger.get();
-        auto meshes_bundle = assetManager->getAsset("arch/sponza.obj", loadParams);
+        auto meshes_bundle = assetManager->getAsset((CWD/"../../media/sponza.zip/sponza.obj").string(), loadParams);
         assert(!meshes_bundle.getContents().empty());
 
         metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
@@ -122,11 +115,11 @@ int main(int argc, char** argv)
     }
 
     // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
-    asset::ICPUMeshBuffer* const firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
+    const asset::ICPUMeshBuffer* const firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
     auto pipelineMetadata = metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
 
     // so we can create just one DS
-    asset::ICPUDescriptorSetLayout* ds1layout = firstMeshBuffer->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    const asset::ICPUDescriptorSetLayout* ds1layout = firstMeshBuffer->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
         if (bnd.type==asset::EDT_UNIFORM_BUFFER)

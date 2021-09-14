@@ -244,6 +244,7 @@ namespace nbl::system
 
 		addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, getAllocatorType(entry.header.CompressionMethod), m_fileInfo.size());
 		m_fileInfo.push_back(entry);
+		return true;
 	}
 
 	bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
@@ -360,7 +361,7 @@ namespace nbl::system
 					delete[] decryptedBuf;
 					return 0;
 				}
-				decrypted = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);//new io::CMemoryReadFile(decryptedBuf, decryptedSize, found->FullName);
+				decrypted = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(core::smart_refctd_ptr<ISystem>(m_system), params.absolutePath, IFile::ECF_READ_WRITE, decryptedSize);//new io::CMemoryReadFile(decryptedBuf, decryptedSize, params.absolutePath);
 				{
 					write_blocking(decrypted.get(), decryptedBuf, 0, decryptedSize);
 				}
@@ -392,7 +393,7 @@ namespace nbl::system
 					uint8_t* buff = (uint8_t*)m_file->getMappedPointer() + e.Offset;
 					auto a = core::make_smart_refctd_ptr<CFileView<CNullAllocator>>(
 						core::smart_refctd_ptr<ISystem>(m_system),
-						found->fullName,
+						params.absolutePath,
 						IFile::ECF_READ_WRITE,
 						buff,
 						decryptedSize);
@@ -470,7 +471,7 @@ namespace nbl::system
 				{
 					auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(
 						core::smart_refctd_ptr<ISystem>(m_system),
-						found->fullName,
+						params.absolutePath,
 						IFile::ECF_READ_WRITE,
 						uncompressedSize);
 					{
@@ -492,7 +493,7 @@ namespace nbl::system
 				char* pBuf = new char[uncompressedSize];
 				if (!pBuf)
 				{
-					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
 					delete[] decryptedBuf;
 					if (decrypted)
 						decrypted->drop();
@@ -505,7 +506,7 @@ namespace nbl::system
 					pcData = new uint8_t[decryptedSize];
 					if (!pcData)
 					{
-						m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+						m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
 						delete[] pBuf;
 						delete[] decryptedBuf;
 						return 0;
@@ -546,14 +547,14 @@ namespace nbl::system
 
 				if (err != BZ_OK)
 				{
-					m_logger.log("Error decompressing %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+					m_logger.log("Error decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
 					delete[] pBuf;
 					delete[] decryptedBuf;
 					return 0;
 				}
 				else
 				{
-					auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize);
+					auto ret = core::make_smart_refctd_ptr<CFileView<CFileViewVirtualAllocatorWin32>>(std::move(m_system), params.absolutePath, IFile::ECF_READ_WRITE, uncompressedSize);
 					{
 						write_blocking(decrypted.get(), pBuf, 0, uncompressedSize);
 					}
@@ -575,7 +576,7 @@ namespace nbl::system
 				char* pBuf = new char[uncompressedSize];
 				if (!pBuf)
 				{
-					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->FullName.c_str());
+					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.c_str());
 					delete[] decryptedBuf;
 					if (decrypted)
 						decrypted->drop();
@@ -588,7 +589,7 @@ namespace nbl::system
 					pcData = new uint8_t[decryptedSize];
 					if (!pcData)
 					{
-						m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, found->FullName.string().c_str());
+						m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
 						delete[] pBuf;
 						return 0;
 					}
@@ -621,12 +622,12 @@ namespace nbl::system
 				delete[] decryptedBuf;
 				if (err != SZ_OK)
 				{
-					m_logger.log("Error decompressing %s", ELL_ERROR, found->FullName.string().c_str());
+					m_logger.log("Error decompressing %s", ELL_ERROR, params.absolutePath.string().c_str());
 					delete[] pBuf;
 					return 0;
 				}
 				else
-					return io::createMemoryReadFile(pBuf, uncompressedSize, found->FullName, true);
+					return io::createMemoryReadFile(pBuf, uncompressedSize, params.absolutePath, true);
 
 #else
 				delete[] decryptedBuf;
@@ -640,7 +641,7 @@ namespace nbl::system
 				delete[] decryptedBuf;
 				return 0;
 			default:
-				m_logger.log("file has unsupported compression method. %s", ILogger::ELL_ERROR, found->fullName.string().c_str());
+				m_logger.log("file has unsupported compression method. %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
 				delete[] decryptedBuf;
 				return 0;
 			};

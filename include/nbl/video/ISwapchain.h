@@ -54,6 +54,21 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
         }
 
         virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
+        // 100% blocking version, guaranteed to **not** return TIMEOUT or NOT_READY
+        virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
+        {
+            E_ACQUIRE_IMAGE_RESULT result=EAIR_NOT_READY;
+            while (result==EAIR_NOT_READY||result==EAIR_TIMEOUT)
+            {
+                result = acquireNextImage(999999999ull,semaphore,fence,out_imgIx);
+                if (result==EAIR_ERROR)
+                {
+                    assert(false);
+                    break;
+                }
+            }
+            return result;
+        }
 
         // Only present for backwards compatibility with OpenGL backend
         ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), m_params(std::move(params)) {}

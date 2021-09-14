@@ -2,10 +2,10 @@
 #define _NBL_GLSL_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_GLSL_INCLUDED_
 
 // TODO: move this
-#ifndef __cplusplus
+#ifdef __cplusplus
 #define NBL_INLINE inline
 #else
-#define NBL_INLINE inline
+#define NBL_INLINE
 #endif
 
 struct nbl_glsl_transform_tree_relative_transform_modification_t
@@ -25,21 +25,24 @@ NBL_INLINE uint nbl_glsl_transform_tree_relative_transform_modification_t_getTyp
 	return (rtm.data[0][0]&0x1u)|((rtm.data[2][2]&0x1u)<<1u);
 }
 #ifndef __cplusplus
+#include "nbl/builtin/glsl/utils/transform.glsl"
+
 mat4x3 nbl_glsl_transform_tree_relative_transform_modification_t_getMatrix(in nbl_glsl_transform_tree_relative_transform_modification_t rtm)
 {
 	return transpose(mat3x4(uintBitsToFloat(rtm.data[0]),uintBitsToFloat(rtm.data[1]),uintBitsToFloat(rtm.data[2])));
 }
 
+#include "nbl/builtin/glsl/utils/transform.glsl"
 mat4x3 nbl_glsl_transform_tree_relative_transform_modification_t_apply(in mat4x3 oldTform, in nbl_glsl_transform_tree_relative_transform_modification_t rtm)
 {
 	const mat4x3 delta = nbl_glsl_transform_tree_relative_transform_modification_t_getMatrix(rtm);
 	switch (nbl_glsl_transform_tree_relative_transform_modification_t_getType(rtm))
 	{
 		case _NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_CONCATENATE_AFTER_:
-			return delta*oldTform;
+			return nbl_glsl_pseudoMul4x3with4x3(delta,oldTform);
 			break;
 		case _NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_CONCATENATE_BEFORE_:
-			return oldTform*delta;
+			return nbl_glsl_pseudoMul4x3with4x3(oldTform,delta);
 			break;
 		case _NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_WEIGHTED_ACCUMULATE_:
 			return oldTform+delta;

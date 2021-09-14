@@ -119,6 +119,24 @@ class IGPUObjectFromAssetConverter
             // @sadiuk put here more parameters if needed
 
             SPerQueue perQueue[EQU_COUNT];
+
+
+            //
+            inline void waitForCreationToComplete()
+            {
+                IGPUFence* fences[EQU_COUNT];
+                uint32_t count = 0;
+                for (auto i=0; i<EQU_COUNT; i++)
+                {
+                    auto pFence = perQueue[i].fence;
+                    if (pFence && pFence->get()) // user wanted, and something actually got submitted
+                        fences[count++] = pFence->get();
+                }
+                device->blockForFences(count,fences);
+                for (auto i=0; i<EQU_COUNT; i++)
+                if (perQueue[i].fence)
+                    perQueue[i].fence->operator=(nullptr);
+            }
         };
 
 	protected:

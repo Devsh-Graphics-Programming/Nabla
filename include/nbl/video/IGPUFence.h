@@ -15,6 +15,7 @@ class IGPUFence : public core::IReferenceCounted, public IBackendObject
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
+            ECF_UNSIGNALED = 0x00u,
             ECF_SIGNALED_BIT = 0x01u
         };
         enum E_STATUS

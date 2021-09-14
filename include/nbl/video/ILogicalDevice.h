@@ -108,6 +108,21 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
         virtual void resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
         virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) = 0;
+        // Forever waiting variant if you're confident that the fence will eventually be signalled
+        inline bool blockForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll = true)
+        {
+            if (_count)
+            for (IGPUFence::E_STATUS waitStatus=IGPUFence::ES_NOT_READY; waitStatus!=IGPUFence::ES_SUCCESS;)
+            {
+                waitStatus = waitForFences(_count,_fences,_waitAll,999999999ull);
+                if (waitStatus==video::IGPUFence::ES_ERROR)
+                {
+                    assert(false);
+                    return false;
+                }
+            }
+            return true;
+        }
 
         virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
 
