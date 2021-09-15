@@ -202,7 +202,8 @@ int main()
 	propBufs[4].offset = offset_recompStamp;
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
-	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true);
+	constexpr bool TRANSFORM_TREE_DEBUG_DRAW = true; // maybe it should be templated?
+	auto tt = scene::ITransformTree::create(device.get(), TRANSFORM_TREE_DEBUG_DRAW, propBufs, ObjectCount, true);
 	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
@@ -534,7 +535,7 @@ int main()
 		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
 		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
-	
+	   
 		asset::SBufferBinding<video::IGPUBuffer> colorBufBinding;
 		colorBufBinding.offset = colorBufferOffset;
 		colorBufBinding.buffer = colorBuffer;

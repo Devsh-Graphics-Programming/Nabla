@@ -60,7 +60,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 		// the creation is the same as that of a `video::CPropertyPool`
 		template<typename... Args>
-		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, Args... args)
+		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, bool debugDraw, Args... args)
 		{
 			auto pool = property_pool_t::create(device,std::forward<Args>(args)...);
 			if (!pool)
@@ -100,8 +100,138 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 
-			auto* tt = new ITransformTree(std::move(pool),std::move(ds));
-			return core::smart_refctd_ptr<ITransformTree>(tt,core::dont_grab);
+			auto* ttRaw = new ITransformTree(std::move(pool),std::move(ds), debugDraw);
+			auto transformTree = core::smart_refctd_ptr<ITransformTree>(ttRaw, core::dont_grab);
+
+			if(transformTree->m_debugEnabled)
+			{
+				auto system = device->getPhysicalDevice()->getSystem();
+
+				auto createShader = [&system, &device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+				{
+					auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
+					auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::buffer_contains_glsl_t{});
+					return device->createGPUSpecializedShader(cpushader.get(), {nullptr, nullptr, "main", type});
+				};
+
+				auto gpuDebugVertexShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debugDrawNodeLine.vert")());
+				auto gpuDebugFragmentShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debugDraw.frag")());
+
+				if (!gpuDebugVertexShader && !gpuDebugFragmentShader)
+					return nullptr;
+
+				video::IGPUSpecializedShader* gpuShaders[] = {gpuDebugVertexShader.get(), gpuDebugFragmentShader.get()};
+
+				constexpr size_t GLOBAL_NODE_ID_BINDING = 15u;
+				constexpr size_t GLOBAL_NODE_ID_ATTRIBUTE = 0u;
+
+				asset::SVertexInputParams vertexInputParams;
+				vertexInputParams.bindings[GLOBAL_NODE_ID_BINDING].inputRate = asset::EVIR_PER_INSTANCE;
+				vertexInputParams.bindings[GLOBAL_NODE_ID_BINDING].stride = sizeof(uint32_t);
+				vertexInputParams.attributes[GLOBAL_NODE_ID_ATTRIBUTE].binding = GLOBAL_NODE_ID_BINDING;
+				vertexInputParams.attributes[GLOBAL_NODE_ID_ATTRIBUTE].format = asset::EF_R32_UINT;
+				vertexInputParams.attributes[GLOBAL_NODE_ID_ATTRIBUTE].relativeOffset = 0u;
+
+				vertexInputParams.enabledBindingFlags |= 0x1u << GLOBAL_NODE_ID_BINDING;
+				vertexInputParams.enabledAttribFlags |= 0x1u << GLOBAL_NODE_ID_ATTRIBUTE;
+
+				asset::SBlendParams blendParams;
+				asset::SPrimitiveAssemblyParams primitiveAssemblyParams;
+				primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
+				asset::SRasterizationParams rasterizationParams;
+
+				core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout;
+				{
+					video::IGPUDescriptorSetLayout::SBinding sBindings[2];
+					sBindings[0].binding = 0u;
+					sBindings[0].count = 1u;
+					sBindings[0].type = asset::EDT_STORAGE_BUFFER;
+					sBindings[0].stageFlags = video::IGPUSpecializedShader::ESS_VERTEX;
+					sBindings[0].samplers = nullptr;
+
+					sBindings[1] = sBindings[0];
+					sBindings[1].binding = 1u;
+					descriptorSetLayout = device->createGPUDescriptorSetLayout(sBindings, sBindings + 2);
+				}
+
+				constexpr size_t DEBUG_LINE_PS_SIZE = sizeof(core::matrix4SIMD) + sizeof(core::vector4df_SIMD);
+				asset::SPushConstantRange pcRange;
+				pcRange.offset = 0u;
+				pcRange.size = DEBUG_LINE_PS_SIZE;
+				pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+
+				auto gpuPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(descriptorSetLayout));
+				auto gpuRenderpassIndependentPipeline = device->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders, gpuShaders + 2, vertexInputParams, blendParams, primitiveAssemblyParams, rasterizationParams);
+				
+				if (!gpuRenderpassIndependentPipeline)
+					return nullptr;
+
+				transformTree->m_debugGpuRenderpassIndependentPipelineNodeLines = std::move(gpuRenderpassIndependentPipeline);
+				{
+					video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
+					attachments[0].initialLayout = asset::EIL_UNDEFINED;
+					attachments[0].finalLayout = asset::EIL_UNDEFINED;
+					attachments[0].format = asset::EF_R8G8B8A8_SRGB;
+					attachments[0].samples = asset::IImage::ESCF_1_BIT;
+					attachments[0].loadOp = video::IGPURenderpass::ELO_CLEAR;
+					attachments[0].storeOp = video::IGPURenderpass::ESO_STORE;
+
+					attachments[1].initialLayout = asset::EIL_UNDEFINED;
+					attachments[1].finalLayout = asset::EIL_UNDEFINED;
+					attachments[1].format = asset::EF_D32_SFLOAT;
+					attachments[1].samples = asset::IImage::ESCF_1_BIT;
+					attachments[1].loadOp = video::IGPURenderpass::ELO_CLEAR;
+					attachments[1].storeOp = video::IGPURenderpass::ESO_STORE;
+
+					video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
+					colorAttRef.attachment = 0u;
+					colorAttRef.layout = asset::EIL_UNDEFINED;
+
+					video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef depthStencilAttRef;
+					depthStencilAttRef.attachment = 1u;
+					depthStencilAttRef.layout = asset::EIL_UNDEFINED;
+
+					video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
+					sp.colorAttachmentCount = 1u;
+					sp.colorAttachments = &colorAttRef;
+					sp.depthStencilAttachment = &depthStencilAttRef;
+				
+					sp.flags = video::IGPURenderpass::ESDF_NONE;
+					sp.inputAttachmentCount = 0u;
+					sp.inputAttachments = nullptr;
+					sp.preserveAttachmentCount = 0u;
+					sp.preserveAttachments = nullptr;
+					sp.resolveAttachments = nullptr;
+
+					video::IGPURenderpass::SCreationParams rp_params;
+					rp_params.attachmentCount = 2u;
+					rp_params.attachments = attachments;
+					rp_params.dependencies = nullptr;
+					rp_params.dependencyCount = 0u;
+					rp_params.subpasses = &sp;
+					rp_params.subpassCount = 1u;
+
+					auto debugRenderpass = device->createGPURenderpass(rp_params);
+					transformTree->m_debugGpuRenderpass = std::move(debugRenderpass);
+				}
+
+				core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
+				{
+					nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+					graphicsPipelineParams.renderpassIndependent = transformTree->m_debugGpuRenderpassIndependentPipelineNodeLines;
+					graphicsPipelineParams.renderpass = transformTree->m_debugGpuRenderpass;
+
+					auto gpuGraphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+					transformTree->m_debugGpuPipelineNodeLines = std::move(gpuGraphicsPipeline);
+				}
+			}
+
+			return transformTree;
+		}
+
+		inline void setDebugLiveAllocations(const core::unordered_set<node_t>&& nodes)
+		{
+			m_debugLiveAllocations = nodes;
 		}
 		
 		//
@@ -156,9 +286,25 @@ class ITransformTree : public virtual core::IReferenceCounted
 			return pphandler->transferProperties(upIndexBuff,downBuff,cmdbuf,fence,&request,&request+1u,logger,maxWaitPoint);
 		}
 
+		void debugDraw(video::ILogicalDevice* device, video::IGPUCommandBuffer* commandBuffer, video::IGPUDescriptorSet* mappedBufferDS, video::IGPUBuffer* mappedBuffer, uint32_t allocationOffset)
+		{
+			if (!m_debugEnabled)
+				return;
+			
+			auto* mappedMemory =mappedBuffer->getBoundMemory()->getMappedPointer();
+			std::copy(m_debugLiveAllocations.begin(), m_debugLiveAllocations.end(), reinterpret_cast<uint8_t*>(mappedMemory) + allocationOffset);
+			//if (needFlush) 
+			//	device->flushRanges();
+
+			//commandBuffer->bindPipeline(GRAPHICS, m_debugPipeline.get());
+			//commandBuffer->bindDescriptorSets(m_debugPipeline->getLayout, 0u, 2u, { m_transformHierarchyDS.get(),mappedBufferDS });
+			
+			//commandBuffer->drawElementsInstanced(, , , ); we don't have it yet, I need to update the backend with it
+		}
+
 	protected:
-		ITransformTree(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS)
-			: m_nodeStorage(std::move(_nodeStorage)), m_transformHierarchyDS(std::move(_transformHierarchyDS))
+		ITransformTree(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS, bool _debugDraw)
+			: m_nodeStorage(std::move(_nodeStorage)), m_transformHierarchyDS(std::move(_transformHierarchyDS)), m_debugEnabled(_debugDraw)
 		{
 		}
 		~ITransformTree()
@@ -173,6 +319,13 @@ class ITransformTree : public virtual core::IReferenceCounted
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
 		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requests > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
+	private:
+		bool m_debugEnabled;
+
+		core::unordered_set<node_t> m_debugLiveAllocations; // no clue how it should be filled
+		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_debugGpuPipelineNodeLines;
+		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_debugGpuRenderpassIndependentPipelineNodeLines; // only lines at the moment
+		core::smart_refctd_ptr<video::IGPURenderpass> m_debugGpuRenderpass;
 };
 
 } // end namespace nbl::scene
