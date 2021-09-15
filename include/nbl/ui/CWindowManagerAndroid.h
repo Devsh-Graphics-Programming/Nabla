@@ -36,6 +36,9 @@ namespace nbl::ui
 		{
 			return core::make_smart_refctd_ptr<CWindowAndroid>(m_app->window);
 		}
+        void destroyWindow(IWindow* wnd) override final
+        { 
+        }
 		static int32_t engine_handle_input(android_app* app, AInputEvent* event) {
 			LOGI("TEST HERE");
             user_data* engine = (user_data*)app->userData;
@@ -52,21 +55,21 @@ namespace nbl::ui
             switch (cmd) {
             case APP_CMD_SAVE_STATE:
                 // The system has asked us to save our current state.  Do so.
-                usrData->savedState = malloc(sizeof(saved_state));
-                *((saved_state*)app->savedState) = usrData->state;
-                app->savedStateSize = sizeof(saved_state);
+                //usrData->savedState = malloc(sizeof(saved_state));
+                //*((saved_state*)app->savedState) = usrData->state;
+                //app->savedStateSize = sizeof(saved_state);
                 break;
             case APP_CMD_INIT_WINDOW:
                 //debug_break();
                 // The window is being shown, get it ready.
                 if (app->window != nullptr) {
-                    engine_init_display(engine);
-                    engine_draw_frame(engine);
+                    //engine_init_display(engine);
+                    //engine_draw_frame(engine);
                 }
                 break;
             case APP_CMD_TERM_WINDOW:
                 // The window is being hidden or closed, clean it up.
-                engine_term_display(engine);
+                //engine_term_display(engine);
                 break;
                 /*
                 case APP_CMD_GAINED_FOCUS:
