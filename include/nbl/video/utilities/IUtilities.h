@@ -8,6 +8,7 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
+#include "nbl/video/utilities/CScanner.h"
 
 namespace nbl::video
 {
@@ -17,6 +18,7 @@ class IUtilities : public core::IReferenceCounted
     public:
         IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, size_t downstreamSize=0x4000000ull, size_t upstreamSize=0x4000000ull) : m_device(std::move(_device))
         {
+            const auto& limits = m_device->getPhysicalDevice()->getLimits();
             {
                 auto reqs = m_device->getDownStreamingMemoryReqs();
                 reqs.vulkanReqs.size = downstreamSize;
@@ -30,6 +32,7 @@ class IUtilities : public core::IReferenceCounted
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
+            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device),core::roundDownToPoT(limits.maxWorkgroupSize[0]));
         }
 
         //!
@@ -49,6 +52,12 @@ class IUtilities : public core::IReferenceCounted
         virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const
         {
             return m_propertyPoolHandler.get();
+        }
+
+        //!
+        virtual CScanner* getDefaultScanner() const
+        {
+            return m_scanner.get();
         }
 
         //! WARNING: This function blocks the CPU and stalls the GPU!
@@ -282,6 +291,7 @@ class IUtilities : public core::IReferenceCounted
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
 
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
+        core::smart_refctd_ptr<CScanner> m_scanner;
 };
 
 }

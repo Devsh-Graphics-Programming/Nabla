@@ -1,8 +1,7 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
-#include "nbl/ext/RadixSort/RadixSort.h"
-#include "../../source/Nabla/COpenGLDriver.h"
+#include "../common/CommonAPI.h"
 
 #include <chrono>
 #include <random>
@@ -12,32 +11,8 @@ using namespace core;
 using namespace video;
 using namespace asset;
 
-using RadixSortClass = ext::RadixSort::RadixSort;
-using ScanClass = ext::RadixSort::ScanClass;
 
-#define WG_SIZE 256
-
-struct SortElement
-{
-	uint32_t key, data;
-
-	bool operator!= (const SortElement& other)
-	{
-		return (key != other.key) || (data != other.data);
-	}
-};
-
-struct SortElementKeyAccessor
-{
-	_NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = 32ull;
-
-	template<auto bit_offset, auto radix_mask>
-	inline decltype(radix_mask) operator()(const SortElement& item) const
-	{
-		return static_cast<decltype(radix_mask)>(item.key >> static_cast<uint32_t>(bit_offset)) & radix_mask;
-	}
-};
-
+#if 0 
 template <typename T>
 static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download, size_t buffer_size, IVideoDriver* driver)
 {
@@ -99,6 +74,77 @@ static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu
 	}
 }
 
+#endif
+
+int main()
+{
+	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test");
+	auto system = std::move(initOutput.system);
+    auto gl = std::move(initOutput.apiConnection);
+    auto logger = std::move(initOutput.logger);
+    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+    auto logicalDevice = std::move(initOutput.logicalDevice);
+    auto queues = std::move(initOutput.queues);
+    auto renderpass = std::move(initOutput.renderpass);
+    auto commandPool = std::move(initOutput.commandPool);
+    auto assetManager = std::move(initOutput.assetManager);
+    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+    auto utilities = std::move(initOutput.utilities);
+
+    core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
+    core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
+
+    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+    {
+        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+    }
+
+	// Create (an almost) 128MB input buffer
+	constexpr auto in_size = 128u<<20u;
+	constexpr auto in_count = in_size/sizeof(uint32_t)-23u;
+
+	logger->log("Input element count: %d",system::ILogger::ELL_PERFORMANCE,in_count);
+
+	auto in = new uint32_t[in_count];
+	{
+		std::random_device random_device;
+		std::mt19937 generator(random_device());
+		std::uniform_int_distribution<uint32_t> distribution(0u, ~0u);
+		for (auto i=0u; i<in_count; i++)
+			in[i] = distribution(generator);
+	}
+	
+	// Take (an almost) 64MB portion from it to scan
+	constexpr auto begin = in_count/4+112;
+	constexpr auto end = in_count*3/4-77;
+	constexpr auto elementCount = end-begin;
+	
+	assert((begin&(gpuPhysicalDevice->getLimits().SSBOAlignment-1u))==0u);
+	SBufferRange<IGPUBuffer> in_gpu_range = {0};
+	in_gpu_range.offset = begin*sizeof(uint32_t);
+	in_gpu_range.size = elementCount*sizeof(uint32_t);
+	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
+	
+	auto scanner = utilities->getDefaultScanner();
+	auto scan_pipeline = scanner->getDefaultPipeline(CScanner::EDT_UINT,CScanner::EO_ADD);
+
+	CScanner::Parameters scan_push_constants;
+	CScanner::DispatchInfo scan_dispatch_info;
+	scanner->buildParameters(elementCount,scan_push_constants,scan_dispatch_info);
+
+	auto dsLayout = scanner->getDefaultDescriptorSetLayout();
+	auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&dsLayout,&dsLayout+1u);
+	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
+	//scanner->updateDescriptorSet(set,in_gpu_range,scratch_range);
+
+	constexpr auto BenchmarkingRuns = 1000u;
+	for (auto i=0u; i<BenchmarkingRuns; i++)
+	{
+	}
+#if 0
+	
+	RadixSort(driver, in_gpu_range, ds_sort, ds_sort_count, histogram_pipeline, scatter_pipeline, ds_scan.get(), upsweep_pipeline, downsweep_pipeline);
 static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_gpu_range,
 	core::smart_refctd_ptr<IGPUDescriptorSet>* ds_sort, const uint32_t ds_sort_count,
 	IGPUComputePipeline* histogram_pipeline, IGPUComputePipeline* scatter_pipeline,
@@ -143,97 +189,21 @@ static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_g
 
 	std::cout << "GPU sort end\nTime taken: " << (double)time_taken / 1000000.0 << " ms" << std::endl;
 }
+#endif
 
-int main()
-{
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24;
-	params.ZBufferBits = 24;
-	params.DriverType = video::EDT_OPENGL;
-	params.WindowSize = dimension2d<uint32_t>(512, 512);
-	params.Fullscreen = false;
-	params.Vsync = true;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false;
-	params.StreamingDownloadBufferSize = 0x10000000u; // 256MB download required
-	auto device = createDeviceEx(params);
-
-	if (!device)
-		return 1;
-
-	IVideoDriver* driver = device->getVideoDriver();
-
-	io::IFileSystem* filesystem = device->getFileSystem();
-	asset::IAssetManager* am = device->getAssetManager();
-
-	// Create (an almost) 256MB input buffer
-	const size_t in_count = (1 << 25) - 23;
-	const size_t in_size = in_count * sizeof(SortElement);
-
-	std::cout << "Input element count: " << in_count << std::endl;
-
-	std::random_device random_device;
-	std::mt19937 generator(random_device());
-	std::uniform_int_distribution<uint32_t> distribution(0u, ~0u);
-
-	SortElement* in = new SortElement[in_count];
-	for (size_t i = 0u; i < in_count; ++i)
+	for (auto i=0u; i<BenchmarkingRuns; i++)
 	{
-		in[i].key = distribution(generator);
-		in[i].data = i;
-	}
-	
-	auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
-	
-	// Take (an almost) 64MB portion from it to sort
-	size_t begin = (1 << 23) + 112;
-	size_t end = (1 << 24) - 77;
-	
-	assert((begin & (driver->getRequiredSSBOAlignment() - 1ull)) == 0ull);
-	
-	SBufferRange<IGPUBuffer> in_gpu_range = { 0 };
-	in_gpu_range.offset = begin * sizeof(SortElement);
-	in_gpu_range.size = (end - begin) * sizeof(SortElement);
-	in_gpu_range.buffer = in_gpu;
-	
-	auto sorter = core::make_smart_refctd_ptr<RadixSortClass>(driver, WG_SIZE);
-	
-	const uint32_t ds_sort_count = 2u;
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> ds_sort[ds_sort_count];
-	for (uint32_t i = 0; i < ds_sort_count; ++i)
-		ds_sort[i] = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
-	auto ds_scan = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultScanDescriptorSetLayout()));
+		logger->log("CPU scan begin",system::ILogger::ELL_PERFORMANCE);
 
-	auto histogram_pipeline = sorter->getDefaultHistogramPipeline();	
-	auto upsweep_pipeline = sorter->getDefaultUpsweepPipeline();
-	auto downsweep_pipeline = sorter->getDefaultDownsweepPipeline();
-	auto scatter_pipeline = sorter->getDefaultScatterPipeline();
-	
-	driver->beginScene(true);
-	RadixSort(driver, in_gpu_range, ds_sort, ds_sort_count, histogram_pipeline, scatter_pipeline, ds_scan.get(), upsweep_pipeline, downsweep_pipeline);
-	driver->endScene();
-
-	{	
-		std::cout << "CPU sort begin" << std::endl;
-
-		SortElement* in_data = new SortElement[in_count + (end - begin)];
-		memcpy(in_data, in, sizeof(SortElement) * in_count);
-
+		auto dst = in+begin;
 		auto start = std::chrono::high_resolution_clock::now();
-		SortElement* sorted_data = core::radix_sort(in_data + begin, in_data + in_count, end - begin, SortElementKeyAccessor());
+		std::inclusive_scan(in+begin,in+end,dst);
 		auto stop = std::chrono::high_resolution_clock::now();
 
-		memcpy(in_data + begin, sorted_data, (end - begin) * sizeof(SortElement));
-
-		std::cout << "CPU sort end\nTime taken: " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << " ms" << std::endl;
-
-		std::cout << "Testing: ";
-		DebugCompareGPUvsCPU<SortElement>(in_gpu, in_data, in_size, driver);
-
-		delete[] in_data;
+		logger->log("CPU sort end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());
 	}
+	//DebugCompareGPUvsCPU(in_gpu,in_data,in_size,driver);
 
 	delete[] in;
-
 	return 0;
 }
