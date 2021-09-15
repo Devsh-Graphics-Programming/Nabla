@@ -1,27 +1,4 @@
 /*
-#ifndef _NBL_GLSL_EXT_SCAN_DEFAULT_SWEEP_COMMON_GLSL_INCLUDED_
-#define _NBL_GLSL_EXT_SCAN_DEFAULT_SWEEP_COMMON_GLSL_INCLUDED_
-
-
-#ifndef _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_
-#define _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_ 0
-#endif
-
-#ifndef _NBL_GLSL_EXT_SCAN_INPUT_BINDING_DEFINED_
-#define _NBL_GLSL_EXT_SCAN_INPUT_BINDING_DEFINED_ 0
-#endif
-
-#ifndef _NBL_GLSL_EXT_SCAN_INPUT_DESCRIPTOR_DEFINED_
-
-layout(set = _NBL_GLSL_EXT_SCAN_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_SCAN_INPUT_BINDING_DEFINED_, std430) restrict buffer InoutBuffer
-{
-	nbl_glsl_ext_Scan_Storage_t inout_values[];
-};
-
-#define _NBL_GLSL_EXT_SCAN_INPUT_DESCRIPTOR_DEFINED_
-#endif
-
-
 #ifndef _NBL_GLSL_EXT_SCAN_GET_PARAMETERS_DEFINED_
 nbl_glsl_ext_Scan_Parameters_t nbl_glsl_ext_Scan_getParameters()
 {
@@ -31,16 +8,12 @@ nbl_glsl_ext_Scan_Parameters_t nbl_glsl_ext_Scan_getParameters()
 #endif
 
 #ifndef _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
-
 void nbl_glsl_ext_Scan_setData(in uint idx, in nbl_glsl_ext_Scan_Storage_t val)
 {
 	if (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass())
 		inout_values[idx] = val;
 }
-
 #define _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
-#endif
-
 #endif
 */
 
@@ -50,7 +23,7 @@ void nbl_glsl_ext_Scan_setData(in uint idx, in nbl_glsl_ext_Scan_Storage_t val)
 
 #ifndef _NBL_GLSL_WORKGROUP_SIZE_
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
-layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 #endif
 
 
@@ -59,6 +32,34 @@ layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 #endif
 
 #define nbl_glsl_scan_Storage_t _NBL_GLSL_SCAN_STORAGE_TYPE_
+
+
+#ifndef _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_
+#define _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
+#ifndef _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_
+#define _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_ 0
+#endif
+layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_, std430) restrict buffer ScanInputBuffer
+{
+	nbl_glsl_ext_Scan_Storage_t data[];
+} scanInput;
+#define _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_SCAN_SCRATCH_DESCRIPTOR_DEFINED_
+#ifndef _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_
+#define _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_ 1
+#endif
+layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_, std430) restrict coherent buffer ScanScratchBuffer
+{
+	uint workgroupsStarted;
+	uint data[];
+} scanScratch;
+#define _NBL_GLSL_SCAN_SCRATCH_DESCRIPTOR_DEFINED_
+#endif
 
 
 #include "nbl/builtin/glsl/scan/parameters_struct.glsl"
@@ -101,7 +102,26 @@ layout(push_constant) uniform PushConstants
 #define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepMax
 #endif
 
+void nbl_glsl_scan_markWorkgroupFinished(in uint level, in uint virtualWorkgroupIndex)
+{
+	atomicAdd(scanScratch.data[offset[level]+virtualWorkgroupIndex/_NBL_GLSL_WORKGROUP_SIZE_],1u);
+}
+void nbl_glsl_scan_waitPreviousWorkgroups(in uint level, in uint virtualWorkgroupIndex)
+{
+	if (level==0u)
+		return;
 
+	const uint waitVal = _NBL_GLSL_WORKGROUP_SIZE_;
+	while (scanScratch.data[offset[level-1u]+virtualWorkgroupIndex]!=waitVal);
+		memoryBarrierBuffer();
+}
+
+#ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
 void main()
 {
+	const uint virtualWorkgroupIndex = atomicAdd(scanScratch.workgroupsStarted,1u);
+	const uint level = findLEvel(virtualWorkgroupIndex);
+	virtualWorkgroupIndex -= offset[level];
 }
+#define _NBL_GLSL_SCAN_MAIN_DEFINED_
+#endif

@@ -49,9 +49,10 @@ class CScanner final : public core::IReferenceCounted
 			{
 				// TODO
 			}
-			Parameters(const uint32_t elementCount, const uint32_t wg_size=DefaultWorkGroupSize)
+			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize)
 			{
-				assert(elementCount!=0u && "Input element count can't be 0!");
+				assert(_elementCount!=0u && "Input element count can't be 0!");
+				elementCount = 0u;
 #if 0
 				uint32_t element_count_pass = in_count;
 				uint32_t element_count_total = in_count;
@@ -100,8 +101,8 @@ class CScanner final : public core::IReferenceCounted
 				{ 1u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr } // scratch
 			};
 
-			m_ds_layout = device->createGPUDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
-			m_pipeline_layout = device->createGPUPipelineLayout(&pc_range,&pc_range+1,core::smart_refctd_ptr(m_ds_layout));
+			m_ds_layout = m_device->createGPUDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
+			m_pipeline_layout = m_device->createGPUPipelineLayout(&pc_range,&pc_range+1,core::smart_refctd_ptr(m_ds_layout));
 		}
 
 		//

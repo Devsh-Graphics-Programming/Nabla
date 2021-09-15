@@ -6,9 +6,10 @@
 #endif
 struct nbl_glsl_scan_Parameters_t
 {
-	uint stride;
-	uint element_count_pass;
-	uint element_count_total;
+	uint elementCount;
+	//uint stride;
+	//uint element_count_pass;
+	//uint element_count_total;
 };
 #ifdef __cplusplus
 #undef uint
