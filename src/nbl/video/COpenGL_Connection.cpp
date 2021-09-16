@@ -17,16 +17,19 @@ core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE
     if (!egl.initialize())
         return nullptr;
 
-    std::vector<std::unique_ptr<IPhysicalDevice>> physicalDevices;
+    auto retval = new COpenGL_Connection<API_TYPE>();
+    std::unique_ptr<IPhysicalDevice> physicalDevice;
     if constexpr (API_TYPE==EAT_OPENGL)
-        physicalDevices.emplace_back(COpenGLPhysicalDevice::create(std::move(sys),std::move(egl),std::move(dbgCb)));
+        physicalDevice.reset(COpenGLPhysicalDevice::create(retval,std::move(sys),std::move(egl),std::move(dbgCb)));
     else
-        physicalDevices.emplace_back(COpenGLESPhysicalDevice::create(std::move(sys),std::move(egl),std::move(dbgCb)));
+        physicalDevice.reset(COpenGLESPhysicalDevice::create(retval,std::move(sys),std::move(egl),std::move(dbgCb)));
 
-    if (!physicalDevices[0])
+    if (!physicalDevice)
+    {
+        retval->drop();
         return nullptr;
-
-    auto retval = new COpenGL_Connection<API_TYPE>(std::move(physicalDevices));
+    }
+    retval->m_physicalDevices.push_back(std::move(physicalDevice));
     return core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>>(retval,core::dont_grab);
 }
 

@@ -7,17 +7,12 @@ namespace nbl::video
 
 CVulkanImage::~CVulkanImage()
 {
-    const auto originDevice = getOriginDevice();
-
-    if (originDevice->getAPIType() == EAT_VULKAN)
+    if (m_vkImage != VK_NULL_HANDLE)
     {
         // auto* vk = m_vkdevice->getFunctionTable();
         // vk->vk.vkDestroyImage(vkdev, m_vkimg, nullptr);
-        if (m_vkImage != VK_NULL_HANDLE)
-        {
-            VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
-            vkDestroyImage(vk_device, m_vkImage, nullptr);
-        }
+        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject();
+        vkDestroyImage(vk_device, m_vkImage, nullptr);
     }
 }
 
