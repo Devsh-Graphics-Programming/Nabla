@@ -26,7 +26,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         void destroyGLBufferObjectWrapper();
 
     public:
-        COpenGLBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(std::move(dev),mreqs), BufferName(0), cachedFlags(0)
+        COpenGLBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(std::move(dev),mreqs), IDriverMemoryAllocation(getOriginDevice()), BufferName(0), cachedFlags(0)
         {
             gl->extGlCreateBuffers(1,&BufferName);
             if (BufferName==0)

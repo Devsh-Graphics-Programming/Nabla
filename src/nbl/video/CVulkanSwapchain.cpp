@@ -33,11 +33,11 @@ auto CVulkanSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semapho
 
     VkSemaphore vk_semaphore = VK_NULL_HANDLE;
     if (semaphore && semaphore->getAPIType() == EAT_VULKAN)
-        vk_semaphore = reinterpret_cast<CVulkanSemaphore*>(semaphore)->getInternalObject();
+        vk_semaphore = static_cast<CVulkanSemaphore*>(semaphore)->getInternalObject();
 
     VkFence vk_fence = VK_NULL_HANDLE;
     if (fence && fence->getAPIType() == EAT_VULKAN)
-        vk_fence = reinterpret_cast<CVulkanFence*>(fence)->getInternalObject();
+        vk_fence = static_cast<CVulkanFence*>(fence)->getInternalObject();
 
     // VkResult result = vk->vk.vkAcquireNextImageKHR(dev, m_swapchain, timeout, 0, 0, out_imgIx);
     VkResult result = vkAcquireNextImageKHR(vk_device, m_vkSwapchainKHR, timeout,

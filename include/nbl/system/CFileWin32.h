@@ -22,7 +22,7 @@ class CFileWin32 : public IFile
 		HANDLE m_fileMappingObj = nullptr;
 		mutable core::vector<void*> m_openedFileViews;
 	public:
-		CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, std::underlying_type_t<E_CREATE_FLAGS> _flags);
+		CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
 		~CFileWin32();
 		// Inherited via IFile
 		virtual size_t getSize() const override;

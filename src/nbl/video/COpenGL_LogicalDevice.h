@@ -42,7 +42,7 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
     {
         uint32_t count = 0u;
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
-            count += params.queueCreateInfos[i].count;
+            count += params.queueParams[i].count;
         return count;
     }
 
@@ -54,8 +54,8 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
-        IOpenGL_LogicalDevice(physicalDevice,params,_egl),
+    COpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
+        IOpenGL_LogicalDevice(std::move(api),physicalDevice,params,_egl),
         m_threadHandler(
             this,_egl,_features,
             getTotalQueueCount(params),
@@ -73,7 +73,7 @@ public:
 
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
-            const auto& qci = params.queueCreateInfos[i];
+            const auto& qci = params.queueParams[i];
             const uint32_t famIx = qci.familyIndex;
             const uint32_t offset = (*m_offsets)[famIx];
             const auto flags = qci.flags;
@@ -99,10 +99,10 @@ public:
         // wait for all queues to start before we set out master context
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
-            const auto& qci = params.queueCreateInfos[i];
+            const auto& qci = params.queueParams[i];
             const uint32_t famIx = qci.familyIndex;
             const uint32_t offset = (*m_offsets)[famIx];
-            for (uint32_t j = 0u; j < params.queueCreateInfos[i].count; ++j)
+            for (uint32_t j = 0u; j < params.queueParams[i].count; ++j)
             {
                 const uint32_t ix = offset + j;
                 // wait until queue's internal thread finish context creation
@@ -183,11 +183,15 @@ public:
 
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
     {
+        if ((params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
+            return nullptr;
+
         IGPUImage::SCreationParams imgci;
         imgci.arrayLayers = params.arrayLayers;
         imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
         imgci.format = params.surfaceFormat.format;
         imgci.mipLevels = 1u;
+        imgci.queueFamilyIndexCount = params.queueFamilyIndexCount;
         imgci.queueFamilyIndices = params.queueFamilyIndices;
         imgci.samples = asset::IImage::ESCF_1_BIT;
         imgci.type = asset::IImage::ET_2D;
@@ -222,7 +226,7 @@ public:
         return sc;
     }
 
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         return core::make_smart_refctd_ptr<COpenGLCommandPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), flags, _familyIx);
     }
@@ -232,7 +236,7 @@ public:
         return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& unused, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
     {
         SRequestBufferCreate params;
         params.mreqs = initialMreqs;
@@ -376,13 +380,13 @@ public:
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
-        std::underlying_type_t<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = 0;
+        core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = static_cast< IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(0);
         if (flags & GL_MAP_READ_BIT)
             actualAccess |= IDriverMemoryAllocation::EMCAF_READ;
         if (flags & GL_MAP_WRITE_BIT)
             actualAccess |= IDriverMemoryAllocation::EMCAF_WRITE;
         if (retval)
-            post_mapMemory(memory.memory, retval, memory.range, static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(actualAccess));
+            post_mapMemory(memory.memory, retval, memory.range, actualAccess.value);
 
         return retval;
     }

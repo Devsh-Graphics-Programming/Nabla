@@ -132,7 +132,15 @@ int main()
     auto ssboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
     ssboMemoryReqs.vulkanReqs.size = sizeof(SShaderStorageBufferObject);
     ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
-    auto gpuDownloadSSBOmapped = logicalDevice->createGPUBufferOnDedMem(ssboMemoryReqs, true);
+
+    video::IGPUBuffer::SCreationParams ssboCreationParams;
+    ssboCreationParams.size = sizeof(SShaderStorageBufferObject);
+    ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+    ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+    ssboCreationParams.queueFamilyIndexCount = 0u;
+    ssboCreationParams.queueFamilyIndices = nullptr;
+
+    auto gpuDownloadSSBOmapped = logicalDevice->createGPUBufferOnDedMem(ssboCreationParams, ssboMemoryReqs, true);
 
     video::IGPUDescriptorSetLayout::SBinding gpuBindingsLayout[ES_COUNT] =
     {

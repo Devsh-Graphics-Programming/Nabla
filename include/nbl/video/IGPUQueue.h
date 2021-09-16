@@ -53,6 +53,8 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         uint32_t getFamilyIndex() const { return m_familyIndex; }
         E_CREATE_FLAGS getFlags() const { return m_flags; }
 
+        inline constexpr static float DEFAULT_QUEUE_PRIORITY = 1.f;
+
     protected:
         const uint32_t m_familyIndex;
         const E_CREATE_FLAGS m_flags;

@@ -43,7 +43,7 @@ class ILogicalDevice : public core::IReferenceCounted
         struct SCreationParams
         {
             uint32_t queueParamsCount;
-            const SQueueCreationParams* queueCreateInfos;
+            const SQueueCreationParams* queueParams;
             // ???:
             //uint32_t enabledExtensionCount;
             //const char* const* ppEnabledExtensionNames;
@@ -140,7 +140,7 @@ class ILogicalDevice : public core::IReferenceCounted
             return freeCommandBuffers_impl(_cmdbufs, _count);
         }
 
-        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, std::underlying_type_t<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
+        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
         core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params)
@@ -157,6 +157,7 @@ class ILogicalDevice : public core::IReferenceCounted
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.size = 0;
             reqs.vulkanReqs.alignment = 0;
             reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
             reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
@@ -165,6 +166,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -176,6 +178,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -187,6 +190,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -198,6 +202,7 @@ class ILogicalDevice : public core::IReferenceCounted
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
+
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -226,6 +231,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
         virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
 
+        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) { return nullptr; }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
         void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
@@ -247,7 +253,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const bool canModifySubData = false) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
@@ -259,47 +265,47 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
             auto reqs = getSpilloverGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
             auto reqs = getUpStreamingMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
             auto reqs = getDownStreamingMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
         {
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs, false);
+            reqs.vulkanReqs.size = params.size;
+            return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Low level function used to implement the above, use with caution
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
         virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
@@ -583,20 +589,21 @@ class ILogicalDevice : public core::IReferenceCounted
         //vkCreateQueryPool //????
 
     protected:
-        ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params) : m_physicalDevice(physicalDevice)
+        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
+            : m_api(api), m_physicalDevice(physicalDevice)
         {
             uint32_t qcnt = 0u;
             uint32_t greatestFamNum = 0u;
             for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
             {
-                greatestFamNum = (std::max)(greatestFamNum, params.queueCreateInfos[i].familyIndex);
-                qcnt += params.queueCreateInfos[i].count;
+                greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
+                qcnt += params.queueParams[i].count;
             }
 
             m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
             m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
 
-            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueCreateInfos, params.queueCreateInfos + params.queueParamsCount))
+            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams, params.queueParams + params.queueParamsCount))
             {
                 if (qci.familyIndex == greatestFamNum)
                     continue;

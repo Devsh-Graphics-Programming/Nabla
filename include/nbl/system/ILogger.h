@@ -3,6 +3,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/decl/smart_refctd_ptr.h"
+#include "nbl/core/util/bitflag.h"
 
 #include <string>
 #include <cstdint>
@@ -31,13 +32,13 @@ class ILogger : public core::IReferenceCounted
 			ELL_ERROR = 16
 		};
 	protected:
-		static std::underlying_type_t<E_LOG_LEVEL> defaultLogMask();
+		static core::bitflag<E_LOG_LEVEL> defaultLogMask();
 	public:
-		ILogger(std::underlying_type_t<E_LOG_LEVEL> logLevelMask) : m_logLevelMask(logLevelMask) {}
+		ILogger(core::bitflag<E_LOG_LEVEL> logLevelMask) : m_logLevelMask(logLevelMask) {}
 
 		void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
 		{
-			if (logLevel & m_logLevelMask)
+			if (logLevel & m_logLevelMask.value)
 			{
 				va_list args;
 				va_start(args, logLevel);
@@ -108,7 +109,7 @@ class ILogger : public core::IReferenceCounted
 			return wide;
 		}
 	private:
-		std::underlying_type_t<E_LOG_LEVEL> m_logLevelMask;
+		core::bitflag<E_LOG_LEVEL> m_logLevelMask;
 };
 
 

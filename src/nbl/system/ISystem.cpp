@@ -4,9 +4,9 @@
 
 namespace nbl::system
 {
-    core::smart_refctd_ptr<IFile> ISystemCaller::createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags)
+    core::smart_refctd_ptr<IFile> ISystemCaller::createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags)
     {
-        if (flags & IFile::ECF_READ)
+        if (flags.value & IFile::ECF_READ)
         {
             auto a = sys->getFileFromArchive(filename);
             if (a.get() != nullptr) return a;

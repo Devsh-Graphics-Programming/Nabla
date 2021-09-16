@@ -280,6 +280,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDriverMemoryAllocation.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
@@ -329,6 +330,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 
 
 	#opengl
