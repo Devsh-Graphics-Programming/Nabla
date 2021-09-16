@@ -10,8 +10,6 @@
 using namespace nbl;
 using namespace core;
 
-#define TRANSFORM_TREE_DEBUG_DRAW
-
 const char* vertexSource = R"===(
 #version 430 core
 layout(location = 0) in vec4 vPos;
@@ -98,6 +96,30 @@ struct SolarSystemObject {
 	}
 };
 
+class CEventReceiver
+{
+public:
+	CEventReceiver() : debugDrawRequestFlag(false) {}
+
+	void process(const nbl::ui::IKeyboardEventChannel::range_t& events)
+	{
+		for (auto eventIterator = events.begin(); eventIterator != events.end(); eventIterator++)
+		{
+			auto event = *eventIterator;
+
+			if (event.keyCode == nbl::ui::EKC_D)
+				debugDrawRequestFlag = true;
+			if (event.keyCode == nbl::ui::EKC_C)
+				debugDrawRequestFlag = false;
+		}
+	}
+
+	inline bool isDebugRequested() const { return debugDrawRequestFlag; }
+
+private:
+	bool debugDrawRequestFlag;
+};
+
 struct GPUObject {
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
@@ -145,6 +167,7 @@ int main()
 	auto system = std::move(initOutput.system);
     auto window = std::move(initOutput.window);
     auto windowCb = std::move(initOutput.windowCb);
+	auto inputSystem = std::move(initOutput.inputSystem);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
     auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
@@ -204,12 +227,7 @@ int main()
 	propBufs[4].offset = offset_recompStamp;
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
-	#ifdef TRANSFORM_TREE_DEBUG_DRAW // tt should be templated imo, on debug taking renderpass
-	auto tt = scene::ITransformTree::create(device.get(), true, renderpass, propBufs, ObjectCount, true);
-	#else
-	auto tt = scene::ITransformTree::create(device.get(), false, renderpass, propBufs, ObjectCount, true);
-	#endif // TRANSFORM_TREE_DEBUG_DRAW
-
+	auto tt = scene::ITransformTree::create(device.get(), renderpass, propBufs, ObjectCount, true);
 	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
@@ -417,7 +435,6 @@ int main()
 
 	scene::ITransformTree::node_t moon_node = scene::ITransformTree::invalid_node;
 	{
-
 		scene::ITransformTreeManager::AllocationRequest req;
 		req.cmdbuf = cmdbuf_nodes.get();
 		req.fence = fence_nodes.get();
@@ -439,7 +456,6 @@ int main()
 		q->submit(1u, &submit, fence_nodes.get());
 	}
 	
-
 	waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
 	assert(waitres == video::IGPUFence::ES_SUCCESS);
 
@@ -618,20 +634,19 @@ int main()
 		bufrng.size = nodeIdsBuf->getSize();
 		utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
 
-		#ifdef TRANSFORM_TREE_DEBUG_DRAW
 		core::unordered_set<scene::ITransformTree::node_t> liveNodes;
 
 		for (const auto& solarSystemObject : solarSystemObjectsData)
 			liveNodes.insert(solarSystemObject.node);
 
 		tt->setDebugLiveAllocations(liveNodes);
-		#endif // TRANSFORM_TREE_DEBUG_DRAW
 	}
 
-	#ifdef TRANSFORM_TREE_DEBUG_DRAW
 	scene::ITransformTree::DebugPushConstants debugPushConstants;
 	debugPushConstants.color = core::vector4df_SIMD(1, 0, 0, 0);
-	#endif // TRANSFORM_TREE_DEBUG_DRAW
+
+	CEventReceiver eventReceiver;
+	CommonAPI::InputSystem::ChannelReader<nbl::ui::IKeyboardEventChannel> keyboard;
 
 	uint32_t timestamp = 1u;
 	while(windowCb->isWindowOpen())
@@ -844,12 +859,14 @@ int main()
 			}
 		}
 
-		#ifdef TRANSFORM_TREE_DEBUG_DRAW
+		inputSystem->getDefaultKeyboard(&keyboard);
+		keyboard.consumeEvents([&](const nbl::ui::IKeyboardEventChannel::range_t& events) -> void { eventReceiver.process(events); }, initOutput.logger.get());
 		{
 			debugPushConstants.viewProjectionMatrix = viewProj;
+
+			tt->setDebugEnabledFlag(eventReceiver.isDebugRequested());
 			tt->debugDraw(device.get(), cb.get(), debugPushConstants);
 		}
-		#endif // TRANSFORM_TREE_DEBUG_DRAW
 
 		cb->endRenderPass();
 		cb->end();

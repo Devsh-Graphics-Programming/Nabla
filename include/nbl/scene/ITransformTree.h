@@ -60,7 +60,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 		// the creation is the same as that of a `video::CPropertyPool`
 		template<typename... Args>
-		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, bool debugDraw, core::smart_refctd_ptr<video::IGPURenderpass> gpuRenderpass, Args... args)
+		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, core::smart_refctd_ptr<video::IGPURenderpass> gpuRenderpass, Args... args)
 		{
 			auto pool = property_pool_t::create(device,std::forward<Args>(args)...);
 			if (!pool)
@@ -100,10 +100,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 
-			auto* ttRaw = new ITransformTree(std::move(pool),std::move(ds), debugDraw);
+			auto* ttRaw = new ITransformTree(std::move(pool),std::move(ds));
 			auto transformTree = core::smart_refctd_ptr<ITransformTree>(ttRaw, core::dont_grab);
-
-			if(transformTree->m_debugEnabled) // really, maybe we should go with template?
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
 
@@ -179,6 +177,11 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 
 			return transformTree;
+		}
+
+		inline void setDebugEnabledFlag(bool debugEnabled = true)
+		{
+			m_debugEnabled = debugEnabled;
 		}
 
 		inline void setDebugLiveAllocations(const core::unordered_set<node_t>& nodes)
@@ -302,8 +305,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 		}
 
 	protected:
-		ITransformTree(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS, bool _debugDraw)
-			: m_nodeStorage(std::move(_nodeStorage)), m_transformHierarchyDS(std::move(_transformHierarchyDS)), m_debugEnabled(_debugDraw)
+		ITransformTree(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS)
+			: m_nodeStorage(std::move(_nodeStorage)), m_transformHierarchyDS(std::move(_transformHierarchyDS))
 		{
 		}
 		~ITransformTree()
@@ -319,7 +322,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
 		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requests > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
 	private:
-		bool m_debugEnabled;
+		bool m_debugEnabled = false;
 
 		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_GLOBAL_NODE_ID_BINDING = 15u;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_GLOBAL_NODE_ID_ATTRIBUTE = 0u;
