@@ -356,6 +356,15 @@ int main()
 		creationParams.arrayLayers = 1u;
 		creationParams.samples = asset::IImage::ESCF_1_BIT;
 		creationParams.tiling = asset::IImage::ET_OPTIMAL;
+		{
+			// Todo(achal): Need to wrap this up
+			VkFormatProperties formatProps;
+			vkGetPhysicalDeviceFormatProperties(
+				static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
+				video::getVkFormatFromFormat(creationParams.format), &formatProps);
+			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
+			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT); // this is required to use vkCmdBlitImage to generate mipmaps, this check should be included in asset converter after we have other ways for mip map generation
+		}
 		creationParams.usage = asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT;
 		creationParams.sharingMode = asset::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndexCount = 1u;

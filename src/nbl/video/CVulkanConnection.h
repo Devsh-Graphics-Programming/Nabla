@@ -136,7 +136,6 @@ public:
         const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)
     {
         printf("Validation Layer: %s\n", callbackData->pMessage);
-        // __debugbreak();
         return VK_FALSE;
     }
 
