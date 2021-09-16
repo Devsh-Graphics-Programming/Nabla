@@ -60,7 +60,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 		// the creation is the same as that of a `video::CPropertyPool`
 		template<typename... Args>
-		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, bool debugDraw, Args... args)
+		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, bool debugDraw, core::smart_refctd_ptr<video::IGPURenderpass> gpuRenderpass, Args... args)
 		{
 			auto pool = property_pool_t::create(device,std::forward<Args>(args)...);
 			if (!pool)
@@ -103,7 +103,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			auto* ttRaw = new ITransformTree(std::move(pool),std::move(ds), debugDraw);
 			auto transformTree = core::smart_refctd_ptr<ITransformTree>(ttRaw, core::dont_grab);
 
-			if(transformTree->m_debugEnabled)
+			if(transformTree->m_debugEnabled) // really, maybe we should go with template?
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
 
@@ -164,59 +164,13 @@ class ITransformTree : public virtual core::IReferenceCounted
 					return nullptr;
 
 				transformTree->m_debugGpuRenderpassIndependentPipelineNodeLines = std::move(gpuRenderpassIndependentPipeline);
-				{
-					video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
-					attachments[0].initialLayout = asset::EIL_UNDEFINED;
-					attachments[0].finalLayout = asset::EIL_UNDEFINED;
-					attachments[0].format = asset::EF_R8G8B8A8_SRGB;
-					attachments[0].samples = asset::IImage::ESCF_1_BIT;
-					attachments[0].loadOp = video::IGPURenderpass::ELO_CLEAR;
-					attachments[0].storeOp = video::IGPURenderpass::ESO_STORE;
-
-					attachments[1].initialLayout = asset::EIL_UNDEFINED;
-					attachments[1].finalLayout = asset::EIL_UNDEFINED;
-					attachments[1].format = asset::EF_D32_SFLOAT;
-					attachments[1].samples = asset::IImage::ESCF_1_BIT;
-					attachments[1].loadOp = video::IGPURenderpass::ELO_CLEAR;
-					attachments[1].storeOp = video::IGPURenderpass::ESO_STORE;
-
-					video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
-					colorAttRef.attachment = 0u;
-					colorAttRef.layout = asset::EIL_UNDEFINED;
-
-					video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef depthStencilAttRef;
-					depthStencilAttRef.attachment = 1u;
-					depthStencilAttRef.layout = asset::EIL_UNDEFINED;
-
-					video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
-					sp.colorAttachmentCount = 1u;
-					sp.colorAttachments = &colorAttRef;
-					sp.depthStencilAttachment = &depthStencilAttRef;
+				transformTree->m_debugGpuRenderpass = core::smart_refctd_ptr(gpuRenderpass);
 				
-					sp.flags = video::IGPURenderpass::ESDF_NONE;
-					sp.inputAttachmentCount = 0u;
-					sp.inputAttachments = nullptr;
-					sp.preserveAttachmentCount = 0u;
-					sp.preserveAttachments = nullptr;
-					sp.resolveAttachments = nullptr;
-
-					video::IGPURenderpass::SCreationParams rp_params;
-					rp_params.attachmentCount = 2u;
-					rp_params.attachments = attachments;
-					rp_params.dependencies = nullptr;
-					rp_params.dependencyCount = 0u;
-					rp_params.subpasses = &sp;
-					rp_params.subpassCount = 1u;
-
-					auto debugRenderpass = device->createGPURenderpass(rp_params);
-					transformTree->m_debugGpuRenderpass = std::move(debugRenderpass);
-				}
-
 				core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
 				{
 					nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 					graphicsPipelineParams.renderpassIndependent = transformTree->m_debugGpuRenderpassIndependentPipelineNodeLines;
-					graphicsPipelineParams.renderpass = transformTree->m_debugGpuRenderpass; // I'm not sure if I should go with second debug renderpass!
+					graphicsPipelineParams.renderpass = core::smart_refctd_ptr(transformTree->m_debugGpuRenderpass);
 
 					auto gpuGraphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 					transformTree->m_debugGpuPipelineNodeLines = std::move(gpuGraphicsPipeline);
