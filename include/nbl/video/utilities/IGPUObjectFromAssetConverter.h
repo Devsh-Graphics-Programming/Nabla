@@ -119,6 +119,24 @@ class IGPUObjectFromAssetConverter
             // @sadiuk put here more parameters if needed
 
             SPerQueue perQueue[EQU_COUNT];
+
+
+            //
+            inline void waitForCreationToComplete()
+            {
+                IGPUFence* fences[EQU_COUNT];
+                uint32_t count = 0;
+                for (auto i=0; i<EQU_COUNT; i++)
+                {
+                    auto pFence = perQueue[i].fence;
+                    if (pFence && pFence->get()) // user wanted, and something actually got submitted
+                        fences[count++] = pFence->get();
+                }
+                device->blockForFences(count,fences);
+                for (auto i=0; i<EQU_COUNT; i++)
+                if (perQueue[i].fence)
+                    perQueue[i].fence->operator=(nullptr);
+            }
         };
 
 	protected:
@@ -762,7 +780,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize());
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
-        if (!asset::isIntegerFormat(cpuimg->getCreationParameters().format))
+        const auto format = cpuimg->getCreationParameters().format;
+        if (!asset::isIntegerFormat(format) && !asset::isBlockCompressionFormat(format))
             needToGenMips = true;
     }
 

@@ -20,18 +20,18 @@
 #include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
-// utilities
-#include "nbl/video/utilities/ICommandPoolCache.h"
-#include "nbl/video/utilities/CPropertyPool.h"
-#include "nbl/video/utilities/IUtilities.h"
-#include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
-
-
 // platform and API specific stuff
 #include "nbl/video/COpenGL_Connection.h"
 #include "nbl/video/surface/ISurfaceGL.h"
 
-//VT
+// utilities
+#include "nbl/video/utilities/CDumbPresentationOracle.h"
+#include "nbl/video/utilities/ICommandPoolCache.h"
+#include "nbl/video/utilities/CPropertyPool.h"
+#include "nbl/video/utilities/CDrawIndirectAllocator.h"
+#include "nbl/video/utilities/CSubpassKiln.h"
+#include "nbl/video/utilities/IUtilities.h"
+#include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
 //#include "nbl/video/IGPUVirtualTexture.h"
 
 #endif

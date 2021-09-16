@@ -79,6 +79,7 @@ class CPropertyPool final : public IPropertyPool
             return core::smart_refctd_ptr<CPropertyPool>(pool,core::dont_grab);
         }
 
+
         //
         const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const override {return m_memoryBlocks[ix];}
 

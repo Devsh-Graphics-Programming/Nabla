@@ -29,17 +29,22 @@ enum E_IMAGE_INPUT : uint32_t
 };
 constexpr uint32_t calcDenoiserBuffersNeeded(E_IMAGE_INPUT denoiserType)
 {
-	return 3u+denoiserType;
+	return 4u+denoiserType;
 }
+
+using FFTClass = ext::FFT::FFT;
 
 struct ImageToDenoise
 {
+	FFTClass::Parameters_t fftPushConstants[3];
+	FFTClass::DispatchInfo_t fftDispatchInfo[3];
+	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
+	core::smart_refctd_ptr<asset::ICPUImage> kernel = nullptr;
 	uint32_t width = 0u, height = 0u;
 	uint32_t colorTexelSize = 0u;
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
-	float bloomScale;
-	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
-	core::smart_refctd_ptr<asset::ICPUImage> kernel = nullptr;
+	VkExtent3D scaledKernelExtent;
+	float bloomIntensity;
 };
 struct DenoiserToUse
 {
@@ -160,7 +165,6 @@ int main(int argc, char* argv[])
 	}
 
 
-	using FFTClass = ext::FFT::FFT;
 	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;
 
@@ -178,11 +182,151 @@ int main(int argc, char* argv[])
 	// clear the histogram to 0s
 	driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 
-	constexpr auto SharedDescriptorSetDescCount = 4u;
-	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
-	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndFirstFFTPipeline,interleaveAndLastFFTPipeline;
+	constexpr uint32_t kernelSetDescCount = 4u;
+	constexpr auto SharedDescriptorSetDescCount = 5u;
+	core::smart_refctd_ptr<IGPUDescriptorSetLayout> kernelDescriptorSetLayout,sharedDescriptorSetLayout;
+	core::smart_refctd_ptr<IGPUPipelineLayout> kernelPipelineLayout,sharedPipelineLayout;
+	core::smart_refctd_ptr<IGPUComputePipeline> firstKernelFFTPipeline,lastKernelFFTPipeline,kernelNormalizationPipeline,
+		deinterleavePipeline,intensityPipeline,
+		secondLumaMeterAndFirstFFTPipeline,convolvePipeline,interleaveAndLastFFTPipeline;
+	// Normalization of FFT spectrum
+	struct NormalizationPushConstants
 	{
+		ext::FFT::uvec4 stride;
+		uint32_t bitreverse_shift[2];
+		float bloomIntensity;
+	};
+	{
+		auto firstKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
+
+// kinda bad overdeclaration but oh well
+#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ 16384
+
+// Input Descriptor
+layout(set=0, binding=0) uniform sampler2D inputImage;
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+
+#include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
+#include "nbl/builtin/glsl/ext/FFT/parameters.glsl"
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint channel) 
+{
+	const vec2 inputSize = vec2(nbl_glsl_ext_FFT_Parameters_t_getDimensions().xy);
+	const vec2 halfInputSize = inputSize*0.5;
+	const vec2 relativeCoords = vec2(coordinate.xy)-halfInputSize;
+	const vec2 inputSizeRcp = vec2(1.0)/inputSize;
+    const vec4 texelValue = textureGrad(inputImage,(relativeCoords+vec2(0.5))*inputSizeRcp+vec2(0.5),vec2(inputSizeRcp.x,0.0),vec2(0.0,inputSizeRcp.y));
+	return nbl_glsl_complex(texelValue[channel], 0.0f);
+}
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+		)==="));
+		auto lastKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
+
+// kinda bad overdeclaration but oh well
+#define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ 16384
+#include <nbl/builtin/glsl/ext/FFT/types.glsl>
+
+layout(set=0, binding=1) readonly restrict buffer InputBuffer
+{
+	nbl_glsl_ext_FFT_storage_t inData[];
+};
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+
+layout(set=0, binding=2) writeonly restrict buffer OutputBuffer
+{
+	nbl_glsl_ext_FFT_storage_t outData[];
+};
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+		)==="));
+		auto kernelNormalizationShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+layout(local_size_x=16, local_size_y=16, local_size_z=1) in;
+
+#include <nbl/builtin/glsl/ext/FFT/types.glsl>
+
+layout(set=0, binding=2) readonly restrict buffer InputBuffer
+{
+	nbl_glsl_ext_FFT_storage_t inData[];
+};
+layout(set=0, binding=3, rg32f) uniform image2D NormalizedKernel[3];
+
+layout(push_constant) uniform PushConstants
+{
+	uvec4 strides;
+	uvec2 bitreverse_shift;
+	float bloomIntensity;
+} pc;
+
+#include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+
+void main()
+{
+	nbl_glsl_complex value = inData[nbl_glsl_dot(gl_GlobalInvocationID,pc.strides.xyz)];
+	
+	// imaginary component will be 0, image shall be positive
+	vec3 avg;
+	for (uint i=0u; i<3u; i++)
+		avg[i] = inData[pc.strides.z*i].x;
+	const float power = (nbl_glsl_scRGBtoXYZ*avg).y;
+
+	const uvec2 coord = bitfieldReverse(gl_GlobalInvocationID.xy)>>pc.bitreverse_shift;
+	const nbl_glsl_complex shift = nbl_glsl_expImaginary(-nbl_glsl_PI*float(coord.x+coord.y));
+	value = nbl_glsl_complex_mul(value,shift)/power;
+	value = value*pc.bloomIntensity+nbl_glsl_complex(1.0-pc.bloomIntensity,0.0);
+	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
+}
+		)==="));
+		auto firstKernelFFTSpecializedShader = driver->createGPUSpecializedShader(firstKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+		auto lastKernelFFTSpecializedShader = driver->createGPUSpecializedShader(lastKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+		auto kernelNormalizationSpecializedShader = driver->createGPUSpecializedShader(kernelNormalizationShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+
+		{
+			IGPUSampler::SParams params =
+			{
+				{
+					ISampler::ETC_CLAMP_TO_BORDER,
+					ISampler::ETC_CLAMP_TO_BORDER,
+					ISampler::ETC_CLAMP_TO_BORDER,
+					ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+					ISampler::ETF_LINEAR,
+					ISampler::ETF_LINEAR,
+					ISampler::ESMM_LINEAR,
+					0u,
+					0u,
+					ISampler::ECO_ALWAYS
+				}
+			};
+			auto sampler = driver->createGPUSampler(std::move(params));
+			IGPUDescriptorSetLayout::SBinding binding[kernelSetDescCount] = {
+				{0u,EDT_COMBINED_IMAGE_SAMPLER,1u,IGPUSpecializedShader::ESS_COMPUTE,&sampler},
+				{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{3u,EDT_STORAGE_IMAGE,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			};
+			kernelDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+kernelSetDescCount);
+		}
+
+		{
+			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t),sizeof(NormalizationPushConstants))};
+			kernelPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+1u,core::smart_refctd_ptr(kernelDescriptorSetLayout));
+		}
+
+		firstKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(firstKernelFFTSpecializedShader));
+		lastKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(lastKernelFFTSpecializedShader));
+		kernelNormalizationPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(kernelNormalizationSpecializedShader));
+
+
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
@@ -238,7 +382,7 @@ layout(binding = 3, std430) restrict writeonly buffer IntensityBuffer
 
 int nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
 {
-	return pc.data.beforeDenoise!=0u ? 0:1;
+	return int((~pc.data.flags)&0x1u);
 }
 nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t nbl_glsl_ext_ToneMapper_getLumaMeterOutput()
 {
@@ -251,11 +395,9 @@ nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t nbl_glsl_ext_ToneMapper_getL
 void main()
 {
 	const bool firstInvocation = all(equal(uvec3(0,0,0),gl_GlobalInvocationID));
-	const bool beforeDenoise = pc.data.beforeDenoise!=0u;
-	const bool autoexposureOn = pc.data.autoexposureOff==0u;
 
 	float optixIntensity = 1.0;
-	if (beforeDenoise||autoexposureOn)
+	if (bool(pc.data.flags&0x2u))
 	{
 		nbl_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
 		lumaPassInfo.percentileRange[0] = pc.data.percentileRange[0];
@@ -263,6 +405,7 @@ void main()
 		float measuredLumaLog2 = nbl_glsl_ext_LumaMeter_getMeasuredLumaLog2(nbl_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
 		if (firstInvocation)
 		{
+			const bool beforeDenoise = bool(pc.data.flags&0x1u);
 			measuredLumaLog2 += beforeDenoise ? pc.data.denoiserExposureBias:0.0;
 			optixIntensity = nbl_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
 		}
@@ -281,73 +424,364 @@ layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	f16vec3_packed inBuffer[];
 };
-layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+layout(binding = 1, std430) restrict writeonly buffer SpectrumOutputBuffer
 {
-	float16_t data[];
-} outBuffers[EII_COUNT]; // TODO: do FFT
+	vec2 outSpectrum[];
+};
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+
+
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+
+
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(pc.data.imageWidth,pc.data.imageHeight,1u);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+	return CommonPushConstants_getPassLog2FFTSize(0);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return false;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 0u;
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+
+
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
+{
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	outSpectrum[index] = complex_value;
+}
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+
+
+#define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+
+
+float scaledLogLuma;
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
+{
+	ivec3 oldCoord = coordinate;
+	nbl_glsl_ext_FFT_wrap_coord(coordinate);
+
+	const uint index = coordinate.y*pc.data.imageWidth+coordinate.x;
+
+	// rewrite this fetch at some point
+	nbl_glsl_complex retval; retval.y = 0.0;
+	switch (channel)
+	{
+		case 2u:
+			retval[0] = float(inBuffer[index].z);
+			break;
+		case 1u:
+			retval[0] = float(inBuffer[index].y);
+			break;
+		default:
+			scaledLogLuma += nbl_glsl_ext_LumaMeter_local_process(all(equal(coordinate,oldCoord)),vec3(inBuffer[index].x,inBuffer[index].y,inBuffer[index].z));
+			retval[0] = float(inBuffer[index].x);
+			break;
+	}
+	return retval;
+}
+
 void main()
 {
-	const uint dataOffset = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
-	globalPixelData = vec3(inBuffer[dataOffset].x,inBuffer[dataOffset].y,inBuffer[dataOffset].z);
+	#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+		nbl_glsl_ext_LumaMeter_clearHistogram();
+	#endif
+	nbl_glsl_ext_LumaMeter_clearFirstPassOutput();
 
-	nbl_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
-	barrier();
+
+	// Virtual Threads Calculation
+	const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+	const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
+	for(uint channel=0u; channel<3u; channel++)
+	{
+		scaledLogLuma = 0.f;
+		// Load Values into local memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
+		}
+		if (channel==0u)
+		{
+			nbl_glsl_ext_LumaMeter_setFirstPassOutput(nbl_glsl_ext_LumaMeter_workgroup_process(scaledLogLuma));
+			// prevent overlap between different usages of shared memory
+			barrier();
+		}
+		// do FFT
+		nbl_glsl_ext_FFT_preloaded(false,log2FFTSize);
+		// write out to main memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,nbl_glsl_ext_FFT_impl_values[t]);
+		}
+	}
+}
+		)==="));
+		auto convolveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+
+// nasty and ugly but oh well
+#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ sharedScratch
+#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ 1024
+shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
+
+#include "../ShaderCommon.glsl"
+layout(binding = 1, std430) restrict buffer SpectrumBuffer
+{
+	vec2 spectrum[];
+};
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+
+
+layout(binding=4) uniform sampler2D NormalizedKernel[3];
+
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+
+
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(0x1u<<CommonPushConstants_getPassLog2FFTSize(0),pc.data.imageHeight,1u);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+	return CommonPushConstants_getPassLog2FFTSize(1);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return bool(0xdeadbeefu);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 1u;
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
+{
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	spectrum[index] = complex_value;
+}
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+
+#define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+
+void convolve(in uint item_per_thread_count, in uint ch) 
+{
+	for(uint t=0u; t<item_per_thread_count; t++)
+	{
+		const uint tid = _NBL_GLSL_WORKGROUP_SIZE_*t+gl_LocalInvocationIndex;
+
+		nbl_glsl_complex sourceSpectrum = nbl_glsl_ext_FFT_impl_values[t];
+		
+		//
+		const uvec3 coords = nbl_glsl_ext_FFT_getCoordinates(tid);
+        vec2 uv = vec2(bitfieldReverse(coords.xy))/vec2(4294967296.f);
+
+		uv += pc.data.kernel_half_pixel_size;
+		//
+		nbl_glsl_complex convSpectrum = textureLod(NormalizedKernel[ch],uv,0).xy;
+		nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_complex_mul(sourceSpectrum,convSpectrum);
+	}
+}
+
+void main()
+{
+	// Virtual Threads Calculation
+	const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+	const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
+	for(uint channel=0u; channel<3u; channel++)
+	{
+		// Load Values into local memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
+		}
+		nbl_glsl_ext_FFT_preloaded(false,log2FFTSize);
+		barrier();
+
+		convolve(item_per_thread_count,channel);
+	
+		barrier();
+		nbl_glsl_ext_FFT_preloaded(true,log2FFTSize);
+		// write out to main memory
+		for(uint t=0u; t<item_per_thread_count; t++)
+		{
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			// we also prevent certain threads from writing the memory out
+			const uint padding = ((0x1u<<log2FFTSize)-trueDim)>>1u;
+			const uint shifted = tid-padding;
+			if (tid>=padding && shifted<trueDim)
+				nbl_glsl_ext_FFT_setData(ivec3(nbl_glsl_ext_FFT_getCoordinates(shifted)),channel,nbl_glsl_ext_FFT_impl_values[t]);
+		}
+	}
+}
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
+{
+	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
+		return nbl_glsl_complex(0.f,0.f);
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	return spectrum[index];
 }
 		)==="));
 		auto interleaveAndLastFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
+
+// nasty and ugly but oh well
+#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ sharedScratch
+#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ 1024
+shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
+
+
 #include "../ShaderCommon.glsl"
 #include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
-layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
-{
-	f16vec3_packed inBuffer[];
-};
-layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
+layout(binding = 0, std430) restrict buffer ImageOutputBuffer
 {
 	f16vec4 outBuffer[];
 };
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+layout(binding = 1, std430) restrict readonly buffer SpectrumInputBuffer
+{
+	vec2 inSpectrum[];
+};
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
 {
 	float intensity[];
 };
+
+
+#include <nbl/builtin/glsl/math/complex.glsl>
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel);
+#define _NBL_GLSL_EXT_FFT_GET_PADDED_DATA_DEFINED_
+
+uvec3 nbl_glsl_ext_FFT_Parameters_t_getDimensions()
+{
+	return uvec3(0x1u<<CommonPushConstants_getPassLog2FFTSize(0),pc.data.imageHeight,1u);
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize()
+{
+	return CommonPushConstants_getPassLog2FFTSize(0);
+}
+bool nbl_glsl_ext_FFT_Parameters_t_getIsInverse()
+{
+	return true;
+}
+uint nbl_glsl_ext_FFT_Parameters_t_getDirection()
+{
+	return 0u;
+}
+#define _NBL_GLSL_EXT_FFT_PARAMETERS_METHODS_DECLARED_
+
+
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in nbl_glsl_complex complex_value)
+{
+	ivec2 coords = ivec2(coordinate.xy);
+	const uint padding_size = (0x1u<<nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize())-pc.data.imageWidth;
+	coords.x -= int(padding_size>>1u);
+    if (coords.x<0 || coords.x>=int(pc.data.imageWidth))
+		return;
+	
+	uint dataOffset = coords.y*pc.data.inImageTexelPitch[EII_COLOR]+coords.x;	
+	vec3 color = vec4(outBuffer[dataOffset]).xyz;
+	color[channel] = complex_value.x;
+	if (channel==nbl_glsl_ext_FFT_Parameters_t_getMaxChannel())
+	{
+		color = _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
+		color *= intensity[pc.data.intensityBufferDWORDOffset]; // *= 0.18/AvgLuma
+		switch (pc.data.tonemappingOperator)
+		{
+			case _NBL_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR:
+			{
+				nbl_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
+				tonemapParams.keyAndManualLinearExposure = pc.data.tonemapperParams[0];
+				tonemapParams.rcpWhite2 = pc.data.tonemapperParams[1];
+				color = nbl_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
+				break;
+			}
+			case _NBL_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR:
+			{
+				nbl_glsl_ext_ToneMapper_ACESParams_t tonemapParams;
+				tonemapParams.gamma = pc.data.tonemapperParams[0];
+				tonemapParams.exposure = pc.data.tonemapperParams[1];
+				color = nbl_glsl_ext_ToneMapper_ACES(tonemapParams,color);
+				break;
+			}
+			default:
+			{
+				color *= pc.data.tonemapperParams[0];
+				break;
+			}
+		}
+		color = nbl_glsl_XYZtosRGB*color;
+	}
+	outBuffer[dataOffset] = f16vec4(vec4(color,1.f));
+}
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+
+
+#define _NBL_GLSL_EXT_FFT_MAIN_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
+
+
 void main()
 {
-	// TODO: compute iFFT of the image
-	const uint inAddr = gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x;
-	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
-	vec3 color = vec3(inBuffer[inAddr].x,inBuffer[inAddr].y,inBuffer[inAddr].z);
-	
-	color = _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
-	color *= intensity[pc.data.intensityBufferDWORDOffset]; // *= 0.18/AvgLuma
-	switch (pc.data.tonemappingOperator)
+	// Virtual Threads Calculation
+	const uint log2FFTSize = nbl_glsl_ext_FFT_Parameters_t_getLog2FFTSize();
+	const uint item_per_thread_count = 0x1u<<(log2FFTSize-_NBL_GLSL_WORKGROUP_SIZE_LOG2_);
+	for(uint channel=0u; channel<3u; channel++)
 	{
-		case _NBL_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR:
+		// Load Values into local memory
+		for(uint t=0u; t<item_per_thread_count; t++)
 		{
-			nbl_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
-			tonemapParams.keyAndManualLinearExposure = pc.data.tonemapperParams[0];
-			tonemapParams.rcpWhite2 = pc.data.tonemapperParams[1];
-			color = nbl_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
-			break;
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			const uint trueDim = nbl_glsl_ext_FFT_Parameters_t_getDimensions()[nbl_glsl_ext_FFT_Parameters_t_getDirection()];
+			nbl_glsl_ext_FFT_impl_values[t] = nbl_glsl_ext_FFT_getPaddedData(nbl_glsl_ext_FFT_getPaddedCoordinates(tid,log2FFTSize,trueDim),channel);
 		}
-		case _NBL_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR:
+		// do FFT
+		nbl_glsl_ext_FFT_preloaded(true,log2FFTSize);
+		// write out to main memory
+		for(uint t=0u; t<item_per_thread_count; t++)
 		{
-			nbl_glsl_ext_ToneMapper_ACESParams_t tonemapParams;
-			tonemapParams.gamma = pc.data.tonemapperParams[0];
-			tonemapParams.exposure = pc.data.tonemapperParams[1];
-			color = nbl_glsl_ext_ToneMapper_ACES(tonemapParams,color);
-			break;
-		}
-		default:
-		{
-			color *= pc.data.tonemapperParams[0];
-			break;
+			const uint tid = (t<<_NBL_GLSL_WORKGROUP_SIZE_LOG2_)|gl_LocalInvocationIndex;
+			nbl_glsl_ext_FFT_setData(nbl_glsl_ext_FFT_getCoordinates(tid),channel,nbl_glsl_ext_FFT_impl_values[t]);
 		}
 	}
-	color = nbl_glsl_XYZtosRGB*color;
-	uint dataOffset = gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
-	if (alive)
-		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));
+}
+
+nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channel) 
+{
+	if (!nbl_glsl_ext_FFT_wrap_coord(coordinate))
+		return nbl_glsl_complex(0.f,0.f);
+	const uint index = ((channel<<CommonPushConstants_getPassLog2FFTSize(0))+coordinate.x)*pc.data.imageHeight+coordinate.y;
+	return inSpectrum[index];
 }
 		)==="));
 		struct SpecializationConstants
@@ -375,21 +809,49 @@ void main()
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto intensitySpecializedShader = driver->createGPUSpecializedShader(intensityShader.get(),specInfo);
 		auto secondLumaMeterAndFirstFFTSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndFirstFFTShader.get(),specInfo);
+		auto convolveSpecializedShader = driver->createGPUSpecializedShader(convolveShader.get(),specInfo);
 		auto interleaveAndLastFFTSpecializedShader = driver->createGPUSpecializedShader(interleaveAndLastFFTShader.get(),specInfo);
-		
-		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
-			{0u,EDT_STORAGE_BUFFER,3u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{1u,EDT_STORAGE_BUFFER,3u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
-		};
-		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
-		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
-		sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
+
+		{
+			core::smart_refctd_ptr<IGPUSampler> samplers[colorChannelsFFT];
+			{
+				IGPUSampler::SParams params =
+				{
+					{
+						ISampler::ETC_REPEAT,
+						ISampler::ETC_REPEAT,
+						ISampler::ETC_REPEAT,
+						ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+						ISampler::ETF_LINEAR, // is it needed?
+						ISampler::ETF_LINEAR,
+						ISampler::ESMM_NEAREST,
+						0u,
+						0u,
+						ISampler::ECO_ALWAYS
+					}
+				};
+				auto sampler = driver->createGPUSampler(std::move(params));
+				std::fill_n(samplers,colorChannelsFFT,sampler);
+			}
+			IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
+				{0u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{1u,EDT_STORAGE_BUFFER,EII_COUNT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+				{4u,EDT_COMBINED_IMAGE_SAMPLER,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,samplers}
+			};
+			sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
+		}
+
+		{
+			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
+			sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
+		}
 
 		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
 		intensityPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
 		secondLumaMeterAndFirstFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndFirstFFTSpecializedShader));
+		convolvePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(convolveSpecializedShader));
 		interleaveAndLastFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveAndLastFFTSpecializedShader));
 	}
 
@@ -403,7 +865,8 @@ void main()
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
 	const auto& denoiserExposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
-	const auto& bloomScaleBundle = cmdHandler.getBloomScaleBundle();
+	const auto& bloomRelativeScaleBundle = cmdHandler.getBloomRelativeScaleBundle();
+	const auto& bloomIntensityBundle = cmdHandler.getBloomIntensityBundle();
 	const auto& tonemapperBundle = cmdHandler.getTonemapperBundle();
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
 	const auto& bloomPsfFileBundle = cmdHandler.getBloomPsfBundle();
@@ -428,7 +891,7 @@ void main()
 	uint32_t fftScratchSize = 0u;
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
-		auto default_kernel_image_bundle = am->getAsset("../../media/kernels/physical_flare_512.exr",lp); // TODO: use builtins?
+		auto default_kernel_image_bundle = am->getAsset("../../media/kernels/physical_flare_512.exr",lp); // TODO: make it a builtins?
 
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
@@ -562,29 +1025,40 @@ void main()
 					assert(region.bufferRowLength);
 					outParam.colorTexelSize = asset::getTexelOrBlockBytesize(colorCreationParams.format);
 				}
-				
-				const auto& kerDim = outParam.kernel->getCreationParameters().extent;
-				const float bloomScale = core::min(float(extent.width)/float(kerDim.width),float(extent.height)/float(kerDim.height))*bloomScaleBundle[i].value();
-				if (bloomScale>1.f)
-					os::Printer::log(imageIDString + "Bloom Kernel will Clip and loose sharpness, increase resolution of bloom kernel!", ELL_WARNING);
-				const auto marginSrcDim = [extent,kerDim,bloomScale]() -> auto
+
+				const float bloomRelativeScale = bloomRelativeScaleBundle[i].value();
+				{
+					auto kerDim = outParam.kernel->getCreationParameters().extent;
+					float kernelScale;
+					if (extent.width<extent.height)
+						kernelScale = float(extent.width)*bloomRelativeScale/float(kerDim.width);
+					else
+						kernelScale = float(extent.height)*bloomRelativeScale/float(kerDim.height);
+					if (kernelScale>1.f)
+						os::Printer::log(imageIDString + "Bloom Kernel loose sharpness, increase resolution of bloom kernel or reduce its relative scale!", ELL_WARNING);
+					outParam.scaledKernelExtent.width = core::ceil(float(kerDim.width)*kernelScale);
+					outParam.scaledKernelExtent.height = core::ceil(float(kerDim.height)*kernelScale);
+					outParam.scaledKernelExtent.depth = 1u;
+				}
+				const auto marginSrcDim = [extent,outParam]() -> auto
 				{
 					auto tmp = extent;
 					for (auto i=0u; i<3u; i++)
 					{
-						const auto coord = (&kerDim.width)[i];
+						const auto coord = (&outParam.scaledKernelExtent.width)[i];
 						if (coord>1u)
-							(&tmp.width)[i] += core::max(coord*bloomScale,1u)-1u;
+							(&tmp.width)[i] += coord-1u;
 					}
 					return tmp;
 				}();
+				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,outParam.scaledKernelExtent,colorChannelsFFT)*2u,fftScratchSize);
 				fftScratchSize = core::max(FFTClass::getOutputBufferSize(usingHalfFloatFFTStorage,marginSrcDim,colorChannelsFFT),fftScratchSize);
+				// TODO: maybe move them to nested loop and compute JIT
 				{
-					// TODO: store these
-					FFTClass::Parameters_t fftPushConstants[3];
-					FFTClass::DispatchInfo_t fftDispatchInfo[3];
+					auto* fftPushConstants = outParam.fftPushConstants;
+					auto* fftDispatchInfo = outParam.fftDispatchInfo;
 					const ISampler::E_TEXTURE_CLAMP fftPadding[2] = {ISampler::ETC_MIRROR,ISampler::ETC_MIRROR};
-					const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,extent,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
+					const auto passes = FFTClass::buildParameters<false>(false,colorChannelsFFT,extent,fftPushConstants,fftDispatchInfo,fftPadding,marginSrcDim);
 					{
 						// override for less work and storage (dont need to store the extra padding of the last axis after iFFT)
 						fftPushConstants[1].output_strides.x = fftPushConstants[0].input_strides.x;
@@ -607,6 +1081,8 @@ void main()
 
 				outParam.width = extent.width;
 				outParam.height = extent.height;
+
+				outParam.bloomIntensity = bloomIntensityBundle[i].value();
 
 				maxResolution[0] = core::max(maxResolution[0], outParam.width);
 				maxResolution[1] = core::max(maxResolution[1], outParam.height);
@@ -648,20 +1124,19 @@ void main()
 	// keep all CUDA links in an array (less code to map/unmap)
 	constexpr uint32_t kMaxDenoiserBuffers = calcDenoiserBuffersNeeded(EII_NORMAL);
 	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[kMaxDenoiserBuffers];
-	// except for the scratch CUDA buffer which can and will be ENORMOUS
-	CUdeviceptr denoiserScratch = 0ull; // TODO: allocate scratch with Nabla
 	// set-up denoisers
 	constexpr size_t IntensityValuesSize = sizeof(float);
 	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
-	auto& temporaryPixelBuffer = bufferLinks[1];
-	auto& colorPixelBuffer = bufferLinks[2];
-	auto& albedoPixelBuffer = bufferLinks[3];
-	auto& normalPixelBuffer = bufferLinks[4];
+	auto& scratch = bufferLinks[1];
+	auto& temporaryPixelBuffer = bufferLinks[2];
+	auto& colorPixelBuffer = bufferLinks[3];
+	auto& albedoPixelBuffer = bufferLinks[4];
+	auto& normalPixelBuffer = bufferLinks[5];
 	//auto denoised;
 	size_t denoiserStateBufferSize = 0ull;
 	{
-		size_t scratchBufferSize = 0ull;
+		size_t scratchBufferSize = fftScratchSize;
 		size_t tempBufferSize = fftScratchSize;
 		for (uint32_t i=0u; i<EII_COUNT; i++)
 		{
@@ -696,8 +1171,8 @@ void main()
 		temporaryPixelBuffer = driver->createDeviceLocalGPUBufferOnDedMem(tempBufferSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&temporaryPixelBuffer)),"Could not register buffer for Denoiser scratch memory!"))
 			return error_code;
-		// TODO: allocate scratch with Nabla again
-		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuMemAlloc_v2(&denoiserScratch,scratchBufferSize)), "Could not register buffer for Denoiser temporary memory with CUDA natively!"))
+		scratch = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
+		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&scratch)), "Could not register buffer for Denoiser temporary memory with CUDA natively!"))
 			return error_code;
 	}
 	const auto intensityBufferOffset = denoiserStateBufferSize;
@@ -715,13 +1190,14 @@ void main()
 		CommonPushConstants shaderConstants;
 		{
 			shaderConstants.imageWidth = param.width;
-			assert(intensityBufferOffset%IntensityValuesSize==0u);
-			shaderConstants.beforeDenoise = 1u;
+			shaderConstants.imageHeight = param.height;
 
+			assert(intensityBufferOffset%IntensityValuesSize==0u);
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
-			shaderConstants.autoexposureOff = 0u;
+			assert(param.fftPushConstants[0].getLog2FFTSize()==param.fftPushConstants[2].getLog2FFTSize());
+			shaderConstants.flags = (param.fftPushConstants[1].getLog2FFTSize()<<7u)|(param.fftPushConstants[0].getLog2FFTSize()<<2u)|0b11u; // (autoexposureOn<<1)|beforeDenoise
 			switch (tonemapperBundle[i].first)
 			{
 				case DTEA_TONEMAPPER_REINHARD:
@@ -762,7 +1238,7 @@ void main()
 					if (core::isnan(key))
 					{
 						shaderConstants.tonemapperParams[0] = 0.18;
-						shaderConstants.autoexposureOff = 1u;
+						shaderConstants.flags &= ~0b10u; // ~(autoexposureOn<<1)
 					}
 					else
 						shaderConstants.tonemapperParams[0] = key;
@@ -791,7 +1267,7 @@ void main()
 				cuda::CCUDAHandler::GraphicsAPIObjLink<IGPUBuffer> retval = core::smart_refctd_ptr<IGPUBuffer>(gpubuffers->operator[](ix)->getBuffer());
 				if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&retval)))
 				{
-					os::Printer::log(makeImageIDString(i) + "Could register the image data buffer with CUDA, skipping image!", ELL_ERROR);
+					os::Printer::log(makeImageIDString(i) + "Could not register the image data buffer with CUDA, skipping image!", ELL_ERROR);
 					skip = true;
 				}
 				return retval;
@@ -817,12 +1293,119 @@ void main()
 				shaderConstants.inImageTexelPitch[j] = image->getRegions().begin()[0].bufferRowLength;
 				inImageByteOffset[j] = offsetPair->getOffset();
 			}
-			// upload the constants to the GPU
-			driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CommonPushConstants), &shaderConstants);
 		}
 
 		// process
 		{
+			// get the bloom kernel FFT Spectrum
+			core::smart_refctd_ptr<IGPUImageView> kernelNormalizedSpectrums[colorChannelsFFT];
+			{
+				// kernel inputs
+				core::smart_refctd_ptr<IGPUImageView> kerImageView;
+				{
+					auto kerGpuImages = driver->getGPUObjectsFromAssets(&param.kernel, &param.kernel + 1u, &assetConverter);
+
+
+					IGPUImageView::SCreationParams kerImgViewInfo;
+					kerImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+					kerImgViewInfo.image = kerGpuImages->operator[](0u);
+
+					// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
+					am->removeCachedGPUObject(param.kernel.get(), kerImgViewInfo.image);
+
+					kerImgViewInfo.viewType = IGPUImageView::ET_2D;
+					kerImgViewInfo.format = kerImgViewInfo.image->getCreationParameters().format;
+					kerImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+					kerImgViewInfo.subresourceRange.baseMipLevel = 0;
+					kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
+					kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
+					kerImgViewInfo.subresourceRange.layerCount = 1;
+					kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
+				}
+
+				// kernel outputs
+				auto paddedKernelExtent = FFTClass::padDimensions(param.scaledKernelExtent);
+				for (uint32_t i=0u; i<colorChannelsFFT; i++)
+				{
+					video::IGPUImage::SCreationParams imageParams;
+					imageParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+					imageParams.type = asset::IImage::ET_2D;
+					imageParams.format = EF_R32G32_SFLOAT;
+					imageParams.extent = {paddedKernelExtent.width,paddedKernelExtent.height,1u};
+					imageParams.mipLevels = 1u;
+					imageParams.arrayLayers = 1u;
+					imageParams.samples = asset::IImage::ESCF_1_BIT;
+
+					video::IGPUImageView::SCreationParams viewParams;
+					viewParams.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
+					viewParams.image = driver->createGPUImageOnDedMem(std::move(imageParams),driver->getDeviceLocalGPUMemoryReqs());
+					viewParams.viewType = video::IGPUImageView::ET_2D;
+					viewParams.format = EF_R32G32_SFLOAT;
+					viewParams.components = {};
+					viewParams.subresourceRange = {};
+					viewParams.subresourceRange.levelCount = 1u;
+					viewParams.subresourceRange.layerCount = 1u;
+					kernelNormalizedSpectrums[i] = driver->createGPUImageView(std::move(viewParams));
+				}
+
+				//
+				FFTClass::Parameters_t fftPushConstants[2];
+				FFTClass::DispatchInfo_t fftDispatchInfo[2];
+				const ISampler::E_TEXTURE_CLAMP fftPadding[2] = { ISampler::ETC_CLAMP_TO_BORDER,ISampler::ETC_CLAMP_TO_BORDER };
+				const auto passes = FFTClass::buildParameters(false,colorChannelsFFT,param.scaledKernelExtent,fftPushConstants,fftDispatchInfo,fftPadding);
+
+				// the kernel's FFTs
+				{
+					auto kernelDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(kernelDescriptorSetLayout));
+					{
+						IGPUDescriptorSet::SDescriptorInfo infos[kernelSetDescCount+colorChannelsFFT-1u];
+						infos[0].desc = kerImageView;
+						infos[0].image.sampler = nullptr; // immutable
+						infos[1].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
+						infos[1].buffer = {0u,fftScratchSize>>1u};
+						infos[2].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
+						infos[2].buffer = {fftScratchSize>>1u,fftScratchSize};
+						for (uint32_t i=0u; i<colorChannelsFFT; i++)
+						{
+							infos[3+i].desc = kernelNormalizedSpectrums[i];
+							infos[3+i].image.sampler = nullptr; // storage
+						}
+						IGPUDescriptorSet::SWriteDescriptorSet writes[kernelSetDescCount] =
+						{
+							{kernelDescriptorSet.get(),0u,0u,1u,EDT_COMBINED_IMAGE_SAMPLER,infos+0u},
+							{kernelDescriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1u},
+							{kernelDescriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+2u},
+							{kernelDescriptorSet.get(),3u,0u,colorChannelsFFT,EDT_STORAGE_IMAGE,infos+3u}
+						};
+						driver->updateDescriptorSets(kernelSetDescCount,writes,0u,nullptr);
+					}
+					driver->bindDescriptorSets(EPBP_COMPUTE,kernelPipelineLayout.get(),0u,1u,&kernelDescriptorSet.get(),nullptr);
+
+					// Ker Image First Axis FFT
+					driver->bindComputePipeline(firstKernelFFTPipeline.get());
+					FFTClass::dispatchHelper(driver,kernelPipelineLayout.get(),fftPushConstants[0],fftDispatchInfo[0]);
+
+					// Ker Image Last Axis FFT
+					driver->bindComputePipeline(lastKernelFFTPipeline.get());
+					FFTClass::dispatchHelper(driver,kernelPipelineLayout.get(),fftPushConstants[1],fftDispatchInfo[1]);
+
+					// normalization and shuffle
+					driver->bindComputePipeline(kernelNormalizationPipeline.get());
+					{
+						NormalizationPushConstants normalizationPC;
+						normalizationPC.stride = fftPushConstants[1].output_strides;
+						normalizationPC.bitreverse_shift[0] = 32-core::findMSB(paddedKernelExtent.width);
+						normalizationPC.bitreverse_shift[1] = 32-core::findMSB(paddedKernelExtent.height);
+						normalizationPC.bloomIntensity = param.bloomIntensity;
+						driver->pushConstants(kernelNormalizationPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(normalizationPC),&normalizationPC);
+						const uint32_t dispatchSizeX = (paddedKernelExtent.width-1u)/16u+1u;
+						const uint32_t dispatchSizeY = (paddedKernelExtent.height-1u)/16u+1u;
+						driver->dispatch(dispatchSizeX,dispatchSizeY,colorChannelsFFT);
+					}
+					FFTClass::defaultBarrier();
+				}
+			}
+
 			uint32_t outImageByteOffset[EII_COUNT];
 			// bind shader resources
 			{
@@ -830,43 +1413,53 @@ void main()
 				auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
 				// write descriptor set
 				{
-					IGPUDescriptorSet::SDescriptorInfo infos[SharedDescriptorSetDescCount+EII_COUNT*2u-2u];
-					auto attachBufferImageRange = [param,&infos](auto ix, IGPUBuffer* buff, uint64_t offset, uint64_t pixelByteSize) -> void
+					IGPUDescriptorSet::SDescriptorInfo infos[SharedDescriptorSetDescCount+EII_COUNT*2u-2u+colorChannelsFFT];
+					auto attachBufferImageRange = [param,&infos](auto* pInfo, IGPUBuffer* buff, uint64_t offset, uint64_t pixelByteSize) -> void
 					{
-						infos[ix].desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
-						infos[ix].buffer = {offset,param.width*param.height*pixelByteSize};
+						pInfo->desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
+						pInfo->buffer = {offset,param.width*param.height*pixelByteSize};
 					};
-					auto attachWholeBuffer = [&infos](auto ix, IGPUBuffer* buff) -> void
+					auto attachWholeBuffer = [&infos](auto* pInfo, IGPUBuffer* buff) -> void
 					{
-						infos[ix].desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
-						infos[ix].buffer = {0ull,buff->getMemoryReqs().vulkanReqs.size};
+						pInfo->desc = core::smart_refctd_ptr<IGPUBuffer>(buff);
+						pInfo->buffer = {0ull,buff->getMemoryReqs().vulkanReqs.size};
 					};
-					uint64_t interleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>();
-					attachBufferImageRange(EII_COLOR,colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],interleavedPixelBytesize);
-					if (denoiserInputCount>EII_ALBEDO)
-						attachBufferImageRange(EII_ALBEDO,albedoPixelBuffer.getObject(),inImageByteOffset[EII_ALBEDO],interleavedPixelBytesize);
-					if (denoiserInputCount>EII_NORMAL)
-						attachBufferImageRange(EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL],interleavedPixelBytesize);
-					for (uint32_t j=0u; j<denoiserInputCount; j++)
-					{
-						uint64_t deinterleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>(); // TODO do it with EF_R16G16B16_SFLOAT
-						outImageByteOffset[j] = j*param.width*param.height*deinterleavedPixelBytesize;
-						attachBufferImageRange(EII_COUNT+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],deinterleavedPixelBytesize);
-					}
-					attachWholeBuffer(EII_COUNT*2u,histogramBuffer.get());
-					attachWholeBuffer(EII_COUNT*2u+1u,intensityBuffer.getObject());
 					IGPUDescriptorSet::SWriteDescriptorSet writes[SharedDescriptorSetDescCount] =
 					{
 						{descriptorSet.get(),0u,0u,denoiserInputCount,EDT_STORAGE_BUFFER,infos+0},
 						{descriptorSet.get(),1u,0u,denoiserInputCount,EDT_STORAGE_BUFFER,infos+EII_COUNT},
 						{descriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u},
-						{descriptorSet.get(),3u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u+1u}
+						{descriptorSet.get(),3u,0u,1u,EDT_STORAGE_BUFFER,infos+EII_COUNT*2u+1u},
+						{descriptorSet.get(),4u,0u,colorChannelsFFT,EDT_COMBINED_IMAGE_SAMPLER,infos+EII_COUNT*2u+2u}
 					};
+					uint64_t interleavedPixelBytesize = getTexelOrBlockBytesize<EF_R16G16B16A16_SFLOAT>();
+					attachBufferImageRange(writes[0].info+EII_COLOR,colorPixelBuffer.getObject(),inImageByteOffset[EII_COLOR],interleavedPixelBytesize);
+					if (denoiserInputCount>EII_ALBEDO)
+						attachBufferImageRange(writes[0].info+EII_ALBEDO,albedoPixelBuffer.getObject(),inImageByteOffset[EII_ALBEDO],interleavedPixelBytesize);
+					if (denoiserInputCount>EII_NORMAL)
+						attachBufferImageRange(writes[0].info+EII_NORMAL,normalPixelBuffer.getObject(),inImageByteOffset[EII_NORMAL],interleavedPixelBytesize);
+					for (uint32_t j=0u; j<denoiserInputCount; j++)
+					{
+						outImageByteOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride;
+						attachBufferImageRange(writes[1].info+j,temporaryPixelBuffer.getObject(),outImageByteOffset[j],forcedOptiXFormatPixelStride);
+						if (j==0u)
+							infos[EII_COUNT].buffer.size = fftScratchSize;
+					}
+					attachWholeBuffer(writes[2].info,histogramBuffer.get());
+					attachWholeBuffer(writes[3].info,intensityBuffer.getObject());
+					for (auto j=0u; j<colorChannelsFFT; j++)
+					{
+						writes[4].info[j].desc = core::smart_refctd_ptr(kernelNormalizedSpectrums[j]);
+						//writes[0].info[4].image.imageLayout = ;
+						writes[4].info[j].image.sampler = nullptr; //immutable
+					}
 					driver->updateDescriptorSets(SharedDescriptorSetDescCount,writes,0u,nullptr);
 				}
 				// bind descriptor set (for all shaders)
 				driver->bindDescriptorSets(video::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,1u,&descriptorSet.get(),nullptr);
 			}
+			// upload the constants to the GPU
+			driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CommonPushConstants), &shaderConstants);
 			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
 				// bind deinterleave pipeline
@@ -898,12 +1491,9 @@ void main()
 				};
 				core::SRAIIBasedExiter<decltype(unmapBuffers)> exitRoutine(unmapBuffers);
 
-				cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> fakeScratchLink; // TODO: undo this
-				fakeScratchLink.asBuffer.pointer = denoiserScratch;
-
 				// set up denoiser
 				auto& denoiser = denoisers[param.denoiserType];
-				if (denoiser.m_denoiser->setup(m_cudaStream, denoiseTileDimsWithOverlap, denoiserState, denoiser.stateSize, fakeScratchLink, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
+				if (denoiser.m_denoiser->setup(m_cudaStream, denoiseTileDimsWithOverlap, denoiserState, denoiser.stateSize, scratch, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
 				{
 					os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 					continue;
@@ -944,7 +1534,7 @@ void main()
 					denoiserInputs,
 					denoiserInputCount,
 					&denoiserOutput,
-					fakeScratchLink,
+					scratch,
 					denoiser.scratchSize,
 					overlap,
 					tileWidth,
@@ -962,44 +1552,28 @@ void main()
 			// compute post-processing
 			{
 				// let the shaders know we're in the second phase now
-				shaderConstants.beforeDenoise = 0u;
-				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,beforeDenoise), sizeof(uint32_t), &shaderConstants.beforeDenoise);
+				shaderConstants.flags &= ~0b01u;
+				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,flags), sizeof(uint32_t), &shaderConstants.flags);
 				// Bloom
-				uint32_t workgroupCounts[2] = { (param.width + kComputeWGSize - 1u) / kComputeWGSize,param.height }; // TODO: change
+				uint32_t workgroupCounts[2] = { (param.width+kComputeWGSize-1u)/kComputeWGSize,param.height };
 				{
-					core::smart_refctd_ptr<IGPUImageView> kerImageView;
-					{
-						auto kerGpuImages = driver->getGPUObjectsFromAssets(&param.kernel,&param.kernel+1u,&assetConverter);
-
-
-						IGPUImageView::SCreationParams kerImgViewInfo;
-						kerImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-						kerImgViewInfo.image = kerGpuImages->operator[](0u);
-
-						// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
-						am->removeCachedGPUObject(param.kernel.get(),kerImgViewInfo.image);
-
-						kerImgViewInfo.viewType = IGPUImageView::ET_2D;
-						kerImgViewInfo.format = kerImgViewInfo.image->getCreationParameters().format;
-						kerImgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
-						kerImgViewInfo.subresourceRange.baseMipLevel = 0;
-						kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
-						kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
-						kerImgViewInfo.subresourceRange.layerCount = 1;
-						kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
-					}
-
 					driver->bindComputePipeline(secondLumaMeterAndFirstFFTPipeline.get());
-					//FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
 					// dispatch
-					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
+					driver->dispatch(param.fftDispatchInfo[0].workGroupCount[0],param.fftDispatchInfo[0].workGroupCount[1],1u);
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-					// TODO: do X-axis pass of the DFFT
-
-					// TODO: multiply the spectra together 
-
-					// TODO: perform inverse Y-axis DFFT and interleave the results
+					// Y-axis FFT, multiply the spectra together, y-axis iFFT
+					driver->bindComputePipeline(convolvePipeline.get());
+					{
+						const auto& kernelImgExtent = kernelNormalizedSpectrums[0]->getCreationParameters().image->getCreationParameters().extent;
+						vec2 kernel_half_pixel_size{0.5f,0.5f};
+						kernel_half_pixel_size.x /= kernelImgExtent.width;
+						kernel_half_pixel_size.y /= kernelImgExtent.height;
+						driver->pushConstants(convolvePipeline->getLayout(),ISpecializedShader::ESS_COMPUTE,offsetof(CommonPushConstants,kernel_half_pixel_size),sizeof(CommonPushConstants::kernel_half_pixel_size),&kernel_half_pixel_size);
+					}
+					// dispatch
+					driver->dispatch(param.fftDispatchInfo[1].workGroupCount[0],param.fftDispatchInfo[1].workGroupCount[1],1u);
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 					// bind intensity pipeline
 					driver->bindComputePipeline(intensityPipeline.get());
@@ -1010,7 +1584,7 @@ void main()
 				// Tonemap and interleave the output
 				{
 					driver->bindComputePipeline(interleaveAndLastFFTPipeline.get());
-					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
+					driver->dispatch(param.fftDispatchInfo[2].workGroupCount[0],param.fftDispatchInfo[2].workGroupCount[1],1u);
 					// issue a full memory barrier (or at least all buffer read/write barrier)
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 				}
@@ -1054,7 +1628,7 @@ void main()
 							continue;
 						}
 
-						driver->copyBuffer(temporaryPixelBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,colorBufferBytesize);
+						driver->copyBuffer(colorPixelBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,colorBufferBytesize);
 					}
 					auto downloadFence = driver->placeFence(true);
 

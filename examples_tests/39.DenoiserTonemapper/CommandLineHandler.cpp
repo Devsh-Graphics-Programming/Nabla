@@ -176,8 +176,12 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 					assignToMap(DTEA_DENOISER_EXPOSURE_BIAS);
 				else if (variable == DENOISER_BLEND_FACTOR)
 					assignToMap(DTEA_DENOISER_BLEND_FACTOR);
-				else if (variable == BLOOM_SCALE)
-					assignToMap(DTEA_BLOOM_SCALE);
+				else if (variable == BLOOM_PSF_FILE)
+					assignToMap(DTEA_BLOOM_PSF_FILE);
+				else if (variable == BLOOM_RELATIVE_SCALE)
+					assignToMap(DTEA_BLOOM_RELATIVE_SCALE);
+				else if (variable == BLOOM_INTENSITY)
+					assignToMap(DTEA_BLOOM_INTENSITY);
 				else if (variable == REINHARD)
 					assignToMap(DTEA_TONEMAPPER_REINHARD, 2);
 				else if (variable == ACES)
@@ -196,8 +200,6 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 					assignToMap(DTEA_ALBEDO_CHANNEL_NAME);
 				else if (variable == NORMAL_CHANNEL_NAME)
 					assignToMap(DTEA_NORMAL_CHANNEL_NAME);
-				else if (variable == BLOOM_PSF_FILE)
-					assignToMap(DTEA_BLOOM_PSF_FILE);
 				else
 				{
 					os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Unexcepted argument! Id of input stride: " + std::to_string(inputBatchStride), ELL_ERROR);
@@ -225,7 +227,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
 {
-	static const nbl::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_SCALE, DTEA_OUTPUT };
+	static const nbl::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_PSF_FILE, DTEA_BLOOM_RELATIVE_SCALE, DTEA_BLOOM_INTENSITY, DTEA_OUTPUT };
 
 	auto log = [&](bool status, const std::string message)
 	{
@@ -325,7 +327,7 @@ nbl::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 
 		auto startTime = std::chrono::steady_clock::now();
 		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
-		assert(!meshes_bundle.isEmpty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
+		assert(!meshes_bundle.getContents().empty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
 		auto endTime = std::chrono::steady_clock::now();
 		elapsedTimeXmls += (endTime - startTime);
 		

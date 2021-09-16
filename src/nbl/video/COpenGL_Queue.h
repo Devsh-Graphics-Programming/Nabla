@@ -17,7 +17,7 @@
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/containers/CMemoryPool.h"
 
-#define DEBUGGING_BAW
+//#define DEBUGGING_BAW
 
 #ifdef DEBUGGING_BAW
 #include "renderdoc_app.h"
@@ -187,7 +187,7 @@ class COpenGL_Queue final : public IGPUQueue
                     GLbitfield barrierBits = 0;
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
-                        barrierBits |= pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT, submit.pWaitDstStageMask[i]);
+                        barrierBits |= SOpenGLBarrierHelper(gl.features).pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT,submit.pWaitDstStageMask[i]);
                     }
 
 #ifdef DEBUGGING_BAW
@@ -341,8 +341,7 @@ class COpenGL_Queue final : public IGPUQueue
                 params.syncToInit = sync;
 
                 auto& req = threadHandler.request(std::move(params));
-                // TODO: Copy all the data to the request and dont wait for the request to finish, also 
-                // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+                // TODO: Copy all the data to the request and dont wait for the request to finish, then mark this request type as `isWaitlessRequest`
                 threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
@@ -396,6 +395,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             auto& req = threadHandler.request(std::move(params));
             // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            // TODO: basically implement `isWaitlessRequest` for this thread handler (like the LogicalDevice queue)
             threadHandler.template waitForRequestCompletion<SRequestParams_DestroyFramebuffer>(req);
         }
 
@@ -406,6 +406,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             auto& req = threadHandler.request(std::move(params));
             // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            // TODO: basically implement `isWaitlessRequest` for this thread handler (like the LogicalDevice queue)
             threadHandler.template waitForRequestCompletion<SRequestParams_DestroyPipeline>(req);
         }
 

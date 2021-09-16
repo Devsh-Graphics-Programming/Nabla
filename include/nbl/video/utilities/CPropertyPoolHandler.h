@@ -21,6 +21,7 @@ static_assert(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE==sizeof(nbl_glsl_propert
 static_assert(NBL_BUILTIN_PROPERTY_POOL_INVALID==IPropertyPool::invalid);
 
 // property pool factory is externally synchronized
+// TODO: could rename to CSparseStreamingSystem/CSparseStreamingHandler
 class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
 {
 	public:
@@ -123,12 +124,19 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			};
 
 			//
-			TransferRequest() : pool(nullptr), flags(EF_NONE), propertyID(0xdeadbeefu), elementCount(0u), srcAddresses(nullptr), dstAddresses(nullptr)
+			TransferRequest() : memblock(), flags(EF_NONE), elementSize(0u), elementCount(0u), srcAddresses(nullptr), dstAddresses(nullptr)
 			{
 				device2device = 0u;
 				source = nullptr;
 			}
 			~TransferRequest() {}
+
+			//
+			inline void setFromPool(const IPropertyPool* pool, const uint16_t propertyID)
+			{
+				memblock = pool->getPropertyMemoryBlock(propertyID);
+				elementSize = pool->getPropertySize(propertyID);
+			}
 
 			//
 			inline bool isDownload() const
@@ -153,9 +161,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			}
 
 			//
-			const IPropertyPool* pool;
+			asset::SBufferRange<IGPUBuffer> memblock;
 			E_FLAG flags;
-			uint16_t propertyID;
+			uint16_t elementSize;
 			uint32_t elementCount;
 			// can be null, if null treated like an implicit {0,1,2,3,...} iota view
 			const uint32_t* srcAddresses;
@@ -209,9 +217,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			{
 				for (auto i=0u; i<pool->getPropertyCount(); i++)
 				{
-					requests[i].pool = pool;
+					requests[i].setFromPool(pool,i);
 					requests[i].flags = TransferRequest::EF_NONE;
-					requests[i].propertyID = i;
 					requests[i].elementCount = transferCount;
 					requests[i].srcAddresses = srcAddresses;
 					requests[i].dstAddresses = dstAddresses;

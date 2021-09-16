@@ -1,0 +1,151 @@
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_SET_DEFINED_
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_BINDING_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_SET_DEFINED_
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_SET_DEFINED_ 1
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_BINDING_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_SET_DEFINED_
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_SET_DEFINED_ 1
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_BINDING_DEFINED_ 1
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_DESCRIPTOR_DEFINED_
+
+layout (set = _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_SET_DEFINED_, binding = _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_BINDING_DEFINED_, std430) restrict readonly buffer histogram_buffer
+{
+	uint histogram[];
+};
+
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_HISTOGRAM_DESCRIPTOR_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_DESCRIPTOR_DEFINED_
+
+layout (set = _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_BINDING_DEFINED_, std430) restrict readonly buffer in_buffer
+{
+	uvec2 in_values[];
+};
+
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_INPUT_DESCRIPTOR_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_DESCRIPTOR_DEFINED_
+
+layout (set = _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_SET_DEFINED_, binding = _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_BINDING_DEFINED_, std430) restrict writeonly buffer out_buffer
+{
+	uvec2 out_values[];
+};
+
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_OUTPUT_DESCRIPTOR_DEFINED_
+#endif
+
+#include "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
+#include "nbl/builtin/glsl/ext/RadixSort/parameters.glsl"
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_
+#error "You need to define `_NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_`!"
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_PUSH_CONSTANTS_DEFINED_
+
+layout(push_constant) uniform PushConstants
+{
+	layout (offset = 0) nbl_glsl_ext_RadixSort_Parameters_t params;
+} pc;
+
+#define _NBL_GLSL_EXT_RADIXSORT_PUSH_CONSTANTS_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_GET_PARAMETERS_DEFINED_
+
+nbl_glsl_ext_RadixSort_Parameters_t nbl_glsl_ext_RadixSort_getParameters()
+{
+	return pc.params;
+}
+
+#define _NBL_GLSL_EXT_RADIXSORT_GET_PARAMETERS_DEFINED_
+#endif
+
+#include <nbl/builtin/glsl/workgroup/shuffle.glsl>
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_LOAD_GLOBAL_HISTOGRAM_DEFINED_
+
+uint nbl_glsl_ext_RadixSort_loadGlobalHistogram(in uint digit)
+{
+	uint offset;
+	if (gl_LocalInvocationIndex < _NBL_GLSL_EXT_RADIXSORT_BUCKET_COUNT_)
+		offset = histogram[gl_LocalInvocationIndex * gl_NumWorkGroups.x + gl_WorkGroupID.x];
+	return nbl_glsl_workgroupShuffle(offset, digit);
+}
+
+#define _NBL_GLSL_EXT_RADIXSORT_LOAD_GLOBAL_HISTOGRAM_DEFINED_
+#endif
+
+#include <nbl/builtin/glsl/limits/numeric.glsl>
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_GET_PADDED_DATA_DEFINED_
+
+uvec2 nbl_glsl_ext_RadixSort_getPaddedData(in uint idx)
+{
+	uvec2 data = uvec2(UINT_MAX);
+	if (idx < nbl_glsl_ext_RadixSort_Parameters_t_getElementCountTotal())
+		data = in_values[gl_GlobalInvocationID.x];
+
+	return data;
+}
+
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_GET_PADDED_DATA_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_SET_DATA_DEFINED_
+
+void nbl_glsl_ext_RadixSort_setData(in uint idx, in uvec2 data)
+{
+	if (idx < nbl_glsl_ext_RadixSort_Parameters_t_getElementCountTotal())
+		out_values[idx] = data;
+}
+
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_SET_DATA_DEFINED_
+#endif
+
+#include "nbl/builtin/glsl/ext/RadixSort/radix_sort.glsl"
+
+void nbl_glsl_ext_RadixSort_defaultScatter()
+{
+	const uvec2 data = nbl_glsl_ext_RadixSort_getPaddedData(gl_GlobalInvocationID.x);
+	const uint digit = nbl_glsl_ext_RadixSort_extractDigit(data.x);
+
+	const uint offset = nbl_glsl_ext_RadixSort_loadGlobalHistogram(digit);
+	const uint scatter_idx = nbl_glsl_ext_RadixSort_workgroupCompact(digit);
+
+	const uint global_scatter_idx = offset + scatter_idx;
+	nbl_glsl_ext_RadixSort_setData(global_scatter_idx, data);
+}
+
+#ifndef _NBL_GLSL_EXT_RADIXSORT_SCATTER_MAIN_DEFINED_
+
+void main()
+{
+	nbl_glsl_ext_RadixSort_defaultScatter();
+}
+
+#define _NBL_GLSL_EXT_RADIXSORT_SCATTER_MAIN_DEFINED_
+#endif
