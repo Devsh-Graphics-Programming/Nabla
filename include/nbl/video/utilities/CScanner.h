@@ -14,8 +14,7 @@ namespace nbl::video
 {
 
 #include "nbl/builtin/glsl/scan/parameters_struct.glsl"
-//static_assert(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE==sizeof(nbl_glsl_property_pool_transfer_t));
-//static_assert(NBL_BUILTIN_PROPERTY_POOL_INVALID==IPropertyPool::invalid);
+static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
 
 //
 class CScanner final : public core::IReferenceCounted
@@ -45,49 +44,52 @@ class CScanner final : public core::IReferenceCounted
 		//
 		struct Parameters : nbl_glsl_scan_Parameters_t
 		{
+			static inline constexpr uint32_t MaxScanLevels = NBL_BUILTIN_MAX_SCAN_LEVELS;
+
 			Parameters()
 			{
-				// TODO
+				elementCount = 0u;
+				std::fill_n(cumulativeWorkgroupCount,MaxScanLevels,0u);
 			}
-			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize)
+			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
 			{
 				assert(_elementCount!=0u && "Input element count can't be 0!");
-				elementCount = 0u;
-#if 0
-				uint32_t element_count_pass = in_count;
-				uint32_t element_count_total = in_count;
-				uint32_t stride = 1u;
-				uint32_t wg_count = (element_count_pass + wg_size - 1) / wg_size;
+				const auto maxReductionLog2 = core::findMSB(wg_size)*(MaxScanLevels/2u+1u);
+				assert(maxReductionLog2>=32u||((_elementCount-1u)>>maxReductionLog2)==0u && "Can't scan this many elements with such small workgroups!");
+				elementCount = _elementCount;
 
-				for (uint32_t pass = 0; pass < upsweep_pass_count; ++pass)
+				auto wgCountIt = cumulativeWorkgroupCount-1u; 
+				while (true)
 				{
-					push_constants[pass] = { stride, element_count_pass, element_count_total };
-
-					element_count_pass = wg_count;
-					stride *= wg_size;
-					wg_count = (element_count_pass + wg_size - 1) / wg_size;
+					*(++wgCountIt) = ((*wgCountIt)-1u)/DefaultWorkGroupSize+1u;
+					if ((*wgCountIt)==1u)
+						break;
 				}
+				for (auto revIt=wgCountIt-1u; revIt!=&elementCount; revIt--)
+					*(++wgCountIt) = *revIt;
+				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+MaxScanLevels,cumulativeWorkgroupCount);
+			}
 
-				return total_pass_count;
-#endif
+			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
+			{
+				uint32_t uint_count = 1u; // workgroup enumerator
+				uint_count += cumulativeWorkgroupCount[MaxScanLevels]; // finished counters
+				uint_count += cumulativeWorkgroupCount[MaxScanLevels]; // transient sweep output
+				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
 		struct DispatchInfo
 		{
-			DispatchInfo()
+			DispatchInfo() : wg_count(0u)
 			{
-				std::fill_n(wg_count,3u,0u);
 			}
 			DispatchInfo(const uint32_t elementCount, const uint32_t wg_size=DefaultWorkGroupSize)
 			{
 				assert(elementCount!=0u && "Input element count can't be 0!");
-				// TODO: @Przemog support factoring
-				wg_count[0] = (elementCount-1u)/wg_size+1u;
-				wg_count[1] = 1u;
-				wg_count[2] = 1u;
+				wg_count = core::min<uint32_t>((0x1u<<16)-1u,(elementCount-1u)/wg_size+1u);
 			}
 
-			uint32_t wg_count[3];
+			uint32_t wg_count;
 		};
 
 		//
@@ -157,7 +159,7 @@ class CScanner final : public core::IReferenceCounted
 			updateDescriptorSet(m_device.get(),set,input_range,scratch_range);
 		}
 
-		//
+		// Half and sizeof(uint32_t) of the scratch buffer need to be cleared to 0s
 		static inline void dispatchHelper(
 			IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipeline_layout, const Parameters& params, const DispatchInfo& dispatchInfo,
 			const asset::E_PIPELINE_STAGE_FLAGS srcStageMask, const uint32_t srcBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier* srcBufferBarriers,
@@ -167,7 +169,7 @@ class CScanner final : public core::IReferenceCounted
 			cmdbuf->pushConstants(pipeline_layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(Parameters),&params);
 			if (srcStageMask!=asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT&&srcBufferBarrierCount)
 				cmdbuf->pipelineBarrier(srcStageMask,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,srcBufferBarrierCount,srcBufferBarriers,0u,nullptr);
-			cmdbuf->dispatch(dispatchInfo.wg_count[0],dispatchInfo.wg_count[1],dispatchInfo.wg_count[2]);
+			cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
 			if (dstStageMask!=asset::E_PIPELINE_STAGE_FLAGS::EPSF_BOTTOM_OF_PIPE_BIT&&dstBufferBarrierCount)
 				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,dstStageMask,asset::EDF_NONE,0u,nullptr,dstBufferBarrierCount,dstBufferBarriers,0u,nullptr);
 		}
