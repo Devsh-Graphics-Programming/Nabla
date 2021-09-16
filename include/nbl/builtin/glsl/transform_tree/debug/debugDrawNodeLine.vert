@@ -1,14 +1,15 @@
 #version 460 core
 
-layout(location = 15) in uint iNodeID;
+layout(location = 0) in uint iNodeID; // instance data
 
-layout(set=0, binding=0, row_major) readonly buffer NodeTransforms
+layout(binding = 0, std430) restrict readonly buffer NodeParents
 {
     uint data[];
-} nodeParent;
-layout(set=0, binding=1, row_major) readonly buffer NodeTransforms
+} nodeParents;
+
+layout(binding = 3, std430) restrict readonly buffer NodeGlobalTransforms
 {
-    mat4x3 data[];
+    layout(row_major) mat4x3 data[];
 } nodeGlobalTransforms;
 
 layout( push_constant, row_major ) uniform Block
@@ -19,13 +20,13 @@ layout( push_constant, row_major ) uniform Block
 
 layout(location = 0) out vec4 outColor;
 
+#define INVALID 3735928559u
 #include "nbl/builtin/glsl/utils/transform.glsl"
 
 void main()
 {
-    const uint parent = nodeParent.data[iNodeID];
+    const uint parent = nodeParents.data[iNodeID];
     vec3 pos = nodeGlobalTransforms.data[bool(gl_VertexIndex&0x1u)&&parent!=INVALID ? parent:iNodeID][3];
-	// is there INVALID glsl keyword? Check it out, TODO!
 
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(PushConstants.viewProj,pos);
 	outColor = PushConstants.color;
