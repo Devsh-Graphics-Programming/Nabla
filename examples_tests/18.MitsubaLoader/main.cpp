@@ -392,6 +392,7 @@ int main(int argc, char** argv)
 	core::vectorSIMDf cameraPosition(0, 5, -10);
 	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
 	core::vectorSIMDf lookAt(0, 0, 0);
+	core::vectorSIMDf upVec(0, 1, 0);
 	float moveSpeed = 10.0f;
 
 	//#define TESTING
@@ -424,9 +425,9 @@ int main(int argc, char** argv)
 
 			lookAt = target;
 
-			// TODO
-			//if (core::dot(core::normalize(core::cross(camera->getUpVector(), view)), core::cross(up, view)).x < 0.99f)
-			//	camera->setUpVector(up);
+			
+			if (core::dot(core::normalize(core::cross(upVec, view)), core::cross(up, view)).x < 0.99f)
+				upVec = up;
 		}
 
 		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
@@ -489,7 +490,7 @@ int main(int argc, char** argv)
 			projectionMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, persp->nearClip, persp->farClip);
 	}
 
-	Camera camera = Camera(cameraPosition, lookAt, projectionMatrix, moveSpeed, 1.f);
+	Camera camera = Camera(cameraPosition, lookAt, projectionMatrix, moveSpeed, 1.f, upVec);
 
 	// setup
 
