@@ -24,6 +24,9 @@ class IBackendObject
 
         const ILogicalDevice* getOriginDevice() const;
 
+        // to get useful debug messages and names in Renderdoc captures
+        virtual void setDebugName(const char* label) {} //=0;
+
     protected:
         virtual ~IBackendObject();
 
