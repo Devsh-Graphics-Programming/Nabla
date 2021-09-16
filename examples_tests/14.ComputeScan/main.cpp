@@ -72,7 +72,7 @@ int main()
 	
 	SBufferRange<IGPUBuffer> scratch_gpu_range;
 	scratch_gpu_range.offset = 0u;
-	scratch_gpu_range.size = 128u<<20;
+	scratch_gpu_range.size = scan_push_constants.getScratchSize();
 	scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratch_gpu_range.size);
 
 	auto dsLayout = scanner->getDefaultDescriptorSetLayout();

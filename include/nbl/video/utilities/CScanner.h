@@ -50,6 +50,8 @@ class CScanner final : public core::IReferenceCounted
 			{
 				elementCount = 0u;
 				std::fill_n(cumulativeWorkgroupCount,MaxScanLevels,0u);
+				std::fill_n(lastWorkgroupItems,MaxScanLevels/2-1,1u);
+				std::fill_n(finishedFlagOffset,MaxScanLevels,0u);
 			}
 			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
 			{
@@ -58,23 +60,31 @@ class CScanner final : public core::IReferenceCounted
 				assert(maxReductionLog2>=32u||((_elementCount-1u)>>maxReductionLog2)==0u && "Can't scan this many elements with such small workgroups!");
 				elementCount = _elementCount;
 
-				auto wgCountIt = cumulativeWorkgroupCount-1u; 
+				auto i = 0;
 				while (true)
 				{
-					*(++wgCountIt) = ((*wgCountIt)-1u)/DefaultWorkGroupSize+1u;
-					if ((*wgCountIt)==1u)
+					const auto totalItemsThisLevel = cumulativeWorkgroupCount[i-1];
+					cumulativeWorkgroupCount[i] = (totalItemsThisLevel-1u)/wg_size;
+					finishedFlagOffset[i] = cumulativeWorkgroupCount[i]/wg_size+1u;
+					lastWorkgroupItems[i] = totalItemsThisLevel-cumulativeWorkgroupCount[i]*wg_size;
+					if (++cumulativeWorkgroupCount[i]==1u)
 						break;
+					i++;
 				}
-				for (auto revIt=wgCountIt-1u; revIt!=&elementCount; revIt--)
-					*(++wgCountIt) = *revIt;
+				maxLevels = i+1u;
+
+				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+i,cumulativeWorkgroupCount+maxLevels);
 				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+MaxScanLevels,cumulativeWorkgroupCount);
+				 
+				std::reverse_copy(finishedFlagOffset,finishedFlagOffset+i,finishedFlagOffset+maxLevels);
+				std::exclusive_scan(finishedFlagOffset,finishedFlagOffset+MaxScanLevels,finishedFlagOffset,0u);
 			}
 
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
 				uint32_t uint_count = 1u; // workgroup enumerator
-				uint_count += cumulativeWorkgroupCount[MaxScanLevels]; // finished counters
-				uint_count += cumulativeWorkgroupCount[MaxScanLevels]; // transient sweep output
+				uint_count += finishedFlagOffset[MaxScanLevels-1u]; // finished counters
+				uint_count += cumulativeWorkgroupCount[MaxScanLevels-1u]; // transient sweep output
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
