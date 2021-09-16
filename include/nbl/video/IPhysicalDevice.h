@@ -78,6 +78,7 @@ public:
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
         bool drawIndirectCount = false;
+        bool multiDrawIndirect = false;
     };
 
     enum E_QUEUE_FLAGS : uint32_t

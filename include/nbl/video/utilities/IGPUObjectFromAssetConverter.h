@@ -994,7 +994,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         }
 
         cmdbuf_transfer->end();
-        if (!oneQueue)
+        if (needToGenMips && !oneQueue)
             cmdbuf_compute->end();
 
         auto transfer_sem = _params.device->createSemaphore();
