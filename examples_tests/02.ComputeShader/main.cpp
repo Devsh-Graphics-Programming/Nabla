@@ -60,6 +60,8 @@ int main()
 	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
+	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
+
 	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
 		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", true);
 
@@ -67,7 +69,6 @@ int main()
 		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
 			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 
-	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
 #if 0
 	// Todo(achal): Pending bug investigation
 	{
