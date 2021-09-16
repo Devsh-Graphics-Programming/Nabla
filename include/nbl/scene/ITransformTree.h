@@ -114,13 +114,15 @@ class ITransformTree : public virtual core::IReferenceCounted
 					return device->createGPUSpecializedShader(gpuShader.get(), {nullptr, nullptr, "main", type});
 				};
 
+				constexpr uint16_t SHADER_COUNT = 3u;
 				auto gpuDebugVertexShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw_node_line.vert")(), asset::ISpecializedShader::ESS_VERTEX);
+				auto gpuDebugGeometryShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw_node_aabb.geom")(), asset::ISpecializedShader::ESS_GEOMETRY);
 				auto gpuDebugFragmentShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw.frag")(), asset::ISpecializedShader::ESS_FRAGMENT);
 
-				if (!gpuDebugVertexShader && !gpuDebugFragmentShader)
+				if (!gpuDebugVertexShader || !gpuDebugGeometryShader || !gpuDebugFragmentShader)
 					return nullptr;
 
-				video::IGPUSpecializedShader* gpuShaders[] = {gpuDebugVertexShader.get(), gpuDebugFragmentShader.get()};
+				video::IGPUSpecializedShader* gpuShaders[] = {gpuDebugVertexShader.get(), gpuDebugGeometryShader.get(), gpuDebugFragmentShader.get()};
 
 				asset::SVertexInputParams vertexInputParams;
 				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_BINDING].inputRate = asset::EVIR_PER_INSTANCE;
@@ -154,25 +156,25 @@ class ITransformTree : public virtual core::IReferenceCounted
 				asset::SPushConstantRange pcRange;
 				pcRange.offset = 0u;
 				pcRange.size = sizeof(DebugPushConstants);
-				pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+				pcRange.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_VERTEX | asset::ISpecializedShader::ESS_GEOMETRY);
 
 				auto gpuPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(descriptorSetLayout));
-				auto gpuRenderpassIndependentPipeline = device->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders, gpuShaders + 2, vertexInputParams, blendParams, primitiveAssemblyParams, rasterizationParams);
+				auto gpuRenderpassIndependentPipeline = device->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders, gpuShaders + SHADER_COUNT, vertexInputParams, blendParams, primitiveAssemblyParams, rasterizationParams);
 				
 				if (!gpuRenderpassIndependentPipeline)
 					return nullptr;
 
-				transformTree->m_debugGpuRenderpassIndependentPipelineNodeLines = std::move(gpuRenderpassIndependentPipeline);
+				transformTree->m_debugGpuRenderpassIndependentPipelineNode = std::move(gpuRenderpassIndependentPipeline);
 				transformTree->m_debugGpuRenderpass = core::smart_refctd_ptr(gpuRenderpass);
 				
 				core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
 				{
 					nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
-					graphicsPipelineParams.renderpassIndependent = transformTree->m_debugGpuRenderpassIndependentPipelineNodeLines;
+					graphicsPipelineParams.renderpassIndependent = transformTree->m_debugGpuRenderpassIndependentPipelineNode;
 					graphicsPipelineParams.renderpass = core::smart_refctd_ptr(transformTree->m_debugGpuRenderpass);
 
 					auto gpuGraphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
-					transformTree->m_debugGpuPipelineNodeLines = std::move(gpuGraphicsPipeline);
+					transformTree->m_debugGpuPipelineNode = std::move(gpuGraphicsPipeline);
 				}
 			}
 
@@ -245,7 +247,10 @@ class ITransformTree : public virtual core::IReferenceCounted
 		struct DebugPushConstants
 		{
 			core::matrix4SIMD viewProjectionMatrix;
-			core::vector4df_SIMD color;
+			core::vector4df_SIMD lineColor;
+			core::vector4df_SIMD aabbColor;
+			core::vector4df_SIMD minEdge;
+			core::vector4df_SIMD maxEdge;
 		} PACK_STRUCT;
 		#include "nbl/nblunpack.h"
 
@@ -294,9 +299,10 @@ class ITransformTree : public virtual core::IReferenceCounted
 					bufferBindingsOffsets[i] = 0;
 			}
 
-			commandBuffer->bindGraphicsPipeline(m_debugGpuPipelineNodeLines.get());
-			commandBuffer->pushConstants(m_debugGpuRenderpassIndependentPipelineNodeLines->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(DebugPushConstants), &debugPushConstants);
-			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, m_debugGpuRenderpassIndependentPipelineNodeLines->getLayout(), 0u, 1u, &m_transformHierarchyDS.get());
+			commandBuffer->bindGraphicsPipeline(m_debugGpuPipelineNode.get());
+			constexpr auto stage = asset::ISpecializedShader::ESS_VERTEX | asset::ISpecializedShader::ESS_GEOMETRY;
+			commandBuffer->pushConstants(m_debugGpuRenderpassIndependentPipelineNode->getLayout(), stage, 0u, sizeof(DebugPushConstants), &debugPushConstants);
+			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, m_debugGpuRenderpassIndependentPipelineNode->getLayout(), 0u, 1u, &m_transformHierarchyDS.get());
 
 			commandBuffer->bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
 			commandBuffer->bindIndexBuffer(nullptr, 0, nbl::asset::EIT_UNKNOWN);
@@ -330,8 +336,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 		core::unordered_set<node_t> m_debugLiveAllocations;
 		core::smart_refctd_ptr<video::IGPUBuffer> m_debugLiveAllocationsGpuBuffer;
 
-		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_debugGpuPipelineNodeLines;
-		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_debugGpuRenderpassIndependentPipelineNodeLines; // only lines at the moment
+		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_debugGpuPipelineNode;
+		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_debugGpuRenderpassIndependentPipelineNode;
 		core::smart_refctd_ptr<video::IGPURenderpass> m_debugGpuRenderpass;
 };
 

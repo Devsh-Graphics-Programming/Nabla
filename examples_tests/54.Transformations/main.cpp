@@ -643,7 +643,8 @@ int main()
 	}
 
 	scene::ITransformTree::DebugPushConstants debugPushConstants;
-	debugPushConstants.color = core::vector4df_SIMD(1, 0, 0, 0);
+	debugPushConstants.lineColor = core::vector4df_SIMD(1, 0, 0, 0);
+	debugPushConstants.aabbColor = core::vector4df_SIMD(0, 0, 1, 0);
 
 	CEventReceiver eventReceiver;
 	CommonAPI::InputSystem::ChannelReader<nbl::ui::IKeyboardEventChannel> keyboard;
@@ -856,13 +857,18 @@ int main()
 				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
 				cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &gfxDs0.get());
 				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
+
+				//gpuObject.gpuMesh->getBoundingBox().MaxEdge
 			}
 		}
 
 		inputSystem->getDefaultKeyboard(&keyboard);
 		keyboard.consumeEvents([&](const nbl::ui::IKeyboardEventChannel::range_t& events) -> void { eventReceiver.process(events); }, initOutput.logger.get());
-		{
+		{ 
 			debugPushConstants.viewProjectionMatrix = viewProj;
+			const auto& boundingBox = gpuObjects[0].gpuMesh->getBoundingBox();
+			debugPushConstants.minEdge = core::vector4df_SIMD(boundingBox.MinEdge.X, boundingBox.MinEdge.Y, boundingBox.MinEdge.Z);
+			debugPushConstants.maxEdge = core::vector4df_SIMD(boundingBox.MaxEdge.X, boundingBox.MaxEdge.Y, boundingBox.MaxEdge.Z);
 
 			tt->setDebugEnabledFlag(eventReceiver.isDebugRequested());
 			tt->debugDraw(device.get(), cb.get(), debugPushConstants);
