@@ -239,11 +239,13 @@ class ITransformTree : public virtual core::IReferenceCounted
 			return pphandler->transferProperties(upIndexBuff,downBuff,cmdbuf,fence,&request,&request+1u,logger,maxWaitPoint);
 		}
 
+		#include "nbl/nblpack.h"
 		struct DebugPushConstants
 		{
 			core::matrix4SIMD viewProjectionMatrix;
 			core::vector4df_SIMD color;
-		};
+		} PACK_STRUCT;
+		#include "nbl/nblunpack.h"
 
 		void debugDraw(video::ILogicalDevice* device, video::IGPUCommandBuffer* commandBuffer, const DebugPushConstants& debugPushConstants)
 		{
@@ -289,7 +291,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 
 			commandBuffer->bindGraphicsPipeline(m_debugGpuPipelineNodeLines.get());
-			commandBuffer->pushConstants(m_debugGpuRenderpassIndependentPipelineNodeLines->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(debugPushConstants), &debugPushConstants);
+			commandBuffer->pushConstants(m_debugGpuRenderpassIndependentPipelineNodeLines->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(DebugPushConstants), &debugPushConstants);
 			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, m_debugGpuRenderpassIndependentPipelineNodeLines->getLayout(), 0u, 1u, &m_transformHierarchyDS.get());
 
 			commandBuffer->bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);

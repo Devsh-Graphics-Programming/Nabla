@@ -10,6 +10,8 @@
 using namespace nbl;
 using namespace core;
 
+#define TRANSFORM_TREE_DEBUG_DRAW
+
 const char* vertexSource = R"===(
 #version 430 core
 layout(location = 0) in vec4 vPos;
@@ -202,8 +204,12 @@ int main()
 	propBufs[4].offset = offset_recompStamp;
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
-	constexpr bool TRANSFORM_TREE_DEBUG_DRAW = true; // maybe it should be templated?
-	auto tt = scene::ITransformTree::create(device.get(), TRANSFORM_TREE_DEBUG_DRAW, renderpass, propBufs, ObjectCount, true);
+	#ifdef TRANSFORM_TREE_DEBUG_DRAW // tt should be templated imo, on debug taking renderpass
+	auto tt = scene::ITransformTree::create(device.get(), true, renderpass, propBufs, ObjectCount, true);
+	#else
+	auto tt = scene::ITransformTree::create(device.get(), false, renderpass, propBufs, ObjectCount, true);
+	#endif // TRANSFORM_TREE_DEBUG_DRAW
+
 	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
@@ -613,6 +619,11 @@ int main()
 		utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
 	}
 
+	#ifdef TRANSFORM_TREE_DEBUG_DRAW
+	scene::ITransformTree::DebugPushConstants debugPushConstants;
+	debugPushConstants.color = core::vector4df_SIMD(1, 0, 0, 0);
+	#endif // TRANSFORM_TREE_DEBUG_DRAW
+
 	uint32_t timestamp = 1u;
 	while(windowCb->isWindowOpen())
 	{
@@ -823,6 +834,15 @@ int main()
 				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 			}
 		}
+
+		// debug
+		#ifdef TRANSFORM_TREE_DEBUG_DRAW
+		{
+			debugPushConstants.viewProjectionMatrix = viewProj;
+			tt->debugDraw(device.get(), cb.get(), debugPushConstants);
+		}
+		#endif // TRANSFORM_TREE_DEBUG_DRAW
+
 		cb->endRenderPass();
 		cb->end();
 		
