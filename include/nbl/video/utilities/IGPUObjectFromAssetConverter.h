@@ -1003,7 +1003,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
         submit_transfer.signalSemaphoreCount = 1u;
         submit_transfer.pSignalSemaphores = &transfer_sem_ptr;
-        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, fence.get());
+        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, batch_final_fence);
 
         if (_params.perQueue[EQU_TRANSFER].semaphore)
             _params.perQueue[EQU_TRANSFER].semaphore[0] = transfer_sem;
@@ -1045,12 +1045,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             batch_final_fence = compute_fence_ptr;
         }
 
+        // wait to finish all batch work in order to safely reset command buffers
+        _params.device->waitForFences(1u, &batch_final_fence, false, 9999999999ull);
+
         // separate cmdbufs per batch instead?
         if (it != _end)
         {
-            // wait to finish all batch work in order to safely reset command buffers
-            _params.device->waitForFences(1u, &batch_final_fence, false, 9999999999ull);
-
             cmdbuf_transfer->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
             cmdbuf_transfer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             if (!oneSubmitPerBatch)
