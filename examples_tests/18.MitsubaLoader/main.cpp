@@ -152,35 +152,6 @@ int main(int argc, char** argv)
 			return 4;
 	}
 
-	//TODO:
-	//// recreate wth resolution
-	//params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	//// set resolution
-	//if (globalMeta->m_global.m_sensors.size())
-	//{
-	//	const auto& film = globalMeta->m_global.m_sensors.front().film;
-	//	params.WindowSize.Width = film.width;
-	//	params.WindowSize.Height = film.height;
-	//}
-	//else return 1; // no cameras
-
-	// process metadata
-
-	const auto& sensor = globalMeta->m_global.m_sensors.front(); //always choose frist one
-	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
-		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
-	};
-
-	if (!isOkSensorType(sensor))
-		return 1;
-
-	bool leftHandedCamera = false;
-	auto cameraTransform = sensor.transform.matrix.extractSub3x4();
-	{
-		if (cameraTransform.getPseudoDeterminant().x < 0.f)
-			leftHandedCamera = true;
-	}
-
 	// gather all meshes into core::vector and modify their pipelines
 
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpuMeshes;
@@ -373,14 +344,158 @@ int main(int argc, char** argv)
 		//}
 	}
 
+	//TODO:
+	//// recreate wth resolution
+	//params.WindowSize = dimension2d<uint32_t>(1280, 720);
+	//// set resolution
+	//if (globalMeta->m_global.m_sensors.size())
+	//{
+	//	const auto& film = globalMeta->m_global.m_sensors.front().film;
+	//	params.WindowSize.Width = film.width;
+	//	params.WindowSize.Height = film.height;
+	//}
+	//else return 1; // no cameras
+
+	// process metadata
+
+	core::aabbox3df sceneBound(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+	for (auto cpuMesh : cpuMeshes)
+	{
+		const auto* mesh_meta = globalMeta->getAssetSpecificMetadata(cpuMesh.get());
+		auto auxInstanceDataIt = mesh_meta->m_instanceAuxData.begin();
+		for (const auto& inst : mesh_meta->m_instances)
+		{
+			sceneBound.addInternalBox(core::transformBoxEx(cpuMesh->getBoundingBox(), core::matrix3x4SIMD()));
+		}
+	}
+
+		// process sensor
+
+	const auto& sensor = globalMeta->m_global.m_sensors.front(); //always choose frist one
+	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
+		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
+	};
+
+	if (!isOkSensorType(sensor))
+		return 1;
+
+	bool leftHandedCamera = false;
+	auto cameraTransform = sensor.transform.matrix.extractSub3x4();
+	{
+		if (cameraTransform.getPseudoDeterminant().x < 0.f)
+			leftHandedCamera = true;
+	}
+
+	core::recti viewport(core::position2di(0, 0), core::position2di(WIN_W, WIN_H));
+
+	core::vectorSIMDf cameraPosition(0, 5, -10);
+	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
+	core::vectorSIMDf lookAt(0, 0, 0);
+	float moveSpeed = 10.0f;
+
+	//#define TESTING
+#ifdef TESTING
+	if (0)
+#else
+	if (globalMeta->m_global.m_sensors.size() && isOkSensorType(globalMeta->m_global.m_sensors.front()))
+#endif
+	{
+		core::vectorSIMDf cameraPositionRef(0, 5, -10);
+		matrix4SIMD projectionMatrixRef = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
+
+		const auto& film = sensor.film;
+		viewport = core::recti(core::position2di(film.cropOffsetX, film.cropOffsetY), core::position2di(film.cropWidth, film.cropHeight));
+
+		auto extent = sceneBound.getExtent();
+		moveSpeed = core::min(extent.X, extent.Y, extent.Z) * 0.001f;
+
+		// need to extract individual components
+		{
+			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
+
+			const auto pos = relativeTransform.getTranslation();
+			cameraPosition = pos;
+
+			auto tpose = core::transpose(sensor.transform.matrix);
+			auto up = tpose.rows[1];
+			core::vectorSIMDf view = tpose.rows[2];
+			auto target = view + pos;
+
+			lookAt = target;
+
+			// TODO
+			//if (core::dot(core::normalize(core::cross(camera->getUpVector(), view)), core::cross(up, view)).x < 0.99f)
+			//	camera->setUpVector(up);
+		}
+
+		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
+		switch (sensor.type)
+		{
+		case ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE:
+			persp = &sensor.perspective;
+			break;
+		case ext::MitsubaLoader::CElementSensor::Type::THINLENS:
+			persp = &sensor.thinlens;
+			break;
+		default:
+			assert(false);
+			break;
+		}
+		float realFoVDegrees;
+		auto width = viewport.getWidth();
+		auto height = viewport.getHeight();
+		float aspectRatio = float(width) / float(height);
+		auto convertFromXFoV = [=](float fov) -> float
+		{
+			float aspectX = tan(core::radians(fov) * 0.5f);
+			return core::degrees(atan(aspectX / aspectRatio) * 2.f);
+		};
+		switch (persp->fovAxis)
+		{
+		case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::X:
+			realFoVDegrees = convertFromXFoV(persp->fov);
+			break;
+		case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::Y:
+			realFoVDegrees = persp->fov;
+			break;
+		case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::DIAGONAL:
+		{
+			float aspectDiag = tan(core::radians(persp->fov) * 0.5f);
+			float aspectY = aspectDiag / core::sqrt(1.f + aspectRatio * aspectRatio);
+			realFoVDegrees = core::degrees(atan(aspectY) * 2.f);
+		}
+		break;
+		case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::SMALLER:
+			if (width < height)
+				realFoVDegrees = convertFromXFoV(persp->fov);
+			else
+				realFoVDegrees = persp->fov;
+			break;
+		case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::LARGER:
+			if (width < height)
+				realFoVDegrees = persp->fov;
+			else
+				realFoVDegrees = convertFromXFoV(persp->fov);
+			break;
+		default:
+			realFoVDegrees = NAN;
+			assert(false);
+			break;
+		}
+		if (leftHandedCamera)
+			projectionMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, persp->nearClip, persp->farClip);
+		else
+			projectionMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, persp->nearClip, persp->farClip);
+	}
+
+	Camera camera = Camera(cameraPosition, lookAt, projectionMatrix, moveSpeed, 1.f);
+
 	// setup
 
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
-	core::vectorSIMDf cameraPosition(0, 5, -10);
-	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
-	Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
 	auto lastTime = std::chrono::system_clock::now();
 
 	constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
