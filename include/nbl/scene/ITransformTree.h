@@ -110,12 +110,14 @@ class ITransformTree : public virtual core::IReferenceCounted
 				auto createShader = [&system, &device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 				{
 					auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
-					auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::buffer_contains_glsl_t{});
-					return device->createGPUSpecializedShader(cpushader.get(), {nullptr, nullptr, "main", type});
+					auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::buffer_contains_glsl_t{});
+					auto gpuShader = device->createGPUShader(std::move(cpuShader));
+
+					return device->createGPUSpecializedShader(gpuShader.get(), {nullptr, nullptr, "main", type});
 				};
 
-				auto gpuDebugVertexShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debugDrawNodeLine.vert")());
-				auto gpuDebugFragmentShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debugDraw.frag")());
+				auto gpuDebugVertexShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw_node_line.vert")(), asset::ISpecializedShader::ESS_VERTEX);
+				auto gpuDebugFragmentShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw.frag")(), asset::ISpecializedShader::ESS_FRAGMENT);
 
 				if (!gpuDebugVertexShader && !gpuDebugFragmentShader)
 					return nullptr;
@@ -129,8 +131,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].format = asset::EF_R32_UINT;
 				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].relativeOffset = 0u;
 
-				vertexInputParams.enabledBindingFlags |= 0x1u << GLOBAL_NODE_ID_BINDING;
-				vertexInputParams.enabledAttribFlags |= 0x1u << GLOBAL_NODE_ID_ATTRIBUTE;
+				vertexInputParams.enabledBindingFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_BINDING;
+				vertexInputParams.enabledAttribFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_ATTRIBUTE;
 
 				asset::SBlendParams blendParams;
 				asset::SPrimitiveAssemblyParams primitiveAssemblyParams;
@@ -259,7 +261,9 @@ class ITransformTree : public virtual core::IReferenceCounted
 				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(localGPUMemoryReqs, true));
 
 				std::vector<node_t> debugLiveAllocationsData(m_debugLiveAllocations.size());
-				std::copy_n(m_debugLiveAllocations.begin(), m_debugLiveAllocations.end(), debugLiveAllocationsData.data());
+
+				for (auto it = m_debugLiveAllocations.begin(); it != m_debugLiveAllocations.end(); )
+					debugLiveAllocationsData.push_back(std::move(m_debugLiveAllocations.extract(it++).value()));
 
 				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), debugLiveAllocationsData.data());
 			}

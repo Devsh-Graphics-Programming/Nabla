@@ -203,7 +203,7 @@ int main()
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
 	constexpr bool TRANSFORM_TREE_DEBUG_DRAW = true; // maybe it should be templated?
-	auto tt = scene::ITransformTree::create(device.get(), TRANSFORM_TREE_DEBUG_DRAW, propBufs, ObjectCount, true);
+	auto tt = scene::ITransformTree::create(device.get(), TRANSFORM_TREE_DEBUG_DRAW, renderpass, propBufs, ObjectCount, true);
 	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
