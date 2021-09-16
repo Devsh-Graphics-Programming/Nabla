@@ -37,9 +37,8 @@ namespace nbl::video
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
 public:
-    CVulkanLogicalDevice(IPhysicalDevice* physicalDevice, VkDevice vkdev,
-        const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& sys)
-        : ILogicalDevice(physicalDevice, params), m_vkdev(vkdev), m_devf(vkdev)
+    CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, VkDevice vkdev, const SCreationParams& params)
+        : ILogicalDevice(std::move(api),physicalDevice,params), m_vkdev(vkdev), m_devf(vkdev)
     {
         // create actual queue objects
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
