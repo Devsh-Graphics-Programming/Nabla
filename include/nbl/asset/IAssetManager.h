@@ -125,8 +125,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
     public:
         //! Constructor
-        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s) :
+        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s, core::smart_refctd_ptr<IGLSLCompiler>&& _c) :
             m_system(std::move(_s)),
+            m_glslCompiler(std::move(_c)),
             m_defaultLoaderOverride(this)
         {
             initializeMeshTools();
