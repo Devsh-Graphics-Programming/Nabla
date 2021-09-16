@@ -153,10 +153,9 @@ class ITransformTree : public virtual core::IReferenceCounted
 					descriptorSetLayout = device->createGPUDescriptorSetLayout(sBindings, sBindings + 2);
 				}
 
-				constexpr size_t DEBUG_LINE_PS_SIZE = sizeof(core::matrix4SIMD) + sizeof(core::vector4df_SIMD);
 				asset::SPushConstantRange pcRange;
 				pcRange.offset = 0u;
-				pcRange.size = DEBUG_LINE_PS_SIZE;
+				pcRange.size = sizeof(DebugPushConstants);
 				pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
 
 				auto gpuPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(descriptorSetLayout));
@@ -182,7 +181,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			return transformTree;
 		}
 
-		inline void setDebugLiveAllocations(const core::unordered_set<node_t>&& nodes)
+		inline void setDebugLiveAllocations(const core::unordered_set<node_t>& nodes)
 		{
 			m_debugLiveAllocations = nodes;
 		}
@@ -253,20 +252,22 @@ class ITransformTree : public virtual core::IReferenceCounted
 				return;
 
 			if (m_debugLiveAllocationsGpuBuffer)
-				if (m_debugLiveAllocationsGpuBuffer->getSize() == 0 || m_debugLiveAllocationsGpuBuffer->getSize() != m_debugLiveAllocations.size() * sizeof(node_t))
+			{
+				if (!m_debugLiveAllocationsGpuBuffer->getSize() || m_debugLiveAllocationsGpuBuffer->getSize() != m_debugLiveAllocations.size() * sizeof(node_t))
 					return;
+			}
 			else
 			{
+				if (!m_debugLiveAllocations.size())
+					return;
+
 				auto localGPUMemoryReqs = device->getDeviceLocalGPUMemoryReqs();
 				localGPUMemoryReqs.vulkanReqs.size = m_debugLiveAllocations.size() * sizeof(node_t);
 				localGPUMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
 				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(localGPUMemoryReqs, true));
 
-				std::vector<node_t> debugLiveAllocationsData(m_debugLiveAllocations.size());
-
-				for (auto it = m_debugLiveAllocations.begin(); it != m_debugLiveAllocations.end(); )
-					debugLiveAllocationsData.push_back(std::move(m_debugLiveAllocations.extract(it++).value()));
-
+				std::vector<node_t> debugLiveAllocationsData;
+				std::for_each(m_debugLiveAllocations.begin(), m_debugLiveAllocations.end(), [&debugLiveAllocationsData](const node_t& node) { debugLiveAllocationsData.emplace_back(node); });
 				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), debugLiveAllocationsData.data());
 			}
 

@@ -617,6 +617,15 @@ int main()
 		bufrng.offset = 0;
 		bufrng.size = nodeIdsBuf->getSize();
 		utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
+
+		#ifdef TRANSFORM_TREE_DEBUG_DRAW
+		core::unordered_set<scene::ITransformTree::node_t> liveNodes;
+
+		for (const auto& solarSystemObject : solarSystemObjectsData)
+			liveNodes.insert(solarSystemObject.node);
+
+		tt->setDebugLiveAllocations(liveNodes);
+		#endif // TRANSFORM_TREE_DEBUG_DRAW
 	}
 
 	#ifdef TRANSFORM_TREE_DEBUG_DRAW
@@ -835,7 +844,6 @@ int main()
 			}
 		}
 
-		// debug
 		#ifdef TRANSFORM_TREE_DEBUG_DRAW
 		{
 			debugPushConstants.viewProjectionMatrix = viewProj;
