@@ -43,6 +43,8 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
         }
 
+        void setObjectDebugName(const char* label) const override;
+
         //!
         inline const GLuint& getOpenGLName() const {return BufferName;}
 

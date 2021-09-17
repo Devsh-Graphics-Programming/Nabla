@@ -51,7 +51,9 @@ class COpenGL_Queue final : public IGPUQueue
         {
             ERT_SUBMIT,
             ERT_DESTROY_FRAMEBUFFER,
-            ERT_DESTROY_PIPELINE
+            ERT_DESTROY_PIPELINE,
+            ERT_BEGIN_CAPTURE,
+            ERT_END_CAPTURE
         };
         template <E_REQUEST_TYPE ERT>
         struct SRequestParamsBase
@@ -78,11 +80,19 @@ class COpenGL_Queue final : public IGPUQueue
         {
             SOpenGLState::SGraphicsPipelineHash hash;
         };
+        using SRequestParams_BeginCapture = SRequestParamsBase<ERT_BEGIN_CAPTURE>;
+        using SRequestParams_EndCapture = SRequestParamsBase<ERT_END_CAPTURE>;
         struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t 
         {
             E_REQUEST_TYPE type;
 
-            std::variant<SRequestParams_Submit, SRequestParams_DestroyFramebuffer, SRequestParams_DestroyPipeline> params;
+            std::variant<
+                SRequestParams_Submit, 
+                SRequestParams_DestroyFramebuffer, 
+                SRequestParams_DestroyPipeline,
+                SRequestParams_BeginCapture,
+                SRequestParams_EndCapture
+            > params;
         };
 
         struct CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>
@@ -244,6 +254,12 @@ class COpenGL_Queue final : public IGPUQueue
                     auto hash = p.hash;
                     _state.ctxlocal.removePipelineEntry(&gl, hash);
                 }
+                break;
+                case ERT_BEGIN_CAPTURE:
+                    //TODO
+                break;
+                case ERT_END_CAPTURE:
+                    //TODO
                 break;
                 }
             }

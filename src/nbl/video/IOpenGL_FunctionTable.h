@@ -565,6 +565,10 @@ namespace nbl {
 
 			virtual void extGlPolygonMode(GLenum face, GLenum mode) = 0;
 
+			virtual void extGlObjectLabel(GLenum identifier, GLuint name, GLsizei length, const char* label) = 0;
+
+			virtual void extGlGetObjectLabel(GLenum identifier, GLuint name, GLsizei bufsize, GLsizei* length, GLchar* label) = 0;
+
 
 			const COpenGLFeatureMap* getFeatures() const { return features; }
 

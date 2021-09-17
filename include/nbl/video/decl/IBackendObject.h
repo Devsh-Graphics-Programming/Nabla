@@ -25,13 +25,17 @@ class IBackendObject
         const ILogicalDevice* getOriginDevice() const;
 
         // to get useful debug messages and names in Renderdoc captures
-        virtual void setDebugName(const char* label) {} //=0;
+        virtual void setObjectDebugName(const char* label) const { m_debugName = label; }
+
+        const std::string& getObjectDebugName() const { return m_debugName; }
 
     protected:
         virtual ~IBackendObject();
 
     private:
         const core::smart_refctd_ptr<const ILogicalDevice> m_originDevice;
+
+        mutable std::string m_debugName;
 };
 
 }

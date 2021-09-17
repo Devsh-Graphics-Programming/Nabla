@@ -63,6 +63,9 @@ class IOpenGLPipeline : IOpenGLPipelineBase
             m_device(_dev),
             m_GLprograms(core::make_refctd_dynamic_array<decltype(m_GLprograms)>(_ctxCount*_STAGE_COUNT))
         {
+            GLchar dbgname_buf[256];
+            GLsizei dbgname_len = 0;
+
             for (uint32_t i = 0u; i < _STAGE_COUNT; ++i)
                 (*m_GLprograms)[i].GLname = _GLnames[i];
             std::fill_n(m_GLprograms->begin()+_STAGE_COUNT,(_ctxCount-1u)*_STAGE_COUNT,SShaderProgram{});
@@ -72,6 +75,7 @@ class IOpenGLPipeline : IOpenGLPipelineBase
                     const auto& bin = _binaries[j];
                     if (!bin.binary)
                         continue;
+
                     GLuint GLname = 0u;
                     if (!gl->getFeatures()->runningInRenderDoc)
                     {
@@ -85,6 +89,14 @@ class IOpenGLPipeline : IOpenGLPipelineBase
                         const char* glsl = reinterpret_cast<char*>(bin.binary->data());
                         GLname = gl->glShader.pglCreateShaderProgramv(IsComputePipelineBase ? GL_COMPUTE_SHADER : GraphicsPipelineStages[j], 1u, &glsl);
                     }
+
+                    {
+                        const GLuint name_created_by_device = (*m_GLprograms)[j];
+                        gl->extGlGetObjectLabel(GL_PROGRAM, name_created_by_device, sizeof(dbgname_buf), &dbgname_len, dbgname_buf);
+                        if (dbgname_len)
+                            gl->extGlObjectLabel(GL_PROGRAM, GLname, dbgname_len, dbgname_buf);
+                    }
+
                     (*m_GLprograms)[i*_STAGE_COUNT+j].GLname = GLname;
                 }
 

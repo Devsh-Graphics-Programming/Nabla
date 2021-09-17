@@ -8,10 +8,10 @@
 namespace nbl::video
 {
 
-void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline, uint32_t ctxid)
+void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* _pipeline, uint32_t ctxid)
 {
-    nextState.pipeline.graphics.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
-        static_cast<const COpenGLRenderpassIndependentPipeline*>(_pipeline)
+    nextState.pipeline.graphics.pipeline = core::smart_refctd_ptr<const IGPUGraphicsPipeline>(
+        _pipeline
         );
     if (!_pipeline)
     {
@@ -20,10 +20,12 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPURende
         nextState.pipeline.graphics.usedShadersHash = hash;
         return;
     }
-    SOpenGLState::SGraphicsPipelineHash hash = nextState.pipeline.graphics.pipeline->getPipelineHash(ctxid);
+
+    const auto* ppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(nextState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
+
+    SOpenGLState::SGraphicsPipelineHash hash = ppln->getPipelineHash(ctxid);
     nextState.pipeline.graphics.usedShadersHash = hash;
 
-    const auto& ppln = nextState.pipeline.graphics.pipeline;
 
     const auto& raster_src = ppln->getRasterizationParams();
     auto& raster_dst = nextState.rasterParams;
@@ -282,6 +284,14 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             }
 
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
+
+            if (currentState.pipeline.graphics.pipeline->getObjectDebugName().size())
+            {
+                const GLuint glname = currentState.pipeline.graphics.usedPipeline;
+                const auto& dbgnm = currentState.pipeline.graphics.pipeline->getObjectDebugName();
+
+                gl->extGlObjectLabel(GL_PROGRAM_PIPELINE, glname, dbgnm.size(), dbgnm.c_str());
+            }
         }
     }
     
@@ -574,7 +584,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
     }
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
+        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getLayout());
         flushState_descriptors(gl, asset::EPBP_GRAPHICS, currLayout);
     }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
@@ -604,6 +614,13 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             }
 
             GLuint vao = currentState.vertexInputParams.vaoval.GLname;
+
+            if (currentState.pipeline.graphics.pipeline->getObjectDebugName().size())
+            {
+                const auto& dbgnm = currentState.pipeline.graphics.pipeline->getObjectDebugName();
+                gl->extGlObjectLabel(GL_VERTEX_ARRAY, vao, dbgnm.size(), dbgnm.c_str());
+            }
+
             gl->glVertex.pglBindVertexArray(vao);
 
             bool updatedBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT]{};
@@ -681,8 +698,9 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
     }
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
     {
+        const auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
         //pipeline must be flushed before push constants so taking pipeline from currentState
-        currentState.pipeline.graphics.pipeline->setUniformsImitatingPushConstants(gl, ctxid, pushConstantsStateGraphics);
+        glppln->setUniformsImitatingPushConstants(gl, ctxid, pushConstantsStateGraphics);
     }
     if (stateBits & GSB_PIXEL_PACK_UNPACK)
     {
