@@ -83,12 +83,12 @@ using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative>;
 // TODO: conditional defines
 #ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
+using CSurfaceNativeGLWin32 = CSurfaceNativeGL<ui::IWindowWin32>;
 #elif defined(_NBL_PLATFORM_LINUX_)
 using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
 #elif defined(_NBL_PLATFORM_ANDROID_)
 using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 #endif
-using CSurfaceNativeGLWin32 = CSurfaceNativeGL<ui::IWindowWin32>;
 
 //using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 //using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;

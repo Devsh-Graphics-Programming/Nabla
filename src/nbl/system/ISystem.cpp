@@ -20,12 +20,12 @@ namespace nbl::system
     }
     core::smart_refctd_ptr<IFile> ISystem::getFileFromArchive(const system::path& _path)
     {
-        system::path path = std::filesystem::exists(_path) ? std::filesystem::canonical(_path.parent_path()).generic_string() : _path.parent_path();
+        system::path path = std::filesystem::exists(_path) ? system::path(std::filesystem::canonical(_path.parent_path()).generic_string()) : _path.parent_path();
 
         
         while (!path.empty() && path.parent_path() != path) // going up the directory tree
         {
-            system::path realPath = std::filesystem::exists(path) ? std::filesystem::canonical(path).generic_string() : path;
+            system::path realPath = std::filesystem::exists(path) ? system::path(std::filesystem::canonical(path).generic_string()) : path;
             
             auto a = m_cachedPathAliases.findRange(path);
             if (!a.empty())

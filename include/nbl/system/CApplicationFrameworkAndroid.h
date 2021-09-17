@@ -31,7 +31,7 @@ namespace nbl::system
         {
             return onFocusLost_impl(params);
         }
-        virtual void draw(android_app* params) = 0;
+        virtual void workLoopBody(android_app* params) = 0;
     protected:
         virtual void onStateSaved_impl(android_app* params) {}
         virtual void onWindowInitialized_impl(android_app* params) {}
@@ -151,7 +151,7 @@ namespace nbl::system
         }\
     }\
     \
-    framework->draw(app);\
+    framework->workLoopBody(app);\
     }\
 }
 #endif
