@@ -15,7 +15,8 @@ class CSystemCallerWin32 final : public ISystemCaller
     public:
         core::smart_refctd_ptr<IFile> createFile_impl(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, std::underlying_type_t<IFile::E_CREATE_FLAGS> flags) override final
         {
-            return core::make_smart_refctd_ptr<CFileWin32>(std::move(sys), filename, flags);
+            auto f = core::make_smart_refctd_ptr<CFileWin32>(std::move(sys), filename, flags);
+            return f->isOpenedProperly() ? f : nullptr;
         }
 };
 

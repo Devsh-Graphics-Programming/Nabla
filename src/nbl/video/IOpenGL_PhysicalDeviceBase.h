@@ -101,7 +101,7 @@ protected:
 		res.major = 0;
 		res.minor = 0;
 
-#if 1
+#if 0
 		EGLConfig cfgs[1024];
 		EGLint cfgs_count;
 		_egl->call.peglGetConfigs(_egl->display, cfgs, 1024, &cfgs_count);
@@ -341,10 +341,13 @@ public:
 		if constexpr (!IsGLES)
 		{
 			GetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
-			m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
 		}
-		else
-			m_glfeatures.MaxUserClipPlanes = 0; // TODO: Clip planes on OpenGL ES!
+		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance)) // ES
+		{
+				GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &num);
+		}
+		m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
+
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
@@ -369,6 +372,8 @@ public:
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
 			m_features.vertexAttributeDouble = !IsGLES;
+			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
+			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 
 			// TODO: handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
@@ -393,6 +398,9 @@ public:
 
 		// physical device limits
 		{
+			// GL doesnt have any limit on this (???)
+			m_limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_limits.maxDrawIndirectCount)>::max();
+
 			m_limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
 			m_limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
 			m_limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
@@ -401,6 +409,8 @@ public:
 			m_limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
 			m_limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
 			m_limits.maxBufferSize = std::max(m_limits.maxUBOSize, m_limits.maxSSBOSize);
+
+			m_limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
 
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);

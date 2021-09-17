@@ -155,7 +155,7 @@ bool nbl_glsl_subgroupElect()
 	#ifdef NBL_GL_KHR_shader_subgroup_basic_subgroup_elect
 	return subgroupElect();
 	#else
-	// TODO: do a bunch of `atomicXor` on a shared memory address
+	// TODO: do a bunch of `atomicXor` on a shared memory address OR do a ballotARB?
 	atomicXor(ADDRESS,nbl_glsl_SubgroupEqMask);
 	memoryBarrierShared();
 	return (ADDRESS&nbl_glsl_SubgroupLeMask)==nbl_glsl_SubgroupEqMask;

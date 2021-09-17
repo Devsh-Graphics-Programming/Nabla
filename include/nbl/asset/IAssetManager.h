@@ -320,15 +320,16 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
 
             
-            std::string filePath = _params.workingDirectory.string() + _filePath;
+            std::string filePath = (_params.workingDirectory / _filePath).generic_string();
 
             IAssetLoader::SAssetLoadParams params(_params);
             bool not_exist = !std::filesystem::exists(filePath);
-            if (not_exist && !m_system->isArchiveAlias(_params.workingDirectory))
+
+            /*if (not_exist && !m_system->isArchiveAlias(_params.workingDirectory))
             {
                 filePath = _filePath;
                 params.workingDirectory = system::path(_filePath).parent_path().string() + "/";
-            }
+            }*/
             _override->getLoadFilename(filePath, ctx, _hierarchyLevel);
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;

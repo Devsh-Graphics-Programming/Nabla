@@ -21,13 +21,13 @@ class IGPUQueue : public core::Interface, public core::Unmovable
 
         struct SSubmitInfo
         {
-            uint32_t waitSemaphoreCount;
-            IGPUSemaphore*const * pWaitSemaphores;
-            const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask;
-            uint32_t signalSemaphoreCount;
-            IGPUSemaphore*const * pSignalSemaphores;
-            uint32_t commandBufferCount;
-            IGPUCommandBuffer*const * commandBuffers;
+            uint32_t waitSemaphoreCount = 0u;
+            IGPUSemaphore*const * pWaitSemaphores = nullptr;
+            const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask = nullptr;
+            uint32_t signalSemaphoreCount = 0u;
+            IGPUSemaphore*const * pSignalSemaphores = nullptr;
+            uint32_t commandBufferCount = 0u;
+            IGPUCommandBuffer*const * commandBuffers = nullptr;
         };
         struct SPresentInfo
         {
@@ -45,10 +45,17 @@ class IGPUQueue : public core::Interface, public core::Unmovable
 
         }
 
-        virtual inline bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
+        // for renderdoc and friends
+        virtual bool startCapture() {}// = 0;
+        virtual bool endCapture() {}// = 0;
 
+        //
+        virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
+
+        //
         virtual bool present(const SPresentInfo& info) = 0;
 
+        // getters
         float getPriority() const { return m_priority; }
         uint32_t getFamilyIndex() const { return m_familyIndex; }
         E_CREATE_FLAGS getFlags() const { return m_flags; }

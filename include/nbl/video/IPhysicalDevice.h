@@ -32,6 +32,8 @@ public:
         uint32_t maxBufferViewSizeTexels;
         uint32_t maxBufferSize;
 
+        uint32_t maxImageArrayLayers;
+
         uint32_t maxPerStageSSBOs;
         //uint32_t maxPerStageUBOs;
         //uint32_t maxPerStageTextures;
@@ -41,6 +43,8 @@ public:
         uint32_t maxUBOs;
         uint32_t maxTextures;
         uint32_t maxStorageImages;
+
+        uint32_t maxDrawIndirectCount;
 
         float pointSizeRange[2];
         float lineWidthRange[2];
@@ -59,7 +63,6 @@ public:
         bool robustBufferAccess = false;
         bool imageCubeArray = false;
         bool logicOp = false;
-        bool multiDrawIndirect = false;
         bool multiViewport = false;
         bool vertexAttributeDouble = false;
         bool dispatchBase = false;
@@ -74,6 +77,8 @@ public:
         // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
+        bool multiDrawIndirect = false;
+        bool drawIndirectCount = false;
     };
 
     enum E_QUEUE_FLAGS : uint32_t

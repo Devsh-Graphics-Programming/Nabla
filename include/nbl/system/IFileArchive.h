@@ -123,6 +123,7 @@ public:
 	struct SOpenFileParams
 	{
 		std::filesystem::path filename;
+		std::filesystem::path absolutePath;
 		std::string_view password;
 	};
 

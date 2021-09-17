@@ -93,8 +93,6 @@ public:
 		, glTextureBufferRangeEXT
 		, glTextureStorage2DMultisampleEXT
 		, glTextureStorage3DMultisampleEXT
-		, glGetTextureSubImage
-		, glGetCompressedTextureSubImage
 		, glGetTextureImage
 		, glGetTextureImageEXT
 		, glGetCompressedTextureImage
@@ -1333,15 +1331,7 @@ public:
 			glTexture.pglBindTexture(target, bound);
 		}
 	}
-	void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels) override
-	{
-		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image])
-			gl4Texture.pglGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
-#ifdef _NBL_DEBUG
-		else
-			m_logger.log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", system::ILogger::ELL_ERROR);
-#endif // _NBL_DEBUG
-	}
+
 	void extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
 	{
 		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
@@ -1764,10 +1754,36 @@ public:
 	{
 		gl4Drawing.pglMultiDrawArraysIndirect(mode, indirect, drawcount, stride);
 	}
-
 	void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) override
 	{
 		gl4Drawing.pglMultiDrawElementsIndirect(mode, type, indirect, drawcount, stride);
+	}
+
+	void extGlMultiDrawArraysIndirectCount(GLenum mode, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		if (features->Version>=460)
+			gl4Drawing.pglMultiDrawArraysIndirectCount(mode, indirect, drawcount, maxdrawcount, stride);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters))
+			gl4Drawing.pglMultiDrawArraysIndirectCountARB(mode, indirect, drawcount, maxdrawcount, stride);
+#ifdef _NBL_DEBUG
+		else
+		{
+			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
+		}
+#endif
+	}
+	void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		if (features->Version>=460)
+			gl4Drawing.pglMultiDrawElementsIndirectCount(mode, type, indirect, drawcount, maxdrawcount, stride);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters))
+			gl4Drawing.pglMultiDrawElementsIndirectCountARB(mode, type, indirect, drawcount, maxdrawcount, stride);
+#ifdef _NBL_DEBUG
+		else
+		{
+			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
+		}
+#endif
 	}
 
 	void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) override

@@ -129,17 +129,15 @@ class ITransformTree : public virtual core::IReferenceCounted
 			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u))
 		{
 			video::CPropertyPoolHandler::TransferRequest request;
-			request.pool = m_nodeStorage.get();
+			request.setFromPool(m_nodeStorage.get(),global_transform_prop_ix);
 			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.propertyID = global_transform_prop_ix;
-			request.elementCount = nodesEnd-nodesBegin;
+			request.elementCount = nodesEnd - nodesBegin;
 			request.srcAddresses = nodesBegin;
 			request.dstAddresses = nullptr;
 			request.buffer = dest;
 			request.offset = destOffset;
-			//request.download = true; // @devshgraphicsprogramming this line doesn't compile
 
-			return pphandler->transferProperties(upIndexBuff,nullptr,cmdbuf,fence,&request,&request+1u,logger,maxWaitPoint).transferSuccess;
+			return pphandler->transferProperties(upIndexBuff, nullptr, cmdbuf, fence, &request, &request + 1u, logger, maxWaitPoint).transferSuccess;
 		}
 
 		//
@@ -149,9 +147,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u))
 		{
 			video::CPropertyPoolHandler::TransferRequest request;
-			request.pool = m_nodeStorage.get();
+			request.setFromPool(m_nodeStorage.get(),global_transform_prop_ix);
 			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.propertyID = global_transform_prop_ix;
 			request.elementCount = nodesEnd-nodesBegin;
 			request.srcAddresses = nodesBegin;
 			request.dstAddresses = nullptr;

@@ -16,7 +16,7 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./shaderc)
 	update_git_submodule(./bzip2)
 	update_git_submodule(./lz4)
-	update_git_submodule(./spirv_cross)
+	update_git_submodule(./nbl_spirv_cross)
 	update_git_submodule(./zlib)
 	update_git_submodule(./openexr)
 	update_git_submodule(./utfcpp)
@@ -525,7 +525,7 @@ set(NBL_3RDPARTY_TARGETS
 				MachineIndependent
 				GenericCodeGen
 				SPIRV 
-				SPIRV-Tools
+				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
 				egl 
 )

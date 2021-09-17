@@ -106,8 +106,13 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				for (uint32_t i=0; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
-					const auto propSize = request.pool->getPropertySize(request.propertyID);
-					const auto elementsByteSize = request.elementCount*propSize;
+					if (request.elementSize%sizeof(uint32_t))
+					{
+						logger.log("CPropertyPoolHandler::TransferRequest::elementSize (was %d) must be aligned to 4 bytes!",system::ILogger::ELL_ERROR,request.elementSize);
+						assert(false);
+						return false;
+					}
+					const auto elementsByteSize = request.elementCount*request.elementSize;
 					maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
 					//
 					if (!request.device2device)
@@ -115,7 +120,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 						if (request.isDownload())
 							*(downSizesIt++) = elementsByteSize;
 						else
-							*(upSizesIt++) = request.getSourceElementCount()*propSize;
+							*(upSizesIt++) = request.getSourceElementCount()*request.elementSize;
 					}
 					//
 					if (request.srcAddresses)
@@ -174,6 +179,8 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				}
 			});
 			{
+				for (auto i=0u; i<upAllocations; i++)
+					m_tmpSizes[i] = core::roundUp(m_tmpSizes[i],m_alignments[i]);
 				// TODO: handle overflow (chunk the updates with `max_size()` on the upload and download allocators)
 				const auto unallocatedBytes = upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses,m_tmpSizes,m_alignments);
 				if (!(retval=unallocatedBytes==0u))
@@ -209,7 +216,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					const auto& request = localRequests[i];
 
 					auto& transfer = reinterpret_cast<nbl_glsl_property_pool_transfer_t*>(addressBufferPtr)[i];
-					transfer.propertyDWORDsize_flags = request.pool->getPropertySize(request.propertyID)/sizeof(uint32_t);
+					transfer.propertyDWORDsize_flags = request.elementSize/sizeof(uint32_t);
 					transfer.propertyDWORDsize_flags |= uint32_t(request.flags)<<(32-TransferRequest::EF_BIT_COUNT);
 					transfer.elementCount = request.elementCount;
 					//
@@ -241,8 +248,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					(flushRangesIt++)->range = {addr,*(upSizesIt++)};
 
 					assert(addr!=invalid_address);
-					const size_t propSize = request.pool->getPropertySize(request.propertyID);
-					memcpy(upBuffPtr+addr,request.source,request.getSourceElementCount()*propSize);
+					memcpy(upBuffPtr+addr,request.source,request.getSourceElementCount()*request.elementSize);
 				}
 
 				// flush if needed
@@ -252,6 +258,8 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 
 				if (downAllocations)
 				{
+					for (auto i=0u; i<downAllocations; i++)
+						downSizes[i] = core::roundUp(downSizes[i],m_alignments[i]);
 					const auto unallocatedBytes = downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments);
 					if (!(retval=unallocatedBytes==0u))
 					{
@@ -377,14 +385,13 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	{
 		const auto& request = requests[i];
 			
-		const auto* pool = request.pool;
-		const auto& propMemBlock = pool->getPropertyMemoryBlock(request.propertyID);
-		const uint32_t transferPropertySize = request.elementCount*pool->getPropertySize(request.propertyID);
+		const auto& memblock = request.memblock;
+		const uint32_t transferPropertySize = request.elementCount*request.elementSize;
 
 		if (request.isDownload())
 		{
-			inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
-			inDescInfo[i].buffer = {propMemBlock.offset,propMemBlock.size};
+			inDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(memblock.buffer);
+			inDescInfo[i].buffer = {memblock.offset,memblock.size};
 
 			if (request.device2device)
 			{
@@ -410,8 +417,8 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 				inDescInfo[i].buffer = { *(uploadAddresses++),transferPropertySize };
 			}
 					
-			outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(propMemBlock.buffer);
-			outDescInfo[i].buffer = {propMemBlock.offset,propMemBlock.size};
+			outDescInfo[i].desc = core::smart_refctd_ptr<asset::IDescriptor>(memblock.buffer);
+			outDescInfo[i].buffer = {memblock.offset,memblock.size};
 		}
 	}
 	IGPUDescriptorSet::SWriteDescriptorSet writes[3u];

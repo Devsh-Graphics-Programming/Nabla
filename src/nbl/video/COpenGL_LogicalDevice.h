@@ -28,7 +28,7 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 
         req_params_t params;
         params.count = count;
-        std::copy(names, names + count, params.glnames);
+        std::copy_n(names,count,params.glnames);
 
         auto& req = m_threadHandler.request(std::move(params));
         // dont need to wait on this
@@ -96,8 +96,22 @@ public:
                 );
             }
         }
+        // wait for all queues to start before we set out master context
+        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+        {
+            const auto& qci = params.queueCreateInfos[i];
+            const uint32_t famIx = qci.familyIndex;
+            const uint32_t offset = (*m_offsets)[famIx];
+            for (uint32_t j = 0u; j < params.queueCreateInfos[i].count; ++j)
+            {
+                const uint32_t ix = offset + j;
+                // wait until queue's internal thread finish context creation
+                static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->waitForInitComplete();
+            }
+        }
 
         m_threadHandler.start();
+        m_threadHandler.waitForInitComplete();
 
         constexpr size_t GLSLcnt = std::extent<decltype(FeaturesType::m_GLSLExtensions)>::value;
         if (!m_supportedGLSLExtsNames)
@@ -300,10 +314,19 @@ public:
             assert(_fences[i]);
         }
 #endif
-        SRequestWaitForFences params{ {_fences,_fences + _count},_waitAll,_timeout };
+        auto tmp = SRequestWaitForFences::clock_t::now();
+        const auto end = tmp+std::chrono::nanoseconds(_timeout);
+        
+        // dont hog the queue, let other requests jump in every 50us (20000 device non-queue requests/second if something is polling)
+        constexpr uint64_t pollingQuanta = 50000u;
         IGPUFence::E_STATUS retval;
-        auto& req = m_threadHandler.request(std::move(params), &retval);
-        m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
+        do
+        {
+            tmp += std::chrono::nanoseconds(pollingQuanta);
+            SRequestWaitForFences params{ {_fences,_fences+_count},core::min(tmp,end),_waitAll };
+            auto& req = m_threadHandler.request(std::move(params),&retval);
+            m_threadHandler.template waitForRequestCompletion<SRequestWaitForFences>(req);
+        } while (retval==IGPUFence::ES_TIMEOUT && SRequestWaitForFences::clock_t::now()<end);
 
         return retval;
     }
@@ -327,7 +350,6 @@ public:
     {
         SRequestInvalidateMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
@@ -373,11 +395,11 @@ public:
         req_params.buf = core::smart_refctd_ptr<IDriverMemoryAllocation>(memory);
 
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.template waitForRequestCompletion<SRequestUnmapBuffer>(req);
 
         post_unmapMemory(memory);
     }
 
+    // TODO: remove from the engine, not thread safe (access to queues must be synchronized externally)
     void waitIdle() override
     {
         // TODO: I think glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
@@ -412,11 +434,22 @@ public:
     {
         destroyGlObjects<ERT_SAMPLER_DESTROY>(1u, &s);
     }
-    void destroySpecializedShader(uint32_t count, const GLuint* programs) override final
+    void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) override final
     {
-        auto& req = destroyGlObjects<ERT_PROGRAM_DESTROY>(count, programs);
-        // actually wait for this to complete because `programs` is most likely stack array or something owned exclusively by the object (which is being destroyed)
-        m_threadHandler.template waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
+        const auto count = programs->size();
+        assert(count<=MaxGlNamesForSingleObject);
+
+        SRequest_Destroy<ERT_PROGRAM_DESTROY> params;
+        params.count = 0u;
+        for (auto i=0u; i<count; i++)
+        {
+            const auto glname = programs->operator[](i).GLname;
+            if (glname)
+                params.glnames[params.count++] = glname;
+        }
+
+        auto& req = m_threadHandler.request(std::move(params));
+        // dont need to wait on this
     }
     void destroySync(GLsync sync) override final
     {
@@ -447,7 +480,12 @@ protected:
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
-            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), _level, _cmdPool, core::smart_refctd_ptr<system::ILogger>(getLogger().get()));
+            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(
+                core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),
+                _level, _cmdPool,
+                core::smart_refctd_ptr<system::ILogger>(getLogger().get()),
+                m_glfeatures
+            );
         return true;
     }
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override final
@@ -477,7 +515,7 @@ protected:
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
             std::string glsl(begin, end);
             COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
-            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str());
+            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str(), 4u, getLogger());
             //{
                 //auto fl = fopen("shader.glsl", "w");
                 //fwrite(glsl.c_str(), 1, glsl.size(), fl);
@@ -694,7 +732,7 @@ private:
 }
 
 
-#include "nbl/video/COpenGL_Queue.h"
+#include "nbl/video/COpenGL_Queue.h" 
 
 namespace nbl::video
 {

@@ -25,15 +25,15 @@ namespace nbl::video
 
 namespace impl
 {
-    // non-pointer iterator type is AssetBundleIterator<> (see IDriver.cpp)
-    template<typename iterator_type>
-    inline constexpr bool is_const_iterator_v =
-        (std::is_pointer_v<iterator_type> && is_pointer_to_const_object_v<iterator_type>) ||
-        (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
+// non-pointer iterator type is AssetBundleIterator<> (see IDriver.cpp)
+template<typename iterator_type>
+inline constexpr bool is_const_iterator_v =
+    (std::is_pointer_v<iterator_type> && is_pointer_to_const_object_v<iterator_type>) ||
+    (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
 
-    template<class AssetType>
-    struct AssetBundleIterator
-    {
+template<class AssetType>
+struct AssetBundleIterator
+{
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
 
@@ -76,7 +76,7 @@ namespace impl
 
     private:
         const core::smart_refctd_ptr<asset::IAsset>* ptr;
-    };
+};
 }
 
 
@@ -119,6 +119,24 @@ class IGPUObjectFromAssetConverter
             // @sadiuk put here more parameters if needed
 
             SPerQueue perQueue[EQU_COUNT];
+
+
+            //
+            inline void waitForCreationToComplete()
+            {
+                IGPUFence* fences[EQU_COUNT];
+                uint32_t count = 0;
+                for (auto i=0; i<EQU_COUNT; i++)
+                {
+                    auto pFence = perQueue[i].fence;
+                    if (pFence && pFence->get()) // user wanted, and something actually got submitted
+                        fences[count++] = pFence->get();
+                }
+                device->blockForFences(count,fences);
+                for (auto i=0; i<EQU_COUNT; i++)
+                if (perQueue[i].fence)
+                    perQueue[i].fence->operator=(nullptr);
+            }
         };
 
 	protected:
@@ -471,13 +489,18 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     cmdbuf->end();
     core::smart_refctd_ptr<IGPUSemaphore> sem;
     if (_params.perQueue[EQU_TRANSFER].semaphore)
+    {
         sem = _params.device->createSemaphore();
-    auto* sem_ptr = sem.get();
-    submit.signalSemaphoreCount = sem_ptr?1u:0u;
-    submit.pSignalSemaphores = sem_ptr?&sem_ptr:nullptr;
-    // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
-    auto* signalFence = _params.perQueue[EQU_TRANSFER].fence ? fence.get() : nullptr;
-    _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit, signalFence);
+        submit.signalSemaphoreCount = 1u;
+        submit.pSignalSemaphores = &sem.get();
+    }
+    else
+    {
+        submit.signalSemaphoreCount = 0u;
+        submit.pSignalSemaphores = nullptr;
+    }
+    // fence needs to be signalled because of the streaming buffer uploads need to be fenced
+    _params.perQueue[EQU_TRANSFER].queue->submit(1u,&submit,fence.get());
     if (_params.perQueue[EQU_TRANSFER].fence)
         _params.perQueue[EQU_TRANSFER].fence[0] = std::move(fence);
     if (_params.perQueue[EQU_TRANSFER].semaphore)
@@ -757,7 +780,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize());
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
-        if (!asset::isIntegerFormat(cpuimg->getCreationParameters().format))
+        const auto format = cpuimg->getCreationParameters().format;
+        if (!asset::isIntegerFormat(format) && !asset::isBlockCompressionFormat(format))
             needToGenMips = true;
     }
 
@@ -1036,7 +1060,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 cmdbuf_compute->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             }
 
-            // new fence for new batch
+            // new fence for new batch (TODO: investigate fence reset = but need to poll streaming buffer deferred frees)
             fence = _params.device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
         }
     };

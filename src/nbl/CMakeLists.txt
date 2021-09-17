@@ -269,20 +269,17 @@ set(NBL_VIDEO_SOURCES
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
-# Property Pools
-	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorSetCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IPropertyPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
+# Utilities
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/CPropertyPoolHandler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
 
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
-
-# Junk to refactor
-#${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
-#${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
@@ -364,6 +361,7 @@ set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
 	${THIRD_PARTY_SOURCE_DIR}/glm
+        ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
@@ -601,11 +599,12 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
 	   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
 	  add_dependencies(Nabla builtin_resources)
-elseif()
-	foreach(X IN LISTS nbl_resources_to_embed)
-		list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
-	endforeach()
 endif()
+
+#always install builtins (some may be included in cpp regardless if embedded or not)
+foreach(X IN LISTS nbl_resources_to_embed)
+	list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
+endforeach()
 
 
 # extensions
@@ -667,7 +666,7 @@ endif()
 nbl_install_lib(shaderc)
 nbl_install_lib(shaderc_util)
 nbl_install_lib(SPIRV)
-nbl_install_lib(SPIRV-Tools)
+nbl_install_lib(SPIRV-Tools-static)
 nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)

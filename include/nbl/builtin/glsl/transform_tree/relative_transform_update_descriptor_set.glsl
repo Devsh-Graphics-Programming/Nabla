@@ -20,7 +20,7 @@ layout(
     uint rangeCount;
     uint requestCount;
     nbl_glsl_transform_tree_modification_request_range_t data[];
-} relativeTransformModicicationRequestRanges;
+} relativeTransformModificationRequestRanges;
 #endif
 
 #include "nbl/builtin/glsl/transform_tree/relative_transform_modification.glsl"

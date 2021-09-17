@@ -1,0 +1,43 @@
+#version 460 core
+#extension GL_EXT_shader_16bit_storage : require
+
+#include <nbl/builtin/glsl/format/encode.glsl>
+#include <nbl/builtin/glsl/format/decode.glsl>
+
+layout(set = 0, binding = 0, std430) buffer buffer_rgb
+{
+	vec4 rgb[];
+};
+
+layout(set = 0, binding = 1, std430) buffer buffer_rgb_cpp_decoded
+{
+	vec4 rgb_cpp_decoded[];
+};
+
+layout(set = 0, binding = 2, std430) buffer buffer_rgb_glsl_decoded
+{
+	vec4 rgb_glsl_decoded[];
+};
+
+layout(set = 0, binding = 3, std430) buffer buffer_rgb_cpp_encoded
+{
+	uvec2 rgb_cpp_encoded[]; // uint64_t
+};
+
+layout(set = 0, binding = 4, std430) buffer buffer_rgb_glsl_encoded
+{
+	uvec2 rgb_glsl_encoded[]; // uint64_t
+};
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
+	
+	const vec3 reference = rgb[globalInvocationID].xyz;
+	rgb_glsl_encoded[globalInvocationID] = nbl_glsl_encodeRGB18E7S3(reference);
+
+	vec3 glsl_decoded = nbl_glsl_decodeRGB18E7S3(rgb_glsl_encoded[globalInvocationID]);
+	rgb_glsl_decoded[globalInvocationID].xyz = glsl_decoded;
+}

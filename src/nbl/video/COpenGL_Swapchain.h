@@ -169,7 +169,8 @@ private:
 
                 EGL_NONE
             };
-            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, *reinterpret_cast<const EGLNativeWindowType*>(_window), surface_attributes);
+
+            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, (EGLNativeWindowType)_window, surface_attributes);
             assert(surface != EGL_NO_SURFACE);
 
             base_t::start();
@@ -197,11 +198,6 @@ private:
             auto lk = base_t::createLock();
 
             return syncs[imgix];
-        }
-
-        void waitForInitComplete()
-        {
-            m_initComplete.wait(false);
         }
 
     protected:
@@ -261,8 +257,6 @@ private:
                 syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
                 syncs[i]->init(m_device, &gl, false);
             }
-            m_initComplete.test_and_set();
-            m_initComplete.notify_one();
         }
 
         void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)
@@ -323,8 +317,6 @@ private:
         } request;
 
         bool needToBlit = false;
-
-        std::atomic_flag m_initComplete;
 
         EGLBoolean m_makeCurrentRes = EGL_FALSE;
         std::condition_variable m_ctxCreatedCvar;

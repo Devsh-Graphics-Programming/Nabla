@@ -104,6 +104,10 @@ namespace impl
         {
             return !isDestroyRequest(rt) && (rt < ERT_GET_EVENT_STATUS);
         }
+        constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
+        {
+            return isDestroyRequest(rt) || rt==ERT_INVALIDATE_MAPPED_MEMORY_RANGES || rt==ERT_UNMAP_BUFFER;
+        }
 
         template <E_REQUEST_TYPE rt>
         struct SRequest_Destroy
@@ -217,9 +221,10 @@ namespace impl
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_FOR_FENCES;
             using retval_t = IGPUFence::E_STATUS;
+            using clock_t = std::chrono::steady_clock;
             core::SRange<IGPUFence*const,IGPUFence*const*,IGPUFence*const*> fences = { nullptr, nullptr };
+            clock_t::time_point timeoutPoint;
             bool waitForAll;
-            uint64_t timeout;
         };
         struct SRequestGetFenceStatus
         {
@@ -401,7 +406,7 @@ protected:
         // lock when overwriting the request
         void reset()
         {
-            if (isDestroyRequest(type))
+            if (isWaitlessRequest(type))
             {
                 uint32_t expected = ES_READY;
                 while (!state.compare_exchange_strong(expected,ES_RECORDING))
@@ -537,7 +542,6 @@ protected:
             case ERT_PROGRAM_DESTROY:
             {
                 auto& p = std::get<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req.params_variant);
-                assert(p.count == 1u);
                 gl.glShader.pglDeleteProgram(p.glnames[0]);
             }
                 break;
@@ -653,11 +657,8 @@ protected:
                 auto& p = std::get<SRequestWaitForFences>(req.params_variant);
                 uint32_t _count = p.fences.size();
                 IGPUFence*const *const _fences = p.fences.begin();
-                bool _waitAll = p.waitForAll;
-                uint64_t _timeout = p.timeout;
 
-                IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
-                retval[0] = waitForFences(gl, _count, _fences, _waitAll, _timeout);
+                *reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval) = waitForFences(gl, _count, _fences, p.waitForAll, p.timeoutPoint);
             }
                 break;
             case ERT_CTX_MAKE_CURRENT:
@@ -822,11 +823,9 @@ protected:
 
             return core::make_smart_refctd_ptr<COpenGLComputePipeline>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, core::smart_refctd_ptr<IGPUPipelineLayout>(layout.get()), core::smart_refctd_ptr<IGPUSpecializedShader>(glshdr.get()), getNameCountForSingleEngineObject(), 0u, GLname, binary);
         }
-        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, uint64_t _timeout)
+        IGPUFence::E_STATUS waitForFences(IOpenGL_FunctionTable& gl, uint32_t _count, IGPUFence*const *const _fences, bool _waitAll, const std::chrono::steady_clock::time_point& timeoutPoint)
         {
-            using clock_t = std::chrono::high_resolution_clock;
-            const auto start = clock_t::now();
-            const auto end = start+std::chrono::nanoseconds(_timeout);
+            const auto start = SRequestWaitForFences::clock_t::now();
             
             assert(_count!=0u);
 
@@ -839,17 +838,17 @@ protected:
                 _waitAll = true;
                 timeout = 0xdeadbeefBADC0FFEull;
             }
-            while (true)
+            for (bool notFirstRun=false; true; notFirstRun=true)
             {
                 for (uint32_t i=0u; i<_count; )
                 {
-                    const auto now = clock_t::now();
+                    const auto now = SRequestWaitForFences::clock_t::now();
                     if (timeout)
                     {
-                        if(now>=end)
+                        if(notFirstRun && now>=timeoutPoint)
                             return IGPUFence::ES_TIMEOUT;
                         else if (_waitAll) // all fences have to get signalled anyway so no use round robining
-                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(end-now).count();
+                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(timeoutPoint-now).count();
                         else if (i==0u) // if we're only looking for one to succeed then poll with increasing timeouts until deadline
                             timeout <<= 1u;
                     }
@@ -864,7 +863,11 @@ protected:
                         case IGPUFence::ES_NOT_READY:
                             if (_waitAll) // keep polling this fence until success or overall timeout
                             {
-                                timeout = 0x45u; // to make it start computing and using timeouts
+                                if (!notFirstRun)
+                                {
+                                    timeout = 0x45u; // to make it start computing and using timeouts
+                                    notFirstRun = true;
+                                }
                                 continue;
                             }
                             break;
@@ -921,7 +924,7 @@ public:
     virtual void destroyTexture(GLuint img) = 0;
     virtual void destroyBuffer(GLuint buf) = 0;
     virtual void destroySampler(GLuint s) = 0;
-    virtual void destroySpecializedShader(uint32_t count, const GLuint* programs) = 0;
+    virtual void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) = 0;
     virtual void destroySync(GLsync sync) = 0;
 };
 

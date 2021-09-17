@@ -176,6 +176,9 @@ namespace nbl {
 				, glGenTextures
 				, glTexParameteriv
 				, glCopyImageSubData
+				, glReadPixels
+				, glGetTextureSubImage
+				, glGetCompressedTextureSubImage
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLshader, OpenGLFunctionLoader
 				, glCreateShader
@@ -553,8 +556,10 @@ namespace nbl {
 			}
 
 			virtual void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
-
 			virtual void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) = 0;
+
+			virtual void extGlMultiDrawArraysIndirectCount(GLenum mode, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) = 0;
+			virtual void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) = 0;
 
 			virtual void extGlLogicOp(GLenum opcode) = 0;
 

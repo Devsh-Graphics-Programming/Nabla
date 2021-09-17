@@ -4,17 +4,18 @@
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLCommon.h"
 
-//#include "renderdoc_app.h"
-
-//extern RENDERDOC_API_1_1_2* g_rdoc_api;
-
 namespace nbl::video
 {
 
-    COpenGLCommandBuffer::~COpenGLCommandBuffer()
-    {
-        freeSpaceInCmdPool();
-    }
+COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features)
+    : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)), m_features(_features)
+{
+}
+
+COpenGLCommandBuffer::~COpenGLCommandBuffer()
+{
+    freeSpaceInCmdPool();
+}
 
     void COpenGLCommandBuffer::freeSpaceInCmdPool()
     {
@@ -225,6 +226,7 @@ namespace nbl::video
         const auto params = srcImage->getCreationParameters();
         const auto type = params.type;
         const auto format = params.format;
+        const uint32_t fmtBytesize = nbl::asset::getTexelOrBlockBytesize(format);
         const bool compressed = asset::isBlockCompressionFormat(format);
         GLuint src = static_cast<const COpenGLImage*>(srcImage)->getOpenGLName();
         GLenum glfmt, gltype;
@@ -232,6 +234,12 @@ namespace nbl::video
 
         const auto bpp = asset::getBytesPerPixel(format);
         const auto blockDims = asset::getBlockDimensions(format);
+
+        const bool usingGetTexSubImage = (gl->features->Version >= 450 || gl->features->FeatureAvailable[gl->features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image]);
+
+        GLint prevReadFB = 0;
+        if (!usingGetTexSubImage)
+            gl->glGeneral.pglGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevReadFB);
 
         ctxlocal->nextState.pixelPack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<COpenGLBuffer*>(dstBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
@@ -249,29 +257,55 @@ namespace nbl::video
             auto yRange = type == IGPUImage::ET_1D ? it->imageSubresource.layerCount : it->imageExtent.height;
             auto zStart = type == IGPUImage::ET_2D ? it->imageSubresource.baseArrayLayer : it->imageOffset.z;
             auto zRange = type == IGPUImage::ET_2D ? it->imageSubresource.layerCount : it->imageExtent.depth;
-            if (compressed)
+
+            if (usingGetTexSubImage)
             {
-                ctxlocal->nextState.pixelPack.BCwidth = blockDims[0];
-                ctxlocal->nextState.pixelPack.BCheight = blockDims[1];
-                ctxlocal->nextState.pixelPack.BCdepth = blockDims[2];
+                if (compressed)
+                {
+                    ctxlocal->nextState.pixelPack.BCwidth = blockDims[0];
+                    ctxlocal->nextState.pixelPack.BCheight = blockDims[1];
+                    ctxlocal->nextState.pixelPack.BCdepth = blockDims[2];
+                }
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
 
-                // TODO impl in func table
-                //gl->extGlGetCompressedTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
-                //    dstBuffer->getSize() - it->bufferOffset, reinterpret_cast<void*>(it->bufferOffset));
+                if (compressed)
+                {
+                    gl->glTexture.pglGetCompressedTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
+                        dstBuffer->getSize() - it->bufferOffset, reinterpret_cast<void*>(it->bufferOffset));
+                }
+                else
+                {
+                    gl->glTexture.pglGetTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
+                        glfmt, gltype, dstBuffer->getSize() - it->bufferOffset, reinterpret_cast<void*>(it->bufferOffset));
+                }
             }
             else
             {
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
 
-                // TODO impl in func table
-                //gl->extGlGetTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
-                //    glfmt, gltype, dstBuffer->getSize() - it->bufferOffset, reinterpret_cast<void*>(it->bufferOffset));
-                gl->extGlGetTextureSubImage(src, it->imageSubresource.mipLevel, it->imageOffset.x, yStart, zStart, it->imageExtent.width, yRange, zRange,
-                    glfmt, gltype, dstBuffer->getSize() - it->bufferOffset, reinterpret_cast<void*>(it->bufferOffset));
+                // TODO this isnt totally valid right?
+                const size_t bytesPerLayer = pitch * yRange * (compressed ? nbl::asset::getFormatChannelCount(format) : nbl::asset::getTexelOrBlockBytesize(format)); // all block compressed formats are decoded into 1 byte per channel format
+                for (uint32_t z = 0u; z < zRange; ++z)
+                {
+                    GLuint fbo = ctxlocal->getSingleColorAttachmentFBO(gl, srcImage, it->imageSubresource.mipLevel, it->imageSubresource.baseArrayLayer + z);
+                    if (!fbo)
+                    {
+                        // TODO log something
+                        continue;
+                    }
+
+                    gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+
+                    size_t bufOffset = it->bufferOffset + z * bytesPerLayer;
+                    bufOffset = core::alignUp(bufOffset, alignment); // ??? am i doing it right?
+                    gl->glTexture.pglReadPixels(it->imageOffset.x, yStart, it->imageExtent.width, yRange, glfmt, gltype, reinterpret_cast<void*>(bufOffset));
+                }
             }
         }
+
+        if (!usingGetTexSubImage)
+            gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
     }
 
     void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
@@ -476,9 +510,6 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDEXED>();
 
-                //if (g_rdoc_api)
-                //	g_rdoc_api->StartFrameCapture(NULL, NULL);
-
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
@@ -503,58 +534,63 @@ namespace nbl::video
                     static_assert(sizeof(idxBufOffset) == sizeof(void*), "Bad reinterpret_cast");
                     gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, c.indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), c.instanceCount, c.vertexOffset, c.firstInstance);
                 }
-
-                //if (g_rdoc_api)
-                //	g_rdoc_api->EndFrameCapture(NULL, NULL);
             }
             break;
             case impl::ECT_DRAW_INDIRECT:
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDIRECT>();
+                if (c.maxDrawCount==0u)
+                    break;
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
+                ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.countBuffer);
+
+                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
+                
                 const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
-                ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-                if (c.drawCount)
-                {
-                    GLuint64 offset = c.offset;
-                    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlMultiDrawArraysIndirect(glpt, reinterpret_cast<void*>(offset), c.drawCount, c.stride);
-                }
+                GLuint64 offset = c.offset;
+                static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
+                if (ctxlocal->currentState.vertexInputParams.parameterBuf)
+                    gl->extGlMultiDrawArraysIndirectCount(glpt, reinterpret_cast<void*>(offset), c.countBufferOffset, c.maxDrawCount, c.stride);
+                else
+                    gl->extGlMultiDrawArraysIndirect(glpt, reinterpret_cast<void*>(offset), c.maxDrawCount, c.stride);
             }
             break;
             case impl::ECT_DRAW_INDEXED_INDIRECT:
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDEXED_INDIRECT>();
+                if (c.maxDrawCount==0u)
+                    break;
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
+                ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.countBuffer);
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
-                GLenum glpt = getGLprimitiveType(primType);
 
                 GLenum idxType = GL_INVALID_ENUM;
                 switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
                 {
-                case asset::EIT_16BIT:
-                    idxType = GL_UNSIGNED_SHORT;
-                    break;
-                case asset::EIT_32BIT:
-                    idxType = GL_UNSIGNED_INT;
-                    break;
-                default: break;
+                    case asset::EIT_16BIT:
+                        idxType = GL_UNSIGNED_SHORT;
+                        break;
+                    case asset::EIT_32BIT:
+                        idxType = GL_UNSIGNED_INT;
+                        break;
+                    default:
+                        break;
                 }
 
-                if (c.drawCount && idxType != GL_INVALID_ENUM)
-                {
-                    GLuint64 offset = c.offset;
-                    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.drawCount, c.stride);
-                }
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                GLenum glpt = getGLprimitiveType(primType);
+
+                GLuint64 offset = c.offset;
+                static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
+                if (ctxlocal->currentState.vertexInputParams.parameterBuf)
+                    gl->extGlMultiDrawElementsIndirectCount(glpt, idxType, reinterpret_cast<void*>(offset), c.countBufferOffset, c.maxDrawCount, c.stride);
+                else
+                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.maxDrawCount, c.stride);
             }
             break;
             case impl::ECT_SET_VIEWPORT:
@@ -657,12 +693,20 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_BLIT_IMAGE>();
 
-                GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get());
-                GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get());
                 for (uint32_t i = 0u; i < c.regionCount; ++i)
                 {
                     auto& info = c.regions[i];
-                    blit(gl, srcfbo, dstfbo, info.srcOffsets, info.dstOffsets, c.filter);
+
+                    // already made sure in validation (see ICommandBuffer::blitImage), thats why only assert here
+                    assert(info.dstSubresource.layerCount == info.srcSubresource.layerCount);
+
+                    for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
+                    {
+                        GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get(), info.srcSubresource.mipLevel, info.srcSubresource.baseArrayLayer + l);
+                        GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get(), info.dstSubresource.mipLevel, info.dstSubresource.baseArrayLayer + l);
+
+                        blit(gl, srcfbo, dstfbo, info.srcOffsets, info.dstOffsets, c.filter);
+                    }
                 }
             }
             break;
@@ -670,11 +714,12 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_RESOLVE_IMAGE>();
 
-                GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get());
-                GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get());
                 for (uint32_t i = 0u; i < c.regionCount; ++i)
                 {
                     auto& info = c.regions[i];
+
+                    assert(info.dstSubresource.layerCount == info.srcSubresource.layerCount);
+
                     asset::VkOffset3D srcoffsets[2]{ info.srcOffset,info.srcOffset };
                     srcoffsets[1].x += info.extent.width;
                     srcoffsets[1].y += info.extent.height;
@@ -683,7 +728,14 @@ namespace nbl::video
                     dstoffsets[1].x += info.extent.width;
                     dstoffsets[1].y += info.extent.height;
                     dstoffsets[1].z += info.extent.depth;
-                    blit(gl, srcfbo, dstfbo, srcoffsets, dstoffsets, asset::ISampler::ETF_NEAREST);
+
+                    for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
+                    {
+                        GLuint srcfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.srcImage.get(), info.srcSubresource.mipLevel, info.srcSubresource.baseArrayLayer + l);
+                        GLuint dstfbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.dstImage.get(), info.dstSubresource.mipLevel, info.dstSubresource.baseArrayLayer + l);
+
+                        blit(gl, srcfbo, dstfbo, srcoffsets, dstoffsets, asset::ISampler::ETF_NEAREST);
+                    }
                 }
             }
             break;
@@ -923,44 +975,97 @@ namespace nbl::video
             case impl::ECT_CLEAR_COLOR_IMAGE:
             {
                 auto& c = cmd.get<impl::ECT_CLEAR_COLOR_IMAGE>();
-                GLuint fbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.image.get());
-                auto format = c.image->getCreationParameters().format;
-                // eeeeh ignoring subresource ranges for now (TODO) -- would have to dynamically create texture views....
-                if (asset::isFloatingPointFormat(format))
+
+                const auto format = c.image->getCreationParameters().format;
+
+                const bool is_fp = asset::isNormalizedFormat(format) || asset::isFloatingPointFormat(format);
+                bool is_int = false;
+                bool is_sint = false;
+                if (!is_fp && asset::isIntegerFormat(format))
                 {
-                    gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, 0, c.color.float32);
+                    is_int = true;
+                    is_sint = asset::isSignedFormat(format);
                 }
-                else if (asset::isIntegerFormat(format))
+
+                const auto state_backup = ctxlocal->backupAndFlushStateClear(gl, ctxid, true, false, false);
+
+                for (uint32_t i = 0u; i < c.rangeCount; ++i)
                 {
-                    if (asset::isSignedFormat(format))
+                    auto& info = c.ranges[i];
+
+                    for (uint32_t m = 0u; m < info.levelCount; ++m)
                     {
-                        gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, 0, c.color.int32);
-                    }
-                    else
-                    {
-                        gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, 0, c.color.uint32);
+                        for (uint32_t l = 0u; l < info.layerCount; ++l)
+                        {
+                            GLuint fbo = ctxlocal->getSingleColorAttachmentFBO(gl, c.image.get(), info.baseMipLevel + m, info.baseArrayLayer + l);
+
+                            if (is_fp)
+                            {
+                                gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, 0, c.color.float32);
+                            }
+                            else if (is_int)
+                            {
+                                if (is_sint)
+                                {
+                                    gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, 0, c.color.int32);
+                                }
+                                else
+                                {
+                                    gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, 0, c.color.uint32);
+                                }
+                            }
+                        }
                     }
                 }
+
+                ctxlocal->restoreStateAfterClear(state_backup);
             }
             break;
             case impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE:
             {
                 auto& c = cmd.get<impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE>();
-                GLuint fbo = ctxlocal->getDepthStencilAttachmentFBO(gl, c.image.get());
-                auto fmt = c.image->getCreationParameters().format;
-                if (asset::isDepthOnlyFormat(fmt))
+                const auto fmt = c.image->getCreationParameters().format;
+
+                const bool is_depth = asset::isDepthOnlyFormat(fmt);
+                bool is_stencil = false;
+                bool is_depth_stencil = false;
+                if (!is_depth)
                 {
-                    gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &c.depthStencil.depth);
+                    is_stencil = asset::isStencilOnlyFormat(fmt);
+                    if (!is_stencil)
+                        is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
                 }
-                else if (asset::isStencilOnlyFormat(fmt))
+
+                const auto state_backup = ctxlocal->backupAndFlushStateClear(gl, ctxid, false, (is_depth | is_depth_stencil), (is_stencil | is_depth_stencil));
+
+                for (uint32_t i = 0u; i < c.rangeCount; ++i)
                 {
-                    static_assert(sizeof(GLint)==sizeof(c.depthStencil.stencil), "Bad reinterpret_cast!");
-                    gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, reinterpret_cast<const GLint*>(&c.depthStencil.stencil));
+                    const auto& info = c.ranges[i];
+
+                    for (uint32_t m = 0u; m < info.levelCount; ++m)
+                    {
+                        for (uint32_t l = 0u; l < info.layerCount; ++l)
+                        {
+                            const GLuint fbo = ctxlocal->getDepthStencilAttachmentFBO(gl, c.image.get(), info.baseMipLevel + m, info.baseArrayLayer + l);
+
+                            if (is_depth)
+                            {
+                                gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &c.depthStencil.depth);
+                            }
+                            else if (is_stencil)
+                            {
+                                static_assert(sizeof(GLint) == sizeof(c.depthStencil.stencil), "Bad reinterpret_cast!");
+                                gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, reinterpret_cast<const GLint*>(&c.depthStencil.stencil));
+                            }
+                            else if (is_depth_stencil)
+                            {
+                                gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, c.depthStencil.depth, c.depthStencil.stencil);
+                            }
+                        }
+                    }
                 }
-                else if (asset::isDepthOrStencilFormat(fmt))
-                {
-                    gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, c.depthStencil.depth, c.depthStencil.stencil);
-                }
+
+                ctxlocal->restoreStateAfterClear(state_backup);
             }
             break;
             case impl::ECT_CLEAR_ATTACHMENTS:
