@@ -62,11 +62,6 @@ int main()
 	in_gpu_range.offset = begin*sizeof(uint32_t);
 	in_gpu_range.size = elementCount*sizeof(uint32_t);
 	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
-	// TODO: proper scratch calculation
-	SBufferRange<IGPUBuffer> scratch_gpu_range;
-	scratch_gpu_range.offset = 0u;
-	scratch_gpu_range.size = 128u<<20;
-	scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratch_gpu_range.size);
 	
 	auto scanner = utilities->getDefaultScanner();
 	auto scan_pipeline = scanner->getDefaultPipeline(CScanner::EDT_UINT,CScanner::EO_ADD);
@@ -74,6 +69,11 @@ int main()
 	CScanner::Parameters scan_push_constants;
 	CScanner::DispatchInfo scan_dispatch_info;
 	scanner->buildParameters(elementCount,scan_push_constants,scan_dispatch_info);
+	
+	SBufferRange<IGPUBuffer> scratch_gpu_range;
+	scratch_gpu_range.offset = 0u;
+	scratch_gpu_range.size = scan_push_constants.getScratchSize();
+	scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratch_gpu_range.size);
 
 	auto dsLayout = scanner->getDefaultDescriptorSetLayout();
 	auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&dsLayout,&dsLayout+1u);
@@ -98,7 +98,7 @@ int main()
 
 			// TODO: begin and end query
 			cmdbuf->begin(IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
-			cmdbuf->fillBuffer(scratch_gpu_range.buffer.get(),0u,sizeof(uint32_t),0u);
+			cmdbuf->fillBuffer(scratch_gpu_range.buffer.get(),0u,sizeof(uint32_t)+scratch_gpu_range.size/2u,0u);
 			cmdbuf->bindComputePipeline(scan_pipeline);
 			auto pipeline_layout = scan_pipeline->getLayout();
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline_layout,0u,1u,&ds.get());

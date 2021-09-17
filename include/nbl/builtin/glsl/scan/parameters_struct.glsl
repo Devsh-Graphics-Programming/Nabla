@@ -1,15 +1,19 @@
 #ifndef _NBL_GLSL_SCAN_PARAMETERS_STRUCT_INCLUDED_
 #define _NBL_GLSL_SCAN_PARAMETERS_STRUCT_INCLUDED_
 
+
+#define NBL_BUILTIN_MAX_SCAN_LEVELS 7
+
 #ifdef __cplusplus
 #define uint uint32_t
 #endif
 struct nbl_glsl_scan_Parameters_t
 {
 	uint elementCount;
-	//uint stride;
-	//uint element_count_pass;
-	//uint element_count_total;
+	uint cumulativeWorkgroupCount[NBL_BUILTIN_MAX_SCAN_LEVELS];
+	uint finishedFlagOffset[NBL_BUILTIN_MAX_SCAN_LEVELS];
+	uint lastWorkgroupItems[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
+	uint maxLevels;
 };
 #ifdef __cplusplus
 #undef uint
