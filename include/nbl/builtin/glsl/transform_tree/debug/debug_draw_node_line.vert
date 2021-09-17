@@ -22,8 +22,8 @@ layout( push_constant, row_major ) uniform Block
 	vec4 maxEdge;
 } PushConstants;
 
-layout(location = 0) out vec3 outGlobalTMinEdge;
-layout(location = 1) out vec3 outGlobalTMaxEdge;
+layout(location = 0) out float outIScale;
+layout(location = 1) out mat4x3 outNodeGlobalTransform;
 
 #define INVALID 3735928559u
 #include "nbl/builtin/glsl/utils/transform.glsl"
@@ -35,8 +35,6 @@ void main()
 
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(PushConstants.viewProj,lineWorldPos);
 	
-	mat4x3 nodeGlobalTransform = nodeGlobalTransforms.data[iNodeID];
-	
-	outGlobalTMinEdge = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransform,PushConstants.minEdge.xyz * iScale);
-	outGlobalTMaxEdge = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransform,PushConstants.maxEdge.xyz * iScale);
+	outNodeGlobalTransform = nodeGlobalTransforms.data[iNodeID];
+	outIScale = iScale;
 }
