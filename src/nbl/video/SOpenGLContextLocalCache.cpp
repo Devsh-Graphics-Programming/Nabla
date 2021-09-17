@@ -521,7 +521,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             UPDATE_STATE(rasterParams.multisampleEnable);
         }
         if (!gl->isGLES() && STATE_NEQ(rasterParams.primitiveRestartEnable)) {
-            DISABLE_ENABLE(nextState.rasterParams.primitiveRestartEnable, IOpenGL_FunctionTable::PRIMITIVE_RESTART);
+            DISABLE_ENABLE(nextState.rasterParams.primitiveRestartEnable, GL_PRIMITIVE_RESTART_FIXED_INDEX);
             UPDATE_STATE(rasterParams.primitiveRestartEnable);
         }
 
