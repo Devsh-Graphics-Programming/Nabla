@@ -323,8 +323,46 @@ public:
 		bool hasSurfaceCapabilities = false;
 		bool isSwapChainSupported = false;
 	};
+	
+	static void finalizeQueueSelection(GPUInfo& gpuInfo, const bool preferSeperateComputeAndTransferQueues)
+	{
+		// If Graphics supports Present, then use Graphics for Present
+		if(gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.graphics.index && gpuInfo.queueFamilyProps.graphics.supportsPresent) 
+		{
+			gpuInfo.queueFamilyProps.present = gpuInfo.queueFamilyProps.graphics;
+		}
 
-	static std::vector<GPUInfo> extractGPUInfos(nbl::core::SRange<nbl::video::IPhysicalDevice* const> gpus, nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface)
+		// If a unique Compute is not found but Graphics supports Compute, then use Graphics for Compute
+		if(gpuInfo.queueFamilyProps.compute.index == QueueFamilyProps::InvalidIndex && gpuInfo.queueFamilyProps.graphics.supportsCompute)
+		{
+			gpuInfo.queueFamilyProps.compute = gpuInfo.queueFamilyProps.graphics;
+		}
+				
+		// If a unique Transfer is not found then use either Graphics or Compute for Transfer (prefer compute)
+		if(gpuInfo.queueFamilyProps.transfer.index == QueueFamilyProps::InvalidIndex)
+		{
+			if(gpuInfo.queueFamilyProps.compute.supportsTransfer)
+				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.compute;
+			else if(gpuInfo.queueFamilyProps.graphics.supportsTransfer)
+				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.graphics;
+		}
+
+		if(!preferSeperateComputeAndTransferQueues)
+		{
+			// Try to merge everything into 1 queue if possible 
+
+			if(gpuInfo.queueFamilyProps.graphics.supportsCompute)
+				gpuInfo.queueFamilyProps.compute = gpuInfo.queueFamilyProps.graphics;
+			
+			// use either Graphics or Compute for Transfer (prefer graphics)
+			if(gpuInfo.queueFamilyProps.graphics.supportsTransfer) // It should be always true but check anyways
+				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.graphics;
+			else if(gpuInfo.queueFamilyProps.compute.supportsTransfer) // It should be always true but check anyways
+				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.compute;
+		}
+	}
+
+	static std::vector<GPUInfo> extractGPUInfos(nbl::core::SRange<nbl::video::IPhysicalDevice* const> gpus, nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface, const bool preferSeperateComputeAndTransferQueues = false)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
@@ -334,6 +372,7 @@ public:
 		for (size_t i = 0ull; i < gpus.size(); ++i)
 		{
 			auto & extractedInfo = extractedInfos[i];
+			extractedInfo = {};
 			auto gpu = gpus.begin()[i];
 
 			// Find required queue family indices
@@ -406,27 +445,10 @@ public:
 						outFamilyProp.transfer.supportsProtected = hasProtectedFlag;
 					}
 				}
-
-				// If Graphics supports Present, then use Graphics for Present
-				if(extractedInfo.queueFamilyProps.present.index != extractedInfo.queueFamilyProps.graphics.index && extractedInfo.queueFamilyProps.graphics.supportsPresent) 
-				{
-					extractedInfo.queueFamilyProps.present = extractedInfo.queueFamilyProps.graphics;
-				}
-
-				// If a unique Compute is not found but Graphics supports Compute, then use Graphics for Compute
-				if(extractedInfo.queueFamilyProps.compute.index == QueueFamilyProps::InvalidIndex && extractedInfo.queueFamilyProps.graphics.supportsCompute)
-				{
-					extractedInfo.queueFamilyProps.compute = extractedInfo.queueFamilyProps.graphics;
-				}
 				
-				// If a unique Transfer is not found then use either Graphics or Compute for Transfer (prefer compute)
-				if(extractedInfo.queueFamilyProps.transfer.index == QueueFamilyProps::InvalidIndex)
-				{
-					if(extractedInfo.queueFamilyProps.compute.supportsTransfer)
-						extractedInfo.queueFamilyProps.transfer = extractedInfo.queueFamilyProps.compute;
-					else if(extractedInfo.queueFamilyProps.graphics.supportsTransfer)
-						extractedInfo.queueFamilyProps.transfer = extractedInfo.queueFamilyProps.graphics;
-				}
+				finalizeQueueSelection(extractedInfo, preferSeperateComputeAndTransferQueues);
+				assert(extractedInfo.queueFamilyProps.graphics.supportsTransfer && "This shouldn't happen");
+				assert(extractedInfo.queueFamilyProps.compute.supportsTransfer && "This shouldn't happen");
 			}
 
 			// Since our workload is not headless compute, a swapchain is mandatory
@@ -586,7 +608,7 @@ public:
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
-		auto extractedInfos = extractGPUInfos(gpus, nullptr);
+		auto extractedInfos = extractGPUInfos(gpus, nullptr, false);
 		auto suitableGPUIndex = findSuitableGPU(extractedInfos, false);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 
@@ -707,7 +729,7 @@ public:
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
-		auto extractedInfos = extractGPUInfos(gpus, result.surface);
+		auto extractedInfos = extractGPUInfos(gpus, result.surface, false);
 		auto suitableGPUIndex = findSuitableGPU(extractedInfos, graphicsQueueEnable);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
@@ -806,17 +828,10 @@ public:
 		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
 		result.cpu2gpuParams.utilities = result.utilities.get();
 
-		// TODO: Temprory Fix Because cpu2gpuParams needs GraphicsPipeline (but doesn't take input for usages like blitImage)
-		if(graphicsQueueEnable && gpuInfo.queueFamilyProps.graphics.supportsTransfer)
-			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS];
-		else
-			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
-
-		if(graphicsQueueEnable && gpuInfo.queueFamilyProps.graphics.supportsCompute)
-			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS];
-		else
-			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_COMPUTE];
-
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
+		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_COMPUTE];
+		// result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_GRAPHICS].queue = result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS];
+	
 		return result;
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(
