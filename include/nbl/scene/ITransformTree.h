@@ -82,7 +82,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!layout)
 				return nullptr;
 
-			auto ds = device->createGPUDescriptorSet(dsp.get(),std::move(layout));
+			auto ds = device->createGPUDescriptorSet(dsp.get(), core::smart_refctd_ptr(layout));
 			if (!ds)
 				return nullptr;
 
@@ -143,26 +143,12 @@ class ITransformTree : public virtual core::IReferenceCounted
 				primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
 				asset::SRasterizationParams rasterizationParams;
 
-				core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout;
-				{
-					video::IGPUDescriptorSetLayout::SBinding sBindings[2];
-					sBindings[0].binding = parent_prop_ix;
-					sBindings[0].count = 1u;
-					sBindings[0].type = asset::EDT_STORAGE_BUFFER;
-					sBindings[0].stageFlags = video::IGPUSpecializedShader::ESS_VERTEX;
-					sBindings[0].samplers = nullptr;
-
-					sBindings[1] = sBindings[0];
-					sBindings[1].binding = global_transform_prop_ix;
-					descriptorSetLayout = device->createGPUDescriptorSetLayout(sBindings, sBindings + 2);
-				}
-
 				asset::SPushConstantRange pcRange;
 				pcRange.offset = 0u;
 				pcRange.size = sizeof(DebugPushConstants);
 				pcRange.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_VERTEX);
 
-				auto gpuPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(descriptorSetLayout));
+				auto gpuPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(layout));
 				auto gpuRenderpassIndependentPipeline = device->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders, gpuShaders + SHADER_COUNT, vertexInputParams, blendParams, primitiveAssemblyParams, rasterizationParams);
 				
 				if (!gpuRenderpassIndependentPipeline)
