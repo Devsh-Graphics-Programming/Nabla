@@ -404,52 +404,48 @@ void CMitsubaLoader::initialize()
 
 bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
-	//constexpr uint32_t stackSize = 16u*1024u;
-	//char tempBuff[stackSize+1];
-	//tempBuff[stackSize] = 0;
+	constexpr uint32_t stackSize = 16u*1024u;
+	char tempBuff[stackSize+1];
+	tempBuff[stackSize] = 0;
 
-	//static const char* stringsToFind[] = { "<?xml", "version", "scene"};
-	//static const wchar_t* stringsToFindW[] = { L"<?xml", L"version", L"scene"};
-	//constexpr uint32_t maxStringSize = 8u; // "version\0"
-	//static_assert(stackSize > 2u*maxStringSize, "WTF?");
+	static const char* stringsToFind[] = { "<?xml", "version", "scene"};
+	static const wchar_t* stringsToFindW[] = { L"<?xml", L"version", L"scene"};
+	constexpr uint32_t maxStringSize = 8u; // "version\0"
+	static_assert(stackSize > 2u*maxStringSize, "WTF?");
 
-	//const size_t prevPos = _file->getPos();
-	//const auto fileSize = _file->getSize();
-	//if (fileSize < maxStringSize)
-	//	return false;
+	const auto fileSize = _file->getSize();
+	if (fileSize < maxStringSize)
+		return false;
 
-	//_file->seek(0);
-	//_file->read(tempBuff, 3u);
-	//bool utf16 = false;
-	//if (tempBuff[0]==0xEFu && tempBuff[1]==0xBBu && tempBuff[2]==0xBFu)
-	//	utf16 = false;
-	//else if (reinterpret_cast<uint16_t*>(tempBuff)[0]==0xFEFFu)
-	//{
-	//	utf16 = true;
-	//	_file->seek(2);
-	//}
-	//else
-	//	_file->seek(0);
-	//while (true)
-	//{
-	//	auto pos = _file->getPos();
-	//	if (pos >= fileSize)
-	//		break;
-	//	if (pos > maxStringSize)
-	//		_file->seek(_file->getPos()-maxStringSize);
-	//	_file->read(tempBuff,stackSize);
-	//	for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
-	//	if (utf16 ? (wcsstr(reinterpret_cast<wchar_t*>(tempBuff),stringsToFindW[i])!=nullptr):(strstr(tempBuff, stringsToFind[i])!=nullptr))
-	//	{
-	//		_file->seek(prevPos);
-	//		return true;
-	//	}
-	//}
-	//_file->seek(prevPos);
-	//return false;
+	system::future<size_t> future;
+	_file->read(future, tempBuff, 0u, 3u);
+	future.get();
 
-	// TODO
-	return true;
+	size_t offset = 0u;
+	bool utf16 = false;
+	if (tempBuff[0]==0xEFu && tempBuff[1]==0xBBu && tempBuff[2]==0xBFu)
+		utf16 = false;
+	else if (reinterpret_cast<uint16_t*>(tempBuff)[0]==0xFEFFu)
+	{
+		utf16 = true;
+		offset = 2u;
+	}
+
+	while (true)
+	{
+		if (offset >= fileSize)
+			break;
+		if (offset > maxStringSize)
+			offset -= maxStringSize;
+
+		_file->read(future, tempBuff, offset, stackSize);
+		future.get();
+		for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
+		if (utf16 ? (wcsstr(reinterpret_cast<wchar_t*>(tempBuff),stringsToFindW[i])!=nullptr):(strstr(tempBuff, stringsToFind[i])!=nullptr))
+			return true;
+	}
+
+	return false;
 }
 
 const char** CMitsubaLoader::getAssociatedFileExtensions() const
