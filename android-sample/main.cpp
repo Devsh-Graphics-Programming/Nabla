@@ -68,7 +68,8 @@ struct nabla {
 static int engine_init_display(android_app* app) {
     //debug_break();
 	nabla* engine = (nabla*)((nbl::system::CApplicationFrameworkAndroid::SContext*)app->userData)->userData;
-    LOGI("Test here");
+	auto logger = ((nbl::system::CApplicationFrameworkAndroid::SContext*)app->userData)->logger;
+	logger.log("Test here");
 
     // initialize OpenGL ES and EGL
     engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);

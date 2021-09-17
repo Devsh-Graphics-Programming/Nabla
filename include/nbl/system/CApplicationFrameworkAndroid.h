@@ -2,6 +2,7 @@
 #define	_NBL_SYSTEM_C_APPLICATION_FRAMEWORK_ANDROID_H_INCLUDED_
 #ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/core/declarations.h"
+#include "nbl/system/CStdoutLoggerAndroid.h"
 #include <android_native_app_glue.h>
 #include <android/sensor.h>
 #include <android/log.h>
@@ -54,6 +55,7 @@ namespace nbl::system
             SSavedState* state;
             CApplicationFrameworkAndroid* framework;
             core::smart_refctd_ptr<nbl::ui::IWindow> window;
+            system::logger_opt_smart_ptr logger = nullptr;
             void* userData;
         };
     public:
@@ -143,6 +145,8 @@ namespace nbl::system
     nbl::ui::IWindow::SCreationParams params;\
     params.callback = nbl::core::make_smart_refctd_ptr<window_event_callback>(__VA_ARGS__);\
     auto wnd = wndManager->createWindow(std::move(params));\
+    auto logger = core::make_smart_refctd_ptr<CStdoutLoggerAndroid>();\
+    ctx.logger = system::logger_opt_smart_ptr(core::smart_refctd_ptr(logger));\
     ctx.window = core::smart_refctd_ptr(wnd);\
     if (app->savedState != nullptr) {\
         ctx.state = (nbl::system::CApplicationFrameworkAndroid::SSavedState*)app->savedState;\
@@ -152,7 +156,7 @@ namespace nbl::system
     int events;\
     android_poll_source* source;\
     while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0) {\
-        LOGI("Entered poll loop iteration!");\
+        logger->log("Entered poll loop iteration!");\
         if (source != nullptr) {\
             source->process(app, source);\
         }\
