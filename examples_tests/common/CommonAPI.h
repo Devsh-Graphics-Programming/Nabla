@@ -806,9 +806,17 @@ public:
 		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
 		result.cpu2gpuParams.utilities = result.utilities.get();
 
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_COMPUTE];
-	
+		// TODO: Temprory Fix Because cpu2gpuParams needs GraphicsPipeline (but doesn't take input for usages like blitImage)
+		if(graphicsQueueEnable && gpuInfo.queueFamilyProps.graphics.supportsTransfer)
+			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS];
+		else
+			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
+
+		if(graphicsQueueEnable && gpuInfo.queueFamilyProps.graphics.supportsCompute)
+			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS];
+		else
+			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_COMPUTE];
+
 		return result;
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(
@@ -885,7 +893,7 @@ public:
 		sc_params.arrayLayers = 1u;
 		sc_params.minImageCount = imageCount;
 		sc_params.presentMode = requestedPresentMode;
-		sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);;
+		sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);;
 		sc_params.surface = surface;
 		sc_params.imageSharingMode = imageSharingMode;
 		sc_params.surfaceFormat = surfaceFormat;
