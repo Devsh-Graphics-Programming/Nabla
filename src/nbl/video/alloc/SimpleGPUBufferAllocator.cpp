@@ -21,7 +21,6 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     // This doesn't matter right now because updateBufferRangeViaStagingBuffer 
     // only makes use of upstreaming buffer which would be TRANSFER_SRC
     IGPUBuffer::SCreationParams creationParams = {};
-    creationParams.size = reqs.vulkanReqs.size;
     creationParams.usage = IGPUBuffer::EUF_TRANSFER_SRC_BIT;
     creationParams.sharingMode = asset::ESM_EXCLUSIVE;
     creationParams.queueFamilyIndexCount = 0u;
