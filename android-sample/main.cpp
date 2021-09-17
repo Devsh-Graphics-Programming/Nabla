@@ -515,11 +515,15 @@ public:
         nabla* engine = (nabla*)((SContext*)app->userData)->userData;
         engine_term_display(engine);
     }
-    void draw(android_app* params) override
+    void workLoopBody(android_app* params) override
     {
 
     }
 };
 
+class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
+{
 
-NBL_ANDROID_MAIN(SampleApp, nullptr, nabla)
+};
+
+NBL_ANDROID_MAIN(SampleApp, nabla, DemoEventCallback)

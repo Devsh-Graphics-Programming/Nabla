@@ -22,6 +22,10 @@ namespace nbl::system
         void onWindowTerminated(android_app* params)
         {
             return onWindowTerminated_impl(params);
+            auto wnd = ((SContext*)params->userData)->window;
+            auto eventCallback = wnd->getEventCallback();
+            [[maybe_unused]] bool ok = eventCallback->onWindowClosed(wnd.get());
+            //TODO other callbacks;
         }
         void onFocusGained(android_app* params)
         {
@@ -49,6 +53,7 @@ namespace nbl::system
         {
             SSavedState* state;
             CApplicationFrameworkAndroid* framework;
+            core::smart_refctd_ptr<nbl::ui::IWindow> window;
             void* userData;
         };
     public:
@@ -127,12 +132,18 @@ namespace nbl::system
     };
 
 }
-#define NBL_ANDROID_MAIN(android_app_class, window_event_callback, user_data_type) void android_main(android_app* app){\
+// ... are the window event callback optional ctor params;
+#define NBL_ANDROID_MAIN(android_app_class, user_data_type, window_event_callback, ...) void android_main(android_app* app){\
     user_data_type engine{};\
     nbl::system::CApplicationFrameworkAndroid::SContext ctx{};\
     ctx.userData = &engine;\
     app->userData = &ctx;\
     auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app);\
+    auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);\
+    nbl::ui::IWindow::SCreationParams params;\
+    params.callback = nbl::core::make_smart_refctd_ptr<window_event_callback>(__VA_ARGS__);\
+    auto wnd = wndManager->createWindow(std::move(params));\
+    ctx.window = core::smart_refctd_ptr(wnd);\
     if (app->savedState != nullptr) {\
         ctx.state = (nbl::system::CApplicationFrameworkAndroid::SSavedState*)app->savedState;\
     }\
