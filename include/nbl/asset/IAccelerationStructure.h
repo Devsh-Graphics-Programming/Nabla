@@ -62,6 +62,7 @@ class IAccelerationStructure : public IDescriptor
 		};
 		enum E_INSTANCE_FLAGS
 		{
+			EIF_NONE								= 0u,
 			EIF_TRIANGLE_FACING_CULL_DISABLE_BIT	= 0x1u << 0u,
 			EIF_TRIANGLE_FLIP_FACING_BIT			= 0x1u << 1u,
 			EIF_FORCE_OPAQUE_BIT					= 0x1u << 2u,
@@ -143,6 +144,14 @@ class IAccelerationStructure : public IDescriptor
 
 		struct Instance
 		{
+			Instance()
+				: instanceCustomIndex(0u)
+				, mask(0xFF)
+				, instanceShaderBindingTableRecordOffset(0u)
+				, flags(EIF_NONE)
+				, accelerationStructureReference(0ull)
+				, mat(core::matrix3x4SIMD())
+			{}
 			core::matrix3x4SIMD				mat; // equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
 			uint32_t						instanceCustomIndex:24;
 			uint32_t						mask:8;

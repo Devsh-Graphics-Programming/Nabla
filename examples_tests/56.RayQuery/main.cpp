@@ -134,102 +134,195 @@ int main()
 
 	// Acceleration Structure Test
 
-	// Build BLAS with AABBS
-
-	const uint32_t aabbsCount = 1u;
-
-	struct alignas(64) AABB {
-		IGPUAccelerationStructure::AABB_Position aabb;
-	};
-
-	AABB aabbs[aabbsCount] = {};
-	aabbs[0].aabb = IGPUAccelerationStructure::AABB_Position(core::vector3df(0.0f, 0.0f, 0.0f), core::vector3df(1.0f, 1.0f, 1.0f));
-	auto raytracingFlags = core::bitflag(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-
-	uint32_t bufferSize = sizeof(AABB);
-
 	core::smart_refctd_ptr<IGPUBuffer> aabbsBuffer;
-	{
-		IGPUBuffer::SCreationParams params = {};
-		params.usage = raytracingFlags | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; 
-		aabbsBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, bufferSize);
-		utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,bufferSize,aabbsBuffer}, aabbs);
-	}
-
-	IGPUAccelerationStructure::DeviceAddressType aabbsData;
-	aabbsData.offset = 0u;
-	aabbsData.buffer = aabbsBuffer;
-
-	using DeviceGeom = IGPUAccelerationStructure::DeviceBuildGeometryInfo::Geometry;
-
-	DeviceGeom simpleGeom = {};
-	simpleGeom.type = IAccelerationStructure::EGT_AABBS;
-	simpleGeom.flags = IAccelerationStructure::EGF_NONE;
-	simpleGeom.data.aabbs.data = aabbsData;
-	simpleGeom.data.aabbs.stride = sizeof(AABB);
-
-	IGPUAccelerationStructure::DeviceBuildGeometryInfo blasBuildInfo = {};
-	blasBuildInfo.type = IGPUAccelerationStructure::ET_BOTTOM_LEVEL;
-	blasBuildInfo.buildFlags = IGPUAccelerationStructure::EBF_PREFER_FAST_TRACE_BIT;
-	blasBuildInfo.buildMode = IGPUAccelerationStructure::EBM_BUILD;
-	blasBuildInfo.srcAS = nullptr;
-	blasBuildInfo.dstAS = nullptr;
-	blasBuildInfo.geometries = core::SRange<DeviceGeom>(&simpleGeom, &simpleGeom + 1u);
-	blasBuildInfo.scratchAddr = {};
-	
-	// Get BuildSizes
-	IGPUAccelerationStructure::BuildSizes buildSizes = {};
-	{
-		std::vector<uint32_t> maxPrimCount(1u);
-		maxPrimCount[0] = 1u;
-		buildSizes = device->getAccelerationStructureBuildSizes(blasBuildInfo, maxPrimCount.data());
-	}
-	
-	// Allocate Buffer and Create BLAS
 	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas;
-	{
-		core::smart_refctd_ptr<IGPUBuffer> asBuffer;
-		IGPUBuffer::SCreationParams params = {};
-		params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT; 
-		asBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.accelerationStructureSize);
 
-		IGPUAccelerationStructure::SCreationParams blasParams = {};
-		blasParams.type = IGPUAccelerationStructure::ET_BOTTOM_LEVEL;
-		blasParams.flags = IGPUAccelerationStructure::ECF_NONE;
-		blasParams.bufferRange.buffer = asBuffer;
-		blasParams.bufferRange.offset = 0u;
-		blasParams.bufferRange.size = buildSizes.accelerationStructureSize;
-		gpuBlas = device->createGPUAccelerationStructure(std::move(blasParams));
-	}
-
-	// Allocate ScratchBuffer
-	core::smart_refctd_ptr<IGPUBuffer> scratchBuffer;
+	// Create + Build BLAS
 	{
-		IGPUBuffer::SCreationParams params = {};
-		params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
-		scratchBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.buildScratchSize);
-	}
+		// Build BLAS with AABBS
+		const uint32_t aabbsCount = 1u;
 
-	// Complete BLAS Build Info
-	{
-		blasBuildInfo.dstAS = gpuBlas.get();
-		blasBuildInfo.scratchAddr.buffer = scratchBuffer;
-		blasBuildInfo.scratchAddr.offset = 0u;
+		struct alignas(64) AABB {
+			IGPUAccelerationStructure::AABB_Position aabb;
+		};
+	
+		AABB aabbs[aabbsCount] = {};
+		aabbs[0].aabb = IGPUAccelerationStructure::AABB_Position(core::vector3df(0.0f, 0.0f, 0.0f), core::vector3df(1.0f, 1.0f, 1.0f));
+		auto raytracingFlags = core::bitflag(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+		uint32_t aabbsBufferSize = sizeof(AABB);
+
+		{
+			IGPUBuffer::SCreationParams params = {};
+			params.usage = raytracingFlags | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; 
+			aabbsBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, aabbsBufferSize);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,aabbsBufferSize,aabbsBuffer}, aabbs);
+		}
+
+		using DeviceGeom = IGPUAccelerationStructure::DeviceBuildGeometryInfo::Geometry;
+
+		DeviceGeom simpleGeom = {};
+		simpleGeom.type = IAccelerationStructure::EGT_AABBS;
+		simpleGeom.flags = IAccelerationStructure::EGF_NONE;
+		simpleGeom.data.aabbs.data.offset = 0u;
+		simpleGeom.data.aabbs.data.buffer = aabbsBuffer;
+		simpleGeom.data.aabbs.stride = sizeof(AABB);
+
+		IGPUAccelerationStructure::DeviceBuildGeometryInfo blasBuildInfo = {};
+		blasBuildInfo.type = IGPUAccelerationStructure::ET_BOTTOM_LEVEL;
+		blasBuildInfo.buildFlags = IGPUAccelerationStructure::EBF_PREFER_FAST_TRACE_BIT;
+		blasBuildInfo.buildMode = IGPUAccelerationStructure::EBM_BUILD;
+		blasBuildInfo.srcAS = nullptr;
+		blasBuildInfo.dstAS = nullptr;
+		blasBuildInfo.geometries = core::SRange<DeviceGeom>(&simpleGeom, &simpleGeom + 1u);
+		blasBuildInfo.scratchAddr = {};
+	
+		// Get BuildSizes
+		IGPUAccelerationStructure::BuildSizes buildSizes = {};
+		{
+			std::vector<uint32_t> maxPrimCount(1u);
+			maxPrimCount[0] = 1u;
+			buildSizes = device->getAccelerationStructureBuildSizes(blasBuildInfo, maxPrimCount.data());
+		}
+	
+		{
+			core::smart_refctd_ptr<IGPUBuffer> asBuffer;
+			IGPUBuffer::SCreationParams params = {};
+			params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT; 
+			asBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.accelerationStructureSize);
+
+			IGPUAccelerationStructure::SCreationParams blasParams = {};
+			blasParams.type = IGPUAccelerationStructure::ET_BOTTOM_LEVEL;
+			blasParams.flags = IGPUAccelerationStructure::ECF_NONE;
+			blasParams.bufferRange.buffer = asBuffer;
+			blasParams.bufferRange.offset = 0u;
+			blasParams.bufferRange.size = buildSizes.accelerationStructureSize;
+			gpuBlas = device->createGPUAccelerationStructure(std::move(blasParams));
+		}
+
+		// Allocate ScratchBuffer
+		core::smart_refctd_ptr<IGPUBuffer> scratchBuffer;
+		{
+			IGPUBuffer::SCreationParams params = {};
+			params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
+			scratchBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.buildScratchSize);
+		}
+
+		// Complete BLAS Build Info
+		{
+			blasBuildInfo.dstAS = gpuBlas.get();
+			blasBuildInfo.scratchAddr.buffer = scratchBuffer;
+			blasBuildInfo.scratchAddr.offset = 0u;
+		}
+	
+		IGPUAccelerationStructure::BuildRangeInfo firstBuildRangeInfos[1u];
+		firstBuildRangeInfos[0].primitiveCount = 1u;
+		firstBuildRangeInfos[0].primitiveOffset = 0u;
+		firstBuildRangeInfos[0].firstVertex = 0u;
+		firstBuildRangeInfos[0].transformOffset = 0u;
+		IGPUAccelerationStructure::BuildRangeInfo* pRangeInfos[1u];
+		pRangeInfos[0] = firstBuildRangeInfos;
+		// pRangeInfos[1] = &secondBuildRangeInfos;
+
+		// Build BLAS 
+		{
+			utilities->buildAccelerationStructures(computeQueue, core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>(&blasBuildInfo, &blasBuildInfo + 1u), pRangeInfos);
+		}
 	}
 	
-	IGPUAccelerationStructure::BuildRangeInfo firstBuildRangeInfos[1u];
-	firstBuildRangeInfos[0].firstVertex = 0u;
-	firstBuildRangeInfos[0].primitiveCount = 1u;
-	firstBuildRangeInfos[0].primitiveOffset = 0u;
-	firstBuildRangeInfos[0].transformOffset = 0u;
-	IGPUAccelerationStructure::BuildRangeInfo* pRangeInfos[1u];
-	pRangeInfos[0] = firstBuildRangeInfos;
-	// pRangeInfos[1] = &secondBuildRangeInfos;
-
-
-	// Build BLAS 
+	core::smart_refctd_ptr<IGPUBuffer> instancesBuffer;
+	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuTlas;
+	// Create + Build TLAS
 	{
-		utilities->buildAccelerationStructures(computeQueue, core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>(&blasBuildInfo, &blasBuildInfo + 1u), pRangeInfos);
+		struct alignas(64) Instance {
+			IGPUAccelerationStructure::Instance instance;
+		};
+
+		const uint32_t instancesCount = 1u;
+		Instance instances[instancesCount] = {};
+		core::matrix3x4SIMD identity;
+		instances[0].instance.mat = identity;
+		instances[0].instance.instanceCustomIndex = 0u;
+		instances[0].instance.mask = 0xFF;
+		instances[0].instance.instanceShaderBindingTableRecordOffset = 0u;
+		instances[0].instance.flags = IAccelerationStructure::EIF_TRIANGLE_FACING_CULL_DISABLE_BIT;
+		instances[0].instance.accelerationStructureReference = gpuBlas->getReferenceForDeviceOperations();
+		auto raytracingFlags = core::bitflag(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+	
+		uint32_t instancesBufferSize = sizeof(Instance);
+		{
+			IGPUBuffer::SCreationParams params = {};
+			params.usage = raytracingFlags | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; 
+			instancesBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, instancesBufferSize);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,instancesBufferSize,instancesBuffer}, instances);
+		}
+		
+		using DeviceGeom = IGPUAccelerationStructure::DeviceBuildGeometryInfo::Geometry;
+
+		DeviceGeom blasInstancesGeom = {};
+		blasInstancesGeom.type = IAccelerationStructure::EGT_INSTANCES;
+		blasInstancesGeom.flags = IAccelerationStructure::EGF_NONE;
+		blasInstancesGeom.data.instances.data.offset = 0u;
+		blasInstancesGeom.data.instances.data.buffer = instancesBuffer;
+
+		IGPUAccelerationStructure::DeviceBuildGeometryInfo tlasBuildInfo = {};
+		tlasBuildInfo.type = IGPUAccelerationStructure::ET_TOP_LEVEL;
+		tlasBuildInfo.buildFlags = IGPUAccelerationStructure::EBF_PREFER_FAST_TRACE_BIT;
+		tlasBuildInfo.buildMode = IGPUAccelerationStructure::EBM_BUILD;
+		tlasBuildInfo.srcAS = nullptr;
+		tlasBuildInfo.dstAS = nullptr;
+		tlasBuildInfo.geometries = core::SRange<DeviceGeom>(&blasInstancesGeom, &blasInstancesGeom + 1u);
+		tlasBuildInfo.scratchAddr = {};
+			
+		// Get BuildSizes
+		IGPUAccelerationStructure::BuildSizes buildSizes = {};
+		{
+			std::vector<uint32_t> maxPrimCount(1u); 
+			maxPrimCount[0] = instancesCount;
+			buildSizes = device->getAccelerationStructureBuildSizes(tlasBuildInfo, maxPrimCount.data());
+		}
+	
+		{
+			core::smart_refctd_ptr<IGPUBuffer> asBuffer;
+			IGPUBuffer::SCreationParams params = {};
+			params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT; 
+			asBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.accelerationStructureSize);
+
+			IGPUAccelerationStructure::SCreationParams tlasParams = {};
+			tlasParams.type = IGPUAccelerationStructure::ET_TOP_LEVEL;
+			tlasParams.flags = IGPUAccelerationStructure::ECF_NONE;
+			tlasParams.bufferRange.buffer = asBuffer;
+			tlasParams.bufferRange.offset = 0u;
+			tlasParams.bufferRange.size = buildSizes.accelerationStructureSize;
+			gpuTlas = device->createGPUAccelerationStructure(std::move(tlasParams));
+		}
+
+		// Allocate ScratchBuffer
+		core::smart_refctd_ptr<IGPUBuffer> scratchBuffer;
+		{
+			IGPUBuffer::SCreationParams params = {};
+			params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
+			scratchBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.buildScratchSize);
+		}
+
+		// Complete BLAS Build Info
+		{
+			tlasBuildInfo.dstAS = gpuTlas.get();
+			tlasBuildInfo.scratchAddr.buffer = scratchBuffer;
+			tlasBuildInfo.scratchAddr.offset = 0u;
+		}
+		
+		IGPUAccelerationStructure::BuildRangeInfo firstBuildRangeInfos[1u];
+		firstBuildRangeInfos[0].primitiveCount = instancesCount;
+		firstBuildRangeInfos[0].primitiveOffset = 0u;
+		firstBuildRangeInfos[0].firstVertex = 0u;
+		firstBuildRangeInfos[0].transformOffset = 0u;
+		IGPUAccelerationStructure::BuildRangeInfo* pRangeInfos[1u];
+		pRangeInfos[0] = firstBuildRangeInfos;
+
+		// Build BLAS 
+		{
+			utilities->buildAccelerationStructures(computeQueue, core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>(&tlasBuildInfo, &tlasBuildInfo + 1u), pRangeInfos);
+		}
 	}
 
 	// Camera 
@@ -287,7 +380,7 @@ int main()
 	auto gpuComputePipeline = createGpuResources(shaderPaths[lightGeom]);
 
 	DispatchInfo_t dispatchInfo = getDispatchInfo(WIN_W, WIN_H);
-
+	
 	auto createGPUImageView = [&](std::string pathToOpenEXRHDRIImage)
 	{
 		auto pathToTexture = pathToOpenEXRHDRIImage;
